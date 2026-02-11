@@ -1,48 +1,45 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use crate::value_objects::{
+    password_hash::PasswordHash,
+    user::{email::Email, id::UserId, name::UserName},
+};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct User {
-    id: Uuid,
-    nickname: String,
-    email: String,
-    password_hash: String,
+    id: UserId,
+    name: UserName,
+    email: Email,
+    password_hash: PasswordHash,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
 
 impl User {
-    pub fn new(nickname: String, email: String, password_hash: String) -> Self {
-        let now = Utc::now();
+    pub fn new(
+        id: UserId,
+        name: UserName,
+        email: Email,
+        password_hash: PasswordHash,
+        created_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
         Self {
-            id: Uuid::new_v4(),
-            nickname,
+            id,
+            name,
             email,
             password_hash,
-            created_at: now,
-            updated_at: now,
+            created_at,
+            updated_at,
         }
     }
 
-    pub fn id(&self) -> Uuid {
-        self.id
+    pub fn id(&self) -> &UserId {
+        &self.id
     }
 
-    pub fn nickname(&self) -> &str {
-        &self.nickname
-    }
-
-    pub fn email(&self) -> &str {
-        &self.email
-    }
-
-    pub fn verify_password(&self, password_hash: &str) -> bool {
-        self.password_hash == password_hash
-    }
-
-    pub fn update_nickname(&mut self, nickname: String) {
-        self.nickname = nickname;
-        self.updated_at = Utc::now();
+    pub fn name(&self) -> &UserName {
+        &self.name
     }
 }

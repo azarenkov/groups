@@ -1,1 +1,1 @@
-pub mod voice_room;
+pub mod room;
