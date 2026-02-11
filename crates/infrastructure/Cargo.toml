@@ -12,3 +12,4 @@ envy = "0.4.2"
 livekit = "0.7.30"
 serde = { version = "1.0.228", features = ["derive"] }
 livekit-api = "0.4.13"
+bcrypt = "0.18.0"

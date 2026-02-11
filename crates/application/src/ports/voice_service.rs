@@ -16,8 +16,8 @@ pub trait VoiceService {
 
 #[derive(Debug, thiserror::Error)]
 pub enum VoiceServiceError {
-    #[error("Token error: {0}")]
+    #[error("Token creation error: {0}")]
     TokenCreation(String),
-    #[error("Voice room error: {0}")]
+    #[error("Voice room creation error: {0}")]
     VoiceRoomCreation(String),
 }

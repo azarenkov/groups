@@ -9,7 +9,7 @@ use crate::value_objects::{
     user::id::UserId,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub enum RoomType {
     Public,
     Private,
