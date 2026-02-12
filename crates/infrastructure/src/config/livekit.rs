@@ -2,7 +2,9 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct LiveKitConfig {
+    #[serde(rename = "livekit_api_key")]
     api_key: String,
+    #[serde(rename = "livekit_api_secret")]
     api_secret: String,
     #[serde(rename = "livekit_url")]
     url: String,

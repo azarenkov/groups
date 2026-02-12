@@ -5,7 +5,7 @@ use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use crate::config::postgres::PostgresConfig;
 
 pub async fn create_postgres_pool(
-    config: &PostgresConfig,
+    config: PostgresConfig,
 ) -> Result<Pool<Postgres>, Box<dyn Error>> {
     let pool = PgPoolOptions::new()
         .max_connections(config.max_connections())

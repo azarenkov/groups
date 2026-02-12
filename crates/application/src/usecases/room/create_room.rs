@@ -45,11 +45,11 @@ where
         }
     }
 
-    async fn execute(
+    pub async fn execute(
         &self,
         request: CreateRoomRequest,
         owner_id: UserId,
-    ) -> Result<(), CreateRoomError> {
+    ) -> Result<Room, CreateRoomError> {
         request.validate()?;
 
         let room_name = RoomName::new(request.name);
@@ -65,6 +65,6 @@ where
 
         let room = Room::new(owner_id, room_name, room_type, password_hash);
         self.room_repository.create_room(&room).await?;
-        Ok(())
+        Ok(room)
     }
 }

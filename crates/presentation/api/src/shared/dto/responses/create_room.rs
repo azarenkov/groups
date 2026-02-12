@@ -1,0 +1,43 @@
+use chrono::{DateTime, Utc};
+use domain::entites::room::{Room, RoomType};
+use serde::Serialize;
+use uuid::Uuid;
+
+#[derive(Debug, Serialize)]
+pub struct CreateRoomResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub owner_id: Uuid,
+    pub room_type: RoomTypeResponse,
+    pub max_participants: u8,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RoomTypeResponse {
+    Public,
+    Private,
+}
+
+impl From<Room> for CreateRoomResponse {
+    fn from(value: Room) -> Self {
+        Self {
+            id: value.id().uuid(),
+            name: value.name().as_str().to_owned(),
+            owner_id: value.owner_id().uuid(),
+            room_type: value.room_type().into(),
+            max_participants: value.max_participants().value(),
+            created_at: value.created_at(),
+        }
+    }
+}
+
+impl From<&RoomType> for RoomTypeResponse {
+    fn from(value: &RoomType) -> Self {
+        match value {
+            RoomType::Public => Self::Public,
+            RoomType::Private => Self::Private,
+        }
+    }
+}

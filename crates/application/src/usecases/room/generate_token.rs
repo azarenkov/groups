@@ -1,6 +1,9 @@
 use domain::{
     repositories::{error::RepositoryError, user::UserRepository},
-    value_objects::{room::token::RoomToken, user::id::UserId},
+    value_objects::{
+        room::{name::RoomName, token::RoomToken},
+        user::id::UserId,
+    },
 };
 
 use crate::{
@@ -9,7 +12,7 @@ use crate::{
 };
 
 #[derive(Debug, thiserror::Error)]
-pub enum GetTokenError {
+pub enum GenerateTokenError {
     #[error("Voice service error: {0}")]
     VoiceService(#[from] VoiceServiceError),
     #[error("Repository error: {0}")]
@@ -37,16 +40,18 @@ where
         }
     }
 
-    async fn execute(
+    pub async fn execute(
         &self,
         request: GenerateTokenRequest,
         user_id: UserId,
-    ) -> Result<RoomToken, GetTokenError> {
+    ) -> Result<RoomToken, GenerateTokenError> {
         let username = self.user_repository.get_username_by_id(&user_id).await?;
+
+        let room_name = RoomName::new(request.room_name);
 
         let room_token = self
             .voice_service
-            .create_token(&username, &request.room_name)
+            .create_token(&username, &room_name)
             .await?;
 
         Ok(room_token)

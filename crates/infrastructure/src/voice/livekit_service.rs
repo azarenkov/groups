@@ -11,18 +11,18 @@ use livekit_api::{
 
 use crate::config::livekit::LiveKitConfig;
 
-pub struct LiveKitService<'a> {
-    config: &'a LiveKitConfig,
+pub struct LiveKitService {
+    config: LiveKitConfig,
 }
 
-impl<'a> LiveKitService<'a> {
-    pub fn new(config: &'a LiveKitConfig) -> Self {
+impl<'a> LiveKitService {
+    pub fn new(config: LiveKitConfig) -> Self {
         Self { config }
     }
 }
 
 #[async_trait]
-impl<'a> VoiceService for LiveKitService<'a> {
+impl<'a> VoiceService for LiveKitService {
     async fn create_token(
         &self,
         username: &UserName,
