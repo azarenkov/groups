@@ -1,12 +1,11 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
 use crate::value_objects::{
     password_hash::PasswordHash,
     user::{email::Email, id::UserId, name::UserName},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct User {
     id: UserId,
     name: UserName,

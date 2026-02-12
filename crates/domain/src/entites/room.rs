@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
 
 use crate::value_objects::{
     password_hash::PasswordHash,
@@ -9,7 +8,7 @@ use crate::value_objects::{
     user::id::UserId,
 };
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum RoomType {
     Public,
     Private,

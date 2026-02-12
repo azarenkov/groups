@@ -1,7 +1,6 @@
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct UserId(Uuid);
 
 impl UserId {
