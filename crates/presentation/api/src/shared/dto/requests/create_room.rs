@@ -3,11 +3,14 @@ use serde::Deserialize;
 use application::dto::room::create_room::{
     CreateRoomRequest as CreateRoomRequestApplication, RoomTypeDto,
 };
+use validator::Validate;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateRoomRequest {
+    #[validate(length(min = 3, max = 30))]
     pub name: String,
     pub room_type: RoomTypeRequest,
+    #[validate(length(min = 4, max = 30))]
     pub password: Option<String>,
 }
 

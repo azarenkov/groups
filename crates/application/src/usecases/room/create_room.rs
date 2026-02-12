@@ -3,10 +3,9 @@ use domain::{
     repositories::{error::RepositoryError, room::RoomRepository},
     value_objects::{password_hash::PasswordHash, room::name::RoomName, user::id::UserId},
 };
-use validator::{Validate, ValidationErrors};
 
 use crate::{
-    dto::room::create_room::CreateRoomRequest,
+    dto::requests::room::create_room::CreateRoomRequest,
     ports::hasher::{HashError, Hasher},
 };
 
@@ -16,8 +15,6 @@ pub enum CreateRoomError {
     Domain(#[from] RoomError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Validation request error: {0}")]
-    Validation(#[from] ValidationErrors),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
     #[error("Password must be set")]
@@ -50,8 +47,6 @@ where
         request: CreateRoomRequest,
         owner_id: UserId,
     ) -> Result<Room, CreateRoomError> {
-        request.validate()?;
-
         let room_name = RoomName::new(request.name);
         let room_type: RoomType = request.room_type.into();
         let password_hash = if room_type.eq(&RoomType::Private) {

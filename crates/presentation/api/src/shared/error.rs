@@ -3,6 +3,7 @@ use application::usecases::room::{
     create_room::CreateRoomError, generate_token::GenerateTokenError,
 };
 use serde::Serialize;
+use validator::ValidationErrors;
 
 #[derive(Serialize)]
 struct ErrorResponse {
@@ -19,6 +20,7 @@ pub struct ApiError {
 enum ApiErrorKind {
     CreateRoom(CreateRoomError),
     GenerateToken(GenerateTokenError),
+    Validation(ValidationErrors),
 }
 
 impl std::fmt::Display for ApiError {
@@ -26,6 +28,7 @@ impl std::fmt::Display for ApiError {
         match &self.kind {
             ApiErrorKind::CreateRoom(e) => write!(f, "{}", e),
             ApiErrorKind::GenerateToken(e) => write!(f, "{}", e),
+            ApiErrorKind::Validation(e) => write!(f, "{}", e),
         }
     }
 }
@@ -36,7 +39,6 @@ impl ResponseError for ApiError {
             ApiErrorKind::CreateRoom(e) => match e {
                 CreateRoomError::Domain(_) => StatusCode::BAD_REQUEST,
                 CreateRoomError::Repository(_) => StatusCode::INTERNAL_SERVER_ERROR,
-                CreateRoomError::Validation(_) => StatusCode::BAD_REQUEST,
                 CreateRoomError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
                 CreateRoomError::PasswordRequired => StatusCode::BAD_REQUEST,
             },
@@ -44,6 +46,7 @@ impl ResponseError for ApiError {
                 GenerateTokenError::Repository(_) => StatusCode::INTERNAL_SERVER_ERROR,
                 GenerateTokenError::VoiceService(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
+            ApiErrorKind::Validation(_) => StatusCode::NOT_ACCEPTABLE,
         }
     }
 
@@ -68,6 +71,14 @@ impl From<GenerateTokenError> for ApiError {
     fn from(value: GenerateTokenError) -> Self {
         Self {
             kind: ApiErrorKind::GenerateToken(value),
+        }
+    }
+}
+
+impl From<ValidationErrors> for ApiError {
+    fn from(value: ValidationErrors) -> Self {
+        Self {
+            kind: ApiErrorKind::Validation(value),
         }
     }
 }

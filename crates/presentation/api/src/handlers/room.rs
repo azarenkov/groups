@@ -1,5 +1,6 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use domain::value_objects::user::id::UserId;
+use validator::Validate;
 
 use crate::{
     middleware::auth::AuthToken,
@@ -23,6 +24,7 @@ async fn create_room(
     request: web::Json<CreateRoomRequest>,
 ) -> Result<impl Responder, ApiError> {
     let request: CreateRoomRequest = request.into_inner();
+    request.validate()?;
 
     let user_id = UserId::new(auth_token.id);
 
@@ -43,6 +45,7 @@ async fn generate_token(
     request: web::Json<GenerateTokenRequest>,
 ) -> Result<impl Responder, ApiError> {
     let request: GenerateTokenRequest = request.into_inner();
+    request.validate()?;
 
     let user_id = UserId::new(auth_token.id);
 

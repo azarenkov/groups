@@ -7,7 +7,7 @@ use domain::{
 };
 
 use crate::{
-    dto::room::generate_token::GenerateTokenRequest,
+    dto::requests::room::generate_token::GenerateTokenRequest,
     ports::voice_service::{VoiceService, VoiceServiceError},
 };
 

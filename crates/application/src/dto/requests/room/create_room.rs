@@ -1,17 +1,13 @@
 use domain::entites::room::RoomType;
-use serde::Deserialize;
-use validator::Validate;
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug)]
 pub struct CreateRoomRequest {
-    #[validate(length(min = 3, max = 15))]
     pub name: String,
     pub room_type: RoomTypeDto,
-    #[validate(length(min = 4, max = 30))]
     pub password: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub enum RoomTypeDto {
     Public,
     Private,

@@ -7,5 +7,3 @@ edition = "2024"
 async-trait = "0.1.89"
 domain = { path = "../domain" }
 thiserror = "2.0.18"
-serde = { version = "1.0.228", features = ["derive"] }
-validator = { version = "0.20", features = ["derive"] }
