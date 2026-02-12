@@ -1,4 +1,4 @@
-use application::dto::room::generate_token::GenerateTokenRequest as GenerateTokenRequestApplication;
+use application::dto::requests::room::generate_token::GenerateTokenRequest as GenerateTokenRequestApplication;
 use serde::Deserialize;
 use validator::Validate;
 

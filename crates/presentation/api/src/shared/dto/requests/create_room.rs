@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use application::dto::room::create_room::{
+use application::dto::requests::room::create_room::{
     CreateRoomRequest as CreateRoomRequestApplication, RoomTypeDto,
 };
 use validator::Validate;
