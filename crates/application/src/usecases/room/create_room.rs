@@ -1,6 +1,6 @@
 use domain::{
     entites::room::{Room, RoomError, RoomType},
-    repositories::room::{RoomRepository, RoomRepositoryError},
+    repositories::{error::RepositoryError, room::RoomRepository},
     value_objects::{password_hash::PasswordHash, room::name::RoomName, user::id::UserId},
 };
 use validator::{Validate, ValidationErrors};
@@ -14,8 +14,8 @@ use crate::{
 pub enum CreateRoomError {
     #[error("Domain error: {0}")]
     Domain(#[from] RoomError),
-    #[error("Room repository error: {0}")]
-    Repository(#[from] RoomRepositoryError),
+    #[error("Repository error: {0}")]
+    Repository(#[from] RepositoryError),
     #[error("Validation request error: {0}")]
     Validation(#[from] ValidationErrors),
     #[error("Hash error: {0}")]

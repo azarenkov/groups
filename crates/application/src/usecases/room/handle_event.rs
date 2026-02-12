@@ -1,7 +1,4 @@
-use crate::{
-    dto::room::event::{RoomEvent, RoomEventNotification, RoomEventType},
-    ports::room_event_bus::{RoomEventBus, RoomEventBusError},
-};
+use crate::ports::room_event_bus::{RoomEventBus, RoomEventBusError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RoomEventError {
@@ -24,22 +21,9 @@ where
         Self { event_bus }
     }
 
-    pub async fn execute(&self, event: RoomEvent) -> Result<(), RoomEventError> {
-        let notification = match event {
-            RoomEvent::ParticipantJoined { room, participant } => RoomEventNotification {
-                event_type: RoomEventType::ParticipantJoined,
-                room_name: room.name,
-                participant,
-            },
-            RoomEvent::ParticipantLeft { room, participant } => RoomEventNotification {
-                event_type: RoomEventType::ParticipantLeft,
-                room_name: room.name,
-                participant,
-            },
-        };
+    // pub async fn execute(&self, event: RoomEventRequest) -> Result<(), RoomEventError> {
+    //     self.event_bus.publish_event(notification).await?;
 
-        self.event_bus.publish_event(notification).await?;
-
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }

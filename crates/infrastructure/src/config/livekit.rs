@@ -4,6 +4,7 @@ use serde::Deserialize;
 pub struct LiveKitConfig {
     api_key: String,
     api_secret: String,
+    #[serde(rename = "livekit_url")]
     url: String,
 }
 

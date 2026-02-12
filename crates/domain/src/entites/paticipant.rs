@@ -14,3 +14,23 @@ pub struct Participant {
     joined_at: DateTime<Utc>,
     metadata: Option<String>,
 }
+
+impl Participant {
+    pub fn new(
+        sid: ParticipantSid,
+        identity: ParticipantIdentity,
+        name: ParticipantName,
+        state: ParticipantState,
+        joined_at: DateTime<Utc>,
+        metadata: Option<String>,
+    ) -> Self {
+        Self {
+            sid,
+            identity,
+            name,
+            state,
+            joined_at,
+            metadata,
+        }
+    }
+}

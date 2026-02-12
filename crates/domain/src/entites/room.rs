@@ -47,6 +47,42 @@ impl Room {
             last_join: now,
         }
     }
+
+    pub fn id(&self) -> &RoomId {
+        &self.id
+    }
+
+    pub fn owner_id(&self) -> &UserId {
+        &self.owner_id
+    }
+
+    pub fn name(&self) -> &RoomName {
+        &self.name
+    }
+
+    pub fn max_participants(&self) -> &MaxParticipants {
+        &self.max_participants
+    }
+
+    pub fn room_type(&self) -> &RoomType {
+        &self.room_type
+    }
+
+    pub fn password_hash(&self) -> Option<&PasswordHash> {
+        self.password_hash.as_ref()
+    }
+
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at
+    }
+
+    pub fn last_join(&self) -> DateTime<Utc> {
+        self.last_join
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

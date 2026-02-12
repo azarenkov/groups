@@ -1,5 +1,5 @@
 use domain::{
-    repositories::room::{RoomRepository, RoomRepositoryError},
+    repositories::{error::RepositoryError, user::UserRepository},
     value_objects::{room::token::RoomToken, user::id::UserId},
 };
 
@@ -12,28 +12,28 @@ use crate::{
 pub enum GetTokenError {
     #[error("Voice service error: {0}")]
     VoiceService(#[from] VoiceServiceError),
-    #[error("Room repository error: {0}")]
-    Repository(#[from] RoomRepositoryError),
+    #[error("Repository error: {0}")]
+    Repository(#[from] RepositoryError),
 }
 
 pub struct GenerateToken<T, R>
 where
     T: VoiceService,
-    R: RoomRepository,
+    R: UserRepository,
 {
     voice_service: T,
-    room_repository: R,
+    user_repository: R,
 }
 
 impl<T, R> GenerateToken<T, R>
 where
     T: VoiceService,
-    R: RoomRepository,
+    R: UserRepository,
 {
-    pub fn new(voice_service: T, room_repository: R) -> Self {
+    pub fn new(voice_service: T, user_repository: R) -> Self {
         Self {
             voice_service,
-            room_repository,
+            user_repository,
         }
     }
 
@@ -42,7 +42,7 @@ where
         request: GenerateTokenRequest,
         user_id: UserId,
     ) -> Result<RoomToken, GetTokenError> {
-        let username = self.room_repository.get_username_by_id(&user_id).await?;
+        let username = self.user_repository.get_username_by_id(&user_id).await?;
 
         let room_token = self
             .voice_service
