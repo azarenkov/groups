@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use chrono::{DateTime, Utc};
 
 use crate::value_objects::{
@@ -19,7 +17,6 @@ pub struct Room {
     owner_id: UserId,
     name: RoomName,
     max_participants: MaxParticipants,
-    participants_ids: HashSet<UserId>,
     room_type: RoomType,
     password_hash: Option<PasswordHash>,
     created_at: DateTime<Utc>,
@@ -43,7 +40,6 @@ impl Room {
             owner_id,
             name,
             max_participants,
-            participants_ids: HashSet::new(),
             room_type,
             password_hash,
             created_at: now,

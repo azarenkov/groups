@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, thiserror::Error)]
-pub enum CreateVoiceRoomError {
+pub enum CreateRoomError {
     #[error("Domain error: {0}")]
     Domain(#[from] RoomError),
     #[error("Room repository error: {0}")]
@@ -49,15 +49,13 @@ where
         &self,
         request: CreateRoomRequest,
         owner_id: UserId,
-    ) -> Result<(), CreateVoiceRoomError> {
+    ) -> Result<(), CreateRoomError> {
         request.validate()?;
 
         let room_name = RoomName::new(request.name);
         let room_type: RoomType = request.room_type.into();
         let password_hash = if room_type.eq(&RoomType::Private) {
-            let password = request
-                .password
-                .ok_or(CreateVoiceRoomError::PasswordRequired)?;
+            let password = request.password.ok_or(CreateRoomError::PasswordRequired)?;
             let hash = self.hasher.hash(&password)?;
 
             Some(PasswordHash::new(hash))

@@ -1,8 +1,8 @@
 use application::ports::voice_service::{VoiceService, VoiceServiceError};
 use async_trait::async_trait;
-use domain::{
-    entites::user::User,
-    value_objects::room::{name::RoomName, token::RoomToken},
+use domain::value_objects::{
+    room::{name::RoomName, token::RoomToken},
+    user::name::UserName,
 };
 use livekit_api::{
     access_token::{self, AccessToken},
@@ -25,11 +25,11 @@ impl<'a> LiveKitService<'a> {
 impl<'a> VoiceService for LiveKitService<'a> {
     async fn create_token(
         &self,
-        user: &User,
+        username: &UserName,
         room_name: &RoomName,
     ) -> Result<RoomToken, VoiceServiceError> {
         let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
-            .with_name(user.name().as_str())
+            .with_name(username.as_str())
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: room_name.as_str().to_owned(),
