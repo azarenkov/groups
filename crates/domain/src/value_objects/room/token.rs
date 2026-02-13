@@ -10,4 +10,8 @@ impl RoomToken {
     pub fn as_str(&self) -> &str {
         &self.value
     }
+
+    pub fn to_string(self) -> String {
+        self.value
+    }
 }

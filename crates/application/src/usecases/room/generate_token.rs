@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use domain::{
-    repositories::{error::RepositoryError, user::UserRepository},
+    repositories::{error::RepositoryError, room::RoomRepository, user::UserRepository},
     value_objects::{
-        room::{name::RoomName, token::RoomToken},
+        room::{id::RoomId, name::RoomName, token::RoomToken},
         user::id::UserId,
     },
 };
@@ -21,24 +21,28 @@ pub enum GenerateTokenError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct GenerateToken<T, R>
+pub struct GenerateToken<T, R, U>
 where
     T: VoiceService,
     R: UserRepository,
+    U: RoomRepository,
 {
     voice_service: Arc<T>,
     user_repository: Arc<R>,
+    room_repository: Arc<U>,
 }
 
-impl<T, R> GenerateToken<T, R>
+impl<T, R, U> GenerateToken<T, R, U>
 where
     T: VoiceService,
     R: UserRepository,
+    U: RoomRepository,
 {
-    pub fn new(voice_service: Arc<T>, user_repository: Arc<R>) -> Self {
+    pub fn new(voice_service: Arc<T>, user_repository: Arc<R>, room_repository: Arc<U>) -> Self {
         Self {
             voice_service,
             user_repository,
+            room_repository,
         }
     }
 
@@ -49,7 +53,10 @@ where
     ) -> Result<RoomToken, GenerateTokenError> {
         let username = self.user_repository.get_username_by_id(&user_id).await?;
 
-        let room_name = RoomName::new(request.room_name);
+        let room_name = self
+            .room_repository
+            .get_room_name_by_id(&RoomId::new(request.room_id))
+            .await?;
 
         let room_token = self
             .voice_service

@@ -6,6 +6,7 @@ use application::dto::requests::room::create_room::{
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateRoomRequest {
     #[validate(length(min = 3, max = 15))]
     pub name: String,

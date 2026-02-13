@@ -33,8 +33,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
 
     let create_room_usecase = CreateRoom::new(room_repository.clone(), hasher.clone());
-    let generate_token_usecase =
-        GenerateToken::new(livekit_service.clone(), user_repository.clone());
+    let generate_token_usecase = GenerateToken::new(
+        livekit_service.clone(),
+        user_repository.clone(),
+        room_repository.clone(),
+    );
     let register_user_usecase = RegisterUser::new(user_repository.clone(), hasher.clone());
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
 

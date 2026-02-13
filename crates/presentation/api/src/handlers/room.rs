@@ -53,10 +53,10 @@ async fn generate_token(
 
     let token = app_state
         .generate_token_usecase()
-        .execute(request.into(), user_id)
+        .execute((&request).into(), user_id)
         .await?;
 
-    let response = GenerateTokenResponse::from(token);
+    let response = GenerateTokenResponse::new(token.to_string(), request.room_id);
 
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }

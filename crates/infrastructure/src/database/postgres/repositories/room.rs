@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use domain::repositories::room::RoomRepository;
+use domain::value_objects::room::id::RoomId;
+use domain::value_objects::room::name::RoomName;
 use domain::{entites::room::Room, repositories::error::RepositoryError};
 use sqlx::{Pool, Postgres};
 
@@ -42,5 +44,24 @@ impl RoomRepository for PostgresRoomRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
+    }
+
+    async fn get_room_name_by_id(&self, room_id: &RoomId) -> Result<RoomName, RepositoryError> {
+        let record = sqlx::query!(
+            r#"
+                 SELECT name
+                 FROM rooms
+                 WHERE id = $1
+             "#,
+            room_id.uuid()
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        match record {
+            Some(row) => Ok(RoomName::new(row.name)),
+            None => Err(RepositoryError::NotFound),
+        }
     }
 }

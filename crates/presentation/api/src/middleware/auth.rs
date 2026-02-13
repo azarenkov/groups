@@ -24,6 +24,7 @@ pub enum TokenType {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Claims {
     pub id: Uuid,
     pub exp: usize,
@@ -91,6 +92,7 @@ impl FromRequest for AuthToken {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TokenPair {
     pub access_token: String,
     pub refresh_token: String,

@@ -2,6 +2,7 @@ use serde::Deserialize;
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct RegisterUserRequest {
     #[validate(length(min = 3, max = 15))]
     pub name: String,

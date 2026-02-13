@@ -12,7 +12,8 @@ use infrastructure::{
 
 pub struct AppState {
     create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher>,
-    generate_token_usecase: GenerateToken<LiveKitService, PostgresUserRepository>,
+    generate_token_usecase:
+        GenerateToken<LiveKitService, PostgresUserRepository, PostgresRoomRepository>,
     register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
     login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
     jwt_secret: String,
@@ -21,7 +22,11 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher>,
-        generate_token_usecase: GenerateToken<LiveKitService, PostgresUserRepository>,
+        generate_token_usecase: GenerateToken<
+            LiveKitService,
+            PostgresUserRepository,
+            PostgresRoomRepository,
+        >,
         register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
         jwt_secret: String,
@@ -39,7 +44,9 @@ impl AppState {
         &self.create_room_usecase
     }
 
-    pub fn generate_token_usecase(&self) -> &GenerateToken<LiveKitService, PostgresUserRepository> {
+    pub fn generate_token_usecase(
+        &self,
+    ) -> &GenerateToken<LiveKitService, PostgresUserRepository, PostgresRoomRepository> {
         &self.generate_token_usecase
     }
 
