@@ -14,6 +14,9 @@ use uuid::Uuid;
 
 use crate::shared::state::AppState;
 
+const ACCESS_TOKEN_EXPIRATION_MINUTES: i64 = 15;
+const REFRESH_TOKEN_EXPIRATION_DAYS: i64 = 120;
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TokenType {
     Access,
@@ -96,7 +99,8 @@ pub struct TokenPair {
 }
 
 pub async fn encode_access_token(id: Uuid, secret: &str) -> anyhow::Result<String> {
-    let exp = (Utc::now() + Duration::minutes(15)).timestamp() as usize;
+    let exp =
+        (Utc::now() + Duration::minutes(ACCESS_TOKEN_EXPIRATION_MINUTES)).timestamp() as usize;
     let claims = Claims::new(id, exp, TokenType::Access);
     let token = encode(
         &Header::default(),
@@ -107,7 +111,7 @@ pub async fn encode_access_token(id: Uuid, secret: &str) -> anyhow::Result<Strin
 }
 
 pub async fn encode_refresh_token(id: Uuid, secret: &str) -> anyhow::Result<String> {
-    let exp = (Utc::now() + Duration::days(30)).timestamp() as usize;
+    let exp = (Utc::now() + Duration::days(REFRESH_TOKEN_EXPIRATION_DAYS)).timestamp() as usize;
     let claims = Claims::new(id, exp, TokenType::Refresh);
     let token = encode(
         &Header::default(),
@@ -125,7 +129,7 @@ pub async fn encode_token_pair(id: Uuid, secret: &str) -> anyhow::Result<TokenPa
         access_token,
         refresh_token,
         token_type: "Bearer".to_string(),
-        expires_in: 15 * 60,
+        expires_in: ACCESS_TOKEN_EXPIRATION_MINUTES * 60,
     })
 }
 
