@@ -14,15 +14,26 @@ use uuid::Uuid;
 
 use crate::shared::state::AppState;
 
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub enum TokenType {
+    Access,
+    Refresh,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
     pub id: Uuid,
     pub exp: usize,
+    pub token_type: TokenType,
 }
 
 impl Claims {
-    fn new(id: Uuid, exp: usize) -> Self {
-        Self { id, exp }
+    pub fn new(id: Uuid, exp: usize, token_type: TokenType) -> Self {
+        Self {
+            id,
+            exp,
+            token_type,
+        }
     }
 }
 
@@ -63,21 +74,71 @@ impl FromRequest for AuthToken {
         );
 
         match decode {
-            Ok(token) => ready(Ok(AuthToken {
-                id: token.claims.id,
-            })),
+            Ok(token) => {
+                if token.claims.token_type != TokenType::Access {
+                    return ready(Err(ErrorUnauthorized("Invalid token type")));
+                }
+                ready(Ok(AuthToken {
+                    id: token.claims.id,
+                }))
+            }
             Err(_) => ready(Err(ErrorUnauthorized("Unauthorized"))),
         }
     }
 }
 
-pub async fn encode_token(id: Uuid, secret: &str) -> anyhow::Result<String> {
-    let exp = (Utc::now() + Duration::days(365)).timestamp() as usize;
-    let claims = Claims::new(id, exp);
+#[derive(Serialize, Deserialize)]
+pub struct TokenPair {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+}
+
+pub async fn encode_access_token(id: Uuid, secret: &str) -> anyhow::Result<String> {
+    let exp = (Utc::now() + Duration::minutes(15)).timestamp() as usize;
+    let claims = Claims::new(id, exp, TokenType::Access);
     let token = encode(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(secret.as_bytes()),
     );
-    token.context("Errod encode token()")
+    token.context("Error encoding access token")
+}
+
+pub async fn encode_refresh_token(id: Uuid, secret: &str) -> anyhow::Result<String> {
+    let exp = (Utc::now() + Duration::days(30)).timestamp() as usize;
+    let claims = Claims::new(id, exp, TokenType::Refresh);
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    );
+    token.context("Error encoding refresh token")
+}
+
+pub async fn encode_token_pair(id: Uuid, secret: &str) -> anyhow::Result<TokenPair> {
+    let access_token = encode_access_token(id, secret).await?;
+    let refresh_token = encode_refresh_token(id, secret).await?;
+
+    Ok(TokenPair {
+        access_token,
+        refresh_token,
+        token_type: "Bearer".to_string(),
+        expires_in: 15 * 60,
+    })
+}
+
+pub async fn validate_refresh_token(token: &str, secret: &str) -> anyhow::Result<Uuid> {
+    let decode = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(jsonwebtoken::Algorithm::HS256),
+    )?;
+
+    if decode.claims.token_type != TokenType::Refresh {
+        return Err(anyhow::anyhow!("Invalid token type"));
+    }
+
+    Ok(decode.claims.id)
 }
