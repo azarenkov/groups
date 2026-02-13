@@ -3,7 +3,7 @@ use std::sync::Arc;
 use domain::{
     repositories::{error::RepositoryError, room::RoomRepository, user::UserRepository},
     value_objects::{
-        room::{id::RoomId, name::RoomName, token::RoomToken},
+        room::{id::RoomId, token::RoomToken},
         user::id::UserId,
     },
 };

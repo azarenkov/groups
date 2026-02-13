@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::{
-    entites::room::{Room, RoomError, RoomType},
+    entites::room::{Room, RoomType},
     repositories::{error::RepositoryError, room::RoomRepository},
     value_objects::{password_hash::PasswordHash, room::name::RoomName, user::id::UserId},
 };
