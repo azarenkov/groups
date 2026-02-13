@@ -53,7 +53,7 @@ where
 
         let room_token = self
             .voice_service
-            .create_token(&username, &room_name)
+            .create_token(&user_id, &username, &room_name)
             .await?;
 
         Ok(room_token)

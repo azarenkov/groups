@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -43,6 +41,37 @@ services:
     profiles:
       - tools
 
+  redis:
+    image: redis:7-alpine
+    container_name: rift-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - rift-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: rift-livekit
+    restart: unless-stopped
+    command: --dev
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+    networks:
+      - rift-network
+    environment:
+      LIVEKIT_KEYS: "devkey: secret"
+
 networks:
   rift-network:
     driver: bridge
@@ -53,3 +82,5 @@ volumes:
     name: rift-postgres-data
   pgadmin-data:
     name: rift-pgadmin-data
+  redis-data:
+    name: rift-redis-data
