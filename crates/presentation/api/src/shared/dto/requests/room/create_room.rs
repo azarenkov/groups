@@ -7,7 +7,7 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateRoomRequest {
-    #[validate(length(min = 3, max = 30))]
+    #[validate(length(min = 3, max = 15))]
     pub name: String,
     pub room_type: RoomTypeRequest,
     #[validate(length(min = 4, max = 30))]

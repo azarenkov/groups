@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use domain::{
     repositories::{error::RepositoryError, user::UserRepository},
     value_objects::{
@@ -24,8 +26,8 @@ where
     T: VoiceService,
     R: UserRepository,
 {
-    voice_service: T,
-    user_repository: R,
+    voice_service: Arc<T>,
+    user_repository: Arc<R>,
 }
 
 impl<T, R> GenerateToken<T, R>
@@ -33,7 +35,7 @@ where
     T: VoiceService,
     R: UserRepository,
 {
-    pub fn new(voice_service: T, user_repository: R) -> Self {
+    pub fn new(voice_service: Arc<T>, user_repository: Arc<R>) -> Self {
         Self {
             voice_service,
             user_repository,

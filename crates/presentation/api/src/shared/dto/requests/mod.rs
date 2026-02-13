@@ -1,2 +1,2 @@
-pub mod create_room;
-pub mod genereate_token;
+pub mod auth;
+pub mod room;

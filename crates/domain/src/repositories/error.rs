@@ -1,9 +1,9 @@
 #[derive(Debug, thiserror::Error)]
 pub enum RepositoryError {
-    #[error("Room not found")]
+    #[error("Not found")]
     NotFound,
 
-    #[error("Room with this name already exists")]
+    #[error("Already exists")]
     AlreadyExists,
 
     #[error("Database connection error: {0}")]

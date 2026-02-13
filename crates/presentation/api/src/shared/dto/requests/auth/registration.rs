@@ -1,0 +1,24 @@
+use serde::Deserialize;
+use validator::Validate;
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct RegisterUserRequest {
+    #[validate(length(min = 3, max = 15))]
+    pub name: String,
+    #[validate(email)]
+    pub email: String,
+    #[validate(length(min = 4, max = 30))]
+    pub password: String,
+}
+
+impl From<RegisterUserRequest>
+    for application::dto::requests::auth::register_user::RegisterUserRequest
+{
+    fn from(value: RegisterUserRequest) -> Self {
+        Self {
+            name: value.name,
+            email: value.email,
+            password: value.password,
+        }
+    }
+}

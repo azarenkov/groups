@@ -11,7 +11,7 @@ infrastructure = { path = "../../infrastructure" }
 dotenv = "0.15.0"
 envy = "0.4.2"
 serde = { version = "1.0.228", features = ["derive"] }
-jsonwebtoken = "10.3.0"
+jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
 anyhow = "1.0.101"
 chrono = "0.4.43"
 uuid = "1.20.0"

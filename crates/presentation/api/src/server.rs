@@ -1,7 +1,10 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use actix_web::{App, HttpServer, middleware::Logger, web};
-use application::usecases::room::{create_room::CreateRoom, generate_token::GenerateToken};
+use application::usecases::{
+    auth::{login::LoginUser, register::RegisterUser},
+    room::{create_room::CreateRoom, generate_token::GenerateToken},
+};
 use infrastructure::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
     database::postgres::{
@@ -23,18 +26,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
 
-    let room_repository = PostgresRoomRepository::new(postgres_pool.clone());
-    let user_repository = PostgresUserRepository::new(postgres_pool.clone());
+    let room_repository = Arc::new(PostgresRoomRepository::new(postgres_pool.clone()));
+    let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
 
-    let hasher = BcryptHasher::default();
-    let livekit_service = LiveKitService::new(livekit_config);
+    let hasher = Arc::new(BcryptHasher::default());
+    let livekit_service = Arc::new(LiveKitService::new(livekit_config));
 
-    let create_room_usecase = CreateRoom::new(room_repository, hasher);
-    let generate_token_usecase = GenerateToken::new(livekit_service, user_repository);
+    let create_room_usecase = CreateRoom::new(room_repository.clone(), hasher.clone());
+    let generate_token_usecase =
+        GenerateToken::new(livekit_service.clone(), user_repository.clone());
+    let register_user_usecase = RegisterUser::new(user_repository.clone(), hasher.clone());
+    let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_room_usecase,
         generate_token_usecase,
+        register_user_usecase,
+        login_user_usecase,
         server_config.jwt_secret,
     ));
 

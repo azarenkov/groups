@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use domain::{
     entites::room::{Room, RoomError, RoomType},
     repositories::{error::RepositoryError, room::RoomRepository},
@@ -11,8 +13,6 @@ use crate::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateRoomError {
-    #[error("Domain error: {0}")]
-    Domain(#[from] RoomError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
@@ -26,8 +26,8 @@ where
     T: RoomRepository,
     H: Hasher,
 {
-    room_repository: T,
-    hasher: H,
+    room_repository: Arc<T>,
+    hasher: Arc<H>,
 }
 
 impl<T, H> CreateRoom<T, H>
@@ -35,7 +35,7 @@ where
     T: RoomRepository,
     H: Hasher,
 {
-    pub fn new(room_repository: T, hasher: H) -> Self {
+    pub fn new(room_repository: Arc<T>, hasher: Arc<H>) -> Self {
         Self {
             room_repository,
             hasher,

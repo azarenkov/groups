@@ -6,10 +6,12 @@ use crate::{
     middleware::auth::AuthToken,
     shared::{
         dto::{
-            requests::{create_room::CreateRoomRequest, genereate_token::GenerateTokenRequest},
+            requests::{
+                room::create_room::CreateRoomRequest, room::genereate_token::GenerateTokenRequest,
+            },
             responses::{
-                create_room::CreateRoomResponse, generate_token::GenerateTokenResponse,
-                response::ApiResponse,
+                ApiResponse, room::create_room::CreateRoomResponse,
+                room::generate_token::GenerateTokenResponse,
             },
         },
         error::ApiError,

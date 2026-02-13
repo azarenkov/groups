@@ -1,6 +1,7 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
-use application::usecases::room::{
-    create_room::CreateRoomError, generate_token::GenerateTokenError,
+use application::usecases::{
+    auth::{login::LoginError, register::RegistrationError},
+    room::{create_room::CreateRoomError, generate_token::GenerateTokenError},
 };
 use serde::Serialize;
 use validator::ValidationErrors;
@@ -21,6 +22,8 @@ enum ApiErrorKind {
     CreateRoom(CreateRoomError),
     GenerateToken(GenerateTokenError),
     Validation(ValidationErrors),
+    Login(LoginError),
+    Registration(RegistrationError),
 }
 
 impl std::fmt::Display for ApiError {
@@ -29,6 +32,8 @@ impl std::fmt::Display for ApiError {
             ApiErrorKind::CreateRoom(e) => write!(f, "{}", e),
             ApiErrorKind::GenerateToken(e) => write!(f, "{}", e),
             ApiErrorKind::Validation(e) => write!(f, "{}", e),
+            ApiErrorKind::Login(e) => write!(f, "{}", e),
+            ApiErrorKind::Registration(e) => write!(f, "{}", e),
         }
     }
 }
@@ -37,16 +42,81 @@ impl ResponseError for ApiError {
     fn status_code(&self) -> StatusCode {
         match &self.kind {
             ApiErrorKind::CreateRoom(e) => match e {
-                CreateRoomError::Domain(_) => StatusCode::BAD_REQUEST,
-                CreateRoomError::Repository(_) => StatusCode::INTERNAL_SERVER_ERROR,
+                CreateRoomError::Repository(e) => match e {
+                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
+                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                        StatusCode::CONFLICT
+                    }
+                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                        StatusCode::BAD_REQUEST
+                    }
+                    domain::repositories::error::RepositoryError::Internal(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                },
                 CreateRoomError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
                 CreateRoomError::PasswordRequired => StatusCode::BAD_REQUEST,
             },
             ApiErrorKind::GenerateToken(e) => match e {
-                GenerateTokenError::Repository(_) => StatusCode::INTERNAL_SERVER_ERROR,
+                GenerateTokenError::Repository(e) => match e {
+                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
+                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                        StatusCode::CONFLICT
+                    }
+                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                        StatusCode::BAD_REQUEST
+                    }
+                    domain::repositories::error::RepositoryError::Internal(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                },
                 GenerateTokenError::VoiceService(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             ApiErrorKind::Validation(_) => StatusCode::NOT_ACCEPTABLE,
+            ApiErrorKind::Login(e) => match e {
+                LoginError::Repository(e) => match e {
+                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
+                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                        StatusCode::CONFLICT
+                    }
+                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                        StatusCode::BAD_REQUEST
+                    }
+                    domain::repositories::error::RepositoryError::Internal(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                },
+                LoginError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
+                LoginError::InvalidCredentials => StatusCode::UNAUTHORIZED,
+                LoginError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+            },
+            ApiErrorKind::Registration(e) => match e {
+                RegistrationError::Repository(e) => match e {
+                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
+                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                        StatusCode::CONFLICT
+                    }
+                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                        StatusCode::BAD_REQUEST
+                    }
+                    domain::repositories::error::RepositoryError::Internal(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                },
+                RegistrationError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            },
         }
     }
 
@@ -79,6 +149,22 @@ impl From<ValidationErrors> for ApiError {
     fn from(value: ValidationErrors) -> Self {
         Self {
             kind: ApiErrorKind::Validation(value),
+        }
+    }
+}
+
+impl From<RegistrationError> for ApiError {
+    fn from(value: RegistrationError) -> Self {
+        Self {
+            kind: ApiErrorKind::Registration(value),
+        }
+    }
+}
+
+impl From<LoginError> for ApiError {
+    fn from(value: LoginError) -> Self {
+        Self {
+            kind: ApiErrorKind::Login(value),
         }
     }
 }
