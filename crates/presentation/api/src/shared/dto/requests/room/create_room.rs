@@ -3,11 +3,13 @@ use serde::Deserialize;
 use application::dto::requests::room::create_room::{
     CreateRoomRequest as CreateRoomRequestApplication, RoomTypeDto,
 };
+use uuid::Uuid;
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateRoomRequest {
+    pub server_id: Uuid,
     #[validate(length(min = 3, max = 15))]
     pub name: String,
     pub room_type: RoomTypeRequest,
@@ -25,6 +27,7 @@ pub enum RoomTypeRequest {
 impl From<CreateRoomRequest> for CreateRoomRequestApplication {
     fn from(value: CreateRoomRequest) -> Self {
         Self {
+            server_id: value.server_id,
             name: value.name,
             room_type: value.room_type.into(),
             password: value.password,

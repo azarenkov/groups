@@ -9,7 +9,10 @@ use infrastructure::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
     database::postgres::{
         connection::create_postgres_pool,
-        repositories::{room::PostgresRoomRepository, user::PostgresUserRepository},
+        repositories::{
+            room::PostgresRoomRepository, server::PostgresServerRepository,
+            user::PostgresUserRepository,
+        },
     },
     hasher::bcrypt_hasher::BcryptHasher,
     voice::livekit_service::LiveKitService,
@@ -28,11 +31,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let room_repository = Arc::new(PostgresRoomRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
+    let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
 
-    let create_room_usecase = CreateRoom::new(room_repository.clone(), hasher.clone());
+    let create_room_usecase = CreateRoom::new(
+        room_repository.clone(),
+        hasher.clone(),
+        server_repository.clone(),
+    );
     let generate_token_usecase = GenerateToken::new(
         livekit_service.clone(),
         user_repository.clone(),

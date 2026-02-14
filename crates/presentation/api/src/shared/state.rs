@@ -4,14 +4,15 @@ use application::usecases::{
 };
 use infrastructure::{
     database::postgres::repositories::{
-        room::PostgresRoomRepository, user::PostgresUserRepository,
+        room::PostgresRoomRepository, server::PostgresServerRepository,
+        user::PostgresUserRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     voice::livekit_service::LiveKitService,
 };
 
 pub struct AppState {
-    create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher>,
+    create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher, PostgresServerRepository>,
     generate_token_usecase:
         GenerateToken<LiveKitService, PostgresUserRepository, PostgresRoomRepository>,
     register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
@@ -21,7 +22,11 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(
-        create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher>,
+        create_room_usecase: CreateRoom<
+            PostgresRoomRepository,
+            BcryptHasher,
+            PostgresServerRepository,
+        >,
         generate_token_usecase: GenerateToken<
             LiveKitService,
             PostgresUserRepository,
@@ -40,7 +45,9 @@ impl AppState {
         }
     }
 
-    pub fn create_room_usecase(&self) -> &CreateRoom<PostgresRoomRepository, BcryptHasher> {
+    pub fn create_room_usecase(
+        &self,
+    ) -> &CreateRoom<PostgresRoomRepository, BcryptHasher, PostgresServerRepository> {
         &self.create_room_usecase
     }
 

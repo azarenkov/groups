@@ -59,6 +59,7 @@ impl ResponseError for ApiError {
                 },
                 CreateRoomError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
                 CreateRoomError::PasswordRequired => StatusCode::BAD_REQUEST,
+                CreateRoomError::InvalidData => StatusCode::BAD_REQUEST,
             },
             ApiErrorKind::GenerateToken(e) => match e {
                 GenerateTokenError::Repository(e) => match e {

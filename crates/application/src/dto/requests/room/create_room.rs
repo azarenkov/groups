@@ -1,7 +1,9 @@
 use domain::entites::room::RoomType;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct CreateRoomRequest {
+    pub server_id: Uuid,
     pub name: String,
     pub room_type: RoomTypeDto,
     pub password: Option<String>,

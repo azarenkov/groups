@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use crate::value_objects::{
     password_hash::PasswordHash,
     room::{id::RoomId, max_paticipants::MaxParticipants, name::RoomName},
+    server::id::ServerId,
     user::id::UserId,
 };
 
@@ -14,6 +15,7 @@ pub enum RoomType {
 
 pub struct Room {
     id: RoomId,
+    server_id: ServerId,
     owner_id: UserId,
     name: RoomName,
     max_participants: MaxParticipants,
@@ -26,6 +28,7 @@ pub struct Room {
 
 impl Room {
     pub fn new(
+        server_id: ServerId,
         owner_id: UserId,
         name: RoomName,
         room_type: RoomType,
@@ -37,6 +40,7 @@ impl Room {
 
         Self {
             id: RoomId::generate(),
+            server_id,
             owner_id,
             name,
             max_participants,
@@ -82,6 +86,10 @@ impl Room {
 
     pub fn last_join(&self) -> DateTime<Utc> {
         self.last_join
+    }
+
+    pub fn server_id(&self) -> &ServerId {
+        &self.server_id
     }
 }
 
