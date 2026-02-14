@@ -4,6 +4,7 @@ use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     room::{create_room::CreateRoom, generate_token::GenerateToken},
+    server::{create_server::CreateServer, delete_server::DeleteServer},
 };
 use infrastructure::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
@@ -48,12 +49,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let register_user_usecase = RegisterUser::new(user_repository.clone(), hasher.clone());
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
+    let create_server_usecase = CreateServer::new(server_repository.clone());
+    let delete_server_usecase = DeleteServer::new(server_repository.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_room_usecase,
         generate_token_usecase,
         register_user_usecase,
         login_user_usecase,
+        create_server_usecase,
+        delete_server_usecase,
         server_config.jwt_secret,
     ));
 

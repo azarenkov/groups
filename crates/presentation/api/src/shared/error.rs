@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
     room::{create_room::CreateRoomError, generate_token::GenerateTokenError},
+    server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
 use serde::Serialize;
 use validator::ValidationErrors;
@@ -24,6 +25,8 @@ enum ApiErrorKind {
     Validation(ValidationErrors),
     Login(LoginError),
     Registration(RegistrationError),
+    CreateServer(CreateServerError),
+    DeleteServer(DeleteServerError),
 }
 
 impl std::fmt::Display for ApiError {
@@ -34,6 +37,8 @@ impl std::fmt::Display for ApiError {
             ApiErrorKind::Validation(e) => write!(f, "{}", e),
             ApiErrorKind::Login(e) => write!(f, "{}", e),
             ApiErrorKind::Registration(e) => write!(f, "{}", e),
+            ApiErrorKind::CreateServer(e) => write!(f, "{}", e),
+            ApiErrorKind::DeleteServer(e) => write!(f, "{}", e),
         }
     }
 }
@@ -118,6 +123,40 @@ impl ResponseError for ApiError {
                 },
                 RegistrationError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
+            ApiErrorKind::CreateServer(e) => match e {
+                CreateServerError::Repository(e) => match e {
+                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
+                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                        StatusCode::CONFLICT
+                    }
+                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                        StatusCode::BAD_REQUEST
+                    }
+                    domain::repositories::error::RepositoryError::Internal(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                },
+            },
+            ApiErrorKind::DeleteServer(e) => match e {
+                DeleteServerError::Repository(e) => match e {
+                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
+                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                        StatusCode::CONFLICT
+                    }
+                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                        StatusCode::BAD_REQUEST
+                    }
+                    domain::repositories::error::RepositoryError::Internal(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                },
+            },
         }
     }
 
@@ -166,6 +205,22 @@ impl From<LoginError> for ApiError {
     fn from(value: LoginError) -> Self {
         Self {
             kind: ApiErrorKind::Login(value),
+        }
+    }
+}
+
+impl From<CreateServerError> for ApiError {
+    fn from(value: CreateServerError) -> Self {
+        Self {
+            kind: ApiErrorKind::CreateServer(value),
+        }
+    }
+}
+
+impl From<DeleteServerError> for ApiError {
+    fn from(value: DeleteServerError) -> Self {
+        Self {
+            kind: ApiErrorKind::DeleteServer(value),
         }
     }
 }

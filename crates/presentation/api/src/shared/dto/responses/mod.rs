@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod room;
+pub mod server;
 
 use serde::Serialize;
 

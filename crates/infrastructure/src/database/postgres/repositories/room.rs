@@ -26,10 +26,11 @@ impl RoomRepository for PostgresRoomRepository {
 
         sqlx::query!(
             r#"
-                INSERT INTO rooms (id, owner_id, name, max_participants, room_type, password_hash, created_at, updated_at, last_join)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                INSERT INTO rooms (id, server_id, owner_id, name, max_participants, room_type, password_hash, created_at, updated_at, last_join)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             "#,
             room.id().uuid(),
+            room.server_id().uuid(),
             room.owner_id().uuid(),
             room.name().as_str(),
             room.max_participants().value() as i16,

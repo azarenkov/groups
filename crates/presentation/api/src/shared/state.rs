@@ -1,6 +1,7 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     room::{create_room::CreateRoom, generate_token::GenerateToken},
+    server::{create_server::CreateServer, delete_server::DeleteServer},
 };
 use infrastructure::{
     database::postgres::repositories::{
@@ -17,6 +18,8 @@ pub struct AppState {
         GenerateToken<LiveKitService, PostgresUserRepository, PostgresRoomRepository>,
     register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
     login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
+    create_server_usecase: CreateServer<PostgresServerRepository>,
+    delete_server_usecase: DeleteServer<PostgresServerRepository>,
     jwt_secret: String,
 }
 
@@ -34,6 +37,8 @@ impl AppState {
         >,
         register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
+        create_server_usecase: CreateServer<PostgresServerRepository>,
+        delete_server_usecase: DeleteServer<PostgresServerRepository>,
         jwt_secret: String,
     ) -> Self {
         Self {
@@ -41,6 +46,8 @@ impl AppState {
             generate_token_usecase,
             register_user_usecase,
             login_user_usecase,
+            create_server_usecase,
+            delete_server_usecase,
             jwt_secret,
         }
     }
@@ -67,5 +74,13 @@ impl AppState {
 
     pub fn login_user_usecase(&self) -> &LoginUser<PostgresUserRepository, BcryptHasher> {
         &self.login_user_usecase
+    }
+
+    pub fn create_server_usecase(&self) -> &CreateServer<PostgresServerRepository> {
+        &self.create_server_usecase
+    }
+
+    pub fn delete_server_usecase(&self) -> &DeleteServer<PostgresServerRepository> {
+        &self.delete_server_usecase
     }
 }

@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use domain::{
+    entites::server::Server,
     repositories::{error::RepositoryError, server::ServerRepository},
-    value_objects::server::id::ServerId,
+    value_objects::{server::id::ServerId, user::id::UserId},
 };
 use sqlx::{Pool, Postgres};
 
@@ -31,5 +32,44 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(result.exists)
+    }
+
+    async fn create_server(&self, server: &Server) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+                   INSERT INTO servers (id, name, owner_id, description, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $6)
+               "#,
+            server.id().uuid(),
+            server.name().as_str(),
+            server.owner_id().uuid(),
+            server.description().map(|d| d.as_str()),
+            server.created_at(),
+            server.updated_at()
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(())
+    }
+
+    async fn delete_server_by_owner(
+        &self,
+        server_id: &ServerId,
+        owner_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                DELETE FROM servers WHERE id = $1 AND owner_id = $2
+            "#,
+            server_id.uuid(),
+            owner_id.uuid()
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(result.rows_affected() > 0)
     }
 }

@@ -49,5 +49,5 @@ async fn login_user(
         .await
         .map_err(|_| ApiError::from(LoginError::Internal))?;
 
-    Ok(HttpResponse::Created().json(ApiResponse::success(token_pair)))
+    Ok(HttpResponse::Ok().json(ApiResponse::success(token_pair)))
 }
