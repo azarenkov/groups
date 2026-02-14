@@ -15,14 +15,14 @@ pub struct LiveKitService {
     config: LiveKitConfig,
 }
 
-impl<'a> LiveKitService {
+impl LiveKitService {
     pub fn new(config: LiveKitConfig) -> Self {
         Self { config }
     }
 }
 
 #[async_trait]
-impl<'a> VoiceService for LiveKitService {
+impl VoiceService for LiveKitService {
     async fn create_token(
         &self,
         user_id: &UserId,

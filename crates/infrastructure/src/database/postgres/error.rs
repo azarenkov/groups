@@ -3,10 +3,10 @@ use domain::repositories::error::RepositoryError;
 pub fn map_sqlx_error_to_domain_error(e: sqlx::Error) -> RepositoryError {
     match e {
         sqlx::Error::Database(db_err) => {
-            if let Some(constraint) = db_err.constraint() {
-                if constraint.contains("name") || constraint.contains("unique") {
-                    return RepositoryError::AlreadyExists;
-                }
+            if let Some(constraint) = db_err.constraint()
+                && (constraint.contains("name") || constraint.contains("unique"))
+            {
+                return RepositoryError::AlreadyExists;
             }
             RepositoryError::Internal(db_err.to_string())
         }

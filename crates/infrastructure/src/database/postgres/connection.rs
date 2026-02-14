@@ -15,7 +15,7 @@ pub async fn create_postgres_pool(
         .max_lifetime(Duration::from_secs(config.max_lifetime_seconds()))
         .connect(config.url())
         .await
-        .map_err(|e| Box::<dyn Error>::from(e))?;
+        .map_err(Box::<dyn Error>::from)?;
 
     health_check(&pool).await?;
 
@@ -26,7 +26,7 @@ async fn health_check(pool: &Pool<Postgres>) -> Result<(), Box<dyn Error>> {
     sqlx::query("SELECT 1")
         .execute(pool)
         .await
-        .map_err(|e| Box::<dyn Error>::from(e))?;
+        .map_err(Box::<dyn Error>::from)?;
 
     Ok(())
 }

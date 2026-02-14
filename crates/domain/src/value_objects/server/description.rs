@@ -2,8 +2,8 @@
 pub struct ServerDescription(String);
 
 impl ServerDescription {
-    pub fn new(_0: String) -> Self {
-        Self(_0)
+    pub fn new(value: String) -> Self {
+        Self(value)
     }
 
     pub fn as_str(&self) -> &str {

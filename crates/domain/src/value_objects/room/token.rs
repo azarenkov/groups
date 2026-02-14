@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub struct RoomToken {
     value: String,
 }
@@ -10,8 +12,10 @@ impl RoomToken {
     pub fn as_str(&self) -> &str {
         &self.value
     }
+}
 
-    pub fn to_string(self) -> String {
-        self.value
+impl fmt::Display for RoomToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }

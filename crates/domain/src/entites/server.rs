@@ -45,7 +45,7 @@ impl Server {
             id: ServerId::generate(),
             name,
             owner_id,
-            description: description,
+            description,
             created_at: now,
             updated_at: now,
         }

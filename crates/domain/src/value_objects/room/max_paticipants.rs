@@ -4,8 +4,8 @@ const MAX_PARTICIPANTS: u8 = 20;
 pub struct MaxParticipants(u8);
 
 impl MaxParticipants {
-    pub fn new(_0: u8) -> Self {
-        Self(_0)
+    pub fn new(value: u8) -> Self {
+        Self(value)
     }
 
     pub fn value(&self) -> u8 {
