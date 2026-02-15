@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
+use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
     room::{
@@ -7,7 +8,6 @@ use application::usecases::{
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
-use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
 use domain::shared::repository::error::RepositoryError;
 use serde::Serialize;
 use validator::ValidationErrors;
@@ -18,13 +18,11 @@ struct ErrorResponse {
     status: u16,
 }
 
-// Trait definition for converting errors to HTTP status codes and user messages
 pub trait ToHttpStatus {
     fn to_http_status(&self) -> StatusCode;
     fn to_user_message(&self) -> String;
 }
 
-// Implement for RepositoryError (domain layer)
 impl ToHttpStatus for RepositoryError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -47,7 +45,6 @@ impl ToHttpStatus for RepositoryError {
     }
 }
 
-// Implement for HashError
 impl ToHttpStatus for HashError {
     fn to_http_status(&self) -> StatusCode {
         StatusCode::INTERNAL_SERVER_ERROR
@@ -58,7 +55,6 @@ impl ToHttpStatus for HashError {
     }
 }
 
-// Implement for VoiceServiceError
 impl ToHttpStatus for VoiceServiceError {
     fn to_http_status(&self) -> StatusCode {
         StatusCode::INTERNAL_SERVER_ERROR
@@ -69,7 +65,6 @@ impl ToHttpStatus for VoiceServiceError {
     }
 }
 
-// Implement for CreateRoomError
 impl ToHttpStatus for CreateRoomError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -84,13 +79,14 @@ impl ToHttpStatus for CreateRoomError {
         match self {
             CreateRoomError::Repository(e) => e.to_user_message(),
             CreateRoomError::Hash(e) => e.to_user_message(),
-            CreateRoomError::PasswordRequired => "Password is required for private rooms".to_string(),
+            CreateRoomError::PasswordRequired => {
+                "Password is required for private rooms".to_string()
+            }
             CreateRoomError::InvalidData => "Invalid room data provided".to_string(),
         }
     }
 }
 
-// Implement for GenerateTokenError
 impl ToHttpStatus for GenerateTokenError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -107,7 +103,6 @@ impl ToHttpStatus for GenerateTokenError {
     }
 }
 
-// Implement for DeleteRoomError
 impl ToHttpStatus for DeleteRoomError {
     fn to_http_status(&self) -> StatusCode {
         let DeleteRoomError::Repository(e) = self;
@@ -120,7 +115,6 @@ impl ToHttpStatus for DeleteRoomError {
     }
 }
 
-// Implement for LoginError
 impl ToHttpStatus for LoginError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -141,7 +135,6 @@ impl ToHttpStatus for LoginError {
     }
 }
 
-// Implement for RegistrationError
 impl ToHttpStatus for RegistrationError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -158,7 +151,6 @@ impl ToHttpStatus for RegistrationError {
     }
 }
 
-// Implement for CreateServerError
 impl ToHttpStatus for CreateServerError {
     fn to_http_status(&self) -> StatusCode {
         let CreateServerError::Repository(e) = self;
@@ -171,7 +163,6 @@ impl ToHttpStatus for CreateServerError {
     }
 }
 
-// Implement for DeleteServerError
 impl ToHttpStatus for DeleteServerError {
     fn to_http_status(&self) -> StatusCode {
         let DeleteServerError::Repository(e) = self;
@@ -184,7 +175,6 @@ impl ToHttpStatus for DeleteServerError {
     }
 }
 
-// Simplified ApiError struct
 #[derive(Debug)]
 pub struct ApiError {
     message: String,
@@ -225,7 +215,6 @@ impl ResponseError for ApiError {
     }
 }
 
-// From implementations using the trait
 impl From<CreateRoomError> for ApiError {
     fn from(error: CreateRoomError) -> Self {
         Self::from_error(error)
@@ -268,7 +257,6 @@ impl From<DeleteServerError> for ApiError {
     }
 }
 
-// Special handling for ValidationErrors
 impl From<ValidationErrors> for ApiError {
     fn from(error: ValidationErrors) -> Self {
         tracing::error!("Validation error: {:?}", error);
