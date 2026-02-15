@@ -7,6 +7,7 @@ use domain::{
         value_objects::{id::RoomId, name::RoomName},
     },
     shared::repository::error::RepositoryError,
+    user::value_objects::id::UserId,
 };
 use sqlx::{Pool, Postgres};
 
@@ -69,5 +70,24 @@ impl RoomRepository for PostgresRoomRepository {
             Some(row) => Ok(RoomName::new(row.name)),
             None => Err(RepositoryError::NotFound),
         }
+    }
+
+    async fn delete_room_by_owner(
+        &self,
+        room_id: &RoomId,
+        owner_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                DELETE FROM rooms WHERE id = $1 AND owner_id = $2
+            "#,
+            room_id.uuid(),
+            owner_id.uuid()
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(result.rows_affected() > 0)
     }
 }

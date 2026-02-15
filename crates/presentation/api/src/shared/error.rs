@@ -1,7 +1,10 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
-    room::{create_room::CreateRoomError, generate_token::GenerateTokenError},
+    room::{
+        create_room::CreateRoomError, delete_room::DeleteRoomError,
+        generate_token::GenerateTokenError,
+    },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
 use serde::Serialize;
@@ -22,6 +25,7 @@ pub struct ApiError {
 enum ApiErrorKind {
     CreateRoom(CreateRoomError),
     GenerateToken(GenerateTokenError),
+    DeleteRoom(DeleteRoomError),
     Validation(ValidationErrors),
     Login(LoginError),
     Registration(RegistrationError),
@@ -34,6 +38,7 @@ impl std::fmt::Display for ApiError {
         match &self.kind {
             ApiErrorKind::CreateRoom(e) => write!(f, "{}", e),
             ApiErrorKind::GenerateToken(e) => write!(f, "{}", e),
+            ApiErrorKind::DeleteRoom(e) => write!(f, "{}", e),
             ApiErrorKind::Validation(e) => write!(f, "{}", e),
             ApiErrorKind::Login(e) => write!(f, "{}", e),
             ApiErrorKind::Registration(e) => write!(f, "{}", e),
@@ -87,6 +92,25 @@ impl ResponseError for ApiError {
                     }
                 },
                 GenerateTokenError::VoiceService(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            },
+            ApiErrorKind::DeleteRoom(e) => match e {
+                DeleteRoomError::Repository(e) => match e {
+                    domain::shared::repository::error::RepositoryError::NotFound => {
+                        StatusCode::NOT_FOUND
+                    }
+                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
+                        StatusCode::CONFLICT
+                    }
+                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
+                        StatusCode::BAD_REQUEST
+                    }
+                    domain::shared::repository::error::RepositoryError::Internal(_) => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                },
             },
             ApiErrorKind::Validation(_) => StatusCode::NOT_ACCEPTABLE,
             ApiErrorKind::Login(e) => match e {
@@ -233,6 +257,14 @@ impl From<DeleteServerError> for ApiError {
     fn from(value: DeleteServerError) -> Self {
         Self {
             kind: ApiErrorKind::DeleteServer(value),
+        }
+    }
+}
+
+impl From<DeleteRoomError> for ApiError {
+    fn from(value: DeleteRoomError) -> Self {
+        Self {
+            kind: ApiErrorKind::DeleteRoom(value),
         }
     }
 }
