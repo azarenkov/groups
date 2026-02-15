@@ -312,6 +312,7 @@ dependencies = [
  "infrastructure",
  "jsonwebtoken 10.3.0",
  "serde",
+ "tracing",
  "uuid",
  "validator",
 ]
