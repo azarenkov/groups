@@ -110,15 +110,13 @@ impl ToHttpStatus for GenerateTokenError {
 // Implement for DeleteRoomError
 impl ToHttpStatus for DeleteRoomError {
     fn to_http_status(&self) -> StatusCode {
-        match self {
-            DeleteRoomError::Repository(e) => e.to_http_status(),
-        }
+        let DeleteRoomError::Repository(e) = self;
+        e.to_http_status()
     }
 
     fn to_user_message(&self) -> String {
-        match self {
-            DeleteRoomError::Repository(e) => e.to_user_message(),
-        }
+        let DeleteRoomError::Repository(e) = self;
+        e.to_user_message()
     }
 }
 
@@ -163,30 +161,26 @@ impl ToHttpStatus for RegistrationError {
 // Implement for CreateServerError
 impl ToHttpStatus for CreateServerError {
     fn to_http_status(&self) -> StatusCode {
-        match self {
-            CreateServerError::Repository(e) => e.to_http_status(),
-        }
+        let CreateServerError::Repository(e) = self;
+        e.to_http_status()
     }
 
     fn to_user_message(&self) -> String {
-        match self {
-            CreateServerError::Repository(e) => e.to_user_message(),
-        }
+        let CreateServerError::Repository(e) = self;
+        e.to_user_message()
     }
 }
 
 // Implement for DeleteServerError
 impl ToHttpStatus for DeleteServerError {
     fn to_http_status(&self) -> StatusCode {
-        match self {
-            DeleteServerError::Repository(e) => e.to_http_status(),
-        }
+        let DeleteServerError::Repository(e) = self;
+        e.to_http_status()
     }
 
     fn to_user_message(&self) -> String {
-        match self {
-            DeleteServerError::Repository(e) => e.to_user_message(),
-        }
+        let DeleteServerError::Repository(e) = self;
+        e.to_user_message()
     }
 }
 
@@ -202,7 +196,7 @@ impl ApiError {
         Self { message, status }
     }
 
-    fn from_error<E: ToHttpStatus + std::fmt::Debug + std::fmt::Display>(error: E) -> Self {
+    fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
         tracing::error!("API Error: {:?}", error);
         Self {
             message: error.to_user_message(),
