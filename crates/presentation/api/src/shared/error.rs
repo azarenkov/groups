@@ -7,6 +7,8 @@ use application::usecases::{
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
+use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
+use domain::shared::repository::error::RepositoryError;
 use serde::Serialize;
 use validator::ValidationErrors;
 
@@ -16,255 +18,269 @@ struct ErrorResponse {
     status: u16,
 }
 
-#[derive(Debug)]
-pub struct ApiError {
-    kind: ApiErrorKind,
+// Trait definition for converting errors to HTTP status codes and user messages
+pub trait ToHttpStatus {
+    fn to_http_status(&self) -> StatusCode;
+    fn to_user_message(&self) -> String;
 }
 
+// Implement for RepositoryError (domain layer)
+impl ToHttpStatus for RepositoryError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RepositoryError::NotFound => StatusCode::NOT_FOUND,
+            RepositoryError::AlreadyExists => StatusCode::CONFLICT,
+            RepositoryError::ConnectionError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            RepositoryError::InvalidData(_) => StatusCode::BAD_REQUEST,
+            RepositoryError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RepositoryError::NotFound => "Resource not found".to_string(),
+            RepositoryError::AlreadyExists => "Resource already exists".to_string(),
+            RepositoryError::ConnectionError(_) => "Service temporarily unavailable".to_string(),
+            RepositoryError::InvalidData(_) => "Invalid data provided".to_string(),
+            RepositoryError::Internal(_) => "Internal server error".to_string(),
+        }
+    }
+}
+
+// Implement for HashError
+impl ToHttpStatus for HashError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn to_user_message(&self) -> String {
+        "Authentication error".to_string()
+    }
+}
+
+// Implement for VoiceServiceError
+impl ToHttpStatus for VoiceServiceError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn to_user_message(&self) -> String {
+        "Voice service error".to_string()
+    }
+}
+
+// Implement for CreateRoomError
+impl ToHttpStatus for CreateRoomError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            CreateRoomError::Repository(e) => e.to_http_status(),
+            CreateRoomError::Hash(e) => e.to_http_status(),
+            CreateRoomError::PasswordRequired => StatusCode::BAD_REQUEST,
+            CreateRoomError::InvalidData => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            CreateRoomError::Repository(e) => e.to_user_message(),
+            CreateRoomError::Hash(e) => e.to_user_message(),
+            CreateRoomError::PasswordRequired => "Password is required for private rooms".to_string(),
+            CreateRoomError::InvalidData => "Invalid room data provided".to_string(),
+        }
+    }
+}
+
+// Implement for GenerateTokenError
+impl ToHttpStatus for GenerateTokenError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GenerateTokenError::Repository(e) => e.to_http_status(),
+            GenerateTokenError::VoiceService(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            GenerateTokenError::Repository(e) => e.to_user_message(),
+            GenerateTokenError::VoiceService(e) => e.to_user_message(),
+        }
+    }
+}
+
+// Implement for DeleteRoomError
+impl ToHttpStatus for DeleteRoomError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteRoomError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteRoomError::Repository(e) => e.to_user_message(),
+        }
+    }
+}
+
+// Implement for LoginError
+impl ToHttpStatus for LoginError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            LoginError::Repository(e) => e.to_http_status(),
+            LoginError::Hash(e) => e.to_http_status(),
+            LoginError::InvalidCredentials => StatusCode::UNAUTHORIZED,
+            LoginError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            LoginError::Repository(e) => e.to_user_message(),
+            LoginError::Hash(e) => e.to_user_message(),
+            LoginError::InvalidCredentials => "Invalid credentials".to_string(),
+            LoginError::Internal => "Internal server error".to_string(),
+        }
+    }
+}
+
+// Implement for RegistrationError
+impl ToHttpStatus for RegistrationError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RegistrationError::Repository(e) => e.to_http_status(),
+            RegistrationError::Hash(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RegistrationError::Repository(e) => e.to_user_message(),
+            RegistrationError::Hash(e) => e.to_user_message(),
+        }
+    }
+}
+
+// Implement for CreateServerError
+impl ToHttpStatus for CreateServerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            CreateServerError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            CreateServerError::Repository(e) => e.to_user_message(),
+        }
+    }
+}
+
+// Implement for DeleteServerError
+impl ToHttpStatus for DeleteServerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteServerError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteServerError::Repository(e) => e.to_user_message(),
+        }
+    }
+}
+
+// Simplified ApiError struct
 #[derive(Debug)]
-enum ApiErrorKind {
-    CreateRoom(CreateRoomError),
-    GenerateToken(GenerateTokenError),
-    DeleteRoom(DeleteRoomError),
-    Validation(ValidationErrors),
-    Login(LoginError),
-    Registration(RegistrationError),
-    CreateServer(CreateServerError),
-    DeleteServer(DeleteServerError),
+pub struct ApiError {
+    message: String,
+    status: StatusCode,
+}
+
+impl ApiError {
+    pub fn new(message: String, status: StatusCode) -> Self {
+        Self { message, status }
+    }
+
+    fn from_error<E: ToHttpStatus + std::fmt::Debug + std::fmt::Display>(error: E) -> Self {
+        tracing::error!("API Error: {:?}", error);
+        Self {
+            message: error.to_user_message(),
+            status: error.to_http_status(),
+        }
+    }
 }
 
 impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
-            ApiErrorKind::CreateRoom(e) => write!(f, "{}", e),
-            ApiErrorKind::GenerateToken(e) => write!(f, "{}", e),
-            ApiErrorKind::DeleteRoom(e) => write!(f, "{}", e),
-            ApiErrorKind::Validation(e) => write!(f, "{}", e),
-            ApiErrorKind::Login(e) => write!(f, "{}", e),
-            ApiErrorKind::Registration(e) => write!(f, "{}", e),
-            ApiErrorKind::CreateServer(e) => write!(f, "{}", e),
-            ApiErrorKind::DeleteServer(e) => write!(f, "{}", e),
-        }
+        write!(f, "{}", self.message)
     }
 }
 
 impl ResponseError for ApiError {
     fn status_code(&self) -> StatusCode {
-        match &self.kind {
-            ApiErrorKind::CreateRoom(e) => match e {
-                CreateRoomError::Repository(e) => match e {
-                    domain::shared::repository::error::RepositoryError::NotFound => {
-                        StatusCode::NOT_FOUND
-                    }
-                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
-                        StatusCode::CONFLICT
-                    }
-                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
-                        StatusCode::BAD_REQUEST
-                    }
-                    domain::shared::repository::error::RepositoryError::Internal(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                },
-                CreateRoomError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
-                CreateRoomError::PasswordRequired => StatusCode::BAD_REQUEST,
-                CreateRoomError::InvalidData => StatusCode::BAD_REQUEST,
-            },
-            ApiErrorKind::GenerateToken(e) => match e {
-                GenerateTokenError::Repository(e) => match e {
-                    domain::shared::repository::error::RepositoryError::NotFound => {
-                        StatusCode::NOT_FOUND
-                    }
-                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
-                        StatusCode::CONFLICT
-                    }
-                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
-                        StatusCode::BAD_REQUEST
-                    }
-                    domain::shared::repository::error::RepositoryError::Internal(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                },
-                GenerateTokenError::VoiceService(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            },
-            ApiErrorKind::DeleteRoom(e) => match e {
-                DeleteRoomError::Repository(e) => match e {
-                    domain::shared::repository::error::RepositoryError::NotFound => {
-                        StatusCode::NOT_FOUND
-                    }
-                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
-                        StatusCode::CONFLICT
-                    }
-                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
-                        StatusCode::BAD_REQUEST
-                    }
-                    domain::shared::repository::error::RepositoryError::Internal(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                },
-            },
-            ApiErrorKind::Validation(_) => StatusCode::NOT_ACCEPTABLE,
-            ApiErrorKind::Login(e) => match e {
-                LoginError::Repository(e) => match e {
-                    domain::shared::repository::error::RepositoryError::NotFound => {
-                        StatusCode::NOT_FOUND
-                    }
-                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
-                        StatusCode::CONFLICT
-                    }
-                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
-                        StatusCode::BAD_REQUEST
-                    }
-                    domain::shared::repository::error::RepositoryError::Internal(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                },
-                LoginError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
-                LoginError::InvalidCredentials => StatusCode::UNAUTHORIZED,
-                LoginError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
-            },
-            ApiErrorKind::Registration(e) => match e {
-                RegistrationError::Repository(e) => match e {
-                    domain::shared::repository::error::RepositoryError::NotFound => {
-                        StatusCode::NOT_FOUND
-                    }
-                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
-                        StatusCode::CONFLICT
-                    }
-                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
-                        StatusCode::BAD_REQUEST
-                    }
-                    domain::shared::repository::error::RepositoryError::Internal(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                },
-                RegistrationError::Hash(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            },
-            ApiErrorKind::CreateServer(e) => match e {
-                CreateServerError::Repository(e) => match e {
-                    domain::shared::repository::error::RepositoryError::NotFound => {
-                        StatusCode::NOT_FOUND
-                    }
-                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
-                        StatusCode::CONFLICT
-                    }
-                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
-                        StatusCode::BAD_REQUEST
-                    }
-                    domain::shared::repository::error::RepositoryError::Internal(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                },
-            },
-            ApiErrorKind::DeleteServer(e) => match e {
-                DeleteServerError::Repository(e) => match e {
-                    domain::shared::repository::error::RepositoryError::NotFound => {
-                        StatusCode::NOT_FOUND
-                    }
-                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
-                        StatusCode::CONFLICT
-                    }
-                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
-                        StatusCode::BAD_REQUEST
-                    }
-                    domain::shared::repository::error::RepositoryError::Internal(_) => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                },
-            },
-        }
+        self.status
     }
 
     fn error_response(&self) -> HttpResponse {
         let response = ErrorResponse {
-            message: self.to_string(),
-            status: self.status_code().as_u16(),
+            message: self.message.clone(),
+            status: self.status.as_u16(),
         };
-        HttpResponse::build(self.status_code()).json(response)
+        HttpResponse::build(self.status).json(response)
     }
 }
 
+// From implementations using the trait
 impl From<CreateRoomError> for ApiError {
-    fn from(value: CreateRoomError) -> Self {
-        Self {
-            kind: ApiErrorKind::CreateRoom(value),
-        }
+    fn from(error: CreateRoomError) -> Self {
+        Self::from_error(error)
     }
 }
 
 impl From<GenerateTokenError> for ApiError {
-    fn from(value: GenerateTokenError) -> Self {
-        Self {
-            kind: ApiErrorKind::GenerateToken(value),
-        }
-    }
-}
-
-impl From<ValidationErrors> for ApiError {
-    fn from(value: ValidationErrors) -> Self {
-        Self {
-            kind: ApiErrorKind::Validation(value),
-        }
-    }
-}
-
-impl From<RegistrationError> for ApiError {
-    fn from(value: RegistrationError) -> Self {
-        Self {
-            kind: ApiErrorKind::Registration(value),
-        }
-    }
-}
-
-impl From<LoginError> for ApiError {
-    fn from(value: LoginError) -> Self {
-        Self {
-            kind: ApiErrorKind::Login(value),
-        }
-    }
-}
-
-impl From<CreateServerError> for ApiError {
-    fn from(value: CreateServerError) -> Self {
-        Self {
-            kind: ApiErrorKind::CreateServer(value),
-        }
-    }
-}
-
-impl From<DeleteServerError> for ApiError {
-    fn from(value: DeleteServerError) -> Self {
-        Self {
-            kind: ApiErrorKind::DeleteServer(value),
-        }
+    fn from(error: GenerateTokenError) -> Self {
+        Self::from_error(error)
     }
 }
 
 impl From<DeleteRoomError> for ApiError {
-    fn from(value: DeleteRoomError) -> Self {
+    fn from(error: DeleteRoomError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<LoginError> for ApiError {
+    fn from(error: LoginError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<RegistrationError> for ApiError {
+    fn from(error: RegistrationError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<CreateServerError> for ApiError {
+    fn from(error: CreateServerError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<DeleteServerError> for ApiError {
+    fn from(error: DeleteServerError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+// Special handling for ValidationErrors
+impl From<ValidationErrors> for ApiError {
+    fn from(error: ValidationErrors) -> Self {
+        tracing::error!("Validation error: {:?}", error);
         Self {
-            kind: ApiErrorKind::DeleteRoom(value),
+            message: error.to_string(),
+            status: StatusCode::BAD_REQUEST,
         }
     }
 }
