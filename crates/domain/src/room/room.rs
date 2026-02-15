@@ -1,17 +1,13 @@
 use chrono::{DateTime, Utc};
 
-use crate::value_objects::{
-    password_hash::PasswordHash,
-    room::{id::RoomId, max_paticipants::MaxParticipants, name::RoomName},
-    server::id::ServerId,
-    user::id::UserId,
+use crate::{
+    room::value_objects::{
+        id::RoomId, max_paticipants::MaxParticipants, name::RoomName, room_type::RoomType,
+    },
+    server::value_objects::id::ServerId,
+    shared::value_objects::password_hash::PasswordHash,
+    user::value_objects::id::UserId,
 };
-
-#[derive(Debug, PartialEq)]
-pub enum RoomType {
-    Public,
-    Private,
-}
 
 pub struct Room {
     id: RoomId,
@@ -91,19 +87,4 @@ impl Room {
     pub fn server_id(&self) -> &ServerId {
         &self.server_id
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RoomError {
-    #[error("Room is full")]
-    RoomFull,
-
-    #[error("Room isn't active")]
-    RoomNotActive,
-
-    #[error("User not found")]
-    ParticipantNotFound,
-
-    #[error("Insufficient ermissions")]
-    InsufficientPermissions,
 }

@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, Responder, post, web};
-use domain::value_objects::user::id::UserId;
+use domain::user::value_objects::id::UserId;
 use validator::Validate;
 
 use crate::{

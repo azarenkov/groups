@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use domain::{
-    entites::server::Server,
-    repositories::{error::RepositoryError, server::ServerRepository},
-    value_objects::{
-        server::{description::ServerDescription, name::ServerName},
-        user::id::UserId,
+    server::{
+        Server,
+        repository::ServerRepository,
+        value_objects::{description::ServerDescription, name::ServerName},
     },
+    shared::repository::error::RepositoryError,
+    user::value_objects::id::UserId,
 };
 
 use crate::dto::requests::server::create_server::CreateServerRequest;

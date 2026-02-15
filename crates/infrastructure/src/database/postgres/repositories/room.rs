@@ -1,8 +1,13 @@
 use async_trait::async_trait;
-use domain::repositories::room::RoomRepository;
-use domain::value_objects::room::id::RoomId;
-use domain::value_objects::room::name::RoomName;
-use domain::{entites::room::Room, repositories::error::RepositoryError};
+
+use domain::{
+    room::{
+        Room,
+        repository::RoomRepository,
+        value_objects::{id::RoomId, name::RoomName},
+    },
+    shared::repository::error::RepositoryError,
+};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{

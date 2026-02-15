@@ -1,10 +1,11 @@
 use async_trait::async_trait;
+
 use domain::{
-    entites::user::User,
-    repositories::{error::RepositoryError, user::UserRepository},
-    value_objects::{
-        password_hash::PasswordHash,
-        user::{email::Email, id::UserId, name::UserName},
+    shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
+    user::{
+        User,
+        repository::UserRepository,
+        value_objects::{email::Email, id::UserId, name::UserName},
     },
 };
 use sqlx::{Pool, Postgres};

@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 
 use crate::{
-    entites::room::Room,
-    repositories::error::RepositoryError,
-    value_objects::room::{id::RoomId, name::RoomName},
+    room::{
+        Room,
+        value_objects::{id::RoomId, name::RoomName},
+    },
+    shared::repository::error::RepositoryError,
 };
 
 #[async_trait]

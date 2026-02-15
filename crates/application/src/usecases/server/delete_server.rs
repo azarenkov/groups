@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use domain::{
-    repositories::{error::RepositoryError, server::ServerRepository},
-    value_objects::{server::id::ServerId, user::id::UserId},
+    server::{repository::ServerRepository, value_objects::id::ServerId},
+    shared::repository::error::RepositoryError,
+    user::value_objects::id::UserId,
 };
 
 #[derive(Debug, thiserror::Error)]

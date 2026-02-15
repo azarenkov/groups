@@ -1,8 +1,9 @@
 use async_trait::async_trait;
+
 use domain::{
-    entites::server::Server,
-    repositories::{error::RepositoryError, server::ServerRepository},
-    value_objects::{server::id::ServerId, user::id::UserId},
+    server::{Server, repository::ServerRepository, value_objects::id::ServerId},
+    shared::repository::error::RepositoryError,
+    user::value_objects::id::UserId,
 };
 use sqlx::{Pool, Postgres};
 

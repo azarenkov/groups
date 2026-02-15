@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::entites::user::User;
+use domain::user::User;
 use serde::Serialize;
 use uuid::Uuid;
 

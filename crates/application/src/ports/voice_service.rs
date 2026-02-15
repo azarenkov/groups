@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use domain::value_objects::{
-    room::{name::RoomName, token::RoomToken},
-    user::{id::UserId, name::UserName},
+use domain::{
+    room::value_objects::{name::RoomName, token::RoomToken},
+    user::value_objects::{id::UserId, name::UserName},
 };
 
 #[async_trait]

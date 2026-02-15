@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 
-use crate::value_objects::{
-    server::{description::ServerDescription, id::ServerId, name::ServerName},
-    user::id::UserId,
+use crate::{
+    server::value_objects::{description::ServerDescription, id::ServerId, name::ServerName},
+    user::value_objects::id::UserId,
 };
 
 #[derive(Debug)]

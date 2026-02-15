@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, Responder, delete, post, web};
-use domain::value_objects::{server::id::ServerId, user::id::UserId};
+use domain::{server::value_objects::id::ServerId, user::value_objects::id::UserId};
 use uuid::Uuid;
 use validator::Validate;
 

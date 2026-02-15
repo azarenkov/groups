@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 
 use crate::{
-    entites::server::Server,
-    repositories::error::RepositoryError,
-    value_objects::{server::id::ServerId, user::id::UserId},
+    server::{Server, value_objects::id::ServerId},
+    shared::repository::error::RepositoryError,
+    user::value_objects::id::UserId,
 };
 
 #[async_trait]

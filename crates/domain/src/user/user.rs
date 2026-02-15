@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 
-use crate::value_objects::{
-    password_hash::PasswordHash,
-    user::{email::Email, id::UserId, name::UserName},
+use crate::{
+    shared::value_objects::password_hash::PasswordHash,
+    user::value_objects::{email::Email, id::UserId, name::UserName},
 };
 
 #[derive(Debug)]

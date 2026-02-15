@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use domain::{
-    entites::room::{Room, RoomType},
-    repositories::{error::RepositoryError, room::RoomRepository, server::ServerRepository},
-    value_objects::{
-        password_hash::PasswordHash, room::name::RoomName, server::id::ServerId, user::id::UserId,
+    room::{
+        Room,
+        repository::RoomRepository,
+        value_objects::{name::RoomName, room_type::RoomType},
     },
+    server::{repository::ServerRepository, value_objects::id::ServerId},
+    shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
+    user::value_objects::id::UserId,
 };
 
 use crate::{

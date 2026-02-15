@@ -48,17 +48,19 @@ impl ResponseError for ApiError {
         match &self.kind {
             ApiErrorKind::CreateRoom(e) => match e {
                 CreateRoomError::Repository(e) => match e {
-                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
-                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                    domain::shared::repository::error::RepositoryError::NotFound => {
+                        StatusCode::NOT_FOUND
+                    }
+                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
                         StatusCode::CONFLICT
                     }
-                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
                         StatusCode::BAD_REQUEST
                     }
-                    domain::repositories::error::RepositoryError::Internal(_) => {
+                    domain::shared::repository::error::RepositoryError::Internal(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
                 },
@@ -68,17 +70,19 @@ impl ResponseError for ApiError {
             },
             ApiErrorKind::GenerateToken(e) => match e {
                 GenerateTokenError::Repository(e) => match e {
-                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
-                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                    domain::shared::repository::error::RepositoryError::NotFound => {
+                        StatusCode::NOT_FOUND
+                    }
+                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
                         StatusCode::CONFLICT
                     }
-                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
                         StatusCode::BAD_REQUEST
                     }
-                    domain::repositories::error::RepositoryError::Internal(_) => {
+                    domain::shared::repository::error::RepositoryError::Internal(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
                 },
@@ -87,17 +91,19 @@ impl ResponseError for ApiError {
             ApiErrorKind::Validation(_) => StatusCode::NOT_ACCEPTABLE,
             ApiErrorKind::Login(e) => match e {
                 LoginError::Repository(e) => match e {
-                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
-                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                    domain::shared::repository::error::RepositoryError::NotFound => {
+                        StatusCode::NOT_FOUND
+                    }
+                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
                         StatusCode::CONFLICT
                     }
-                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
                         StatusCode::BAD_REQUEST
                     }
-                    domain::repositories::error::RepositoryError::Internal(_) => {
+                    domain::shared::repository::error::RepositoryError::Internal(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
                 },
@@ -107,17 +113,19 @@ impl ResponseError for ApiError {
             },
             ApiErrorKind::Registration(e) => match e {
                 RegistrationError::Repository(e) => match e {
-                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
-                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                    domain::shared::repository::error::RepositoryError::NotFound => {
+                        StatusCode::NOT_FOUND
+                    }
+                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
                         StatusCode::CONFLICT
                     }
-                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
                         StatusCode::BAD_REQUEST
                     }
-                    domain::repositories::error::RepositoryError::Internal(_) => {
+                    domain::shared::repository::error::RepositoryError::Internal(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
                 },
@@ -125,34 +133,38 @@ impl ResponseError for ApiError {
             },
             ApiErrorKind::CreateServer(e) => match e {
                 CreateServerError::Repository(e) => match e {
-                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
-                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                    domain::shared::repository::error::RepositoryError::NotFound => {
+                        StatusCode::NOT_FOUND
+                    }
+                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
                         StatusCode::CONFLICT
                     }
-                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
                         StatusCode::BAD_REQUEST
                     }
-                    domain::repositories::error::RepositoryError::Internal(_) => {
+                    domain::shared::repository::error::RepositoryError::Internal(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
                 },
             },
             ApiErrorKind::DeleteServer(e) => match e {
                 DeleteServerError::Repository(e) => match e {
-                    domain::repositories::error::RepositoryError::NotFound => StatusCode::NOT_FOUND,
-                    domain::repositories::error::RepositoryError::AlreadyExists => {
+                    domain::shared::repository::error::RepositoryError::NotFound => {
+                        StatusCode::NOT_FOUND
+                    }
+                    domain::shared::repository::error::RepositoryError::AlreadyExists => {
                         StatusCode::CONFLICT
                     }
-                    domain::repositories::error::RepositoryError::ConnectionError(_) => {
+                    domain::shared::repository::error::RepositoryError::ConnectionError(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    domain::repositories::error::RepositoryError::InvalidData(_) => {
+                    domain::shared::repository::error::RepositoryError::InvalidData(_) => {
                         StatusCode::BAD_REQUEST
                     }
-                    domain::repositories::error::RepositoryError::Internal(_) => {
+                    domain::shared::repository::error::RepositoryError::Internal(_) => {
                         StatusCode::INTERNAL_SERVER_ERROR
                     }
                 },

@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use domain::{
-    repositories::{error::RepositoryError, user::UserRepository},
-    value_objects::user::{email::Email, id::UserId},
+    shared::repository::error::RepositoryError,
+    user::{
+        repository::UserRepository,
+        value_objects::{email::Email, id::UserId},
+    },
 };
 
 use crate::{

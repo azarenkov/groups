@@ -1,3 +1,4 @@
-pub mod entites;
-pub mod repositories;
-pub mod value_objects;
+pub mod room;
+pub mod server;
+pub mod shared;
+pub mod user;
