@@ -61,16 +61,67 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
+    platform: linux/arm64
     container_name: rift-livekit
     restart: unless-stopped
-    command: --dev
+    command: --config /etc/livekit.yaml
     ports:
       - "7880:7880"
       - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    networks:
+      - rift-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:7880 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rift-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
     networks:
       - rift-network
     environment:
-      LIVEKIT_KEYS: "devkey: secret"
+      # Database
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/rift
+      MAX_CONNECTIONS: 10
+      MIN_CONNECTIONS: 2
+      CONNECT_TIMEOUT_SECONDS: 30
+      IDLE_TIMEOUT_SECONDS: 600
+      MAX_LIFETIME_SECONDS: 1800
+
+      # JWT
+      JWT_SECRET: your-secret-key-change-in-production
+
+      # LiveKit
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      LIVEKIT_URL: http://livekit:7880
+
+      # Server
+      HOST: 0.0.0.0
+      PORT: 8080
+
+      RUST_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
 
 networks:
   rift-network:
