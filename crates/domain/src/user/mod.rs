@@ -1,5 +1,5 @@
 pub mod repository;
 pub mod value_objects;
 
-mod user;
-pub use user::User;
+mod entity;
+pub use entity::User;
