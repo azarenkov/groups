@@ -59,6 +59,31 @@ services:
       retries: 5
       start_period: 5s
 
+  nats:
+    image: nats:2.10-alpine
+    container_name: rift-nats
+    restart: unless-stopped
+    command:
+      - "-js"
+      - "-sd"
+      - "/data"
+      - "-m"
+      - "8222"
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    volumes:
+      - nats-data:/data
+    networks:
+      - rift-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "4222"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   livekit:
     image: livekit/livekit-server:latest
     platform: linux/arm64
@@ -94,7 +119,7 @@ services:
     networks:
       - rift-network
     environment:
-      # Database
+      # Database (PostgresConfig)
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/rift
       MAX_CONNECTIONS: 10
       MIN_CONNECTIONS: 2
@@ -102,18 +127,21 @@ services:
       IDLE_TIMEOUT_SECONDS: 600
       MAX_LIFETIME_SECONDS: 1800
 
-      # JWT
+      # JWT & Server (ServerConfig)
       JWT_SECRET: your-secret-key-change-in-production
+      HOST: 0.0.0.0
+      PORT: 8080
 
-      # LiveKit
+      # LiveKit (LiveKitConfig)
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: secret
       LIVEKIT_URL: http://livekit:7880
 
-      # Server
-      HOST: 0.0.0.0
-      PORT: 8080
+      # NATS (NatsConfig)
+      NATS_URL: nats://nats:4222
+      NATS_SUBJECT_PREFIX: room.events
 
+      # Logging
       RUST_LOG: info
     depends_on:
       postgres:
@@ -121,6 +149,8 @@ services:
       redis:
         condition: service_healthy
       livekit:
+        condition: service_healthy
+      nats:
         condition: service_healthy
 
 networks:
@@ -135,3 +165,5 @@ volumes:
     name: rift-pgadmin-data
   redis-data:
     name: rift-redis-data
+  nats-data:
+    name: rift-nats-data

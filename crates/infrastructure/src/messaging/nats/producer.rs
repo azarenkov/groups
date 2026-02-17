@@ -22,7 +22,7 @@ impl NatsProducer {
         let event_type = event.as_str();
         let room_id = event.room_id().uuid();
 
-        format!("{}.room.{}.{}", self.subject_prefix, room_id, event_type)
+        format!("{}.{}.{}", self.subject_prefix, room_id, event_type)
     }
 }
 

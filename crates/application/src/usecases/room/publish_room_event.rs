@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use domain::{
-    room::{events::RoomEvent, repository::RoomRepository},
-    shared::repository::error::RepositoryError,
-};
+use domain::{room::events::RoomEvent, shared::repository::error::RepositoryError};
 
 use crate::{
     dto::requests::room::events::RoomEventDto,
@@ -21,33 +18,23 @@ pub enum PublishRoomEventError {
     EventMapper(#[from] EventMapperError),
 }
 
-pub struct PublishRoomEvent<T, U>
+pub struct PublishRoomEvent<T>
 where
     T: EventProducer<RoomEvent>,
-    U: RoomRepository,
 {
     event_producer: Arc<T>,
-    room_repository: Arc<U>,
 }
 
-impl<T, U> PublishRoomEvent<T, U>
+impl<T> PublishRoomEvent<T>
 where
     T: EventProducer<RoomEvent>,
-    U: RoomRepository,
 {
-    pub fn new(event_producer: Arc<T>, room_repository: Arc<U>) -> Self {
-        Self {
-            event_producer,
-            room_repository,
-        }
+    pub fn new(event_producer: Arc<T>) -> Self {
+        Self { event_producer }
     }
 
     pub async fn execute(&self, dto: RoomEventDto) -> Result<(), PublishRoomEventError> {
-        let room_id = EventMapper::extract_room_id(&dto)?;
-
-        let room = self.room_repository.get_room_by_id(&room_id).await?;
-
-        let event = EventMapper::to_domain_event(dto, &room)?;
+        let event = EventMapper::to_domain_event(dto)?;
 
         self.event_producer.publish(&event).await?;
 

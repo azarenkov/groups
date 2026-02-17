@@ -60,8 +60,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
-    let publish_room_event_usecase =
-        PublishRoomEvent::new(event_producer.clone(), room_repository.clone());
+    let publish_room_event_usecase = PublishRoomEvent::new(event_producer.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_room_usecase,

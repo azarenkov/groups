@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 
 use domain::{
     room::{
-        Room,
         events::{
             RoomEvent,
             participant_events::{ParticipantJoinedEvent, ParticipantLeftEvent},
@@ -45,129 +44,101 @@ impl EventMapper {
         Ok(RoomId::from_string(room_id_str)?)
     }
 
-    fn timestamp_to_datetime(timestamp: u64) -> Result<DateTime<Utc>, EventMapperError> {
-        DateTime::from_timestamp(timestamp as i64, 0).ok_or(EventMapperError::InvalidTimestamp)
+    fn timestamp_to_datetime(timestamp: String) -> Result<DateTime<Utc>, EventMapperError> {
+        let timestamp_num = timestamp
+            .parse::<i64>()
+            .map_err(|_| EventMapperError::InvalidTimestamp)?;
+        DateTime::from_timestamp(timestamp_num, 0).ok_or(EventMapperError::InvalidTimestamp)
     }
 
-    fn map_room_started(
-        request: RoomEventRequest,
-        room: &Room,
-    ) -> Result<RoomStartedEvent, EventMapperError> {
+    fn map_room_started(request: RoomEventRequest) -> Result<RoomStartedEvent, EventMapperError> {
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
 
         Ok(RoomStartedEvent::new(
             request.id,
-            *room.id(),
-            *room.owner_id(),
-            *room.server_id(),
-            *room.room_type(),
+            RoomId::from_string(&request.room_id)?,
             created_at,
         ))
     }
 
-    fn map_room_finished(
-        request: RoomEventRequest,
-        room: &Room,
-    ) -> Result<RoomFinishedEvent, EventMapperError> {
+    fn map_room_finished(request: RoomEventRequest) -> Result<RoomFinishedEvent, EventMapperError> {
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
+        let room_id = RoomId::from_string(&request.room_id)?;
 
-        Ok(RoomFinishedEvent::new(
-            request.id,
-            *room.id(),
-            *room.owner_id(),
-            *room.server_id(),
-            *room.room_type(),
-            created_at,
-        ))
+        Ok(RoomFinishedEvent::new(request.id, room_id, created_at))
     }
 
     fn map_participant_joined(
         request: ParticipantEventRequest,
-        room: &Room,
     ) -> Result<ParticipantJoinedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let room_id = RoomId::from_string(&request.room_id)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let joined_at = Self::timestamp_to_datetime(request.joined_at)?;
 
         Ok(ParticipantJoinedEvent::new(
-            request.id,
-            user_id,
-            *room.id(),
-            joined_at,
-            created_at,
+            request.id, user_id, room_id, joined_at, created_at,
         ))
     }
 
     fn map_participant_left(
         request: ParticipantEventRequest,
-        room: &Room,
     ) -> Result<ParticipantLeftEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let room_id = RoomId::from_string(&request.room_id)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let joined_at = Self::timestamp_to_datetime(request.joined_at)?;
 
         Ok(ParticipantLeftEvent::new(
-            request.id,
-            user_id,
-            *room.id(),
-            joined_at,
-            created_at,
+            request.id, user_id, room_id, joined_at, created_at,
         ))
     }
 
     fn map_track_published(
         request: TrackEventRequest,
-        room: &Room,
     ) -> Result<TrackPublishedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let room_id = RoomId::from_string(&request.room_id)?;
         let track_type = TrackType::from_string(&request.r#type)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
 
         Ok(TrackPublishedEvent::new(
-            request.id,
-            user_id,
-            *room.id(),
-            track_type,
-            created_at,
+            request.id, user_id, room_id, track_type, created_at,
         ))
     }
 
     fn map_track_unpublished(
         request: TrackEventRequest,
-        room: &Room,
     ) -> Result<TrackUnpublishedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let room_id = RoomId::from_string(&request.room_id)?;
         let track_type = TrackType::from_string(&request.r#type)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
 
         Ok(TrackUnpublishedEvent::new(
-            request.id,
-            user_id,
-            *room.id(),
-            track_type,
-            created_at,
+            request.id, user_id, room_id, track_type, created_at,
         ))
     }
 
-    pub fn to_domain_event(dto: RoomEventDto, room: &Room) -> Result<RoomEvent, EventMapperError> {
+    pub fn to_domain_event(dto: RoomEventDto) -> Result<RoomEvent, EventMapperError> {
         match dto {
-            RoomEventDto::RoomStarted(request) => Ok(RoomEvent::RoomStarted(
-                Self::map_room_started(request, room)?,
-            )),
-            RoomEventDto::RoomFinished(request) => Ok(RoomEvent::RoomFinished(
-                Self::map_room_finished(request, room)?,
-            )),
+            RoomEventDto::RoomStarted(request) => {
+                Ok(RoomEvent::RoomStarted(Self::map_room_started(request)?))
+            }
+            RoomEventDto::RoomFinished(request) => {
+                Ok(RoomEvent::RoomFinished(Self::map_room_finished(request)?))
+            }
             RoomEventDto::ParticipantJoined(request) => Ok(RoomEvent::ParticipantJoined(
-                Self::map_participant_joined(request, room)?,
+                Self::map_participant_joined(request)?,
             )),
             RoomEventDto::ParticipantLeft(request) => Ok(RoomEvent::ParticipantLeft(
-                Self::map_participant_left(request, room)?,
+                Self::map_participant_left(request)?,
             )),
             RoomEventDto::TrackPublished(request) => Ok(RoomEvent::TrackPublished(
-                Self::map_track_published(request, room)?,
+                Self::map_track_published(request)?,
             )),
             RoomEventDto::TrackUnpublished(request) => Ok(RoomEvent::TrackUnpublished(
-                Self::map_track_unpublished(request, room)?,
+                Self::map_track_unpublished(request)?,
             )),
         }
     }
