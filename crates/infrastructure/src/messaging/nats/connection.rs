@@ -28,6 +28,8 @@ async fn initialize_streams(
             storage: jetstream::stream::StorageType::File,
             max_age: std::time::Duration::from_hours(MAX_AGE_HOURS),
             discard: jetstream::stream::DiscardPolicy::Old,
+            compression: Some(jetstream::stream::Compression::S2),
+            num_replicas: config.replicas,
             ..Default::default()
         })
         .await?;

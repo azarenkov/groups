@@ -6,6 +6,8 @@ pub struct NatsConfig {
     url: String,
     #[serde(rename = "nats_subject_prefix")]
     pub subject_prefix: String,
+    #[serde(rename = "nats_replicas")]
+    pub replicas: usize,
 }
 
 impl NatsConfig {
