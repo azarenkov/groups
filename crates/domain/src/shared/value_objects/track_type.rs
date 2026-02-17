@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum TrackType {
     Audio,
     Video,

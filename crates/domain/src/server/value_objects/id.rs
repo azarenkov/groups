@@ -1,7 +1,7 @@
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ServerId(Uuid);
 
 #[derive(Debug, thiserror::Error)]

@@ -49,10 +49,10 @@ impl RoomEventMapper {
     }
 
     pub fn to_application_dto(
-        event: String,
+        event: &str,
         data: serde_json::Value,
     ) -> Result<RoomEventDto, MapperError> {
-        match event.as_str() {
+        match event {
             "room_started" => {
                 let request: PresentationRoomEventRequest = serde_json::from_value(data)?;
                 Ok(RoomEventDto::RoomStarted(Self::map_room_event(request)))
@@ -83,7 +83,7 @@ impl RoomEventMapper {
                     request,
                 )))
             }
-            _ => Err(MapperError::UnknownEvent(event)),
+            _ => Err(MapperError::UnknownEvent(event.to_string())),
         }
     }
 }

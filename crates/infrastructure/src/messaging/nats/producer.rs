@@ -36,7 +36,7 @@ impl EventProducer<RoomEvent> for NatsProducer {
 
         let ack = self
             .jetstream
-            .publish(subject.clone(), payload.into())
+            .publish(subject, payload.into())
             .await
             .map_err(|e| EventProducerError::Publish(e.to_string()))?;
 
