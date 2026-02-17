@@ -1,5 +1,6 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
+use application::usecases::room::publish_room_event::PublishRoomEventError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
     room::{
@@ -11,6 +12,8 @@ use application::usecases::{
 use domain::shared::repository::error::RepositoryError;
 use serde::Serialize;
 use validator::ValidationErrors;
+
+use crate::shared::mappers::room_event::MapperError;
 
 #[derive(Serialize)]
 struct ErrorResponse {
@@ -45,13 +48,41 @@ impl ToHttpStatus for RepositoryError {
     }
 }
 
-impl ToHttpStatus for HashError {
+impl ToHttpStatus for MapperError {
     fn to_http_status(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
+        match self {
+            MapperError::UnknownEvent(_) => StatusCode::BAD_REQUEST,
+            MapperError::Json(_) => StatusCode::BAD_REQUEST,
+            MapperError::MissingJoinedAt => StatusCode::BAD_REQUEST,
+        }
     }
 
     fn to_user_message(&self) -> String {
-        "Authentication error".to_string()
+        match self {
+            MapperError::UnknownEvent(event) => format!("Unknown event type: {}", event),
+            MapperError::Json(e) => format!("Invalid request format: {}", e),
+            MapperError::MissingJoinedAt => {
+                "Missing joined_at timestamp for participant event".to_string()
+            }
+        }
+    }
+}
+
+impl ToHttpStatus for PublishRoomEventError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            PublishRoomEventError::EventProducer(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            PublishRoomEventError::Repository(e) => e.to_http_status(),
+            PublishRoomEventError::EventMapper(_) => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            PublishRoomEventError::EventProducer(_) => "Failed to publish event".to_string(),
+            PublishRoomEventError::Repository(e) => e.to_user_message(),
+            PublishRoomEventError::EventMapper(e) => format!("Invalid event data: {}", e),
+        }
     }
 }
 
@@ -62,6 +93,16 @@ impl ToHttpStatus for VoiceServiceError {
 
     fn to_user_message(&self) -> String {
         "Voice service error".to_string()
+    }
+}
+
+impl ToHttpStatus for HashError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn to_user_message(&self) -> String {
+        "Authentication error".to_string()
     }
 }
 
@@ -264,5 +305,17 @@ impl From<ValidationErrors> for ApiError {
             message: error.to_string(),
             status: StatusCode::BAD_REQUEST,
         }
+    }
+}
+
+impl From<MapperError> for ApiError {
+    fn from(error: MapperError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<PublishRoomEventError> for ApiError {
+    fn from(error: PublishRoomEventError) -> Self {
+        Self::from_error(error)
     }
 }

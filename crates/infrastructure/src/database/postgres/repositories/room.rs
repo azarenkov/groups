@@ -12,7 +12,8 @@ use domain::{
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
-    dto::room_type::RoomTypeDto, error::map_sqlx_error_to_domain_error,
+    dto::{room::RoomDto, room_type::RoomTypeDto},
+    error::map_sqlx_error_to_domain_error,
 };
 
 pub struct PostgresRoomRepository {
@@ -70,6 +71,48 @@ impl RoomRepository for PostgresRoomRepository {
             Some(row) => Ok(RoomName::new(row.name)),
             None => Err(RepositoryError::NotFound),
         }
+    }
+
+    async fn get_room_by_id(&self, room_id: &RoomId) -> Result<Room, RepositoryError> {
+        let dto = sqlx::query_as!(
+            RoomDto,
+            r#"
+                SELECT
+                    id,
+                    server_id,
+                    owner_id,
+                    name,
+                    max_participants,
+                    room_type as "room_type: RoomTypeDto",
+                    password_hash,
+                    created_at,
+                    updated_at,
+                    last_join
+                FROM rooms
+                WHERE id = $1
+            "#,
+            room_id.uuid()
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+
+        Ok(dto.into())
+    }
+
+    async fn room_exists(&self, room_id: &RoomId) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                SELECT EXISTS(SELECT 1 FROM rooms WHERE id = $1) as "exists!"
+            "#,
+            room_id.uuid()
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(result.exists)
     }
 
     async fn delete_room_by_owner(

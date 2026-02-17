@@ -75,7 +75,7 @@ where
             None
         };
 
-        let room = Room::new(server_id, owner_id, room_name, room_type, password_hash);
+        let room = Room::create(server_id, owner_id, room_name, room_type, password_hash);
         self.room_repository.create_room(&room).await?;
         Ok(room)
     }

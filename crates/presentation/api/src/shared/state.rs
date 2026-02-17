@@ -28,7 +28,7 @@ pub struct AppState {
     create_server_usecase: CreateServer<PostgresServerRepository>,
     delete_server_usecase: DeleteServer<PostgresServerRepository>,
 
-    publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
+    publish_room_event_usecase: PublishRoomEvent<NatsProducer, PostgresRoomRepository>,
 
     jwt_secret: String,
 }
@@ -50,7 +50,7 @@ impl AppState {
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
-        publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
+        publish_room_event_usecase: PublishRoomEvent<NatsProducer, PostgresRoomRepository>,
         jwt_secret: String,
     ) -> Self {
         Self {
@@ -102,7 +102,9 @@ impl AppState {
         &self.delete_room_usecase
     }
 
-    pub fn publish_room_event_usecase(&self) -> &PublishRoomEvent<NatsProducer> {
+    pub fn publish_room_event_usecase(
+        &self,
+    ) -> &PublishRoomEvent<NatsProducer, PostgresRoomRepository> {
         &self.publish_room_event_usecase
     }
 }

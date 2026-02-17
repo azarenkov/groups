@@ -11,10 +11,10 @@ pub struct NatsProducer {
 }
 
 impl NatsProducer {
-    pub fn new(jetstream: Context, nats_config: &NatsConfig) -> Self {
+    pub fn new(jetstream: Context, nats_config: NatsConfig) -> Self {
         Self {
             jetstream,
-            subject_prefix: nats_config.subject_prefix().to_string(),
+            subject_prefix: nats_config.subject_prefix,
         }
     }
 

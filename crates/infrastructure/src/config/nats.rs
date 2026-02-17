@@ -5,7 +5,7 @@ pub struct NatsConfig {
     #[serde(rename = "nats_url")]
     url: String,
     #[serde(rename = "nats_subject_prefix")]
-    subject_prefix: String,
+    pub subject_prefix: String,
 }
 
 impl NatsConfig {
@@ -16,9 +16,5 @@ impl NatsConfig {
 
     pub fn url(&self) -> &str {
         &self.url
-    }
-
-    pub fn subject_prefix(&self) -> &str {
-        &self.subject_prefix
     }
 }

@@ -53,15 +53,15 @@ where
         user_id: UserId,
     ) -> Result<RoomToken, GenerateTokenError> {
         let username = self.user_repository.get_username_by_id(&user_id).await?;
+        let room_id = RoomId::new(request.room_id);
 
-        let room_name = self
-            .room_repository
-            .get_room_name_by_id(&RoomId::new(request.room_id))
-            .await?;
+        if !self.room_repository.room_exists(&room_id).await? {
+            return Err(GenerateTokenError::Repository(RepositoryError::NotFound));
+        }
 
         let room_token = self
             .voice_service
-            .create_token(&user_id, &username, &room_name)
+            .create_token(&user_id, &username, &room_id)
             .await?;
 
         Ok(room_token)

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 async-trait = "0.1.89"
+chrono = "0.4.43"
 domain = { path = "../domain" }
 thiserror = "2.0.18"
 uuid = "1.20.0"

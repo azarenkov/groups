@@ -313,6 +313,7 @@ dependencies = [
  "jsonwebtoken 10.3.0",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
  "tracing",
  "uuid",
  "validator",
@@ -323,6 +324,7 @@ name = "application"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "domain",
  "thiserror 2.0.18",
  "uuid",
@@ -1792,6 +1794,7 @@ dependencies = [
  "async-nats",
  "async-trait",
  "bcrypt",
+ "chrono",
  "domain",
  "dotenv",
  "envy",

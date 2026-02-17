@@ -1,16 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::{
-    room::value_objects::id::RoomId,
-    user::value_objects::{id::UserId, name::UserName},
-};
+use crate::{room::value_objects::id::RoomId, user::value_objects::id::UserId};
 
 #[derive(Debug, Serialize)]
 pub struct ParticipantJoinedEvent {
     id: String,
     user_id: UserId,
-    user_name: UserName,
     room_id: RoomId,
     joined_at: DateTime<Utc>,
     created_at: DateTime<Utc>,
@@ -20,7 +16,6 @@ impl ParticipantJoinedEvent {
     pub fn new(
         id: String,
         user_id: UserId,
-        user_name: UserName,
         room_id: RoomId,
         joined_at: DateTime<Utc>,
         created_at: DateTime<Utc>,
@@ -28,7 +23,6 @@ impl ParticipantJoinedEvent {
         Self {
             id,
             user_id,
-            user_name,
             room_id,
             joined_at,
             created_at,
@@ -44,7 +38,6 @@ impl ParticipantJoinedEvent {
 pub struct ParticipantLeftEvent {
     id: String,
     user_id: UserId,
-    user_name: UserName,
     room_id: RoomId,
     joined_at: DateTime<Utc>,
     created_at: DateTime<Utc>,
@@ -54,7 +47,6 @@ impl ParticipantLeftEvent {
     pub fn new(
         id: String,
         user_id: UserId,
-        user_name: UserName,
         room_id: RoomId,
         joined_at: DateTime<Utc>,
         created_at: DateTime<Utc>,
@@ -62,7 +54,6 @@ impl ParticipantLeftEvent {
         Self {
             id,
             user_id,
-            user_name,
             room_id,
             joined_at,
             created_at,

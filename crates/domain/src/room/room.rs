@@ -26,6 +26,32 @@ pub struct Room {
 
 impl Room {
     pub fn new(
+        id: RoomId,
+        server_id: ServerId,
+        owner_id: UserId,
+        name: RoomName,
+        max_participants: MaxParticipants,
+        room_type: RoomType,
+        password_hash: Option<PasswordHash>,
+        created_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+        last_join: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            server_id,
+            owner_id,
+            name,
+            max_participants,
+            room_type,
+            password_hash,
+            created_at,
+            updated_at,
+            last_join,
+        }
+    }
+
+    pub fn create(
         server_id: ServerId,
         owner_id: UserId,
         name: RoomName,

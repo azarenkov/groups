@@ -1,8 +1,12 @@
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct UserId(Uuid);
+
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid user ID format")]
+pub struct InvalidUserId;
 
 impl UserId {
     pub fn new(uuid: Uuid) -> Self {
@@ -11,6 +15,11 @@ impl UserId {
 
     pub fn generate() -> Self {
         Self(Uuid::new_v4())
+    }
+
+    pub fn from_string(s: &str) -> Result<Self, InvalidUserId> {
+        let uuid = Uuid::parse_str(s).map_err(|_| InvalidUserId)?;
+        Ok(Self(uuid))
     }
 
     pub fn uuid(&self) -> Uuid {
