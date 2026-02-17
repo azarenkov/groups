@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 
 use crate::{
     server::value_objects::{description::ServerDescription, id::ServerId, name::ServerName},
     user::value_objects::id::UserId,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Server {
     id: ServerId,
     name: ServerName,

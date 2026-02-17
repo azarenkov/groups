@@ -1,6 +1,9 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    room::{create_room::CreateRoom, delete_room::DeleteRoom, generate_token::GenerateToken},
+    room::{
+        create_room::CreateRoom, delete_room::DeleteRoom, generate_token::GenerateToken,
+        publish_room_event::PublishRoomEvent,
+    },
     server::{create_server::CreateServer, delete_server::DeleteServer},
 };
 use infrastructure::{
@@ -9,6 +12,7 @@ use infrastructure::{
         user::PostgresUserRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    messaging::nats::producer::NatsProducer,
     voice::livekit_service::LiveKitService,
 };
 
@@ -17,10 +21,15 @@ pub struct AppState {
     generate_token_usecase:
         GenerateToken<LiveKitService, PostgresUserRepository, PostgresRoomRepository>,
     delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
+
     register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
     login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
+
     create_server_usecase: CreateServer<PostgresServerRepository>,
     delete_server_usecase: DeleteServer<PostgresServerRepository>,
+
+    publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
+
     jwt_secret: String,
 }
 
@@ -41,6 +50,7 @@ impl AppState {
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
+        publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
         jwt_secret: String,
     ) -> Self {
         Self {
@@ -51,6 +61,7 @@ impl AppState {
             login_user_usecase,
             create_server_usecase,
             delete_server_usecase,
+            publish_room_event_usecase,
             jwt_secret,
         }
     }
@@ -89,5 +100,9 @@ impl AppState {
 
     pub fn delete_room_usecase(&self) -> &DeleteRoom<PostgresRoomRepository> {
         &self.delete_room_usecase
+    }
+
+    pub fn publish_room_event_usecase(&self) -> &PublishRoomEvent<NatsProducer> {
+        &self.publish_room_event_usecase
     }
 }

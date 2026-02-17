@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 
 use crate::{
     room::value_objects::{
@@ -9,6 +10,7 @@ use crate::{
     user::value_objects::id::UserId,
 };
 
+#[derive(Debug, Serialize)]
 pub struct Room {
     id: RoomId,
     server_id: ServerId,

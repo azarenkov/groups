@@ -1,6 +1,8 @@
+use serde::Serialize;
+
 const MAX_PARTICIPANTS: u8 = 20;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct MaxParticipants(u8);
 
 impl MaxParticipants {

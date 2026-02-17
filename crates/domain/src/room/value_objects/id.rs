@@ -1,6 +1,7 @@
+use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct RoomId(Uuid);
 
 impl RoomId {

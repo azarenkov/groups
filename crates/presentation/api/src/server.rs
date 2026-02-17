@@ -3,11 +3,14 @@ use std::{error::Error, sync::Arc};
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    room::{create_room::CreateRoom, delete_room::DeleteRoom, generate_token::GenerateToken},
+    room::{
+        create_room::CreateRoom, delete_room::DeleteRoom, generate_token::GenerateToken,
+        publish_room_event::PublishRoomEvent,
+    },
     server::{create_server::CreateServer, delete_server::DeleteServer},
 };
 use infrastructure::{
-    config::{livekit::LiveKitConfig, postgres::PostgresConfig},
+    config::{livekit::LiveKitConfig, nats::NatsConfig, postgres::PostgresConfig},
     database::postgres::{
         connection::create_postgres_pool,
         repositories::{
@@ -16,6 +19,7 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    messaging::nats::{connection::create_jetstream, producer::NatsProducer},
     voice::livekit_service::LiveKitService,
 };
 
@@ -27,8 +31,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
+    let nats_config = NatsConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let nats_jetstream = create_jetstream(&nats_config).await?;
 
     let room_repository = Arc::new(PostgresRoomRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
@@ -36,6 +42,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
+
+    let event_producer = Arc::new(NatsProducer::new(nats_jetstream, &nats_config));
 
     let create_room_usecase = CreateRoom::new(
         room_repository.clone(),
@@ -52,6 +60,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
+    let publish_room_event_usecase = PublishRoomEvent::new(event_producer.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_room_usecase,
@@ -61,6 +70,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         login_user_usecase,
         create_server_usecase,
         delete_server_usecase,
+        publish_room_event_usecase,
         server_config.jwt_secret,
     ));
 
