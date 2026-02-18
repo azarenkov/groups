@@ -3,6 +3,7 @@ use async_trait::async_trait;
 
 use domain::{
     room::value_objects::{id::RoomId, name::RoomName, token::RoomToken},
+    server::value_objects::id::ServerId,
     user::value_objects::{id::UserId, name::UserName},
 };
 use livekit_api::{
@@ -29,10 +30,12 @@ impl VoiceService for LiveKitService {
         user_id: &UserId,
         username: &UserName,
         room_id: &RoomId,
+        server_id: &ServerId,
     ) -> Result<RoomToken, VoiceServiceError> {
         let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
             .with_identity(&user_id.uuid().to_string())
             .with_name(username.as_str())
+            .with_metadata(&server_id.uuid().to_string())
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: room_id.uuid().to_string(),

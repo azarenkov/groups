@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use domain::{
     room::value_objects::{id::RoomId, name::RoomName, token::RoomToken},
+    server::value_objects::id::ServerId,
     user::value_objects::{id::UserId, name::UserName},
 };
 
@@ -11,6 +12,7 @@ pub trait VoiceService {
         user_id: &UserId,
         username: &UserName,
         room_id: &RoomId,
+        server_id: &ServerId,
     ) -> Result<RoomToken, VoiceServiceError>;
     async fn create_voice_room(&self, room_name: &RoomName) -> Result<(), VoiceServiceError>;
 }
