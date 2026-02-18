@@ -1,17 +1,15 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use application::usecases::auth::login::LoginError;
+use shared::jwt::validation::encode_token_pair;
 use validator::Validate;
 
-use crate::{
-    middleware::auth::encode_token_pair,
-    shared::{
-        dto::{
-            requests::auth::{login::LoginUserRequest, registration::RegisterUserRequest},
-            responses::{ApiResponse, auth::registration::RegisterUserResponse},
-        },
-        error::ApiError,
-        state::AppState,
+use crate::shared::{
+    dto::{
+        requests::auth::{login::LoginUserRequest, registration::RegisterUserRequest},
+        responses::{ApiResponse, auth::registration::RegisterUserResponse},
     },
+    error::ApiError,
+    state::AppState,
 };
 
 #[post("/register")]
