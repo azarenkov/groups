@@ -1,5 +1,6 @@
 use std::{error::Error, sync::Arc};
 
+use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
@@ -75,8 +76,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     ));
 
     HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .max_age(3600);
+
         App::new()
             .app_data(app_state.clone())
+            .wrap(cors)
             .wrap(Logger::default())
             .configure(routes::configure)
     })

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 actix-web = "4.12.1"
+actix-cors = "0.7.0"
 application = { path = "../../application" }
 domain = { path = "../../domain" }
 infrastructure = { path = "../../infrastructure" }
