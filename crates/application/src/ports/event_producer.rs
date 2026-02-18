@@ -1,11 +1,9 @@
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait EventProducer<T>
-where
-    T: Send + Sync,
-{
+pub trait EventProducer<T> {
     async fn publish(&self, event: &T) -> Result<(), EventProducerError>;
+    async fn delete_events_by_id(&self, id: String) -> Result<(), EventProducerError>;
 }
 
 #[derive(Debug, thiserror::Error)]

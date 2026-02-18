@@ -3,7 +3,7 @@ use async_nats::jetstream::Context;
 use async_trait::async_trait;
 use domain::room::events::RoomEvent;
 
-use crate::config::nats::NatsConfig;
+use crate::{config::nats::NatsConfig, messaging::nats::connection::STREAM_NAME};
 
 pub struct NatsProducer {
     jetstream: Context,
@@ -42,6 +42,24 @@ impl EventProducer<RoomEvent> for NatsProducer {
 
         ack.await
             .map_err(|e| EventProducerError::Ack(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn delete_events_by_id(&self, id: String) -> Result<(), EventProducerError> {
+        let subject_filter = format!("{}.{}.*", self.subject_prefix, id);
+
+        let stream = self
+            .jetstream
+            .get_stream(STREAM_NAME.to_string())
+            .await
+            .map_err(|e| EventProducerError::Publish(format!("Failed to get stream: {}", e)))?;
+
+        stream
+            .purge()
+            .filter(&subject_filter)
+            .await
+            .map_err(|e| EventProducerError::Publish(format!("Failed to purge events: {}", e)))?;
 
         Ok(())
     }

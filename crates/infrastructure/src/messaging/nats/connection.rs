@@ -5,6 +5,7 @@ use async_nats::jetstream::{self, Context};
 use crate::config::nats::NatsConfig;
 
 const MAX_AGE_HOURS: u64 = 2190;
+pub const STREAM_NAME: &str = "ROOM_EVENTS";
 
 pub async fn create_jetstream(config: &NatsConfig) -> Result<Context, Box<dyn Error>> {
     let client = async_nats::connect(config.url()).await?;
@@ -23,7 +24,7 @@ async fn initialize_streams(
 
     jetstream
         .get_or_create_stream(jetstream::stream::Config {
-            name: "ROOM_EVENTS".to_string(),
+            name: STREAM_NAME.to_string(),
             subjects: vec![subject_pattern],
             storage: jetstream::stream::StorageType::File,
             max_age: std::time::Duration::from_hours(MAX_AGE_HOURS),

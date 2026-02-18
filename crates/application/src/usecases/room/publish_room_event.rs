@@ -35,8 +35,13 @@ where
 
     pub async fn execute(&self, dto: RoomEventDto) -> Result<(), PublishRoomEventError> {
         let event = EventMapper::to_domain_event(dto)?;
+        let room_id = event.room_id().uuid().to_string();
 
         self.event_producer.publish(&event).await?;
+
+        if let RoomEvent::RoomFinished(_) = &event {
+            self.event_producer.delete_events_by_id(room_id).await?;
+        }
 
         Ok(())
     }
