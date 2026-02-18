@@ -4,6 +4,6 @@ members = [
     "crates/domain",
     "crates/application",
     "crates/infrastructure",
-    "crates/presentation/api"
-    # "crates/presentation/desktop-client"
-, "crates/shared"]
+    "crates/presentation/api",
+    "crates/shared",
+    "crates/presentation/websocket"]
