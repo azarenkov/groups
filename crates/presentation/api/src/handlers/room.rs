@@ -7,13 +7,8 @@ use crate::{
     middleware::auth::AuthToken,
     shared::{
         dto::{
-            requests::{
-                room::create_room::CreateRoomRequest, room::genereate_token::GenerateTokenRequest,
-            },
-            responses::{
-                ApiResponse, room::create_room::CreateRoomResponse,
-                room::generate_token::GenerateTokenResponse,
-            },
+            requests::room::create_room::CreateRoomRequest,
+            responses::{ApiResponse, room::create_room::CreateRoomResponse},
         },
         error::ApiError,
         state::AppState,
@@ -37,27 +32,6 @@ async fn create_room(
         .await?;
 
     let response = CreateRoomResponse::from(room);
-
-    Ok(HttpResponse::Created().json(ApiResponse::success(response)))
-}
-
-#[post("/generate_token")]
-async fn generate_token(
-    auth_token: AuthToken,
-    app_state: web::Data<AppState>,
-    request: web::Json<GenerateTokenRequest>,
-) -> Result<impl Responder, ApiError> {
-    let request: GenerateTokenRequest = request.into_inner();
-    request.validate()?;
-
-    let user_id = UserId::new(auth_token.id);
-
-    let token = app_state
-        .generate_token_usecase()
-        .execute((&request).into(), user_id)
-        .await?;
-
-    let response = GenerateTokenResponse::new(token.to_string(), request.room_id);
 
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }

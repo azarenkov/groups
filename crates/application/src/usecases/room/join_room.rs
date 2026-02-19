@@ -11,61 +11,60 @@ use domain::{
 };
 
 use crate::{
-    dto::requests::room::generate_token::GenerateTokenRequest,
+    dto::requests::room::join_room::JoinRoomRequest,
     ports::voice_service::{VoiceService, VoiceServiceError},
 };
 
 #[derive(Debug, thiserror::Error)]
-pub enum GenerateTokenError {
+pub enum JoinRoomError {
     #[error("Voice service error: {0}")]
     VoiceService(#[from] VoiceServiceError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
 }
 
-pub struct GenerateToken<T, R, U>
+#[derive(Debug)]
+pub struct JoinRoom<T, U, R>
 where
     T: VoiceService,
-    R: UserRepository,
     U: RoomRepository,
+    R: UserRepository,
 {
     voice_service: Arc<T>,
-    user_repository: Arc<R>,
     room_repository: Arc<U>,
+    user_repository: Arc<R>,
 }
 
-impl<T, R, U> GenerateToken<T, R, U>
+impl<T, U, R> JoinRoom<T, U, R>
 where
     T: VoiceService,
-    R: UserRepository,
     U: RoomRepository,
+    R: UserRepository,
 {
-    pub fn new(voice_service: Arc<T>, user_repository: Arc<R>, room_repository: Arc<U>) -> Self {
-        Self {
-            voice_service,
-            user_repository,
-            room_repository,
-        }
-    }
-
     pub async fn execute(
         &self,
-        request: GenerateTokenRequest,
+        request: JoinRoomRequest,
         user_id: UserId,
-    ) -> Result<RoomToken, GenerateTokenError> {
-        let username = self.user_repository.get_username_by_id(&user_id).await?;
+    ) -> Result<RoomToken, JoinRoomError> {
         let room_id = RoomId::new(request.room_id);
         let server_id = ServerId::new(request.server_id);
-
-        if !self.room_repository.room_exists(&room_id).await? {
-            return Err(GenerateTokenError::Repository(RepositoryError::NotFound));
+        let username = self.user_repository.get_username_by_id(&user_id).await?;
+        if !self
+            .room_repository
+            .room_exists_with_server_id(&room_id, &server_id)
+            .await?
+        {
+            return Err(JoinRoomError::Repository(RepositoryError::NotFound));
         }
+
+        self.voice_service
+            .create_voice_room(&room_id, &server_id)
+            .await?;
 
         let room_token = self
             .voice_service
-            .create_token(&user_id, &username, &room_id, &server_id)
+            .create_token(&user_id, &username, &room_id)
             .await?;
-
         Ok(room_token)
     }
 }

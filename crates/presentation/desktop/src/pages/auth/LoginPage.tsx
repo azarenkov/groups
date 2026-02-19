@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { motion } from 'framer-motion';
-import { useAuthStore } from '../../store/authStore';
-import { authAPI } from '../../api/auth';
-import '../../styles/AuthPage.css';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { motion } from "framer-motion";
+import { useAuthStore } from "../../store/authStore";
+import { authAPI } from "../../api/auth";
+import "../../styles/AuthPage.css";
 
 interface LoginFormData {
   email: string;
@@ -38,15 +38,17 @@ const LoginPage: React.FC = () => {
           refreshToken: response.refreshToken,
         },
         {
-          id: response.userId || '',
-          name: data.email.split('@')[0], // Temporary until we get name from API
+          id: response.userId || "",
+          name: data.email.split("@")[0], // Temporary until we get name from API
           email: data.email,
-        }
+        },
       );
 
-      navigate('/app');
+      navigate("/app");
     } catch (err: any) {
-      setError(err.message || 'Failed to login. Please check your credentials.');
+      setError(
+        err.message || "Failed to login. Please check your credentials.",
+      );
     } finally {
       setLoading(false);
     }
@@ -78,14 +80,14 @@ const LoginPage: React.FC = () => {
               <input
                 id="email"
                 type="email"
-                {...register('email', {
-                  required: 'Email is required',
+                {...register("email", {
+                  required: "Email is required",
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address',
+                    message: "Invalid email address",
                   },
                 })}
-                className={errors.email ? 'error' : ''}
+                className={errors.email ? "error" : ""}
                 disabled={isLoading}
               />
               {errors.email && (
@@ -100,19 +102,19 @@ const LoginPage: React.FC = () => {
               <div className="password-input-wrapper">
                 <input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  {...register('password', {
-                    required: 'Password is required',
+                  type={showPassword ? "text" : "password"}
+                  {...register("password", {
+                    required: "Password is required",
                     minLength: {
                       value: 4,
-                      message: 'Password must be at least 4 characters',
+                      message: "Password must be at least 4 characters",
                     },
                     maxLength: {
                       value: 30,
-                      message: 'Password must be less than 30 characters',
+                      message: "Password must be less than 30 characters",
                     },
                   })}
-                  className={errors.password ? 'error' : ''}
+                  className={errors.password ? "error" : ""}
                   disabled={isLoading}
                 />
                 <button
@@ -121,7 +123,7 @@ const LoginPage: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   tabIndex={-1}
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                  {showPassword ? "👁️" : "👁️‍🗨️"}
                 </button>
               </div>
               {errors.password && (
@@ -137,7 +139,7 @@ const LoginPage: React.FC = () => {
               <motion.div
                 className="auth-error"
                 initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
+                animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
               >
                 {error}
@@ -149,16 +151,11 @@ const LoginPage: React.FC = () => {
               className="auth-submit-button"
               disabled={isLoading}
             >
-              {isLoading ? (
-                <span className="loading-spinner"></span>
-              ) : (
-                'Log In'
-              )}
+              {isLoading ? <span className="loading-spinner"></span> : "Log In"}
             </button>
 
             <div className="auth-footer">
-              <span>Need an account?</span>{' '}
-              <Link to="/register">Register</Link>
+              <span>Need an account?</span> <Link to="/register">Register</Link>
             </div>
           </form>
         </div>

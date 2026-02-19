@@ -6,6 +6,7 @@ use domain::{
         repository::RoomRepository,
         value_objects::{id::RoomId, name::RoomName},
     },
+    server::value_objects::id::ServerId,
     shared::repository::error::RepositoryError,
     user::value_objects::id::UserId,
 };
@@ -107,6 +108,25 @@ impl RoomRepository for PostgresRoomRepository {
                 SELECT EXISTS(SELECT 1 FROM rooms WHERE id = $1) as "exists!"
             "#,
             room_id.uuid()
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(result.exists)
+    }
+
+    async fn room_exists_with_server_id(
+        &self,
+        room_id: &RoomId,
+        server_id: &ServerId,
+    ) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                SELECT EXISTS(SELECT 1 FROM rooms WHERE id = $1 AND server_id = $2) as "exists!"
+            "#,
+            room_id.uuid(),
+            server_id.uuid()
         )
         .fetch_one(&self.pool)
         .await

@@ -3,10 +3,7 @@ use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
 use application::usecases::room::publish_room_event::PublishRoomEventError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
-    room::{
-        create_room::CreateRoomError, delete_room::DeleteRoomError,
-        generate_token::GenerateTokenError,
-    },
+    room::{create_room::CreateRoomError, delete_room::DeleteRoomError},
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
 use domain::shared::repository::error::RepositoryError;
@@ -128,22 +125,6 @@ impl ToHttpStatus for CreateRoomError {
     }
 }
 
-impl ToHttpStatus for GenerateTokenError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            GenerateTokenError::Repository(e) => e.to_http_status(),
-            GenerateTokenError::VoiceService(e) => e.to_http_status(),
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            GenerateTokenError::Repository(e) => e.to_user_message(),
-            GenerateTokenError::VoiceService(e) => e.to_user_message(),
-        }
-    }
-}
-
 impl ToHttpStatus for DeleteRoomError {
     fn to_http_status(&self) -> StatusCode {
         let DeleteRoomError::Repository(e) = self;
@@ -258,12 +239,6 @@ impl ResponseError for ApiError {
 
 impl From<CreateRoomError> for ApiError {
     fn from(error: CreateRoomError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<GenerateTokenError> for ApiError {
-    fn from(error: GenerateTokenError) -> Self {
         Self::from_error(error)
     }
 }

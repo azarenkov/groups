@@ -5,8 +5,7 @@ use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     room::{
-        create_room::CreateRoom, delete_room::DeleteRoom, generate_token::GenerateToken,
-        publish_room_event::PublishRoomEvent,
+        create_room::CreateRoom, delete_room::DeleteRoom, publish_room_event::PublishRoomEvent,
     },
     server::{create_server::CreateServer, delete_server::DeleteServer},
 };
@@ -51,11 +50,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         hasher.clone(),
         server_repository.clone(),
     );
-    let generate_token_usecase = GenerateToken::new(
-        livekit_service.clone(),
-        user_repository.clone(),
-        room_repository.clone(),
-    );
+
     let delete_room_usecase = DeleteRoom::new(room_repository.clone());
     let register_user_usecase = RegisterUser::new(user_repository.clone(), hasher.clone());
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
@@ -65,7 +60,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let app_state = web::Data::new(AppState::new(
         create_room_usecase,
-        generate_token_usecase,
         delete_room_usecase,
         register_user_usecase,
         login_user_usecase,

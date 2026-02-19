@@ -1,8 +1,7 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     room::{
-        create_room::CreateRoom, delete_room::DeleteRoom, generate_token::GenerateToken,
-        publish_room_event::PublishRoomEvent,
+        create_room::CreateRoom, delete_room::DeleteRoom, publish_room_event::PublishRoomEvent,
     },
     server::{create_server::CreateServer, delete_server::DeleteServer},
 };
@@ -13,13 +12,11 @@ use infrastructure::{
     },
     hasher::bcrypt_hasher::BcryptHasher,
     messaging::nats::producer::NatsProducer,
-    voice::livekit_service::LiveKitService,
 };
 
 pub struct AppState {
     create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher, PostgresServerRepository>,
-    generate_token_usecase:
-        GenerateToken<LiveKitService, PostgresUserRepository, PostgresRoomRepository>,
+
     delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
 
     register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
@@ -41,11 +38,6 @@ impl AppState {
             BcryptHasher,
             PostgresServerRepository,
         >,
-        generate_token_usecase: GenerateToken<
-            LiveKitService,
-            PostgresUserRepository,
-            PostgresRoomRepository,
-        >,
         delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
         register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
@@ -56,7 +48,6 @@ impl AppState {
     ) -> Self {
         Self {
             create_room_usecase,
-            generate_token_usecase,
             delete_room_usecase,
             register_user_usecase,
             login_user_usecase,
@@ -71,12 +62,6 @@ impl AppState {
         &self,
     ) -> &CreateRoom<PostgresRoomRepository, BcryptHasher, PostgresServerRepository> {
         &self.create_room_usecase
-    }
-
-    pub fn generate_token_usecase(
-        &self,
-    ) -> &GenerateToken<LiveKitService, PostgresUserRepository, PostgresRoomRepository> {
-        &self.generate_token_usecase
     }
 
     pub fn jwt_secret(&self) -> &str {

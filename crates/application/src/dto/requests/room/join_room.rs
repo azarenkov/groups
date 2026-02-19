@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
 #[derive(Debug)]
-pub struct GenerateTokenRequest {
+pub struct JoinRoomRequest {
     pub room_id: Uuid,
     pub server_id: Uuid,
 }
