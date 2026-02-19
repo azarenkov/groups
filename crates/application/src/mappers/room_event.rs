@@ -10,8 +10,12 @@ use domain::{
         },
         value_objects::id::{InvalidRoomId, RoomId},
     },
+    server::value_objects::id::{InvalidServerId, ServerId},
     shared::value_objects::track_type::{InvalidTrackType, TrackType},
-    user::value_objects::id::{InvalidUserId, UserId},
+    user::value_objects::{
+        id::{InvalidUserId, UserId},
+        name::UserName,
+    },
 };
 
 use crate::dto::requests::room::events::{
@@ -25,6 +29,8 @@ pub enum EventMapperError {
     InvalidRoomId(#[from] InvalidRoomId),
     #[error("Invalid user ID: {0}")]
     InvalidUserId(#[from] InvalidUserId),
+    #[error("Invalid user ID: {0}")]
+    InvalidServerId(#[from] InvalidServerId),
     #[error("Invalid track type: {0}")]
     InvalidTrackType(#[from] InvalidTrackType),
     #[error("Invalid timestamp")]
@@ -57,6 +63,7 @@ impl EventMapper {
         Ok(RoomStartedEvent::new(
             request.id,
             RoomId::from_string(&request.room_id)?,
+            ServerId::from_string(&request.server_id)?,
             created_at,
         ))
     }
@@ -64,20 +71,25 @@ impl EventMapper {
     fn map_room_finished(request: RoomEventRequest) -> Result<RoomFinishedEvent, EventMapperError> {
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let room_id = RoomId::from_string(&request.room_id)?;
+        let server_id = ServerId::from_string(&request.server_id)?;
 
-        Ok(RoomFinishedEvent::new(request.id, room_id, created_at))
+        Ok(RoomFinishedEvent::new(
+            request.id, room_id, server_id, created_at,
+        ))
     }
 
     fn map_participant_joined(
         request: ParticipantEventRequest,
     ) -> Result<ParticipantJoinedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let user_name = UserName::new(request.user_name);
         let room_id = RoomId::from_string(&request.room_id)?;
+        let server_id = ServerId::from_string(&request.server_id)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let joined_at = Self::timestamp_to_datetime(request.joined_at)?;
 
         Ok(ParticipantJoinedEvent::new(
-            request.id, user_id, room_id, joined_at, created_at,
+            request.id, user_id, user_name, room_id, server_id, joined_at, created_at,
         ))
     }
 
@@ -85,12 +97,14 @@ impl EventMapper {
         request: ParticipantEventRequest,
     ) -> Result<ParticipantLeftEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let user_name = UserName::new(request.user_name);
         let room_id = RoomId::from_string(&request.room_id)?;
+        let server_id = ServerId::from_string(&request.server_id)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let joined_at = Self::timestamp_to_datetime(request.joined_at)?;
 
         Ok(ParticipantLeftEvent::new(
-            request.id, user_id, room_id, joined_at, created_at,
+            request.id, user_id, user_name, room_id, server_id, joined_at, created_at,
         ))
     }
 
@@ -98,12 +112,14 @@ impl EventMapper {
         request: TrackEventRequest,
     ) -> Result<TrackPublishedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let user_name = UserName::new(request.user_name);
         let room_id = RoomId::from_string(&request.room_id)?;
+        let server_id = ServerId::from_string(&request.server_id)?;
         let track_type = TrackType::from_string(&request.r#type)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
 
         Ok(TrackPublishedEvent::new(
-            request.id, user_id, room_id, track_type, created_at,
+            request.id, user_id, user_name, room_id, server_id, track_type, created_at,
         ))
     }
 
@@ -111,12 +127,14 @@ impl EventMapper {
         request: TrackEventRequest,
     ) -> Result<TrackUnpublishedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
+        let user_name = UserName::new(request.user_name);
         let room_id = RoomId::from_string(&request.room_id)?;
+        let server_id = ServerId::from_string(&request.server_id)?;
         let track_type = TrackType::from_string(&request.r#type)?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
 
         Ok(TrackUnpublishedEvent::new(
-            request.id, user_id, room_id, track_type, created_at,
+            request.id, user_id, user_name, room_id, server_id, track_type, created_at,
         ))
     }
 

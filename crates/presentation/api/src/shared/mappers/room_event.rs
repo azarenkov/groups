@@ -18,6 +18,7 @@ impl RoomEventMapper {
             created_at: request.created_at,
             id: request.id,
             room_id: request.room.name,
+            server_id: request.room.metadata,
         }
     }
 
@@ -35,6 +36,8 @@ impl RoomEventMapper {
             user_id: request.participant.identity,
             joined_at,
             room_id: request.room.name,
+            server_id: request.room.metadata,
+            user_name: request.participant.name,
         })
     }
 
@@ -45,6 +48,8 @@ impl RoomEventMapper {
             user_id: request.participant.identity,
             room_id: request.room.name,
             r#type: request.track.r#type,
+            server_id: request.room.metadata,
+            user_name: request.participant.name,
         }
     }
 
