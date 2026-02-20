@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chrono = "0.4.43"
+envy = { workspace = true }
+dotenv = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
 jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
-serde = { version = "1.0.228", features = ["derive"] }
-uuid = "1.21.0"
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 actix-governor = "0.10.0"
-envy = "0.4.2"
-dotenv = "0.15.0"
