@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::{
     server::{Server, value_objects::id::ServerId},
     shared::repository::error::RepositoryError,
-    user::value_objects::id::UserId,
+    user::{User, value_objects::id::UserId},
 };
 
 #[async_trait]
@@ -14,6 +14,15 @@ pub trait ServerRepository {
         &self,
         user_id: &UserId,
     ) -> Result<Vec<Server>, RepositoryError>;
+    async fn get_users_by_server_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<User>, RepositoryError>;
+    async fn add_member_to_server(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<(), RepositoryError>;
     async fn delete_server_by_owner(
         &self,
         server_id: &ServerId,

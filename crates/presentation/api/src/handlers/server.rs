@@ -12,6 +12,7 @@ use crate::{
                 ApiResponse,
                 server::{
                     create_server::CreateServerResponse,
+                    list_server_members::ListServersMembersResponse,
                     list_servers_by_user::ListServersByUserResponse,
                 },
             },
@@ -53,6 +54,24 @@ async fn list_servers_by_user(
         .await?;
 
     let response: Vec<ListServersByUserResponse> = servers.into_iter().map(|s| s.into()).collect();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[get("/{server_id}/members")]
+async fn list_server_members(
+    _auth_token: AuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let server_id = ServerId::new(path.into_inner());
+
+    let members = app_state
+        .list_server_members_usecase()
+        .execute(server_id)
+        .await?;
+
+    let response: Vec<ListServersMembersResponse> = members.into_iter().map(|m| m.into()).collect();
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

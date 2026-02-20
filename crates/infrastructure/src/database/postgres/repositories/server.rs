@@ -3,11 +3,14 @@ use async_trait::async_trait;
 use domain::{
     server::{Server, repository::ServerRepository, value_objects::id::ServerId},
     shared::repository::error::RepositoryError,
-    user::value_objects::id::UserId,
+    user::{User, value_objects::id::UserId},
 };
 use sqlx::{Pool, Postgres};
 
-use crate::database::postgres::{dto::server::ServerDto, error::map_sqlx_error_to_domain_error};
+use crate::database::postgres::{
+    dto::{server::ServerDto, user::UserDto},
+    error::map_sqlx_error_to_domain_error,
+};
 
 pub struct PostgresServerRepository {
     pool: Pool<Postgres>,
@@ -36,11 +39,17 @@ impl ServerRepository for PostgresServerRepository {
     }
 
     async fn create_server(&self, server: &Server) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
         sqlx::query!(
             r#"
-                   INSERT INTO servers (id, name, owner_id, description, created_at, updated_at)
-                   VALUES ($1, $2, $3, $4, $5, $6)
-               "#,
+                INSERT INTO servers (id, name, owner_id, description, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
             server.id().uuid(),
             server.name().as_str(),
             server.owner_id().uuid(),
@@ -48,9 +57,23 @@ impl ServerRepository for PostgresServerRepository {
             server.created_at(),
             server.updated_at()
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                INSERT INTO server_members (server_id, user_id, joined_at)
+                VALUES ($1, $2, NOW())
+            "#,
+            server.id().uuid(),
+            server.owner_id().uuid()
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
     }
@@ -74,6 +97,49 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(servers.into_iter().map(|dto| dto.into()).collect())
+    }
+
+    async fn get_users_by_server_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<User>, RepositoryError> {
+        let users = sqlx::query_as!(
+            UserDto,
+            r#"
+                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at
+                FROM users u
+                INNER JOIN server_members sm ON sm.user_id = u.id
+                WHERE sm.server_id = $1
+                ORDER BY sm.joined_at ASC
+            "#,
+            server_id.uuid()
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(users.into_iter().map(|dto| dto.into()).collect())
+    }
+
+    async fn add_member_to_server(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+                INSERT INTO server_members (server_id, user_id, joined_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (server_id, user_id) DO NOTHING
+            "#,
+            server_id.uuid(),
+            user_id.uuid()
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(())
     }
 
     async fn delete_server_by_owner(

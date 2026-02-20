@@ -6,7 +6,7 @@ use application::usecases::{
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
-        list_servers_by_user::ListServersByUser,
+        list_server_members::ListServerMembers, list_servers_by_user::ListServersByUser,
     },
 };
 use infrastructure::{
@@ -30,6 +30,7 @@ pub struct AppState {
     create_server_usecase: CreateServer<PostgresServerRepository>,
     delete_server_usecase: DeleteServer<PostgresServerRepository>,
     list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
+    list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
 
     publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
 
@@ -51,6 +52,7 @@ impl AppState {
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
+        list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
         jwt_secret: String,
     ) -> Self {
@@ -63,6 +65,7 @@ impl AppState {
             create_server_usecase,
             delete_server_usecase,
             list_servers_by_user_usecase,
+            list_server_members_usecase,
             publish_room_event_usecase,
             jwt_secret,
         }
@@ -110,5 +113,9 @@ impl AppState {
 
     pub fn list_servers_by_user_usecase(&self) -> &ListServersByUser<PostgresServerRepository> {
         &self.list_servers_by_user_usecase
+    }
+
+    pub fn list_server_members_usecase(&self) -> &ListServerMembers<PostgresServerRepository> {
+        &self.list_server_members_usecase
     }
 }

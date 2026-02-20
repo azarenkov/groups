@@ -10,7 +10,7 @@ use application::usecases::{
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
-        list_servers_by_user::ListServersByUser,
+        list_server_members::ListServerMembers, list_servers_by_user::ListServersByUser,
     },
 };
 use infrastructure::{
@@ -68,7 +68,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
-    let list_servers_by_user = ListServersByUser::new(server_repository.clone());
+    let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
+    let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let publish_room_event_usecase = PublishRoomEvent::new(event_producer.clone());
 
     let app_state = web::Data::new(AppState::new(
@@ -79,13 +80,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         login_user_usecase,
         create_server_usecase,
         delete_server_usecase,
-        list_servers_by_user,
+        list_servers_by_user_usecase,
+        list_server_members_usecase,
         publish_room_event_usecase,
         server_config.jwt_secret,
     ));
 
     let governor_config = create_governor_config(rate_limiting_config)
-        .ok_or_else(|| "Failed to create rate limiting configuration: invalid parameters")?;
+        .ok_or("Failed to create rate limiting configuration: invalid parameters")?;
 
     HttpServer::new(move || {
         let cors = Cors::default()
