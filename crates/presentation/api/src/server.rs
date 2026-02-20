@@ -23,6 +23,9 @@ use infrastructure::{
     messaging::nats::{connection::create_jetstream, producer::NatsProducer},
     voice::livekit_service::LiveKitService,
 };
+use shared::rate_limiting::{
+    config::RateLimitingConfig, create_governor_config, create_rate_limiting,
+};
 
 use crate::{config::ServerConfig, routes, shared::state::AppState};
 
@@ -33,6 +36,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;
+    let rate_limiting_config = RateLimitingConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let nats_jetstream = create_jetstream(&nats_config).await?;
@@ -75,6 +79,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         server_config.jwt_secret,
     ));
 
+    let governor_config = create_governor_config(rate_limiting_config)
+        .ok_or_else(|| "Failed to create rate limiting configuration: invalid parameters")?;
+
     HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
@@ -82,10 +89,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .allow_any_header()
             .max_age(3600);
 
+        let rate_limiting = create_rate_limiting(&governor_config);
+
         App::new()
             .app_data(app_state.clone())
             .wrap(cors)
             .wrap(Logger::default())
+            .wrap(rate_limiting)
             .configure(routes::configure)
     })
     .bind((server_config.host, server_config.port))?

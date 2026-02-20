@@ -131,6 +131,8 @@ services:
       JWT_SECRET: your-secret-key-change-in-production
       HOST: 0.0.0.0
       PORT: 8080
+      RATE_LIMITING_REQUESTS: 10
+      RATE_LIMITING_BURST_SIZE: 20
 
       # LiveKit (LiveKitConfig)
       LIVEKIT_API_KEY: devkey
