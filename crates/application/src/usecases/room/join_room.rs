@@ -41,6 +41,14 @@ where
     U: RoomRepository,
     R: UserRepository,
 {
+    pub fn new(voice_service: Arc<T>, room_repository: Arc<U>, user_repository: Arc<R>) -> Self {
+        Self {
+            voice_service,
+            room_repository,
+            user_repository,
+        }
+    }
+
     pub async fn execute(
         &self,
         request: JoinRoomRequest,

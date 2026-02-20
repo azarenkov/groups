@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, Responder, delete, post, web};
+use application::dto::requests::room::join_room::JoinRoomRequest as AppJoinRoomRequest;
 use domain::{room::value_objects::id::RoomId, user::value_objects::id::UserId};
 use uuid::Uuid;
 use validator::Validate;
@@ -7,8 +8,11 @@ use crate::{
     middleware::auth::AuthToken,
     shared::{
         dto::{
-            requests::room::create_room::CreateRoomRequest,
-            responses::{ApiResponse, room::create_room::CreateRoomResponse},
+            requests::room::{create_room::CreateRoomRequest, join_room::JoinRoomRequest},
+            responses::{
+                ApiResponse,
+                room::{create_room::CreateRoomResponse, join_room::JoinRoomResponse},
+            },
         },
         error::ApiError,
         state::AppState,
@@ -34,6 +38,27 @@ async fn create_room(
     let response = CreateRoomResponse::from(room);
 
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
+}
+
+#[post("/{room_id}/join")]
+async fn join_room(
+    auth_token: AuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    request: web::Json<JoinRoomRequest>,
+) -> Result<impl Responder, ApiError> {
+    let room_id = path.into_inner();
+    let request = request.into_inner();
+
+    let user_id = UserId::new(auth_token.id);
+
+    let data = AppJoinRoomRequest::new(room_id, request.server_id);
+
+    let token = app_state.join_room_usecase().execute(data, user_id).await?;
+
+    let response = JoinRoomResponse::from(token);
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
 #[delete("/{room_id}")]

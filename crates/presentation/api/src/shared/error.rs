@@ -1,5 +1,6 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
+use application::usecases::room::join_room::JoinRoomError;
 use application::usecases::room::publish_room_event::PublishRoomEventError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
@@ -197,6 +198,22 @@ impl ToHttpStatus for DeleteServerError {
     }
 }
 
+impl ToHttpStatus for JoinRoomError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            JoinRoomError::VoiceService(e) => e.to_http_status(),
+            JoinRoomError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            JoinRoomError::VoiceService(e) => e.to_user_message(),
+            JoinRoomError::Repository(e) => e.to_user_message(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ApiError {
     message: String,
@@ -291,6 +308,12 @@ impl From<MapperError> for ApiError {
 
 impl From<PublishRoomEventError> for ApiError {
     fn from(error: PublishRoomEventError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<JoinRoomError> for ApiError {
+    fn from(error: JoinRoomError) -> Self {
         Self::from_error(error)
     }
 }

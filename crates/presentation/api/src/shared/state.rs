@@ -1,7 +1,8 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     room::{
-        create_room::CreateRoom, delete_room::DeleteRoom, publish_room_event::PublishRoomEvent,
+        create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom,
+        publish_room_event::PublishRoomEvent,
     },
     server::{create_server::CreateServer, delete_server::DeleteServer},
 };
@@ -12,11 +13,12 @@ use infrastructure::{
     },
     hasher::bcrypt_hasher::BcryptHasher,
     messaging::nats::producer::NatsProducer,
+    voice::livekit_service::LiveKitService,
 };
 
 pub struct AppState {
     create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher, PostgresServerRepository>,
-
+    join_room_usecase: JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository>,
     delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
 
     register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
@@ -38,6 +40,7 @@ impl AppState {
             BcryptHasher,
             PostgresServerRepository,
         >,
+        join_room_usecase: JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository>,
         delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
         register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
@@ -48,6 +51,7 @@ impl AppState {
     ) -> Self {
         Self {
             create_room_usecase,
+            join_room_usecase,
             delete_room_usecase,
             register_user_usecase,
             login_user_usecase,
@@ -90,5 +94,11 @@ impl AppState {
 
     pub fn publish_room_event_usecase(&self) -> &PublishRoomEvent<NatsProducer> {
         &self.publish_room_event_usecase
+    }
+
+    pub fn join_room_usecase(
+        &self,
+    ) -> &JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository> {
+        &self.join_room_usecase
     }
 }
