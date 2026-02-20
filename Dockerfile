@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 rustlang/rust:nightly-bookworm as chef
+FROM rustlang/rust:nightly-bookworm as chef
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
@@ -40,7 +40,7 @@ RUN cargo chef cook --release
 COPY . .
 RUN cargo build --release
 
-FROM --platform=linux/arm64 debian:bookworm-slim
+FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libglib2.0-0 \
