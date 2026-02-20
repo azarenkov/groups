@@ -43,6 +43,10 @@ impl TrackPublishedEvent {
     pub fn room_id(&self) -> &RoomId {
         &self.room_id
     }
+
+    pub fn server_id(&self) -> &ServerId {
+        &self.server_id
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -79,5 +83,9 @@ impl TrackUnpublishedEvent {
 
     pub fn room_id(&self) -> &RoomId {
         &self.room_id
+    }
+
+    pub fn server_id(&self) -> &ServerId {
+        &self.server_id
     }
 }

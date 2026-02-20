@@ -5,7 +5,7 @@ use async_nats::jetstream::{self, Context};
 use crate::config::nats::NatsConfig;
 
 const MAX_AGE_HOURS: u64 = 2190;
-pub const STREAM_NAME: &str = "ROOM_EVENTS";
+pub const STREAM_NAME: &str = "RIFT_EVENTS";
 
 pub async fn create_jetstream(config: &NatsConfig) -> Result<Context, Box<dyn Error>> {
     let client = async_nats::connect(config.url()).await?;

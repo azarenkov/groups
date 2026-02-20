@@ -42,6 +42,10 @@ impl ParticipantJoinedEvent {
     pub fn room_id(&self) -> &RoomId {
         &self.room_id
     }
+
+    pub fn server_id(&self) -> &ServerId {
+        &self.server_id
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -78,5 +82,9 @@ impl ParticipantLeftEvent {
 
     pub fn room_id(&self) -> &RoomId {
         &self.room_id
+    }
+
+    pub fn server_id(&self) -> &ServerId {
+        &self.server_id
     }
 }

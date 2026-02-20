@@ -141,7 +141,7 @@ services:
 
       # NATS (NatsConfig)
       NATS_URL: nats://nats:4222
-      NATS_SUBJECT_PREFIX: room.events
+      NATS_SUBJECT_PREFIX: rift.events
       NATS_REPLICAS: 1
 
       # Logging

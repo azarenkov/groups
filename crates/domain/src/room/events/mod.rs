@@ -1,12 +1,17 @@
 use serde::Serialize;
+use uuid::Uuid;
 
-use crate::room::{
-    events::{
-        participant_events::{ParticipantJoinedEvent, ParticipantLeftEvent},
-        room_events::{RoomFinishedEvent, RoomStartedEvent},
-        track_events::{TrackPublishedEvent, TrackUnpublishedEvent},
+use crate::{
+    room::{
+        events::{
+            participant_events::{ParticipantJoinedEvent, ParticipantLeftEvent},
+            room_events::{RoomFinishedEvent, RoomStartedEvent},
+            track_events::{TrackPublishedEvent, TrackUnpublishedEvent},
+        },
+        value_objects::id::RoomId,
     },
-    value_objects::id::RoomId,
+    server::value_objects::id::ServerId,
+    shared::event::DomainEvent,
 };
 
 pub mod participant_events;
@@ -37,6 +42,17 @@ impl RoomEvent {
         }
     }
 
+    pub fn server_id(&self) -> &ServerId {
+        match self {
+            RoomEvent::RoomStarted(event) => event.server_id(),
+            RoomEvent::RoomFinished(event) => event.server_id(),
+            RoomEvent::ParticipantJoined(event) => event.server_id(),
+            RoomEvent::ParticipantLeft(event) => event.server_id(),
+            RoomEvent::TrackPublished(event) => event.server_id(),
+            RoomEvent::TrackUnpublished(event) => event.server_id(),
+        }
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             RoomEvent::RoomStarted(_) => "room.started",
@@ -46,5 +62,30 @@ impl RoomEvent {
             RoomEvent::TrackPublished(_) => "track.published",
             RoomEvent::TrackUnpublished(_) => "track.unpublished",
         }
+    }
+}
+
+impl DomainEvent for RoomEvent {
+    fn event_category(&self) -> &'static str {
+        "room"
+    }
+
+    fn event_type(&self) -> &'static str {
+        match self {
+            RoomEvent::RoomStarted(_) => "started",
+            RoomEvent::RoomFinished(_) => "finished",
+            RoomEvent::ParticipantJoined(_) => "participant.joined",
+            RoomEvent::ParticipantLeft(_) => "participant.left",
+            RoomEvent::TrackPublished(_) => "track.published",
+            RoomEvent::TrackUnpublished(_) => "track.unpublished",
+        }
+    }
+
+    fn aggregate_id(&self) -> Uuid {
+        self.room_id().uuid()
+    }
+
+    fn parent_id(&self) -> Option<Uuid> {
+        Some(self.server_id().uuid())
     }
 }
