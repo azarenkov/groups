@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Responder, delete, post, web};
+use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use domain::{server::value_objects::id::ServerId, user::value_objects::id::UserId};
 use uuid::Uuid;
 use validator::Validate;
@@ -8,7 +8,13 @@ use crate::{
     shared::{
         dto::{
             requests::server::create_server::CreateServerRequest,
-            responses::{ApiResponse, server::create_server::CreateServerResponse},
+            responses::{
+                ApiResponse,
+                server::{
+                    create_server::CreateServerResponse,
+                    list_servers_by_user::ListServersByUserResponse,
+                },
+            },
         },
         error::ApiError,
         state::AppState,
@@ -32,6 +38,23 @@ async fn create_server(
     let response = CreateServerResponse::from(server);
 
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
+}
+
+#[get("/list")]
+async fn list_servers_by_user(
+    auth_token: AuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+
+    let servers = app_state
+        .list_servers_by_user_usecase()
+        .execute(user_id)
+        .await?;
+
+    let response: Vec<ListServersByUserResponse> = servers.into_iter().map(|s| s.into()).collect();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
 #[delete("/{server_id}")]

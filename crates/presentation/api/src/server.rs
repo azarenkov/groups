@@ -8,7 +8,10 @@ use application::usecases::{
         create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom,
         publish_room_event::PublishRoomEvent,
     },
-    server::{create_server::CreateServer, delete_server::DeleteServer},
+    server::{
+        create_server::CreateServer, delete_server::DeleteServer,
+        list_servers_by_user::ListServersByUser,
+    },
 };
 use infrastructure::{
     config::{livekit::LiveKitConfig, nats::NatsConfig, postgres::PostgresConfig},
@@ -65,6 +68,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
+    let list_servers_by_user = ListServersByUser::new(server_repository.clone());
     let publish_room_event_usecase = PublishRoomEvent::new(event_producer.clone());
 
     let app_state = web::Data::new(AppState::new(
@@ -75,6 +79,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         login_user_usecase,
         create_server_usecase,
         delete_server_usecase,
+        list_servers_by_user,
         publish_room_event_usecase,
         server_config.jwt_secret,
     ));

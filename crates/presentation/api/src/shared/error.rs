@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
 use application::usecases::room::join_room::JoinRoomError;
 use application::usecases::room::publish_room_event::PublishRoomEventError;
+use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
     room::{create_room::CreateRoomError, delete_room::DeleteRoomError},
@@ -214,6 +215,18 @@ impl ToHttpStatus for JoinRoomError {
     }
 }
 
+impl ToHttpStatus for ListServersByUserError {
+    fn to_http_status(&self) -> StatusCode {
+        let ListServersByUserError::Repository(e) = self;
+        e.to_http_status()
+    }
+
+    fn to_user_message(&self) -> String {
+        let ListServersByUserError::Repository(e) = self;
+        e.to_user_message()
+    }
+}
+
 #[derive(Debug)]
 pub struct ApiError {
     message: String,
@@ -314,6 +327,12 @@ impl From<PublishRoomEventError> for ApiError {
 
 impl From<JoinRoomError> for ApiError {
     fn from(error: JoinRoomError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<ListServersByUserError> for ApiError {
+    fn from(error: ListServersByUserError) -> Self {
         Self::from_error(error)
     }
 }

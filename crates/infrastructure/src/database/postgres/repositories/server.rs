@@ -7,7 +7,7 @@ use domain::{
 };
 use sqlx::{Pool, Postgres};
 
-use crate::database::postgres::error::map_sqlx_error_to_domain_error;
+use crate::database::postgres::{dto::server::ServerDto, error::map_sqlx_error_to_domain_error};
 
 pub struct PostgresServerRepository {
     pool: Pool<Postgres>,
@@ -53,6 +53,27 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
+    }
+
+    async fn get_servers_by_user_id(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<Server>, RepositoryError> {
+        let servers = sqlx::query_as!(
+            ServerDto,
+            r#"
+                SELECT id, name, owner_id, description, created_at, updated_at
+                FROM servers
+                WHERE owner_id = $1
+                ORDER BY created_at DESC
+            "#,
+            user_id.uuid()
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(servers.into_iter().map(|dto| dto.into()).collect())
     }
 
     async fn delete_server_by_owner(

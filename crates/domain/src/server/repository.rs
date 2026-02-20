@@ -10,6 +10,10 @@ use crate::{
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
     async fn create_server(&self, server: &Server) -> Result<(), RepositoryError>;
+    async fn get_servers_by_user_id(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<Server>, RepositoryError>;
     async fn delete_server_by_owner(
         &self,
         server_id: &ServerId,

@@ -4,7 +4,10 @@ use application::usecases::{
         create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom,
         publish_room_event::PublishRoomEvent,
     },
-    server::{create_server::CreateServer, delete_server::DeleteServer},
+    server::{
+        create_server::CreateServer, delete_server::DeleteServer,
+        list_servers_by_user::ListServersByUser,
+    },
 };
 use infrastructure::{
     database::postgres::repositories::{
@@ -26,6 +29,7 @@ pub struct AppState {
 
     create_server_usecase: CreateServer<PostgresServerRepository>,
     delete_server_usecase: DeleteServer<PostgresServerRepository>,
+    list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
 
     publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
 
@@ -46,6 +50,7 @@ impl AppState {
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
+        list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
         jwt_secret: String,
     ) -> Self {
@@ -57,6 +62,7 @@ impl AppState {
             login_user_usecase,
             create_server_usecase,
             delete_server_usecase,
+            list_servers_by_user_usecase,
             publish_room_event_usecase,
             jwt_secret,
         }
@@ -100,5 +106,9 @@ impl AppState {
         &self,
     ) -> &JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository> {
         &self.join_room_usecase
+    }
+
+    pub fn list_servers_by_user_usecase(&self) -> &ListServersByUser<PostgresServerRepository> {
+        &self.list_servers_by_user_usecase
     }
 }
