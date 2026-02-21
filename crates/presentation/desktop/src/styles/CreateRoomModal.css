@@ -1,0 +1,138 @@
+/* Room Modal Styles */
+.room-type-selector {
+    display: flex;
+    gap: 12px;
+    flex-direction: column;
+}
+
+.room-type-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: #1e1f22;
+    border: 2px solid #1e1f22;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+}
+
+.room-type-option:hover:not(:disabled) {
+    border-color: #404249;
+    background: #232428;
+}
+
+.room-type-option.active {
+    border-color: #5865f2;
+    background: rgba(88, 101, 242, 0.1);
+}
+
+.room-type-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.room-type-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #313338;
+    border-radius: 50%;
+    color: #b5bac1;
+    flex-shrink: 0;
+}
+
+.room-type-option.active .room-type-icon {
+    background: #5865f2;
+    color: #fff;
+}
+
+.room-type-text {
+    flex: 1;
+}
+
+.room-type-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f2f3f5;
+    margin-bottom: 4px;
+}
+
+.room-type-description {
+    font-size: 13px;
+    color: #949ba4;
+}
+
+.participant-value {
+    font-size: 11px;
+    font-weight: 700;
+    color: #5865f2;
+    background: rgba(88, 101, 242, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.slider {
+    width: 100%;
+    height: 8px;
+    background: #1e1f22;
+    border-radius: 4px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #5865f2;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    background: #4752c4;
+    transform: scale(1.1);
+}
+
+.slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #5865f2;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+    background: #4752c4;
+    transform: scale(1.1);
+}
+
+.slider:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.slider:disabled::-webkit-slider-thumb {
+    cursor: not-allowed;
+}
+
+.slider:disabled::-moz-range-thumb {
+    cursor: not-allowed;
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #6d6f78;
+}

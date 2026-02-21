@@ -7,6 +7,9 @@ interface CreateServerModalProps {
   onCreate: (name: string, description?: string) => Promise<void>;
 }
 
+const MAX_SERVER_NAME_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 500;
+
 const CreateServerModal: React.FC<CreateServerModalProps> = ({
   isOpen,
   onClose,
@@ -55,7 +58,11 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Create New Server</h2>
+          <h2>Create Your Server</h2>
+          <p className="modal-subtitle">
+            Your server is where you and your friends hang out. Make yours and
+            start talking.
+          </p>
           <button
             className="modal-close-btn"
             onClick={handleClose}
@@ -67,7 +74,14 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
 
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-group">
-            <label htmlFor="server-name">Server Name *</label>
+            <label htmlFor="server-name">
+              Server Name
+              {name.length > 0 && (
+                <span className="char-count">
+                  {name.length} / {MAX_SERVER_NAME_LENGTH}
+                </span>
+              )}
+            </label>
             <input
               id="server-name"
               type="text"
@@ -75,20 +89,27 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter server name"
               disabled={isLoading}
-              maxLength={50}
+              maxLength={MAX_SERVER_NAME_LENGTH}
               autoFocus
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="server-description">Description</label>
+            <label htmlFor="server-description">
+              Description (Optional)
+              {description.length > 0 && (
+                <span className="char-count">
+                  {description.length} / {MAX_DESCRIPTION_LENGTH}
+                </span>
+              )}
+            </label>
             <textarea
               id="server-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter server description (optional)"
+              placeholder="What's your server about?"
               disabled={isLoading}
-              maxLength={200}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               rows={3}
             />
           </div>
