@@ -3,6 +3,7 @@ use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
 use application::usecases::room::join_room::JoinRoomError;
 use application::usecases::room::publish_room_event::PublishRoomEventError;
 use application::usecases::server::list_server_members::ListServerMembersError;
+use application::usecases::server::list_server_rooms::ListServerRoomsError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
@@ -240,6 +241,18 @@ impl ToHttpStatus for ListServerMembersError {
     }
 }
 
+impl ToHttpStatus for ListServerRoomsError {
+    fn to_http_status(&self) -> StatusCode {
+        let ListServerRoomsError::Repository(e) = self;
+        e.to_http_status()
+    }
+
+    fn to_user_message(&self) -> String {
+        let ListServerRoomsError::Repository(e) = self;
+        e.to_user_message()
+    }
+}
+
 #[derive(Debug)]
 pub struct ApiError {
     message: String,
@@ -352,6 +365,12 @@ impl From<ListServersByUserError> for ApiError {
 
 impl From<ListServerMembersError> for ApiError {
     fn from(error: ListServerMembersError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<ListServerRoomsError> for ApiError {
+    fn from(error: ListServerRoomsError) -> Self {
         Self::from_error(error)
     }
 }

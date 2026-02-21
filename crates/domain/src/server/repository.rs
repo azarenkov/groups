@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
+    room::Room,
     server::{Server, value_objects::id::ServerId},
     shared::repository::error::RepositoryError,
     user::{User, value_objects::id::UserId},
@@ -23,6 +24,10 @@ pub trait ServerRepository {
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<(), RepositoryError>;
+    async fn get_rooms_by_server_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<Room>, RepositoryError>;
     async fn delete_server_by_owner(
         &self,
         server_id: &ServerId,

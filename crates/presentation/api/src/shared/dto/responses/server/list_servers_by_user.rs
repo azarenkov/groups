@@ -6,6 +6,20 @@ use uuid::Uuid;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListServersByUserResponse {
+    pub servers: Vec<ServerResponse>,
+}
+
+impl ListServersByUserResponse {
+    pub fn new(servers: Vec<Server>) -> Self {
+        Self {
+            servers: servers.into_iter().map(ServerResponse::from).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerResponse {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Uuid,
@@ -14,7 +28,7 @@ pub struct ListServersByUserResponse {
     pub updated_at: DateTime<Utc>,
 }
 
-impl From<Server> for ListServersByUserResponse {
+impl From<Server> for ServerResponse {
     fn from(value: Server) -> Self {
         Self {
             id: value.id().uuid(),

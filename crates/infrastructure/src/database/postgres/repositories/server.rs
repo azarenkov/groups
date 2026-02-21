@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use domain::{
+    room::Room,
     server::{Server, repository::ServerRepository, value_objects::id::ServerId},
     shared::repository::error::RepositoryError,
     user::{User, value_objects::id::UserId},
@@ -8,7 +9,7 @@ use domain::{
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
-    dto::{server::ServerDto, user::UserDto},
+    dto::{room::RoomDto, room_type::RoomTypeDto, server::ServerDto, user::UserDto},
     error::map_sqlx_error_to_domain_error,
 };
 
@@ -140,6 +141,37 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
+    }
+
+    async fn get_rooms_by_server_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<Room>, RepositoryError> {
+        let rooms = sqlx::query_as!(
+            RoomDto,
+            r#"
+                SELECT
+                    id,
+                    server_id,
+                    owner_id,
+                    name,
+                    max_participants,
+                    room_type as "room_type: RoomTypeDto",
+                    password_hash,
+                    created_at,
+                    updated_at,
+                    last_join
+                FROM rooms
+                WHERE server_id = $1
+                ORDER BY created_at DESC
+            "#,
+            server_id.uuid()
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rooms.into_iter().map(|dto| dto.into()).collect())
     }
 
     async fn delete_server_by_owner(

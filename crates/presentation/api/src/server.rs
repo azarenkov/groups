@@ -10,7 +10,8 @@ use application::usecases::{
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
-        list_server_members::ListServerMembers, list_servers_by_user::ListServersByUser,
+        list_server_members::ListServerMembers, list_server_rooms::ListServerRooms,
+        list_servers_by_user::ListServersByUser,
     },
 };
 use infrastructure::{
@@ -70,6 +71,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
+    let list_server_rooms_usecase = ListServerRooms::new(server_repository.clone());
     let publish_room_event_usecase = PublishRoomEvent::new(event_producer.clone());
 
     let app_state = web::Data::new(AppState::new(
@@ -82,6 +84,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         delete_server_usecase,
         list_servers_by_user_usecase,
         list_server_members_usecase,
+        list_server_rooms_usecase,
         publish_room_event_usecase,
         server_config.jwt_secret,
     ));

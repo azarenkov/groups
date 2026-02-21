@@ -12,7 +12,8 @@ use crate::{
                 ApiResponse,
                 server::{
                     create_server::CreateServerResponse,
-                    list_server_members::ListServersMembersResponse,
+                    list_server_members::ListServerMembersResponse,
+                    list_server_rooms::ListServerRoomsResponse,
                     list_servers_by_user::ListServersByUserResponse,
                 },
             },
@@ -53,7 +54,7 @@ async fn list_servers_by_user(
         .execute(user_id)
         .await?;
 
-    let response: Vec<ListServersByUserResponse> = servers.into_iter().map(|s| s.into()).collect();
+    let response = ListServersByUserResponse::new(servers);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -71,7 +72,25 @@ async fn list_server_members(
         .execute(server_id)
         .await?;
 
-    let response: Vec<ListServersMembersResponse> = members.into_iter().map(|m| m.into()).collect();
+    let response = ListServerMembersResponse::new(members);
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[get("/{server_id}/rooms")]
+async fn list_server_rooms(
+    _auth_token: AuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let server_id = ServerId::new(path.into_inner());
+
+    let rooms = app_state
+        .list_server_rooms_usecase()
+        .execute(server_id)
+        .await?;
+
+    let response = ListServerRoomsResponse::new(rooms);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
