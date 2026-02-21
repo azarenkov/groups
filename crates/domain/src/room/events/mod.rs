@@ -4,7 +4,9 @@ use uuid::Uuid;
 use crate::{
     room::{
         events::{
-            participant_events::{ParticipantJoinedEvent, ParticipantLeftEvent},
+            participant_events::{
+                ParticipantConnectionAbortedEvent, ParticipantJoinedEvent, ParticipantLeftEvent,
+            },
             room_events::{RoomFinishedEvent, RoomStartedEvent},
             track_events::{TrackPublishedEvent, TrackUnpublishedEvent},
         },
@@ -25,6 +27,7 @@ pub enum RoomEvent {
 
     ParticipantJoined(ParticipantJoinedEvent),
     ParticipantLeft(ParticipantLeftEvent),
+    ParticipantConnectionAborted(ParticipantConnectionAbortedEvent),
 
     TrackPublished(TrackPublishedEvent),
     TrackUnpublished(TrackUnpublishedEvent),
@@ -39,6 +42,7 @@ impl RoomEvent {
             RoomEvent::ParticipantLeft(event) => event.room_id(),
             RoomEvent::TrackPublished(event) => event.room_id(),
             RoomEvent::TrackUnpublished(event) => event.room_id(),
+            RoomEvent::ParticipantConnectionAborted(event) => event.room_id(),
         }
     }
 
@@ -50,6 +54,7 @@ impl RoomEvent {
             RoomEvent::ParticipantLeft(event) => event.server_id(),
             RoomEvent::TrackPublished(event) => event.server_id(),
             RoomEvent::TrackUnpublished(event) => event.server_id(),
+            RoomEvent::ParticipantConnectionAborted(event) => event.server_id(),
         }
     }
 
@@ -61,6 +66,7 @@ impl RoomEvent {
             RoomEvent::ParticipantLeft(_) => "participant.left",
             RoomEvent::TrackPublished(_) => "track.published",
             RoomEvent::TrackUnpublished(_) => "track.unpublished",
+            RoomEvent::ParticipantConnectionAborted(_) => "participant.aborted",
         }
     }
 }
@@ -78,6 +84,7 @@ impl DomainEvent for RoomEvent {
             RoomEvent::ParticipantLeft(_) => "participant.left",
             RoomEvent::TrackPublished(_) => "track.published",
             RoomEvent::TrackUnpublished(_) => "track.unpublished",
+            RoomEvent::ParticipantConnectionAborted(_) => "participant.aborted",
         }
     }
 

@@ -78,6 +78,12 @@ impl RoomEventMapper {
                     request,
                 )?))
             }
+            "participant_connection_aborted" => {
+                let request: PresentationParticipantEventRequest = serde_json::from_value(data)?;
+                Ok(RoomEventDto::ParticipantConnectionAborted(
+                    Self::map_participant_event(request)?,
+                ))
+            }
             "track_published" => {
                 let request: PresentationTrackEventRequest = serde_json::from_value(data)?;
                 Ok(RoomEventDto::TrackPublished(Self::map_track_event(request)))

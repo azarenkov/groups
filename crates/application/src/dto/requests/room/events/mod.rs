@@ -13,6 +13,7 @@ pub enum RoomEventDto {
 
     ParticipantJoined(ParticipantEventRequest),
     ParticipantLeft(ParticipantEventRequest),
+    ParticipantConnectionAborted(ParticipantEventRequest),
 
     TrackPublished(TrackEventRequest),
     TrackUnpublished(TrackEventRequest),
