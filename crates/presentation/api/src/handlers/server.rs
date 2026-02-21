@@ -1,5 +1,8 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
-use domain::{server::value_objects::id::ServerId, user::value_objects::id::UserId};
+use domain::{
+    server::value_objects::id::ServerId, shared::pagination::Pagination,
+    user::value_objects::id::UserId,
+};
 use uuid::Uuid;
 use validator::Validate;
 
@@ -7,6 +10,7 @@ use crate::{
     middleware::auth::AuthToken,
     shared::{
         dto::{
+            pagination::{PaginationMeta, PaginationQuery},
             requests::server::create_server::CreateServerRequest,
             responses::{
                 ApiResponse,
@@ -46,15 +50,20 @@ async fn create_server(
 async fn list_servers_by_user(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
+    query: web::Query<PaginationQuery>,
 ) -> Result<impl Responder, ApiError> {
-    let user_id = UserId::new(auth_token.id);
+    query.validate()?;
 
-    let servers = app_state
+    let user_id = UserId::new(auth_token.id);
+    let pagination = Pagination::new(query.page, query.per_page);
+
+    let result = app_state
         .list_servers_by_user_usecase()
-        .execute(user_id)
+        .execute(user_id, pagination)
         .await?;
 
-    let response = ListServersByUserResponse::new(servers);
+    let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
+    let response = ListServersByUserResponse::new(result.items, pagination_meta);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -64,15 +73,20 @@ async fn list_server_members(
     _auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
+    query: web::Query<PaginationQuery>,
 ) -> Result<impl Responder, ApiError> {
-    let server_id = ServerId::new(path.into_inner());
+    query.validate()?;
 
-    let members = app_state
+    let server_id = ServerId::new(path.into_inner());
+    let pagination = Pagination::new(query.page, query.per_page);
+
+    let result = app_state
         .list_server_members_usecase()
-        .execute(server_id)
+        .execute(server_id, pagination)
         .await?;
 
-    let response = ListServerMembersResponse::new(members);
+    let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
+    let response = ListServerMembersResponse::new(result.items, pagination_meta);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -82,15 +96,20 @@ async fn list_server_rooms(
     _auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
+    query: web::Query<PaginationQuery>,
 ) -> Result<impl Responder, ApiError> {
-    let server_id = ServerId::new(path.into_inner());
+    query.validate()?;
 
-    let rooms = app_state
+    let server_id = ServerId::new(path.into_inner());
+    let pagination = Pagination::new(query.page, query.per_page);
+
+    let result = app_state
         .list_server_rooms_usecase()
-        .execute(server_id)
+        .execute(server_id, pagination)
         .await?;
 
-    let response = ListServerRoomsResponse::new(rooms);
+    let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
+    let response = ListServerRoomsResponse::new(result.items, pagination_meta);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

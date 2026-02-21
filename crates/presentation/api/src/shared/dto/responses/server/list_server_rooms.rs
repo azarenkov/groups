@@ -3,16 +3,20 @@ use domain::room::{Room, value_objects::room_type::RoomType};
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::shared::dto::pagination::PaginationMeta;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListServerRoomsResponse {
     pub rooms: Vec<RoomResponse>,
+    pub pagination: PaginationMeta,
 }
 
 impl ListServerRoomsResponse {
-    pub fn new(rooms: Vec<Room>) -> Self {
+    pub fn new(rooms: Vec<Room>, pagination: PaginationMeta) -> Self {
         Self {
             rooms: rooms.into_iter().map(RoomResponse::from).collect(),
+            pagination,
         }
     }
 }

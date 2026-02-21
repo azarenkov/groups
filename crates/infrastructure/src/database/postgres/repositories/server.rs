@@ -3,7 +3,10 @@ use async_trait::async_trait;
 use domain::{
     room::Room,
     server::{Server, repository::ServerRepository, value_objects::id::ServerId},
-    shared::repository::error::RepositoryError,
+    shared::{
+        pagination::{PaginatedResult, Pagination},
+        repository::error::RepositoryError,
+    },
     user::{User, value_objects::id::UserId},
 };
 use sqlx::{Pool, Postgres};
@@ -82,7 +85,21 @@ impl ServerRepository for PostgresServerRepository {
     async fn get_servers_by_user_id(
         &self,
         user_id: &UserId,
-    ) -> Result<Vec<Server>, RepositoryError> {
+        pagination: Pagination,
+    ) -> Result<PaginatedResult<Server>, RepositoryError> {
+        let total = sqlx::query!(
+            r#"
+                SELECT COUNT(*) as "count!"
+                FROM servers
+                WHERE owner_id = $1
+            "#,
+            user_id.uuid()
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .count;
+
         let servers = sqlx::query_as!(
             ServerDto,
             r#"
@@ -90,20 +107,38 @@ impl ServerRepository for PostgresServerRepository {
                 FROM servers
                 WHERE owner_id = $1
                 ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
             "#,
-            user_id.uuid()
+            user_id.uuid(),
+            pagination.limit(),
+            pagination.offset()
         )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(servers.into_iter().map(|dto| dto.into()).collect())
+        let items = servers.into_iter().map(|dto| dto.into()).collect();
+        Ok(PaginatedResult::new(items, total, pagination))
     }
 
     async fn get_users_by_server_id(
         &self,
         server_id: &ServerId,
-    ) -> Result<Vec<User>, RepositoryError> {
+        pagination: Pagination,
+    ) -> Result<PaginatedResult<User>, RepositoryError> {
+        let total = sqlx::query!(
+            r#"
+                SELECT COUNT(*) as "count!"
+                FROM server_members
+                WHERE server_id = $1
+            "#,
+            server_id.uuid()
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .count;
+
         let users = sqlx::query_as!(
             UserDto,
             r#"
@@ -112,14 +147,67 @@ impl ServerRepository for PostgresServerRepository {
                 INNER JOIN server_members sm ON sm.user_id = u.id
                 WHERE sm.server_id = $1
                 ORDER BY sm.joined_at ASC
+                LIMIT $2 OFFSET $3
             "#,
-            server_id.uuid()
+            server_id.uuid(),
+            pagination.limit(),
+            pagination.offset()
         )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(users.into_iter().map(|dto| dto.into()).collect())
+        let items = users.into_iter().map(|dto| dto.into()).collect();
+        Ok(PaginatedResult::new(items, total, pagination))
+    }
+
+    async fn get_rooms_by_server_id(
+        &self,
+        server_id: &ServerId,
+        pagination: Pagination,
+    ) -> Result<PaginatedResult<Room>, RepositoryError> {
+        let total = sqlx::query!(
+            r#"
+                SELECT COUNT(*) as "count!"
+                FROM rooms
+                WHERE server_id = $1
+            "#,
+            server_id.uuid()
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .count;
+
+        let rooms = sqlx::query_as!(
+            RoomDto,
+            r#"
+                SELECT
+                    id,
+                    server_id,
+                    owner_id,
+                    name,
+                    max_participants,
+                    room_type as "room_type: RoomTypeDto",
+                    password_hash,
+                    created_at,
+                    updated_at,
+                    last_join
+                FROM rooms
+                WHERE server_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
+            "#,
+            server_id.uuid(),
+            pagination.limit(),
+            pagination.offset()
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let items = rooms.into_iter().map(|dto| dto.into()).collect();
+        Ok(PaginatedResult::new(items, total, pagination))
     }
 
     async fn add_member_to_server(
@@ -141,37 +229,6 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
-    }
-
-    async fn get_rooms_by_server_id(
-        &self,
-        server_id: &ServerId,
-    ) -> Result<Vec<Room>, RepositoryError> {
-        let rooms = sqlx::query_as!(
-            RoomDto,
-            r#"
-                SELECT
-                    id,
-                    server_id,
-                    owner_id,
-                    name,
-                    max_participants,
-                    room_type as "room_type: RoomTypeDto",
-                    password_hash,
-                    created_at,
-                    updated_at,
-                    last_join
-                FROM rooms
-                WHERE server_id = $1
-                ORDER BY created_at DESC
-            "#,
-            server_id.uuid()
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(rooms.into_iter().map(|dto| dto.into()).collect())
     }
 
     async fn delete_server_by_owner(

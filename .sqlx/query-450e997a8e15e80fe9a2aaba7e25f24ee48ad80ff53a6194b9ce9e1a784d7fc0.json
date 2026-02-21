@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT\n                    id,\n                    server_id,\n                    owner_id,\n                    name,\n                    max_participants,\n                    room_type as \"room_type: RoomTypeDto\",\n                    password_hash,\n                    created_at,\n                    updated_at,\n                    last_join\n                FROM rooms\n                WHERE server_id = $1\n                ORDER BY created_at DESC\n            ",
+  "query": "\n                SELECT\n                    id,\n                    server_id,\n                    owner_id,\n                    name,\n                    max_participants,\n                    room_type as \"room_type: RoomTypeDto\",\n                    password_hash,\n                    created_at,\n                    updated_at,\n                    last_join\n                FROM rooms\n                WHERE server_id = $1\n                ORDER BY created_at DESC\n                LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -66,7 +66,9 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -82,5 +84,5 @@
       false
     ]
   },
-  "hash": "a9c0a27625a74655e174d839887fd02792f4f0f80543ae85d7fe46c05809a469"
+  "hash": "450e997a8e15e80fe9a2aaba7e25f24ee48ad80ff53a6194b9ce9e1a784d7fc0"
 }

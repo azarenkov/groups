@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, name, owner_id, description, created_at, updated_at\n                FROM servers\n                WHERE owner_id = $1\n                ORDER BY created_at DESC\n            ",
+  "query": "\n                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at\n                FROM users u\n                INNER JOIN server_members sm ON sm.user_id = u.id\n                WHERE sm.server_id = $1\n                ORDER BY sm.joined_at ASC\n                LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -15,13 +15,13 @@
       },
       {
         "ordinal": 2,
-        "name": "owner_id",
-        "type_info": "Uuid"
+        "name": "email",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 3,
-        "name": "description",
-        "type_info": "Text"
+        "name": "password_hash",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 4,
@@ -36,17 +36,19 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
       false,
       false,
       false,
-      true,
+      false,
       false,
       false
     ]
   },
-  "hash": "5ba371bc5f990bc1ff3579fde913506aba75f3e1f15ecc845f6489ec4c51d1b6"
+  "hash": "fe8762e689c133bc7e970b05740fb5e0adde5f6052062f33b8783deb2ecc73f5"
 }

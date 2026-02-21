@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use domain::{
     server::{Server, repository::ServerRepository},
-    shared::repository::error::RepositoryError,
+    shared::{
+        pagination::{PaginatedResult, Pagination},
+        repository::error::RepositoryError,
+    },
     user::value_objects::id::UserId,
 };
 
@@ -27,12 +30,16 @@ where
         Self { server_repository }
     }
 
-    pub async fn execute(&self, user_id: UserId) -> Result<Vec<Server>, ListServersByUserError> {
-        let servers = self
+    pub async fn execute(
+        &self,
+        user_id: UserId,
+        pagination: Pagination,
+    ) -> Result<PaginatedResult<Server>, ListServersByUserError> {
+        let result = self
             .server_repository
-            .get_servers_by_user_id(&user_id)
+            .get_servers_by_user_id(&user_id, pagination)
             .await?;
 
-        Ok(servers)
+        Ok(result)
     }
 }

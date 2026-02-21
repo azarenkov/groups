@@ -2,16 +2,20 @@ use domain::user::User;
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::shared::dto::pagination::PaginationMeta;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListServerMembersResponse {
     pub members: Vec<MemberResponse>,
+    pub pagination: PaginationMeta,
 }
 
 impl ListServerMembersResponse {
-    pub fn new(users: Vec<User>) -> Self {
+    pub fn new(users: Vec<User>, pagination: PaginationMeta) -> Self {
         Self {
             members: users.into_iter().map(MemberResponse::from).collect(),
+            pagination,
         }
     }
 }
