@@ -28,7 +28,7 @@ class AuthAPI {
   }
 
   async register(name: string, email: string, password: string) {
-    const response = await this.client.post("/auth/register", {
+    const response = await this.client.post("/v1/auth/register", {
       name,
       email,
       password,
@@ -37,7 +37,7 @@ class AuthAPI {
   }
 
   async login(email: string, password: string) {
-    const response = await this.client.post("/auth/login", {
+    const response = await this.client.post("/v1/auth/login", {
       email,
       password,
     });

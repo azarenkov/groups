@@ -8,6 +8,7 @@ import {
 import { AnimatePresence } from "framer-motion";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import ServersPage from "./pages/ServersPage";
 import { useAuthStore } from "./store/authStore";
 import "./styles/App.css";
 
@@ -34,13 +35,7 @@ const App: React.FC = () => {
             <Route
               path="/app"
               element={
-                isAuthenticated ? (
-                  <div className="main-app">
-                    <h1>Main App (Coming Soon)</h1>
-                  </div>
-                ) : (
-                  <Navigate to="/login" />
-                )
+                isAuthenticated ? <ServersPage /> : <Navigate to="/login" />
               }
             />
             <Route
