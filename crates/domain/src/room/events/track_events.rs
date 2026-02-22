@@ -12,10 +12,10 @@ use crate::{
 pub struct TrackPublishedEvent {
     id: String,
     user_id: UserId,
-    user_name: UserName,
+    user_name: Option<UserName>,
     room_id: RoomId,
-    server_id: ServerId,
-    track_type: TrackType,
+    server_id: Option<ServerId>,
+    track_type: Option<TrackType>,
     created_at: DateTime<Utc>,
 }
 
@@ -23,10 +23,10 @@ impl TrackPublishedEvent {
     pub fn new(
         id: String,
         user_id: UserId,
-        user_name: UserName,
+        user_name: Option<UserName>,
         room_id: RoomId,
-        server_id: ServerId,
-        track_type: TrackType,
+        server_id: Option<ServerId>,
+        track_type: Option<TrackType>,
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -44,7 +44,7 @@ impl TrackPublishedEvent {
         &self.room_id
     }
 
-    pub fn server_id(&self) -> &ServerId {
+    pub fn server_id(&self) -> &Option<ServerId> {
         &self.server_id
     }
 }
@@ -53,10 +53,10 @@ impl TrackPublishedEvent {
 pub struct TrackUnpublishedEvent {
     id: String,
     user_id: UserId,
-    user_name: UserName,
+    user_name: Option<UserName>,
     room_id: RoomId,
-    server_id: ServerId,
-    track_type: TrackType,
+    server_id: Option<ServerId>,
+    track_type: Option<TrackType>,
     created_at: DateTime<Utc>,
 }
 
@@ -64,10 +64,10 @@ impl TrackUnpublishedEvent {
     pub fn new(
         id: String,
         user_id: UserId,
-        user_name: UserName,
+        user_name: Option<UserName>,
         room_id: RoomId,
-        server_id: ServerId,
-        track_type: TrackType,
+        server_id: Option<ServerId>,
+        track_type: Option<TrackType>,
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -85,7 +85,7 @@ impl TrackUnpublishedEvent {
         &self.room_id
     }
 
-    pub fn server_id(&self) -> &ServerId {
+    pub fn server_id(&self) -> &Option<ServerId> {
         &self.server_id
     }
 }

@@ -15,5 +15,5 @@ pub struct TrackEventRequest {
 #[serde(rename_all = "camelCase")]
 pub struct Track {
     #[serde(rename = "type")]
-    pub r#type: String,
+    pub r#type: Option<String>,
 }

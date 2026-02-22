@@ -8,6 +8,8 @@ pub struct LiveKitConfig {
     api_secret: String,
     #[serde(rename = "livekit_url")]
     url: String,
+    #[serde(rename = "livekit_client_url")]
+    pub client_url: String,
 }
 
 impl LiveKitConfig {

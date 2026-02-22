@@ -54,9 +54,11 @@ async fn join_room(
 
     let data = AppJoinRoomRequest::new(room_id, request.server_id);
 
-    let token = app_state.join_room_usecase().execute(data, user_id).await?;
-
-    let response = JoinRoomResponse::from(token);
+    let response: JoinRoomResponse = app_state
+        .join_room_usecase()
+        .execute(data, user_id)
+        .await?
+        .into();
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

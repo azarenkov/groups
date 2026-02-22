@@ -7,7 +7,7 @@ use crate::{room::value_objects::id::RoomId, server::value_objects::id::ServerId
 pub struct RoomStartedEvent {
     id: String,
     room_id: RoomId,
-    server_id: ServerId,
+    server_id: Option<ServerId>,
     created_at: DateTime<Utc>,
 }
 
@@ -15,7 +15,7 @@ impl RoomStartedEvent {
     pub fn new(
         id: String,
         room_id: RoomId,
-        server_id: ServerId,
+        server_id: Option<ServerId>,
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -30,7 +30,7 @@ impl RoomStartedEvent {
         &self.room_id
     }
 
-    pub fn server_id(&self) -> &ServerId {
+    pub fn server_id(&self) -> &Option<ServerId> {
         &self.server_id
     }
 }
@@ -39,7 +39,7 @@ impl RoomStartedEvent {
 pub struct RoomFinishedEvent {
     id: String,
     room_id: RoomId,
-    server_id: ServerId,
+    server_id: Option<ServerId>,
     created_at: DateTime<Utc>,
 }
 
@@ -47,7 +47,7 @@ impl RoomFinishedEvent {
     pub fn new(
         id: String,
         room_id: RoomId,
-        server_id: ServerId,
+        server_id: Option<ServerId>,
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -62,7 +62,7 @@ impl RoomFinishedEvent {
         &self.room_id
     }
 
-    pub fn server_id(&self) -> &ServerId {
+    pub fn server_id(&self) -> &Option<ServerId> {
         &self.server_id
     }
 }

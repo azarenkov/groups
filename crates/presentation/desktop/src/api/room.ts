@@ -3,6 +3,8 @@ import {
   ListRoomsResponse,
   CreateRoomRequest,
   CreateRoomResponse,
+  JoinRoomRequest,
+  JoinRoomResponse,
 } from "../types/room";
 
 const API_BASE_URL =
@@ -63,6 +65,13 @@ class RoomAPI {
 
   async deleteRoom(roomId: string): Promise<void> {
     await this.client.delete(`/v1/room/${roomId}`);
+  }
+
+  async joinRoom(data: JoinRoomRequest): Promise<JoinRoomResponse> {
+    const response = await this.client.post(`/v1/room/${data.roomId}/join`, {
+      serverId: data.serverId,
+    });
+    return response.data.data;
   }
 }
 

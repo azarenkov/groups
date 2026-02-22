@@ -46,15 +46,15 @@ impl RoomEvent {
         }
     }
 
-    pub fn server_id(&self) -> &ServerId {
+    pub fn server_id(&self) -> Option<&ServerId> {
         match self {
-            RoomEvent::RoomStarted(event) => event.server_id(),
-            RoomEvent::RoomFinished(event) => event.server_id(),
-            RoomEvent::ParticipantJoined(event) => event.server_id(),
-            RoomEvent::ParticipantLeft(event) => event.server_id(),
-            RoomEvent::TrackPublished(event) => event.server_id(),
-            RoomEvent::TrackUnpublished(event) => event.server_id(),
-            RoomEvent::ParticipantConnectionAborted(event) => event.server_id(),
+            RoomEvent::RoomStarted(event) => event.server_id().as_ref(),
+            RoomEvent::RoomFinished(event) => event.server_id().as_ref(),
+            RoomEvent::ParticipantJoined(event) => event.server_id().as_ref(),
+            RoomEvent::ParticipantLeft(event) => event.server_id().as_ref(),
+            RoomEvent::TrackPublished(event) => event.server_id().as_ref(),
+            RoomEvent::TrackUnpublished(event) => event.server_id().as_ref(),
+            RoomEvent::ParticipantConnectionAborted(event) => event.server_id().as_ref(),
         }
     }
 
@@ -93,6 +93,6 @@ impl DomainEvent for RoomEvent {
     }
 
     fn parent_id(&self) -> Option<Uuid> {
-        Some(self.server_id().uuid())
+        self.server_id().map(|id| id.uuid())
     }
 }

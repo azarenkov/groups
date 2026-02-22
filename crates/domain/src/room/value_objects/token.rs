@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Debug)]
 pub struct RoomToken {
     value: String,
 }

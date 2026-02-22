@@ -65,4 +65,8 @@ impl VoiceService for LiveKitService {
 
         Ok(())
     }
+
+    fn client_url(&self) -> String {
+        self.config.client_url.clone()
+    }
 }

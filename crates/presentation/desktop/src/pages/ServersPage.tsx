@@ -6,6 +6,7 @@ import { serverAPI } from "../api/server";
 import { roomAPI } from "../api/room";
 import CreateServerModal from "../components/CreateServerModal";
 import CreateRoomModal from "../components/CreateRoomModal";
+import VoiceRoom from "../components/VoiceRoom";
 import { RoomType } from "../types/room";
 import "../styles/ServersPage.css";
 
@@ -43,6 +44,7 @@ const ServersPage: React.FC = () => {
     id: string;
     name: string;
   } | null>(null);
+  const [joinedRoomId, setJoinedRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     if (tokens?.accessToken) {
@@ -207,9 +209,22 @@ const ServersPage: React.FC = () => {
             {selectedServer ? selectedServer.name : "Home"}
           </h2>
           {selectedServer && (
-            <button className="server-dropdown-btn" title="Server Options">
+            <button
+              className="server-dropdown-btn"
+              title="Delete Server"
+              onClick={() =>
+                setDeleteConfirm({
+                  type: "server",
+                  id: selectedServer.id,
+                  name: selectedServer.name,
+                })
+              }
+            >
               <svg width="18" height="18" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M7 10l5 5 5-5z" />
+                <path
+                  fill="currentColor"
+                  d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                />
               </svg>
             </button>
           )}
@@ -328,8 +343,8 @@ const ServersPage: React.FC = () => {
                   currentRooms.map((room) => (
                     <div
                       key={room.id}
-                      className={`channel-item voice ${selectedRoomId === room.id ? "active" : ""}`}
-                      onClick={() => setSelectedRoom(room.id)}
+                      className={`channel-item voice ${joinedRoomId === room.id ? "active" : ""}`}
+                      onClick={() => setJoinedRoomId(room.id)}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         setDeleteConfirm({
@@ -547,6 +562,18 @@ const ServersPage: React.FC = () => {
           <span>{error}</span>
           <button onClick={clearError}>×</button>
         </div>
+      )}
+
+      {/* Voice Room Component */}
+      {joinedRoomId && selectedServerId && (
+        <VoiceRoom
+          roomId={joinedRoomId}
+          serverId={selectedServerId}
+          roomName={
+            currentRooms.find((r) => r.id === joinedRoomId)?.name || "Room"
+          }
+          onClose={() => setJoinedRoomId(null)}
+        />
       )}
     </div>
   );

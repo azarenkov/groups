@@ -18,6 +18,7 @@ pub trait VoiceService {
         room_id: &RoomId,
         server_id: &ServerId,
     ) -> Result<(), VoiceServiceError>;
+    fn client_url(&self) -> String;
 }
 
 #[derive(Debug, thiserror::Error)]

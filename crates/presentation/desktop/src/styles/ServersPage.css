@@ -176,11 +176,13 @@
     padding: 4px;
     display: flex;
     align-items: center;
-    transition: color 0.2s ease;
+    transition: all 0.2s ease;
+    border-radius: 4px;
 }
 
 .server-dropdown-btn:hover {
-    color: #dbdee1;
+    color: #da373c;
+    background: rgba(218, 55, 60, 0.1);
 }
 
 .channels-content {

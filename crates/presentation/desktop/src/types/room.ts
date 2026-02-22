@@ -39,3 +39,13 @@ export interface CreateRoomResponse {
   maxParticipants: number;
   createdAt: string;
 }
+
+export interface JoinRoomRequest {
+  roomId: string;
+  serverId: string;
+}
+
+export interface JoinRoomResponse {
+  token: string;
+  url: string;
+}

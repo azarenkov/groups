@@ -63,11 +63,16 @@ impl EventMapper {
 
     fn map_room_started(request: RoomEventRequest) -> Result<RoomStartedEvent, EventMapperError> {
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
+        let server_id = request
+            .server_id
+            .as_ref()
+            .map(|s| ServerId::from_string(s))
+            .transpose()?;
 
         Ok(RoomStartedEvent::new(
             request.id,
             RoomId::from_string(&request.room_id)?,
-            ServerId::from_string(&request.server_id)?,
+            server_id,
             created_at,
         ))
     }
@@ -75,7 +80,11 @@ impl EventMapper {
     fn map_room_finished(request: RoomEventRequest) -> Result<RoomFinishedEvent, EventMapperError> {
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let room_id = RoomId::from_string(&request.room_id)?;
-        let server_id = ServerId::from_string(&request.server_id)?;
+        let server_id = request
+            .server_id
+            .as_ref()
+            .map(|s| ServerId::from_string(s))
+            .transpose()?;
 
         Ok(RoomFinishedEvent::new(
             request.id, room_id, server_id, created_at,
@@ -86,9 +95,13 @@ impl EventMapper {
         request: ParticipantEventRequest,
     ) -> Result<ParticipantJoinedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
-        let user_name = UserName::new(request.user_name);
+        let user_name = request.user_name.map(UserName::new);
         let room_id = RoomId::from_string(&request.room_id)?;
-        let server_id = ServerId::from_string(&request.server_id)?;
+        let server_id = request
+            .server_id
+            .as_ref()
+            .map(|s| ServerId::from_string(s))
+            .transpose()?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let joined_at = Self::timestamp_to_datetime(request.joined_at)?;
 
@@ -101,9 +114,13 @@ impl EventMapper {
         request: ParticipantEventRequest,
     ) -> Result<ParticipantLeftEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
-        let user_name = UserName::new(request.user_name);
+        let user_name = request.user_name.map(UserName::new);
         let room_id = RoomId::from_string(&request.room_id)?;
-        let server_id = ServerId::from_string(&request.server_id)?;
+        let server_id = request
+            .server_id
+            .as_ref()
+            .map(|s| ServerId::from_string(s))
+            .transpose()?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let joined_at = Self::timestamp_to_datetime(request.joined_at)?;
 
@@ -116,9 +133,13 @@ impl EventMapper {
         request: ParticipantEventRequest,
     ) -> Result<ParticipantConnectionAbortedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
-        let user_name = UserName::new(request.user_name);
+        let user_name = request.user_name.map(UserName::new);
         let room_id = RoomId::from_string(&request.room_id)?;
-        let server_id = ServerId::from_string(&request.server_id)?;
+        let server_id = request
+            .server_id
+            .as_ref()
+            .map(|s| ServerId::from_string(s))
+            .transpose()?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
         let joined_at = Self::timestamp_to_datetime(request.joined_at)?;
 
@@ -131,10 +152,18 @@ impl EventMapper {
         request: TrackEventRequest,
     ) -> Result<TrackPublishedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
-        let user_name = UserName::new(request.user_name);
+        let user_name = request.user_name.map(UserName::new);
         let room_id = RoomId::from_string(&request.room_id)?;
-        let server_id = ServerId::from_string(&request.server_id)?;
-        let track_type = TrackType::from_string(&request.r#type)?;
+        let server_id = request
+            .server_id
+            .as_ref()
+            .map(|s| ServerId::from_string(s))
+            .transpose()?;
+        let track_type = request
+            .r#type
+            .as_ref()
+            .map(|t| TrackType::from_string(t))
+            .transpose()?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
 
         Ok(TrackPublishedEvent::new(
@@ -146,10 +175,18 @@ impl EventMapper {
         request: TrackEventRequest,
     ) -> Result<TrackUnpublishedEvent, EventMapperError> {
         let user_id = UserId::from_string(&request.user_id)?;
-        let user_name = UserName::new(request.user_name);
+        let user_name = request.user_name.map(UserName::new);
         let room_id = RoomId::from_string(&request.room_id)?;
-        let server_id = ServerId::from_string(&request.server_id)?;
-        let track_type = TrackType::from_string(&request.r#type)?;
+        let server_id = request
+            .server_id
+            .as_ref()
+            .map(|s| ServerId::from_string(s))
+            .transpose()?;
+        let track_type = request
+            .r#type
+            .as_ref()
+            .map(|t| TrackType::from_string(t))
+            .transpose()?;
         let created_at = Self::timestamp_to_datetime(request.created_at)?;
 
         Ok(TrackUnpublishedEvent::new(

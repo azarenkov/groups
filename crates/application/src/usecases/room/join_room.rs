@@ -1,17 +1,16 @@
 use std::sync::Arc;
 
 use domain::{
-    room::{
-        repository::RoomRepository,
-        value_objects::{id::RoomId, token::RoomToken},
-    },
+    room::{repository::RoomRepository, value_objects::id::RoomId},
     server::value_objects::id::ServerId,
     shared::repository::error::RepositoryError,
     user::{repository::UserRepository, value_objects::id::UserId},
 };
 
 use crate::{
-    dto::requests::room::join_room::JoinRoomRequest,
+    dto::{
+        requests::room::join_room::JoinRoomRequest, responses::room::join_room::JoinRoomResponse,
+    },
     ports::voice_service::{VoiceService, VoiceServiceError},
 };
 
@@ -53,7 +52,7 @@ where
         &self,
         request: JoinRoomRequest,
         user_id: UserId,
-    ) -> Result<RoomToken, JoinRoomError> {
+    ) -> Result<JoinRoomResponse, JoinRoomError> {
         let room_id = RoomId::new(request.room_id);
         let server_id = ServerId::new(request.server_id);
         let username = self.user_repository.get_username_by_id(&user_id).await?;
@@ -73,6 +72,10 @@ where
             .voice_service
             .create_token(&user_id, &username, &room_id)
             .await?;
-        Ok(room_token)
+
+        let client_url = self.voice_service.client_url();
+
+        let response = JoinRoomResponse::new(room_token, client_url);
+        Ok(response)
     }
 }
