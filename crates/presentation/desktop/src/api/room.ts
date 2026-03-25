@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import {
   ListRoomsResponse,
   CreateRoomRequest,
@@ -6,6 +6,7 @@ import {
   JoinRoomRequest,
   JoinRoomResponse,
 } from "../types/room";
+import { useAuthStore } from "../store/authStore";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -22,13 +23,52 @@ class RoomAPI {
       timeout: 10000,
     });
 
-    // Response interceptor for handling errors
+    // Response interceptor for handling 401 -> refresh -> retry
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
-        if (error.response?.data?.error) {
-          throw new Error(error.response.data.error);
+      async (error: AxiosError) => {
+        const originalRequest = error.config as AxiosRequestConfig & {
+          _retry?: boolean;
+        };
+
+        // Debug log
+        console.debug(
+          "[roomAPI] response interceptor, status:",
+          error.response?.status,
+        );
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          try {
+            console.debug(
+              "[roomAPI] 401 received, attempting token refresh...",
+            );
+            // dynamic import to avoid circular dependency
+            const { authAPI } = await import("./auth");
+            await authAPI.handleRefreshFlow();
+
+            const tokens = useAuthStore.getState().tokens;
+            if (tokens?.accessToken) {
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers["Authorization"] =
+                `Bearer ${tokens.accessToken}`;
+            }
+
+            console.debug("[roomAPI] retrying original request after refresh");
+            return this.client.request(originalRequest);
+          } catch (e) {
+            console.debug(
+              "[roomAPI] refresh failed or retry failed, propagating error",
+            );
+            throw error;
+          }
         }
+
+        const respData = error.response ? (error.response.data as any) : null;
+        if (respData?.error) {
+          throw new Error(respData.error);
+        }
+
         throw error;
       },
     );

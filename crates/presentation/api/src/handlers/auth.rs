@@ -1,11 +1,14 @@
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{HttpResponse, Responder, http::StatusCode, post, web};
 use application::usecases::auth::login::LoginError;
-use shared::jwt::validation::encode_token_pair;
+use shared::jwt::validation::{encode_token_pair, validate_refresh_token};
 use validator::Validate;
 
 use crate::shared::{
     dto::{
-        requests::auth::{login::LoginUserRequest, registration::RegisterUserRequest},
+        requests::auth::{
+            login::LoginUserRequest, refresh_token::RefreshTokenRequest,
+            registration::RegisterUserRequest,
+        },
         responses::{ApiResponse, auth::registration::RegisterUserResponse},
     },
     error::ApiError,
@@ -46,6 +49,34 @@ async fn login_user(
     let token_pair = encode_token_pair(user_id.uuid(), app_state.jwt_secret())
         .await
         .map_err(|_| ApiError::from(LoginError::Internal))?;
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(token_pair)))
+}
+
+#[post("/refresh")]
+async fn refresh_tokens(
+    app_state: web::Data<AppState>,
+    request: web::Json<RefreshTokenRequest>,
+) -> Result<impl Responder, ApiError> {
+    let request: RefreshTokenRequest = request.into_inner();
+
+    let user_uuid = validate_refresh_token(&request.refresh_token, app_state.jwt_secret())
+        .await
+        .map_err(|_| {
+            ApiError::new(
+                "Invalid refresh token".to_string(),
+                StatusCode::UNAUTHORIZED,
+            )
+        })?;
+
+    let token_pair = encode_token_pair(user_uuid, app_state.jwt_secret())
+        .await
+        .map_err(|_| {
+            ApiError::new(
+                "Failed to encode tokens".to_string(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )
+        })?;
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(token_pair)))
 }
