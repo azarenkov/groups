@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/domain",
-    "crates/application",
-    "crates/infrastructure",
-    "crates/presentation/api",
-    "crates/shared",
-    "crates/presentation/websocket"]
+    "backend/crates/domain",
+    "backend/crates/application",
+    "backend/crates/infrastructure",
+    "backend/crates/presentation/api",
+    "backend/crates/shared",
+    "backend/crates/presentation/websocket"]
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -21,7 +21,7 @@ dotenv = "0.15.0"
 futures = "0.3.32"
 env_logger = "0.11.9"
 
-domain = { path = "crates/domain" }
-application = { path = "crates/application" }
-infrastructure = { path = "crates/infrastructure" }
-shared = { path = "crates/shared" }
+domain = { path = "backend/crates/domain" }
+application = { path = "backend/crates/application" }
+infrastructure = { path = "backend/crates/infrastructure" }
+shared = { path = "backend/crates/shared" }
