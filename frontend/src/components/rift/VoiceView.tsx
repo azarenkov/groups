@@ -1,0 +1,286 @@
+import React, { useEffect, useRef } from "react";
+import Icon from "./Icon";
+import { useLiveKit } from "../../hooks/useLiveKit";
+
+const initials = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
+
+const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
+const colorFor = (id: string): string => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVA_COLORS[h % AVA_COLORS.length];
+};
+
+interface VoiceViewProps {
+  roomId: string;
+  serverId: string;
+  roomName: string;
+  currentUserName: string;
+  onLeave: () => void;
+}
+
+const VoiceView: React.FC<VoiceViewProps> = ({
+  roomId,
+  serverId,
+  roomName,
+  currentUserName,
+  onLeave,
+}) => {
+  const {
+    participants,
+    isConnected,
+    isMuted,
+    isConnecting,
+    error,
+    joinRoom,
+    leaveRoom,
+    toggleMute,
+  } = useLiveKit();
+
+  const hasJoinedRef = useRef(false);
+  const currentRoomRef = useRef<string | null>(null);
+  const isJoiningRef = useRef(false);
+
+  useEffect(() => {
+    const shouldJoin =
+      (!hasJoinedRef.current || currentRoomRef.current !== roomId) &&
+      !isJoiningRef.current;
+
+    if (shouldJoin) {
+      hasJoinedRef.current = true;
+      currentRoomRef.current = roomId;
+      isJoiningRef.current = true;
+      joinRoom(roomId, serverId)
+        .then(() => {
+          isJoiningRef.current = false;
+        })
+        .catch((err) => {
+          console.error("[VoiceView] join failed:", err);
+          hasJoinedRef.current = false;
+          isJoiningRef.current = false;
+        });
+    }
+
+    return () => {
+      hasJoinedRef.current = false;
+      currentRoomRef.current = null;
+      isJoiningRef.current = false;
+      leaveRoom();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, serverId]);
+
+  const handleLeave = async () => {
+    await leaveRoom();
+    onLeave();
+  };
+
+  const [open, setOpen] = React.useState(false);
+  const [volumes, setVolumes] = React.useState<Record<string, number>>({});
+  const [noise, setNoise] = React.useState<"off" | "standard" | "high">("standard");
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const speakingPerson = participants.find((p) => p.isSpeaking);
+
+  const getVol = (id: string) => volumes[id] ?? 100;
+  const setVol = (id: string, v: number) =>
+    setVolumes((prev) => ({ ...prev, [id]: v }));
+
+  const avgVol =
+    participants.length > 0
+      ? Math.round(
+          participants.reduce((s, p) => s + getVol(p.identity), 0) /
+            participants.length,
+        )
+      : 100;
+
+  const volIcon =
+    avgVol === 0 ? "speaker-off" : avgVol < 40 ? "speaker-lo" : "speaker-hi";
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const meter = React.useMemo(() => {
+    if (isMuted) return new Array(12).fill(0) as number[];
+    return Array.from({ length: 12 }, (_, i) => {
+      const bias = 1 - Math.abs(i - 5.5) / 7;
+      return Math.max(0.12, bias * 0.55);
+    });
+  }, [isMuted]);
+
+  const totalConnected = isConnected ? participants.length + 1 : 0;
+  const youColor = "#0071e3";
+  const allParticipants = [
+    {
+      id: "you",
+      name: `${currentUserName} (you)`,
+      initials: initials(currentUserName),
+      color: youColor,
+    },
+    ...participants.map((p) => ({
+      id: p.identity,
+      name: p.name || p.identity,
+      initials: initials(p.name || p.identity),
+      color: colorFor(p.identity),
+    })),
+  ];
+
+  if (error) {
+    return (
+      <div
+        className="voice-pill"
+        style={{ background: "var(--danger-tint)", color: "var(--danger)" }}
+      >
+        <span>Voice unavailable: {error}</span>
+        <button className="vp-btn leave" onClick={handleLeave} title="Leave">
+          <Icon name="logout" size={15} />
+        </button>
+      </div>
+    );
+  }
+
+  if (isConnecting && !isConnected) {
+    return (
+      <div className="voice-pill">
+        <span className="vp-dot" />
+        <div>
+          <div className="vp-title">{roomName}</div>
+          <div className="vp-meta">Connecting…</div>
+        </div>
+        <button className="vp-btn leave" onClick={handleLeave} title="Cancel">
+          <Icon name="logout" size={15} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="voice-pill" ref={rootRef}>
+      <span className="vp-dot" />
+      <div>
+        <div className="vp-title">{roomName}</div>
+        <div className="vp-meta">
+          {speakingPerson
+            ? `${speakingPerson.name || speakingPerson.identity} is speaking`
+            : `${totalConnected} connected`}
+        </div>
+      </div>
+      <div className="vp-avas">
+        {allParticipants.slice(0, 4).map((p) => (
+          <div key={p.id} className="ava" style={{ background: p.color }}>
+            {p.initials}
+          </div>
+        ))}
+      </div>
+      <button
+        className={"vp-btn" + (open ? " on" : "")}
+        onClick={() => setOpen((v) => !v)}
+        title="Audio settings"
+      >
+        <Icon name={volIcon} size={15} />
+      </button>
+      <button
+        className={"vp-btn" + (isMuted ? " muted" : "")}
+        onClick={toggleMute}
+        title={isMuted ? "Unmute" : "Mute"}
+      >
+        <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
+      </button>
+      <button className="vp-btn leave" onClick={handleLeave} title="Leave">
+        <Icon name="logout" size={15} />
+      </button>
+
+      {open && (
+        <div className="vp-popover" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="vp-pop-title">Listening to</div>
+          <div className="vp-people">
+            {participants.length === 0 && (
+              <div style={{ padding: "10px 8px", fontSize: 12, color: "var(--fg-3)" }}>
+                No one else is here yet.
+              </div>
+            )}
+            {participants.map((p) => {
+              const v = getVol(p.identity);
+              return (
+                <div key={p.identity} className="vp-person">
+                  <div
+                    className={"ava" + (v === 0 ? " muted" : "")}
+                    style={{ background: colorFor(p.identity) }}
+                  >
+                    {initials(p.name || p.identity)}
+                  </div>
+                  <div className="name">{p.name || p.identity}</div>
+                  <div className="vp-slider">
+                    <input
+                      type="range"
+                      min={0}
+                      max={200}
+                      step={1}
+                      value={v}
+                      onChange={(e) => setVol(p.identity, Number(e.target.value))}
+                      style={{ ["--pct" as unknown as string]: `${v / 2}%` } as React.CSSProperties}
+                      title={`${v}%`}
+                    />
+                  </div>
+                  <div className="pct">{v}%</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="vp-pop-row">
+            <div className="vp-pop-label">
+              <span className="k">Noise suppression</span>
+            </div>
+            <div className="vp-seg">
+              <button className={noise === "off" ? "on" : ""} onClick={() => setNoise("off")}>
+                Off
+              </button>
+              <button
+                className={noise === "standard" ? "on" : ""}
+                onClick={() => setNoise("standard")}
+              >
+                Standard
+              </button>
+              <button className={noise === "high" ? "on" : ""} onClick={() => setNoise("high")}>
+                <Icon name="sparkles" size={11} />
+                High
+              </button>
+            </div>
+          </div>
+
+          <div className="vp-pop-row">
+            <div className="vp-pop-label">
+              <span className="k">Your microphone</span>
+              <span className="v">{isMuted ? "Muted" : "Live"}</span>
+            </div>
+            <div className="vp-meter" aria-hidden="true">
+              {meter.map((v, i) => (
+                <i
+                  key={i}
+                  className={v > 0.85 ? "hot" : v > 0.08 ? "on" : ""}
+                  style={{ height: `${Math.max(10, v * 100)}%` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default VoiceView;
