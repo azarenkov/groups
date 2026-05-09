@@ -4,10 +4,7 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    room::{
-        create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom,
-        publish_room_event::PublishRoomEvent,
-    },
+    room::{create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom},
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
         list_server_members::ListServerMembers, list_server_rooms::ListServerRooms,
@@ -85,7 +82,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_rooms_usecase = ListServerRooms::new(server_repository.clone());
-    let publish_room_event_usecase = PublishRoomEvent::new(event_producer.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_room_usecase,
@@ -98,7 +94,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_servers_by_user_usecase,
         list_server_members_usecase,
         list_server_rooms_usecase,
-        publish_room_event_usecase,
         server_config.jwt_secret,
     ));
 
