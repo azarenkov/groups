@@ -142,7 +142,7 @@ impl ServerRepository for PostgresServerRepository {
         let users = sqlx::query_as!(
             UserDto,
             r#"
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at
+                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at
                 FROM users u
                 INNER JOIN server_members sm ON sm.user_id = u.id
                 WHERE sm.server_id = $1

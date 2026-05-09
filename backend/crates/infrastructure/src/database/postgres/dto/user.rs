@@ -16,6 +16,8 @@ pub struct UserDto {
     pub password_hash: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub email_verified_at: Option<DateTime<Utc>>,
+    pub phone_verified_at: Option<DateTime<Utc>>,
 }
 
 impl From<UserDto> for User {
@@ -27,6 +29,8 @@ impl From<UserDto> for User {
             PasswordHash::new(dto.password_hash),
             dto.created_at,
             dto.updated_at,
+            dto.email_verified_at,
+            dto.phone_verified_at,
         )
     }
 }

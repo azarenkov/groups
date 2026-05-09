@@ -15,15 +15,18 @@ use application::usecases::{
     },
 };
 use infrastructure::{
-    config::{livekit::LiveKitConfig, nats::NatsConfig, postgres::PostgresConfig},
+    config::{
+        livekit::LiveKitConfig, mailer::MailerConfig, nats::NatsConfig, postgres::PostgresConfig,
+    },
     database::postgres::{
         connection::create_postgres_pool,
         repositories::{
             room::PostgresRoomRepository, server::PostgresServerRepository,
-            user::PostgresUserRepository,
+            user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    mailer::smtp_mailer::SmtpMailer,
     messaging::nats::{connection::create_jetstream, producer::NatsProducer},
     voice::livekit_service::LiveKitService,
 };
@@ -41,6 +44,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_config = LiveKitConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
+    let mailer_config = MailerConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let nats_jetstream = create_jetstream(&nats_config).await?;
@@ -48,7 +52,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let room_repository = Arc::new(PostgresRoomRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
     let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
+    let verification_code_repository = Arc::new(PostgresVerificationCodeRepository::new(
+        postgres_pool.clone(),
+    ));
 
+    let mailer = Arc::new(SmtpMailer::from_config(mailer_config)?);
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
 
@@ -65,7 +73,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         user_repository.clone(),
     );
     let delete_room_usecase = DeleteRoom::new(room_repository.clone());
-    let register_user_usecase = RegisterUser::new(user_repository.clone(), hasher.clone());
+    let register_user_usecase = RegisterUser::new(
+        user_repository.clone(),
+        hasher.clone(),
+        mailer.clone(),
+        verification_code_repository.clone(),
+    );
     let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(server_repository.clone());

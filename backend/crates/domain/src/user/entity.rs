@@ -14,6 +14,8 @@ pub struct User {
     password_hash: PasswordHash,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
+    email_verified_at: Option<DateTime<Utc>>,
+    phone_verified_at: Option<DateTime<Utc>>,
 }
 
 impl User {
@@ -24,6 +26,8 @@ impl User {
         password_hash: PasswordHash,
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
+        email_verified_at: Option<DateTime<Utc>>,
+        phone_verified_at: Option<DateTime<Utc>>,
     ) -> Self {
         Self {
             id,
@@ -32,6 +36,8 @@ impl User {
             password_hash,
             created_at,
             updated_at,
+            email_verified_at,
+            phone_verified_at,
         }
     }
 
@@ -44,11 +50,17 @@ impl User {
             password_hash,
             created_at: now,
             updated_at: now,
+            email_verified_at: None,
+            phone_verified_at: None,
         }
     }
 
     pub fn id(&self) -> &UserId {
         &self.id
+    }
+
+    pub fn id_ownned(&self) -> UserId {
+        self.id
     }
 
     pub fn name(&self) -> &UserName {
@@ -69,5 +81,13 @@ impl User {
 
     pub fn email(&self) -> &Email {
         &self.email
+    }
+
+    pub fn email_verified_at(&self) -> Option<DateTime<Utc>> {
+        self.email_verified_at
+    }
+
+    pub fn phone_verified_at(&self) -> Option<DateTime<Utc>> {
+        self.phone_verified_at
     }
 }

@@ -1,5 +1,7 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
-use application::ports::{hasher::HashError, voice_service::VoiceServiceError};
+use application::ports::{
+    hasher::HashError, mailer::MailerError, voice_service::VoiceServiceError,
+};
 use application::usecases::room::join_room::JoinRoomError;
 use application::usecases::room::publish_room_event::PublishRoomEventError;
 use application::usecases::server::list_server_members::ListServerMembersError;
@@ -107,6 +109,16 @@ impl ToHttpStatus for HashError {
     }
 }
 
+impl ToHttpStatus for MailerError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::BAD_GATEWAY
+    }
+
+    fn to_user_message(&self) -> String {
+        "Could not send email. Please try again in a moment.".to_string()
+    }
+}
+
 impl ToHttpStatus for CreateRoomError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -166,6 +178,7 @@ impl ToHttpStatus for RegistrationError {
         match self {
             RegistrationError::Repository(e) => e.to_http_status(),
             RegistrationError::Hash(e) => e.to_http_status(),
+            RegistrationError::Mailer(e) => e.to_http_status(),
         }
     }
 
@@ -173,6 +186,7 @@ impl ToHttpStatus for RegistrationError {
         match self {
             RegistrationError::Repository(e) => e.to_user_message(),
             RegistrationError::Hash(e) => e.to_user_message(),
+            RegistrationError::Mailer(e) => e.to_user_message(),
         }
     }
 }

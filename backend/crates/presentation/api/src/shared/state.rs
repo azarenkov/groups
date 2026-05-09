@@ -13,9 +13,10 @@ use application::usecases::{
 use infrastructure::{
     database::postgres::repositories::{
         room::PostgresRoomRepository, server::PostgresServerRepository,
-        user::PostgresUserRepository,
+        user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    mailer::smtp_mailer::SmtpMailer,
     messaging::nats::producer::NatsProducer,
     voice::livekit_service::LiveKitService,
 };
@@ -25,7 +26,12 @@ pub struct AppState {
     join_room_usecase: JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository>,
     delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
 
-    register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
+    register_user_usecase: RegisterUser<
+        PostgresUserRepository,
+        BcryptHasher,
+        SmtpMailer,
+        PostgresVerificationCodeRepository,
+    >,
     login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
 
     create_server_usecase: CreateServer<PostgresServerRepository>,
@@ -49,7 +55,12 @@ impl AppState {
         >,
         join_room_usecase: JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository>,
         delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
-        register_user_usecase: RegisterUser<PostgresUserRepository, BcryptHasher>,
+        register_user_usecase: RegisterUser<
+            PostgresUserRepository,
+            BcryptHasher,
+            SmtpMailer,
+            PostgresVerificationCodeRepository,
+        >,
         login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
@@ -85,7 +96,14 @@ impl AppState {
         &self.jwt_secret
     }
 
-    pub fn register_user_usecase(&self) -> &RegisterUser<PostgresUserRepository, BcryptHasher> {
+    pub fn register_user_usecase(
+        &self,
+    ) -> &RegisterUser<
+        PostgresUserRepository,
+        BcryptHasher,
+        SmtpMailer,
+        PostgresVerificationCodeRepository,
+    > {
         &self.register_user_usecase
     }
 

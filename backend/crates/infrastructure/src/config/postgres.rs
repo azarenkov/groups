@@ -2,12 +2,17 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct PostgresConfig {
-    #[serde(rename = "database_url")]
+    #[serde(rename = "postgres_url")]
     url: String,
+    #[serde(rename = "postgres_max_connections")]
     max_connections: u32,
+    #[serde(rename = "postgres_min_connections")]
     min_connections: u32,
+    #[serde(rename = "postgres_connect_timeout_seconds")]
     connect_timeout_seconds: u64,
+    #[serde(rename = "postgres_idle_timeout_seconds")]
     idle_timeout_seconds: u64,
+    #[serde(rename = "postgres_max_lifetime_seconds")]
     max_lifetime_seconds: u64,
 }
 
