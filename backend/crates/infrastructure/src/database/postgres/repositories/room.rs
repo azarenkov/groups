@@ -29,7 +29,7 @@ impl PostgresRoomRepository {
 
 #[async_trait]
 impl RoomRepository for PostgresRoomRepository {
-    async fn create_room(&self, room: &Room) -> Result<(), RepositoryError> {
+    async fn save_room(&self, room: &Room) -> Result<(), RepositoryError> {
         let room_type_dto: RoomTypeDto = room.room_type().into();
 
         sqlx::query!(

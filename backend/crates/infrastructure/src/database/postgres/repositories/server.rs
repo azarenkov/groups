@@ -42,7 +42,7 @@ impl ServerRepository for PostgresServerRepository {
         Ok(result.exists)
     }
 
-    async fn create_server(&self, server: &Server) -> Result<(), RepositoryError> {
+    async fn save_server(&self, server: &Server) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
             .begin()

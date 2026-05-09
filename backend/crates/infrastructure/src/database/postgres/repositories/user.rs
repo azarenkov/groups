@@ -24,7 +24,7 @@ impl PostgresUserRepository {
 
 #[async_trait]
 impl UserRepository for PostgresUserRepository {
-    async fn create_user(&self, user: &User) -> Result<(), RepositoryError> {
+    async fn save_user(&self, user: &User) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
                 INSERT INTO users (id, name, email, password_hash, created_at, updated_at)

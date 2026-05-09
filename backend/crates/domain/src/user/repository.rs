@@ -10,7 +10,7 @@ use crate::{
 
 #[async_trait]
 pub trait UserRepository {
-    async fn create_user(&self, user: &User) -> Result<(), RepositoryError>;
+    async fn save_user(&self, user: &User) -> Result<(), RepositoryError>;
     async fn get_password_hash_by_email(
         &self,
         email: &Email,

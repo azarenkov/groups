@@ -43,7 +43,7 @@ where
             owner_id,
             request.description.map(ServerDescription::new),
         );
-        self.server_repository.create_server(&server).await?;
+        self.server_repository.save_server(&server).await?;
 
         Ok(server)
     }

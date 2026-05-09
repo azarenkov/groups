@@ -4,5 +4,8 @@ use crate::{shared::repository::error::RepositoryError, verification::code::Veri
 
 #[async_trait]
 pub trait VerificationCodeRepository {
-    async fn save(&self, verification_code: &VerificationCode) -> Result<(), RepositoryError>;
+    async fn save_verification_code(
+        &self,
+        verification_code: &VerificationCode,
+    ) -> Result<(), RepositoryError>;
 }

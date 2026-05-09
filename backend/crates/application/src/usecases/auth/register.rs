@@ -73,7 +73,7 @@ where
             Email::new(request.email),
             password_hash,
         );
-        self.user_repository.create_user(&user).await?;
+        self.user_repository.save_user(&user).await?;
 
         let verification_code = VerificationCode::generate();
 
@@ -91,7 +91,7 @@ where
         );
 
         self.verification_code_repository
-            .save(&verification_code)
+            .save_verification_code(&verification_code)
             .await?;
 
         Ok(user)

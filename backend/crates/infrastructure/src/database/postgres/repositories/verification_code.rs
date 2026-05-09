@@ -24,7 +24,10 @@ impl PostgresVerificationCodeRepository {
 
 #[async_trait]
 impl VerificationCodeRepository for PostgresVerificationCodeRepository {
-    async fn save(&self, verification_code: &VerificationCode) -> Result<(), RepositoryError> {
+    async fn save_verification_code(
+        &self,
+        verification_code: &VerificationCode,
+    ) -> Result<(), RepositoryError> {
         let channel = VerificationChannelDto::from(verification_code.channel());
         let purpose = VerificationPurposeDto::from(verification_code.purpose());
 
