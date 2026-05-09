@@ -1,3 +1,3 @@
 pub mod auth;
-pub mod room;
+pub mod channel;
 pub mod server;

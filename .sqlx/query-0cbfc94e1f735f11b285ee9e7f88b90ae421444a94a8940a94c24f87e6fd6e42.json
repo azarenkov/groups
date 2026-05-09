@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                 SELECT name\n                 FROM channels\n                 WHERE id = $1\n             ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0cbfc94e1f735f11b285ee9e7f88b90ae421444a94a8940a94c24f87e6fd6e42"
+}

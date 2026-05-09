@@ -1,5 +1,5 @@
-pub mod room;
-pub mod room_type;
+pub mod channel;
+pub mod channel_type;
 pub mod server;
 pub mod user;
 pub mod verification_channel;

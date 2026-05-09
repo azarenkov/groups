@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use domain::{
-    room::Room,
+    channel::Channel,
     server::{Server, repository::ServerRepository, id::ServerId},
     shared::{
         pagination::{PaginatedResult, Pagination},
@@ -12,7 +12,7 @@ use domain::{
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
-    dto::{room::RoomDto, room_type::RoomTypeDto, server::ServerDto, user::UserDto},
+    dto::{channel::ChannelDto, channel_type::ChannelTypeDto, server::ServerDto, user::UserDto},
     error::map_sqlx_error_to_domain_error,
 };
 
@@ -165,11 +165,11 @@ impl ServerRepository for PostgresServerRepository {
         &self,
         server_id: &ServerId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<Room>, RepositoryError> {
+    ) -> Result<PaginatedResult<Channel>, RepositoryError> {
         let total = sqlx::query!(
             r#"
                 SELECT COUNT(*) as "count!"
-                FROM rooms
+                FROM channels
                 WHERE server_id = $1
             "#,
             server_id.uuid()
@@ -179,8 +179,8 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?
         .count;
 
-        let rooms = sqlx::query_as!(
-            RoomDto,
+        let channels = sqlx::query_as!(
+            ChannelDto,
             r#"
                 SELECT
                     id,
@@ -188,12 +188,12 @@ impl ServerRepository for PostgresServerRepository {
                     owner_id,
                     name,
                     max_participants,
-                    room_type as "room_type: RoomTypeDto",
+                    channel_type as "channel_type: ChannelTypeDto",
                     password_hash,
                     created_at,
                     updated_at,
                     last_join
-                FROM rooms
+                FROM channels
                 WHERE server_id = $1
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
@@ -206,7 +206,7 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        let items = rooms.into_iter().map(|dto| dto.into()).collect();
+        let items = channels.into_iter().map(|dto| dto.into()).collect();
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
