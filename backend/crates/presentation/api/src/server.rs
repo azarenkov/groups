@@ -4,10 +4,10 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    room::{create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom},
+    channel::{create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel},
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
-        list_server_members::ListServerMembers, list_server_rooms::ListServerRooms,
+        list_server_members::ListServerMembers, list_server_channels::ListServerChannels,
         list_servers_by_user::ListServersByUser,
     },
 };
@@ -18,7 +18,7 @@ use infrastructure::{
     database::postgres::{
         connection::create_postgres_pool,
         repositories::{
-            room::PostgresRoomRepository, server::PostgresServerRepository,
+            channel::PostgresChannelRepository, server::PostgresServerRepository,
             user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
         },
     },
@@ -46,7 +46,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let nats_jetstream = create_jetstream(&nats_config).await?;
 
-    let room_repository = Arc::new(PostgresRoomRepository::new(postgres_pool.clone()));
+    let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
     let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
     let verification_code_repository = Arc::new(PostgresVerificationCodeRepository::new(
@@ -59,17 +59,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let event_producer = Arc::new(NatsProducer::new(nats_jetstream, nats_config));
 
-    let create_room_usecase = CreateRoom::new(
-        room_repository.clone(),
+    let create_room_usecase = CreateChannel::new(
+        channel_repository.clone(),
         hasher.clone(),
         server_repository.clone(),
     );
-    let join_room_usecase = JoinRoom::new(
+    let join_room_usecase = JoinChannel::new(
         livekit_service.clone(),
-        room_repository.clone(),
+        channel_repository.clone(),
         user_repository.clone(),
     );
-    let delete_room_usecase = DeleteRoom::new(room_repository.clone());
+    let delete_room_usecase = DeleteChannel::new(channel_repository.clone());
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
@@ -81,7 +81,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
-    let list_server_rooms_usecase = ListServerRooms::new(server_repository.clone());
+    let list_server_rooms_usecase = ListServerChannels::new(server_repository.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_room_usecase,

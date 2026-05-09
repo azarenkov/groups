@@ -1,15 +1,15 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    room::{create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom},
+    channel::{create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel},
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
-        list_server_members::ListServerMembers, list_server_rooms::ListServerRooms,
+        list_server_members::ListServerMembers, list_server_channels::ListServerChannels,
         list_servers_by_user::ListServersByUser,
     },
 };
 use infrastructure::{
     database::postgres::repositories::{
-        room::PostgresRoomRepository, server::PostgresServerRepository,
+        channel::PostgresChannelRepository, server::PostgresServerRepository,
         user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
@@ -18,9 +18,9 @@ use infrastructure::{
 };
 
 pub struct AppState {
-    create_room_usecase: CreateRoom<PostgresRoomRepository, BcryptHasher, PostgresServerRepository>,
-    join_room_usecase: JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository>,
-    delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
+    create_room_usecase: CreateChannel<PostgresChannelRepository, BcryptHasher, PostgresServerRepository>,
+    join_room_usecase: JoinChannel<LiveKitService, PostgresChannelRepository, PostgresUserRepository>,
+    delete_room_usecase: DeleteChannel<PostgresChannelRepository>,
 
     register_user_usecase: RegisterUser<
         PostgresUserRepository,
@@ -34,7 +34,7 @@ pub struct AppState {
     delete_server_usecase: DeleteServer<PostgresServerRepository>,
     list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
-    list_server_rooms_usecase: ListServerRooms<PostgresServerRepository>,
+    list_server_rooms_usecase: ListServerChannels<PostgresServerRepository>,
 
     jwt_secret: String,
 }
@@ -42,13 +42,13 @@ pub struct AppState {
 impl AppState {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        create_room_usecase: CreateRoom<
-            PostgresRoomRepository,
+        create_room_usecase: CreateChannel<
+            PostgresChannelRepository,
             BcryptHasher,
             PostgresServerRepository,
         >,
-        join_room_usecase: JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository>,
-        delete_room_usecase: DeleteRoom<PostgresRoomRepository>,
+        join_room_usecase: JoinChannel<LiveKitService, PostgresChannelRepository, PostgresUserRepository>,
+        delete_room_usecase: DeleteChannel<PostgresChannelRepository>,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
@@ -60,7 +60,7 @@ impl AppState {
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
-        list_server_rooms_usecase: ListServerRooms<PostgresServerRepository>,
+        list_server_rooms_usecase: ListServerChannels<PostgresServerRepository>,
         jwt_secret: String,
     ) -> Self {
         Self {
@@ -80,7 +80,7 @@ impl AppState {
 
     pub fn create_room_usecase(
         &self,
-    ) -> &CreateRoom<PostgresRoomRepository, BcryptHasher, PostgresServerRepository> {
+    ) -> &CreateChannel<PostgresChannelRepository, BcryptHasher, PostgresServerRepository> {
         &self.create_room_usecase
     }
 
@@ -111,13 +111,13 @@ impl AppState {
         &self.delete_server_usecase
     }
 
-    pub fn delete_room_usecase(&self) -> &DeleteRoom<PostgresRoomRepository> {
+    pub fn delete_room_usecase(&self) -> &DeleteChannel<PostgresChannelRepository> {
         &self.delete_room_usecase
     }
 
     pub fn join_room_usecase(
         &self,
-    ) -> &JoinRoom<LiveKitService, PostgresRoomRepository, PostgresUserRepository> {
+    ) -> &JoinChannel<LiveKitService, PostgresChannelRepository, PostgresUserRepository> {
         &self.join_room_usecase
     }
 
@@ -129,7 +129,7 @@ impl AppState {
         &self.list_server_members_usecase
     }
 
-    pub fn list_server_rooms_usecase(&self) -> &ListServerRooms<PostgresServerRepository> {
+    pub fn list_server_rooms_usecase(&self) -> &ListServerChannels<PostgresServerRepository> {
         &self.list_server_rooms_usecase
     }
 }

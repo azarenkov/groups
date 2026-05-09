@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
-    room::Room,
+    channel::Channel,
     server::{Server, id::ServerId},
     shared::{
         pagination::{PaginatedResult, Pagination},
@@ -28,7 +28,7 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<Room>, RepositoryError>;
+    ) -> Result<PaginatedResult<Channel>, RepositoryError>;
     async fn add_member_to_server(
         &self,
         server_id: &ServerId,

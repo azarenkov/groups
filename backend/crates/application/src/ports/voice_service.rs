@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use domain::{
-    room::{id::RoomId, token::RoomToken},
+    channel::{id::ChannelId, token::ChannelToken},
     server::id::ServerId,
     user::{id::UserId, name::UserName},
 };
@@ -11,11 +11,11 @@ pub trait VoiceService {
         &self,
         user_id: &UserId,
         username: &UserName,
-        room_id: &RoomId,
-    ) -> Result<RoomToken, VoiceServiceError>;
-    async fn create_voice_room(
+        channel_id: &ChannelId,
+    ) -> Result<ChannelToken, VoiceServiceError>;
+    async fn create_voice_channel(
         &self,
-        room_id: &RoomId,
+        channel_id: &ChannelId,
         server_id: &ServerId,
     ) -> Result<(), VoiceServiceError>;
     fn client_url(&self) -> String;
@@ -25,6 +25,6 @@ pub trait VoiceService {
 pub enum VoiceServiceError {
     #[error("Token creation error: {0}")]
     TokenCreation(String),
-    #[error("Voice room creation error: {0}")]
-    VoiceRoomCreation(String),
+    #[error("Voice channel creation error: {0}")]
+    VoiceChannelCreation(String),
 }

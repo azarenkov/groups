@@ -2,13 +2,13 @@ use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{
     hasher::HashError, mailer::MailerError, voice_service::VoiceServiceError,
 };
-use application::usecases::room::join_room::JoinRoomError;
+use application::usecases::channel::join_channel::JoinChannelError;
 use application::usecases::server::list_server_members::ListServerMembersError;
-use application::usecases::server::list_server_rooms::ListServerRoomsError;
+use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
-    room::{create_room::CreateRoomError, delete_room::DeleteRoomError},
+    channel::{create_channel::CreateChannelError, delete_channel::DeleteChannelError},
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
 use domain::shared::repository::error::RepositoryError;
@@ -78,36 +78,36 @@ impl ToHttpStatus for MailerError {
     }
 }
 
-impl ToHttpStatus for CreateRoomError {
+impl ToHttpStatus for CreateChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            CreateRoomError::Repository(e) => e.to_http_status(),
-            CreateRoomError::Hash(e) => e.to_http_status(),
-            CreateRoomError::PasswordRequired => StatusCode::BAD_REQUEST,
-            CreateRoomError::InvalidData => StatusCode::BAD_REQUEST,
+            CreateChannelError::Repository(e) => e.to_http_status(),
+            CreateChannelError::Hash(e) => e.to_http_status(),
+            CreateChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
+            CreateChannelError::InvalidData => StatusCode::BAD_REQUEST,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            CreateRoomError::Repository(e) => e.to_user_message(),
-            CreateRoomError::Hash(e) => e.to_user_message(),
-            CreateRoomError::PasswordRequired => {
-                "Password is required for private rooms".to_string()
+            CreateChannelError::Repository(e) => e.to_user_message(),
+            CreateChannelError::Hash(e) => e.to_user_message(),
+            CreateChannelError::PasswordRequired => {
+                "Password is required for private channels".to_string()
             }
-            CreateRoomError::InvalidData => "Invalid room data provided".to_string(),
+            CreateChannelError::InvalidData => "Invalid channel data provided".to_string(),
         }
     }
 }
 
-impl ToHttpStatus for DeleteRoomError {
+impl ToHttpStatus for DeleteChannelError {
     fn to_http_status(&self) -> StatusCode {
-        let DeleteRoomError::Repository(e) = self;
+        let DeleteChannelError::Repository(e) = self;
         e.to_http_status()
     }
 
     fn to_user_message(&self) -> String {
-        let DeleteRoomError::Repository(e) = self;
+        let DeleteChannelError::Repository(e) = self;
         e.to_user_message()
     }
 }
@@ -174,18 +174,18 @@ impl ToHttpStatus for DeleteServerError {
     }
 }
 
-impl ToHttpStatus for JoinRoomError {
+impl ToHttpStatus for JoinChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            JoinRoomError::VoiceService(e) => e.to_http_status(),
-            JoinRoomError::Repository(e) => e.to_http_status(),
+            JoinChannelError::VoiceService(e) => e.to_http_status(),
+            JoinChannelError::Repository(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            JoinRoomError::VoiceService(e) => e.to_user_message(),
-            JoinRoomError::Repository(e) => e.to_user_message(),
+            JoinChannelError::VoiceService(e) => e.to_user_message(),
+            JoinChannelError::Repository(e) => e.to_user_message(),
         }
     }
 }
@@ -214,14 +214,14 @@ impl ToHttpStatus for ListServerMembersError {
     }
 }
 
-impl ToHttpStatus for ListServerRoomsError {
+impl ToHttpStatus for ListServerChannelsError {
     fn to_http_status(&self) -> StatusCode {
-        let ListServerRoomsError::Repository(e) = self;
+        let ListServerChannelsError::Repository(e) = self;
         e.to_http_status()
     }
 
     fn to_user_message(&self) -> String {
-        let ListServerRoomsError::Repository(e) = self;
+        let ListServerChannelsError::Repository(e) = self;
         e.to_user_message()
     }
 }
@@ -266,14 +266,14 @@ impl ResponseError for ApiError {
     }
 }
 
-impl From<CreateRoomError> for ApiError {
-    fn from(error: CreateRoomError) -> Self {
+impl From<CreateChannelError> for ApiError {
+    fn from(error: CreateChannelError) -> Self {
         Self::from_error(error)
     }
 }
 
-impl From<DeleteRoomError> for ApiError {
-    fn from(error: DeleteRoomError) -> Self {
+impl From<DeleteChannelError> for ApiError {
+    fn from(error: DeleteChannelError) -> Self {
         Self::from_error(error)
     }
 }
@@ -312,8 +312,8 @@ impl From<ValidationErrors> for ApiError {
     }
 }
 
-impl From<JoinRoomError> for ApiError {
-    fn from(error: JoinRoomError) -> Self {
+impl From<JoinChannelError> for ApiError {
+    fn from(error: JoinChannelError) -> Self {
         Self::from_error(error)
     }
 }
@@ -330,8 +330,8 @@ impl From<ListServerMembersError> for ApiError {
     }
 }
 
-impl From<ListServerRoomsError> for ApiError {
-    fn from(error: ListServerRoomsError) -> Self {
+impl From<ListServerChannelsError> for ApiError {
+    fn from(error: ListServerChannelsError) -> Self {
         Self::from_error(error)
     }
 }

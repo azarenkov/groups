@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, post, web};
 
 use crate::shared::{
-    dto::requests::room::webhook::LiveKitWebhookRequest, error::ApiError, state::AppState,
+    dto::requests::channel::webhook::LiveKitWebhookRequest, error::ApiError, state::AppState,
 };
 
 #[post("/livekit")]

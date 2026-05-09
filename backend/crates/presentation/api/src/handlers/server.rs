@@ -17,7 +17,7 @@ use crate::{
                 server::{
                     create_server::CreateServerResponse,
                     list_server_members::ListServerMembersResponse,
-                    list_server_rooms::ListServerRoomsResponse,
+                    list_server_channels::ListServerChannelsResponse,
                     list_servers_by_user::ListServersByUserResponse,
                 },
             },
@@ -91,8 +91,8 @@ async fn list_server_members(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[get("/{server_id}/rooms")]
-async fn list_server_rooms(
+#[get("/{server_id}/channels")]
+async fn list_server_channels(
     _auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -109,7 +109,7 @@ async fn list_server_rooms(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServerRoomsResponse::new(result.items, pagination_meta);
+    let response = ListServerChannelsResponse::new(result.items, pagination_meta);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
