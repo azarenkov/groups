@@ -5,7 +5,7 @@ use domain::{
     user::{
         User,
         repository::UserRepository,
-        value_objects::{email::Email, id::UserId, name::UserName},
+        email::Email, id::UserId, name::UserName,
     },
 };
 use sqlx::{Pool, Postgres};

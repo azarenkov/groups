@@ -1,6 +1,6 @@
 use actix_web::{HttpResponse, Responder, delete, post, web};
 use application::dto::requests::room::join_room::JoinRoomRequest as AppJoinRoomRequest;
-use domain::{room::value_objects::id::RoomId, user::value_objects::id::UserId};
+use domain::{room::id::RoomId, user::id::UserId};
 use uuid::Uuid;
 use validator::Validate;
 

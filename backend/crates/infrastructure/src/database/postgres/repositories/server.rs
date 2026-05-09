@@ -2,12 +2,12 @@ use async_trait::async_trait;
 
 use domain::{
     room::Room,
-    server::{Server, repository::ServerRepository, value_objects::id::ServerId},
+    server::{Server, repository::ServerRepository, id::ServerId},
     shared::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
-    user::{User, value_objects::id::UserId},
+    user::{User, id::UserId},
 };
 use sqlx::{Pool, Postgres};
 

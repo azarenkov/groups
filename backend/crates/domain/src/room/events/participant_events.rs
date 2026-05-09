@@ -2,9 +2,9 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{
-    room::value_objects::id::RoomId,
-    server::value_objects::id::ServerId,
-    user::value_objects::{id::UserId, name::UserName},
+    room::id::RoomId,
+    server::id::ServerId,
+    user::{id::UserId, name::UserName},
 };
 
 #[derive(Debug, Serialize)]

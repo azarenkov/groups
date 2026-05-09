@@ -3,11 +3,11 @@ use async_trait::async_trait;
 use crate::{
     room::{
         Room,
-        value_objects::{id::RoomId, name::RoomName},
+        id::RoomId, name::RoomName,
     },
-    server::value_objects::id::ServerId,
+    server::id::ServerId,
     shared::repository::error::RepositoryError,
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 
 #[async_trait]

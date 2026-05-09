@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::{room::value_objects::id::RoomId, server::value_objects::id::ServerId};
+use crate::{room::id::RoomId, server::id::ServerId};
 
 #[derive(Debug, Serialize)]
 pub struct RoomStartedEvent {

@@ -2,12 +2,12 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{
-    room::value_objects::{
+    room::{
         id::RoomId, max_paticipants::MaxParticipants, name::RoomName, room_type::RoomType,
     },
-    server::value_objects::id::ServerId,
+    server::id::ServerId,
     shared::value_objects::password_hash::PasswordHash,
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 
 #[derive(Debug, Serialize)]

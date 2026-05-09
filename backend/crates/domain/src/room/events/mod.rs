@@ -10,9 +10,9 @@ use crate::{
             room_events::{RoomFinishedEvent, RoomStartedEvent},
             track_events::{TrackPublishedEvent, TrackUnpublishedEvent},
         },
-        value_objects::id::RoomId,
+        id::RoomId,
     },
-    server::value_objects::id::ServerId,
+    server::id::ServerId,
     shared::event::DomainEvent,
 };
 

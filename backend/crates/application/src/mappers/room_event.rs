@@ -10,11 +10,11 @@ use domain::{
             room_events::{RoomFinishedEvent, RoomStartedEvent},
             track_events::{TrackPublishedEvent, TrackUnpublishedEvent},
         },
-        value_objects::id::{InvalidRoomId, RoomId},
+        id::{InvalidRoomId, RoomId},
     },
-    server::value_objects::id::{InvalidServerId, ServerId},
+    server::id::{InvalidServerId, ServerId},
     shared::value_objects::track_type::{InvalidTrackType, TrackType},
-    user::value_objects::{
+    user::{
         id::{InvalidUserId, UserId},
         name::UserName,
     },

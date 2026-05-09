@@ -4,10 +4,10 @@ use domain::{
     server::{
         Server,
         repository::ServerRepository,
-        value_objects::{description::ServerDescription, name::ServerName},
+        description::ServerDescription, name::ServerName,
     },
     shared::repository::error::RepositoryError,
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 
 use crate::dto::requests::server::create_server::CreateServerRequest;

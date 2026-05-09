@@ -1,6 +1,10 @@
 pub mod events;
+pub mod id;
+pub mod max_paticipants;
+pub mod name;
 pub mod repository;
-pub mod value_objects;
+pub mod room_type;
+pub mod token;
 
-mod entity;
-pub use entity::Room;
+mod room;
+pub use room::Room;

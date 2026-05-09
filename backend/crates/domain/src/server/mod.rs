@@ -1,5 +1,8 @@
-mod entity;
+pub mod description;
 pub mod events;
+pub mod id;
+pub mod name;
 pub mod repository;
-pub mod value_objects;
-pub use entity::Server;
+
+mod server;
+pub use server::Server;

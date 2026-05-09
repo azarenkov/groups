@@ -1,5 +1,7 @@
+pub mod email;
+pub mod id;
+pub mod name;
 pub mod repository;
-pub mod value_objects;
 
-mod entity;
-pub use entity::User;
+mod user;
+pub use user::User;

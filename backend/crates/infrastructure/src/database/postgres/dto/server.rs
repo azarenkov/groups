@@ -2,9 +2,9 @@ use chrono::{DateTime, Utc};
 use domain::{
     server::{
         Server,
-        value_objects::{description::ServerDescription, id::ServerId, name::ServerName},
+        description::ServerDescription, id::ServerId, name::ServerName,
     },
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 use sqlx::{FromRow, types::Uuid};
 

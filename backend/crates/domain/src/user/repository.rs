@@ -4,7 +4,7 @@ use crate::{
     shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
     user::{
         User,
-        value_objects::{email::Email, id::UserId, name::UserName},
+        email::Email, id::UserId, name::UserName,
     },
 };
 

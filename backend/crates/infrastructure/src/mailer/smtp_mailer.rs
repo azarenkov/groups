@@ -1,7 +1,7 @@
 use crate::config::mailer::MailerConfig;
 use application::ports::mailer::{Mailer, MailerError};
 use async_trait::async_trait;
-use domain::user::value_objects::email::Email;
+use domain::user::email::Email;
 use lettre::message::{Mailbox, header::ContentType};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};

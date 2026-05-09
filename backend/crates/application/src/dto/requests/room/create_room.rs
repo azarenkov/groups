@@ -1,4 +1,4 @@
-use domain::room::value_objects::room_type::RoomType;
+use domain::room::room_type::RoomType;
 use uuid::Uuid;
 
 #[derive(Debug)]

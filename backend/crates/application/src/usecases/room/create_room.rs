@@ -4,11 +4,11 @@ use domain::{
     room::{
         Room,
         repository::RoomRepository,
-        value_objects::{name::RoomName, room_type::RoomType},
+        name::RoomName, room_type::RoomType,
     },
-    server::{repository::ServerRepository, value_objects::id::ServerId},
+    server::{repository::ServerRepository, id::ServerId},
     shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 
 use crate::{

@@ -5,7 +5,7 @@ use domain::{
     user::{
         User,
         repository::UserRepository,
-        value_objects::{email::Email, name::UserName},
+        email::Email, name::UserName,
     },
     verification::{
         channel::VerificationChannel, code::VerificationCode, code_hash::CodeHash,

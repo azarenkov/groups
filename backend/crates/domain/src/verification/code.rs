@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use rand::RngExt;
 
 use crate::{
-    user::value_objects::id::UserId,
+    user::id::UserId,
     verification::{
         channel::VerificationChannel, code_hash::CodeHash, id::VerificationCodeId,
         purpose::VerificationPurpose,
