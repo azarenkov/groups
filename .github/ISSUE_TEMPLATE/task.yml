@@ -1,0 +1,49 @@
+name: Task / chore
+description: Internal work item — refactor, cleanup, infra, docs, dependency bump.
+title: "[Task]: "
+labels: ["task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What needs to be done and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Files / modules / services in scope. Anything explicitly out of scope.
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How do we know this is done? Bullet list works.
+      placeholder: |
+        - [ ] Migration runs cleanly on a fresh DB
+        - [ ] CI passes
+        - [ ] No regressions in existing flows
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend (Electron / React)
+        - Backend API
+        - Backend WebSocket
+        - Database / migrations
+        - Voice (LiveKit)
+        - Auth
+        - CI / build / infra
+        - Docs
+        - Other
+    validations:
+      required: true
