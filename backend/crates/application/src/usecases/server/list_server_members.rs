@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::{
-    server::{repository::ServerRepository, value_objects::id::ServerId},
+    server::{repository::ServerRepository, id::ServerId},
     shared::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,

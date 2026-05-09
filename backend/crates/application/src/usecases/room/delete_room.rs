@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use domain::{
-    room::{repository::RoomRepository, value_objects::id::RoomId},
+    room::{repository::RoomRepository, id::RoomId},
     shared::repository::error::RepositoryError,
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 
 #[derive(Debug, thiserror::Error)]

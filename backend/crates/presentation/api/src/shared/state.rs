@@ -1,9 +1,6 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    room::{
-        create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom,
-        publish_room_event::PublishRoomEvent,
-    },
+    room::{create_room::CreateRoom, delete_room::DeleteRoom, join_room::JoinRoom},
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
         list_server_members::ListServerMembers, list_server_rooms::ListServerRooms,
@@ -17,7 +14,6 @@ use infrastructure::{
     },
     hasher::bcrypt_hasher::BcryptHasher,
     mailer::smtp_mailer::SmtpMailer,
-    messaging::nats::producer::NatsProducer,
     voice::livekit_service::LiveKitService,
 };
 
@@ -39,8 +35,6 @@ pub struct AppState {
     list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     list_server_rooms_usecase: ListServerRooms<PostgresServerRepository>,
-
-    publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
 
     jwt_secret: String,
 }
@@ -67,7 +61,6 @@ impl AppState {
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_rooms_usecase: ListServerRooms<PostgresServerRepository>,
-        publish_room_event_usecase: PublishRoomEvent<NatsProducer>,
         jwt_secret: String,
     ) -> Self {
         Self {
@@ -81,7 +74,6 @@ impl AppState {
             list_servers_by_user_usecase,
             list_server_members_usecase,
             list_server_rooms_usecase,
-            publish_room_event_usecase,
             jwt_secret,
         }
     }
@@ -121,10 +113,6 @@ impl AppState {
 
     pub fn delete_room_usecase(&self) -> &DeleteRoom<PostgresRoomRepository> {
         &self.delete_room_usecase
-    }
-
-    pub fn publish_room_event_usecase(&self) -> &PublishRoomEvent<NatsProducer> {
-        &self.publish_room_event_usecase
     }
 
     pub fn join_room_usecase(

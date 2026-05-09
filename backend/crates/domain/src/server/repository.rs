@@ -2,12 +2,12 @@ use async_trait::async_trait;
 
 use crate::{
     room::Room,
-    server::{Server, value_objects::id::ServerId},
+    server::{Server, id::ServerId},
     shared::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
-    user::{User, value_objects::id::UserId},
+    user::{User, id::UserId},
 };
 
 #[async_trait]

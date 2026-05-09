@@ -6,7 +6,7 @@ use domain::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 
 #[derive(Debug, thiserror::Error)]

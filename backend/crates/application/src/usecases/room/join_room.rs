@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use domain::{
-    room::{repository::RoomRepository, value_objects::id::RoomId},
-    server::value_objects::id::ServerId,
+    room::{repository::RoomRepository, id::RoomId},
+    server::id::ServerId,
     shared::repository::error::RepositoryError,
-    user::{repository::UserRepository, value_objects::id::UserId},
+    user::{repository::UserRepository, id::UserId},
 };
 
 use crate::{

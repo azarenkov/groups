@@ -4,11 +4,11 @@ use domain::{
     room::{
         Room,
         repository::RoomRepository,
-        value_objects::{id::RoomId, name::RoomName},
+        id::RoomId, name::RoomName,
     },
-    server::value_objects::id::ServerId,
+    server::id::ServerId,
     shared::repository::error::RepositoryError,
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 use sqlx::{Pool, Postgres};
 

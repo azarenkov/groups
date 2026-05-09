@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::room::{Room, value_objects::room_type::RoomType};
+use domain::room::{Room, room_type::RoomType};
 use serde::Serialize;
 use uuid::Uuid;
 

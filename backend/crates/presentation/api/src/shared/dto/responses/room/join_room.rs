@@ -1,4 +1,4 @@
-use domain::room::value_objects::token::RoomToken;
+use domain::room::token::RoomToken;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

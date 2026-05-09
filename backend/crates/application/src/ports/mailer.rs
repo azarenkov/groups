@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::user::value_objects::email::Email;
+use domain::user::email::Email;
 
 #[async_trait]
 pub trait Mailer {

@@ -4,7 +4,7 @@ use domain::{
     shared::repository::error::RepositoryError,
     user::{
         repository::UserRepository,
-        value_objects::{email::Email, id::UserId},
+        email::Email, id::UserId,
     },
 };
 

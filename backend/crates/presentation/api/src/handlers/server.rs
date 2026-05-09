@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use domain::{
-    server::value_objects::id::ServerId, shared::pagination::Pagination,
-    user::value_objects::id::UserId,
+    server::id::ServerId, shared::pagination::Pagination,
+    user::id::UserId,
 };
 use uuid::Uuid;
 use validator::Validate;

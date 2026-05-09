@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use domain::{
     room::{
         Room,
-        value_objects::{id::RoomId, max_paticipants::MaxParticipants, name::RoomName},
+        id::RoomId, max_paticipants::MaxParticipants, name::RoomName,
     },
-    server::value_objects::id::ServerId,
+    server::id::ServerId,
     shared::value_objects::password_hash::PasswordHash,
-    user::value_objects::id::UserId,
+    user::id::UserId,
 };
 use sqlx::{FromRow, types::Uuid};
 

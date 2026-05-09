@@ -3,7 +3,7 @@ use domain::{
     shared::value_objects::password_hash::PasswordHash,
     user::{
         User,
-        value_objects::{email::Email, id::UserId, name::UserName},
+        email::Email, id::UserId, name::UserName,
     },
 };
 use sqlx::{FromRow, types::Uuid};

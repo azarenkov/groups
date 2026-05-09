@@ -1,4 +1,4 @@
-use domain::room::value_objects::room_type::RoomType;
+use domain::room::room_type::RoomType;
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "room_type", rename_all = "lowercase")]
