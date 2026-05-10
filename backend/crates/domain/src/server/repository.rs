@@ -24,7 +24,7 @@ pub trait ServerRepository {
         server_id: &ServerId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<User>, RepositoryError>;
-    async fn find_rooms_by_server_id(
+    async fn find_channels_by_server_id(
         &self,
         server_id: &ServerId,
         pagination: Pagination,

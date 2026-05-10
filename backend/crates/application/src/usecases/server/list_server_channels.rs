@@ -37,7 +37,7 @@ where
     ) -> Result<PaginatedResult<Channel>, ListServerChannelsError> {
         let result = self
             .server_repository
-            .find_rooms_by_server_id(&server_id, pagination)
+            .find_channels_by_server_id(&server_id, pagination)
             .await?;
 
         Ok(result)

@@ -38,7 +38,7 @@ impl FromRequest for AuthToken {
         }
 
         let secret = match req.app_data::<web::Data<AppState>>() {
-            Some(app_state) => app_state.jwt_secret(),
+            Some(app_state) => app_state.jwt_secret.as_str(),
             None => return ready(Err(ErrorInternalServerError("App state not found"))),
         };
 

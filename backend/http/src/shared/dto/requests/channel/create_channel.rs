@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use application::dto::requests::channel::create_channel::{
-    CreateChannelRequest as CreateRoomRequestApplication, ChannelTypeDto,
+    ChannelTypeDto, CreateChannelRequest as CreateChannelRequestApplication,
 };
 use uuid::Uuid;
 use validator::Validate;
@@ -12,19 +12,19 @@ pub struct CreateChannelRequest {
     pub server_id: Uuid,
     #[validate(length(min = 3, max = 15))]
     pub name: String,
-    pub channel_type: RoomTypeRequest,
+    pub channel_type: ChannelTypeRequest,
     #[validate(length(min = 4, max = 30))]
     pub password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum RoomTypeRequest {
+pub enum ChannelTypeRequest {
     Public,
     Private,
 }
 
-impl From<CreateChannelRequest> for CreateRoomRequestApplication {
+impl From<CreateChannelRequest> for CreateChannelRequestApplication {
     fn from(value: CreateChannelRequest) -> Self {
         Self {
             server_id: value.server_id,
@@ -35,11 +35,11 @@ impl From<CreateChannelRequest> for CreateRoomRequestApplication {
     }
 }
 
-impl From<RoomTypeRequest> for ChannelTypeDto {
-    fn from(value: RoomTypeRequest) -> Self {
+impl From<ChannelTypeRequest> for ChannelTypeDto {
+    fn from(value: ChannelTypeRequest) -> Self {
         match value {
-            RoomTypeRequest::Public => Self::Public,
-            RoomTypeRequest::Private => Self::Private,
+            ChannelTypeRequest::Public => Self::Public,
+            ChannelTypeRequest::Private => Self::Private,
         }
     }
 }

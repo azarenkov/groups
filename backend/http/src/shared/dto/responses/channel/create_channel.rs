@@ -9,14 +9,14 @@ pub struct CreateChannelResponse {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Uuid,
-    pub channel_type: RoomTypeResponse,
+    pub channel_type: ChannelTypeResponse,
     pub max_participants: u8,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum RoomTypeResponse {
+pub enum ChannelTypeResponse {
     Public,
     Private,
 }
@@ -34,7 +34,7 @@ impl From<Channel> for CreateChannelResponse {
     }
 }
 
-impl From<&ChannelType> for RoomTypeResponse {
+impl From<&ChannelType> for ChannelTypeResponse {
     fn from(value: &ChannelType) -> Self {
         match value {
             ChannelType::Public => Self::Public,

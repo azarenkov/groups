@@ -8,7 +8,7 @@ pub mod webhook;
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/api")
-            .configure(channel::room_routes)
+            .configure(channel::channel_routes)
             .configure(auth::auth_routes)
             .configure(server::server_routes)
             .configure(webhook::webhook_routes),

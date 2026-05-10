@@ -8,7 +8,10 @@ use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
-    channel::{create_channel::CreateChannelError, delete_channel::DeleteChannelError},
+    channel::{
+        create_channel::CreateChannelError, delete_channel::DeleteChannelError,
+        leave_channel::LeaveChannelError,
+    },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
 use domain::channel::ChannelError;
@@ -154,6 +157,26 @@ impl ToHttpStatus for DeleteChannelError {
             DeleteChannelError::Repository(e) => e.to_user_message(),
             DeleteChannelError::Domain(e) => e.to_user_message(),
             DeleteChannelError::Outbox(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for LeaveChannelError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            LeaveChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            LeaveChannelError::Repository(e) => e.to_http_status(),
+            LeaveChannelError::Domain(e) => e.to_http_status(),
+            LeaveChannelError::Outbox(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            LeaveChannelError::ChannelNotFound => "Channel not found".to_string(),
+            LeaveChannelError::Repository(e) => e.to_user_message(),
+            LeaveChannelError::Domain(e) => e.to_user_message(),
+            LeaveChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 }
@@ -337,6 +360,12 @@ impl From<CreateChannelError> for ApiError {
 
 impl From<DeleteChannelError> for ApiError {
     fn from(error: DeleteChannelError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<LeaveChannelError> for ApiError {
+    fn from(error: LeaveChannelError) -> Self {
         Self::from_error(error)
     }
 }

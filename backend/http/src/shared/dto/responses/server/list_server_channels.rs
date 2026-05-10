@@ -8,14 +8,14 @@ use crate::shared::dto::pagination::PaginationMeta;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListServerChannelsResponse {
-    pub channels: Vec<RoomResponse>,
+    pub channels: Vec<ChannelResponse>,
     pub pagination: PaginationMeta,
 }
 
 impl ListServerChannelsResponse {
     pub fn new(channels: Vec<Channel>, pagination: PaginationMeta) -> Self {
         Self {
-            channels: channels.into_iter().map(RoomResponse::from).collect(),
+            channels: channels.into_iter().map(ChannelResponse::from).collect(),
             pagination,
         }
     }
@@ -23,23 +23,23 @@ impl ListServerChannelsResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RoomResponse {
+pub struct ChannelResponse {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Uuid,
-    pub channel_type: RoomTypeResponse,
+    pub channel_type: ChannelTypeResponse,
     pub max_participants: u8,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum RoomTypeResponse {
+pub enum ChannelTypeResponse {
     Public,
     Private,
 }
 
-impl From<Channel> for RoomResponse {
+impl From<Channel> for ChannelResponse {
     fn from(value: Channel) -> Self {
         Self {
             id: value.id().uuid(),
@@ -52,7 +52,7 @@ impl From<Channel> for RoomResponse {
     }
 }
 
-impl From<&ChannelType> for RoomTypeResponse {
+impl From<&ChannelType> for ChannelTypeResponse {
     fn from(value: &ChannelType) -> Self {
         match value {
             ChannelType::Public => Self::Public,
