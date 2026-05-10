@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     strategy:
       matrix:
         service: [api]
@@ -44,7 +44,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
 
       - name: Build and Push ${{ matrix.service }}
         uses: docker/build-push-action@v5
