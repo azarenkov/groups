@@ -37,6 +37,8 @@ pub enum ChannelError {
     NotMuted,
     #[error("Participant already muted")]
     AlreadyMuted,
+    #[error("Voice is not supported for this channel")]
+    VoiceNotSupported,
 }
 
 #[derive(Debug)]
@@ -52,7 +54,7 @@ pub struct Channel {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     last_join: DateTime<Utc>,
-    muted_participants: HashMap<UserId, ParticipantMute>,
+    muted_participants: Option<HashMap<UserId, ParticipantMute>>,
     events: Vec<ChannelEvent>,
 }
 
@@ -76,6 +78,12 @@ impl Channel {
         let id = ChannelId::generate();
         let max_participants = MaxParticipants::default();
 
+        let muted_participants = if kind.supports_voice() {
+            Some(HashMap::new())
+        } else {
+            None
+        };
+
         let mut channel = Self {
             id,
             server_id,
@@ -88,12 +96,12 @@ impl Channel {
             created_at: now,
             updated_at: now,
             last_join: now,
-            muted_participants: HashMap::new(),
+            muted_participants,
             events: Vec::new(),
         };
 
         channel.record(ChannelEvent::Created(ChannelCreated::record(
-            id, server_id, owner_id, name, visibility, now,
+            id, server_id, owner_id, name, kind, visibility, now,
         )));
 
         Ok(channel)
@@ -111,7 +119,7 @@ impl Channel {
         password_hash: Option<PasswordHash>,
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
-        muted_participants: HashMap<UserId, ParticipantMute>,
+        muted_participants: Option<HashMap<UserId, ParticipantMute>>,
         last_join: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -228,12 +236,14 @@ impl Channel {
         if target != initiator && self.owner_id != initiator {
             return Err(ChannelError::NotOwner);
         }
-        if self.muted_participants.contains_key(&target) {
+        let muted = self
+            .muted_participants
+            .as_mut()
+            .ok_or(ChannelError::VoiceNotSupported)?;
+        if muted.contains_key(&target) {
             return Err(ChannelError::AlreadyMuted);
         }
-
-        self.muted_participants
-            .insert(target, ParticipantMute::new(target, initiator, now));
+        muted.insert(target, ParticipantMute::new(target, initiator, now));
 
         self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
             self.id,
@@ -252,10 +262,11 @@ impl Channel {
         initiator: UserId,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
-        let mute_record = self
+        let muted = self
             .muted_participants
-            .get(&target)
-            .ok_or(ChannelError::NotMuted)?;
+            .as_ref()
+            .ok_or(ChannelError::VoiceNotSupported)?;
+        let mute_record = muted.get(&target).ok_or(ChannelError::NotMuted)?;
 
         let is_self_unmute_of_self_mute = target == initiator && mute_record.muted_by == initiator;
         let is_owner = self.owner_id == initiator;
@@ -264,7 +275,10 @@ impl Channel {
             return Err(ChannelError::NotOwner);
         }
 
-        self.muted_participants.remove(&target);
+        self.muted_participants
+            .as_mut()
+            .ok_or(ChannelError::VoiceNotSupported)?
+            .remove(&target);
 
         self.record(ChannelEvent::ParticipantUnmuted(
             ParticipantUnmuted::record(self.id, self.server_id, target, initiator, now),
@@ -274,7 +288,7 @@ impl Channel {
     }
 
     pub fn muted_participants_list(&self) -> impl Iterator<Item = &ParticipantMute> {
-        self.muted_participants.values()
+        self.muted_participants.iter().flat_map(|m| m.values())
     }
 
     pub fn requires_password(&self) -> bool {
@@ -317,7 +331,7 @@ impl Channel {
         self.last_join
     }
 
-    pub fn muted_participants(&self) -> &HashMap<UserId, ParticipantMute> {
+    pub fn muted_participants(&self) -> &Option<HashMap<UserId, ParticipantMute>> {
         &self.muted_participants
     }
 

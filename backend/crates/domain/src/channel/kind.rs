@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone, Copy)]
 pub enum ChannelKind {
     Text,
     Voice,

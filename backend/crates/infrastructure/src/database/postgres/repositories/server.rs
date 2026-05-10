@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use domain::{
     channel::{
-        Channel, id::ChannelId, max_paticipants::MaxParticipants, name::ChannelName,
-        participant_mute::ParticipantMute,
+        Channel, id::ChannelId, kind::ChannelKind, max_paticipants::MaxParticipants,
+        name::ChannelName, participant_mute::ParticipantMute,
     },
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
@@ -239,14 +239,19 @@ impl ServerRepository for PostgresServerRepository {
         let items: Vec<Channel> = channel_dtos
             .into_iter()
             .map(|dto| {
-                let muted = muted_by_channel.remove(&dto.id).unwrap_or_default();
+                let kind: ChannelKind = dto.kind.into();
+                let muted = if kind.supports_voice() {
+                    Some(muted_by_channel.remove(&dto.id).unwrap_or_default())
+                } else {
+                    None
+                };
                 Channel::restore(
                     ChannelId::new(dto.id),
                     ServerId::new(dto.server_id),
                     UserId::new(dto.owner_id),
                     ChannelName::new(dto.name),
                     MaxParticipants::new(dto.max_participants as u8),
-                    dto.kind.into(),
+                    kind,
                     dto.visibility.into(),
                     dto.password_hash.map(PasswordHash::new),
                     dto.created_at,

@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::{
     channel::{
-        Channel, id::ChannelId, max_paticipants::MaxParticipants, name::ChannelName,
-        participant_mute::ParticipantMute, repository::ChannelRepository,
+        Channel, id::ChannelId, kind::ChannelKind, max_paticipants::MaxParticipants,
+        name::ChannelName, participant_mute::ParticipantMute, repository::ChannelRepository,
     },
     server::id::ServerId,
     shared::{
@@ -302,13 +302,19 @@ impl ChannelRepository for PostgresChannelRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        let muted_participants: HashMap<UserId, ParticipantMute> = muted_dtos
-            .into_iter()
-            .map(|dto| {
-                let mute: ParticipantMute = dto.into();
-                (mute.user_id.clone(), mute)
-            })
-            .collect();
+        let kind: ChannelKind = dto.kind.into();
+        let muted_participants = if kind.supports_voice() {
+            let map: HashMap<UserId, ParticipantMute> = muted_dtos
+                .into_iter()
+                .map(|dto| {
+                    let mute: ParticipantMute = dto.into();
+                    (mute.user_id.clone(), mute)
+                })
+                .collect();
+            Some(map)
+        } else {
+            None
+        };
 
         let channel = Channel::restore(
             ChannelId::new(dto.id),
@@ -316,7 +322,7 @@ impl ChannelRepository for PostgresChannelRepository {
             UserId::new(dto.owner_id),
             ChannelName::new(dto.name),
             MaxParticipants::new(dto.max_participants as u8),
-            dto.kind.into(),
+            kind,
             dto.visibility.into(),
             dto.password_hash.map(PasswordHash::new),
             dto.created_at,

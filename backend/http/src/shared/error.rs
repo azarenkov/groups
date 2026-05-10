@@ -93,6 +93,7 @@ impl ToHttpStatus for ChannelError {
             | ChannelError::NameUnchanged => StatusCode::BAD_REQUEST,
             ChannelError::NotOwner => StatusCode::FORBIDDEN,
             ChannelError::AlreadyMuted | ChannelError::NotMuted => StatusCode::CONFLICT,
+            ChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -108,6 +109,9 @@ impl ToHttpStatus for ChannelError {
             ChannelError::NotOwner => "Only the channel owner can perform this action".to_string(),
             ChannelError::AlreadyMuted => "Participant is already muted".to_string(),
             ChannelError::NotMuted => "Participant is not muted".to_string(),
+            ChannelError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
         }
     }
 }
