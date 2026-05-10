@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 
 use domain::{
-    channel::{Channel, id::ChannelId, name::ChannelName, repository::ChannelRepository},
-    server::id::ServerId,
+    channel::{Channel, id::ChannelId, repository::ChannelRepository},
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
 };
 use sqlx::{Pool, Postgres};
@@ -92,27 +91,6 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(())
     }
 
-    async fn find_channel_name_by_id(
-        &self,
-        channel_id: &ChannelId,
-    ) -> Result<ChannelName, RepositoryError> {
-        let record = sqlx::query!(
-            r#"
-                 SELECT name
-                 FROM channels
-                 WHERE id = $1
-             "#,
-            channel_id.uuid()
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        match record {
-            Some(row) => Ok(ChannelName::new(row.name)),
-            None => Err(RepositoryError::NotFound),
-        }
-    }
     async fn update_channel_with_events(
         &self,
         channel: &Channel,
@@ -173,6 +151,48 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(())
     }
 
+    async fn record_events(&self, events: &[OutboxRecord]) -> Result<(), RepositoryError> {
+        if events.is_empty() {
+            return Ok(());
+        }
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        for record in events {
+            let aggregate_type = AggregateTypeDto::from(&record.aggregate_type);
+            let parent_type = record.parent_type.as_ref().map(AggregateTypeDto::from);
+
+            sqlx::query!(
+                r#"
+                INSERT INTO outbox (
+                    id, aggregate_id, aggregate_type,
+                    parent_id, parent_type,
+                    event_type, payload, occurred_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                "#,
+                record.id,
+                record.aggregate_id,
+                aggregate_type as AggregateTypeDto,
+                record.parent_id,
+                parent_type as Option<AggregateTypeDto>,
+                record.event_type,
+                record.payload,
+                record.occurred_at,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError> {
         let dto = sqlx::query_as!(
             ChannelDto,
@@ -199,39 +219,6 @@ impl ChannelRepository for PostgresChannelRepository {
         .ok_or(RepositoryError::NotFound)?;
 
         Ok(dto.into())
-    }
-
-    async fn channel_exists(&self, channel_id: &ChannelId) -> Result<bool, RepositoryError> {
-        let result = sqlx::query!(
-            r#"
-                SELECT EXISTS(SELECT 1 FROM channels WHERE id = $1) as "exists!"
-            "#,
-            channel_id.uuid()
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(result.exists)
-    }
-
-    async fn channel_exists_with_server_id(
-        &self,
-        channel_id: &ChannelId,
-        server_id: &ServerId,
-    ) -> Result<bool, RepositoryError> {
-        let result = sqlx::query!(
-            r#"
-                SELECT EXISTS(SELECT 1 FROM channels WHERE id = $1 AND server_id = $2) as "exists!"
-            "#,
-            channel_id.uuid(),
-            server_id.uuid()
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(result.exists)
     }
 
     async fn delete_channel_with_events(

@@ -1,8 +1,5 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
-use domain::{
-    server::id::ServerId, shared::pagination::Pagination,
-    user::id::UserId,
-};
+use domain::{server::id::ServerId, shared::pagination::Pagination, user::id::UserId};
 use uuid::Uuid;
 use validator::Validate;
 
@@ -16,8 +13,8 @@ use crate::{
                 ApiResponse,
                 server::{
                     create_server::CreateServerResponse,
-                    list_server_members::ListServerMembersResponse,
                     list_server_channels::ListServerChannelsResponse,
+                    list_server_members::ListServerMembersResponse,
                     list_servers_by_user::ListServersByUserResponse,
                 },
             },
@@ -37,7 +34,7 @@ async fn create_server(
     request.validate()?;
 
     let server = app_state
-        .create_server_usecase()
+        .create_server_usecase
         .execute(request.into(), UserId::new(auth_token.id))
         .await?;
 
@@ -58,7 +55,7 @@ async fn list_servers_by_user(
     let pagination = Pagination::new(query.page, query.per_page);
 
     let result = app_state
-        .list_servers_by_user_usecase()
+        .list_servers_by_user_usecase
         .execute(user_id, pagination)
         .await?;
 
@@ -81,7 +78,7 @@ async fn list_server_members(
     let pagination = Pagination::new(query.page, query.per_page);
 
     let result = app_state
-        .list_server_members_usecase()
+        .list_server_members_usecase
         .execute(server_id, pagination)
         .await?;
 
@@ -104,7 +101,7 @@ async fn list_server_channels(
     let pagination = Pagination::new(query.page, query.per_page);
 
     let result = app_state
-        .list_server_rooms_usecase()
+        .list_server_channels_usecase
         .execute(server_id, pagination)
         .await?;
 
@@ -124,7 +121,7 @@ async fn delete_server(
     let owner_id = UserId::new(auth_token.id);
 
     let deleted = app_state
-        .delete_server_usecase()
+        .delete_server_usecase
         .execute(server_id, owner_id)
         .await?;
 

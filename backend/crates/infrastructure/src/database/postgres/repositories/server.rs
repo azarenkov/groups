@@ -161,7 +161,7 @@ impl ServerRepository for PostgresServerRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
-    async fn find_rooms_by_server_id(
+    async fn find_channels_by_server_id(
         &self,
         server_id: &ServerId,
         pagination: Pagination,

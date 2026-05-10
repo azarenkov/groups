@@ -24,7 +24,7 @@ async fn register_user(
     request.validate()?;
 
     let user = app_state
-        .register_user_usecase()
+        .register_user_usecase
         .execute(request.into())
         .await?;
 
@@ -41,12 +41,9 @@ async fn login_user(
     let request: LoginUserRequest = request.into_inner();
     request.validate()?;
 
-    let user_id = app_state
-        .login_user_usecase()
-        .execute(request.into())
-        .await?;
+    let user_id = app_state.login_user_usecase.execute(request.into()).await?;
 
-    let token_pair = encode_token_pair(user_id.uuid(), app_state.jwt_secret())
+    let token_pair = encode_token_pair(user_id.uuid(), app_state.jwt_secret.as_str())
         .await
         .map_err(|_| ApiError::from(LoginError::Internal))?;
 
@@ -60,7 +57,7 @@ async fn refresh_tokens(
 ) -> Result<impl Responder, ApiError> {
     let request: RefreshTokenRequest = request.into_inner();
 
-    let user_uuid = validate_refresh_token(&request.refresh_token, app_state.jwt_secret())
+    let user_uuid = validate_refresh_token(&request.refresh_token, app_state.jwt_secret.as_str())
         .await
         .map_err(|_| {
             ApiError::new(
@@ -69,7 +66,7 @@ async fn refresh_tokens(
             )
         })?;
 
-    let token_pair = encode_token_pair(user_uuid, app_state.jwt_secret())
+    let token_pair = encode_token_pair(user_uuid, app_state.jwt_secret.as_str())
         .await
         .map_err(|_| {
             ApiError::new(

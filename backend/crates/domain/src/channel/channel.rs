@@ -6,7 +6,7 @@ use crate::{
         events::{
             ChannelEvent,
             lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
-            participant::ParticipantJoined,
+            participant::{ParticipantJoined, ParticipantLeft},
         },
         id::ChannelId,
         max_paticipants::MaxParticipants,
@@ -185,6 +185,17 @@ impl Channel {
         self.last_join = now;
 
         self.record(ChannelEvent::ParticipantJoined(ParticipantJoined::record(
+            self.id,
+            self.server_id,
+            user_id,
+            now,
+        )));
+
+        Ok(())
+    }
+
+    pub fn leave(&mut self, user_id: UserId, now: DateTime<Utc>) -> Result<(), ChannelError> {
+        self.record(ChannelEvent::ParticipantLeft(ParticipantLeft::record(
             self.id,
             self.server_id,
             user_id,

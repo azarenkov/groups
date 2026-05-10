@@ -6,6 +6,7 @@ use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel,
+        leave_channel::LeaveChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -61,18 +62,19 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let event_producer = Arc::new(NatsProducer::new(nats_jetstream, nats_config));
 
-    let create_room_usecase = CreateChannel::new(
+    let create_channel_usecase = CreateChannel::new(
         channel_repository.clone(),
         hasher.clone(),
         server_repository.clone(),
     );
-    let join_room_usecase = JoinChannel::new(
+    let join_channel_usecase = JoinChannel::new(
         livekit_service.clone(),
         channel_repository.clone(),
         user_repository.clone(),
         hasher.clone(),
     );
-    let delete_room_usecase = DeleteChannel::new(channel_repository.clone());
+    let leave_channel_usecase = LeaveChannel::new(channel_repository.clone());
+    let delete_channel_usecase = DeleteChannel::new(channel_repository.clone());
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
@@ -84,19 +86,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
-    let list_server_rooms_usecase = ListServerChannels::new(server_repository.clone());
+    let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
 
     let app_state = web::Data::new(AppState::new(
-        create_room_usecase,
-        join_room_usecase,
-        delete_room_usecase,
+        create_channel_usecase,
+        join_channel_usecase,
+        leave_channel_usecase,
+        delete_channel_usecase,
         register_user_usecase,
         login_user_usecase,
         create_server_usecase,
         delete_server_usecase,
         list_servers_by_user_usecase,
         list_server_members_usecase,
-        list_server_rooms_usecase,
+        list_server_channels_usecase,
         server_config.jwt_secret,
     ));
 
