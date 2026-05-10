@@ -8,6 +8,7 @@ use crate::{
             lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
             participant::{
                 ParticipantConnectionAborted, ParticipantJoined, ParticipantLeft, ParticipantMuted,
+                ParticipantUnmuted,
             },
         },
         id::ChannelId,
@@ -30,6 +31,7 @@ pub enum ChannelEvent {
     ParticipantJoined(ParticipantJoined),
     ParticipantLeft(ParticipantLeft),
     ParticipantMuted(ParticipantMuted),
+    ParticipantUnmuted(ParticipantUnmuted),
     ParticipantConnectionAborted(ParticipantConnectionAborted),
 }
 
@@ -42,6 +44,7 @@ impl ChannelEvent {
             Self::ParticipantJoined(e) => &e.channel_id,
             Self::ParticipantLeft(e) => &e.channel_id,
             Self::ParticipantMuted(e) => &e.channel_id,
+            Self::ParticipantUnmuted(e) => &e.channel_id,
             Self::ParticipantConnectionAborted(e) => &e.channel_id,
         }
     }
@@ -54,6 +57,7 @@ impl ChannelEvent {
             Self::ParticipantJoined(e) => &e.server_id,
             Self::ParticipantLeft(e) => &e.server_id,
             Self::ParticipantMuted(e) => &e.server_id,
+            Self::ParticipantUnmuted(e) => &e.server_id,
             Self::ParticipantConnectionAborted(e) => &e.server_id,
         }
     }
@@ -66,6 +70,7 @@ impl ChannelEvent {
             Self::ParticipantJoined(e) => e.occurred_at,
             Self::ParticipantLeft(e) => e.occurred_at,
             Self::ParticipantMuted(e) => e.occurred_at,
+            Self::ParticipantUnmuted(e) => e.occurred_at,
             Self::ParticipantConnectionAborted(e) => e.occurred_at,
         }
     }
@@ -78,6 +83,7 @@ impl ChannelEvent {
             Self::ParticipantJoined(_) => "participant.joined",
             Self::ParticipantLeft(_) => "participant.left",
             Self::ParticipantMuted(_) => "participant.muted",
+            Self::ParticipantUnmuted(_) => "participant.unmuted",
             Self::ParticipantConnectionAborted(_) => "participant.connection_aborted",
         }
     }

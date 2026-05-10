@@ -6,7 +6,7 @@ use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel,
-        leave_channel::LeaveChannel,
+        leave_channel::LeaveChannel, mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -74,6 +74,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         hasher.clone(),
     );
     let leave_channel_usecase = LeaveChannel::new(channel_repository.clone());
+    let mute_channel_usecase =
+        MuteChannel::new(channel_repository.clone(), user_repository.clone());
+    let unmute_channel_usecase =
+        UnmuteChannel::new(channel_repository.clone(), user_repository.clone());
     let delete_channel_usecase = DeleteChannel::new(channel_repository.clone());
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
@@ -92,6 +96,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         create_channel_usecase,
         join_channel_usecase,
         leave_channel_usecase,
+        mute_channel_usecase,
+        unmute_channel_usecase,
         delete_channel_usecase,
         register_user_usecase,
         login_user_usecase,

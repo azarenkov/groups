@@ -1,12 +1,12 @@
 use actix_web::web;
 
 use crate::handlers::server::{
-    create_server, delete_server, list_server_members, list_server_channels, list_servers_by_user,
+    create_server, delete_server, list_server_channels, list_server_members, list_servers_by_user,
 };
 
 pub fn server_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/v1/server")
+        web::scope("/v1/servers")
             .service(create_server)
             .service(delete_server)
             .service(list_servers_by_user)

@@ -4,17 +4,17 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct CreateServerRequest {
+pub struct CreateServerRequestBody {
     #[validate(length(min = 3, max = 20))]
     pub name: String,
     #[validate(length(min = 1, max = 300))]
     pub description: Option<String>,
 }
 
-impl From<CreateServerRequest>
+impl From<CreateServerRequestBody>
     for application::dto::requests::server::create_server::CreateServerRequest
 {
-    fn from(value: CreateServerRequest) -> Self {
+    fn from(value: CreateServerRequestBody) -> Self {
         Self {
             name: value.name,
             description: value.description,

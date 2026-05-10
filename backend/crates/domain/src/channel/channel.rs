@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 
 use crate::{
@@ -6,11 +8,14 @@ use crate::{
         events::{
             ChannelEvent,
             lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
-            participant::{ParticipantJoined, ParticipantLeft},
+            participant::{
+                ParticipantJoined, ParticipantLeft, ParticipantMuted, ParticipantUnmuted,
+            },
         },
         id::ChannelId,
         max_paticipants::MaxParticipants,
         name::ChannelName,
+        participant_mute::ParticipantMute,
     },
     server::id::ServerId,
     shared::value_objects::password_hash::PasswordHash,
@@ -27,6 +32,10 @@ pub enum ChannelError {
     NameUnchanged,
     #[error("Channel deleting requires owner")]
     NotOwner,
+    #[error("Participant not muted")]
+    NotMuted,
+    #[error("Participant already muted")]
+    AlreadyMuted,
 }
 
 #[derive(Debug)]
@@ -41,6 +50,7 @@ pub struct Channel {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     last_join: DateTime<Utc>,
+    muted_participants: HashMap<UserId, ParticipantMute>,
     events: Vec<ChannelEvent>,
 }
 
@@ -74,6 +84,7 @@ impl Channel {
             created_at: now,
             updated_at: now,
             last_join: now,
+            muted_participants: HashMap::new(),
             events: Vec::new(),
         };
 
@@ -100,6 +111,7 @@ impl Channel {
         password_hash: Option<PasswordHash>,
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
+        muted_participants: HashMap<UserId, ParticipantMute>,
         last_join: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -113,6 +125,7 @@ impl Channel {
             created_at,
             updated_at,
             last_join,
+            muted_participants,
             events: Vec::new(),
         }
     }
@@ -205,6 +218,64 @@ impl Channel {
         Ok(())
     }
 
+    pub fn mute(
+        &mut self,
+        target: UserId,
+        initiator: UserId,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        if target != initiator && self.owner_id != initiator {
+            return Err(ChannelError::NotOwner);
+        }
+        if self.muted_participants.contains_key(&target) {
+            return Err(ChannelError::AlreadyMuted);
+        }
+
+        self.muted_participants
+            .insert(target, ParticipantMute::new(target, initiator, now));
+
+        self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
+            self.id,
+            self.server_id,
+            target,
+            initiator,
+            now,
+        )));
+
+        Ok(())
+    }
+
+    pub fn unmute(
+        &mut self,
+        target: UserId,
+        initiator: UserId,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        let mute_record = self
+            .muted_participants
+            .get(&target)
+            .ok_or(ChannelError::NotMuted)?;
+
+        let is_self_unmute_of_self_mute = target == initiator && mute_record.muted_by == initiator;
+        let is_owner = self.owner_id == initiator;
+
+        if !is_self_unmute_of_self_mute && !is_owner {
+            return Err(ChannelError::NotOwner);
+        }
+
+        self.muted_participants.remove(&target);
+
+        self.record(ChannelEvent::ParticipantUnmuted(
+            ParticipantUnmuted::record(self.id, self.server_id, target, initiator, now),
+        ));
+
+        Ok(())
+    }
+
+    pub fn muted_participants_list(&self) -> impl Iterator<Item = &ParticipantMute> {
+        self.muted_participants.values()
+    }
+
     pub fn requires_password(&self) -> bool {
         self.password_hash.is_some()
     }
@@ -247,5 +318,9 @@ impl Channel {
 
     pub fn last_join(&self) -> DateTime<Utc> {
         self.last_join
+    }
+
+    pub fn muted_participants(&self) -> &HashMap<UserId, ParticipantMute> {
+        &self.muted_participants
     }
 }

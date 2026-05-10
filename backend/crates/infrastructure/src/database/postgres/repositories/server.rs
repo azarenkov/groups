@@ -1,18 +1,28 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 
 use domain::{
-    channel::Channel,
+    channel::{
+        Channel, id::ChannelId, max_paticipants::MaxParticipants, name::ChannelName,
+        participant_mute::ParticipantMute,
+    },
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
+        value_objects::password_hash::PasswordHash,
     },
     user::{User, id::UserId},
 };
 use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
 use crate::database::postgres::{
-    dto::{channel::ChannelDto, channel_type::ChannelTypeDto, server::ServerDto, user::UserDto},
+    dto::{
+        channel::ChannelDto, channel_type::ChannelTypeDto, muted_participant::MutedParticipantDto,
+        server::ServerDto, user::UserDto,
+    },
     error::map_sqlx_error_to_domain_error,
 };
 
@@ -168,45 +178,83 @@ impl ServerRepository for PostgresServerRepository {
     ) -> Result<PaginatedResult<Channel>, RepositoryError> {
         let total = sqlx::query!(
             r#"
-                SELECT COUNT(*) as "count!"
-                FROM channels
-                WHERE server_id = $1
+            SELECT COUNT(*) as "count!"
+            FROM channels
+            WHERE server_id = $1
             "#,
-            server_id.uuid()
+            server_id.uuid(),
         )
         .fetch_one(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?
         .count;
 
-        let channels = sqlx::query_as!(
+        let channel_dtos = sqlx::query_as!(
             ChannelDto,
             r#"
-                SELECT
-                    id,
-                    server_id,
-                    owner_id,
-                    name,
-                    max_participants,
-                    channel_type as "channel_type: ChannelTypeDto",
-                    password_hash,
-                    created_at,
-                    updated_at,
-                    last_join
-                FROM channels
-                WHERE server_id = $1
-                ORDER BY created_at DESC
-                LIMIT $2 OFFSET $3
+            SELECT
+                id, server_id, owner_id, name, max_participants,
+                channel_type as "channel_type: ChannelTypeDto",
+                password_hash, created_at, updated_at, last_join
+            FROM channels
+            WHERE server_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3
             "#,
             server_id.uuid(),
             pagination.limit(),
-            pagination.offset()
+            pagination.offset(),
         )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        let items = channels.into_iter().map(|dto| dto.into()).collect();
+        let channel_ids: Vec<Uuid> = channel_dtos.iter().map(|c| c.id).collect();
+
+        let muted_dtos = sqlx::query_as!(
+            MutedParticipantDto,
+            r#"
+            SELECT channel_id, user_id, muted_by, muted_at
+            FROM channel_muted_participants
+            WHERE channel_id = ANY($1)
+            "#,
+            &channel_ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let mut muted_by_channel: HashMap<Uuid, HashMap<UserId, ParticipantMute>> = HashMap::new();
+        for dto in muted_dtos {
+            let user_id = UserId::new(dto.user_id);
+            let mute =
+                ParticipantMute::new(user_id.clone(), UserId::new(dto.muted_by), dto.muted_at);
+            muted_by_channel
+                .entry(dto.channel_id)
+                .or_default()
+                .insert(user_id, mute);
+        }
+
+        let items: Vec<Channel> = channel_dtos
+            .into_iter()
+            .map(|dto| {
+                let muted = muted_by_channel.remove(&dto.id).unwrap_or_default();
+                Channel::restore(
+                    ChannelId::new(dto.id),
+                    ServerId::new(dto.server_id),
+                    UserId::new(dto.owner_id),
+                    ChannelName::new(dto.name),
+                    MaxParticipants::new(dto.max_participants as u8),
+                    dto.channel_type.into(),
+                    dto.password_hash.map(PasswordHash::new),
+                    dto.created_at,
+                    dto.updated_at,
+                    muted,
+                    dto.last_join,
+                )
+            })
+            .collect();
+
         Ok(PaginatedResult::new(items, total, pagination))
     }
 

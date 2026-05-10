@@ -1,10 +1,8 @@
 use serde::Deserialize;
-use uuid::Uuid;
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct JoinChannelRequest {
-    pub server_id: Uuid,
+pub struct JoinChannelRequestBody {
     pub password: Option<String>,
 }

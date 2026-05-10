@@ -8,7 +8,7 @@ use crate::{
     shared::{
         dto::{
             pagination::{PaginationMeta, PaginationQuery},
-            requests::server::create_server::CreateServerRequest,
+            requests::server::create_server::CreateServerRequestBody,
             responses::{
                 ApiResponse,
                 server::{
@@ -24,18 +24,18 @@ use crate::{
     },
 };
 
-#[post("/create")]
+#[post("")]
 async fn create_server(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
-    request: web::Json<CreateServerRequest>,
+    body: web::Json<CreateServerRequestBody>,
 ) -> Result<impl Responder, ApiError> {
-    let request: CreateServerRequest = request.into_inner();
-    request.validate()?;
+    let body: CreateServerRequestBody = body.into_inner();
+    body.validate()?;
 
     let server = app_state
         .create_server_usecase
-        .execute(request.into(), UserId::new(auth_token.id))
+        .execute(body.into(), UserId::new(auth_token.id))
         .await?;
 
     let response = CreateServerResponse::from(server);
@@ -43,7 +43,7 @@ async fn create_server(
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }
 
-#[get("/list")]
+#[get("")]
 async fn list_servers_by_user(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
@@ -52,7 +52,7 @@ async fn list_servers_by_user(
     query.validate()?;
 
     let user_id = UserId::new(auth_token.id);
-    let pagination = Pagination::new(query.page, query.per_page);
+    let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_servers_by_user_usecase
@@ -75,7 +75,7 @@ async fn list_server_members(
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
-    let pagination = Pagination::new(query.page, query.per_page);
+    let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_members_usecase
@@ -98,7 +98,7 @@ async fn list_server_channels(
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
-    let pagination = Pagination::new(query.page, query.per_page);
+    let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_channels_usecase
