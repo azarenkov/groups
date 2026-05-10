@@ -1,9 +1,6 @@
 use chrono::{DateTime, Utc};
 use domain::{
-    channel::{
-        Channel,
-        id::ChannelId, max_paticipants::MaxParticipants, name::ChannelName,
-    },
+    channel::{Channel, id::ChannelId, max_paticipants::MaxParticipants, name::ChannelName},
     server::id::ServerId,
     shared::value_objects::password_hash::PasswordHash,
     user::id::UserId,
@@ -28,7 +25,7 @@ pub struct ChannelDto {
 
 impl From<ChannelDto> for Channel {
     fn from(value: ChannelDto) -> Self {
-        Self::new(
+        Self::restore(
             ChannelId::new(value.id),
             ServerId::new(value.server_id),
             UserId::new(value.owner_id),

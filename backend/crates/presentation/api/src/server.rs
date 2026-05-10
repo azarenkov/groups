@@ -4,10 +4,12 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    channel::{create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel},
+    channel::{
+        create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel,
+    },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
-        list_server_members::ListServerMembers, list_server_channels::ListServerChannels,
+        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser,
     },
 };
@@ -68,6 +70,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         livekit_service.clone(),
         channel_repository.clone(),
         user_repository.clone(),
+        hasher.clone(),
     );
     let delete_room_usecase = DeleteChannel::new(channel_repository.clone());
     let register_user_usecase = RegisterUser::new(

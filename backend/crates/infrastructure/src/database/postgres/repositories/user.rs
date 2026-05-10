@@ -6,7 +6,7 @@ use domain::{
 };
 use sqlx::{Pool, Postgres};
 
-use crate::database::postgres::error::map_sqlx_error_to_domain_error;
+use crate::database::postgres::{dto::user::UserDto, error::map_sqlx_error_to_domain_error};
 
 pub struct PostgresUserRepository {
     pool: Pool<Postgres>,
@@ -38,6 +38,31 @@ impl UserRepository for PostgresUserRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
+    }
+
+    async fn find_by_id(&self, id: &UserId) -> Result<Option<User>, RepositoryError> {
+        let dto = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT
+                id,
+                name,
+                email,
+                password_hash,
+                created_at,
+                updated_at,
+                email_verified_at,
+                phone_verified_at
+            FROM users
+            WHERE id = $1
+            "#,
+            id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(dto.map(User::from))
     }
 
     async fn get_password_hash_by_email(

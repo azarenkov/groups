@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use domain::{
     channel::Channel,
-    server::{repository::ServerRepository, id::ServerId},
+    server::{id::ServerId, repository::ServerRepository},
     shared::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
@@ -37,7 +37,7 @@ where
     ) -> Result<PaginatedResult<Channel>, ListServerChannelsError> {
         let result = self
             .server_repository
-            .get_rooms_by_server_id(&server_id, pagination)
+            .find_rooms_by_server_id(&server_id, pagination)
             .await?;
 
         Ok(result)

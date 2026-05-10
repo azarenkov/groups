@@ -2,15 +2,13 @@ use async_trait::async_trait;
 
 use crate::{
     shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
-    user::{
-        User,
-        email::Email, id::UserId, name::UserName,
-    },
+    user::{User, email::Email, id::UserId, name::UserName},
 };
 
 #[async_trait]
 pub trait UserRepository {
     async fn save_user(&self, user: &User) -> Result<(), RepositoryError>;
+    async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
     async fn get_password_hash_by_email(
         &self,
         email: &Email,

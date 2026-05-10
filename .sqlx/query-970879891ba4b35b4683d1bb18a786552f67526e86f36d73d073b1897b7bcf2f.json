@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO outbox (\n                    id, aggregate_id, aggregate_type,\n                    parent_id, parent_type,\n                    event_type, payload, occurred_at\n                )\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "aggregate_type",
+            "kind": {
+              "Enum": [
+                "channel",
+                "server",
+                "user"
+              ]
+            }
+          }
+        },
+        "Uuid",
+        {
+          "Custom": {
+            "name": "aggregate_type",
+            "kind": {
+              "Enum": [
+                "channel",
+                "server",
+                "user"
+              ]
+            }
+          }
+        },
+        "Varchar",
+        "Jsonb",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "970879891ba4b35b4683d1bb18a786552f67526e86f36d73d073b1897b7bcf2f"
+}

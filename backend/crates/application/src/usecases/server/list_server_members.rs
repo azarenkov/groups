@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::{
-    server::{repository::ServerRepository, id::ServerId},
+    server::{id::ServerId, repository::ServerRepository},
     shared::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
@@ -37,7 +37,7 @@ where
     ) -> Result<PaginatedResult<User>, ListServerMembersError> {
         let result = self
             .server_repository
-            .get_users_by_server_id(&server_id, pagination)
+            .find_users_by_server_id(&server_id, pagination)
             .await?;
 
         Ok(result)
