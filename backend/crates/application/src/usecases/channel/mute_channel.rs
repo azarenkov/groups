@@ -10,7 +10,7 @@ use domain::{
         },
         repository::error::RepositoryError,
     },
-    user::id::UserId,
+    user::{id::UserId, repository::UserRepository},
 };
 
 use crate::dto::requests::channel::mute_channel::MuteChannelRequest;
@@ -19,6 +19,8 @@ use crate::dto::requests::channel::mute_channel::MuteChannelRequest;
 pub enum MuteChannelError {
     #[error("Channel not found")]
     ChannelNotFound,
+    #[error("Target user not found")]
+    TargetUserNotFound,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
@@ -28,19 +30,25 @@ pub enum MuteChannelError {
 }
 
 #[derive(Debug)]
-pub struct MuteChannel<T>
+pub struct MuteChannel<C, U>
 where
-    T: ChannelRepository,
+    C: ChannelRepository,
+    U: UserRepository,
 {
-    channel_repository: Arc<T>,
+    channel_repository: Arc<C>,
+    user_repository: Arc<U>,
 }
 
-impl<T> MuteChannel<T>
+impl<C, U> MuteChannel<C, U>
 where
-    T: ChannelRepository,
+    C: ChannelRepository,
+    U: UserRepository,
 {
-    pub fn new(channel_repository: Arc<T>) -> Self {
-        Self { channel_repository }
+    pub fn new(channel_repository: Arc<C>, user_repository: Arc<U>) -> Self {
+        Self {
+            channel_repository,
+            user_repository,
+        }
     }
 
     pub async fn execute(
@@ -59,6 +67,11 @@ where
         if channel.server_id().uuid() != request.server_id {
             return Err(MuteChannelError::ChannelNotFound);
         }
+
+        self.user_repository
+            .find_by_id(&target)
+            .await?
+            .ok_or(MuteChannelError::TargetUserNotFound)?;
 
         let now = Utc::now();
 

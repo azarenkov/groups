@@ -30,8 +30,8 @@ pub struct AppState {
         BcryptHasher,
     >,
     pub leave_channel_usecase: LeaveChannel<PostgresChannelRepository>,
-    pub mute_channel_usecase: MuteChannel<PostgresChannelRepository>,
-    pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository>,
+    pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
+    pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
     pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
 
@@ -67,8 +67,11 @@ impl AppState {
             BcryptHasher,
         >,
         leave_channel_usecase: LeaveChannel<PostgresChannelRepository>,
-        mute_channel_usecase: MuteChannel<PostgresChannelRepository>,
-        unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository>,
+        mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
+        unmute_channel_usecase: UnmuteChannel<
+            PostgresChannelRepository,
+            PostgresUserRepository,
+        >,
         delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,

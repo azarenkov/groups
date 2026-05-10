@@ -201,7 +201,9 @@ impl ToHttpStatus for LeaveChannelError {
 impl ToHttpStatus for MuteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            MuteChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            MuteChannelError::ChannelNotFound | MuteChannelError::TargetUserNotFound => {
+                StatusCode::NOT_FOUND
+            }
             MuteChannelError::Repository(e) => e.to_http_status(),
             MuteChannelError::Domain(e) => e.to_http_status(),
             MuteChannelError::Outbox(e) => e.to_http_status(),
@@ -211,6 +213,7 @@ impl ToHttpStatus for MuteChannelError {
     fn to_user_message(&self) -> String {
         match self {
             MuteChannelError::ChannelNotFound => "Channel not found".to_string(),
+            MuteChannelError::TargetUserNotFound => "Target user not found".to_string(),
             MuteChannelError::Repository(e) => e.to_user_message(),
             MuteChannelError::Domain(e) => e.to_user_message(),
             MuteChannelError::Outbox(e) => e.to_user_message(),
@@ -221,7 +224,9 @@ impl ToHttpStatus for MuteChannelError {
 impl ToHttpStatus for UnmuteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            UnmuteChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            UnmuteChannelError::ChannelNotFound | UnmuteChannelError::TargetUserNotFound => {
+                StatusCode::NOT_FOUND
+            }
             UnmuteChannelError::Repository(e) => e.to_http_status(),
             UnmuteChannelError::Domain(e) => e.to_http_status(),
             UnmuteChannelError::Outbox(e) => e.to_http_status(),
@@ -231,6 +236,7 @@ impl ToHttpStatus for UnmuteChannelError {
     fn to_user_message(&self) -> String {
         match self {
             UnmuteChannelError::ChannelNotFound => "Channel not found".to_string(),
+            UnmuteChannelError::TargetUserNotFound => "Target user not found".to_string(),
             UnmuteChannelError::Repository(e) => e.to_user_message(),
             UnmuteChannelError::Domain(e) => e.to_user_message(),
             UnmuteChannelError::Outbox(e) => e.to_user_message(),
