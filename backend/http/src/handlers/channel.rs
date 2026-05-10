@@ -28,7 +28,7 @@ use crate::{
     },
 };
 
-#[post("/create")]
+#[post("channels/create")]
 async fn create_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
@@ -49,7 +49,7 @@ async fn create_channel(
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }
 
-#[post("/servers/{server_id}/channels/{channel_id}/join")]
+#[post("/{server_id}/channels/{channel_id}/join")]
 async fn join_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
@@ -72,7 +72,7 @@ async fn join_channel(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[post("/servers/{server_id}/channels/{channel_id}/leave")]
+#[post("/{server_id}/channels/{channel_id}/leave")]
 async fn leave_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
