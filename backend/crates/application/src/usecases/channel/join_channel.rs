@@ -93,6 +93,10 @@ where
             .find_channel_by_id(&channel_id)
             .await?;
 
+        if channel.server_id().uuid() != request.server_id {
+            return Err(JoinChannelError::ChannelNotFound);
+        }
+
         if let Some(expected_hash) = channel.password_hash() {
             let provided = request.password.ok_or(JoinChannelError::PasswordRequired)?;
             if !self.hasher.verify(&provided, expected_hash.as_str())? {
