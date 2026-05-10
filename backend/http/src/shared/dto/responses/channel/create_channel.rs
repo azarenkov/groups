@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::channel::{Channel, visibility::ChannelVisibility};
+use domain::channel::{Channel, kind::ChannelKind, visibility::ChannelVisibility};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -9,9 +9,17 @@ pub struct CreateChannelResponse {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Uuid,
+    pub kind: ChannelKindResponse,
     pub visibility: ChannelVisibilityResponse,
     pub max_participants: u8,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChannelKindResponse {
+    Text,
+    Voice,
 }
 
 #[derive(Debug, Serialize)]
@@ -27,9 +35,19 @@ impl From<Channel> for CreateChannelResponse {
             id: value.id().uuid(),
             name: value.name().as_str().to_owned(),
             owner_id: value.owner_id().uuid(),
+            kind: value.kind().into(),
             visibility: (&value.visibility()).into(),
             max_participants: value.max_participants().value(),
             created_at: value.created_at(),
+        }
+    }
+}
+
+impl From<&ChannelKind> for ChannelKindResponse {
+    fn from(value: &ChannelKind) -> Self {
+        match value {
+            ChannelKind::Text => Self::Text,
+            ChannelKind::Voice => Self::Voice,
         }
     }
 }
