@@ -257,10 +257,14 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        sqlx::query!("DELETE FROM channels WHERE id = $1", channel_id.uuid())
+        let result = sqlx::query!("DELETE FROM channels WHERE id = $1", channel_id.uuid())
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
 
         for record in events {
             let aggregate_type_dto = AggregateTypeDto::from(&record.aggregate_type);
