@@ -1,8 +1,7 @@
 use actix_web::{HttpResponse, Responder, delete, post, web};
 use application::dto::requests::channel::{
-    create_channel::CreateChannelRequest,
-    join_channel::JoinChannelRequest as AppJoinChannelRequest,
-    leave_channel::LeaveChannelRequest as AppLeftChannelRequest, mute_channel::MuteChannelRequest,
+    create_channel::CreateChannelRequest, join_voice_channel::JoinVoiceChannelRequest,
+    leave_voice_channel::LeaveVoiceChannelRequest, mute_channel::MuteChannelRequest,
     unmute_channel::UnmuteChannelRequest,
 };
 use domain::{channel::id::ChannelId, server::id::ServerId, user::id::UserId};
@@ -14,13 +13,15 @@ use crate::{
     shared::{
         dto::{
             requests::channel::{
-                create_channel::CreateChannelRequestBody, join_channel::JoinChannelRequestBody,
-                mute_channel::MuteRequestBody, unmute_channel::UnmuteRequestBody,
+                create_channel::CreateChannelRequestBody,
+                join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
+                unmute_channel::UnmuteRequestBody,
             },
             responses::{
                 ApiResponse,
                 channel::{
-                    create_channel::CreateChannelResponse, join_channel::JoinChannelResponse,
+                    create_channel::CreateChannelResponse,
+                    join_voice_channel::JoinVoiceChannelResponse,
                 },
             },
         },
@@ -65,16 +66,16 @@ async fn join_voice_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-    body: web::Json<JoinChannelRequestBody>,
+    body: web::Json<JoinVoiceChannelRequestBody>,
 ) -> Result<impl Responder, ApiError> {
     let (server_id, channel_id) = path.into_inner();
     let body = body.into_inner();
 
     let user_id = UserId::new(auth_token.id);
 
-    let data = AppJoinChannelRequest::new(channel_id, server_id, body.password);
+    let data = JoinVoiceChannelRequest::new(channel_id, server_id, body.password);
 
-    let response: JoinChannelResponse = app_state
+    let response: JoinVoiceChannelResponse = app_state
         .join_voice_channel_usecase
         .execute(data, user_id)
         .await?
@@ -93,7 +94,7 @@ async fn leave_voice_channel(
 
     let user_id = UserId::new(auth_token.id);
 
-    let data = AppLeftChannelRequest::new(channel_id, server_id);
+    let data = LeaveVoiceChannelRequest::new(channel_id, server_id);
 
     app_state
         .leave_voice_channel_usecase

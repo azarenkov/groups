@@ -3,12 +3,12 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct JoinChannelResponse {
+pub struct JoinVoiceChannelResponse {
     pub token: String,
     pub url: String,
 }
 
-impl JoinChannelResponse {
+impl JoinVoiceChannelResponse {
     pub fn new(token: ChannelToken, url: String) -> Self {
         Self {
             token: token.as_str().to_owned(),
@@ -17,8 +17,12 @@ impl JoinChannelResponse {
     }
 }
 
-impl From<application::dto::responses::channel::join_channel::JoinChannelResponse> for JoinChannelResponse {
-    fn from(value: application::dto::responses::channel::join_channel::JoinChannelResponse) -> Self {
+impl From<application::dto::responses::channel::join_voice_channel::JoinVoiceChannelResponse>
+    for JoinVoiceChannelResponse
+{
+    fn from(
+        value: application::dto::responses::channel::join_voice_channel::JoinVoiceChannelResponse,
+    ) -> Self {
         Self {
             token: value.token.to_string(),
             url: value.url,

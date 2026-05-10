@@ -13,7 +13,7 @@ use domain::{
     user::id::UserId,
 };
 
-use crate::dto::requests::channel::leave_channel::LeaveChannelRequest;
+use crate::dto::requests::channel::leave_voice_channel::LeaveVoiceChannelRequest;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LeaveVoiceChannelError {
@@ -47,7 +47,7 @@ where
 
     pub async fn execute(
         &self,
-        request: LeaveChannelRequest,
+        request: LeaveVoiceChannelRequest,
         user_id: UserId,
     ) -> Result<(), LeaveVoiceChannelError> {
         let channel_id = ChannelId::new(request.channel_id);

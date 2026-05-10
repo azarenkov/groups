@@ -15,8 +15,8 @@ use domain::{
 
 use crate::{
     dto::{
-        requests::channel::join_channel::JoinChannelRequest,
-        responses::channel::join_channel::JoinChannelResponse,
+        requests::channel::join_voice_channel::JoinVoiceChannelRequest,
+        responses::channel::join_voice_channel::JoinVoiceChannelResponse,
     },
     ports::{
         hasher::{HashError, Hasher},
@@ -85,9 +85,9 @@ where
 
     pub async fn execute(
         &self,
-        request: JoinChannelRequest,
+        request: JoinVoiceChannelRequest,
         user_id: UserId,
-    ) -> Result<JoinChannelResponse, JoinVoiceChannelError> {
+    ) -> Result<JoinVoiceChannelResponse, JoinVoiceChannelError> {
         let channel_id = ChannelId::new(request.channel_id);
 
         let mut channel = self
@@ -141,7 +141,8 @@ where
             .update_channel_with_events(&channel, &records)
             .await?;
 
-        let response = JoinChannelResponse::new(channel_token, self.voice_service.client_url());
+        let response =
+            JoinVoiceChannelResponse::new(channel_token, self.voice_service.client_url());
         Ok(response)
     }
 }
