@@ -8,7 +8,7 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct CreateChannelRequest {
+pub struct CreateChannelRequestBody {
     pub server_id: Uuid,
     #[validate(length(min = 3, max = 15))]
     pub name: String,
@@ -24,8 +24,8 @@ pub enum ChannelTypeRequest {
     Private,
 }
 
-impl From<CreateChannelRequest> for CreateChannelRequestApplication {
-    fn from(value: CreateChannelRequest) -> Self {
+impl From<CreateChannelRequestBody> for CreateChannelRequestApplication {
+    fn from(value: CreateChannelRequestBody) -> Self {
         Self {
             server_id: value.server_id,
             name: value.name,

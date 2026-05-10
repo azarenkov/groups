@@ -3,7 +3,6 @@ use uuid::Uuid;
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct LeaveChannelRequest {
-    pub server_id: Uuid,
+pub struct MuteRequestBody {
+    pub target_user_id: Uuid,
 }

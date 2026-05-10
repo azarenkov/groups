@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT\n                    id,\n                    server_id,\n                    owner_id,\n                    name,\n                    max_participants,\n                    channel_type as \"channel_type: ChannelTypeDto\",\n                    password_hash,\n                    created_at,\n                    updated_at,\n                    last_join\n                FROM channels\n                WHERE server_id = $1\n                ORDER BY created_at DESC\n                LIMIT $2 OFFSET $3\n            ",
+  "query": "\n            SELECT\n                id, server_id, owner_id, name, max_participants,\n                channel_type as \"channel_type: ChannelTypeDto\",\n                password_hash, created_at, updated_at, last_join\n            FROM channels\n            WHERE server_id = $1\n            ORDER BY created_at DESC\n            LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -84,5 +84,5 @@
       false
     ]
   },
-  "hash": "1dc7e78d14a79d025af625182d75c1239a60e8f407c7fd87e521a735acad9fcf"
+  "hash": "12e19ec9226b996bbc4ffb92eadabba0c69ae99b5a6b67260f611495c5ac47a8"
 }

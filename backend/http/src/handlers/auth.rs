@@ -6,8 +6,8 @@ use validator::Validate;
 use crate::shared::{
     dto::{
         requests::auth::{
-            login::LoginUserRequest, refresh_token::RefreshTokenRequest,
-            registration::RegisterUserRequest,
+            login::LoginUserRequestBody, refresh_token::RefreshTokenRequestBody,
+            registration::RegisterUserRequestBody,
         },
         responses::{ApiResponse, auth::registration::RegisterUserResponse},
     },
@@ -18,15 +18,12 @@ use crate::shared::{
 #[post("/register")]
 async fn register_user(
     app_state: web::Data<AppState>,
-    request: web::Json<RegisterUserRequest>,
+    body: web::Json<RegisterUserRequestBody>,
 ) -> Result<impl Responder, ApiError> {
-    let request: RegisterUserRequest = request.into_inner();
-    request.validate()?;
+    let body: RegisterUserRequestBody = body.into_inner();
+    body.validate()?;
 
-    let user = app_state
-        .register_user_usecase
-        .execute(request.into())
-        .await?;
+    let user = app_state.register_user_usecase.execute(body.into()).await?;
 
     let response = RegisterUserResponse::from(user);
 
@@ -36,9 +33,9 @@ async fn register_user(
 #[post("/login")]
 async fn login_user(
     app_state: web::Data<AppState>,
-    request: web::Json<LoginUserRequest>,
+    request: web::Json<LoginUserRequestBody>,
 ) -> Result<impl Responder, ApiError> {
-    let request: LoginUserRequest = request.into_inner();
+    let request: LoginUserRequestBody = request.into_inner();
     request.validate()?;
 
     let user_id = app_state.login_user_usecase.execute(request.into()).await?;
@@ -53,11 +50,11 @@ async fn login_user(
 #[post("/refresh")]
 async fn refresh_tokens(
     app_state: web::Data<AppState>,
-    request: web::Json<RefreshTokenRequest>,
+    body: web::Json<RefreshTokenRequestBody>,
 ) -> Result<impl Responder, ApiError> {
-    let request: RefreshTokenRequest = request.into_inner();
+    let body: RefreshTokenRequestBody = body.into_inner();
 
-    let user_uuid = validate_refresh_token(&request.refresh_token, app_state.jwt_secret.as_str())
+    let user_uuid = validate_refresh_token(&body.refresh_token, app_state.jwt_secret.as_str())
         .await
         .map_err(|_| {
             ApiError::new(

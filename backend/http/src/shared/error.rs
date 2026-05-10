@@ -10,7 +10,8 @@ use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
     channel::{
         create_channel::CreateChannelError, delete_channel::DeleteChannelError,
-        leave_channel::LeaveChannelError,
+        leave_channel::LeaveChannelError, mute_channel::MuteChannelError,
+        unmute_channel::UnmuteChannelError,
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
@@ -91,6 +92,7 @@ impl ToHttpStatus for ChannelError {
             | ChannelError::PublicChannelCannotHavePassword
             | ChannelError::NameUnchanged => StatusCode::BAD_REQUEST,
             ChannelError::NotOwner => StatusCode::FORBIDDEN,
+            ChannelError::AlreadyMuted | ChannelError::NotMuted => StatusCode::CONFLICT,
         }
     }
 
@@ -104,6 +106,8 @@ impl ToHttpStatus for ChannelError {
             }
             ChannelError::NameUnchanged => "Channel name is unchanged".to_string(),
             ChannelError::NotOwner => "Only the channel owner can perform this action".to_string(),
+            ChannelError::AlreadyMuted => "Participant is already muted".to_string(),
+            ChannelError::NotMuted => "Participant is not muted".to_string(),
         }
     }
 }
@@ -157,6 +161,7 @@ impl ToHttpStatus for CreateChannelError {
 impl ToHttpStatus for DeleteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
+            DeleteChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
             DeleteChannelError::Repository(e) => e.to_http_status(),
             DeleteChannelError::Domain(e) => e.to_http_status(),
             DeleteChannelError::Outbox(e) => e.to_http_status(),
@@ -165,6 +170,7 @@ impl ToHttpStatus for DeleteChannelError {
 
     fn to_user_message(&self) -> String {
         match self {
+            DeleteChannelError::ChannelNotFound => "Channel not found".to_string(),
             DeleteChannelError::Repository(e) => e.to_user_message(),
             DeleteChannelError::Domain(e) => e.to_user_message(),
             DeleteChannelError::Outbox(e) => e.to_user_message(),
@@ -188,6 +194,46 @@ impl ToHttpStatus for LeaveChannelError {
             LeaveChannelError::Repository(e) => e.to_user_message(),
             LeaveChannelError::Domain(e) => e.to_user_message(),
             LeaveChannelError::Outbox(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for MuteChannelError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            MuteChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            MuteChannelError::Repository(e) => e.to_http_status(),
+            MuteChannelError::Domain(e) => e.to_http_status(),
+            MuteChannelError::Outbox(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            MuteChannelError::ChannelNotFound => "Channel not found".to_string(),
+            MuteChannelError::Repository(e) => e.to_user_message(),
+            MuteChannelError::Domain(e) => e.to_user_message(),
+            MuteChannelError::Outbox(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for UnmuteChannelError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UnmuteChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            UnmuteChannelError::Repository(e) => e.to_http_status(),
+            UnmuteChannelError::Domain(e) => e.to_http_status(),
+            UnmuteChannelError::Outbox(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            UnmuteChannelError::ChannelNotFound => "Channel not found".to_string(),
+            UnmuteChannelError::Repository(e) => e.to_user_message(),
+            UnmuteChannelError::Domain(e) => e.to_user_message(),
+            UnmuteChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 }
@@ -377,6 +423,18 @@ impl From<DeleteChannelError> for ApiError {
 
 impl From<LeaveChannelError> for ApiError {
     fn from(error: LeaveChannelError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<MuteChannelError> for ApiError {
+    fn from(error: MuteChannelError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<UnmuteChannelError> for ApiError {
+    fn from(error: UnmuteChannelError) -> Self {
         Self::from_error(error)
     }
 }

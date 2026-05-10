@@ -3,6 +3,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use domain::{
     channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
+    server::id::ServerId,
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -15,6 +16,8 @@ use domain::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteChannelError {
+    #[error("Channel not found")]
+    ChannelNotFound,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
@@ -40,6 +43,7 @@ where
 
     pub async fn execute(
         &self,
+        server_id: ServerId,
         channel_id: ChannelId,
         deleted_by: UserId,
     ) -> Result<(), DeleteChannelError> {
@@ -48,14 +52,16 @@ where
             .find_channel_by_id(&channel_id)
             .await?;
 
+        if channel.server_id() != &server_id {
+            return Err(DeleteChannelError::ChannelNotFound);
+        }
+
         let now = Utc::now();
 
-        channel
-            .delete(deleted_by, now)
-            .map_err(|e| match e {
-                ChannelError::NotOwner => DeleteChannelError::Repository(RepositoryError::NotFound),
-                other => DeleteChannelError::Domain(other),
-            })?;
+        channel.delete(deleted_by, now).map_err(|e| match e {
+            ChannelError::NotOwner => DeleteChannelError::Repository(RepositoryError::NotFound),
+            other => DeleteChannelError::Domain(other),
+        })?;
 
         let records: Vec<OutboxRecord> = channel
             .pull_events()

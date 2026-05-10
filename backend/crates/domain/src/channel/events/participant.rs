@@ -88,6 +88,35 @@ impl ParticipantMuted {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ParticipantUnmuted {
+    pub id: EventId,
+    pub channel_id: ChannelId,
+    pub server_id: ServerId,
+    pub user_id: UserId,
+    pub unmuted_by: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ParticipantUnmuted {
+    pub fn record(
+        channel_id: ChannelId,
+        server_id: ServerId,
+        user_id: UserId,
+        unmuted_by: UserId,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::new(),
+            channel_id,
+            server_id,
+            user_id,
+            unmuted_by,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct ParticipantConnectionAborted {
     pub id: EventId,
     pub channel_id: ChannelId,

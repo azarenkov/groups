@@ -1,9 +1,10 @@
 use actix_web::{HttpResponse, Responder, delete, post, web};
 use application::dto::requests::channel::{
     join_channel::JoinChannelRequest as AppJoinChannelRequest,
-    leave_channel::LeaveChannelRequest as AppLeftChannelRequest,
+    leave_channel::LeaveChannelRequest as AppLeftChannelRequest, mute_channel::MuteChannelRequest,
+    unmute_channel::UnmuteChannelRequest,
 };
-use domain::{channel::id::ChannelId, user::id::UserId};
+use domain::{channel::id::ChannelId, server::id::ServerId, user::id::UserId};
 use uuid::Uuid;
 use validator::Validate;
 
@@ -12,8 +13,8 @@ use crate::{
     shared::{
         dto::{
             requests::channel::{
-                create_channel::CreateChannelRequest, join_channel::JoinChannelRequest,
-                leave_channel::LeaveChannelRequest,
+                create_channel::CreateChannelRequestBody, join_channel::JoinChannelRequestBody,
+                mute_channel::MuteRequestBody, unmute_channel::UnmuteRequestBody,
             },
             responses::{
                 ApiResponse,
@@ -31,16 +32,16 @@ use crate::{
 async fn create_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
-    request: web::Json<CreateChannelRequest>,
+    body: web::Json<CreateChannelRequestBody>,
 ) -> Result<impl Responder, ApiError> {
-    let request: CreateChannelRequest = request.into_inner();
-    request.validate()?;
+    let body: CreateChannelRequestBody = body.into_inner();
+    body.validate()?;
 
     let user_id = UserId::new(auth_token.id);
 
     let channel = app_state
         .create_channel_usecase
-        .execute(request.into(), user_id)
+        .execute(body.into(), user_id)
         .await?;
 
     let response = CreateChannelResponse::from(channel);
@@ -48,19 +49,19 @@ async fn create_channel(
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }
 
-#[post("/{channel_id}/join")]
+#[post("/servers/{server_id}/channels/{channel_id}/join")]
 async fn join_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-    request: web::Json<JoinChannelRequest>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<JoinChannelRequestBody>,
 ) -> Result<impl Responder, ApiError> {
-    let channel_id = path.into_inner();
-    let request = request.into_inner();
+    let (server_id, channel_id) = path.into_inner();
+    let body = body.into_inner();
 
     let user_id = UserId::new(auth_token.id);
 
-    let data = AppJoinChannelRequest::new(channel_id, request.server_id, request.password);
+    let data = AppJoinChannelRequest::new(channel_id, server_id, body.password);
 
     let response: JoinChannelResponse = app_state
         .join_channel_usecase
@@ -71,19 +72,17 @@ async fn join_channel(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[post("/{channel_id}/leave")]
+#[post("/servers/{server_id}/channels/{channel_id}/leave")]
 async fn leave_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-    request: web::Json<LeaveChannelRequest>,
+    path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
-    let channel_id = path.into_inner();
-    let request = request.into_inner();
+    let (server_id, channel_id) = path.into_inner();
 
     let user_id = UserId::new(auth_token.id);
 
-    let data = AppLeftChannelRequest::new(channel_id, request.server_id);
+    let data = AppLeftChannelRequest::new(channel_id, server_id);
 
     app_state
         .leave_channel_usecase
@@ -93,18 +92,68 @@ async fn leave_channel(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{channel_id}")]
+#[post("/{server_id}/channels/{channel_id}/mute")]
+async fn mute_channel(
+    auth_token: AuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<MuteRequestBody>,
+) -> Result<HttpResponse, ApiError> {
+    let (server_id, channel_id) = path.into_inner();
+
+    let user_id = UserId::new(auth_token.id);
+
+    let request = MuteChannelRequest {
+        channel_id,
+        server_id,
+        target_user_id: body.target_user_id,
+    };
+
+    app_state
+        .mute_channel_usecase
+        .execute(request, user_id)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[post("/{server_id}/channels/{channel_id}/unmute")]
+async fn unmute_channel(
+    auth_token: AuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<UnmuteRequestBody>,
+) -> Result<HttpResponse, ApiError> {
+    let (server_id, channel_id) = path.into_inner();
+
+    let user_id = UserId::new(auth_token.id);
+
+    let request = UnmuteChannelRequest {
+        channel_id,
+        server_id,
+        target_user_id: body.target_user_id,
+    };
+
+    app_state
+        .unmute_channel_usecase
+        .execute(request, user_id)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[delete("/{server_id}/channels/{channel_id}/delete")]
 async fn delete_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
+    path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
-    let channel_id = ChannelId::new(path.into_inner());
+    let (server_id, channel_id) = path.into_inner();
+    let channel_id = ChannelId::new(channel_id);
+    let server_id = ServerId::new(server_id);
     let owner_id = UserId::new(auth_token.id);
 
     app_state
         .delete_channel_usecase
-        .execute(channel_id, owner_id)
+        .execute(server_id, channel_id, owner_id)
         .await?;
 
     Ok(HttpResponse::NoContent().finish())

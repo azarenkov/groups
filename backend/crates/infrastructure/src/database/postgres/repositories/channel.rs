@@ -1,14 +1,28 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 
+use chrono::{DateTime, Utc};
 use domain::{
-    channel::{Channel, id::ChannelId, repository::ChannelRepository},
-    shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
+    channel::{
+        Channel, id::ChannelId, max_paticipants::MaxParticipants, name::ChannelName,
+        participant_mute::ParticipantMute, repository::ChannelRepository,
+    },
+    server::id::ServerId,
+    shared::{
+        outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
+        value_objects::password_hash::PasswordHash,
+    },
+    user::id::UserId,
 };
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
-    dto::{aggregate_type::AggregateTypeDto, channel::ChannelDto, channel_type::ChannelTypeDto},
+    dto::{
+        channel::ChannelDto, channel_type::ChannelTypeDto, muted_participant::MutedParticipantDto,
+    },
     error::map_sqlx_error_to_domain_error,
+    repositories::outbox_record::save_outbox_records,
 };
 
 pub struct PostgresChannelRepository {
@@ -38,12 +52,12 @@ impl ChannelRepository for PostgresChannelRepository {
 
         sqlx::query!(
             r#"
-               INSERT INTO channels (
-                   id, server_id, owner_id, name, max_participants,
-                   channel_type, password_hash, created_at, updated_at, last_join
-               )
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-               "#,
+            INSERT INTO channels (
+                id, server_id, owner_id, name, max_participants,
+                channel_type, password_hash, created_at, updated_at, last_join
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            "#,
             channel.id().uuid(),
             channel.server_id().uuid(),
             channel.owner_id().uuid(),
@@ -59,35 +73,26 @@ impl ChannelRepository for PostgresChannelRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        for record in events {
-            let aggregate_type = AggregateTypeDto::from(&record.aggregate_type);
-            let parent_type = record.parent_type.as_ref().map(AggregateTypeDto::from);
-
+        for mute in channel.muted_participants_list() {
             sqlx::query!(
                 r#"
-                   INSERT INTO outbox (
-                       id, aggregate_id, aggregate_type,
-                       parent_id, parent_type,
-                       event_type, payload, occurred_at
-                   )
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                   "#,
-                record.id,
-                record.aggregate_id,
-                aggregate_type as AggregateTypeDto,
-                record.parent_id,
-                parent_type as Option<AggregateTypeDto>,
-                record.event_type,
-                record.payload,
-                record.occurred_at,
+                INSERT INTO channel_muted_participants
+                    (channel_id, user_id, muted_by, muted_at)
+                VALUES ($1, $2, $3, $4)
+                "#,
+                channel.id().uuid(),
+                mute.user_id.uuid(),
+                mute.muted_by.uuid(),
+                mute.muted_at,
             )
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
         }
 
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        save_outbox_records(&mut tx, events).await?;
 
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 
@@ -119,35 +124,9 @@ impl ChannelRepository for PostgresChannelRepository {
             return Err(RepositoryError::NotFound);
         }
 
-        for record in events {
-            let aggregate_type = AggregateTypeDto::from(&record.aggregate_type);
-            let parent_type = record.parent_type.as_ref().map(AggregateTypeDto::from);
-
-            sqlx::query!(
-                r#"
-                   INSERT INTO outbox (
-                       id, aggregate_id, aggregate_type,
-                       parent_id, parent_type,
-                       event_type, payload, occurred_at
-                   )
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                   "#,
-                record.id,
-                record.aggregate_id,
-                aggregate_type as AggregateTypeDto,
-                record.parent_id,
-                parent_type as Option<AggregateTypeDto>,
-                record.event_type,
-                record.payload,
-                record.occurred_at,
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        }
+        save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-
         Ok(())
     }
 
@@ -183,63 +162,10 @@ impl ChannelRepository for PostgresChannelRepository {
             return Err(RepositoryError::NotFound);
         }
 
-        for record in events {
-            let aggregate_type = AggregateTypeDto::from(&record.aggregate_type);
-            let parent_type = record.parent_type.as_ref().map(AggregateTypeDto::from);
-
-            sqlx::query!(
-                r#"
-                INSERT INTO outbox (
-                    id, aggregate_id, aggregate_type,
-                    parent_id, parent_type,
-                    event_type, payload, occurred_at
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                "#,
-                record.id,
-                record.aggregate_id,
-                aggregate_type as AggregateTypeDto,
-                record.parent_id,
-                parent_type as Option<AggregateTypeDto>,
-                record.event_type,
-                record.payload,
-                record.occurred_at,
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        }
+        save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
-    }
-
-    async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError> {
-        let dto = sqlx::query_as!(
-            ChannelDto,
-            r#"
-                SELECT
-                    id,
-                    server_id,
-                    owner_id,
-                    name,
-                    max_participants,
-                    channel_type as "channel_type: ChannelTypeDto",
-                    password_hash,
-                    created_at,
-                    updated_at,
-                    last_join
-                FROM channels
-                WHERE id = $1
-            "#,
-            channel_id.uuid()
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .ok_or(RepositoryError::NotFound)?;
-
-        Ok(dto.into())
     }
 
     async fn delete_channel_with_events(
@@ -262,35 +188,138 @@ impl ChannelRepository for PostgresChannelRepository {
             return Err(RepositoryError::NotFound);
         }
 
-        for record in events {
-            let aggregate_type_dto = AggregateTypeDto::from(&record.aggregate_type);
-            let parent_type_dto = record.parent_type.as_ref().map(AggregateTypeDto::from);
-
-            sqlx::query!(
-                r#"
-                INSERT INTO outbox (
-                    id, aggregate_id, aggregate_type,
-                    parent_id, parent_type,
-                    event_type, payload, occurred_at
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                "#,
-                record.id,
-                record.aggregate_id,
-                aggregate_type_dto as AggregateTypeDto,
-                record.parent_id,
-                parent_type_dto as Option<AggregateTypeDto>,
-                record.event_type,
-                record.payload,
-                record.occurred_at,
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        }
+        save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-
         Ok(())
+    }
+
+    async fn mute_participant_with_events(
+        &self,
+        channel_id: &ChannelId,
+        target: &UserId,
+        muted_by: &UserId,
+        muted_at: DateTime<Utc>,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let result = sqlx::query!(
+            r#"
+            INSERT INTO channel_muted_participants
+                (channel_id, user_id, muted_by, muted_at)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (channel_id, user_id) DO NOTHING
+            "#,
+            channel_id.uuid(),
+            target.uuid(),
+            muted_by.uuid(),
+            muted_at,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::AlreadyExists);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn unmute_participant_with_events(
+        &self,
+        channel_id: &ChannelId,
+        target: &UserId,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let result = sqlx::query!(
+            r#"
+            DELETE FROM channel_muted_participants
+            WHERE channel_id = $1 AND user_id = $2
+            "#,
+            channel_id.uuid(),
+            target.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn find_channel_by_id(&self, id: &ChannelId) -> Result<Channel, RepositoryError> {
+        let dto = sqlx::query_as!(
+            ChannelDto,
+            r#"
+            SELECT id, server_id, owner_id, name, max_participants,
+                   channel_type AS "channel_type: ChannelTypeDto",
+                   password_hash, created_at, updated_at, last_join
+            FROM channels
+            WHERE id = $1
+            "#,
+            id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+
+        let muted_dtos = sqlx::query_as!(
+            MutedParticipantDto,
+            r#"
+            SELECT channel_id, user_id, muted_by, muted_at
+            FROM channel_muted_participants
+            WHERE channel_id = $1
+            "#,
+            id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let muted_participants: HashMap<UserId, ParticipantMute> = muted_dtos
+            .into_iter()
+            .map(|dto| {
+                let mute: ParticipantMute = dto.into();
+                (mute.user_id.clone(), mute)
+            })
+            .collect();
+
+        let channel = Channel::restore(
+            ChannelId::new(dto.id),
+            ServerId::new(dto.server_id),
+            UserId::new(dto.owner_id),
+            ChannelName::new(dto.name),
+            MaxParticipants::new(dto.max_participants as u8),
+            dto.channel_type.into(),
+            dto.password_hash.map(PasswordHash::new),
+            dto.created_at,
+            dto.updated_at,
+            muted_participants,
+            dto.last_join,
+        );
+
+        Ok(channel)
     }
 }

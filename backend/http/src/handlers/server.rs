@@ -8,7 +8,7 @@ use crate::{
     shared::{
         dto::{
             pagination::{PaginationMeta, PaginationQuery},
-            requests::server::create_server::CreateServerRequest,
+            requests::server::create_server::CreateServerRequestBody,
             responses::{
                 ApiResponse,
                 server::{
@@ -28,14 +28,14 @@ use crate::{
 async fn create_server(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
-    request: web::Json<CreateServerRequest>,
+    body: web::Json<CreateServerRequestBody>,
 ) -> Result<impl Responder, ApiError> {
-    let request: CreateServerRequest = request.into_inner();
-    request.validate()?;
+    let body: CreateServerRequestBody = body.into_inner();
+    body.validate()?;
 
     let server = app_state
         .create_server_usecase
-        .execute(request.into(), UserId::new(auth_token.id))
+        .execute(body.into(), UserId::new(auth_token.id))
         .await?;
 
     let response = CreateServerResponse::from(server);
@@ -111,7 +111,7 @@ async fn list_server_channels(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[delete("/{server_id}")]
+#[delete("/{server_id}/delete")]
 async fn delete_server(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
