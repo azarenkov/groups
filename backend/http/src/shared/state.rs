@@ -1,8 +1,9 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     channel::{
-        create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel,
-        leave_channel::LeaveChannel, mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
+        create_channel::CreateChannel, delete_channel::DeleteChannel,
+        join_voice_channel::JoinVoiceChannel, leave_voice_channel::LeaveVoiceChannel,
+        mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -23,13 +24,13 @@ use infrastructure::{
 pub struct AppState {
     pub create_channel_usecase:
         CreateChannel<PostgresChannelRepository, BcryptHasher, PostgresServerRepository>,
-    pub join_channel_usecase: JoinChannel<
+    pub join_voice_channel_usecase: JoinVoiceChannel<
         LiveKitService,
         PostgresChannelRepository,
         PostgresUserRepository,
         BcryptHasher,
     >,
-    pub leave_channel_usecase: LeaveChannel<PostgresChannelRepository>,
+    pub leave_voice_channel_usecase: LeaveVoiceChannel<PostgresChannelRepository>,
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
@@ -60,18 +61,15 @@ impl AppState {
             BcryptHasher,
             PostgresServerRepository,
         >,
-        join_channel_usecase: JoinChannel<
+        join_voice_channel_usecase: JoinVoiceChannel<
             LiveKitService,
             PostgresChannelRepository,
             PostgresUserRepository,
             BcryptHasher,
         >,
-        leave_channel_usecase: LeaveChannel<PostgresChannelRepository>,
+        leave_voice_channel_usecase: LeaveVoiceChannel<PostgresChannelRepository>,
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
-        unmute_channel_usecase: UnmuteChannel<
-            PostgresChannelRepository,
-            PostgresUserRepository,
-        >,
+        unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
@@ -89,8 +87,8 @@ impl AppState {
     ) -> Self {
         Self {
             create_channel_usecase,
-            join_channel_usecase,
-            leave_channel_usecase,
+            join_voice_channel_usecase,
+            leave_voice_channel_usecase,
             mute_channel_usecase,
             unmute_channel_usecase,
             delete_channel_usecase,

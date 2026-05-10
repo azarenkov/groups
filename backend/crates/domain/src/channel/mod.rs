@@ -1,12 +1,12 @@
-pub mod channel_type;
+mod channel;
 pub mod events;
 pub mod id;
+pub mod kind;
 pub mod max_paticipants;
 pub mod name;
 pub mod participant_mute;
 pub mod repository;
 pub mod token;
-
-mod channel;
+pub mod visibility;
 pub use channel::Channel;
 pub use channel::ChannelError;

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use chrono::Utc;
 use domain::{
     channel::{
-        Channel, ChannelError, channel_type::ChannelType, name::ChannelName,
-        repository::ChannelRepository,
+        Channel, ChannelError, kind::ChannelKind, name::ChannelName, repository::ChannelRepository,
+        visibility::ChannelVisibility,
     },
     server::{id::ServerId, repository::ServerRepository},
     shared::{
@@ -76,8 +76,9 @@ where
         }
 
         let channel_name = ChannelName::new(request.name);
-        let channel_type: ChannelType = request.channel_type.into();
-        let password_hash = if channel_type.eq(&ChannelType::Private) {
+        let kind: ChannelKind = request.kind.into();
+        let visibility: ChannelVisibility = request.visibility.into();
+        let password_hash = if visibility.eq(&ChannelVisibility::Private) {
             let password = request
                 .password
                 .ok_or(CreateChannelError::PasswordRequired)?;
@@ -94,7 +95,8 @@ where
             server_id,
             owner_id,
             channel_name,
-            channel_type,
+            kind,
+            visibility,
             password_hash,
             now,
         )?;

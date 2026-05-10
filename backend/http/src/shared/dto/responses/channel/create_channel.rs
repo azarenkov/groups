@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::channel::{Channel, channel_type::ChannelType};
+use domain::channel::{Channel, kind::ChannelKind, visibility::ChannelVisibility};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -9,14 +9,22 @@ pub struct CreateChannelResponse {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Uuid,
-    pub channel_type: ChannelTypeResponse,
+    pub kind: ChannelKindResponse,
+    pub visibility: ChannelVisibilityResponse,
     pub max_participants: u8,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ChannelTypeResponse {
+pub enum ChannelKindResponse {
+    Text,
+    Voice,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChannelVisibilityResponse {
     Public,
     Private,
 }
@@ -27,18 +35,28 @@ impl From<Channel> for CreateChannelResponse {
             id: value.id().uuid(),
             name: value.name().as_str().to_owned(),
             owner_id: value.owner_id().uuid(),
-            channel_type: value.channel_type().into(),
+            kind: value.kind().into(),
+            visibility: (&value.visibility()).into(),
             max_participants: value.max_participants().value(),
             created_at: value.created_at(),
         }
     }
 }
 
-impl From<&ChannelType> for ChannelTypeResponse {
-    fn from(value: &ChannelType) -> Self {
+impl From<&ChannelKind> for ChannelKindResponse {
+    fn from(value: &ChannelKind) -> Self {
         match value {
-            ChannelType::Public => Self::Public,
-            ChannelType::Private => Self::Private,
+            ChannelKind::Text => Self::Text,
+            ChannelKind::Voice => Self::Voice,
+        }
+    }
+}
+
+impl From<&ChannelVisibility> for ChannelVisibilityResponse {
+    fn from(value: &ChannelVisibility) -> Self {
+        match value {
+            ChannelVisibility::Public => Self::Public,
+            ChannelVisibility::Private => Self::Private,
         }
     }
 }

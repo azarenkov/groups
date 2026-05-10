@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_channels_kind;
+ALTER TABLE channels DROP COLUMN IF EXISTS kind;
+DROP TYPE IF EXISTS kind;

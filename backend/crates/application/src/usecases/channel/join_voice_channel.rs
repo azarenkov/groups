@@ -15,8 +15,8 @@ use domain::{
 
 use crate::{
     dto::{
-        requests::channel::join_channel::JoinChannelRequest,
-        responses::channel::join_channel::JoinChannelResponse,
+        requests::channel::join_voice_channel::JoinVoiceChannelRequest,
+        responses::channel::join_voice_channel::JoinVoiceChannelResponse,
     },
     ports::{
         hasher::{HashError, Hasher},
@@ -25,7 +25,7 @@ use crate::{
 };
 
 #[derive(Debug, thiserror::Error)]
-pub enum JoinChannelError {
+pub enum JoinVoiceChannelError {
     #[error("Channel not found")]
     ChannelNotFound,
     #[error("Password is required")]
@@ -44,10 +44,12 @@ pub enum JoinChannelError {
     Domain(#[from] ChannelError),
     #[error("Outbox error: {0}")]
     Outbox(#[from] OutboxError),
+    #[error("Voice not supported for this channel")]
+    VoiceNotSupported,
 }
 
 #[derive(Debug)]
-pub struct JoinChannel<T, U, R, H>
+pub struct JoinVoiceChannel<T, U, R, H>
 where
     T: VoiceService,
     U: ChannelRepository,
@@ -60,7 +62,7 @@ where
     hasher: Arc<H>,
 }
 
-impl<T, U, R, H> JoinChannel<T, U, R, H>
+impl<T, U, R, H> JoinVoiceChannel<T, U, R, H>
 where
     T: VoiceService,
     U: ChannelRepository,
@@ -83,9 +85,9 @@ where
 
     pub async fn execute(
         &self,
-        request: JoinChannelRequest,
+        request: JoinVoiceChannelRequest,
         user_id: UserId,
-    ) -> Result<JoinChannelResponse, JoinChannelError> {
+    ) -> Result<JoinVoiceChannelResponse, JoinVoiceChannelError> {
         let channel_id = ChannelId::new(request.channel_id);
 
         let mut channel = self
@@ -94,13 +96,19 @@ where
             .await?;
 
         if channel.server_id().uuid() != request.server_id {
-            return Err(JoinChannelError::ChannelNotFound);
+            return Err(JoinVoiceChannelError::ChannelNotFound);
+        }
+
+        if !channel.kind().supports_voice() {
+            return Err(JoinVoiceChannelError::VoiceNotSupported);
         }
 
         if let Some(expected_hash) = channel.password_hash() {
-            let provided = request.password.ok_or(JoinChannelError::PasswordRequired)?;
+            let provided = request
+                .password
+                .ok_or(JoinVoiceChannelError::PasswordRequired)?;
             if !self.hasher.verify(&provided, expected_hash.as_str())? {
-                return Err(JoinChannelError::InvalidPassword);
+                return Err(JoinVoiceChannelError::InvalidPassword);
             }
         }
 
@@ -108,7 +116,7 @@ where
             .user_repository
             .find_by_id(&user_id)
             .await?
-            .ok_or(JoinChannelError::UserNotFound)?;
+            .ok_or(JoinVoiceChannelError::UserNotFound)?;
 
         let now = Utc::now();
 
@@ -133,7 +141,8 @@ where
             .update_channel_with_events(&channel, &records)
             .await?;
 
-        let response = JoinChannelResponse::new(channel_token, self.voice_service.client_url());
+        let response =
+            JoinVoiceChannelResponse::new(channel_token, self.voice_service.client_url());
         Ok(response)
     }
 }

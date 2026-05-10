@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, types::Uuid};
 
-use super::channel_type::ChannelTypeDto;
+use super::{kind::ChannelKindDto, visibility::ChannelVisibilityDto};
 
 #[derive(Debug, FromRow)]
 pub struct ChannelDto {
@@ -10,7 +10,8 @@ pub struct ChannelDto {
     pub owner_id: Uuid,
     pub name: String,
     pub max_participants: i32,
-    pub channel_type: ChannelTypeDto,
+    pub kind: ChannelKindDto,
+    pub visibility: ChannelVisibilityDto,
     pub password_hash: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

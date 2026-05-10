@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use domain::{
     channel::{
-        Channel, id::ChannelId, max_paticipants::MaxParticipants, name::ChannelName,
-        participant_mute::ParticipantMute,
+        Channel, id::ChannelId, kind::ChannelKind, max_paticipants::MaxParticipants,
+        name::ChannelName, participant_mute::ParticipantMute,
     },
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
@@ -20,8 +20,8 @@ use uuid::Uuid;
 
 use crate::database::postgres::{
     dto::{
-        channel::ChannelDto, channel_type::ChannelTypeDto, muted_participant::MutedParticipantDto,
-        server::ServerDto, user::UserDto,
+        channel::ChannelDto, kind::ChannelKindDto, muted_participant::MutedParticipantDto,
+        server::ServerDto, user::UserDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
 };
@@ -194,7 +194,8 @@ impl ServerRepository for PostgresServerRepository {
             r#"
             SELECT
                 id, server_id, owner_id, name, max_participants,
-                channel_type as "channel_type: ChannelTypeDto",
+                kind as "kind: ChannelKindDto",
+                visibility as "visibility: ChannelVisibilityDto",
                 password_hash, created_at, updated_at, last_join
             FROM channels
             WHERE server_id = $1
@@ -238,14 +239,20 @@ impl ServerRepository for PostgresServerRepository {
         let items: Vec<Channel> = channel_dtos
             .into_iter()
             .map(|dto| {
-                let muted = muted_by_channel.remove(&dto.id).unwrap_or_default();
+                let kind: ChannelKind = dto.kind.into();
+                let muted = if kind.supports_voice() {
+                    Some(muted_by_channel.remove(&dto.id).unwrap_or_default())
+                } else {
+                    None
+                };
                 Channel::restore(
                     ChannelId::new(dto.id),
                     ServerId::new(dto.server_id),
                     UserId::new(dto.owner_id),
                     ChannelName::new(dto.name),
                     MaxParticipants::new(dto.max_participants as u8),
-                    dto.channel_type.into(),
+                    kind,
+                    dto.visibility.into(),
                     dto.password_hash.map(PasswordHash::new),
                     dto.created_at,
                     dto.updated_at,
