@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        service: [api]
+        service: [http]
 
     steps:
       - name: Checkout Code

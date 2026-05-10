@@ -330,28 +330,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "api"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-web",
- "application",
- "chrono",
- "domain",
- "dotenv",
- "env_logger",
- "envy",
- "infrastructure",
- "serde",
- "serde_json",
- "shared",
- "thiserror 2.0.18",
- "tracing",
- "uuid",
- "validator",
-]
-
-[[package]]
 name = "application"
 version = "0.1.0"
 dependencies = [
@@ -1448,6 +1426,28 @@ dependencies = [
  "cfg-if",
  "libc",
  "windows-link",
+]
+
+[[package]]
+name = "http"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "application",
+ "chrono",
+ "domain",
+ "dotenv",
+ "env_logger",
+ "envy",
+ "infrastructure",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tracing",
+ "uuid",
+ "validator",
 ]
 
 [[package]]
