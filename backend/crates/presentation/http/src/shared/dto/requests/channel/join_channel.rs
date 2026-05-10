@@ -6,4 +6,5 @@ use validator::Validate;
 #[serde(rename_all = "camelCase")]
 pub struct JoinChannelRequest {
     pub server_id: Uuid,
+    pub password: Option<String>,
 }

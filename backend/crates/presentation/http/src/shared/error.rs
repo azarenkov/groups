@@ -3,14 +3,16 @@ use application::ports::{
     hasher::HashError, mailer::MailerError, voice_service::VoiceServiceError,
 };
 use application::usecases::channel::join_channel::JoinChannelError;
-use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
+use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
     channel::{create_channel::CreateChannelError, delete_channel::DeleteChannelError},
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
 };
+use domain::channel::ChannelError;
+use domain::shared::outbox::to_outbox::OutboxError;
 use domain::shared::repository::error::RepositoryError;
 use serde::Serialize;
 use validator::ValidationErrors;
@@ -78,6 +80,40 @@ impl ToHttpStatus for MailerError {
     }
 }
 
+impl ToHttpStatus for ChannelError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ChannelError::PrivateChannelRequiresPassword
+            | ChannelError::PublicChannelCannotHavePassword
+            | ChannelError::NameUnchanged => StatusCode::BAD_REQUEST,
+            ChannelError::NotOwner => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ChannelError::PrivateChannelRequiresPassword => {
+                "Private channel requires a password".to_string()
+            }
+            ChannelError::PublicChannelCannotHavePassword => {
+                "Public channel cannot have a password".to_string()
+            }
+            ChannelError::NameUnchanged => "Channel name is unchanged".to_string(),
+            ChannelError::NotOwner => "Only the channel owner can perform this action".to_string(),
+        }
+    }
+}
+
+impl ToHttpStatus for OutboxError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn to_user_message(&self) -> String {
+        "Internal server error".to_string()
+    }
+}
+
 impl ToHttpStatus for CreateChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -85,6 +121,8 @@ impl ToHttpStatus for CreateChannelError {
             CreateChannelError::Hash(e) => e.to_http_status(),
             CreateChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
             CreateChannelError::InvalidData => StatusCode::BAD_REQUEST,
+            CreateChannelError::Domain(e) => e.to_http_status(),
+            CreateChannelError::Outbox(e) => e.to_http_status(),
         }
     }
 
@@ -96,19 +134,27 @@ impl ToHttpStatus for CreateChannelError {
                 "Password is required for private channels".to_string()
             }
             CreateChannelError::InvalidData => "Invalid channel data provided".to_string(),
+            CreateChannelError::Domain(e) => e.to_user_message(),
+            CreateChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 }
 
 impl ToHttpStatus for DeleteChannelError {
     fn to_http_status(&self) -> StatusCode {
-        let DeleteChannelError::Repository(e) = self;
-        e.to_http_status()
+        match self {
+            DeleteChannelError::Repository(e) => e.to_http_status(),
+            DeleteChannelError::Domain(e) => e.to_http_status(),
+            DeleteChannelError::Outbox(e) => e.to_http_status(),
+        }
     }
 
     fn to_user_message(&self) -> String {
-        let DeleteChannelError::Repository(e) = self;
-        e.to_user_message()
+        match self {
+            DeleteChannelError::Repository(e) => e.to_user_message(),
+            DeleteChannelError::Domain(e) => e.to_user_message(),
+            DeleteChannelError::Outbox(e) => e.to_user_message(),
+        }
     }
 }
 
@@ -177,15 +223,32 @@ impl ToHttpStatus for DeleteServerError {
 impl ToHttpStatus for JoinChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            JoinChannelError::VoiceService(e) => e.to_http_status(),
+            JoinChannelError::ChannelNotFound | JoinChannelError::UserNotFound => {
+                StatusCode::NOT_FOUND
+            }
+            JoinChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
+            JoinChannelError::InvalidPassword => StatusCode::UNAUTHORIZED,
             JoinChannelError::Repository(e) => e.to_http_status(),
+            JoinChannelError::VoiceService(e) => e.to_http_status(),
+            JoinChannelError::Hash(e) => e.to_http_status(),
+            JoinChannelError::Domain(e) => e.to_http_status(),
+            JoinChannelError::Outbox(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            JoinChannelError::VoiceService(e) => e.to_user_message(),
+            JoinChannelError::ChannelNotFound => "Channel not found".to_string(),
+            JoinChannelError::UserNotFound => "User not found".to_string(),
+            JoinChannelError::PasswordRequired => {
+                "Password is required to join this channel".to_string()
+            }
+            JoinChannelError::InvalidPassword => "Invalid password".to_string(),
             JoinChannelError::Repository(e) => e.to_user_message(),
+            JoinChannelError::VoiceService(e) => e.to_user_message(),
+            JoinChannelError::Hash(e) => e.to_user_message(),
+            JoinChannelError::Domain(e) => e.to_user_message(),
+            JoinChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 }

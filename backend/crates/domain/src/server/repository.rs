@@ -14,22 +14,22 @@ use crate::{
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
     async fn save_server(&self, server: &Server) -> Result<(), RepositoryError>;
-    async fn get_servers_by_user_id(
+    async fn find_servers_by_user_id(
         &self,
         user_id: &UserId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<Server>, RepositoryError>;
-    async fn get_users_by_server_id(
+    async fn find_users_by_server_id(
         &self,
         server_id: &ServerId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<User>, RepositoryError>;
-    async fn get_rooms_by_server_id(
+    async fn find_rooms_by_server_id(
         &self,
         server_id: &ServerId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<Channel>, RepositoryError>;
-    async fn add_member_to_server(
+    async fn save_new_member_server(
         &self,
         server_id: &ServerId,
         user_id: &UserId,

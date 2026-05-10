@@ -37,7 +37,7 @@ where
     ) -> Result<PaginatedResult<Server>, ListServersByUserError> {
         let result = self
             .server_repository
-            .get_servers_by_user_id(&user_id, pagination)
+            .find_servers_by_user_id(&user_id, pagination)
             .await?;
 
         Ok(result)

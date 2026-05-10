@@ -1,13 +1,20 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use domain::{
     channel::{
-        Channel,
+        Channel, ChannelError, channel_type::ChannelType, name::ChannelName,
         repository::ChannelRepository,
-        name::ChannelName, channel_type::ChannelType,
     },
-    server::{repository::ServerRepository, id::ServerId},
-    shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
+    server::{id::ServerId, repository::ServerRepository},
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+        value_objects::password_hash::PasswordHash,
+    },
     user::id::UserId,
 };
 
@@ -26,6 +33,10 @@ pub enum CreateChannelError {
     PasswordRequired,
     #[error("Invalid data")]
     InvalidData,
+    #[error("Channel domain error: {0}")]
+    Domain(#[from] ChannelError),
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
 }
 
 pub struct CreateChannel<T, H, S>
@@ -67,7 +78,9 @@ where
         let channel_name = ChannelName::new(request.name);
         let channel_type: ChannelType = request.channel_type.into();
         let password_hash = if channel_type.eq(&ChannelType::Private) {
-            let password = request.password.ok_or(CreateChannelError::PasswordRequired)?;
+            let password = request
+                .password
+                .ok_or(CreateChannelError::PasswordRequired)?;
             let hash = self.hasher.hash(&password)?;
 
             Some(PasswordHash::new(hash))
@@ -75,8 +88,27 @@ where
             None
         };
 
-        let channel = Channel::create(server_id, owner_id, channel_name, channel_type, password_hash);
-        self.channel_repository.save_channel(&channel).await?;
+        let now = Utc::now();
+
+        let mut channel = Channel::create(
+            server_id,
+            owner_id,
+            channel_name,
+            channel_type,
+            password_hash,
+            now,
+        )?;
+
+        let records: Vec<OutboxRecord> = channel
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record())
+            .collect::<Result<_, _>>()?;
+
+        self.channel_repository
+            .save_channel_with_events(&channel, &records)
+            .await?;
+
         Ok(channel)
     }
 }

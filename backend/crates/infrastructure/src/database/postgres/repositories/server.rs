@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use domain::{
     channel::Channel,
-    server::{Server, repository::ServerRepository, id::ServerId},
+    server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
@@ -82,7 +82,7 @@ impl ServerRepository for PostgresServerRepository {
         Ok(())
     }
 
-    async fn get_servers_by_user_id(
+    async fn find_servers_by_user_id(
         &self,
         user_id: &UserId,
         pagination: Pagination,
@@ -121,7 +121,7 @@ impl ServerRepository for PostgresServerRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
-    async fn get_users_by_server_id(
+    async fn find_users_by_server_id(
         &self,
         server_id: &ServerId,
         pagination: Pagination,
@@ -161,7 +161,7 @@ impl ServerRepository for PostgresServerRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
-    async fn get_rooms_by_server_id(
+    async fn find_rooms_by_server_id(
         &self,
         server_id: &ServerId,
         pagination: Pagination,
@@ -210,7 +210,7 @@ impl ServerRepository for PostgresServerRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
-    async fn add_member_to_server(
+    async fn save_new_member_server(
         &self,
         server_id: &ServerId,
         user_id: &UserId,

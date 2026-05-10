@@ -8,10 +8,14 @@ use crate::{
     middleware::auth::AuthToken,
     shared::{
         dto::{
-            requests::channel::{create_channel::CreateChannelRequest, join_channel::JoinChannelRequest},
+            requests::channel::{
+                create_channel::CreateChannelRequest, join_channel::JoinChannelRequest,
+            },
             responses::{
                 ApiResponse,
-                channel::{create_channel::CreateChannelResponse, join_channel::JoinChannelResponse},
+                channel::{
+                    create_channel::CreateChannelResponse, join_channel::JoinChannelResponse,
+                },
             },
         },
         error::ApiError,
@@ -52,7 +56,7 @@ async fn join_channel(
 
     let user_id = UserId::new(auth_token.id);
 
-    let data = AppJoinRoomRequest::new(channel_id, request.server_id);
+    let data = AppJoinRoomRequest::new(channel_id, request.server_id, request.password);
 
     let response: JoinChannelResponse = app_state
         .join_room_usecase()
@@ -72,14 +76,10 @@ async fn delete_channel(
     let channel_id = ChannelId::new(path.into_inner());
     let owner_id = UserId::new(auth_token.id);
 
-    let deleted = app_state
+    app_state
         .delete_room_usecase()
         .execute(channel_id, owner_id)
         .await?;
 
-    if deleted {
-        Ok(HttpResponse::NoContent().finish())
-    } else {
-        Ok(HttpResponse::NotFound().finish())
-    }
+    Ok(HttpResponse::NoContent().finish())
 }

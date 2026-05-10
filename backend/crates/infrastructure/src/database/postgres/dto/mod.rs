@@ -1,3 +1,4 @@
+pub mod aggregate_type;
 pub mod channel;
 pub mod channel_type;
 pub mod server;

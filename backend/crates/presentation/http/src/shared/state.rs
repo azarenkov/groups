@@ -1,9 +1,11 @@
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
-    channel::{create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel},
+    channel::{
+        create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel,
+    },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
-        list_server_members::ListServerMembers, list_server_channels::ListServerChannels,
+        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser,
     },
 };
@@ -18,8 +20,14 @@ use infrastructure::{
 };
 
 pub struct AppState {
-    create_room_usecase: CreateChannel<PostgresChannelRepository, BcryptHasher, PostgresServerRepository>,
-    join_room_usecase: JoinChannel<LiveKitService, PostgresChannelRepository, PostgresUserRepository>,
+    create_room_usecase:
+        CreateChannel<PostgresChannelRepository, BcryptHasher, PostgresServerRepository>,
+    join_room_usecase: JoinChannel<
+        LiveKitService,
+        PostgresChannelRepository,
+        PostgresUserRepository,
+        BcryptHasher,
+    >,
     delete_room_usecase: DeleteChannel<PostgresChannelRepository>,
 
     register_user_usecase: RegisterUser<
@@ -47,7 +55,12 @@ impl AppState {
             BcryptHasher,
             PostgresServerRepository,
         >,
-        join_room_usecase: JoinChannel<LiveKitService, PostgresChannelRepository, PostgresUserRepository>,
+        join_room_usecase: JoinChannel<
+            LiveKitService,
+            PostgresChannelRepository,
+            PostgresUserRepository,
+            BcryptHasher,
+        >,
         delete_room_usecase: DeleteChannel<PostgresChannelRepository>,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
@@ -117,7 +130,8 @@ impl AppState {
 
     pub fn join_room_usecase(
         &self,
-    ) -> &JoinChannel<LiveKitService, PostgresChannelRepository, PostgresUserRepository> {
+    ) -> &JoinChannel<LiveKitService, PostgresChannelRepository, PostgresUserRepository, BcryptHasher>
+    {
         &self.join_room_usecase
     }
 

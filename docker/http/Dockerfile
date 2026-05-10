@@ -50,6 +50,6 @@ RUN apt-get update && apt-get install -y \
     libgcc-s1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /rift/target/release/api /usr/local/bin/api
-ENTRYPOINT ["api"]
+COPY --from=builder /rift/target/release/http /usr/local/bin/http
+ENTRYPOINT ["http"]
 EXPOSE 8080
