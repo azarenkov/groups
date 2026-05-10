@@ -38,7 +38,6 @@ pub enum ChannelVisibilityDto {
 pub enum ChannelKindDto {
     Text,
     Voice,
-    Hybrid,
 }
 
 impl From<ChannelVisibilityDto> for ChannelVisibility {
@@ -55,7 +54,6 @@ impl From<ChannelKindDto> for ChannelKind {
         match value {
             ChannelKindDto::Text => Self::Text,
             ChannelKindDto::Voice => Self::Voice,
-            ChannelKindDto::Hybrid => Self::Hybrid,
         }
     }
 }

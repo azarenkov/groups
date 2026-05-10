@@ -5,7 +5,6 @@ use domain::channel::kind::ChannelKind;
 pub enum ChannelKindDto {
     Text,
     Voice,
-    Hybrid,
 }
 
 impl From<&ChannelKind> for ChannelKindDto {
@@ -13,7 +12,6 @@ impl From<&ChannelKind> for ChannelKindDto {
         match value {
             ChannelKind::Text => Self::Text,
             ChannelKind::Voice => Self::Voice,
-            ChannelKind::Hybrid => Self::Hybrid,
         }
     }
 }
@@ -23,7 +21,6 @@ impl From<ChannelKindDto> for ChannelKind {
         match value {
             ChannelKindDto::Text => Self::Text,
             ChannelKindDto::Voice => Self::Voice,
-            ChannelKindDto::Hybrid => Self::Hybrid,
         }
     }
 }

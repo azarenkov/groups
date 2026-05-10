@@ -26,7 +26,6 @@ pub enum ChannelVisibilityRequest {
 pub enum ChannelKindRequest {
     Text,
     Voice,
-    Hybrid,
 }
 
 impl From<ChannelVisibilityRequest> for ChannelVisibilityDto {
@@ -43,7 +42,6 @@ impl From<ChannelKindRequest> for ChannelKindDto {
         match value {
             ChannelKindRequest::Text => Self::Text,
             ChannelKindRequest::Voice => Self::Voice,
-            ChannelKindRequest::Hybrid => Self::Hybrid,
         }
     }
 }

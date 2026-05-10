@@ -1,4 +1,4 @@
-CREATE TYPE kind AS ENUM ('text', 'voice', 'hybrid');
+CREATE TYPE kind AS ENUM ('text', 'voice');
 
 ALTER TABLE channels
     ADD COLUMN kind kind NOT NULL DEFAULT 'text';
