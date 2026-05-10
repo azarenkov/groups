@@ -16,6 +16,7 @@ use application::usecases::{
 };
 use domain::channel::ChannelError;
 use domain::shared::outbox::to_outbox::OutboxError;
+use domain::shared::pagination::PaginationError;
 use domain::shared::repository::error::RepositoryError;
 use serde::Serialize;
 use validator::ValidationErrors;
@@ -114,6 +115,16 @@ impl ToHttpStatus for OutboxError {
 
     fn to_user_message(&self) -> String {
         "Internal server error".to_string()
+    }
+}
+
+impl ToHttpStatus for PaginationError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::BAD_REQUEST
+    }
+
+    fn to_user_message(&self) -> String {
+        self.to_string()
     }
 }
 
@@ -390,6 +401,12 @@ impl From<CreateServerError> for ApiError {
 
 impl From<DeleteServerError> for ApiError {
     fn from(error: DeleteServerError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<PaginationError> for ApiError {
+    fn from(error: PaginationError) -> Self {
         Self::from_error(error)
     }
 }

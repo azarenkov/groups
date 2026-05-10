@@ -52,7 +52,7 @@ async fn list_servers_by_user(
     query.validate()?;
 
     let user_id = UserId::new(auth_token.id);
-    let pagination = Pagination::new(query.page, query.per_page);
+    let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_servers_by_user_usecase
@@ -75,7 +75,7 @@ async fn list_server_members(
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
-    let pagination = Pagination::new(query.page, query.per_page);
+    let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_members_usecase
@@ -98,7 +98,7 @@ async fn list_server_channels(
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
-    let pagination = Pagination::new(query.page, query.per_page);
+    let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_channels_usecase
