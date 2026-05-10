@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{
     hasher::HashError, mailer::MailerError, voice_service::VoiceServiceError,
 };
-use application::usecases::channel::join_channel::JoinChannelError;
+use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
@@ -10,7 +10,7 @@ use application::usecases::{
     auth::{login::LoginError, register::RegistrationError},
     channel::{
         create_channel::CreateChannelError, delete_channel::DeleteChannelError,
-        leave_channel::LeaveChannelError, mute_channel::MuteChannelError,
+        leave_voice_channel::LeaveVoiceChannelError, mute_channel::MuteChannelError,
         unmute_channel::UnmuteChannelError,
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
@@ -178,22 +178,26 @@ impl ToHttpStatus for DeleteChannelError {
     }
 }
 
-impl ToHttpStatus for LeaveChannelError {
+impl ToHttpStatus for LeaveVoiceChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            LeaveChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
-            LeaveChannelError::Repository(e) => e.to_http_status(),
-            LeaveChannelError::Domain(e) => e.to_http_status(),
-            LeaveChannelError::Outbox(e) => e.to_http_status(),
+            LeaveVoiceChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            LeaveVoiceChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            LeaveVoiceChannelError::Repository(e) => e.to_http_status(),
+            LeaveVoiceChannelError::Domain(e) => e.to_http_status(),
+            LeaveVoiceChannelError::Outbox(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            LeaveChannelError::ChannelNotFound => "Channel not found".to_string(),
-            LeaveChannelError::Repository(e) => e.to_user_message(),
-            LeaveChannelError::Domain(e) => e.to_user_message(),
-            LeaveChannelError::Outbox(e) => e.to_user_message(),
+            LeaveVoiceChannelError::ChannelNotFound => "Channel not found".to_string(),
+            LeaveVoiceChannelError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
+            LeaveVoiceChannelError::Repository(e) => e.to_user_message(),
+            LeaveVoiceChannelError::Domain(e) => e.to_user_message(),
+            LeaveVoiceChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 }
@@ -204,6 +208,7 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::ChannelNotFound | MuteChannelError::TargetUserNotFound => {
                 StatusCode::NOT_FOUND
             }
+            MuteChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             MuteChannelError::Repository(e) => e.to_http_status(),
             MuteChannelError::Domain(e) => e.to_http_status(),
             MuteChannelError::Outbox(e) => e.to_http_status(),
@@ -214,6 +219,9 @@ impl ToHttpStatus for MuteChannelError {
         match self {
             MuteChannelError::ChannelNotFound => "Channel not found".to_string(),
             MuteChannelError::TargetUserNotFound => "Target user not found".to_string(),
+            MuteChannelError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
             MuteChannelError::Repository(e) => e.to_user_message(),
             MuteChannelError::Domain(e) => e.to_user_message(),
             MuteChannelError::Outbox(e) => e.to_user_message(),
@@ -227,6 +235,7 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::ChannelNotFound | UnmuteChannelError::TargetUserNotFound => {
                 StatusCode::NOT_FOUND
             }
+            UnmuteChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             UnmuteChannelError::Repository(e) => e.to_http_status(),
             UnmuteChannelError::Domain(e) => e.to_http_status(),
             UnmuteChannelError::Outbox(e) => e.to_http_status(),
@@ -237,6 +246,9 @@ impl ToHttpStatus for UnmuteChannelError {
         match self {
             UnmuteChannelError::ChannelNotFound => "Channel not found".to_string(),
             UnmuteChannelError::TargetUserNotFound => "Target user not found".to_string(),
+            UnmuteChannelError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
             UnmuteChannelError::Repository(e) => e.to_user_message(),
             UnmuteChannelError::Domain(e) => e.to_user_message(),
             UnmuteChannelError::Outbox(e) => e.to_user_message(),
@@ -306,35 +318,39 @@ impl ToHttpStatus for DeleteServerError {
     }
 }
 
-impl ToHttpStatus for JoinChannelError {
+impl ToHttpStatus for JoinVoiceChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            JoinChannelError::ChannelNotFound | JoinChannelError::UserNotFound => {
+            JoinVoiceChannelError::ChannelNotFound | JoinVoiceChannelError::UserNotFound => {
                 StatusCode::NOT_FOUND
             }
-            JoinChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
-            JoinChannelError::InvalidPassword => StatusCode::UNAUTHORIZED,
-            JoinChannelError::Repository(e) => e.to_http_status(),
-            JoinChannelError::VoiceService(e) => e.to_http_status(),
-            JoinChannelError::Hash(e) => e.to_http_status(),
-            JoinChannelError::Domain(e) => e.to_http_status(),
-            JoinChannelError::Outbox(e) => e.to_http_status(),
+            JoinVoiceChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
+            JoinVoiceChannelError::InvalidPassword => StatusCode::UNAUTHORIZED,
+            JoinVoiceChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            JoinVoiceChannelError::Repository(e) => e.to_http_status(),
+            JoinVoiceChannelError::VoiceService(e) => e.to_http_status(),
+            JoinVoiceChannelError::Hash(e) => e.to_http_status(),
+            JoinVoiceChannelError::Domain(e) => e.to_http_status(),
+            JoinVoiceChannelError::Outbox(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            JoinChannelError::ChannelNotFound => "Channel not found".to_string(),
-            JoinChannelError::UserNotFound => "User not found".to_string(),
-            JoinChannelError::PasswordRequired => {
+            JoinVoiceChannelError::ChannelNotFound => "Channel not found".to_string(),
+            JoinVoiceChannelError::UserNotFound => "User not found".to_string(),
+            JoinVoiceChannelError::PasswordRequired => {
                 "Password is required to join this channel".to_string()
             }
-            JoinChannelError::InvalidPassword => "Invalid password".to_string(),
-            JoinChannelError::Repository(e) => e.to_user_message(),
-            JoinChannelError::VoiceService(e) => e.to_user_message(),
-            JoinChannelError::Hash(e) => e.to_user_message(),
-            JoinChannelError::Domain(e) => e.to_user_message(),
-            JoinChannelError::Outbox(e) => e.to_user_message(),
+            JoinVoiceChannelError::InvalidPassword => "Invalid password".to_string(),
+            JoinVoiceChannelError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
+            JoinVoiceChannelError::Repository(e) => e.to_user_message(),
+            JoinVoiceChannelError::VoiceService(e) => e.to_user_message(),
+            JoinVoiceChannelError::Hash(e) => e.to_user_message(),
+            JoinVoiceChannelError::Domain(e) => e.to_user_message(),
+            JoinVoiceChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 }
@@ -427,8 +443,8 @@ impl From<DeleteChannelError> for ApiError {
     }
 }
 
-impl From<LeaveChannelError> for ApiError {
-    fn from(error: LeaveChannelError) -> Self {
+impl From<LeaveVoiceChannelError> for ApiError {
+    fn from(error: LeaveVoiceChannelError) -> Self {
         Self::from_error(error)
     }
 }
@@ -485,8 +501,8 @@ impl From<ValidationErrors> for ApiError {
     }
 }
 
-impl From<JoinChannelError> for ApiError {
-    fn from(error: JoinChannelError) -> Self {
+impl From<JoinVoiceChannelError> for ApiError {
+    fn from(error: JoinVoiceChannelError) -> Self {
         Self::from_error(error)
     }
 }

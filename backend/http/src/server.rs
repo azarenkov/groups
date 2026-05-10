@@ -5,8 +5,9 @@ use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{login::LoginUser, register::RegisterUser},
     channel::{
-        create_channel::CreateChannel, delete_channel::DeleteChannel, join_channel::JoinChannel,
-        leave_channel::LeaveChannel, mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
+        create_channel::CreateChannel, delete_channel::DeleteChannel,
+        join_voice_channel::JoinVoiceChannel, leave_voice_channel::LeaveVoiceChannel,
+        mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -15,9 +16,7 @@ use application::usecases::{
     },
 };
 use infrastructure::{
-    config::{
-        livekit::LiveKitConfig, mailer::MailerConfig, nats::NatsConfig, postgres::PostgresConfig,
-    },
+    config::{livekit::LiveKitConfig, mailer::MailerConfig, postgres::PostgresConfig},
     database::postgres::{
         connection::create_postgres_pool,
         repositories::{
@@ -27,7 +26,6 @@ use infrastructure::{
     },
     hasher::bcrypt_hasher::BcryptHasher,
     mailer::smtp_mailer::SmtpMailer,
-    messaging::nats::{connection::create_jetstream, producer::NatsProducer},
     voice::livekit_service::LiveKitService,
 };
 use shared::rate_limiting::{
@@ -42,12 +40,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
-    let nats_config = NatsConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let mailer_config = MailerConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
-    let nats_jetstream = create_jetstream(&nats_config).await?;
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
@@ -60,20 +56,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
 
-    let event_producer = Arc::new(NatsProducer::new(nats_jetstream, nats_config));
-
     let create_channel_usecase = CreateChannel::new(
         channel_repository.clone(),
         hasher.clone(),
         server_repository.clone(),
     );
-    let join_channel_usecase = JoinChannel::new(
+    let join_voice_channel_usecase = JoinVoiceChannel::new(
         livekit_service.clone(),
         channel_repository.clone(),
         user_repository.clone(),
         hasher.clone(),
     );
-    let leave_channel_usecase = LeaveChannel::new(channel_repository.clone());
+    let leave_voice_channel_usecase = LeaveVoiceChannel::new(channel_repository.clone());
     let mute_channel_usecase =
         MuteChannel::new(channel_repository.clone(), user_repository.clone());
     let unmute_channel_usecase =
@@ -94,8 +88,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
-        join_channel_usecase,
-        leave_channel_usecase,
+        join_voice_channel_usecase,
+        leave_voice_channel_usecase,
         mute_channel_usecase,
         unmute_channel_usecase,
         delete_channel_usecase,

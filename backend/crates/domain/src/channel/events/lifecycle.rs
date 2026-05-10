@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{
-    channel::{channel_type::ChannelType, id::ChannelId, name::ChannelName},
+    channel::{id::ChannelId, name::ChannelName, visibility::ChannelVisibility},
     server::id::ServerId,
     shared::event::event_id::EventId,
     user::id::UserId,
@@ -15,7 +15,7 @@ pub struct ChannelCreated {
     pub server_id: ServerId,
     pub owner_id: UserId,
     pub name: ChannelName,
-    pub channel_type: ChannelType,
+    pub visibility: ChannelVisibility,
     pub occurred_at: DateTime<Utc>,
 }
 
@@ -25,7 +25,7 @@ impl ChannelCreated {
         server_id: ServerId,
         owner_id: UserId,
         name: ChannelName,
-        channel_type: ChannelType,
+        visibility: ChannelVisibility,
         now: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -34,7 +34,7 @@ impl ChannelCreated {
             server_id,
             owner_id,
             name,
-            channel_type,
+            visibility,
             occurred_at: now,
         }
     }

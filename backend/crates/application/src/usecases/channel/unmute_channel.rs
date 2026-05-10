@@ -21,6 +21,8 @@ pub enum UnmuteChannelError {
     ChannelNotFound,
     #[error("Target user not found")]
     TargetUserNotFound,
+    #[error("Voice not supported for this channel")]
+    VoiceNotSupported,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
@@ -66,6 +68,10 @@ where
 
         if channel.server_id().uuid() != request.server_id {
             return Err(UnmuteChannelError::ChannelNotFound);
+        }
+
+        if !channel.supports_voice() {
+            return Err(UnmuteChannelError::VoiceNotSupported);
         }
 
         self.user_repository

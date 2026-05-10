@@ -19,7 +19,8 @@ use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
     dto::{
-        channel::ChannelDto, channel_type::ChannelTypeDto, muted_participant::MutedParticipantDto,
+        channel::ChannelDto, kind::ChannelKindDto, muted_participant::MutedParticipantDto,
+        visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
     repositories::outbox_record::save_outbox_records,
@@ -48,22 +49,24 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        let channel_type_dto: ChannelTypeDto = channel.channel_type().into();
+        let kind_dto = ChannelKindDto::from(channel.kind());
+        let visibility_dto = ChannelVisibilityDto::from(&channel.visibility());
 
         sqlx::query!(
             r#"
             INSERT INTO channels (
                 id, server_id, owner_id, name, max_participants,
-                channel_type, password_hash, created_at, updated_at, last_join
+                kind, visibility, password_hash, created_at, updated_at, last_join
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             "#,
             channel.id().uuid(),
             channel.server_id().uuid(),
             channel.owner_id().uuid(),
             channel.name().as_str(),
             channel.max_participants().value() as i16,
-            channel_type_dto as ChannelTypeDto,
+            kind_dto as ChannelKindDto,
+            visibility_dto as ChannelVisibilityDto,
             channel.password_hash().map(|ph| ph.as_str()),
             channel.created_at(),
             channel.updated_at(),
@@ -273,7 +276,8 @@ impl ChannelRepository for PostgresChannelRepository {
             ChannelDto,
             r#"
             SELECT id, server_id, owner_id, name, max_participants,
-                   channel_type AS "channel_type: ChannelTypeDto",
+                   kind AS "kind: ChannelKindDto",
+                   visibility AS "visibility: ChannelVisibilityDto",
                    password_hash, created_at, updated_at, last_join
             FROM channels
             WHERE id = $1
@@ -312,7 +316,8 @@ impl ChannelRepository for PostgresChannelRepository {
             UserId::new(dto.owner_id),
             ChannelName::new(dto.name),
             MaxParticipants::new(dto.max_participants as u8),
-            dto.channel_type.into(),
+            dto.kind.into(),
+            dto.visibility.into(),
             dto.password_hash.map(PasswordHash::new),
             dto.created_at,
             dto.updated_at,

@@ -16,7 +16,7 @@ use domain::{
 use crate::dto::requests::channel::leave_channel::LeaveChannelRequest;
 
 #[derive(Debug, thiserror::Error)]
-pub enum LeaveChannelError {
+pub enum LeaveVoiceChannelError {
     #[error("Channel not found")]
     ChannelNotFound,
     #[error("Repository error: {0}")]
@@ -25,17 +25,19 @@ pub enum LeaveChannelError {
     Domain(#[from] ChannelError),
     #[error("Outbox error: {0}")]
     Outbox(#[from] OutboxError),
+    #[error("Voice not supported for this channel")]
+    VoiceNotSupported,
 }
 
 #[derive(Debug)]
-pub struct LeaveChannel<T>
+pub struct LeaveVoiceChannel<T>
 where
     T: ChannelRepository,
 {
     channel_repository: Arc<T>,
 }
 
-impl<T> LeaveChannel<T>
+impl<T> LeaveVoiceChannel<T>
 where
     T: ChannelRepository,
 {
@@ -47,7 +49,7 @@ where
         &self,
         request: LeaveChannelRequest,
         user_id: UserId,
-    ) -> Result<(), LeaveChannelError> {
+    ) -> Result<(), LeaveVoiceChannelError> {
         let channel_id = ChannelId::new(request.channel_id);
 
         let mut channel = self
@@ -56,7 +58,11 @@ where
             .await?;
 
         if channel.server_id().uuid() != request.server_id {
-            return Err(LeaveChannelError::ChannelNotFound);
+            return Err(LeaveVoiceChannelError::ChannelNotFound);
+        }
+
+        if !channel.kind().supports_voice() {
+            return Err(LeaveVoiceChannelError::VoiceNotSupported);
         }
 
         let now = Utc::now();

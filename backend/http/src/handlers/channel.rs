@@ -45,7 +45,8 @@ async fn create_channel(
     let data = CreateChannelRequest::new(
         server_id,
         body.name,
-        body.channel_type.into(),
+        body.kind.into(),
+        body.visibility.into(),
         body.password,
     );
 
@@ -59,8 +60,8 @@ async fn create_channel(
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }
 
-#[post("/{server_id}/channels/{channel_id}/join")]
-async fn join_channel(
+#[post("/{server_id}/channels/{channel_id}/join_voice")]
+async fn join_voice_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
@@ -74,7 +75,7 @@ async fn join_channel(
     let data = AppJoinChannelRequest::new(channel_id, server_id, body.password);
 
     let response: JoinChannelResponse = app_state
-        .join_channel_usecase
+        .join_voice_channel_usecase
         .execute(data, user_id)
         .await?
         .into();
@@ -82,8 +83,8 @@ async fn join_channel(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[post("/{server_id}/channels/{channel_id}/leave")]
-async fn leave_channel(
+#[post("/{server_id}/channels/{channel_id}/leave_voice")]
+async fn leave_voice_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
@@ -95,7 +96,7 @@ async fn leave_channel(
     let data = AppLeftChannelRequest::new(channel_id, server_id);
 
     app_state
-        .leave_channel_usecase
+        .leave_voice_channel_usecase
         .execute(data, user_id)
         .await?;
 

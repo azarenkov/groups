@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO channels (\n                id, server_id, owner_id, name, max_participants,\n                kind, visibility, password_hash, created_at, updated_at, last_join\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Int4",
+        {
+          "Custom": {
+            "name": "kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "voice",
+                "hybrid"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "visibility",
+            "kind": {
+              "Enum": [
+                "public",
+                "private"
+              ]
+            }
+          }
+        },
+        "Varchar",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "927082e8efb64acc97fdf28f0ac0d1cfc2ab898699f4a0019906b7107fe5c206"
+}

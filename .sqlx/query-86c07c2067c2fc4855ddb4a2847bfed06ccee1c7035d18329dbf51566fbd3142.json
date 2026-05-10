@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id, server_id, owner_id, name, max_participants,\n                channel_type as \"channel_type: ChannelTypeDto\",\n                password_hash, created_at, updated_at, last_join\n            FROM channels\n            WHERE server_id = $1\n            ORDER BY created_at DESC\n            LIMIT $2 OFFSET $3\n            ",
+  "query": "\n            SELECT id, server_id, owner_id, name, max_participants,\n                   kind AS \"kind: ChannelKindDto\",\n                   visibility AS \"visibility: ChannelVisibilityDto\",\n                   password_hash, created_at, updated_at, last_join\n            FROM channels\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -30,10 +30,26 @@
       },
       {
         "ordinal": 5,
-        "name": "channel_type: ChannelTypeDto",
+        "name": "kind: ChannelKindDto",
         "type_info": {
           "Custom": {
-            "name": "channel_type",
+            "name": "kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "voice",
+                "hybrid"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "visibility: ChannelVisibilityDto",
+        "type_info": {
+          "Custom": {
+            "name": "visibility",
             "kind": {
               "Enum": [
                 "public",
@@ -44,34 +60,33 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "password_hash",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "last_join",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int8",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -84,5 +99,5 @@
       false
     ]
   },
-  "hash": "12e19ec9226b996bbc4ffb92eadabba0c69ae99b5a6b67260f611495c5ac47a8"
+  "hash": "86c07c2067c2fc4855ddb4a2847bfed06ccee1c7035d18329dbf51566fbd3142"
 }
