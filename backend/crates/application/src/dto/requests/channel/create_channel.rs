@@ -9,6 +9,22 @@ pub struct CreateChannelRequest {
     pub password: Option<String>,
 }
 
+impl CreateChannelRequest {
+    pub fn new(
+        server_id: Uuid,
+        name: String,
+        channel_type: ChannelTypeDto,
+        password: Option<String>,
+    ) -> Self {
+        Self {
+            server_id,
+            name,
+            channel_type,
+            password,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ChannelTypeDto {
     Public,

@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-#[post("/create")]
+#[post("")]
 async fn create_server(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
@@ -43,7 +43,7 @@ async fn create_server(
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }
 
-#[get("/list")]
+#[get("")]
 async fn list_servers_by_user(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
@@ -111,7 +111,7 @@ async fn list_server_channels(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[delete("/{server_id}/delete")]
+#[delete("/{server_id}")]
 async fn delete_server(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,

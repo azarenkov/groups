@@ -1,5 +1,6 @@
 use actix_web::{HttpResponse, Responder, delete, post, web};
 use application::dto::requests::channel::{
+    create_channel::CreateChannelRequest,
     join_channel::JoinChannelRequest as AppJoinChannelRequest,
     leave_channel::LeaveChannelRequest as AppLeftChannelRequest, mute_channel::MuteChannelRequest,
     unmute_channel::UnmuteChannelRequest,
@@ -28,20 +29,29 @@ use crate::{
     },
 };
 
-#[post("channels/create")]
+#[post("/{server_id}/channels")]
 async fn create_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
     body: web::Json<CreateChannelRequestBody>,
 ) -> Result<impl Responder, ApiError> {
+    let server_id = path.into_inner();
     let body: CreateChannelRequestBody = body.into_inner();
     body.validate()?;
 
     let user_id = UserId::new(auth_token.id);
 
+    let data = CreateChannelRequest::new(
+        server_id,
+        body.name,
+        body.channel_type.into(),
+        body.password,
+    );
+
     let channel = app_state
         .create_channel_usecase
-        .execute(body.into(), user_id)
+        .execute(data, user_id)
         .await?;
 
     let response = CreateChannelResponse::from(channel);
@@ -103,7 +113,7 @@ async fn mute_channel(
 
     let user_id = UserId::new(auth_token.id);
 
-    let request = MuteChannelRequest {
+    let data = MuteChannelRequest {
         channel_id,
         server_id,
         target_user_id: body.target_user_id,
@@ -111,7 +121,7 @@ async fn mute_channel(
 
     app_state
         .mute_channel_usecase
-        .execute(request, user_id)
+        .execute(data, user_id)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
@@ -127,7 +137,7 @@ async fn unmute_channel(
 
     let user_id = UserId::new(auth_token.id);
 
-    let request = UnmuteChannelRequest {
+    let data = UnmuteChannelRequest {
         channel_id,
         server_id,
         target_user_id: body.target_user_id,
@@ -135,12 +145,12 @@ async fn unmute_channel(
 
     app_state
         .unmute_channel_usecase
-        .execute(request, user_id)
+        .execute(data, user_id)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}/channels/{channel_id}/delete")]
+#[delete("/{server_id}/channels/{channel_id}")]
 async fn delete_channel(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,

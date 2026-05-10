@@ -1,15 +1,11 @@
 use serde::Deserialize;
 
-use application::dto::requests::channel::create_channel::{
-    ChannelTypeDto, CreateChannelRequest as CreateChannelRequestApplication,
-};
-use uuid::Uuid;
+use application::dto::requests::channel::create_channel::ChannelTypeDto;
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateChannelRequestBody {
-    pub server_id: Uuid,
     #[validate(length(min = 3, max = 15))]
     pub name: String,
     pub channel_type: ChannelTypeRequest,
@@ -22,17 +18,6 @@ pub struct CreateChannelRequestBody {
 pub enum ChannelTypeRequest {
     Public,
     Private,
-}
-
-impl From<CreateChannelRequestBody> for CreateChannelRequestApplication {
-    fn from(value: CreateChannelRequestBody) -> Self {
-        Self {
-            server_id: value.server_id,
-            name: value.name,
-            channel_type: value.channel_type.into(),
-            password: value.password,
-        }
-    }
 }
 
 impl From<ChannelTypeRequest> for ChannelTypeDto {
