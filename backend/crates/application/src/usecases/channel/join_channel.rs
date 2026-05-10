@@ -116,10 +116,6 @@ where
             .map(|e| e.to_outbox_record())
             .collect::<Result<_, _>>()?;
 
-        self.channel_repository
-            .update_channel_with_events(&channel, &records)
-            .await?;
-
         self.voice_service
             .create_voice_channel(&channel.id(), channel.server_id())
             .await?;
@@ -127,6 +123,10 @@ where
         let channel_token = self
             .voice_service
             .create_token(&user_id, user.name(), &channel.id())
+            .await?;
+
+        self.channel_repository
+            .update_channel_with_events(&channel, &records)
             .await?;
 
         let response = JoinChannelResponse::new(channel_token, self.voice_service.client_url());
