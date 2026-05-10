@@ -124,25 +124,13 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        let channel_type_dto: ChannelTypeDto = channel.channel_type().into();
-
         let result = sqlx::query!(
             r#"
-               UPDATE channels
-               SET name = $2,
-                   max_participants = $3,
-                   channel_type = $4,
-                   password_hash = $5,
-                   updated_at = $6,
-                   last_join = $7
-               WHERE id = $1
-               "#,
+            UPDATE channels
+            SET last_join = GREATEST(last_join, $2)
+            WHERE id = $1
+            "#,
             channel.id().uuid(),
-            channel.name().as_str(),
-            channel.max_participants().value() as i16,
-            channel_type_dto as ChannelTypeDto,
-            channel.password_hash().map(|ph| ph.as_str()),
-            channel.updated_at(),
             channel.last_join(),
         )
         .execute(&mut *tx)
