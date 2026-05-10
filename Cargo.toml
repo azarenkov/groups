@@ -4,9 +4,9 @@ members = [
     "backend/crates/domain",
     "backend/crates/application",
     "backend/crates/infrastructure",
-    "backend/crates/presentation/http",
     "backend/crates/shared",
-    "backend/crates/presentation/websocket"]
+    "backend/http",
+    "backend/websocket"]
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
