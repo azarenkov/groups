@@ -50,7 +50,12 @@ where
 
         let now = Utc::now();
 
-        channel.delete(deleted_by, now)?;
+        channel
+            .delete(deleted_by, now)
+            .map_err(|e| match e {
+                ChannelError::NotOwner => DeleteChannelError::Repository(RepositoryError::NotFound),
+                other => DeleteChannelError::Domain(other),
+            })?;
 
         let records: Vec<OutboxRecord> = channel
             .pull_events()
