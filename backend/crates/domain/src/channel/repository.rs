@@ -19,7 +19,11 @@ pub trait ChannelRepository {
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
 
-    async fn record_events(&self, events: &[OutboxRecord]) -> Result<(), RepositoryError>;
+    async fn record_events(
+        &self,
+        channel_id: &ChannelId,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError>;
 
     async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError>;
 

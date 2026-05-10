@@ -69,7 +69,9 @@ where
             .map(|e| e.to_outbox_record())
             .collect::<Result<_, _>>()?;
 
-        self.channel_repository.record_events(&records).await?;
+        self.channel_repository
+            .record_events(&channel_id, &records)
+            .await?;
 
         Ok(())
     }

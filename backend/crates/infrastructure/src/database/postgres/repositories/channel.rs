@@ -151,7 +151,11 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(())
     }
 
-    async fn record_events(&self, events: &[OutboxRecord]) -> Result<(), RepositoryError> {
+    async fn record_events(
+        &self,
+        channel_id: &ChannelId,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
         if events.is_empty() {
             return Ok(());
         }
@@ -161,6 +165,23 @@ impl ChannelRepository for PostgresChannelRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        let exists = sqlx::query!(
+            r#"
+            SELECT 1 AS "anchor!"
+            FROM channels
+            WHERE id = $1
+            FOR SHARE
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if exists.is_none() {
+            return Err(RepositoryError::NotFound);
+        }
 
         for record in events {
             let aggregate_type = AggregateTypeDto::from(&record.aggregate_type);
