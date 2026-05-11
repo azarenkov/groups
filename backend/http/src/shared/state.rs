@@ -1,5 +1,8 @@
 use application::usecases::{
-    auth::{login::LoginUser, register::RegisterUser},
+    auth::{
+        confirm_registration::ConfirmRegistration, login::LoginUser, logout::Logout,
+        refresh_tokens::RefreshTokens, register::RegisterUser,
+    },
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         join_voice_channel::JoinVoiceChannel, leave_voice_channel::LeaveVoiceChannel,
@@ -12,12 +15,13 @@ use application::usecases::{
     },
 };
 use infrastructure::{
+    auth::jwt_token_issuer::JwtTokenIssuer,
     database::postgres::repositories::{
-        channel::PostgresChannelRepository, server::PostgresServerRepository,
-        user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
+        channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
+        server::PostgresServerRepository, user::PostgresUserRepository,
+        verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
-    mailer::smtp_mailer::SmtpMailer,
     voice::livekit_service::LiveKitService,
 };
 
@@ -39,10 +43,22 @@ pub struct AppState {
     pub register_user_usecase: RegisterUser<
         PostgresUserRepository,
         BcryptHasher,
-        SmtpMailer,
+        PostgresRefreshTokenRepository,
+        JwtTokenIssuer,
+    >,
+    pub login_user_usecase: LoginUser<
+        PostgresUserRepository,
+        BcryptHasher,
+        PostgresRefreshTokenRepository,
+        JwtTokenIssuer,
+    >,
+    pub confirm_registration_usecase: ConfirmRegistration<
+        PostgresUserRepository,
+        BcryptHasher,
         PostgresVerificationCodeRepository,
     >,
-    pub login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
+    pub refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, JwtTokenIssuer>,
+    pub logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository>,
@@ -74,10 +90,22 @@ impl AppState {
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
-            SmtpMailer,
+            PostgresRefreshTokenRepository,
+            JwtTokenIssuer,
+        >,
+        login_user_usecase: LoginUser<
+            PostgresUserRepository,
+            BcryptHasher,
+            PostgresRefreshTokenRepository,
+            JwtTokenIssuer,
+        >,
+        confirm_registration_usecase: ConfirmRegistration<
+            PostgresUserRepository,
+            BcryptHasher,
             PostgresVerificationCodeRepository,
         >,
-        login_user_usecase: LoginUser<PostgresUserRepository, BcryptHasher>,
+        refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, JwtTokenIssuer>,
+        logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
@@ -94,6 +122,9 @@ impl AppState {
             delete_channel_usecase,
             register_user_usecase,
             login_user_usecase,
+            confirm_registration_usecase,
+            refresh_tokens_usecase,
+            logout_usecase,
             create_server_usecase,
             delete_server_usecase,
             list_servers_by_user_usecase,

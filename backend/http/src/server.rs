@@ -3,7 +3,10 @@ use std::{error::Error, sync::Arc};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
-    auth::{login::LoginUser, register::RegisterUser},
+    auth::{
+        confirm_registration::ConfirmRegistration, login::LoginUser, logout::Logout,
+        refresh_tokens::RefreshTokens, register::RegisterUser,
+    },
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         join_voice_channel::JoinVoiceChannel, leave_voice_channel::LeaveVoiceChannel,
@@ -16,16 +19,17 @@ use application::usecases::{
     },
 };
 use infrastructure::{
-    config::{livekit::LiveKitConfig, mailer::MailerConfig, postgres::PostgresConfig},
+    auth::jwt_token_issuer::JwtTokenIssuer,
+    config::{livekit::LiveKitConfig, postgres::PostgresConfig},
     database::postgres::{
         connection::create_postgres_pool,
         repositories::{
-            channel::PostgresChannelRepository, server::PostgresServerRepository,
-            user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
+            channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
+            server::PostgresServerRepository, user::PostgresUserRepository,
+            verification_code::PostgresVerificationCodeRepository,
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
-    mailer::smtp_mailer::SmtpMailer,
     voice::livekit_service::LiveKitService,
 };
 use shared::rate_limiting::{
@@ -41,7 +45,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
-    let mailer_config = MailerConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
 
@@ -51,10 +54,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let verification_code_repository = Arc::new(PostgresVerificationCodeRepository::new(
         postgres_pool.clone(),
     ));
+    let refresh_token_repository =
+        Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
 
-    let mailer = Arc::new(SmtpMailer::from_config(mailer_config)?);
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
+    let token_issuer = Arc::new(JwtTokenIssuer::new(server_config.jwt_secret.clone()));
 
     let create_channel_usecase = CreateChannel::new(
         channel_repository.clone(),
@@ -76,10 +81,24 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
-        mailer.clone(),
+        refresh_token_repository.clone(),
+        token_issuer.clone(),
+    );
+    let login_user_usecase = LoginUser::new(
+        user_repository.clone(),
+        hasher.clone(),
+        refresh_token_repository.clone(),
+        token_issuer.clone(),
+    );
+    let confirm_registration_usecase = ConfirmRegistration::new(
+        user_repository.clone(),
+        hasher.clone(),
         verification_code_repository.clone(),
     );
-    let login_user_usecase = LoginUser::new(user_repository.clone(), hasher.clone());
+    let refresh_tokens_usecase =
+        RefreshTokens::new(refresh_token_repository.clone(), token_issuer.clone());
+    let logout_usecase = Logout::new(refresh_token_repository.clone(), token_issuer.clone());
+
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
@@ -95,6 +114,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         delete_channel_usecase,
         register_user_usecase,
         login_user_usecase,
+        confirm_registration_usecase,
+        refresh_tokens_usecase,
+        logout_usecase,
         create_server_usecase,
         delete_server_usecase,
         list_servers_by_user_usecase,

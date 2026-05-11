@@ -1,7 +1,11 @@
 use async_trait::async_trait;
 use domain::{
     shared::repository::error::RepositoryError,
-    verification::{code::VerificationCode, repository::VerificationCodeRepository},
+    user::id::UserId,
+    verification::{
+        code::VerificationCode, code_hash::CodeHash, id::VerificationCodeId,
+        repository::VerificationCodeRepository,
+    },
 };
 use sqlx::{Pool, Postgres};
 
@@ -57,5 +61,68 @@ impl VerificationCodeRepository for PostgresVerificationCodeRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
+    }
+
+    async fn find_verification_code_by_user_id(
+        &self,
+        user_id: &UserId,
+    ) -> Result<VerificationCode, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+                SELECT
+                    id,
+                    user_id,
+                    channel AS "channel: VerificationChannelDto",
+                    code_hash,
+                    purpose AS "purpose: VerificationPurposeDto",
+                    expires_at,
+                    consumed_at,
+                    attempts,
+                    created_at
+                FROM verification_codes
+                WHERE user_id = $1 AND consumed_at IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+
+        Ok(VerificationCode::restore(
+            VerificationCodeId::new(row.id),
+            UserId::new(row.user_id),
+            row.channel.into(),
+            CodeHash::new(row.code_hash),
+            row.purpose.into(),
+            row.expires_at,
+            row.consumed_at,
+            row.attempts as u8,
+            row.created_at,
+        ))
+    }
+
+    async fn increment_attempts(
+        &self,
+        id: &VerificationCodeId,
+        max_attempts: u8,
+    ) -> Result<Option<u8>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+                UPDATE verification_codes
+                SET attempts = attempts + 1
+                WHERE id = $1 AND attempts < $2
+                RETURNING attempts
+            "#,
+            id.uuid(),
+            i16::from(max_attempts),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.map(|r| r.attempts as u8))
     }
 }

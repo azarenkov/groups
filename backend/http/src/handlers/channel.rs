@@ -5,29 +5,26 @@ use application::dto::requests::channel::{
     unmute_channel::UnmuteChannelRequest,
 };
 use domain::{channel::id::ChannelId, server::id::ServerId, user::id::UserId};
+use shared::middleware::auth::AuthToken;
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::{
-    middleware::auth::AuthToken,
-    shared::{
-        dto::{
-            requests::channel::{
-                create_channel::CreateChannelRequestBody,
-                join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
-                unmute_channel::UnmuteRequestBody,
-            },
-            responses::{
-                ApiResponse,
-                channel::{
-                    create_channel::CreateChannelResponse,
-                    join_voice_channel::JoinVoiceChannelResponse,
-                },
+use crate::shared::{
+    dto::{
+        requests::channel::{
+            create_channel::CreateChannelRequestBody,
+            join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
+            unmute_channel::UnmuteRequestBody,
+        },
+        responses::{
+            ApiResponse,
+            channel::{
+                create_channel::CreateChannelResponse, join_voice_channel::JoinVoiceChannelResponse,
             },
         },
-        error::ApiError,
-        state::AppState,
     },
+    error::ApiError,
+    state::AppState,
 };
 
 #[post("/{server_id}/channels")]

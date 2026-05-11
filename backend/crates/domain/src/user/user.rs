@@ -55,6 +55,10 @@ impl User {
         }
     }
 
+    pub fn is_verified(&self) -> bool {
+        self.email_verified_at.is_some() || self.phone_verified_at.is_some()
+    }
+
     pub fn id(&self) -> &UserId {
         &self.id
     }
@@ -89,5 +93,13 @@ impl User {
 
     pub fn phone_verified_at(&self) -> Option<DateTime<Utc>> {
         self.phone_verified_at
+    }
+
+    pub fn set_email_verified_at(&mut self, email_verified_at: Option<DateTime<Utc>>) {
+        self.email_verified_at = email_verified_at;
+    }
+
+    pub fn set_phone_verified_at(&mut self, phone_verified_at: Option<DateTime<Utc>>) {
+        self.phone_verified_at = phone_verified_at;
     }
 }
