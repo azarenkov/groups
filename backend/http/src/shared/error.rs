@@ -338,7 +338,6 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
-            HandleVoiceWebhookError::Repository(e) => e.to_http_status(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_http_status(),
         }
@@ -347,7 +346,6 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     fn to_user_message(&self) -> String {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
-            HandleVoiceWebhookError::Repository(e) => e.to_user_message(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_user_message(),
         }

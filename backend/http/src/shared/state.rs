@@ -21,7 +21,6 @@ use infrastructure::{
         channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
         server::PostgresServerRepository, user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
-        webhook_inbox::PostgresWebhookInbox,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
@@ -63,7 +62,7 @@ pub struct AppState {
     pub logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
 
     pub handle_livekit_webhook_usecase:
-        HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository, PostgresWebhookInbox>,
+        HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository>,
@@ -114,7 +113,6 @@ impl AppState {
         handle_livekit_webhook_usecase: HandleVoiceWebhook<
             LiveKitWebhookReceiver,
             PostgresChannelRepository,
-            PostgresWebhookInbox,
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,

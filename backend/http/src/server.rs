@@ -29,7 +29,6 @@ use infrastructure::{
             channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
             server::PostgresServerRepository, user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
-            webhook_inbox::PostgresWebhookInbox,
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
@@ -59,7 +58,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     ));
     let refresh_token_repository =
         Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
-    let webhook_inbox = Arc::new(PostgresWebhookInbox::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
@@ -108,7 +106,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let leave_voice_connection_usecase = LeaveVoiceConnection::new(channel_repository.clone());
     let handle_livekit_webhook_usecase = HandleVoiceWebhook::new(
         livekit_webhook_receiver.clone(),
-        webhook_inbox.clone(),
         abort_voice_connection_usecase,
         leave_voice_connection_usecase,
     );

@@ -4,4 +4,3 @@ pub mod refresh_token;
 pub mod server;
 pub mod user;
 pub mod verification_code;
-pub mod webhook_inbox;

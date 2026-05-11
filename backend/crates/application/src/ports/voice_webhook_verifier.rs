@@ -2,8 +2,22 @@ use chrono::{DateTime, Utc};
 use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason};
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy)]
+pub enum WebhookSource {
+    LiveKit,
+}
+
+impl WebhookSource {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::LiveKit => "livekit",
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct VerifiedVoiceWebhookEvent {
+    pub source: WebhookSource,
     pub external_id: String,
     pub occurred_at: DateTime<Utc>,
     pub event: VoiceWebhookEvent,

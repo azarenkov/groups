@@ -45,7 +45,7 @@ where
     pub async fn execute(
         &self,
         request: LeaveVoiceConnectionRequest,
-    ) -> Result<(), LeaveVoiceConnectionError> {
+    ) -> Result<bool, LeaveVoiceConnectionError> {
         let channel_id = ChannelId::new(request.channel_id);
         let user_id = UserId::new(request.user_id);
 
@@ -66,10 +66,16 @@ where
             .map(|e| e.to_outbox_record())
             .collect::<Result<_, _>>()?;
 
-        self.channel_repository
-            .record_events(&channel_id, &records)
+        let processed = self
+            .channel_repository
+            .record_events_with_inbox(
+                &channel_id,
+                request.inbox_source.as_str(),
+                &request.inbox_external_id,
+                &records,
+            )
             .await?;
 
-        Ok(())
+        Ok(processed)
     }
 }

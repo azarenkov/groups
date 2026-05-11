@@ -1,5 +1,6 @@
 use application::ports::voice_webhook_verifier::{
     VerifiedVoiceWebhookEvent, VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError,
+    WebhookSource,
 };
 use chrono::{DateTime, Utc};
 use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason};
@@ -69,6 +70,7 @@ impl VoiceWebhookVerifier for LiveKitWebhookReceiver {
         };
 
         Ok(VerifiedVoiceWebhookEvent {
+            source: WebhookSource::LiveKit,
             external_id,
             occurred_at,
             event: voice_event,
