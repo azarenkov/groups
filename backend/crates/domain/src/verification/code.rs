@@ -9,6 +9,8 @@ use crate::{
     },
 };
 
+const MAX_ATTEMPS: u8 = 3;
+
 #[derive(Debug)]
 pub struct VerificationCode {
     id: VerificationCodeId,
@@ -45,6 +47,31 @@ impl VerificationCode {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn restore(
+        id: VerificationCodeId,
+        user_id: UserId,
+        channel: VerificationChannel,
+        code_hash: CodeHash,
+        purpose: VerificationPurpose,
+        expires_at: DateTime<Utc>,
+        consumed_at: Option<DateTime<Utc>>,
+        attempts: u8,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            user_id,
+            channel,
+            code_hash,
+            purpose,
+            expires_at,
+            consumed_at,
+            attempts,
+            created_at,
+        }
+    }
+
     fn ttl_for(purpose: &VerificationPurpose) -> Duration {
         match purpose {
             VerificationPurpose::Registration => Duration::minutes(30),
@@ -57,6 +84,18 @@ impl VerificationCode {
     pub fn generate() -> String {
         let code = rand::rng().random_range(0..1_000_000);
         format!("{:06}", code)
+    }
+
+    pub fn is_limit_attempts(&self) -> bool {
+        self.attempts >= MAX_ATTEMPS
+    }
+
+    pub fn is_registration_purpose(&self) -> bool {
+        self.purpose().is_registration()
+    }
+
+    pub fn increment_attemps(&mut self) {
+        self.attempts += 1
     }
 
     pub fn user_id(&self) -> &UserId {
@@ -93,5 +132,9 @@ impl VerificationCode {
 
     pub fn id(&self) -> &VerificationCodeId {
         &self.id
+    }
+
+    pub fn set_consumed_at(&mut self, consumed_at: Option<DateTime<Utc>>) {
+        self.consumed_at = consumed_at;
     }
 }

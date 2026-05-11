@@ -20,6 +20,9 @@ envy = "0.4.2"
 dotenv = "0.15.0"
 futures = "0.3.32"
 env_logger = "0.11.9"
+actix-web = "4.13.0"
+actix-cors = "0.7.1"
+validator = { version = "0.20", features = ["derive"] }
 
 domain = { path = "backend/crates/domain" }
 application = { path = "backend/crates/application" }

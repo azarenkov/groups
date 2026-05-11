@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use domain::{
     shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
     user::{User, email::Email, id::UserId, name::UserName, repository::UserRepository},
+    verification::code::VerificationCode,
 };
 use sqlx::{Pool, Postgres};
 
@@ -123,5 +124,57 @@ impl UserRepository for PostgresUserRepository {
             Some(row) => Ok(UserId::new(row.id)),
             None => Err(RepositoryError::NotFound),
         }
+    }
+
+    async fn confirm_registration(
+        &self,
+        user: &User,
+        verification_code: &VerificationCode,
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let user_result = sqlx::query!(
+            r#"
+                UPDATE users
+                SET email_verified_at = $2,
+                    phone_verified_at = $3
+                WHERE id = $1
+            "#,
+            user.id().uuid(),
+            user.email_verified_at(),
+            user.phone_verified_at(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if user_result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        let code_result = sqlx::query!(
+            r#"
+                UPDATE verification_codes
+                SET consumed_at = $2
+                WHERE id = $1
+            "#,
+            verification_code.id().uuid(),
+            verification_code.consumed_at(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if code_result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(())
     }
 }

@@ -1,16 +1,19 @@
 use std::sync::Arc;
 
 use domain::{
-    shared::repository::error::RepositoryError,
-    user::{
-        repository::UserRepository,
-        email::Email, id::UserId,
+    refresh_token::{
+        refresh_token::RefreshToken, repository::RefreshTokenRepository,
     },
+    shared::repository::error::RepositoryError,
+    user::{email::Email, repository::UserRepository},
 };
 
 use crate::{
     dto::requests::auth::login_user::LoginUserRequest,
-    ports::hasher::{HashError, Hasher},
+    ports::{
+        hasher::{HashError, Hasher},
+        token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -19,34 +22,47 @@ pub enum LoginError {
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
+    #[error("Token issuer error: {0}")]
+    TokenIssuer(#[from] TokenIssuerError),
     #[error("Invalid credentials")]
     InvalidCredentials,
-    #[error("Internal server error")]
-    Internal,
 }
 
-pub struct LoginUser<T, H>
+pub struct LoginUser<T, H, R, I>
 where
     T: UserRepository,
     H: Hasher,
+    R: RefreshTokenRepository,
+    I: TokenIssuer,
 {
     user_repository: Arc<T>,
     hasher: Arc<H>,
+    refresh_token_repository: Arc<R>,
+    token_issuer: Arc<I>,
 }
 
-impl<T, H> LoginUser<T, H>
+impl<T, H, R, I> LoginUser<T, H, R, I>
 where
     T: UserRepository,
     H: Hasher,
+    R: RefreshTokenRepository,
+    I: TokenIssuer,
 {
-    pub fn new(user_repository: Arc<T>, hasher: Arc<H>) -> Self {
+    pub fn new(
+        user_repository: Arc<T>,
+        hasher: Arc<H>,
+        refresh_token_repository: Arc<R>,
+        token_issuer: Arc<I>,
+    ) -> Self {
         Self {
             user_repository,
             hasher,
+            refresh_token_repository,
+            token_issuer,
         }
     }
 
-    pub async fn execute(&self, request: LoginUserRequest) -> Result<UserId, LoginError> {
+    pub async fn execute(&self, request: LoginUserRequest) -> Result<IssuedTokens, LoginError> {
         let email = &Email::new(request.email);
         let password_hash = self
             .user_repository
@@ -61,6 +77,18 @@ where
         }
 
         let user_id = self.user_repository.get_user_id_by_email(email).await?;
-        Ok(user_id)
+
+        let tokens = self.token_issuer.issue(&user_id).await?;
+
+        let refresh_token = RefreshToken::issue(
+            tokens.refresh_token_id,
+            user_id,
+            tokens.refresh_token_expires_at,
+        );
+        self.refresh_token_repository
+            .save_refresh_token(&refresh_token)
+            .await?;
+
+        Ok(tokens)
     }
 }

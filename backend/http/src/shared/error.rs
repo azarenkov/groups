@@ -1,13 +1,17 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{
-    hasher::HashError, mailer::MailerError, voice_service::VoiceServiceError,
+    hasher::HashError, mailer::MailerError, token_issuer::TokenIssuerError,
+    voice_service::VoiceServiceError,
 };
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
-    auth::{login::LoginError, register::RegistrationError},
+    auth::{
+        confirm_registration::ConfirmRegistrationError, login::LoginError, logout::LogoutError,
+        refresh_tokens::RefreshTokensError, register::RegistrationError,
+    },
     channel::{
         create_channel::CreateChannelError, delete_channel::DeleteChannelError,
         leave_voice_channel::LeaveVoiceChannelError, mute_channel::MuteChannelError,
@@ -260,13 +264,33 @@ impl ToHttpStatus for UnmuteChannelError {
     }
 }
 
+impl ToHttpStatus for TokenIssuerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            TokenIssuerError::Encoding(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            TokenIssuerError::Decoding(_) | TokenIssuerError::InvalidTokenType => {
+                StatusCode::UNAUTHORIZED
+            }
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            TokenIssuerError::Encoding(_) => "Internal server error".to_string(),
+            TokenIssuerError::Decoding(_) | TokenIssuerError::InvalidTokenType => {
+                "Invalid refresh token".to_string()
+            }
+        }
+    }
+}
+
 impl ToHttpStatus for LoginError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LoginError::Repository(e) => e.to_http_status(),
             LoginError::Hash(e) => e.to_http_status(),
+            LoginError::TokenIssuer(e) => e.to_http_status(),
             LoginError::InvalidCredentials => StatusCode::UNAUTHORIZED,
-            LoginError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -274,8 +298,88 @@ impl ToHttpStatus for LoginError {
         match self {
             LoginError::Repository(e) => e.to_user_message(),
             LoginError::Hash(e) => e.to_user_message(),
+            LoginError::TokenIssuer(e) => e.to_user_message(),
             LoginError::InvalidCredentials => "Invalid credentials".to_string(),
-            LoginError::Internal => "Internal server error".to_string(),
+        }
+    }
+}
+
+impl ToHttpStatus for RefreshTokensError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RefreshTokensError::Repository(e) => e.to_http_status(),
+            RefreshTokensError::TokenIssuer(e) => e.to_http_status(),
+            RefreshTokensError::RefreshTokenNotFound => StatusCode::NOT_FOUND,
+            RefreshTokensError::RefreshTokenRevoked
+            | RefreshTokensError::RefreshTokenExpired
+            | RefreshTokensError::UserMismatch => StatusCode::UNAUTHORIZED,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RefreshTokensError::Repository(e) => e.to_user_message(),
+            RefreshTokensError::TokenIssuer(e) => e.to_user_message(),
+            RefreshTokensError::RefreshTokenNotFound => "Refresh token not found".to_string(),
+            RefreshTokensError::RefreshTokenRevoked => "Refresh token has been revoked".to_string(),
+            RefreshTokensError::RefreshTokenExpired => "Refresh token has expired".to_string(),
+            RefreshTokensError::UserMismatch => "Refresh token user mismatch".to_string(),
+        }
+    }
+}
+
+impl ToHttpStatus for LogoutError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            LogoutError::Repository(e) => e.to_http_status(),
+            LogoutError::TokenIssuer(e) => e.to_http_status(),
+            LogoutError::RefreshTokenNotFound => StatusCode::NOT_FOUND,
+            LogoutError::UserMismatch => StatusCode::UNAUTHORIZED,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            LogoutError::Repository(e) => e.to_user_message(),
+            LogoutError::TokenIssuer(e) => e.to_user_message(),
+            LogoutError::RefreshTokenNotFound => "Refresh token not found".to_string(),
+            LogoutError::UserMismatch => "Refresh token user mismatch".to_string(),
+        }
+    }
+}
+
+impl ToHttpStatus for ConfirmRegistrationError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ConfirmRegistrationError::UserAlreadyVerified => StatusCode::CONFLICT,
+            ConfirmRegistrationError::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            ConfirmRegistrationError::VerificationCodeExpired => StatusCode::GONE,
+            ConfirmRegistrationError::BadVerificationCode => StatusCode::BAD_REQUEST,
+            ConfirmRegistrationError::NotRegistration => StatusCode::BAD_REQUEST,
+            ConfirmRegistrationError::UserNotFound => StatusCode::NOT_FOUND,
+            ConfirmRegistrationError::Repository(e) => e.to_http_status(),
+            ConfirmRegistrationError::Hash(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ConfirmRegistrationError::UserAlreadyVerified => "User is already verified".to_string(),
+            ConfirmRegistrationError::TooManyAttempts => {
+                "Too many attempts for verification code".to_string()
+            }
+            ConfirmRegistrationError::VerificationCodeExpired => {
+                "Verification code has expired".to_string()
+            }
+            ConfirmRegistrationError::BadVerificationCode => {
+                "Invalid verification code".to_string()
+            }
+            ConfirmRegistrationError::NotRegistration => {
+                "Verification code is not for registration".to_string()
+            }
+            ConfirmRegistrationError::UserNotFound => "User not found".to_string(),
+            ConfirmRegistrationError::Repository(e) => e.to_user_message(),
+            ConfirmRegistrationError::Hash(e) => e.to_user_message(),
         }
     }
 }
@@ -286,6 +390,7 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::Repository(e) => e.to_http_status(),
             RegistrationError::Hash(e) => e.to_http_status(),
             RegistrationError::Mailer(e) => e.to_http_status(),
+            RegistrationError::TokenIssuer(e) => e.to_http_status(),
         }
     }
 
@@ -294,6 +399,7 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::Repository(e) => e.to_user_message(),
             RegistrationError::Hash(e) => e.to_user_message(),
             RegistrationError::Mailer(e) => e.to_user_message(),
+            RegistrationError::TokenIssuer(e) => e.to_user_message(),
         }
     }
 }
@@ -473,6 +579,24 @@ impl From<LoginError> for ApiError {
 
 impl From<RegistrationError> for ApiError {
     fn from(error: RegistrationError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<ConfirmRegistrationError> for ApiError {
+    fn from(error: ConfirmRegistrationError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<RefreshTokensError> for ApiError {
+    fn from(error: RefreshTokensError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<LogoutError> for ApiError {
+    fn from(error: LogoutError) -> Self {
         Self::from_error(error)
     }
 }

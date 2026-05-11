@@ -1,4 +1,5 @@
 pub mod channel;
+pub mod refresh_token;
 pub mod server;
 pub mod shared;
 pub mod user;

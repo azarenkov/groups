@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use domain::{
-    shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
-    user::{
-        User,
-        repository::UserRepository,
-        email::Email, name::UserName,
+    refresh_token::{
+        refresh_token::RefreshToken, repository::RefreshTokenRepository,
     },
+    shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
+    user::{User, email::Email, name::UserName, repository::UserRepository},
     verification::{
         channel::VerificationChannel, code::VerificationCode, code_hash::CodeHash,
         purpose::VerificationPurpose, repository::VerificationCodeRepository,
@@ -18,6 +17,7 @@ use crate::{
     ports::{
         hasher::{HashError, Hasher},
         mailer::{Mailer, MailerError},
+        token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
 };
 
@@ -29,43 +29,58 @@ pub enum RegistrationError {
     Hash(#[from] HashError),
     #[error("Mailer error: {0}")]
     Mailer(#[from] MailerError),
+    #[error("Token issuer error: {0}")]
+    TokenIssuer(#[from] TokenIssuerError),
 }
 
-pub struct RegisterUser<T, H, M, V>
+pub struct RegisterUser<T, H, M, V, R, I>
 where
     T: UserRepository,
     H: Hasher,
     M: Mailer,
     V: VerificationCodeRepository,
+    R: RefreshTokenRepository,
+    I: TokenIssuer,
 {
     user_repository: Arc<T>,
     hasher: Arc<H>,
     mailer: Arc<M>,
     verification_code_repository: Arc<V>,
+    refresh_token_repository: Arc<R>,
+    token_issuer: Arc<I>,
 }
 
-impl<T, H, M, V> RegisterUser<T, H, M, V>
+impl<T, H, M, V, R, I> RegisterUser<T, H, M, V, R, I>
 where
     T: UserRepository,
     H: Hasher,
     M: Mailer,
     V: VerificationCodeRepository,
+    R: RefreshTokenRepository,
+    I: TokenIssuer,
 {
     pub fn new(
         user_repository: Arc<T>,
         hasher: Arc<H>,
         mailer: Arc<M>,
         verification_code_repository: Arc<V>,
+        refresh_token_repository: Arc<R>,
+        token_issuer: Arc<I>,
     ) -> Self {
         Self {
             user_repository,
             hasher,
             mailer,
             verification_code_repository,
+            refresh_token_repository,
+            token_issuer,
         }
     }
 
-    pub async fn execute(&self, request: RegisterUserRequest) -> Result<User, RegistrationError> {
+    pub async fn execute(
+        &self,
+        request: RegisterUserRequest,
+    ) -> Result<IssuedTokens, RegistrationError> {
         let password_hash = PasswordHash::new(self.hasher.hash(&request.password)?);
 
         let user = User::create(
@@ -94,6 +109,17 @@ where
             .save_verification_code(&verification_code)
             .await?;
 
-        Ok(user)
+        let tokens = self.token_issuer.issue(user.id()).await?;
+
+        let refresh_token = RefreshToken::issue(
+            tokens.refresh_token_id,
+            user.id_ownned(),
+            tokens.refresh_token_expires_at,
+        );
+        self.refresh_token_repository
+            .save_refresh_token(&refresh_token)
+            .await?;
+
+        Ok(tokens)
     }
 }

@@ -17,7 +17,6 @@ serde = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 env_logger = { workspace = true }
-
-actix-web = "4.13.0"
-actix-cors = "0.7.1"
-validator = { version = "0.20", features = ["derive"] }
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+validator = { workspace = true }

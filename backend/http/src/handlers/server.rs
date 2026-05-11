@@ -1,27 +1,25 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use domain::{server::id::ServerId, shared::pagination::Pagination, user::id::UserId};
+use shared::middleware::auth::AuthToken;
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::{
-    middleware::auth::AuthToken,
-    shared::{
-        dto::{
-            pagination::{PaginationMeta, PaginationQuery},
-            requests::server::create_server::CreateServerRequestBody,
-            responses::{
-                ApiResponse,
-                server::{
-                    create_server::CreateServerResponse,
-                    list_server_channels::ListServerChannelsResponse,
-                    list_server_members::ListServerMembersResponse,
-                    list_servers_by_user::ListServersByUserResponse,
-                },
+use crate::shared::{
+    dto::{
+        pagination::{PaginationMeta, PaginationQuery},
+        requests::server::create_server::CreateServerRequestBody,
+        responses::{
+            ApiResponse,
+            server::{
+                create_server::CreateServerResponse,
+                list_server_channels::ListServerChannelsResponse,
+                list_server_members::ListServerMembersResponse,
+                list_servers_by_user::ListServersByUserResponse,
             },
         },
-        error::ApiError,
-        state::AppState,
     },
+    error::ApiError,
+    state::AppState,
 };
 
 #[post("")]

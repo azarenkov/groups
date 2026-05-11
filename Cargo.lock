@@ -1718,12 +1718,14 @@ dependencies = [
  "domain",
  "dotenv",
  "envy",
+ "jsonwebtoken 10.3.0",
  "lettre",
  "livekit-api",
  "serde",
  "serde_json",
  "shared",
  "sqlx",
+ "thiserror 2.0.18",
  "urlencoding",
  "uuid",
 ]
@@ -3050,7 +3052,9 @@ dependencies = [
 name = "shared"
 version = "0.1.0"
 dependencies = [
+ "actix-cors",
  "actix-governor",
+ "actix-web",
  "anyhow",
  "chrono",
  "dotenv",
