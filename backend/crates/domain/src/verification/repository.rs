@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 
 use crate::{
-    shared::repository::error::RepositoryError, user::id::UserId,
-    verification::code::VerificationCode,
+    shared::repository::error::RepositoryError,
+    user::id::UserId,
+    verification::{code::VerificationCode, id::VerificationCodeId},
 };
 
 #[async_trait]
@@ -15,8 +16,8 @@ pub trait VerificationCodeRepository {
         &self,
         user_id: &UserId,
     ) -> Result<VerificationCode, RepositoryError>;
-    async fn update_attempts(
+    async fn increment_attempts(
         &self,
-        verification_code: &VerificationCode,
+        id: &VerificationCodeId,
     ) -> Result<(), RepositoryError>;
 }

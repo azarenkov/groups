@@ -99,9 +99,8 @@ where
             request.verification_code.as_str(),
             verification_code.code_hash().as_str(),
         )? {
-            verification_code.increment_attemps();
             self.verification_code_repository
-                .update_attempts(&verification_code)
+                .increment_attempts(verification_code.id())
                 .await?;
             return Err(ConfirmRegistrationError::BadVerificationCode);
         }

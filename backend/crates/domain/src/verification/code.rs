@@ -94,10 +94,6 @@ impl VerificationCode {
         self.purpose().is_registration()
     }
 
-    pub fn increment_attemps(&mut self) {
-        self.attempts += 1
-    }
-
     pub fn user_id(&self) -> &UserId {
         &self.user_id
     }

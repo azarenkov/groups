@@ -104,18 +104,17 @@ impl VerificationCodeRepository for PostgresVerificationCodeRepository {
         ))
     }
 
-    async fn update_attempts(
+    async fn increment_attempts(
         &self,
-        verification_code: &VerificationCode,
+        id: &VerificationCodeId,
     ) -> Result<(), RepositoryError> {
         let result = sqlx::query!(
             r#"
                 UPDATE verification_codes
-                SET attempts = $2
+                SET attempts = attempts + 1
                 WHERE id = $1
             "#,
-            verification_code.id().uuid(),
-            i16::from(verification_code.attempts()),
+            id.uuid(),
         )
         .execute(&self.pool)
         .await
