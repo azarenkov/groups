@@ -90,6 +90,10 @@ impl VerificationCode {
         self.attempts >= MAX_ATTEMPS
     }
 
+    pub fn max_attempts() -> u8 {
+        MAX_ATTEMPS
+    }
+
     pub fn is_registration_purpose(&self) -> bool {
         self.purpose().is_registration()
     }

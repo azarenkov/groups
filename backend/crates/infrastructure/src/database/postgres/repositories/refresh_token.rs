@@ -78,12 +78,12 @@ impl RefreshTokenRepository for PostgresRefreshTokenRepository {
         }))
     }
 
-    async fn revoke(&self, refresh_token: &RefreshToken) -> Result<(), RepositoryError> {
+    async fn revoke(&self, refresh_token: &RefreshToken) -> Result<bool, RepositoryError> {
         let result = sqlx::query!(
             r#"
                 UPDATE refresh_tokens
                 SET revoked_at = $2
-                WHERE id = $1
+                WHERE id = $1 AND revoked_at IS NULL
             "#,
             refresh_token.id().uuid(),
             refresh_token.revoked_at(),
@@ -92,11 +92,7 @@ impl RefreshTokenRepository for PostgresRefreshTokenRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-
-        Ok(())
+        Ok(result.rows_affected() > 0)
     }
 
     async fn revoke_all_for_user(&self, user_id: &UserId) -> Result<(), RepositoryError> {

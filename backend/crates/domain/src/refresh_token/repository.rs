@@ -16,6 +16,6 @@ pub trait RefreshTokenRepository {
         &self,
         id: &RefreshTokenId,
     ) -> Result<Option<RefreshToken>, RepositoryError>;
-    async fn revoke(&self, refresh_token: &RefreshToken) -> Result<(), RepositoryError>;
+    async fn revoke(&self, refresh_token: &RefreshToken) -> Result<bool, RepositoryError>;
     async fn revoke_all_for_user(&self, user_id: &UserId) -> Result<(), RepositoryError>;
 }

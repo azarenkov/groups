@@ -77,9 +77,14 @@ where
         }
 
         refresh_token.revoke(now);
-        self.refresh_token_repository
+        let revoked = self
+            .refresh_token_repository
             .revoke(&refresh_token)
             .await?;
+
+        if !revoked {
+            return Err(RefreshTokensError::RefreshTokenRevoked);
+        }
 
         let tokens = self.token_issuer.issue(&decoded.user_id).await?;
 

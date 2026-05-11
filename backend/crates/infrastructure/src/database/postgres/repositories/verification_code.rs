@@ -107,23 +107,22 @@ impl VerificationCodeRepository for PostgresVerificationCodeRepository {
     async fn increment_attempts(
         &self,
         id: &VerificationCodeId,
-    ) -> Result<(), RepositoryError> {
-        let result = sqlx::query!(
+        max_attempts: u8,
+    ) -> Result<Option<u8>, RepositoryError> {
+        let row = sqlx::query!(
             r#"
                 UPDATE verification_codes
                 SET attempts = attempts + 1
-                WHERE id = $1
+                WHERE id = $1 AND attempts < $2
+                RETURNING attempts
             "#,
             id.uuid(),
+            i16::from(max_attempts),
         )
-        .execute(&self.pool)
+        .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-
-        Ok(())
+        Ok(row.map(|r| r.attempts as u8))
     }
 }

@@ -19,5 +19,6 @@ pub trait VerificationCodeRepository {
     async fn increment_attempts(
         &self,
         id: &VerificationCodeId,
-    ) -> Result<(), RepositoryError>;
+        max_attempts: u8,
+    ) -> Result<Option<u8>, RepositoryError>;
 }

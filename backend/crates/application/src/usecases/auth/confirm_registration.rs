@@ -4,7 +4,10 @@ use chrono::Utc;
 use domain::{
     shared::repository::error::RepositoryError,
     user::{id::UserId, repository::UserRepository},
-    verification::{channel::VerificationChannel, repository::VerificationCodeRepository},
+    verification::{
+        channel::VerificationChannel, code::VerificationCode,
+        repository::VerificationCodeRepository,
+    },
 };
 
 use crate::{
@@ -99,9 +102,15 @@ where
             request.verification_code.as_str(),
             verification_code.code_hash().as_str(),
         )? {
-            self.verification_code_repository
-                .increment_attempts(verification_code.id())
+            let incremented = self
+                .verification_code_repository
+                .increment_attempts(verification_code.id(), VerificationCode::max_attempts())
                 .await?;
+
+            if incremented.is_none() {
+                return Err(ConfirmRegistrationError::TooManyAttempts);
+            }
+
             return Err(ConfirmRegistrationError::BadVerificationCode);
         }
 
