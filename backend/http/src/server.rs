@@ -8,8 +8,9 @@ use application::usecases::{
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
     channel::{
-        create_channel::CreateChannel, delete_channel::DeleteChannel,
-        join_voice_channel::JoinVoiceChannel, leave_voice_channel::LeaveVoiceChannel,
+        abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
+        delete_channel::DeleteChannel, join_voice_channel::JoinVoiceChannel,
+        leave_voice_channel::LeaveVoiceChannel, leave_voice_connection::LeaveVoiceConnection,
         mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
     },
     server::{
@@ -17,6 +18,7 @@ use application::usecases::{
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser,
     },
+    webhook::voice::HandleVoiceWebhook,
 };
 use infrastructure::{
     auth::jwt_token_issuer::JwtTokenIssuer,
@@ -27,10 +29,11 @@ use infrastructure::{
             channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
             server::PostgresServerRepository, user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
+            webhook_inbox::PostgresWebhookInbox,
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
-    voice::livekit_service::LiveKitService,
+    voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
 use shared::rate_limiting::{
     config::RateLimitingConfig, create_governor_config, create_rate_limiting,
@@ -56,8 +59,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     ));
     let refresh_token_repository =
         Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
+    let webhook_inbox = Arc::new(PostgresWebhookInbox::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
+    let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     let token_issuer = Arc::new(JwtTokenIssuer::new(server_config.jwt_secret.clone()));
 
@@ -99,6 +104,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         RefreshTokens::new(refresh_token_repository.clone(), token_issuer.clone());
     let logout_usecase = Logout::new(refresh_token_repository.clone(), token_issuer.clone());
 
+    let abort_voice_connection_usecase = AbortVoiceConnection::new(channel_repository.clone());
+    let leave_voice_connection_usecase = LeaveVoiceConnection::new(channel_repository.clone());
+    let handle_livekit_webhook_usecase = HandleVoiceWebhook::new(
+        livekit_webhook_receiver.clone(),
+        webhook_inbox.clone(),
+        abort_voice_connection_usecase,
+        leave_voice_connection_usecase,
+    );
+
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(server_repository.clone());
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
@@ -117,6 +131,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         confirm_registration_usecase,
         refresh_tokens_usecase,
         logout_usecase,
+        handle_livekit_webhook_usecase,
         create_server_usecase,
         delete_server_usecase,
         list_servers_by_user_usecase,

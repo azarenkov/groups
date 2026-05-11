@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO webhook_inbox (source, external_id)\n                VALUES ($1, $2)\n                ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "webhook_source",
+            "kind": {
+              "Enum": [
+                "livekit"
+              ]
+            }
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "933ffc592742d584e656dcbf54ada119713eda2e9eedbaf7a6ddecbf65bcd53f"
+}

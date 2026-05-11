@@ -6,6 +6,29 @@ use crate::{
     user::id::UserId,
 };
 
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LeaveReason {
+    ClientInitiated,
+    Kicked,
+    DuplicateIdentity,
+    ServerShutdown,
+    RoomClosed,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConnectionAbortReason {
+    SignalClose,
+    MediaFailure,
+    ConnectionTimeout,
+    StateMismatch,
+    JoinFailure,
+    Unknown,
+    Other,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ParticipantJoined {
     pub id: EventId,
@@ -38,6 +61,7 @@ pub struct ParticipantLeft {
     pub channel_id: ChannelId,
     pub server_id: ServerId,
     pub user_id: UserId,
+    pub reason: LeaveReason,
     pub occurred_at: DateTime<Utc>,
 }
 
@@ -46,6 +70,7 @@ impl ParticipantLeft {
         channel_id: ChannelId,
         server_id: ServerId,
         user_id: UserId,
+        reason: LeaveReason,
         now: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -53,6 +78,7 @@ impl ParticipantLeft {
             channel_id,
             server_id,
             user_id,
+            reason,
             occurred_at: now,
         }
     }
@@ -122,6 +148,7 @@ pub struct ParticipantConnectionAborted {
     pub channel_id: ChannelId,
     pub server_id: ServerId,
     pub user_id: UserId,
+    pub reason: ConnectionAbortReason,
     pub occurred_at: DateTime<Utc>,
 }
 
@@ -130,6 +157,7 @@ impl ParticipantConnectionAborted {
         channel_id: ChannelId,
         server_id: ServerId,
         user_id: UserId,
+        reason: ConnectionAbortReason,
         now: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -137,6 +165,7 @@ impl ParticipantConnectionAborted {
             channel_id,
             server_id,
             user_id,
+            reason,
             occurred_at: now,
         }
     }

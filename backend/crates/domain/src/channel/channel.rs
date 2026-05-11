@@ -8,6 +8,7 @@ use crate::{
             ChannelEvent,
             lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
             participant::{
+                ConnectionAbortReason, LeaveReason, ParticipantConnectionAborted,
                 ParticipantJoined, ParticipantLeft, ParticipantMuted, ParticipantUnmuted,
             },
         },
@@ -216,13 +217,38 @@ impl Channel {
         Ok(())
     }
 
-    pub fn leave(&mut self, user_id: UserId, now: DateTime<Utc>) -> Result<(), ChannelError> {
+    pub fn leave(
+        &mut self,
+        user_id: UserId,
+        reason: LeaveReason,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
         self.record(ChannelEvent::ParticipantLeft(ParticipantLeft::record(
             self.id,
             self.server_id,
             user_id,
+            reason,
             now,
         )));
+
+        Ok(())
+    }
+
+    pub fn connection_aborted(
+        &mut self,
+        user_id: UserId,
+        reason: ConnectionAbortReason,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        self.record(ChannelEvent::ParticipantConnectionAborted(
+            ParticipantConnectionAborted::record(
+                self.id,
+                self.server_id,
+                user_id,
+                reason,
+                now,
+            ),
+        ));
 
         Ok(())
     }

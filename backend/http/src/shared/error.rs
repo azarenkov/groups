@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{
     hasher::HashError, mailer::MailerError, token_issuer::TokenIssuerError,
-    voice_service::VoiceServiceError,
+    voice_service::VoiceServiceError, voice_webhook_verifier::VoiceWebhookVerifierError,
 };
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
@@ -13,11 +13,13 @@ use application::usecases::{
         refresh_tokens::RefreshTokensError, register::RegistrationError,
     },
     channel::{
-        create_channel::CreateChannelError, delete_channel::DeleteChannelError,
-        leave_voice_channel::LeaveVoiceChannelError, mute_channel::MuteChannelError,
+        abort_voice_connection::AbortVoiceConnectionError, create_channel::CreateChannelError,
+        delete_channel::DeleteChannelError, leave_voice_channel::LeaveVoiceChannelError,
+        leave_voice_connection::LeaveVoiceConnectionError, mute_channel::MuteChannelError,
         unmute_channel::UnmuteChannelError,
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
+    webhook::voice::HandleVoiceWebhookError,
 };
 use domain::channel::ChannelError;
 use domain::shared::outbox::to_outbox::OutboxError;
@@ -260,6 +262,94 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Repository(e) => e.to_user_message(),
             UnmuteChannelError::Domain(e) => e.to_user_message(),
             UnmuteChannelError::Outbox(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for VoiceWebhookVerifierError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            VoiceWebhookVerifierError::InvalidSignature => StatusCode::UNAUTHORIZED,
+            VoiceWebhookVerifierError::InvalidBody(_)
+            | VoiceWebhookVerifierError::MissingField(_)
+            | VoiceWebhookVerifierError::InvalidIdentifier(_) => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            VoiceWebhookVerifierError::InvalidSignature => "Invalid signature".to_string(),
+            VoiceWebhookVerifierError::InvalidBody(_) => "Invalid webhook body".to_string(),
+            VoiceWebhookVerifierError::MissingField(f) => {
+                format!("Missing required webhook field: {f}")
+            }
+            VoiceWebhookVerifierError::InvalidIdentifier(_) => {
+                "Invalid identifier in webhook".to_string()
+            }
+        }
+    }
+}
+
+impl ToHttpStatus for AbortVoiceConnectionError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            AbortVoiceConnectionError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            AbortVoiceConnectionError::Repository(e) => e.to_http_status(),
+            AbortVoiceConnectionError::Domain(e) => e.to_http_status(),
+            AbortVoiceConnectionError::Outbox(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            AbortVoiceConnectionError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
+            AbortVoiceConnectionError::Repository(e) => e.to_user_message(),
+            AbortVoiceConnectionError::Domain(e) => e.to_user_message(),
+            AbortVoiceConnectionError::Outbox(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for LeaveVoiceConnectionError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            LeaveVoiceConnectionError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            LeaveVoiceConnectionError::Repository(e) => e.to_http_status(),
+            LeaveVoiceConnectionError::Domain(e) => e.to_http_status(),
+            LeaveVoiceConnectionError::Outbox(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            LeaveVoiceConnectionError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
+            LeaveVoiceConnectionError::Repository(e) => e.to_user_message(),
+            LeaveVoiceConnectionError::Domain(e) => e.to_user_message(),
+            LeaveVoiceConnectionError::Outbox(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for HandleVoiceWebhookError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
+            HandleVoiceWebhookError::Repository(e) => e.to_http_status(),
+            HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_http_status(),
+            HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
+            HandleVoiceWebhookError::Repository(e) => e.to_user_message(),
+            HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_user_message(),
+            HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_user_message(),
         }
     }
 }
@@ -597,6 +687,12 @@ impl From<RefreshTokensError> for ApiError {
 
 impl From<LogoutError> for ApiError {
     fn from(error: LogoutError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<HandleVoiceWebhookError> for ApiError {
+    fn from(error: HandleVoiceWebhookError) -> Self {
         Self::from_error(error)
     }
 }
