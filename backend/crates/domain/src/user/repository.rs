@@ -29,5 +29,5 @@ pub trait UserRepository {
         &self,
         user: &User,
         verification_code: &VerificationCode,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 }

@@ -121,9 +121,15 @@ where
 
         verification_code.set_consumed_at(Some(now));
 
-        self.user_repository
+        let consumed = self
+            .user_repository
             .confirm_registration(&user, &verification_code)
             .await?;
+
+        if !consumed {
+            return Err(ConfirmRegistrationError::UserAlreadyVerified);
+        }
+
         Ok(())
     }
 }

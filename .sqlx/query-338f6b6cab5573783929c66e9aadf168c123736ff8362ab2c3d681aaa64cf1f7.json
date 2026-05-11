@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE verification_codes\n                SET consumed_at = $2\n                WHERE id = $1 AND consumed_at IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "338f6b6cab5573783929c66e9aadf168c123736ff8362ab2c3d681aaa64cf1f7"
+}

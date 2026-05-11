@@ -203,7 +203,7 @@ impl UserRepository for PostgresUserRepository {
         &self,
         user: &User,
         verification_code: &VerificationCode,
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -233,7 +233,7 @@ impl UserRepository for PostgresUserRepository {
             r#"
                 UPDATE verification_codes
                 SET consumed_at = $2
-                WHERE id = $1
+                WHERE id = $1 AND consumed_at IS NULL
             "#,
             verification_code.id().uuid(),
             verification_code.consumed_at(),
@@ -243,11 +243,11 @@ impl UserRepository for PostgresUserRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if code_result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
+            return Ok(false);
         }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(())
+        Ok(true)
     }
 }
