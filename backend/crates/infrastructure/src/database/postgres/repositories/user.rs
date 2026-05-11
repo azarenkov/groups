@@ -1,13 +1,23 @@
 use async_trait::async_trait;
 
 use domain::{
-    shared::{repository::error::RepositoryError, value_objects::password_hash::PasswordHash},
+    shared::{
+        outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
+        value_objects::password_hash::PasswordHash,
+    },
     user::{User, email::Email, id::UserId, name::UserName, repository::UserRepository},
     verification::code::VerificationCode,
 };
 use sqlx::{Pool, Postgres};
 
-use crate::database::postgres::{dto::user::UserDto, error::map_sqlx_error_to_domain_error};
+use crate::database::postgres::{
+    dto::{
+        user::UserDto, verification_channel::VerificationChannelDto,
+        verification_purpose::VerificationPurposeDto,
+    },
+    error::map_sqlx_error_to_domain_error,
+    repositories::outbox_record::save_outbox_records,
+};
 
 pub struct PostgresUserRepository {
     pool: Pool<Postgres>,
@@ -37,6 +47,69 @@ impl UserRepository for PostgresUserRepository {
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(())
+    }
+
+    async fn register_user(
+        &self,
+        user: &User,
+        verification_code: &VerificationCode,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+            user.id().uuid(),
+            user.name().as_str(),
+            user.email().as_str(),
+            user.password_hash().as_str(),
+            user.created_at(),
+            user.updated_at(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let channel = VerificationChannelDto::from(verification_code.channel());
+        let purpose = VerificationPurposeDto::from(verification_code.purpose());
+
+        sqlx::query!(
+            r#"
+                INSERT INTO verification_codes (
+                    id, user_id, channel, code_hash, purpose,
+                    expires_at, consumed_at, attempts, created_at
+                )
+                VALUES (
+                    $1, $2, $3, $4, $5,
+                    $6, $7, $8, $9
+                )
+            "#,
+            verification_code.id().uuid(),
+            verification_code.user_id().uuid(),
+            channel as VerificationChannelDto,
+            verification_code.code_hash().as_str(),
+            purpose as VerificationPurposeDto,
+            verification_code.expires_at(),
+            verification_code.consumed_at(),
+            i16::from(verification_code.attempts()),
+            verification_code.created_at(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
     }

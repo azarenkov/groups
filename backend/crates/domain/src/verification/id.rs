@@ -1,6 +1,7 @@
+use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct VerificationCodeId(Uuid);
 
 #[derive(Debug, thiserror::Error)]

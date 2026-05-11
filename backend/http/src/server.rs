@@ -20,7 +20,7 @@ use application::usecases::{
 };
 use infrastructure::{
     auth::jwt_token_issuer::JwtTokenIssuer,
-    config::{livekit::LiveKitConfig, mailer::MailerConfig, postgres::PostgresConfig},
+    config::{livekit::LiveKitConfig, postgres::PostgresConfig},
     database::postgres::{
         connection::create_postgres_pool,
         repositories::{
@@ -30,7 +30,6 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
-    mailer::smtp_mailer::SmtpMailer,
     voice::livekit_service::LiveKitService,
 };
 use shared::rate_limiting::{
@@ -46,7 +45,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
-    let mailer_config = MailerConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
 
@@ -59,7 +57,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let refresh_token_repository =
         Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
 
-    let mailer = Arc::new(SmtpMailer::from_config(mailer_config)?);
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     let token_issuer = Arc::new(JwtTokenIssuer::new(server_config.jwt_secret.clone()));
@@ -84,8 +81,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
-        mailer.clone(),
-        verification_code_repository.clone(),
         refresh_token_repository.clone(),
         token_issuer.clone(),
     );

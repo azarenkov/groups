@@ -338,6 +338,7 @@ dependencies = [
  "domain",
  "futures",
  "thiserror 2.0.18",
+ "tracing",
  "uuid",
 ]
 

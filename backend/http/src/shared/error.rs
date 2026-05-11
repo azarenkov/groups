@@ -389,7 +389,7 @@ impl ToHttpStatus for RegistrationError {
         match self {
             RegistrationError::Repository(e) => e.to_http_status(),
             RegistrationError::Hash(e) => e.to_http_status(),
-            RegistrationError::Mailer(e) => e.to_http_status(),
+            RegistrationError::Outbox(e) => e.to_http_status(),
             RegistrationError::TokenIssuer(e) => e.to_http_status(),
         }
     }
@@ -398,7 +398,7 @@ impl ToHttpStatus for RegistrationError {
         match self {
             RegistrationError::Repository(e) => e.to_user_message(),
             RegistrationError::Hash(e) => e.to_user_message(),
-            RegistrationError::Mailer(e) => e.to_user_message(),
+            RegistrationError::Outbox(e) => e.to_user_message(),
             RegistrationError::TokenIssuer(e) => e.to_user_message(),
         }
     }

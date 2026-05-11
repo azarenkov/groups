@@ -2,9 +2,12 @@ use chrono::{DateTime, Duration, Utc};
 use rand::RngExt;
 
 use crate::{
-    user::id::UserId,
+    user::{email::Email, id::UserId},
     verification::{
-        channel::VerificationChannel, code_hash::CodeHash, id::VerificationCodeId,
+        channel::VerificationChannel,
+        code_hash::CodeHash,
+        events::{VerificationEvent, issued::VerificationCodeIssued},
+        id::VerificationCodeId,
         purpose::VerificationPurpose,
     },
 };
@@ -22,28 +25,41 @@ pub struct VerificationCode {
     consumed_at: Option<DateTime<Utc>>,
     attempts: u8,
     created_at: DateTime<Utc>,
+    events: Vec<VerificationEvent>,
 }
 
 impl VerificationCode {
-    pub fn create(
+    pub fn issue(
         user_id: UserId,
+        email: Email,
+        plain_code: String,
         channel: VerificationChannel,
         code_hash: CodeHash,
         purpose: VerificationPurpose,
     ) -> Self {
         let now = Utc::now();
-        let ttl = Self::ttl_for(&purpose);
+        let id = VerificationCodeId::generate();
+        let event = VerificationEvent::Issued(VerificationCodeIssued::record(
+            user_id,
+            id,
+            channel,
+            purpose,
+            email,
+            plain_code,
+            now,
+        ));
 
         Self {
-            id: VerificationCodeId::generate(),
+            id,
             user_id,
             channel,
             code_hash,
             purpose,
-            expires_at: now + ttl,
+            expires_at: now + Self::ttl_for(&purpose),
             consumed_at: None,
             attempts: 0,
             created_at: now,
+            events: vec![event],
         }
     }
 
@@ -69,6 +85,7 @@ impl VerificationCode {
             consumed_at,
             attempts,
             created_at,
+            events: Vec::new(),
         }
     }
 
@@ -84,6 +101,10 @@ impl VerificationCode {
     pub fn generate() -> String {
         let code = rand::rng().random_range(0..1_000_000);
         format!("{:06}", code)
+    }
+
+    pub fn pull_events(&mut self) -> Vec<VerificationEvent> {
+        std::mem::take(&mut self.events)
     }
 
     pub fn is_limit_attempts(&self) -> bool {

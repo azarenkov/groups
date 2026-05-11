@@ -22,7 +22,6 @@ use infrastructure::{
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
-    mailer::smtp_mailer::SmtpMailer,
     voice::livekit_service::LiveKitService,
 };
 
@@ -44,8 +43,6 @@ pub struct AppState {
     pub register_user_usecase: RegisterUser<
         PostgresUserRepository,
         BcryptHasher,
-        SmtpMailer,
-        PostgresVerificationCodeRepository,
         PostgresRefreshTokenRepository,
         JwtTokenIssuer,
     >,
@@ -93,8 +90,6 @@ impl AppState {
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
-            SmtpMailer,
-            PostgresVerificationCodeRepository,
             PostgresRefreshTokenRepository,
             JwtTokenIssuer,
         >,
