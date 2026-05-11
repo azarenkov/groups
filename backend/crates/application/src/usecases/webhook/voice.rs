@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use domain::channel::repository::ChannelRepository;
+use domain::{channel::repository::ChannelRepository, shared::repository::error::RepositoryError};
 
 use crate::{
     dto::requests::channel::{
@@ -70,36 +70,82 @@ where
                 user_id,
                 reason,
             } => {
-                self.abort_voice_connection
+                let result = self
+                    .abort_voice_connection
                     .execute(AbortVoiceConnectionRequest {
                         channel_id,
                         user_id,
                         reason,
                         occurred_at,
                         inbox_source: source,
-                        inbox_external_id: external_id,
+                        inbox_external_id: external_id.clone(),
                     })
-                    .await?;
+                    .await;
+
+                if let Err(e) = result {
+                    if is_abort_stale(&e) {
+                        tracing::info!(
+                            channel_id = %channel_id,
+                            user_id = %user_id,
+                            external_id = %external_id,
+                            error = ?e,
+                            "Skipping stale ParticipantConnectionAborted webhook",
+                        );
+                    } else {
+                        return Err(e.into());
+                    }
+                }
             }
             VoiceWebhookEvent::ParticipantLeft {
                 channel_id,
                 user_id,
                 reason,
             } => {
-                self.leave_voice_connection
+                let result = self
+                    .leave_voice_connection
                     .execute(LeaveVoiceConnectionRequest {
                         channel_id,
                         user_id,
                         reason,
                         occurred_at,
                         inbox_source: source,
-                        inbox_external_id: external_id,
+                        inbox_external_id: external_id.clone(),
                     })
-                    .await?;
+                    .await;
+
+                if let Err(e) = result {
+                    if is_leave_stale(&e) {
+                        tracing::info!(
+                            channel_id = %channel_id,
+                            user_id = %user_id,
+                            external_id = %external_id,
+                            error = ?e,
+                            "Skipping stale ParticipantLeft webhook",
+                        );
+                    } else {
+                        return Err(e.into());
+                    }
+                }
             }
             VoiceWebhookEvent::Other => {}
         }
 
         Ok(())
     }
+}
+
+fn is_abort_stale(e: &AbortVoiceConnectionError) -> bool {
+    matches!(
+        e,
+        AbortVoiceConnectionError::Repository(RepositoryError::NotFound)
+            | AbortVoiceConnectionError::VoiceNotSupported
+    )
+}
+
+fn is_leave_stale(e: &LeaveVoiceConnectionError) -> bool {
+    matches!(
+        e,
+        LeaveVoiceConnectionError::Repository(RepositoryError::NotFound)
+            | LeaveVoiceConnectionError::VoiceNotSupported
+    )
 }
