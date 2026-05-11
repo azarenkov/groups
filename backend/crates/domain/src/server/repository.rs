@@ -4,6 +4,7 @@ use crate::{
     channel::Channel,
     server::{Server, id::ServerId},
     shared::{
+        outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
@@ -13,7 +14,11 @@ use crate::{
 #[async_trait]
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
-    async fn save_server(&self, server: &Server) -> Result<(), RepositoryError>;
+    async fn save_server_with_events(
+        &self,
+        server: &Server,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError>;
     async fn find_servers_by_user_id(
         &self,
         user_id: &UserId,
@@ -34,9 +39,10 @@ pub trait ServerRepository {
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<(), RepositoryError>;
-    async fn delete_server_by_owner(
+    async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,
         owner_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
 }

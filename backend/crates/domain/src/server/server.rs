@@ -1,7 +1,15 @@
 use chrono::{DateTime, Utc};
 
 use crate::{
-    server::{description::ServerDescription, id::ServerId, name::ServerName},
+    server::{
+        description::ServerDescription,
+        events::{
+            ServerEvent,
+            lifecycle::{ServerCreated, ServerDeleted},
+        },
+        id::ServerId,
+        name::ServerName,
+    },
     user::id::UserId,
 };
 
@@ -13,6 +21,7 @@ pub struct Server {
     description: Option<ServerDescription>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
+    events: Vec<ServerEvent>,
 }
 
 impl Server {
@@ -31,6 +40,7 @@ impl Server {
             description,
             created_at,
             updated_at,
+            events: Vec::new(),
         }
     }
 
@@ -40,15 +50,40 @@ impl Server {
         description: Option<ServerDescription>,
     ) -> Self {
         let now = Utc::now();
+        let id = ServerId::generate();
+        let event = ServerEvent::Created(ServerCreated::record(
+            id,
+            owner_id,
+            name.clone(),
+            description.clone(),
+            now,
+        ));
 
         Self {
-            id: ServerId::generate(),
+            id,
             name,
             owner_id,
             description,
             created_at: now,
             updated_at: now,
+            events: vec![event],
         }
+    }
+
+    pub fn delete(&mut self, now: DateTime<Utc>) {
+        self.record(ServerEvent::Deleted(ServerDeleted::record(
+            self.id,
+            self.owner_id,
+            now,
+        )));
+    }
+
+    fn record(&mut self, event: ServerEvent) {
+        self.events.push(event);
+    }
+
+    pub fn pull_events(&mut self) -> Vec<ServerEvent> {
+        std::mem::take(&mut self.events)
     }
 
     pub fn id(&self) -> &ServerId {

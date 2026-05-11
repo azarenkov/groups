@@ -500,25 +500,33 @@ impl ToHttpStatus for RegistrationError {
 
 impl ToHttpStatus for CreateServerError {
     fn to_http_status(&self) -> StatusCode {
-        let CreateServerError::Repository(e) = self;
-        e.to_http_status()
+        match self {
+            CreateServerError::Repository(e) => e.to_http_status(),
+            CreateServerError::Outbox(e) => e.to_http_status(),
+        }
     }
 
     fn to_user_message(&self) -> String {
-        let CreateServerError::Repository(e) = self;
-        e.to_user_message()
+        match self {
+            CreateServerError::Repository(e) => e.to_user_message(),
+            CreateServerError::Outbox(e) => e.to_user_message(),
+        }
     }
 }
 
 impl ToHttpStatus for DeleteServerError {
     fn to_http_status(&self) -> StatusCode {
-        let DeleteServerError::Repository(e) = self;
-        e.to_http_status()
+        match self {
+            DeleteServerError::Repository(e) => e.to_http_status(),
+            DeleteServerError::Outbox(e) => e.to_http_status(),
+        }
     }
 
     fn to_user_message(&self) -> String {
-        let DeleteServerError::Repository(e) = self;
-        e.to_user_message()
+        match self {
+            DeleteServerError::Repository(e) => e.to_user_message(),
+            DeleteServerError::Outbox(e) => e.to_user_message(),
+        }
     }
 }
 
