@@ -95,6 +95,8 @@ where
             tokens.refresh_token_id,
             user_id,
             tokens.refresh_token_expires_at,
+            request.client.ip.clone(),
+            request.client.user_agent.clone(),
         );
 
         let event = UserEvent::LoggedIn(UserLoggedIn::record(

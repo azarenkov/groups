@@ -112,15 +112,19 @@ impl UserRepository for PostgresUserRepository {
         sqlx::query!(
             r#"
                 INSERT INTO refresh_tokens (
-                    id, user_id, expires_at, revoked_at, created_at
+                    id, user_id, expires_at, revoked_at, created_at,
+                    last_used_at, last_ip, last_user_agent
                 )
-                VALUES ($1, $2, $3, $4, $5)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             "#,
             refresh_token.id().uuid(),
             refresh_token.user_id().uuid(),
             refresh_token.expires_at(),
             refresh_token.revoked_at(),
             refresh_token.created_at(),
+            refresh_token.last_used_at(),
+            refresh_token.last_ip(),
+            refresh_token.last_user_agent(),
         )
         .execute(&mut *tx)
         .await

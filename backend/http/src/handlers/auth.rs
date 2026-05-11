@@ -77,15 +77,17 @@ async fn login_user(
 
 #[post("/refresh")]
 async fn refresh_tokens(
+    req: HttpRequest,
     app_state: web::Data<AppState>,
     request: web::Json<RefreshTokenRequestBody>,
 ) -> Result<impl Responder, ApiError> {
     let request: RefreshTokenRequestBody = request.into_inner();
     request.validate()?;
 
+    let client = extract_client_context(&req);
     let tokens = app_state
         .refresh_tokens_usecase
-        .execute(request.into())
+        .execute(request.into_request(client))
         .await?;
 
     let response: TokenPairResponse = tokens.into();

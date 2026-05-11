@@ -101,6 +101,8 @@ where
             tokens.refresh_token_id,
             user.id_ownned(),
             tokens.refresh_token_expires_at,
+            request.client.ip.clone(),
+            request.client.user_agent.clone(),
         );
 
         let login_event = UserEvent::LoggedIn(UserLoggedIn::record(

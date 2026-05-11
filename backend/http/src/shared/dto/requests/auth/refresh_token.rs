@@ -1,4 +1,6 @@
-use application::dto::requests::auth::refresh_tokens::RefreshTokensRequest;
+use application::dto::requests::{
+    auth::refresh_tokens::RefreshTokensRequest, client_context::ClientContext,
+};
 use serde::Deserialize;
 use validator::Validate;
 
@@ -9,10 +11,11 @@ pub struct RefreshTokenRequestBody {
     pub refresh_token: String,
 }
 
-impl From<RefreshTokenRequestBody> for RefreshTokensRequest {
-    fn from(value: RefreshTokenRequestBody) -> Self {
-        Self {
-            refresh_token: value.refresh_token,
+impl RefreshTokenRequestBody {
+    pub fn into_request(self, client: ClientContext) -> RefreshTokensRequest {
+        RefreshTokensRequest {
+            refresh_token: self.refresh_token,
+            client,
         }
     }
 }
