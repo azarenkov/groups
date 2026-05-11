@@ -84,7 +84,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
-        refresh_token_repository.clone(),
         token_issuer.clone(),
     );
     let login_user_usecase = LoginUser::new(
@@ -135,6 +134,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_server_members_usecase,
         list_server_channels_usecase,
         server_config.jwt_secret,
+        server_config.trust_forwarded_headers,
     ));
 
     let governor_config = create_governor_config(rate_limiting_config)

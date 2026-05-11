@@ -9,25 +9,42 @@ pub struct RefreshToken {
     expires_at: DateTime<Utc>,
     revoked_at: Option<DateTime<Utc>>,
     created_at: DateTime<Utc>,
+    last_used_at: DateTime<Utc>,
+    last_ip: Option<String>,
+    last_user_agent: Option<String>,
 }
 
 impl RefreshToken {
-    pub fn issue(id: RefreshTokenId, user_id: UserId, expires_at: DateTime<Utc>) -> Self {
+    pub fn issue(
+        id: RefreshTokenId,
+        user_id: UserId,
+        expires_at: DateTime<Utc>,
+        ip: Option<String>,
+        user_agent: Option<String>,
+    ) -> Self {
+        let now = Utc::now();
         Self {
             id,
             user_id,
             expires_at,
             revoked_at: None,
-            created_at: Utc::now(),
+            created_at: now,
+            last_used_at: now,
+            last_ip: ip,
+            last_user_agent: user_agent,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn restore(
         id: RefreshTokenId,
         user_id: UserId,
         expires_at: DateTime<Utc>,
         revoked_at: Option<DateTime<Utc>>,
         created_at: DateTime<Utc>,
+        last_used_at: DateTime<Utc>,
+        last_ip: Option<String>,
+        last_user_agent: Option<String>,
     ) -> Self {
         Self {
             id,
@@ -35,6 +52,9 @@ impl RefreshToken {
             expires_at,
             revoked_at,
             created_at,
+            last_used_at,
+            last_ip,
+            last_user_agent,
         }
     }
 
@@ -74,5 +94,17 @@ impl RefreshToken {
 
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at
+    }
+
+    pub fn last_used_at(&self) -> DateTime<Utc> {
+        self.last_used_at
+    }
+
+    pub fn last_ip(&self) -> Option<&str> {
+        self.last_ip.as_deref()
+    }
+
+    pub fn last_user_agent(&self) -> Option<&str> {
+        self.last_user_agent.as_deref()
     }
 }

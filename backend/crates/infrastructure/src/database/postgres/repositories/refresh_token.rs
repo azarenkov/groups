@@ -3,12 +3,14 @@ use domain::{
     refresh_token::{
         id::RefreshTokenId, refresh_token::RefreshToken, repository::RefreshTokenRepository,
     },
-    shared::repository::error::RepositoryError,
+    shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
 };
 use sqlx::{Pool, Postgres};
 
-use crate::database::postgres::error::map_sqlx_error_to_domain_error;
+use crate::database::postgres::{
+    error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
+};
 
 pub struct PostgresRefreshTokenRepository {
     pool: Pool<Postgres>,
@@ -29,15 +31,19 @@ impl RefreshTokenRepository for PostgresRefreshTokenRepository {
         sqlx::query!(
             r#"
                 INSERT INTO refresh_tokens (
-                    id, user_id, expires_at, revoked_at, created_at
+                    id, user_id, expires_at, revoked_at, created_at,
+                    last_used_at, last_ip, last_user_agent
                 )
-                VALUES ($1, $2, $3, $4, $5)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             "#,
             refresh_token.id().uuid(),
             refresh_token.user_id().uuid(),
             refresh_token.expires_at(),
             refresh_token.revoked_at(),
             refresh_token.created_at(),
+            refresh_token.last_used_at(),
+            refresh_token.last_ip(),
+            refresh_token.last_user_agent(),
         )
         .execute(&self.pool)
         .await
@@ -57,7 +63,10 @@ impl RefreshTokenRepository for PostgresRefreshTokenRepository {
                     user_id,
                     expires_at,
                     revoked_at,
-                    created_at
+                    created_at,
+                    last_used_at,
+                    last_ip,
+                    last_user_agent
                 FROM refresh_tokens
                 WHERE id = $1
             "#,
@@ -74,6 +83,9 @@ impl RefreshTokenRepository for PostgresRefreshTokenRepository {
                 row.expires_at,
                 row.revoked_at,
                 row.created_at,
+                row.last_used_at,
+                row.last_ip,
+                row.last_user_agent,
             )
         }))
     }
@@ -109,5 +121,79 @@ impl RefreshTokenRepository for PostgresRefreshTokenRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
+    }
+
+    async fn save_refresh_token_with_events(
+        &self,
+        refresh_token: &RefreshToken,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                INSERT INTO refresh_tokens (
+                    id, user_id, expires_at, revoked_at, created_at,
+                    last_used_at, last_ip, last_user_agent
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            "#,
+            refresh_token.id().uuid(),
+            refresh_token.user_id().uuid(),
+            refresh_token.expires_at(),
+            refresh_token.revoked_at(),
+            refresh_token.created_at(),
+            refresh_token.last_used_at(),
+            refresh_token.last_ip(),
+            refresh_token.last_user_agent(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(())
+    }
+
+    async fn revoke_with_events(
+        &self,
+        refresh_token: &RefreshToken,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let result = sqlx::query!(
+            r#"
+                UPDATE refresh_tokens
+                SET revoked_at = $2
+                WHERE id = $1 AND revoked_at IS NULL
+            "#,
+            refresh_token.id().uuid(),
+            refresh_token.revoked_at(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(true)
     }
 }

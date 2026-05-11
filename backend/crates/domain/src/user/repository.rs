@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
+    refresh_token::refresh_token::RefreshToken,
     shared::{
         outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
@@ -16,6 +17,7 @@ pub trait UserRepository {
         &self,
         user: &User,
         verification_code: &VerificationCode,
+        refresh_token: &RefreshToken,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
     async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
@@ -29,5 +31,6 @@ pub trait UserRepository {
         &self,
         user: &User,
         verification_code: &VerificationCode,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
 }

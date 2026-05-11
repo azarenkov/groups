@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use domain::{
+    refresh_token::refresh_token::RefreshToken,
     shared::{
         outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
@@ -55,6 +56,7 @@ impl UserRepository for PostgresUserRepository {
         &self,
         user: &User,
         verification_code: &VerificationCode,
+        refresh_token: &RefreshToken,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
@@ -102,6 +104,27 @@ impl UserRepository for PostgresUserRepository {
             verification_code.consumed_at(),
             i16::from(verification_code.attempts()),
             verification_code.created_at(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                INSERT INTO refresh_tokens (
+                    id, user_id, expires_at, revoked_at, created_at,
+                    last_used_at, last_ip, last_user_agent
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            "#,
+            refresh_token.id().uuid(),
+            refresh_token.user_id().uuid(),
+            refresh_token.expires_at(),
+            refresh_token.revoked_at(),
+            refresh_token.created_at(),
+            refresh_token.last_used_at(),
+            refresh_token.last_ip(),
+            refresh_token.last_user_agent(),
         )
         .execute(&mut *tx)
         .await
@@ -203,6 +226,7 @@ impl UserRepository for PostgresUserRepository {
         &self,
         user: &User,
         verification_code: &VerificationCode,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
@@ -245,6 +269,8 @@ impl UserRepository for PostgresUserRepository {
         if code_result.rows_affected() == 0 {
             return Ok(false);
         }
+
+        save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 

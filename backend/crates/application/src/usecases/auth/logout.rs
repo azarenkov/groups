@@ -3,7 +3,17 @@ use std::sync::Arc;
 use chrono::Utc;
 use domain::{
     refresh_token::repository::RefreshTokenRepository,
-    shared::repository::error::RepositoryError, user::id::UserId,
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
+    user::{
+        events::{UserEvent, lifecycle::UserLoggedOut},
+        id::UserId,
+    },
 };
 
 use crate::{
@@ -15,6 +25,8 @@ use crate::{
 pub enum LogoutError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
     #[error("Refresh token not found")]
@@ -69,12 +81,22 @@ where
             return Ok(());
         }
 
-        refresh_token.revoke(Utc::now());
+        let now = Utc::now();
+        refresh_token.revoke(now);
+
+        let event = UserEvent::LoggedOut(UserLoggedOut::record(
+            user_id,
+            decoded.refresh_token_id,
+            request.client.ip,
+            request.client.user_agent,
+            now,
+        ));
+        let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
+
         self.refresh_token_repository
-            .revoke(&refresh_token)
+            .revoke_with_events(&refresh_token, &records)
             .await?;
 
         Ok(())
     }
 }
-

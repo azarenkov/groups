@@ -1,9 +1,10 @@
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use domain::user::id::UserId;
 use shared::middleware::auth::AuthToken;
 use validator::Validate;
 
 use crate::shared::{
+    client::extract_client_context,
     dto::{
         requests::auth::{
             confirm_registration::ConfirmRegistrationRequestBody, login::LoginUserRequestBody,
@@ -18,13 +19,18 @@ use crate::shared::{
 
 #[post("/register")]
 async fn register_user(
+    req: HttpRequest,
     app_state: web::Data<AppState>,
     body: web::Json<RegisterUserRequestBody>,
 ) -> Result<impl Responder, ApiError> {
     let body: RegisterUserRequestBody = body.into_inner();
     body.validate()?;
 
-    let tokens = app_state.register_user_usecase.execute(body.into()).await?;
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let tokens = app_state
+        .register_user_usecase
+        .execute(body.into_request(client))
+        .await?;
 
     let response: TokenPairResponse = tokens.into();
 
@@ -51,13 +57,18 @@ async fn confirm_registration(
 
 #[post("/login")]
 async fn login_user(
+    req: HttpRequest,
     app_state: web::Data<AppState>,
     request: web::Json<LoginUserRequestBody>,
 ) -> Result<impl Responder, ApiError> {
     let request: LoginUserRequestBody = request.into_inner();
     request.validate()?;
 
-    let tokens = app_state.login_user_usecase.execute(request.into()).await?;
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let tokens = app_state
+        .login_user_usecase
+        .execute(request.into_request(client))
+        .await?;
 
     let response: TokenPairResponse = tokens.into();
 
@@ -66,15 +77,17 @@ async fn login_user(
 
 #[post("/refresh")]
 async fn refresh_tokens(
+    req: HttpRequest,
     app_state: web::Data<AppState>,
     request: web::Json<RefreshTokenRequestBody>,
 ) -> Result<impl Responder, ApiError> {
     let request: RefreshTokenRequestBody = request.into_inner();
     request.validate()?;
 
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
     let tokens = app_state
         .refresh_tokens_usecase
-        .execute(request.into())
+        .execute(request.into_request(client))
         .await?;
 
     let response: TokenPairResponse = tokens.into();
@@ -84,6 +97,7 @@ async fn refresh_tokens(
 
 #[post("/logout")]
 async fn logout(
+    req: HttpRequest,
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     request: web::Json<LogoutRequestBody>,
@@ -92,9 +106,10 @@ async fn logout(
     request.validate()?;
     let user_id = UserId::new(auth_token.id);
 
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
     app_state
         .logout_usecase
-        .execute(user_id, request.into())
+        .execute(user_id, request.into_request(client))
         .await?;
 
     Ok(HttpResponse::NoContent().finish())

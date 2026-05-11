@@ -92,6 +92,8 @@ where
             tokens.refresh_token_id,
             decoded.user_id,
             tokens.refresh_token_expires_at,
+            request.client.ip.clone(),
+            request.client.user_agent.clone(),
         );
         self.refresh_token_repository
             .save_refresh_token(&new_refresh_token)

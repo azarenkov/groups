@@ -5,6 +5,8 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub jwt_secret: String,
+    #[serde(default)]
+    pub trust_forwarded_headers: bool,
 }
 
 impl ServerConfig {

@@ -1,6 +1,8 @@
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy)]
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct RefreshTokenId(Uuid);
 
 #[derive(Debug, thiserror::Error)]

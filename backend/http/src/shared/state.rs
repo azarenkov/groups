@@ -41,12 +41,8 @@ pub struct AppState {
 
     pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
 
-    pub register_user_usecase: RegisterUser<
-        PostgresUserRepository,
-        BcryptHasher,
-        PostgresRefreshTokenRepository,
-        JwtTokenIssuer,
-    >,
+    pub register_user_usecase:
+        RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
     pub login_user_usecase: LoginUser<
         PostgresUserRepository,
         BcryptHasher,
@@ -71,6 +67,7 @@ pub struct AppState {
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
 
     pub jwt_secret: String,
+    pub trust_forwarded_headers: bool,
 }
 
 impl AppState {
@@ -94,7 +91,6 @@ impl AppState {
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
-            PostgresRefreshTokenRepository,
             JwtTokenIssuer,
         >,
         login_user_usecase: LoginUser<
@@ -120,6 +116,7 @@ impl AppState {
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
         jwt_secret: String,
+        trust_forwarded_headers: bool,
     ) -> Self {
         Self {
             create_channel_usecase,
@@ -140,6 +137,7 @@ impl AppState {
             list_server_members_usecase,
             list_server_channels_usecase,
             jwt_secret,
+            trust_forwarded_headers,
         }
     }
 }

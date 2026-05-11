@@ -1,4 +1,4 @@
-use application::dto::requests::auth::logout::LogoutRequest;
+use application::dto::requests::{auth::logout::LogoutRequest, client_context::ClientContext};
 use serde::Deserialize;
 use validator::Validate;
 
@@ -9,10 +9,11 @@ pub struct LogoutRequestBody {
     pub refresh_token: String,
 }
 
-impl From<LogoutRequestBody> for LogoutRequest {
-    fn from(value: LogoutRequestBody) -> Self {
-        Self {
-            refresh_token: value.refresh_token,
+impl LogoutRequestBody {
+    pub fn into_request(self, client: ClientContext) -> LogoutRequest {
+        LogoutRequest {
+            refresh_token: self.refresh_token,
+            client,
         }
     }
 }

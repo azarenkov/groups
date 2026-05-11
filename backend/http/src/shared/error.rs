@@ -377,6 +377,7 @@ impl ToHttpStatus for LoginError {
         match self {
             LoginError::Repository(e) => e.to_http_status(),
             LoginError::Hash(e) => e.to_http_status(),
+            LoginError::Outbox(e) => e.to_http_status(),
             LoginError::TokenIssuer(e) => e.to_http_status(),
             LoginError::InvalidCredentials => StatusCode::UNAUTHORIZED,
         }
@@ -386,6 +387,7 @@ impl ToHttpStatus for LoginError {
         match self {
             LoginError::Repository(e) => e.to_user_message(),
             LoginError::Hash(e) => e.to_user_message(),
+            LoginError::Outbox(e) => e.to_user_message(),
             LoginError::TokenIssuer(e) => e.to_user_message(),
             LoginError::InvalidCredentials => "Invalid credentials".to_string(),
         }
@@ -420,6 +422,7 @@ impl ToHttpStatus for LogoutError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LogoutError::Repository(e) => e.to_http_status(),
+            LogoutError::Outbox(e) => e.to_http_status(),
             LogoutError::TokenIssuer(e) => e.to_http_status(),
             LogoutError::RefreshTokenNotFound => StatusCode::NOT_FOUND,
             LogoutError::UserMismatch => StatusCode::UNAUTHORIZED,
@@ -429,6 +432,7 @@ impl ToHttpStatus for LogoutError {
     fn to_user_message(&self) -> String {
         match self {
             LogoutError::Repository(e) => e.to_user_message(),
+            LogoutError::Outbox(e) => e.to_user_message(),
             LogoutError::TokenIssuer(e) => e.to_user_message(),
             LogoutError::RefreshTokenNotFound => "Refresh token not found".to_string(),
             LogoutError::UserMismatch => "Refresh token user mismatch".to_string(),
@@ -447,6 +451,7 @@ impl ToHttpStatus for ConfirmRegistrationError {
             ConfirmRegistrationError::UserNotFound => StatusCode::NOT_FOUND,
             ConfirmRegistrationError::Repository(e) => e.to_http_status(),
             ConfirmRegistrationError::Hash(e) => e.to_http_status(),
+            ConfirmRegistrationError::Outbox(e) => e.to_http_status(),
         }
     }
 
@@ -468,6 +473,7 @@ impl ToHttpStatus for ConfirmRegistrationError {
             ConfirmRegistrationError::UserNotFound => "User not found".to_string(),
             ConfirmRegistrationError::Repository(e) => e.to_user_message(),
             ConfirmRegistrationError::Hash(e) => e.to_user_message(),
+            ConfirmRegistrationError::Outbox(e) => e.to_user_message(),
         }
     }
 }
