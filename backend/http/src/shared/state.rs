@@ -41,12 +41,8 @@ pub struct AppState {
 
     pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
 
-    pub register_user_usecase: RegisterUser<
-        PostgresUserRepository,
-        BcryptHasher,
-        PostgresRefreshTokenRepository,
-        JwtTokenIssuer,
-    >,
+    pub register_user_usecase:
+        RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
     pub login_user_usecase: LoginUser<
         PostgresUserRepository,
         BcryptHasher,
@@ -94,7 +90,6 @@ impl AppState {
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
-            PostgresRefreshTokenRepository,
             JwtTokenIssuer,
         >,
         login_user_usecase: LoginUser<

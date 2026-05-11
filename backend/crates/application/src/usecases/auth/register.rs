@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use domain::{
-    refresh_token::{
-        refresh_token::RefreshToken, repository::RefreshTokenRepository,
-    },
+    refresh_token::refresh_token::RefreshToken,
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -12,7 +11,13 @@ use domain::{
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, email::Email, name::UserName, repository::UserRepository},
+    user::{
+        User,
+        email::Email,
+        events::{UserEvent, lifecycle::UserLoggedIn},
+        name::UserName,
+        repository::UserRepository,
+    },
     verification::{
         channel::VerificationChannel, code::VerificationCode, code_hash::CodeHash,
         purpose::VerificationPurpose,
@@ -39,36 +44,27 @@ pub enum RegistrationError {
     TokenIssuer(#[from] TokenIssuerError),
 }
 
-pub struct RegisterUser<T, H, R, I>
+pub struct RegisterUser<T, H, I>
 where
     T: UserRepository,
     H: Hasher,
-    R: RefreshTokenRepository,
     I: TokenIssuer,
 {
     user_repository: Arc<T>,
     hasher: Arc<H>,
-    refresh_token_repository: Arc<R>,
     token_issuer: Arc<I>,
 }
 
-impl<T, H, R, I> RegisterUser<T, H, R, I>
+impl<T, H, I> RegisterUser<T, H, I>
 where
     T: UserRepository,
     H: Hasher,
-    R: RefreshTokenRepository,
     I: TokenIssuer,
 {
-    pub fn new(
-        user_repository: Arc<T>,
-        hasher: Arc<H>,
-        refresh_token_repository: Arc<R>,
-        token_issuer: Arc<I>,
-    ) -> Self {
+    pub fn new(user_repository: Arc<T>, hasher: Arc<H>, token_issuer: Arc<I>) -> Self {
         Self {
             user_repository,
             hasher,
-            refresh_token_repository,
             token_issuer,
         }
     }
@@ -79,10 +75,12 @@ where
     ) -> Result<IssuedTokens, RegistrationError> {
         let password_hash = PasswordHash::new(self.hasher.hash(&request.password)?);
 
-        let user = User::create(
+        let mut user = User::create(
             UserName::new(request.name),
             Email::new(request.email),
             password_hash,
+            request.client.ip.clone(),
+            request.client.user_agent.clone(),
         );
 
         let plain_code = VerificationCode::generate();
@@ -97,16 +95,6 @@ where
             VerificationPurpose::Registration,
         );
 
-        let records: Vec<OutboxRecord> = verification_code
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record())
-            .collect::<Result<_, _>>()?;
-
-        self.user_repository
-            .register_user(&user, &verification_code, &records)
-            .await?;
-
         let tokens = self.token_issuer.issue(user.id()).await?;
 
         let refresh_token = RefreshToken::issue(
@@ -114,17 +102,34 @@ where
             user.id_ownned(),
             tokens.refresh_token_expires_at,
         );
-        if let Err(e) = self
-            .refresh_token_repository
-            .save_refresh_token(&refresh_token)
-            .await
-        {
-            tracing::warn!(
-                user_id = %user.id().uuid(),
-                error = ?e,
-                "Failed to persist refresh token at registration; user will need to re-login when access token expires",
-            );
-        }
+
+        let login_event = UserEvent::LoggedIn(UserLoggedIn::record(
+            user.id_ownned(),
+            tokens.refresh_token_id,
+            request.client.ip,
+            request.client.user_agent,
+            Utc::now(),
+        ));
+
+        let user_records = user
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record())
+            .collect::<Result<Vec<_>, _>>()?;
+        let verification_records = verification_code
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record())
+            .collect::<Result<Vec<_>, _>>()?;
+        let records: Vec<OutboxRecord> = user_records
+            .into_iter()
+            .chain(verification_records)
+            .chain(std::iter::once(login_event.to_outbox_record()?))
+            .collect();
+
+        self.user_repository
+            .register_user(&user, &verification_code, &refresh_token, &records)
+            .await?;
 
         Ok(tokens)
     }

@@ -2,7 +2,13 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    shared::repository::error::RepositoryError,
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
     user::{id::UserId, repository::UserRepository},
     verification::{
         channel::VerificationChannel, code::VerificationCode,
@@ -33,6 +39,8 @@ pub enum ConfirmRegistrationError {
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
 }
 
 pub struct ConfirmRegistration<T, H, V>
@@ -115,15 +123,21 @@ where
         }
 
         match verification_code.channel() {
-            VerificationChannel::Email => user.set_email_verified_at(Some(now)),
-            VerificationChannel::Phone => user.set_phone_verified_at(Some(now)),
+            VerificationChannel::Email => user.verify_email(now),
+            VerificationChannel::Phone => user.verify_phone(now),
         }
 
         verification_code.set_consumed_at(Some(now));
 
+        let records: Vec<OutboxRecord> = user
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record())
+            .collect::<Result<_, _>>()?;
+
         let consumed = self
             .user_repository
-            .confirm_registration(&user, &verification_code)
+            .confirm_registration(&user, &verification_code, &records)
             .await?;
 
         if !consumed {

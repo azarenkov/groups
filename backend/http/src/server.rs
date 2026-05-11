@@ -84,7 +84,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
-        refresh_token_repository.clone(),
         token_issuer.clone(),
     );
     let login_user_usecase = LoginUser::new(
