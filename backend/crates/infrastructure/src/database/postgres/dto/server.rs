@@ -1,9 +1,6 @@
 use chrono::{DateTime, Utc};
 use domain::{
-    server::{
-        Server,
-        description::ServerDescription, id::ServerId, name::ServerName,
-    },
+    server::{Server, description::ServerDescription, id::ServerId, name::ServerName},
     user::id::UserId,
 };
 use sqlx::{FromRow, types::Uuid};
@@ -20,7 +17,7 @@ pub struct ServerDto {
 
 impl From<ServerDto> for Server {
     fn from(dto: ServerDto) -> Self {
-        Server::new(
+        Server::restore(
             ServerId::new(dto.id),
             ServerName::new(dto.name),
             UserId::new(dto.owner_id),

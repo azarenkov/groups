@@ -16,7 +16,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(
+    pub fn restore(
         id: ServerId,
         name: ServerName,
         owner_id: UserId,

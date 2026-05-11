@@ -1,10 +1,7 @@
 use chrono::{DateTime, Utc};
 use domain::{
     shared::value_objects::password_hash::PasswordHash,
-    user::{
-        User,
-        email::Email, id::UserId, name::UserName,
-    },
+    user::{User, email::Email, id::UserId, name::UserName},
 };
 use sqlx::{FromRow, types::Uuid};
 
@@ -22,7 +19,7 @@ pub struct UserDto {
 
 impl From<UserDto> for User {
     fn from(dto: UserDto) -> Self {
-        User::new(
+        User::restore(
             UserId::new(dto.id),
             UserName::new(dto.name),
             Email::new(dto.email),

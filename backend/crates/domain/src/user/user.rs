@@ -19,7 +19,7 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(
+    pub fn restore(
         id: UserId,
         name: UserName,
         email: Email,
