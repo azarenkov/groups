@@ -13,6 +13,7 @@ use application::usecases::{
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser,
     },
+    webhook::voice::HandleVoiceWebhook,
 };
 use infrastructure::{
     auth::jwt_token_issuer::JwtTokenIssuer,
@@ -22,7 +23,7 @@ use infrastructure::{
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
-    voice::livekit_service::LiveKitService,
+    voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
 
 pub struct AppState {
@@ -59,6 +60,9 @@ pub struct AppState {
     >,
     pub refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, JwtTokenIssuer>,
     pub logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
+
+    pub handle_livekit_webhook_usecase:
+        HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository>,
@@ -106,6 +110,10 @@ impl AppState {
         >,
         refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, JwtTokenIssuer>,
         logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
+        handle_livekit_webhook_usecase: HandleVoiceWebhook<
+            LiveKitWebhookReceiver,
+            PostgresChannelRepository,
+        >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository>,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
@@ -125,6 +133,7 @@ impl AppState {
             confirm_registration_usecase,
             refresh_tokens_usecase,
             logout_usecase,
+            handle_livekit_webhook_usecase,
             create_server_usecase,
             delete_server_usecase,
             list_servers_by_user_usecase,

@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
+    channel::{
+        ChannelError, events::participant::LeaveReason, id::ChannelId,
+        repository::ChannelRepository,
+    },
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -67,7 +70,7 @@ where
 
         let now = Utc::now();
 
-        channel.leave(user_id, now)?;
+        channel.leave(user_id, LeaveReason::ClientInitiated, now)?;
 
         let records: Vec<OutboxRecord> = channel
             .pull_events()

@@ -171,6 +171,59 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(())
     }
 
+    async fn record_events_with_inbox(
+        &self,
+        channel_id: &ChannelId,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let inbox_result = sqlx::query!(
+            r#"
+            INSERT INTO webhook_inbox (source, external_id)
+            VALUES (($1::text)::webhook_source, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+            inbox_source,
+            inbox_external_id,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if inbox_result.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        let exists = sqlx::query!(
+            r#"
+            SELECT 1 AS "anchor!"
+            FROM channels
+            WHERE id = $1
+            FOR SHARE
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if exists.is_none() {
+            return Err(RepositoryError::NotFound);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
+    }
+
     async fn delete_channel_with_events(
         &self,
         channel_id: &ChannelId,

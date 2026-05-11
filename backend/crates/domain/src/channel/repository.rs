@@ -27,6 +27,14 @@ pub trait ChannelRepository {
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
 
+    async fn record_events_with_inbox(
+        &self,
+        channel_id: &ChannelId,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError>;
+
     async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError>;
 
     async fn mute_participant_with_events(
