@@ -54,6 +54,7 @@ jobs:
       packages: write
 
     strategy:
+      fail-fast: false
       matrix:
         service: ${{ fromJSON(needs.changes.outputs.services) }}
 
