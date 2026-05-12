@@ -1,16 +1,15 @@
 use std::{error::Error, sync::Arc};
 
-use application::ports::mailer::Mailer;
-use async_nats::jetstream::{
-    self,
-    consumer::{AckPolicy, Consumer, pull},
+use application::ports::{
+    event_consumer::{ConsumedMessage, EventConsumer},
+    mailer::Mailer,
 };
 use domain::user::email::Email;
 use futures::StreamExt;
 use infrastructure::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
-    messaging::nats::connection::create_jetstream,
+    messaging::nats::{connection::create_jetstream, consumer::NatsEventConsumer},
 };
 use serde::Deserialize;
 use tokio::signal;
@@ -41,22 +40,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let jetstream = create_jetstream(&nats_config).await?;
     let mailer: Arc<SmtpMailer> = Arc::new(SmtpMailer::from_config(mailer_config)?);
 
-    let stream = jetstream
-        .get_stream(&notification_config.notification_user_stream)
-        .await?;
+    let event_consumer = NatsEventConsumer::new(
+        jetstream,
+        notification_config.notification_user_stream.clone(),
+    );
+
     let filter_subject = format!("{}.user.verification.issued", nats_config.subject_prefix);
 
-    let consumer: Consumer<pull::Config> = stream
-        .get_or_create_consumer(
+    let mut messages = event_consumer
+        .subscribe(
             &notification_config.notification_verification_consumer,
-            pull::Config {
-                durable_name: Some(
-                    notification_config.notification_verification_consumer.clone(),
-                ),
-                filter_subject: filter_subject.clone(),
-                ack_policy: AckPolicy::Explicit,
-                ..Default::default()
-            },
+            &filter_subject,
         )
         .await?;
 
@@ -70,8 +64,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let shutdown = signal::ctrl_c();
     tokio::pin!(shutdown);
 
-    let mut messages = consumer.messages().await?;
-
     loop {
         tokio::select! {
             _ = &mut shutdown => {
@@ -81,10 +73,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             msg = messages.next() => {
                 match msg {
                     Some(Ok(msg)) => {
-                        handle_verification_message(mailer.as_ref(), &msg).await;
+                        handle_verification_message(mailer.as_ref(), msg).await;
                     }
                     Some(Err(e)) => {
-                        tracing::error!(error = %e, "NATS message error");
+                        tracing::error!(error = %e, "Consumer stream error");
                     }
                     None => {
                         tracing::warn!("Message stream ended unexpectedly");
@@ -98,7 +90,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn handle_verification_message<M: Mailer>(mailer: &M, msg: &jetstream::Message) {
+async fn handle_verification_message<M: Mailer>(mailer: &M, msg: ConsumedMessage) {
     let event: VerificationEvent = match serde_json::from_slice(&msg.payload) {
         Ok(e) => e,
         Err(e) => {
