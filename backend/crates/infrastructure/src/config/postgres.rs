@@ -13,7 +13,7 @@ pub struct PostgresConfig {
     #[serde(rename = "postgres_db")]
     db: String,
     #[serde(rename = "postgres_options", default)]
-    options: String,
+    options: Option<String>,
     #[serde(rename = "postgres_max_connections")]
     max_connections: u32,
     #[serde(rename = "postgres_min_connections")]
@@ -39,10 +39,10 @@ impl PostgresConfig {
             "postgres://{}:{}@{}:{}/{}",
             user, password, self.host, self.port, self.db,
         );
-        if self.options.is_empty() {
-            base
-        } else {
-            format!("{}?{}", base, self.options)
+
+        match &self.options {
+            Some(value) => format!("{}?{}", base, value),
+            None => base,
         }
     }
 

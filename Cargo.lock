@@ -1713,6 +1713,7 @@ dependencies = [
  "shared",
  "sqlx",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "urlencoding",
  "uuid",
@@ -3089,6 +3090,7 @@ dependencies = [
  "envy",
  "jsonwebtoken 10.3.0",
  "serde",
+ "tokio",
  "tracing",
  "uuid",
 ]

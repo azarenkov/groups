@@ -6,7 +6,7 @@ pub struct ServerConfig {
     pub port: u16,
     pub jwt_secret: String,
     #[serde(default)]
-    pub trust_forwarded_headers: bool,
+    pub trusted_proxy_hostname: Option<String>,
 }
 
 impl ServerConfig {

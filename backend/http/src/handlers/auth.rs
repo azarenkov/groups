@@ -26,7 +26,7 @@ async fn register_user(
     let body: RegisterUserRequestBody = body.into_inner();
     body.validate()?;
 
-    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let client = extract_client_context(&req);
     let tokens = app_state
         .register_user_usecase
         .execute(body.into_request(client))
@@ -64,7 +64,7 @@ async fn login_user(
     let request: LoginUserRequestBody = request.into_inner();
     request.validate()?;
 
-    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let client = extract_client_context(&req);
     let tokens = app_state
         .login_user_usecase
         .execute(request.into_request(client))
@@ -84,7 +84,7 @@ async fn refresh_tokens(
     let request: RefreshTokenRequestBody = request.into_inner();
     request.validate()?;
 
-    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let client = extract_client_context(&req);
     let tokens = app_state
         .refresh_tokens_usecase
         .execute(request.into_request(client))
@@ -106,7 +106,7 @@ async fn logout(
     request.validate()?;
     let user_id = UserId::new(auth_token.id);
 
-    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let client = extract_client_context(&req);
     app_state
         .logout_usecase
         .execute(user_id, request.into_request(client))

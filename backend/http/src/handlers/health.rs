@@ -6,7 +6,7 @@ pub async fn livez() -> HttpResponse {
 }
 
 pub async fn readyz(readiness: web::Data<Readiness>) -> HttpResponse {
-    if readiness.is_ready() {
+    if readiness.check().await {
         HttpResponse::Ok().finish()
     } else {
         HttpResponse::ServiceUnavailable().finish()

@@ -3,8 +3,11 @@ use std::{error::Error, sync::Arc, time::Duration};
 use application::ports::outbox_publisher::OutboxPublisher;
 use infrastructure::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
-    database::postgres::connection::create_postgres_pool,
-    messaging::nats::{connection::create_jetstream, producer::NatsOutboxPublisher},
+    database::postgres::connection::{create_postgres_pool, ping_pool},
+    messaging::nats::{
+        connection::{create_jetstream, is_nats_connected},
+        producer::NatsOutboxPublisher,
+    },
     outbox::dispatcher::OutboxDispatcher,
 };
 use shared::health::{self, Readiness};
@@ -22,14 +25,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let postgres_config = PostgresConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;
 
-    let readiness = Readiness::new();
+    let pool = create_postgres_pool(postgres_config).await?;
+    let jetstream = create_jetstream(&nats_config).await?;
+
+    let readiness = Readiness::builder()
+        .add_probe({
+            let pool = pool.clone();
+            move || {
+                let pool = pool.clone();
+                async move { ping_pool(&pool).await }
+            }
+        })
+        .add_probe({
+            let jetstream = jetstream.clone();
+            move || {
+                let jetstream = jetstream.clone();
+                async move { is_nats_connected(&jetstream) }
+            }
+        })
+        .build();
     let health_handle = actix_web::rt::spawn(health::serve(
         worker_config.health_port,
         readiness.clone(),
     ));
-
-    let pool = create_postgres_pool(postgres_config).await?;
-    let jetstream = create_jetstream(&nats_config).await?;
 
     let publisher = Arc::new(NatsOutboxPublisher::new(
         jetstream,

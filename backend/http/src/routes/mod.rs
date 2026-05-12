@@ -8,8 +8,8 @@ pub mod server;
 pub mod webhook;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.route("/livez", web::get().to(livez))
-        .route("/readyz", web::get().to(readyz))
+    cfg.service(web::resource("/livez").to(livez))
+        .service(web::resource("/readyz").to(readyz))
         .service(
             web::scope("/api")
                 .configure(channel::channel_routes)
