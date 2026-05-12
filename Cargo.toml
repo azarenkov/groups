@@ -6,7 +6,7 @@ members = [
     "backend/crates/infrastructure",
     "backend/crates/shared",
     "backend/http",
-    "backend/outbox-worker"]
+    "backend/outbox-worker", "backend/notification-service"]
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }

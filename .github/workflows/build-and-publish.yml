@@ -44,6 +44,15 @@ jobs:
               - '.sqlx/**'
               - 'migrations/**'
               - '.github/workflows/build-and-publish.yml'
+            notification-service:
+              - 'backend/notification-service/**'
+              - 'backend/crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'docker/notification-service/**'
+              - '.sqlx/**'
+              - 'migrations/**'
+              - '.github/workflows/build-and-publish.yml'
 
   build-and-push:
     needs: changes

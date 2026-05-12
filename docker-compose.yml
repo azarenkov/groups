@@ -123,6 +123,20 @@ services:
       nats:
         condition: service_healthy
 
+  notification-service:
+    build:
+      context: .
+      dockerfile: docker/notification-service/Dockerfile
+    container_name: rift-notification-service
+    restart: unless-stopped
+    networks:
+      - rift-network
+    env_file:
+      - .env.docker
+    depends_on:
+      nats:
+        condition: service_healthy
+
 networks:
   rift-network:
     driver: bridge
