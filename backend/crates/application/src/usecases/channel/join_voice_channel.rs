@@ -129,12 +129,12 @@ where
             .collect::<Result<_, _>>()?;
 
         self.voice_service
-            .create_voice_channel(&channel.id(), channel.server_id())
+            .create_voice_channel(channel.id(), channel.server_id())
             .await?;
 
         let channel_token = self
             .voice_service
-            .create_token(&user_id, user.name(), &channel.id())
+            .create_token(&user_id, user.name(), channel.id())
             .await?;
 
         self.channel_repository

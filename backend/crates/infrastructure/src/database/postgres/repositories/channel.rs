@@ -361,7 +361,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 .into_iter()
                 .map(|dto| {
                     let mute: ParticipantMute = dto.into();
-                    (mute.user_id.clone(), mute)
+                    (mute.user_id, mute)
                 })
                 .collect();
             Some(map)

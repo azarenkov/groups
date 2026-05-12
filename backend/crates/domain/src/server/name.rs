@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ServerName(String);
 
 impl ServerName {

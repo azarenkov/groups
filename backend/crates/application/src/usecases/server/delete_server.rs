@@ -1,8 +1,19 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use domain::{
-    server::{repository::ServerRepository, id::ServerId},
-    shared::repository::error::RepositoryError,
+    server::{
+        events::{ServerEvent, lifecycle::ServerDeleted},
+        id::ServerId,
+        repository::ServerRepository,
+    },
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
     user::id::UserId,
 };
 
@@ -10,6 +21,8 @@ use domain::{
 pub enum DeleteServerError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
 }
 
 pub struct DeleteServer<T>
@@ -32,9 +45,14 @@ where
         server_id: ServerId,
         owner_id: UserId,
     ) -> Result<bool, DeleteServerError> {
-        Ok(self
+        let event = ServerEvent::Deleted(ServerDeleted::record(server_id, owner_id, Utc::now()));
+        let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
+
+        let deleted = self
             .server_repository
-            .delete_server_by_owner(&server_id, &owner_id)
-            .await?)
+            .delete_server_by_owner_with_events(&server_id, &owner_id, &records)
+            .await?;
+
+        Ok(deleted)
     }
 }

@@ -2,9 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{
-    channel::{
-        id::ChannelId, kind::ChannelKind, name::ChannelName, visibility::ChannelVisibility,
-    },
+    channel::{id::ChannelId, kind::ChannelKind, name::ChannelName, visibility::ChannelVisibility},
     server::id::ServerId,
     shared::event::event_id::EventId,
     user::id::UserId,
@@ -33,7 +31,7 @@ impl ChannelCreated {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             owner_id,
@@ -64,7 +62,7 @@ impl ChannelRenamed {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             old_name,
@@ -91,7 +89,7 @@ impl ChannelDeleted {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             deleted_by,

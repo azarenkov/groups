@@ -28,7 +28,7 @@ impl UserRegistered {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             user_id,
             name,
             email,
@@ -50,7 +50,7 @@ pub struct UserEmailVerified {
 impl UserEmailVerified {
     pub fn record(user_id: UserId, email: Email, now: DateTime<Utc>) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             user_id,
             email,
             occurred_at: now,
@@ -68,7 +68,7 @@ pub struct UserPhoneVerified {
 impl UserPhoneVerified {
     pub fn record(user_id: UserId, now: DateTime<Utc>) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             user_id,
             occurred_at: now,
         }
@@ -94,7 +94,7 @@ impl UserLoggedIn {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             user_id,
             refresh_token_id,
             ip,
@@ -123,7 +123,7 @@ impl UserLoggedOut {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             user_id,
             refresh_token_id,
             ip,

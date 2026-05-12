@@ -9,6 +9,7 @@ use domain::{
     },
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
+        outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
@@ -24,6 +25,7 @@ use crate::database::postgres::{
         server::ServerDto, user::UserDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
+    repositories::outbox_record::save_outbox_records,
 };
 
 pub struct PostgresServerRepository {
@@ -52,7 +54,11 @@ impl ServerRepository for PostgresServerRepository {
         Ok(result.exists)
     }
 
-    async fn save_server(&self, server: &Server) -> Result<(), RepositoryError> {
+    async fn save_server_with_events(
+        &self,
+        server: &Server,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -86,6 +92,8 @@ impl ServerRepository for PostgresServerRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
@@ -228,8 +236,7 @@ impl ServerRepository for PostgresServerRepository {
         let mut muted_by_channel: HashMap<Uuid, HashMap<UserId, ParticipantMute>> = HashMap::new();
         for dto in muted_dtos {
             let user_id = UserId::new(dto.user_id);
-            let mute =
-                ParticipantMute::new(user_id.clone(), UserId::new(dto.muted_by), dto.muted_at);
+            let mute = ParticipantMute::new(user_id, UserId::new(dto.muted_by), dto.muted_at);
             muted_by_channel
                 .entry(dto.channel_id)
                 .or_default()
@@ -286,11 +293,18 @@ impl ServerRepository for PostgresServerRepository {
         Ok(())
     }
 
-    async fn delete_server_by_owner(
+    async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,
         owner_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
         let result = sqlx::query!(
             r#"
                 DELETE FROM servers WHERE id = $1 AND owner_id = $2
@@ -298,10 +312,18 @@ impl ServerRepository for PostgresServerRepository {
             server_id.uuid(),
             owner_id.uuid()
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(result.rows_affected() > 0)
+        if result.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(true)
     }
 }

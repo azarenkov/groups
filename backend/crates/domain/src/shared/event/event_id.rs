@@ -5,7 +5,7 @@ use uuid::Uuid;
 pub struct EventId(Uuid);
 
 impl EventId {
-    pub fn new() -> Self {
+    pub fn generate() -> Self {
         Self(Uuid::new_v4())
     }
 

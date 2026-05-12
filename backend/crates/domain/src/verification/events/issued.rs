@@ -32,7 +32,7 @@ impl VerificationCodeIssued {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             user_id,
             verification_code_id,
             channel,
