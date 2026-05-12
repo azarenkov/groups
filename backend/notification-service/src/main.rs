@@ -4,30 +4,18 @@ use application::ports::{
     event_consumer::{ConsumedMessage, EventConsumer},
     mailer::Mailer,
 };
-use domain::user::email::Email;
+use domain::verification::events::VerificationEvent;
 use futures::StreamExt;
 use infrastructure::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
     messaging::nats::{connection::create_jetstream, consumer::NatsEventConsumer},
 };
-use serde::Deserialize;
 use tokio::signal;
 
 use crate::config::NotificationConfig;
 
 mod config;
-
-#[derive(Debug, Deserialize)]
-enum VerificationEvent {
-    Issued(VerificationIssued),
-}
-
-#[derive(Debug, Deserialize)]
-struct VerificationIssued {
-    email: String,
-    code: String,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -101,10 +89,10 @@ async fn handle_verification_message<M: Mailer>(mailer: &M, msg: ConsumedMessage
     };
 
     let VerificationEvent::Issued(issued) = event;
-    let email_str = issued.email.clone();
+    let email_str = issued.email.as_str().to_string();
 
     match mailer
-        .send_verification_code(&Email::new(issued.email), &issued.code)
+        .send_verification_code(&issued.email, &issued.code)
         .await
     {
         Ok(()) => {
