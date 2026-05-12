@@ -3090,6 +3090,7 @@ dependencies = [
  "envy",
  "jsonwebtoken 10.3.0",
  "serde",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "uuid",

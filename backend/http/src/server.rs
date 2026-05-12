@@ -55,7 +55,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let livekit_url = livekit_config.url().to_string();
-    let trusted_proxy = resolve_trusted_proxy(server_config.trusted_proxy_hostname.as_deref()).await;
+    let trusted_proxy =
+        resolve_trusted_proxy(server_config.trusted_proxy_hostname.as_deref()).await?;
     tracing::info!(?trusted_proxy, "Resolved trusted proxy");
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
