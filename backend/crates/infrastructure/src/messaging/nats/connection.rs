@@ -32,6 +32,12 @@ const STREAMS: &[StreamDef] = &[
         max_age_secs: 60 * 60 * 24 * 180,
         max_bytes: 10 * 1024 * 1024 * 1024,
     },
+    StreamDef {
+        name: "RIFT_DLQ",
+        subject_suffix: "dlq.>",
+        max_age_secs: 60 * 60 * 24 * 90,
+        max_bytes: 10 * 1024 * 1024 * 1024,
+    },
 ];
 
 pub async fn create_jetstream(config: &NatsConfig) -> Result<Context, Box<dyn Error>> {

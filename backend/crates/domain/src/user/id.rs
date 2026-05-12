@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Hash, Eq)]
 pub struct UserId(Uuid);
 
 #[derive(Debug, thiserror::Error)]

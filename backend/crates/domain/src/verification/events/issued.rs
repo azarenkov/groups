@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     shared::event::event_id::EventId,
@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VerificationCodeIssued {
     pub id: EventId,
     pub user_id: UserId,

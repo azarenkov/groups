@@ -1,0 +1,21 @@
+[package]
+name = "notification-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+application = { workspace = true }
+domain = { workspace = true }
+infrastructure = { workspace = true }
+
+tracing = { workspace = true }
+env_logger = { workspace = true }
+dotenv = { workspace = true }
+envy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+futures = { workspace = true }
+
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "time"] }
+async-nats = { workspace = true }
