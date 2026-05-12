@@ -1,5 +1,5 @@
 use application::ports::event_consumer::{
-    ConsumedMessage, EventConsumer, EventConsumerError, StartPosition,
+    ConsumedMessage, EventConsumer, EventConsumerError, StartPosition, SubscribeOptions,
 };
 use async_nats::jetstream::{
     Context,
@@ -25,21 +25,25 @@ impl NatsEventConsumer {
 impl EventConsumer for NatsEventConsumer {
     fn subscribe(
         &self,
-        consumer_name: &str,
-        subject: &str,
-        start_position: StartPosition,
+        opts: SubscribeOptions,
     ) -> BoxFuture<
         '_,
         Result<BoxStream<'static, Result<ConsumedMessage, EventConsumerError>>, EventConsumerError>,
     > {
         let jetstream = self.jetstream.clone();
         let stream_name = self.stream_name.clone();
-        let consumer_name = consumer_name.to_string();
-        let subject = subject.to_string();
+        let SubscribeOptions {
+            consumer_name,
+            subject,
+            start_position,
+            max_deliver,
+            dlq_subject,
+        } = opts;
         let deliver_policy = match start_position {
             StartPosition::New => DeliverPolicy::New,
             StartPosition::All => DeliverPolicy::All,
         };
+        let max_deliver_i64 = max_deliver.map(|n| n as i64).unwrap_or(-1);
 
         async move {
             let nats_consumer = create_durable_consumer(
@@ -48,6 +52,7 @@ impl EventConsumer for NatsEventConsumer {
                 &consumer_name,
                 subject,
                 deliver_policy,
+                max_deliver_i64,
             )
             .await
             .map_err(|e| EventConsumerError::Subscribe(e.to_string()))?;
@@ -57,22 +62,60 @@ impl EventConsumer for NatsEventConsumer {
                 .await
                 .map_err(|e| EventConsumerError::Subscribe(e.to_string()))?;
 
-            let mapped = messages.map(|result| match result {
-                Ok(msg) => {
-                    let payload = msg.payload.to_vec();
-                    let ack_fn: Box<
-                        dyn FnOnce() -> BoxFuture<'static, Result<(), EventConsumerError>> + Send,
-                    > = Box::new(move || {
-                        async move {
-                            msg.ack()
-                                .await
-                                .map_err(|e| EventConsumerError::Ack(e.to_string()))
+            let dlq_publisher = jetstream.clone();
+            let mapped = messages.filter_map(move |result| {
+                let dlq_publisher = dlq_publisher.clone();
+                let dlq_subject = dlq_subject.clone();
+                async move {
+                    match result {
+                        Ok(msg) => {
+                            if let (Some(max), Some(dlq)) = (max_deliver, dlq_subject.as_ref()) {
+                                let delivered =
+                                    msg.info().map(|i| i.delivered as u32).unwrap_or(0);
+                                if delivered >= max {
+                                    if let Err(e) = dlq_publisher
+                                        .publish(dlq.clone(), msg.payload.clone())
+                                        .await
+                                    {
+                                        return Some(Err(EventConsumerError::Stream(format!(
+                                            "DLQ publish failed: {}",
+                                            e
+                                        ))));
+                                    }
+                                    if let Err(e) = msg.ack().await {
+                                        tracing::error!(
+                                            error = %e,
+                                            "Failed to ack message after DLQ publish",
+                                        );
+                                    } else {
+                                        tracing::warn!(
+                                            dlq = %dlq,
+                                            delivered = delivered,
+                                            "Message moved to DLQ after max delivery attempts",
+                                        );
+                                    }
+                                    return None;
+                                }
+                            }
+                            let payload = msg.payload.to_vec();
+                            let ack_fn: Box<
+                                dyn FnOnce() -> BoxFuture<
+                                        'static,
+                                        Result<(), EventConsumerError>,
+                                    > + Send,
+                            > = Box::new(move || {
+                                async move {
+                                    msg.ack()
+                                        .await
+                                        .map_err(|e| EventConsumerError::Ack(e.to_string()))
+                                }
+                                .boxed()
+                            });
+                            Some(Ok(ConsumedMessage::new(payload, ack_fn)))
                         }
-                        .boxed()
-                    });
-                    Ok(ConsumedMessage::new(payload, ack_fn))
+                        Err(e) => Some(Err(EventConsumerError::Stream(e.to_string()))),
+                    }
                 }
-                Err(e) => Err(EventConsumerError::Stream(e.to_string())),
             });
 
             Ok(Box::pin(mapped) as BoxStream<'static, _>)
@@ -87,6 +130,7 @@ async fn create_durable_consumer(
     consumer_name: &str,
     filter_subject: String,
     deliver_policy: DeliverPolicy,
+    max_deliver: i64,
 ) -> Result<Consumer<pull::Config>, async_nats::Error> {
     let stream = jetstream.get_stream(stream_name).await?;
 
@@ -98,6 +142,7 @@ async fn create_durable_consumer(
                 filter_subject,
                 ack_policy: AckPolicy::Explicit,
                 deliver_policy,
+                max_deliver,
                 ..Default::default()
             },
         )

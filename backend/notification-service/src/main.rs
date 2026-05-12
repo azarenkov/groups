@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc};
 
 use application::ports::{
-    event_consumer::{ConsumedMessage, EventConsumer, StartPosition},
+    event_consumer::{ConsumedMessage, EventConsumer, StartPosition, SubscribeOptions},
     mailer::Mailer,
 };
 use domain::verification::events::VerificationEvent;
@@ -34,19 +34,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     let filter_subject = format!("{}.user.verification.issued", nats_config.subject_prefix);
+    let dlq_subject = format!("{}.dlq.user.verification.issued", nats_config.subject_prefix);
 
     let mut messages = event_consumer
-        .subscribe(
-            &notification_config.notification_verification_consumer,
-            &filter_subject,
-            StartPosition::New,
-        )
+        .subscribe(SubscribeOptions {
+            consumer_name: notification_config.notification_verification_consumer.clone(),
+            subject: filter_subject.clone(),
+            start_position: StartPosition::New,
+            max_deliver: Some(notification_config.notification_max_deliver),
+            dlq_subject: Some(dlq_subject.clone()),
+        })
         .await?;
 
     tracing::info!(
         stream = %notification_config.notification_user_stream,
         consumer = %notification_config.notification_verification_consumer,
         subject = %filter_subject,
+        dlq = %dlq_subject,
+        max_deliver = notification_config.notification_max_deliver,
         "Notification service started",
     );
 

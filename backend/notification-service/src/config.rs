@@ -6,6 +6,8 @@ pub struct NotificationConfig {
     pub notification_user_stream: String,
     #[serde(default = "default_verification_consumer")]
     pub notification_verification_consumer: String,
+    #[serde(default = "default_max_deliver")]
+    pub notification_max_deliver: u32,
 }
 
 impl NotificationConfig {
@@ -21,4 +23,8 @@ fn default_user_stream() -> String {
 
 fn default_verification_consumer() -> String {
     "notification-service-verification".to_string()
+}
+
+fn default_max_deliver() -> u32 {
+    5
 }

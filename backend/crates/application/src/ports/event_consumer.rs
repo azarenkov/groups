@@ -4,13 +4,20 @@ use futures::stream::BoxStream;
 pub trait EventConsumer: Send + Sync {
     fn subscribe(
         &self,
-        consumer_name: &str,
-        subject: &str,
-        start_position: StartPosition,
+        opts: SubscribeOptions,
     ) -> BoxFuture<
         '_,
         Result<BoxStream<'static, Result<ConsumedMessage, EventConsumerError>>, EventConsumerError>,
     >;
+}
+
+#[derive(Debug)]
+pub struct SubscribeOptions {
+    pub consumer_name: String,
+    pub subject: String,
+    pub start_position: StartPosition,
+    pub max_deliver: Option<u32>,
+    pub dlq_subject: Option<String>,
 }
 
 #[derive(Debug)]
