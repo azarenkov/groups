@@ -96,7 +96,17 @@ fn parse_host_port(url: &str) -> Option<String> {
     if host_port.is_empty() {
         return None;
     }
-    if host_port.contains(':') {
+
+    let has_port = if let Some(after_bracket) = host_port.strip_prefix('[') {
+        after_bracket
+            .rsplit_once(']')
+            .map(|(_, rest)| rest.starts_with(':') && rest.len() > 1)
+            .unwrap_or(false)
+    } else {
+        host_port.contains(':')
+    };
+
+    if has_port {
         Some(host_port.to_string())
     } else {
         let default_port = if url.starts_with("https://") || url.starts_with("wss://") {
