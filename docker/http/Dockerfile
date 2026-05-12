@@ -1,4 +1,4 @@
-FROM rustlang/rust:nightly-bookworm as chef
+FROM rustlang/rust:nightly-bookworm AS chef
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
