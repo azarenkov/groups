@@ -43,7 +43,10 @@ impl EventConsumer for NatsEventConsumer {
             StartPosition::New => DeliverPolicy::New,
             StartPosition::All => DeliverPolicy::All,
         };
-        let max_deliver_i64 = max_deliver.map(|n| n as i64).unwrap_or(-1);
+        let max_deliver_i64 = match max_deliver {
+            Some(n) => (n as i64) + 1,
+            None => -1,
+        };
 
         async move {
             let nats_consumer = create_durable_consumer(
@@ -72,7 +75,7 @@ impl EventConsumer for NatsEventConsumer {
                             if let (Some(max), Some(dlq)) = (max_deliver, dlq_subject.as_ref()) {
                                 let delivered =
                                     msg.info().map(|i| i.delivered as u32).unwrap_or(0);
-                                if delivered >= max {
+                                if delivered > max {
                                     let ack_future = match dlq_publisher
                                         .publish(dlq.clone(), msg.payload.clone())
                                         .await
