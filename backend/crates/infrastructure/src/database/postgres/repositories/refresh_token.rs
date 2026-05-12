@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use domain::{
-    refresh_token::{
-        id::RefreshTokenId, refresh_token::RefreshToken, repository::RefreshTokenRepository,
-    },
+    refresh_token::{RefreshToken, id::RefreshTokenId, repository::RefreshTokenRepository},
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
 };

@@ -3,10 +3,8 @@ services:
     image: postgres:16-alpine
     container_name: rift-postgres
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: rift
+    env_file:
+      - .env.docker
     ports:
       - "5432:5432"
     volumes:
@@ -14,32 +12,11 @@ services:
     networks:
       - rift-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rift"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: rift-pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    networks:
-      - rift-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    profiles:
-      - tools
 
   redis:
     image: redis:7-alpine
@@ -118,41 +95,30 @@ services:
       - "8080:8080"
     networks:
       - rift-network
-    environment:
-      # Database (PostgresConfig)
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/rift
-      MAX_CONNECTIONS: 10
-      MIN_CONNECTIONS: 2
-      CONNECT_TIMEOUT_SECONDS: 30
-      IDLE_TIMEOUT_SECONDS: 600
-      MAX_LIFETIME_SECONDS: 1800
-
-      # JWT & Server (ServerConfig)
-      JWT_SECRET: your-secret-key-change-in-production
-      HOST: 0.0.0.0
-      PORT: 8080
-      RATE_LIMITING_REQUESTS: 10
-      RATE_LIMITING_BURST_SIZE: 20
-
-      # LiveKit (LiveKitConfig)
-      LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: secret
-      LIVEKIT_URL: http://livekit:7880
-      LIVEKIT_CLIENT_URL: ws://localhost:7880
-
-      # NATS (NatsConfig)
-      NATS_URL: nats://nats:4222
-      NATS_SUBJECT_PREFIX: rift.events
-      NATS_REPLICAS: 1
-
-      # Logging
-      RUST_LOG: info
+    env_file:
+      - .env.docker
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       livekit:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  outbox-worker:
+    build:
+      context: .
+      dockerfile: docker/outbox-worker/Dockerfile
+    container_name: rift-outbox-worker
+    restart: unless-stopped
+    networks:
+      - rift-network
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
         condition: service_healthy
       nats:
         condition: service_healthy

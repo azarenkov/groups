@@ -11,6 +11,6 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 actix-web = { workspace = true }
 actix-cors = { workspace = true }
-jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
-anyhow = "1.0.102"
+jsonwebtoken = { workspace = true }
+anyhow = { workspace = true }
 actix-governor = "0.10.0"

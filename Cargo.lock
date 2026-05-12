@@ -213,22 +213,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-ws"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "decf53c3cdd63dd6f289980b430238f9a2f6d19f8bce8e418272e08d3da43f0f"
-dependencies = [
- "actix-codec",
- "actix-http",
- "actix-web",
- "bytestring",
- "futures-core",
- "futures-sink",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1728,6 +1712,7 @@ dependencies = [
  "shared",
  "sqlx",
  "thiserror 2.0.18",
+ "tracing",
  "urlencoding",
  "uuid",
 ]
@@ -2261,6 +2246,23 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "outbox-worker"
+version = "0.1.0"
+dependencies = [
+ "application",
+ "async-nats",
+ "domain",
+ "dotenv",
+ "env_logger",
+ "envy",
+ "infrastructure",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3610,7 +3612,6 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
- "futures-util",
  "pin-project-lite",
  "tokio",
 ]
@@ -4038,18 +4039,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22cfaf3c063993ff62e73cb4311efde4db1efb31ab78a3e5c457939ad5cc0bed"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "websocket"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "actix-ws",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
 ]
 
 [[package]]

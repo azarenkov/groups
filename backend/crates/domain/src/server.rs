@@ -1,3 +1,9 @@
+pub mod description;
+pub mod events;
+pub mod id;
+pub mod name;
+pub mod repository;
+
 use chrono::{DateTime, Utc};
 
 use crate::{

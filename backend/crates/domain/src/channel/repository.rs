@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    channel::{channel::Channel, id::ChannelId},
+    channel::{Channel, id::ChannelId},
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
 };

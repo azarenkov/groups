@@ -13,7 +13,7 @@ pub async fn create_postgres_pool(
         .acquire_timeout(Duration::from_secs(config.connect_timeout_seconds()))
         .idle_timeout(Duration::from_secs(config.idle_timeout_seconds()))
         .max_lifetime(Duration::from_secs(config.max_lifetime_seconds()))
-        .connect(config.url())
+        .connect(&config.url())
         .await
         .map_err(Box::<dyn Error>::from)?;
 
