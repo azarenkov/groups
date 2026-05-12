@@ -23,7 +23,7 @@ impl Pagination {
         if page < MIN_PER_PAGE {
             return Err(PaginationError::InvalidPage);
         }
-        if per_page < MIN_PER_PAGE || per_page > MAX_PER_PAGE {
+        if !(MIN_PER_PAGE..=MAX_PER_PAGE).contains(&per_page) {
             return Err(PaginationError::InvalidPerPage(MAX_PER_PAGE));
         }
         Ok(Self { page, per_page })

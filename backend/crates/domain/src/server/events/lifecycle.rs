@@ -26,7 +26,7 @@ impl ServerCreated {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             server_id,
             owner_id,
             name,
@@ -47,7 +47,7 @@ pub struct ServerDeleted {
 impl ServerDeleted {
     pub fn record(server_id: ServerId, owner_id: UserId, now: DateTime<Utc>) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             server_id,
             owner_id,
             occurred_at: now,

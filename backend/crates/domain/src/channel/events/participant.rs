@@ -46,7 +46,7 @@ impl ParticipantJoined {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             user_id,
@@ -74,7 +74,7 @@ impl ParticipantLeft {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             user_id,
@@ -103,7 +103,7 @@ impl ParticipantMuted {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             user_id,
@@ -132,7 +132,7 @@ impl ParticipantUnmuted {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             user_id,
@@ -161,7 +161,7 @@ impl ParticipantConnectionAborted {
         now: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: EventId::new(),
+            id: EventId::generate(),
             channel_id,
             server_id,
             user_id,

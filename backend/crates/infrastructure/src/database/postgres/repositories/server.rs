@@ -236,8 +236,7 @@ impl ServerRepository for PostgresServerRepository {
         let mut muted_by_channel: HashMap<Uuid, HashMap<UserId, ParticipantMute>> = HashMap::new();
         for dto in muted_dtos {
             let user_id = UserId::new(dto.user_id);
-            let mute =
-                ParticipantMute::new(user_id.clone(), UserId::new(dto.muted_by), dto.muted_at);
+            let mute = ParticipantMute::new(user_id, UserId::new(dto.muted_by), dto.muted_at);
             muted_by_channel
                 .entry(dto.channel_id)
                 .or_default()
