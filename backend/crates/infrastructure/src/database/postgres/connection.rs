@@ -35,3 +35,7 @@ async fn health_check(pool: &Pool<Postgres>) -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+pub async fn ping_pool(pool: &Pool<Postgres>) -> bool {
+    sqlx::query("SELECT 1").execute(pool).await.is_ok()
+}

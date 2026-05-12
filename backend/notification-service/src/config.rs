@@ -8,6 +8,8 @@ pub struct NotificationConfig {
     pub notification_verification_consumer: String,
     #[serde(default = "default_max_deliver")]
     pub notification_max_deliver: u32,
+    #[serde(default = "default_health_port")]
+    pub health_port: u16,
 }
 
 impl NotificationConfig {
@@ -27,4 +29,8 @@ fn default_verification_consumer() -> String {
 
 fn default_max_deliver() -> u32 {
     5
+}
+
+fn default_health_port() -> u16 {
+    8082
 }

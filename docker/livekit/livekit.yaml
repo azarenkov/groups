@@ -2,16 +2,8 @@ port: 7880
 bind_addresses:
   - "0.0.0.0"
 
-redis:
-  address: redis:6379
-
-keys:
-  devkey: secret
-
 webhook:
-  urls:
-    - http://api:8080/api/webhook/livekit
-  api_key: devkey
+  api_key: rift-server
 
 room:
   auto_create: false
@@ -21,3 +13,8 @@ room:
 rtc:
   port_range_start: 50000
   port_range_end: 50100
+  tcp_port: 7881
+  use_external_ip: true
+
+logging:
+  level: info

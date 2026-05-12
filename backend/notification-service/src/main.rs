@@ -9,15 +9,19 @@ use futures::StreamExt;
 use infrastructure::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
-    messaging::nats::{connection::create_jetstream, consumer::NatsEventConsumer},
+    messaging::nats::{
+        connection::{create_jetstream, is_nats_connected},
+        consumer::NatsEventConsumer,
+    },
 };
+use shared::health::{self, Readiness};
 use tokio::signal;
 
 use crate::config::NotificationConfig;
 
 mod config;
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
@@ -26,6 +30,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mailer_config = MailerConfig::from_env()?;
 
     let jetstream = create_jetstream(&nats_config).await?;
+
+    let readiness = Readiness::builder()
+        .add_probe({
+            let jetstream = jetstream.clone();
+            move || {
+                let jetstream = jetstream.clone();
+                async move { is_nats_connected(&jetstream) }
+            }
+        })
+        .build();
+    let health_server = health::bind(notification_config.health_port, readiness.clone())?;
+    let health_handle = actix_web::rt::spawn(async move {
+        if let Err(e) = health_server.await {
+            tracing::error!(error = %e, "Health server stopped");
+        }
+    });
     let mailer: Arc<SmtpMailer> = Arc::new(SmtpMailer::from_config(mailer_config)?);
 
     let event_consumer = NatsEventConsumer::new(
@@ -60,6 +80,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "Notification service started",
     );
 
+    readiness.mark_ready();
+
     let shutdown = signal::ctrl_c();
     tokio::pin!(shutdown);
 
@@ -85,6 +107,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
+    health_handle.abort();
 
     Ok(())
 }

@@ -18,6 +18,8 @@ pub struct WorkerConfig {
     pub outbox_cleanup_retention_secs: u64,
     #[serde(default = "default_cleanup_batch_size")]
     pub outbox_cleanup_batch_size: i64,
+    #[serde(default = "default_health_port")]
+    pub health_port: u16,
 }
 
 impl WorkerConfig {
@@ -57,4 +59,8 @@ fn default_cleanup_retention_secs() -> u64 {
 
 fn default_cleanup_batch_size() -> i64 {
     10_000
+}
+
+fn default_health_port() -> u16 {
+    8081
 }

@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y \
     libva2 \
     libdrm2 \
     libgcc-s1 \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /rift/target/release/outbox-worker /usr/local/bin/outbox-worker

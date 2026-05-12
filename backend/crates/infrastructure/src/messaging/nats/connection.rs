@@ -1,6 +1,9 @@
 use std::{error::Error, time::Duration};
 
-use async_nats::jetstream::{self, Context};
+use async_nats::{
+    connection::State,
+    jetstream::{self, Context},
+};
 
 use crate::config::nats::NatsConfig;
 
@@ -73,4 +76,8 @@ async fn initialize_streams(
     }
 
     Ok(())
+}
+
+pub fn is_nats_connected(jetstream: &Context) -> bool {
+    matches!(jetstream.client().connection_state(), State::Connected)
 }

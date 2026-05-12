@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use chrono::Utc;
 use domain::{
     refresh_token::RefreshToken,
     shared::{
@@ -11,13 +10,7 @@ use domain::{
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{
-        User,
-        email::Email,
-        events::{UserEvent, lifecycle::UserLoggedIn},
-        name::UserName,
-        repository::UserRepository,
-    },
+    user::{User, email::Email, name::UserName, repository::UserRepository},
     verification::{
         channel::VerificationChannel, code::VerificationCode, code_hash::CodeHash,
         purpose::VerificationPurpose,
@@ -101,17 +94,9 @@ where
             tokens.refresh_token_id,
             user.id_ownned(),
             tokens.refresh_token_expires_at,
-            request.client.ip.clone(),
-            request.client.user_agent.clone(),
-        );
-
-        let login_event = UserEvent::LoggedIn(UserLoggedIn::record(
-            user.id_ownned(),
-            tokens.refresh_token_id,
             request.client.ip,
             request.client.user_agent,
-            Utc::now(),
-        ));
+        );
 
         let user_records = user
             .pull_events()
@@ -126,7 +111,6 @@ where
         let records: Vec<OutboxRecord> = user_records
             .into_iter()
             .chain(verification_records)
-            .chain(std::iter::once(login_event.to_outbox_record()?))
             .collect();
 
         self.user_repository

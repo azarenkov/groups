@@ -24,7 +24,7 @@ use infrastructure::{
     auth::jwt_token_issuer::JwtTokenIssuer,
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
     database::postgres::{
-        connection::create_postgres_pool,
+        connection::{create_postgres_pool, ping_pool},
         repositories::{
             channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
             server::PostgresServerRepository, user::PostgresUserRepository,
@@ -32,10 +32,14 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
-    voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
+    voice::{
+        livekit_service::{LiveKitService, is_livekit_reachable},
+        livekit_webhook_receiver::LiveKitWebhookReceiver,
+    },
 };
-use shared::rate_limiting::{
-    config::RateLimitingConfig, create_governor_config, create_rate_limiting,
+use shared::{
+    health::Readiness,
+    rate_limiting::{config::RateLimitingConfig, create_rate_limiter},
 };
 
 use crate::{config::ServerConfig, routes, shared::state::AppState};
@@ -49,6 +53,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let rate_limiting_config = RateLimitingConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
@@ -137,8 +142,28 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         server_config.trust_forwarded_headers,
     ));
 
-    let governor_config = create_governor_config(rate_limiting_config)
-        .ok_or("Failed to create rate limiting configuration: invalid parameters")?;
+    let rate_limiter = create_rate_limiter(rate_limiting_config)
+        .ok_or("Failed to create rate limiter: invalid parameters")?;
+    let rate_limiter_data = web::Data::new(rate_limiter);
+
+    let readiness = Readiness::builder()
+        .add_probe({
+            let pool = postgres_pool.clone();
+            move || {
+                let pool = pool.clone();
+                async move { ping_pool(&pool).await }
+            }
+        })
+        .add_probe({
+            let url = livekit_url.clone();
+            move || {
+                let url = url.clone();
+                async move { is_livekit_reachable(&url).await }
+            }
+        })
+        .build();
+    readiness.mark_ready();
+    let readiness_data = web::Data::new(readiness);
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -147,13 +172,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .allow_any_header()
             .max_age(3600);
 
-        let rate_limiting = create_rate_limiting(&governor_config);
-
         App::new()
             .app_data(app_state.clone())
+            .app_data(readiness_data.clone())
+            .app_data(rate_limiter_data.clone())
             .wrap(cors)
             .wrap(Logger::default())
-            .wrap(rate_limiting)
             .configure(routes::configure)
     })
     .bind((server_config.host, server_config.port))?

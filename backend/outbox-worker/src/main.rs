@@ -3,17 +3,21 @@ use std::{error::Error, sync::Arc, time::Duration};
 use application::ports::outbox_publisher::OutboxPublisher;
 use infrastructure::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
-    database::postgres::connection::create_postgres_pool,
-    messaging::nats::{connection::create_jetstream, producer::NatsOutboxPublisher},
+    database::postgres::connection::{create_postgres_pool, ping_pool},
+    messaging::nats::{
+        connection::{create_jetstream, is_nats_connected},
+        producer::NatsOutboxPublisher,
+    },
     outbox::dispatcher::OutboxDispatcher,
 };
+use shared::health::{self, Readiness};
 use tokio::signal;
 
 use crate::config::WorkerConfig;
 
 mod config;
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
@@ -23,6 +27,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let pool = create_postgres_pool(postgres_config).await?;
     let jetstream = create_jetstream(&nats_config).await?;
+
+    let readiness = Readiness::builder()
+        .add_probe({
+            let pool = pool.clone();
+            move || {
+                let pool = pool.clone();
+                async move { ping_pool(&pool).await }
+            }
+        })
+        .add_probe({
+            let jetstream = jetstream.clone();
+            move || {
+                let jetstream = jetstream.clone();
+                async move { is_nats_connected(&jetstream) }
+            }
+        })
+        .build();
+    let health_server = health::bind(worker_config.health_port, readiness.clone())?;
+    let health_handle = actix_web::rt::spawn(async move {
+        if let Err(e) = health_server.await {
+            tracing::error!(error = %e, "Health server stopped");
+        }
+    });
 
     let publisher = Arc::new(NatsOutboxPublisher::new(
         jetstream,
@@ -52,6 +79,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cleanup_retention_secs = cleanup_retention,
         "Outbox worker started"
     );
+
+    readiness.mark_ready();
 
     let cleanup_handle = tokio::spawn(run_cleanup_loop(
         dispatcher.clone(),
@@ -94,6 +123,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     cleanup_handle.abort();
+    health_handle.abort();
 
     Ok(())
 }

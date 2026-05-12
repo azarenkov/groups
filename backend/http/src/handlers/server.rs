@@ -1,6 +1,6 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use domain::{server::id::ServerId, shared::pagination::Pagination, user::id::UserId};
-use shared::middleware::auth::AuthToken;
+use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -24,7 +24,7 @@ use crate::shared::{
 
 #[post("")]
 async fn create_server(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<CreateServerRequestBody>,
 ) -> Result<impl Responder, ApiError> {
@@ -43,7 +43,7 @@ async fn create_server(
 
 #[get("")]
 async fn list_servers_by_user(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     query: web::Query<PaginationQuery>,
 ) -> Result<impl Responder, ApiError> {
@@ -65,7 +65,7 @@ async fn list_servers_by_user(
 
 #[get("/{server_id}/members")]
 async fn list_server_members(
-    _auth_token: AuthToken,
+    _auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<PaginationQuery>,
@@ -88,7 +88,7 @@ async fn list_server_members(
 
 #[get("/{server_id}/channels")]
 async fn list_server_channels(
-    _auth_token: AuthToken,
+    _auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<PaginationQuery>,
@@ -111,7 +111,7 @@ async fn list_server_channels(
 
 #[delete("/{server_id}")]
 async fn delete_server(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
