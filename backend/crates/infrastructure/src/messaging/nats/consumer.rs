@@ -3,7 +3,7 @@ use application::ports::event_consumer::{
 };
 use async_nats::jetstream::{
     Context,
-    consumer::{AckPolicy, Consumer, pull},
+    consumer::{AckPolicy, Consumer, DeliverPolicy, pull},
 };
 use futures::future::BoxFuture;
 use futures::{FutureExt, StreamExt, stream::BoxStream};
@@ -86,6 +86,7 @@ async fn create_durable_consumer(
                 durable_name: Some(consumer_name.to_string()),
                 filter_subject,
                 ack_policy: AckPolicy::Explicit,
+                deliver_policy: DeliverPolicy::New,
                 ..Default::default()
             },
         )
