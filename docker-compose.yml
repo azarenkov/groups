@@ -4,7 +4,7 @@ services:
     container_name: rift-postgres
     restart: unless-stopped
     env_file:
-      - path: .env.docker
+      - path: env/postgres.env
         required: false
     ports:
       - "5432:5432"
@@ -97,7 +97,11 @@ services:
     networks:
       - rift-network
     env_file:
-      - path: .env.docker
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/http.env
         required: false
     depends_on:
       postgres:
@@ -118,7 +122,11 @@ services:
     networks:
       - rift-network
     env_file:
-      - path: .env.docker
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/outbox.env
         required: false
     depends_on:
       postgres:
@@ -135,7 +143,9 @@ services:
     networks:
       - rift-network
     env_file:
-      - path: .env.docker
+      - path: env/nats.env
+        required: false
+      - path: env/notification.env
         required: false
     depends_on:
       nats:
