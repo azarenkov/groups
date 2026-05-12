@@ -19,6 +19,11 @@ pub async fn create_postgres_pool(
 
     health_check(&pool).await?;
 
+    sqlx::migrate!("../../../migrations")
+        .run(&pool)
+        .await
+        .map_err(Box::<dyn Error>::from)?;
+
     Ok(pool)
 }
 
