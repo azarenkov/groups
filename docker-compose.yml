@@ -157,6 +157,43 @@ services:
       nats:
         condition: service_healthy
 
+  outbox-worker:
+    build:
+      context: .
+      dockerfile: docker/outbox-worker/Dockerfile
+    container_name: rift-outbox-worker
+    restart: unless-stopped
+    networks:
+      - rift-network
+    environment:
+      # Database (PostgresConfig)
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/rift
+      MAX_CONNECTIONS: 5
+      MIN_CONNECTIONS: 1
+      CONNECT_TIMEOUT_SECONDS: 30
+      IDLE_TIMEOUT_SECONDS: 600
+      MAX_LIFETIME_SECONDS: 1800
+
+      # NATS (NatsConfig)
+      NATS_URL: nats://nats:4222
+      NATS_SUBJECT_PREFIX: rift.events
+      NATS_REPLICAS: 1
+
+      # Outbox worker (WorkerConfig)
+      OUTBOX_BATCH_SIZE: 100
+      OUTBOX_IDLE_INTERVAL_MS: 500
+      OUTBOX_CLEANUP_INTERVAL_SECS: 3600
+      OUTBOX_CLEANUP_RETENTION_SECS: 604800
+      OUTBOX_CLEANUP_BATCH_SIZE: 10000
+
+      # Logging
+      RUST_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
 networks:
   rift-network:
     driver: bridge

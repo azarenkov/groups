@@ -1,0 +1,19 @@
+[package]
+name = "outbox-worker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+application = { workspace = true }
+domain = { workspace = true }
+infrastructure = { workspace = true }
+
+tracing = { workspace = true }
+env_logger = { workspace = true }
+dotenv = { workspace = true }
+envy = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
+async-nats = "0.46"

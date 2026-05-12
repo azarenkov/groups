@@ -1728,6 +1728,7 @@ dependencies = [
  "shared",
  "sqlx",
  "thiserror 2.0.18",
+ "tracing",
  "urlencoding",
  "uuid",
 ]
@@ -2261,6 +2262,23 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "outbox-worker"
+version = "0.1.0"
+dependencies = [
+ "application",
+ "async-nats",
+ "domain",
+ "dotenv",
+ "env_logger",
+ "envy",
+ "infrastructure",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
