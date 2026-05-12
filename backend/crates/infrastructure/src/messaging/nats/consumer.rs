@@ -146,17 +146,14 @@ async fn create_durable_consumer(
     let stream = jetstream.get_stream(stream_name).await?;
 
     let consumer = stream
-        .get_or_create_consumer(
-            consumer_name,
-            pull::Config {
-                durable_name: Some(consumer_name.to_string()),
-                filter_subject,
-                ack_policy: AckPolicy::Explicit,
-                deliver_policy,
-                max_deliver,
-                ..Default::default()
-            },
-        )
+        .create_consumer(pull::Config {
+            durable_name: Some(consumer_name.to_string()),
+            filter_subject,
+            ack_policy: AckPolicy::Explicit,
+            deliver_policy,
+            max_deliver,
+            ..Default::default()
+        })
         .await?;
 
     Ok(consumer)
