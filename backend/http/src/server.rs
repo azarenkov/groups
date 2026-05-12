@@ -39,8 +39,7 @@ use infrastructure::{
 };
 use shared::{
     health::Readiness,
-    ip::{TrustedProxyIps, resolve_trusted_proxy, spawn_trusted_proxy_refresh},
-    rate_limiting::{config::RateLimitingConfig, create_governor_config, create_rate_limiting},
+    rate_limiting::{config::RateLimitingConfig, create_rate_limiter},
 };
 
 use crate::{config::ServerConfig, routes, shared::state::AppState};
@@ -55,24 +54,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let livekit_url = livekit_config.url().to_string();
-    let trusted_proxy_hostname = server_config
-        .trusted_proxy_hostname
-        .as_deref()
-        .filter(|h| !h.is_empty())
-        .map(|s| s.to_string());
-    let trusted_proxy = match resolve_trusted_proxy(trusted_proxy_hostname.as_deref()).await {
-        Ok(t) => {
-            tracing::info!(ips = ?t.snapshot(), "Resolved trusted proxy");
-            t
-        }
-        Err(e) => {
-            tracing::error!(error = %e, "Trusted proxy resolution failed; will keep retrying in background");
-            TrustedProxyIps::default()
-        }
-    };
-    if let Some(host) = trusted_proxy_hostname.as_ref() {
-        spawn_trusted_proxy_refresh(host.clone(), trusted_proxy.clone());
-    }
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
@@ -158,13 +139,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_server_members_usecase,
         list_server_channels_usecase,
         server_config.jwt_secret,
+        server_config.trust_forwarded_headers,
     ));
-    let trusted_proxy_data = web::Data::new(trusted_proxy.clone());
 
-    let governor_config = create_governor_config(rate_limiting_config)
-        .ok_or("Failed to create rate limiting configuration: invalid parameters")?;
+    let rate_limiter = create_rate_limiter(rate_limiting_config)
+        .ok_or("Failed to create rate limiter: invalid parameters")?;
+    let rate_limiter_data = web::Data::new(rate_limiter);
 
-    let trusted_proxy_required = trusted_proxy_hostname.is_some();
     let readiness = Readiness::builder()
         .add_probe({
             let pool = postgres_pool.clone();
@@ -180,13 +161,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 async move { is_livekit_reachable(&url).await }
             }
         })
-        .add_probe({
-            let proxy = trusted_proxy.clone();
-            move || {
-                let proxy = proxy.clone();
-                async move { !trusted_proxy_required || !proxy.snapshot().is_empty() }
-            }
-        })
         .build();
     readiness.mark_ready();
     let readiness_data = web::Data::new(readiness);
@@ -198,15 +172,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .allow_any_header()
             .max_age(3600);
 
-        let rate_limiting = create_rate_limiting(&governor_config);
-
         App::new()
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
-            .app_data(trusted_proxy_data.clone())
+            .app_data(rate_limiter_data.clone())
             .wrap(cors)
             .wrap(Logger::default())
-            .wrap(rate_limiting)
             .configure(routes::configure)
     })
     .bind((server_config.host, server_config.port))?

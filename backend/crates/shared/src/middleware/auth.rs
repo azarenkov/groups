@@ -1,13 +1,15 @@
 use std::future::{Ready, ready};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
-use actix_web::{Error as ActixWebError, http};
-use actix_web::{FromRequest, HttpRequest, dev::Payload, error::ErrorUnauthorized};
-
+use actix_web::{
+    Error as ActixWebError, FromRequest, HttpRequest, dev::Payload,
+    error::{ErrorInternalServerError, ErrorTooManyRequests, ErrorUnauthorized},
+    http, web,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::middleware::jwt::validation::validate_access_token;
+use crate::{middleware::jwt::validation::validate_access_token, rate_limiting::UserRateLimiter};
 
 static JWT_SECRET: LazyLock<String> =
     LazyLock::new(|| std::env::var("JWT_SECRET").expect("JWT_SECRET must be set"));
@@ -17,33 +19,59 @@ pub struct AuthToken {
     pub id: Uuid,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RateLimitedAuthToken {
+    pub id: Uuid,
+}
+
 impl FromRequest for AuthToken {
     type Error = ActixWebError;
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let auth_header = match req.headers().get(http::header::AUTHORIZATION) {
-            Some(header) => header,
-            None => return ready(Err(ErrorUnauthorized("No authorization header"))),
+        ready(authenticate(req).map(|id| AuthToken { id }))
+    }
+}
+
+impl FromRequest for RateLimitedAuthToken {
+    type Error = ActixWebError;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        let id = match authenticate(req) {
+            Ok(id) => id,
+            Err(e) => return ready(Err(e)),
         };
-
-        let header_str = match auth_header.to_str() {
-            Ok(s) => s,
-            Err(_) => return ready(Err(ErrorUnauthorized("Invalid header encoding"))),
+        let limiter = match req.app_data::<web::Data<Arc<UserRateLimiter>>>() {
+            Some(l) => l,
+            None => {
+                return ready(Err(ErrorInternalServerError(
+                    "Rate limiter not configured",
+                )));
+            }
         };
-
-        let auth_token = match header_str.strip_prefix("Bearer ") {
-            Some(t) => t.trim(),
-            None => return ready(Err(ErrorUnauthorized("Invalid auth scheme"))),
-        };
-
-        if auth_token.is_empty() {
-            return ready(Err(ErrorUnauthorized("Invalid auth token")));
-        }
-
-        match validate_access_token(auth_token, JWT_SECRET.as_str()) {
-            Ok(user_id) => ready(Ok(AuthToken { id: user_id })),
-            Err(_) => ready(Err(ErrorUnauthorized("Unauthorized"))),
+        match limiter.check_key(&id) {
+            Ok(_) => ready(Ok(RateLimitedAuthToken { id })),
+            Err(_) => ready(Err(ErrorTooManyRequests("Too Many Requests"))),
         }
     }
+}
+
+fn authenticate(req: &HttpRequest) -> Result<Uuid, ActixWebError> {
+    let auth_header = req
+        .headers()
+        .get(http::header::AUTHORIZATION)
+        .ok_or_else(|| ErrorUnauthorized("No authorization header"))?;
+    let header_str = auth_header
+        .to_str()
+        .map_err(|_| ErrorUnauthorized("Invalid header encoding"))?;
+    let token = header_str
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| ErrorUnauthorized("Invalid auth scheme"))?
+        .trim();
+    if token.is_empty() {
+        return Err(ErrorUnauthorized("Invalid auth token"));
+    }
+    validate_access_token(token, JWT_SECRET.as_str())
+        .map_err(|_| ErrorUnauthorized("Unauthorized"))
 }

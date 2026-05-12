@@ -13,7 +13,5 @@ actix-web = { workspace = true }
 actix-cors = { workspace = true }
 jsonwebtoken = { workspace = true }
 anyhow = { workspace = true }
-actix-governor = "0.10.0"
-tokio = { workspace = true, features = ["net", "time"] }
+governor = "0.10"
 tracing = { workspace = true }
-thiserror = { workspace = true }

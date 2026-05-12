@@ -35,18 +35,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-governor"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a7ffa43d3e1e92518355ffbc82c146b5f0fe24fba87f19f405270da7a7b3c1e"
-dependencies = [
- "actix-http",
- "actix-web",
- "futures",
- "governor",
-]
-
-[[package]]
 name = "actix-http"
 version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3082,16 +3070,14 @@ name = "shared"
 version = "0.1.0"
 dependencies = [
  "actix-cors",
- "actix-governor",
  "actix-web",
  "anyhow",
  "chrono",
  "dotenv",
  "envy",
+ "governor",
  "jsonwebtoken 10.3.0",
  "serde",
- "thiserror 2.0.18",
- "tokio",
  "tracing",
  "uuid",
 ]

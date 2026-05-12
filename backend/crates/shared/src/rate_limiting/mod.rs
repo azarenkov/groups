@@ -1,25 +1,22 @@
-use actix_governor::{
-    Governor, GovernorConfig, GovernorConfigBuilder,
-    governor::{clock::QuantaInstant, middleware::NoOpMiddleware},
-};
+use std::{num::NonZeroU32, sync::Arc};
 
-use crate::rate_limiting::{config::RateLimitingConfig, key_extractor::UserOrIpKeyExtractor};
+use governor::{
+    Quota, RateLimiter,
+    clock::DefaultClock,
+    state::keyed::DefaultKeyedStateStore,
+};
+use uuid::Uuid;
+
+use crate::rate_limiting::config::RateLimitingConfig;
 
 pub mod config;
-pub mod key_extractor;
 
-pub fn create_governor_config(
-    config: RateLimitingConfig,
-) -> Option<GovernorConfig<UserOrIpKeyExtractor, NoOpMiddleware<QuantaInstant>>> {
-    GovernorConfigBuilder::default()
-        .requests_per_second(config.requests_per_second)
-        .burst_size(config.burst_size)
-        .key_extractor(UserOrIpKeyExtractor)
-        .finish()
-}
+pub type UserRateLimiter =
+    RateLimiter<Uuid, DefaultKeyedStateStore<Uuid>, DefaultClock>;
 
-pub fn create_rate_limiting(
-    governor_config: &GovernorConfig<UserOrIpKeyExtractor, NoOpMiddleware<QuantaInstant>>,
-) -> Governor<UserOrIpKeyExtractor, NoOpMiddleware<QuantaInstant>> {
-    Governor::new(governor_config)
+pub fn create_rate_limiter(config: RateLimitingConfig) -> Option<Arc<UserRateLimiter>> {
+    let requests = NonZeroU32::new(config.requests_per_second as u32)?;
+    let burst = NonZeroU32::new(config.burst_size)?;
+    let quota = Quota::per_second(requests).allow_burst(burst);
+    Some(Arc::new(RateLimiter::keyed(quota)))
 }

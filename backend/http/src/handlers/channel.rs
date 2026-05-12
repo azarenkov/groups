@@ -5,7 +5,7 @@ use application::dto::requests::channel::{
     unmute_channel::UnmuteChannelRequest,
 };
 use domain::{channel::id::ChannelId, server::id::ServerId, user::id::UserId};
-use shared::middleware::auth::AuthToken;
+use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -29,7 +29,7 @@ use crate::shared::{
 
 #[post("/{server_id}/channels")]
 async fn create_channel(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<CreateChannelRequestBody>,
@@ -60,7 +60,7 @@ async fn create_channel(
 
 #[post("/{server_id}/channels/{channel_id}/join_voice")]
 async fn join_voice_channel(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<JoinVoiceChannelRequestBody>,
@@ -83,7 +83,7 @@ async fn join_voice_channel(
 
 #[post("/{server_id}/channels/{channel_id}/leave_voice")]
 async fn leave_voice_channel(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
@@ -103,7 +103,7 @@ async fn leave_voice_channel(
 
 #[post("/{server_id}/channels/{channel_id}/mute")]
 async fn mute_channel(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<MuteRequestBody>,
@@ -127,7 +127,7 @@ async fn mute_channel(
 
 #[post("/{server_id}/channels/{channel_id}/unmute")]
 async fn unmute_channel(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<UnmuteRequestBody>,
@@ -151,7 +151,7 @@ async fn unmute_channel(
 
 #[delete("/{server_id}/channels/{channel_id}")]
 async fn delete_channel(
-    auth_token: AuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
