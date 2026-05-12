@@ -12,7 +12,39 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      http: ${{ steps.filter.outputs.http }}
+      outbox-worker: ${{ steps.filter.outputs.outbox-worker }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            http:
+              - 'backend/http/**'
+              - 'backend/crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'docker/http/**'
+              - '.sqlx/**'
+              - 'migrations/**'
+              - '.github/workflows/build-and-publish.yml'
+            outbox-worker:
+              - 'backend/outbox-worker/**'
+              - 'backend/crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'docker/outbox-worker/**'
+              - '.sqlx/**'
+              - 'migrations/**'
+              - '.github/workflows/build-and-publish.yml'
+
   build-and-push:
+    needs: changes
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -20,7 +52,11 @@ jobs:
 
     strategy:
       matrix:
-        service: [http]
+        service: [http, outbox-worker]
+
+    if: |
+      (matrix.service == 'http' && needs.changes.outputs.http == 'true') ||
+      (matrix.service == 'outbox-worker' && needs.changes.outputs.outbox-worker == 'true')
 
     steps:
       - name: Checkout Code
