@@ -43,7 +43,10 @@ impl EventConsumer for NatsEventConsumer {
             StartPosition::New => DeliverPolicy::New,
             StartPosition::All => DeliverPolicy::All,
         };
-        let max_deliver_i64: i64 = -1;
+        let max_deliver_i64: i64 = match (max_deliver, dlq_subject.as_ref()) {
+            (Some(n), None) => n as i64,
+            _ => -1,
+        };
 
         async move {
             let nats_consumer = create_durable_consumer(
