@@ -39,7 +39,7 @@ use infrastructure::{
 };
 use shared::{
     health::Readiness,
-    ip::resolve_trusted_proxy,
+    ip::{TrustedProxyIps, resolve_trusted_proxy},
     rate_limiting::{config::RateLimitingConfig, create_governor_config, create_rate_limiting},
 };
 
@@ -56,8 +56,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let livekit_url = livekit_config.url().to_string();
     let trusted_proxy =
-        resolve_trusted_proxy(server_config.trusted_proxy_hostname.as_deref()).await?;
-    tracing::info!(?trusted_proxy, "Resolved trusted proxy");
+        match resolve_trusted_proxy(server_config.trusted_proxy_hostname.as_deref()).await {
+            Ok(t) => {
+                tracing::info!(?t, "Resolved trusted proxy");
+                t
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Trusted proxy resolution failed; forwarded headers will be ignored until reconfigured");
+                TrustedProxyIps::default()
+            }
+        };
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
