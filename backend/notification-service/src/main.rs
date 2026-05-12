@@ -40,10 +40,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let health_handle = actix_web::rt::spawn(health::serve(
-        notification_config.health_port,
-        readiness.clone(),
-    ));
+    let health_server = health::bind(notification_config.health_port, readiness.clone())?;
+    let health_handle = actix_web::rt::spawn(async move {
+        if let Err(e) = health_server.await {
+            tracing::error!(error = %e, "Health server stopped");
+        }
+    });
     let mailer: Arc<SmtpMailer> = Arc::new(SmtpMailer::from_config(mailer_config)?);
 
     let event_consumer = NatsEventConsumer::new(

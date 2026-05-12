@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use actix_web::{App, HttpResponse, HttpServer, web};
+use actix_web::{App, HttpResponse, HttpServer, dev::Server, web};
 
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 type Probe = Arc<dyn Fn() -> BoxFuture<'static, bool> + Send + Sync>;
@@ -67,10 +67,9 @@ impl ReadinessBuilder {
     }
 }
 
-pub async fn serve(port: u16, readiness: Readiness) -> io::Result<()> {
+pub fn bind(port: u16, readiness: Readiness) -> io::Result<Server> {
     let readiness_data = web::Data::new(readiness);
-    tracing::info!(port, "Health server listening");
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
             .app_data(readiness_data.clone())
             .service(web::resource("/livez").to(livez))
@@ -78,8 +77,9 @@ pub async fn serve(port: u16, readiness: Readiness) -> io::Result<()> {
     })
     .workers(1)
     .bind(("0.0.0.0", port))?
-    .run()
-    .await
+    .run();
+    tracing::info!(port, "Health server listening");
+    Ok(server)
 }
 
 async fn livez() -> HttpResponse {

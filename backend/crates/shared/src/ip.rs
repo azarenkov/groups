@@ -93,18 +93,12 @@ fn resolve_real_ip(
     trusted: Option<&TrustedProxyIps>,
     headers: &HeaderMap,
 ) -> Option<IpAddr> {
-    let peer_is_trusted = match (peer, trusted) {
-        (Some(p), Some(t)) => t.contains(p),
-        _ => false,
-    };
-
-    if peer_is_trusted {
-        let xff = headers
-            .get(X_FORWARDED_FOR)
-            .and_then(|v| v.to_str().ok())?;
-        if let Some(client) = rightmost_untrusted(xff, trusted.unwrap()) {
-            return Some(client);
-        }
+    if let (Some(p), Some(t)) = (peer, trusted)
+        && t.contains(p)
+        && let Some(xff) = headers.get(X_FORWARDED_FOR).and_then(|v| v.to_str().ok())
+        && let Some(client) = rightmost_untrusted(xff, t)
+    {
+        return Some(client);
     }
 
     peer
