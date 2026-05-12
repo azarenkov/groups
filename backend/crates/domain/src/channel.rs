@@ -1,3 +1,13 @@
+pub mod events;
+pub mod id;
+pub mod kind;
+pub mod max_paticipants;
+pub mod name;
+pub mod participant_mute;
+pub mod repository;
+pub mod token;
+pub mod visibility;
+
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};

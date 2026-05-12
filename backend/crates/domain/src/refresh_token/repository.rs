@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
-    refresh_token::{id::RefreshTokenId, refresh_token::RefreshToken},
+    refresh_token::{RefreshToken, id::RefreshTokenId},
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
 };

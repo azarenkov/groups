@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    refresh_token::refresh_token::RefreshToken,
+    refresh_token::RefreshToken,
     shared::{
         outbox::{
             outbox_record::OutboxRecord,

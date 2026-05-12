@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use domain::{
-    refresh_token::refresh_token::RefreshToken,
+    refresh_token::RefreshToken,
     shared::{
         outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,

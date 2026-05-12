@@ -1,3 +1,9 @@
+pub mod email;
+pub mod events;
+pub mod id;
+pub mod name;
+pub mod repository;
+
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
@@ -29,6 +35,7 @@ pub struct User {
 }
 
 impl User {
+    #[allow(clippy::too_many_arguments)]
     pub fn restore(
         id: UserId,
         name: UserName,

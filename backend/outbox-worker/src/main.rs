@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             result = run_batch(&dispatcher, batch_size) => {
                 match result {
-                    Ok(processed) if processed == 0 => {
+                    Ok(0) => {
                         tokio::select! {
                             _ = &mut shutdown => {
                                 tracing::info!("Shutdown signal received during idle, exiting");
