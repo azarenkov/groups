@@ -15,5 +15,5 @@ envy = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
-async-nats = "0.46"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "time"] }
+async-nats = { workspace = true }

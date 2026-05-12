@@ -23,6 +23,11 @@ env_logger = "0.11.9"
 actix-web = "4.13.0"
 actix-cors = "0.7.1"
 validator = { version = "0.20", features = ["derive"] }
+tokio = "1.50.0"
+async-nats = "0.46"
+rand = "0.10.1"
+jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
+anyhow = "1.0.102"
 
 domain = { path = "backend/crates/domain" }
 application = { path = "backend/crates/application" }
