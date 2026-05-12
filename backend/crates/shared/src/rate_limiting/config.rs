@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct RateLimitingConfig {
     #[serde(rename = "rate_limiting_requests")]
-    pub requests_per_second: u64,
+    pub requests_per_second: u32,
     #[serde(rename = "rate_limiting_burst_size")]
     pub burst_size: u32,
 }
