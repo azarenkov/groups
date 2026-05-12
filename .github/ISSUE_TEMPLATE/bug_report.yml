@@ -55,6 +55,8 @@ body:
         - Frontend (Electron / React)
         - Backend API
         - Backend WebSocket
+        - Backend Outbox service
+        - Backend Notification service
         - Database / migrations
         - Voice (LiveKit)
         - Auth
