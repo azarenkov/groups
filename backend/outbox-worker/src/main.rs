@@ -7,19 +7,26 @@ use infrastructure::{
     messaging::nats::{connection::create_jetstream, producer::NatsOutboxPublisher},
     outbox::dispatcher::OutboxDispatcher,
 };
+use shared::health::{self, Readiness};
 use tokio::signal;
 
 use crate::config::WorkerConfig;
 
 mod config;
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let worker_config = WorkerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;
+
+    let readiness = Readiness::new();
+    let health_handle = actix_web::rt::spawn(health::serve(
+        worker_config.health_port,
+        readiness.clone(),
+    ));
 
     let pool = create_postgres_pool(postgres_config).await?;
     let jetstream = create_jetstream(&nats_config).await?;
@@ -52,6 +59,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cleanup_retention_secs = cleanup_retention,
         "Outbox worker started"
     );
+
+    readiness.mark_ready();
 
     let cleanup_handle = tokio::spawn(run_cleanup_loop(
         dispatcher.clone(),
@@ -94,6 +103,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     cleanup_handle.abort();
+    health_handle.abort();
 
     Ok(())
 }

@@ -34,8 +34,9 @@ use infrastructure::{
     hasher::bcrypt_hasher::BcryptHasher,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
-use shared::rate_limiting::{
-    config::RateLimitingConfig, create_governor_config, create_rate_limiting,
+use shared::{
+    health::Readiness,
+    rate_limiting::{config::RateLimitingConfig, create_governor_config, create_rate_limiting},
 };
 
 use crate::{config::ServerConfig, routes, shared::state::AppState};
@@ -140,6 +141,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let governor_config = create_governor_config(rate_limiting_config)
         .ok_or("Failed to create rate limiting configuration: invalid parameters")?;
 
+    let readiness = Readiness::new();
+    readiness.mark_ready();
+    let readiness_data = web::Data::new(readiness);
+
     HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
@@ -151,6 +156,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
         App::new()
             .app_data(app_state.clone())
+            .app_data(readiness_data.clone())
             .wrap(cors)
             .wrap(Logger::default())
             .wrap(rate_limiting)

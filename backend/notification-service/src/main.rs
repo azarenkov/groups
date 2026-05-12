@@ -11,19 +11,26 @@ use infrastructure::{
     mailer::smtp_mailer::SmtpMailer,
     messaging::nats::{connection::create_jetstream, consumer::NatsEventConsumer},
 };
+use shared::health::{self, Readiness};
 use tokio::signal;
 
 use crate::config::NotificationConfig;
 
 mod config;
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let notification_config = NotificationConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;
     let mailer_config = MailerConfig::from_env()?;
+
+    let readiness = Readiness::new();
+    let health_handle = actix_web::rt::spawn(health::serve(
+        notification_config.health_port,
+        readiness.clone(),
+    ));
 
     let jetstream = create_jetstream(&nats_config).await?;
     let mailer: Arc<SmtpMailer> = Arc::new(SmtpMailer::from_config(mailer_config)?);
@@ -60,6 +67,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "Notification service started",
     );
 
+    readiness.mark_ready();
+
     let shutdown = signal::ctrl_c();
     tokio::pin!(shutdown);
 
@@ -85,6 +94,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
+    health_handle.abort();
 
     Ok(())
 }

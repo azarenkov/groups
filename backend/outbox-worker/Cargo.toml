@@ -7,6 +7,7 @@ edition = "2024"
 application = { workspace = true }
 domain = { workspace = true }
 infrastructure = { workspace = true }
+shared = { workspace = true }
 
 tracing = { workspace = true }
 env_logger = { workspace = true }
@@ -15,5 +16,6 @@ envy = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "time"] }
+tokio = { workspace = true, features = ["macros", "signal", "time"] }
+actix-web = { workspace = true }
 async-nats = { workspace = true }
