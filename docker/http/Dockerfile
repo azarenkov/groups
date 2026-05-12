@@ -35,10 +35,10 @@ ENV CC=clang
 ENV CXX=clang++
 ENV SQLX_OFFLINE=true
 
-RUN cargo chef cook --release
+RUN cargo chef cook --release --bin http
 
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --bin http
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
