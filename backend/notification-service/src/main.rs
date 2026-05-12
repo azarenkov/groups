@@ -34,11 +34,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     let filter_subject = format!("{}.user.verification.issued", nats_config.subject_prefix);
-    let dlq_subject = format!("{}.dlq.user.verification.issued", nats_config.subject_prefix);
+    let dlq_subject = format!(
+        "{}.dlq.user.verification.issued",
+        nats_config.subject_prefix
+    );
 
     let mut messages = event_consumer
         .subscribe(SubscribeOptions {
-            consumer_name: notification_config.notification_verification_consumer.clone(),
+            consumer_name: notification_config
+                .notification_verification_consumer
+                .clone(),
             subject: filter_subject.clone(),
             start_position: StartPosition::New,
             max_deliver: Some(notification_config.notification_max_deliver),

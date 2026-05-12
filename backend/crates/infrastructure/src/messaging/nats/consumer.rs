@@ -73,12 +73,20 @@ impl EventConsumer for NatsEventConsumer {
                                 let delivered =
                                     msg.info().map(|i| i.delivered as u32).unwrap_or(0);
                                 if delivered >= max {
-                                    if let Err(e) = dlq_publisher
+                                    let ack_future = match dlq_publisher
                                         .publish(dlq.clone(), msg.payload.clone())
                                         .await
                                     {
+                                        Ok(f) => f,
+                                        Err(e) => {
+                                            return Some(Err(EventConsumerError::Stream(
+                                                format!("DLQ publish failed: {}", e),
+                                            )));
+                                        }
+                                    };
+                                    if let Err(e) = ack_future.await {
                                         return Some(Err(EventConsumerError::Stream(format!(
-                                            "DLQ publish failed: {}",
+                                            "DLQ publish ack failed: {}",
                                             e
                                         ))));
                                     }
