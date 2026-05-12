@@ -12,6 +12,8 @@ pub struct PostgresConfig {
     password: String,
     #[serde(rename = "postgres_db")]
     db: String,
+    #[serde(rename = "postgres_options", default)]
+    options: String,
     #[serde(rename = "postgres_max_connections")]
     max_connections: u32,
     #[serde(rename = "postgres_min_connections")]
@@ -33,10 +35,15 @@ impl PostgresConfig {
     pub fn url(&self) -> String {
         let user = urlencoding::encode(&self.user);
         let password = urlencoding::encode(&self.password);
-        format!(
+        let base = format!(
             "postgres://{}:{}@{}:{}/{}",
             user, password, self.host, self.port, self.db,
-        )
+        );
+        if self.options.is_empty() {
+            base
+        } else {
+            format!("{}?{}", base, self.options)
+        }
     }
 
     pub fn max_connections(&self) -> u32 {
