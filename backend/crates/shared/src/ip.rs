@@ -1,6 +1,7 @@
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
+    sync::{Arc, RwLock},
     time::Duration,
 };
 
@@ -8,18 +9,39 @@ use actix_web::{HttpRequest, dev::ServiceRequest, http::header::HeaderMap, web};
 
 const RESOLVE_ATTEMPTS: u32 = 5;
 const RESOLVE_RETRY_DELAY: Duration = Duration::from_secs(1);
+const REFRESH_INTERVAL: Duration = Duration::from_secs(30);
 const X_FORWARDED_FOR: &str = "X-Forwarded-For";
 
 #[derive(Debug, Clone, Default)]
-pub struct TrustedProxyIps(pub Vec<IpAddr>);
+pub struct TrustedProxyIps {
+    inner: Arc<RwLock<Vec<IpAddr>>>,
+}
 
 impl TrustedProxyIps {
-    pub fn contains(&self, ip: IpAddr) -> bool {
-        self.0.contains(&ip)
+    pub fn new(ips: Vec<IpAddr>) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(ips)),
+        }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+    pub fn contains(&self, ip: IpAddr) -> bool {
+        self.inner
+            .read()
+            .map(|g| g.contains(&ip))
+            .unwrap_or(false)
+    }
+
+    pub fn snapshot(&self) -> Vec<IpAddr> {
+        self.inner
+            .read()
+            .map(|g| g.clone())
+            .unwrap_or_default()
+    }
+
+    fn update(&self, ips: Vec<IpAddr>) {
+        if let Ok(mut guard) = self.inner.write() {
+            *guard = ips;
+        }
     }
 }
 
@@ -45,12 +67,9 @@ pub async fn resolve_trusted_proxy(
 
     let mut last_io_err: Option<std::io::Error> = None;
     for attempt in 1..=RESOLVE_ATTEMPTS {
-        match tokio::net::lookup_host(format!("{host}:0")).await {
-            Ok(iter) => {
-                let ips: Vec<IpAddr> = iter.map(|sa| sa.ip()).collect();
-                if !ips.is_empty() {
-                    return Ok(TrustedProxyIps(ips));
-                }
+        match lookup(host).await {
+            Ok(ips) if !ips.is_empty() => return Ok(TrustedProxyIps::new(ips)),
+            Ok(_) => {
                 tracing::warn!(host, attempt, "Trusted proxy DNS returned no addresses");
             }
             Err(e) => {
@@ -76,14 +95,46 @@ pub async fn resolve_trusted_proxy(
     })
 }
 
+pub fn spawn_trusted_proxy_refresh(hostname: String, proxy: TrustedProxyIps) {
+    actix_web::rt::spawn(async move {
+        loop {
+            tokio::time::sleep(REFRESH_INTERVAL).await;
+            match lookup(&hostname).await {
+                Ok(ips) if !ips.is_empty() => {
+                    if ips != proxy.snapshot() {
+                        tracing::info!(host = %hostname, ?ips, "Trusted proxy IPs updated");
+                        proxy.update(ips);
+                    }
+                }
+                Ok(_) => {
+                    tracing::warn!(host = %hostname, "Trusted proxy DNS returned no addresses on refresh");
+                }
+                Err(e) => {
+                    tracing::warn!(host = %hostname, error = %e, "Trusted proxy DNS refresh failed");
+                }
+            }
+        }
+    });
+}
+
+async fn lookup(host: &str) -> std::io::Result<Vec<IpAddr>> {
+    tokio::net::lookup_host(format!("{host}:0"))
+        .await
+        .map(|iter| iter.map(|sa| sa.ip()).collect())
+}
+
 pub fn real_ip_from_request(req: &HttpRequest) -> Option<IpAddr> {
-    let trusted = req.app_data::<web::Data<TrustedProxyIps>>().map(|d| d.get_ref());
+    let trusted = req
+        .app_data::<web::Data<TrustedProxyIps>>()
+        .map(|d| d.get_ref());
     let peer = req.peer_addr().map(|s| s.ip());
     resolve_real_ip(peer, trusted, req.headers())
 }
 
 pub fn real_ip_from_service_request(req: &ServiceRequest) -> Option<IpAddr> {
-    let trusted = req.app_data::<web::Data<TrustedProxyIps>>().map(|d| d.get_ref());
+    let trusted = req
+        .app_data::<web::Data<TrustedProxyIps>>()
+        .map(|d| d.get_ref());
     let peer = req.peer_addr().map(|s| s.ip());
     resolve_real_ip(peer, trusted, req.headers())
 }

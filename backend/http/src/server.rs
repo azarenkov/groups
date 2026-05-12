@@ -39,7 +39,7 @@ use infrastructure::{
 };
 use shared::{
     health::Readiness,
-    ip::{TrustedProxyIps, resolve_trusted_proxy},
+    ip::{TrustedProxyIps, resolve_trusted_proxy, spawn_trusted_proxy_refresh},
     rate_limiting::{config::RateLimitingConfig, create_governor_config, create_rate_limiting},
 };
 
@@ -58,14 +58,21 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let trusted_proxy =
         match resolve_trusted_proxy(server_config.trusted_proxy_hostname.as_deref()).await {
             Ok(t) => {
-                tracing::info!(?t, "Resolved trusted proxy");
+                tracing::info!(ips = ?t.snapshot(), "Resolved trusted proxy");
                 t
             }
             Err(e) => {
-                tracing::error!(error = %e, "Trusted proxy resolution failed; forwarded headers will be ignored until reconfigured");
+                tracing::error!(error = %e, "Trusted proxy resolution failed; will keep retrying in background");
                 TrustedProxyIps::default()
             }
         };
+    if let Some(host) = server_config
+        .trusted_proxy_hostname
+        .as_deref()
+        .filter(|h| !h.is_empty())
+    {
+        spawn_trusted_proxy_refresh(host.to_string(), trusted_proxy.clone());
+    }
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
