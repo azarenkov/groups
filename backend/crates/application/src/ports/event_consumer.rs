@@ -6,10 +6,17 @@ pub trait EventConsumer: Send + Sync {
         &self,
         consumer_name: &str,
         subject: &str,
+        start_position: StartPosition,
     ) -> BoxFuture<
         '_,
         Result<BoxStream<'static, Result<ConsumedMessage, EventConsumerError>>, EventConsumerError>,
     >;
+}
+
+#[derive(Debug)]
+pub enum StartPosition {
+    New,
+    All,
 }
 
 pub struct ConsumedMessage {

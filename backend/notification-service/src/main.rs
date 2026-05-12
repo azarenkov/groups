@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc};
 
 use application::ports::{
-    event_consumer::{ConsumedMessage, EventConsumer},
+    event_consumer::{ConsumedMessage, EventConsumer, StartPosition},
     mailer::Mailer,
 };
 use domain::verification::events::VerificationEvent;
@@ -39,6 +39,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .subscribe(
             &notification_config.notification_verification_consumer,
             &filter_subject,
+            StartPosition::New,
         )
         .await?;
 
@@ -82,8 +83,7 @@ async fn handle_verification_message<M: Mailer>(mailer: &M, msg: ConsumedMessage
     let event: VerificationEvent = match serde_json::from_slice(&msg.payload) {
         Ok(e) => e,
         Err(e) => {
-            tracing::error!(error = %e, "Failed to deserialize verification event; acking to skip");
-            let _ = msg.ack().await;
+            tracing::error!(error = %e, "Failed to deserialize verification event; not acking, JetStream will redeliver");
             return;
         }
     };

@@ -1,5 +1,5 @@
 use application::ports::event_consumer::{
-    ConsumedMessage, EventConsumer, EventConsumerError,
+    ConsumedMessage, EventConsumer, EventConsumerError, StartPosition,
 };
 use async_nats::jetstream::{
     Context,
@@ -27,6 +27,7 @@ impl EventConsumer for NatsEventConsumer {
         &self,
         consumer_name: &str,
         subject: &str,
+        start_position: StartPosition,
     ) -> BoxFuture<
         '_,
         Result<BoxStream<'static, Result<ConsumedMessage, EventConsumerError>>, EventConsumerError>,
@@ -35,12 +36,21 @@ impl EventConsumer for NatsEventConsumer {
         let stream_name = self.stream_name.clone();
         let consumer_name = consumer_name.to_string();
         let subject = subject.to_string();
+        let deliver_policy = match start_position {
+            StartPosition::New => DeliverPolicy::New,
+            StartPosition::All => DeliverPolicy::All,
+        };
 
         async move {
-            let nats_consumer =
-                create_durable_consumer(&jetstream, &stream_name, &consumer_name, subject)
-                    .await
-                    .map_err(|e| EventConsumerError::Subscribe(e.to_string()))?;
+            let nats_consumer = create_durable_consumer(
+                &jetstream,
+                &stream_name,
+                &consumer_name,
+                subject,
+                deliver_policy,
+            )
+            .await
+            .map_err(|e| EventConsumerError::Subscribe(e.to_string()))?;
 
             let messages = nats_consumer
                 .messages()
@@ -76,6 +86,7 @@ async fn create_durable_consumer(
     stream_name: &str,
     consumer_name: &str,
     filter_subject: String,
+    deliver_policy: DeliverPolicy,
 ) -> Result<Consumer<pull::Config>, async_nats::Error> {
     let stream = jetstream.get_stream(stream_name).await?;
 
@@ -86,7 +97,7 @@ async fn create_durable_consumer(
                 durable_name: Some(consumer_name.to_string()),
                 filter_subject,
                 ack_policy: AckPolicy::Explicit,
-                deliver_policy: DeliverPolicy::New,
+                deliver_policy,
                 ..Default::default()
             },
         )
