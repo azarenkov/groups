@@ -28,7 +28,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         jetstream,
         nats_config.subject_prefix.clone(),
     ));
-    let dispatcher = Arc::new(OutboxDispatcher::new(pool, publisher));
+    let dispatcher = Arc::new(OutboxDispatcher::new(
+        pool,
+        publisher,
+        worker_config.outbox_max_attempts,
+        worker_config.outbox_backoff_base_secs,
+        worker_config.outbox_backoff_max_multiplier,
+    ));
 
     let idle_interval = Duration::from_millis(worker_config.outbox_idle_interval_ms);
     let batch_size = worker_config.outbox_batch_size;
@@ -39,6 +45,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!(
         batch_size,
         idle_interval_ms = worker_config.outbox_idle_interval_ms,
+        max_attempts = worker_config.outbox_max_attempts,
+        backoff_base_secs = worker_config.outbox_backoff_base_secs,
+        backoff_max_multiplier = worker_config.outbox_backoff_max_multiplier,
         cleanup_interval_secs = worker_config.outbox_cleanup_interval_secs,
         cleanup_retention_secs = cleanup_retention,
         "Outbox worker started"

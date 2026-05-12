@@ -21,11 +21,26 @@ pub enum OutboxDispatchError {
 pub struct OutboxDispatcher<P: OutboxPublisher> {
     pool: Pool<Postgres>,
     publisher: Arc<P>,
+    max_attempts: i16,
+    backoff_base_secs: i32,
+    backoff_max_multiplier: i32,
 }
 
 impl<P: OutboxPublisher> OutboxDispatcher<P> {
-    pub fn new(pool: Pool<Postgres>, publisher: Arc<P>) -> Self {
-        Self { pool, publisher }
+    pub fn new(
+        pool: Pool<Postgres>,
+        publisher: Arc<P>,
+        max_attempts: i16,
+        backoff_base_secs: i32,
+        backoff_max_multiplier: i32,
+    ) -> Self {
+        Self {
+            pool,
+            publisher,
+            max_attempts,
+            backoff_base_secs,
+            backoff_max_multiplier,
+        }
     }
 
     pub async fn process_one(&self) -> Result<bool, OutboxDispatchError> {
@@ -48,10 +63,19 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                 occurred_at
             FROM outbox
             WHERE processed_at IS NULL
-            ORDER BY created_at
+              AND attempts < $1
+              AND (
+                  last_attempt_at IS NULL
+                  OR last_attempt_at < now()
+                     - (LEAST(attempts::int, $3) * $2 * interval '1 second')
+              )
+            ORDER BY last_attempt_at NULLS FIRST, created_at
             FOR UPDATE SKIP LOCKED
             LIMIT 1
             "#,
+            self.max_attempts,
+            self.backoff_base_secs,
+            self.backoff_max_multiplier,
         )
         .fetch_optional(&mut *tx)
         .await
@@ -98,7 +122,8 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                     r#"
                     UPDATE outbox
                     SET attempts = attempts + 1,
-                        last_error = $2
+                        last_error = $2,
+                        last_attempt_at = now()
                     WHERE id = $1
                     "#,
                     record.id,
