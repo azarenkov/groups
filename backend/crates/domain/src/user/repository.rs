@@ -16,11 +16,11 @@ pub trait UserRepository {
     async fn register_user(
         &self,
         user: &User,
-        verification_code: &VerificationCode,
         refresh_token: &RefreshToken,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
     async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
+    async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError>;
     async fn get_password_hash_by_email(
         &self,
         email: &Email,

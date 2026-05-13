@@ -12,9 +12,12 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(web::resource("/readyz").to(readyz))
         .service(
             web::scope("/api")
-                .configure(channel::channel_routes)
                 .configure(auth::auth_routes)
-                .configure(server::server_routes)
-                .configure(webhook::webhook_routes),
+                .configure(webhook::webhook_routes)
+                .service(
+                    web::scope("/v1/servers")
+                        .configure(server::server_routes)
+                        .configure(channel::channel_routes),
+                ),
         );
 }

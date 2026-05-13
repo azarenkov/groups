@@ -39,6 +39,11 @@ pub enum LoginError {
     InvalidCredentials,
 }
 
+pub struct LoginOutcome {
+    pub tokens: IssuedTokens,
+    pub requires_verification: bool,
+}
+
 pub struct LoginUser<T, H, R, I>
 where
     T: UserRepository,
@@ -73,23 +78,25 @@ where
         }
     }
 
-    pub async fn execute(&self, request: LoginUserRequest) -> Result<IssuedTokens, LoginError> {
-        let email = &Email::new(request.email);
-        let password_hash = self
+    pub async fn execute(&self, request: LoginUserRequest) -> Result<LoginOutcome, LoginError> {
+        let email = Email::new(request.email);
+        let user = self
             .user_repository
-            .get_password_hash_by_email(email)
-            .await?;
+            .find_by_email(&email)
+            .await?
+            .ok_or(LoginError::InvalidCredentials)?;
 
         if !self
             .hasher
-            .verify(&request.password, password_hash.as_str())?
+            .verify(&request.password, user.password_hash().as_str())?
         {
             return Err(LoginError::InvalidCredentials);
         }
 
-        let user_id = self.user_repository.get_user_id_by_email(email).await?;
-
-        let tokens = self.token_issuer.issue(&user_id).await?;
+        let is_verified = user.is_verified();
+        let requires_verification = !is_verified;
+        let user_id = user.id_ownned();
+        let tokens = self.token_issuer.issue(&user_id, is_verified).await?;
 
         let refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,
@@ -112,6 +119,9 @@ where
             .save_refresh_token_with_events(&refresh_token, &records)
             .await?;
 
-        Ok(tokens)
+        Ok(LoginOutcome {
+            tokens,
+            requires_verification,
+        })
     }
 }

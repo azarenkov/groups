@@ -118,6 +118,14 @@ impl User {
         self.email_verified_at.is_some() || self.phone_verified_at.is_some()
     }
 
+    pub fn is_email_verified(&self) -> bool {
+        self.email_verified_at.is_some()
+    }
+
+    pub fn is_phone_verified(&self) -> bool {
+        self.phone_verified_at.is_some()
+    }
+
     pub fn id(&self) -> &UserId {
         &self.id
     }
