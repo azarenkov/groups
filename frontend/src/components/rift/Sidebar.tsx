@@ -1,26 +1,26 @@
 import React from "react";
 import Icon from "./Icon";
 import type { Server } from "../../types/server";
-import type { Room } from "../../types/room";
+import type { Channel } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 
 interface SidebarProps {
   servers: Server[];
-  roomsByServer: Record<string, Room[]>;
+  channelsByServer: Record<string, Channel[]>;
   expandedServerId: string | null;
   selectedServerId: string | null;
-  selectedRoomId: string | null;
+  selectedChannelId: string | null;
   selectedDmId: string | null;
   directs: MockDirect[];
   onToggleServer: (serverId: string) => void;
   onSelectServer: (serverId: string) => void;
-  onSelectRoom: (server: Server, room: Room) => void;
+  onSelectChannel: (server: Server, channel: Channel) => void;
   onSelectDm: (dm: MockDirect) => void;
   onAddServer: () => void;
-  onAddRoom: (server: Server) => void;
+  onAddChannel: (server: Server) => void;
   onAddDm: () => void;
   onDeleteServer: (server: Server) => void;
-  onDeleteRoom: (server: Server, room: Room) => void;
+  onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
   currentUserName: string;
   currentUserStatus: string;
@@ -35,21 +35,21 @@ const accentFor = (id: string): string => {
 
 const Sidebar: React.FC<SidebarProps> = ({
   servers,
-  roomsByServer,
+  channelsByServer,
   expandedServerId,
   selectedServerId,
-  selectedRoomId,
+  selectedChannelId,
   selectedDmId,
   directs,
   onToggleServer,
   onSelectServer,
-  onSelectRoom,
+  onSelectChannel,
   onSelectDm,
   onAddServer,
-  onAddRoom,
+  onAddChannel,
   onAddDm,
   onDeleteServer,
-  onDeleteRoom,
+  onDeleteChannel,
   onOpenSettings,
   currentUserName,
   currentUserStatus,
@@ -153,7 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {servers.map((server) => {
           const isCol = expandedServerId !== server.id;
-          const rooms = roomsByServer[server.id] || [];
+          const channels = channelsByServer[server.id] || [];
           const accent = accentFor(server.id);
           return (
             <div key={server.id}>
@@ -195,10 +195,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       type="button"
                       className="sb-section-add"
-                      title="Create room"
+                      title="Create channel"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAddRoom(server);
+                        onAddChannel(server);
                       }}
                     >
                       <Icon name="plus" size={14} />
@@ -212,7 +212,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <div
                     className={
                       "sb-item" +
-                      (selectedServerId === server.id && !selectedRoomId && !selectedDmId
+                      (selectedServerId === server.id && !selectedChannelId && !selectedDmId
                         ? " active"
                         : "")
                     }
@@ -223,21 +223,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                     <span className="sb-label">general</span>
                   </div>
-                  {rooms.map((room) => (
+                  {channels.map((channel) => (
                     <div
-                      key={room.id}
-                      className={"sb-item" + (selectedRoomId === room.id ? " active" : "")}
-                      onClick={() => onSelectRoom(server, room)}
+                      key={channel.id}
+                      className={"sb-item" + (selectedChannelId === channel.id ? " active" : "")}
+                      onClick={() => onSelectChannel(server, channel)}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        onDeleteRoom(server, room);
+                        onDeleteChannel(server, channel);
                       }}
                     >
                       <span className="sb-icon">
                         <Icon name="volume" size={14} />
                       </span>
-                      <span className="sb-label">{room.name}</span>
-                      {room.roomType === "private" && (
+                      <span className="sb-label">{channel.name}</span>
+                      {channel.visibility === "private" && (
                         <span className="lock">
                           <Icon name="lock" size={11} />
                         </span>

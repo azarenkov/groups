@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getLiveKitService, ParticipantInfo } from "../services/livekit";
-import { roomAPI } from "../api/room";
+import { channelAPI } from "../api/channel";
 
 interface UseLiveKitResult {
   participants: ParticipantInfo[];
@@ -8,8 +8,8 @@ interface UseLiveKitResult {
   isMuted: boolean;
   isConnecting: boolean;
   error: string | null;
-  joinRoom: (roomId: string, serverId: string) => Promise<void>;
-  leaveRoom: () => Promise<void>;
+  joinChannel: (channelId: string, serverId: string) => Promise<void>;
+  leaveChannel: () => Promise<void>;
   toggleMute: () => void;
 }
 
@@ -36,7 +36,7 @@ export function useLiveKit(): UseLiveKitResult {
     },
   );
 
-  const joinRoom = useCallback(async (roomId: string, serverId: string) => {
+  const joinChannel = useCallback(async (channelId: string, serverId: string) => {
     try {
       // Check if already connecting or connected
       if (livekitService.isConnectingNow()) {
@@ -54,10 +54,10 @@ export function useLiveKit(): UseLiveKitResult {
       setIsConnecting(true);
       setError(null);
 
-      console.log(`[useLiveKit] Joining room ${roomId} on server ${serverId}`);
+      console.log(`[useLiveKit] Joining channel ${channelId} on server ${serverId}`);
 
       // Get token from backend
-      const response = await roomAPI.joinRoom({ roomId, serverId });
+      const response = await channelAPI.joinChannel({ channelId, serverId });
 
       console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
@@ -66,23 +66,23 @@ export function useLiveKit(): UseLiveKitResult {
 
       setIsConnecting(false);
     } catch (err) {
-      console.error("[useLiveKit] Failed to join room:", err);
-      setError(err instanceof Error ? err.message : "Failed to join room");
+      console.error("[useLiveKit] Failed to join channel:", err);
+      setError(err instanceof Error ? err.message : "Failed to join channel");
       setIsConnecting(false);
       throw err;
     }
   }, []);
 
-  const leaveRoom = useCallback(async () => {
+  const leaveChannel = useCallback(async () => {
     try {
-      console.log("[useLiveKit] Leaving room...");
+      console.log("[useLiveKit] Leaving channel...");
       await livekitService.disconnect();
       setParticipants([]);
       setIsConnected(false);
       setIsMuted(false);
       setError(null);
     } catch (err) {
-      console.error("[useLiveKit] Failed to leave room:", err);
+      console.error("[useLiveKit] Failed to leave channel:", err);
     }
   }, []);
 
@@ -107,8 +107,8 @@ export function useLiveKit(): UseLiveKitResult {
     isMuted,
     isConnecting,
     error,
-    joinRoom,
-    leaveRoom,
+    joinChannel,
+    leaveChannel,
     toggleMute,
   };
 }

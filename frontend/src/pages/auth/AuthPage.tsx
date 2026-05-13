@@ -180,9 +180,14 @@ const SignInUp: React.FC<SignInUpProps> = ({
       const response = await authAPI.login(data.email, data.password);
       authAPI.setAuthToken(response.accessToken);
       login(
-        { accessToken: response.accessToken, refreshToken: response.refreshToken },
         {
-          id: response.userId || "",
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken,
+          tokenType: response.tokenType,
+          expiresIn: response.expiresIn,
+        },
+        {
+          id: "",
           name: data.email.split("@")[0],
           email: data.email,
         },
@@ -199,15 +204,22 @@ const SignInUp: React.FC<SignInUpProps> = ({
     try {
       setLoading(true);
       setError(null);
-      await authAPI.register(data.name, data.email, data.password);
-      // Try auto sign-in after register
-      const response = await authAPI.login(data.email, data.password);
+      const response = await authAPI.register(
+        data.name,
+        data.email,
+        data.password,
+      );
       authAPI.setAuthToken(response.accessToken);
       login(
-        { accessToken: response.accessToken, refreshToken: response.refreshToken },
-        { id: response.userId || "", name: data.name, email: data.email },
+        {
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken,
+          tokenType: response.tokenType,
+          expiresIn: response.expiresIn,
+        },
+        { id: "", name: data.name, email: data.email },
       );
-      onSignedIn();
+      goVerify();
     } catch (err: any) {
       setError(err.message || "Could not create your account.");
     } finally {
@@ -679,6 +691,7 @@ const VerifyEmail: React.FC<{
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -686,12 +699,26 @@ const VerifyEmail: React.FC<{
     return () => clearTimeout(t);
   }, [secondsLeft]);
 
+  const submitCode = async (value: string) => {
+    if (value.length !== 6 || isSubmitting) return;
+    setIsSubmitting(true);
+    setError("");
+    try {
+      await authAPI.confirmRegistration(value);
+      onVerified();
+    } catch (err: any) {
+      setError(err?.message || "Invalid or expired code");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     if (code.length === 6) {
-      const t = setTimeout(() => onVerified(), 250);
-      return () => clearTimeout(t);
+      submitCode(code);
     }
-  }, [code, onVerified]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
 
   return (
     <>
@@ -710,11 +737,7 @@ const VerifyEmail: React.FC<{
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (code.length !== 6) {
-            setError("Enter the 6-digit code");
-            return;
-          }
-          onVerified();
+          submitCode(code);
         }}
       >
         <OtpInput
@@ -740,13 +763,18 @@ const VerifyEmail: React.FC<{
         <button
           type="submit"
           className="btn primary"
-          disabled={code.length !== 6}
+          disabled={code.length !== 6 || isSubmitting}
           style={{
-            opacity: code.length === 6 ? 1 : 0.55,
-            cursor: code.length === 6 ? "pointer" : "not-allowed",
+            opacity: code.length === 6 && !isSubmitting ? 1 : 0.55,
+            cursor:
+              code.length === 6 && !isSubmitting ? "pointer" : "not-allowed",
           }}
         >
-          Verify and continue
+          {isSubmitting ? (
+            <span className="loading-spinner" />
+          ) : (
+            "Verify and continue"
+          )}
         </button>
       </form>
 

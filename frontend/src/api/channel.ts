@@ -1,17 +1,17 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import {
-  ListRoomsResponse,
-  CreateRoomRequest,
-  CreateRoomResponse,
-  JoinRoomRequest,
-  JoinRoomResponse,
-} from "../types/room";
+  ListChannelsResponse,
+  CreateChannelRequest,
+  CreateChannelResponse,
+  JoinVoiceChannelRequest,
+  JoinVoiceChannelResponse,
+} from "../types/channel";
 import { useAuthStore } from "../store/authStore";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
-class RoomAPI {
+class ChannelAPI {
   private client: AxiosInstance;
 
   constructor() {
@@ -23,7 +23,6 @@ class RoomAPI {
       timeout: 10000,
     });
 
-    // Response interceptor for handling 401 -> refresh -> retry
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
@@ -31,19 +30,9 @@ class RoomAPI {
           _retry?: boolean;
         };
 
-        // Debug log
-        console.debug(
-          "[roomAPI] response interceptor, status:",
-          error.response?.status,
-        );
-
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
           try {
-            console.debug(
-              "[roomAPI] 401 received, attempting token refresh...",
-            );
-            // dynamic import to avoid circular dependency
             const { authAPI } = await import("./auth");
             await authAPI.handleRefreshFlow();
 
@@ -53,13 +42,8 @@ class RoomAPI {
               originalRequest.headers["Authorization"] =
                 `Bearer ${tokens.accessToken}`;
             }
-
-            console.debug("[roomAPI] retrying original request after refresh");
             return this.client.request(originalRequest);
           } catch (e) {
-            console.debug(
-              "[roomAPI] refresh failed or retry failed, propagating error",
-            );
             throw error;
           }
         }
@@ -82,37 +66,74 @@ class RoomAPI {
     delete this.client.defaults.headers.common["Authorization"];
   }
 
-  async listRoomsByServer(
+  async listByServer(
     serverId: string,
     page: number = 1,
     perPage: number = 50,
-  ): Promise<ListRoomsResponse> {
-    const response = await this.client.get(`/v1/server/${serverId}/rooms`, {
-      params: { page, per_page: perPage },
-    });
+  ): Promise<ListChannelsResponse> {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/channels`,
+      { params: { page, per_page: perPage } },
+    );
     return response.data.data;
   }
 
-  async createRoom(data: CreateRoomRequest): Promise<CreateRoomResponse> {
-    const response = await this.client.post("/v1/room/create", {
-      serverId: data.serverId,
-      name: data.name,
-      roomType: data.roomType,
-      password: data.password,
-    });
+  async create(
+    serverId: string,
+    data: CreateChannelRequest,
+  ): Promise<CreateChannelResponse> {
+    const response = await this.client.post(
+      `/v1/servers/${serverId}/channels`,
+      data,
+    );
     return response.data.data;
   }
 
-  async deleteRoom(roomId: string): Promise<void> {
-    await this.client.delete(`/v1/room/${roomId}`);
+  async delete(serverId: string, channelId: string): Promise<void> {
+    await this.client.delete(
+      `/v1/servers/${serverId}/channels/${channelId}`,
+    );
   }
 
-  async joinRoom(data: JoinRoomRequest): Promise<JoinRoomResponse> {
-    const response = await this.client.post(`/v1/room/${data.roomId}/join`, {
-      serverId: data.serverId,
-    });
+  async joinVoice(
+    serverId: string,
+    channelId: string,
+    data: JoinVoiceChannelRequest = {},
+  ): Promise<JoinVoiceChannelResponse> {
+    const response = await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/join_voice`,
+      data,
+    );
     return response.data.data;
+  }
+
+  async leaveVoice(serverId: string, channelId: string): Promise<void> {
+    await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/leave_voice`,
+    );
+  }
+
+  async mute(
+    serverId: string,
+    channelId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/mute`,
+      { targetUserId },
+    );
+  }
+
+  async unmute(
+    serverId: string,
+    channelId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/unmute`,
+      { targetUserId },
+    );
   }
 }
 
-export const roomAPI = new RoomAPI();
+export const channelAPI = new ChannelAPI();

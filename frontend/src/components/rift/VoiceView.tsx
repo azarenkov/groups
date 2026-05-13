@@ -12,17 +12,17 @@ const colorFor = (id: string): string => {
 };
 
 interface VoiceViewProps {
-  roomId: string;
+  channelId: string;
   serverId: string;
-  roomName: string;
+  channelName: string;
   currentUserName: string;
   onLeave: () => void;
 }
 
 const VoiceView: React.FC<VoiceViewProps> = ({
-  roomId,
+  channelId,
   serverId,
-  roomName,
+  channelName,
   currentUserName,
   onLeave,
 }) => {
@@ -32,25 +32,25 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     isMuted,
     isConnecting,
     error,
-    joinRoom,
-    leaveRoom,
+    joinChannel,
+    leaveChannel,
     toggleMute,
   } = useLiveKit();
 
   const hasJoinedRef = useRef(false);
-  const currentRoomRef = useRef<string | null>(null);
+  const currentChannelRef = useRef<string | null>(null);
   const isJoiningRef = useRef(false);
 
   useEffect(() => {
     const shouldJoin =
-      (!hasJoinedRef.current || currentRoomRef.current !== roomId) &&
+      (!hasJoinedRef.current || currentChannelRef.current !== channelId) &&
       !isJoiningRef.current;
 
     if (shouldJoin) {
       hasJoinedRef.current = true;
-      currentRoomRef.current = roomId;
+      currentChannelRef.current = channelId;
       isJoiningRef.current = true;
-      joinRoom(roomId, serverId)
+      joinChannel(channelId, serverId)
         .then(() => {
           isJoiningRef.current = false;
         })
@@ -63,15 +63,15 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
     return () => {
       hasJoinedRef.current = false;
-      currentRoomRef.current = null;
+      currentChannelRef.current = null;
       isJoiningRef.current = false;
-      leaveRoom();
+      leaveChannel();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, serverId]);
+  }, [channelId, serverId]);
 
   const handleLeave = async () => {
-    await leaveRoom();
+    await leaveChannel();
     onLeave();
   };
 
@@ -157,7 +157,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       <div className="voice-pill">
         <span className="vp-dot" />
         <div>
-          <div className="vp-title">{roomName}</div>
+          <div className="vp-title">{channelName}</div>
           <div className="vp-meta">Connecting…</div>
         </div>
         <button className="vp-btn leave" onClick={handleLeave} title="Cancel">
@@ -171,7 +171,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     <div className="voice-pill" ref={rootRef}>
       <span className="vp-dot" />
       <div>
-        <div className="vp-title">{roomName}</div>
+        <div className="vp-title">{channelName}</div>
         <div className="vp-meta">
           {speakingPerson
             ? `${speakingPerson.name || speakingPerson.identity} is speaking`

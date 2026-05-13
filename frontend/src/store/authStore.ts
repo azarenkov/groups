@@ -7,9 +7,11 @@ interface User {
   email: string;
 }
 
-interface TokenPair {
+export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+  tokenType?: string;
+  expiresIn?: number;
 }
 
 interface AuthState {
@@ -19,11 +21,11 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
 
-  // Actions
   setUser: (user: User) => void;
   setTokens: (tokens: TokenPair) => void;
   login: (tokens: TokenPair, user: User) => void;
   logout: () => void;
+  signOut: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
@@ -57,6 +59,21 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           error: null,
         }),
+
+      signOut: async () => {
+        const { authAPI } = await import("../api/auth");
+        try {
+          await authAPI.logout();
+        } catch {
+          // best-effort: still clear local state below
+        }
+        set({
+          user: null,
+          tokens: null,
+          isAuthenticated: false,
+          error: null,
+        });
+      },
 
       setLoading: (loading) => set({ isLoading: loading }),
 

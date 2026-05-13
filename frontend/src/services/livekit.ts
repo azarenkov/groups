@@ -1,5 +1,5 @@
 import {
-  Room,
+  Channel,
   RoomEvent,
   Track,
   RemoteParticipant,
@@ -19,7 +19,7 @@ export interface ParticipantInfo {
 }
 
 export class LiveKitService {
-  private room: Room | null = null;
+  private channel: Channel | null = null;
   private participants: Map<string, ParticipantInfo> = new Map();
   private onParticipantsChange?: (participants: ParticipantInfo[]) => void;
   private onConnectionStateChange?: (connected: boolean) => void;
@@ -203,16 +203,16 @@ export class LiveKitService {
 
     // Connection state events
     this.room.on(RoomEvent.Connected, () => {
-      console.log("Room connected successfully");
+      console.log("Channel connected successfully");
       this.onConnectionStateChange?.(true);
     });
 
     this.room.on(RoomEvent.Reconnecting, () => {
-      console.log("Room reconnecting...");
+      console.log("Channel reconnecting...");
     });
 
     this.room.on(RoomEvent.Reconnected, () => {
-      console.log("Room reconnected");
+      console.log("Channel reconnected");
     });
 
     // Participant connected

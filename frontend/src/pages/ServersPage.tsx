@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
-import { useRoomStore } from "../store/roomStore";
+import { useChannelStore } from "../store/channelStore";
 import { useThemeStore } from "../store/themeStore";
 import { serverAPI } from "../api/server";
-import { roomAPI } from "../api/room";
+import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
-import CreateRoomModal from "../components/CreateRoomModal";
+import CreateChannelModal from "../components/CreateChannelModal";
 import NewDmModal from "../components/NewDmModal";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
@@ -16,7 +16,7 @@ import VoiceView from "../components/rift/VoiceView";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView, { TweaksPanel } from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
-import { Room, RoomType } from "../types/room";
+import { Channel, ChannelKind, ChannelVisibility } from "../types/channel";
 import { Server } from "../types/server";
 import {
   SEED_DIRECTS,
@@ -32,7 +32,7 @@ interface ChannelOverride {
 }
 
 const ServersPage: React.FC = () => {
-  const { tokens, user, logout } = useAuthStore();
+  const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
     selectedServerId,
@@ -46,16 +46,16 @@ const ServersPage: React.FC = () => {
   } = useServerStore();
 
   const {
-    roomsByServer,
-    selectedRoomId,
-    error: roomsError,
-    setSelectedRoom,
-    fetchRooms,
-    createRoom,
-    deleteRoom,
-    clearError: clearRoomsError,
-    clearRooms,
-  } = useRoomStore();
+    channelsByServer,
+    selectedChannelId,
+    error: channelsError,
+    setSelectedChannel,
+    fetchChannels,
+    createChannel,
+    deleteChannel,
+    clearError: clearChannelsError,
+    clearChannels,
+  } = useChannelStore();
 
   const { theme, setTheme } = useThemeStore();
   const [accent, setAccent] = useState("#0071e3");
@@ -83,20 +83,20 @@ const ServersPage: React.FC = () => {
 
   // Modals + side panels
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
-  const [roomModalServerId, setRoomModalServerId] = useState<string | null>(null);
+  const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
+  const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: "server" | "room";
+    type: "server" | "channel";
     id: string;
     serverId?: string;
     name: string;
   } | null>(null);
 
-  // Conversation state — exactly one of (joinedRoom | selectedDm | text-channel) is active
-  const [joinedRoom, setJoinedRoom] = useState<{ room: Room; serverId: string } | null>(null);
+  // Conversation state — exactly one of (joinedChannel | selectedDm | text-channel) is active
+  const [joinedChannel, setJoinedChannel] = useState<{ channel: Channel; serverId: string } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
   const [expandedServerId, setExpandedServerId] = useState<string | null>(null);
   const [directs, setDirects] = useState<MockDirect[]>(SEED_DIRECTS);
@@ -116,16 +116,16 @@ const ServersPage: React.FC = () => {
   useEffect(() => {
     if (tokens?.accessToken) {
       serverAPI.setAuthToken(tokens.accessToken);
-      roomAPI.setAuthToken(tokens.accessToken);
+      channelAPI.setAuthToken(tokens.accessToken);
       fetchServers();
     }
   }, [tokens, fetchServers]);
 
   useEffect(() => {
-    if (expandedServerId && tokens?.accessToken && !roomsByServer[expandedServerId]) {
-      fetchRooms(expandedServerId);
+    if (expandedServerId && tokens?.accessToken && !channelsByServer[expandedServerId]) {
+      fetchChannels(expandedServerId);
     }
-  }, [expandedServerId, tokens, fetchRooms, roomsByServer]);
+  }, [expandedServerId, tokens, fetchChannels, channelsByServer]);
 
   useEffect(() => {
     if (!expandedServerId && servers.length > 0) {
@@ -149,7 +149,7 @@ const ServersPage: React.FC = () => {
     : null;
 
   const onTextChannelActive =
-    !!selectedServer && !joinedRoom && !selectedDm;
+    !!selectedServer && !joinedChannel && !selectedDm;
   const showMembersForChannel =
     onTextChannelActive && !!generalChannel && !!membersOpenById[generalChannel.id];
 
@@ -159,35 +159,42 @@ const ServersPage: React.FC = () => {
 
   const handleSelectServer = (serverId: string) => {
     setSelectedServer(serverId);
-    setSelectedRoom(null);
-    setJoinedRoom(null);
+    setSelectedChannel(null);
+    setJoinedChannel(null);
     setSelectedDm(null);
   };
 
-  const handleSelectRoom = (server: Server, room: Room) => {
+  const handleSelectChannel = (server: Server, channel: Channel) => {
     setSelectedServer(server.id);
-    setSelectedRoom(room.id);
-    setJoinedRoom({ room, serverId: server.id });
+    setSelectedChannel(channel.id);
+    setJoinedChannel({ channel, serverId: server.id });
     setSelectedDm(null);
   };
 
   const handleSelectDm = (dm: MockDirect) => {
     setSelectedDm(dm);
-    setJoinedRoom(null);
-    setSelectedRoom(null);
+    setJoinedChannel(null);
+    setSelectedChannel(null);
   };
 
   const handleCreateServer = async (name: string, description?: string) => {
     await createServer(name, description);
   };
 
-  const handleCreateRoom = async (
+  const handleCreateChannel = async (
     name: string,
-    roomType: RoomType,
+    kind: ChannelKind,
+    visibility: ChannelVisibility,
     password?: string,
   ) => {
-    if (roomModalServerId) {
-      await createRoom(roomModalServerId, name, roomType, password);
+    if (channelModalServerId) {
+      await createChannel(
+        channelModalServerId,
+        name,
+        kind,
+        visibility,
+        password,
+      );
     }
   };
 
@@ -197,7 +204,7 @@ const ServersPage: React.FC = () => {
       await deleteServer(deleteConfirm.id);
       if (selectedServerId === deleteConfirm.id) {
         setSelectedServer(null);
-        clearRooms(deleteConfirm.id);
+        clearChannels(deleteConfirm.id);
       }
       if (expandedServerId === deleteConfirm.id) setExpandedServerId(null);
       setDeleteConfirm(null);
@@ -206,17 +213,17 @@ const ServersPage: React.FC = () => {
     }
   };
 
-  const handleDeleteRoom = async () => {
-    if (deleteConfirm?.type !== "room" || !deleteConfirm.serverId) return;
+  const handleDeleteChannel = async () => {
+    if (deleteConfirm?.type !== "channel" || !deleteConfirm.serverId) return;
     try {
-      await deleteRoom(deleteConfirm.serverId, deleteConfirm.id);
-      if (selectedRoomId === deleteConfirm.id) {
-        setSelectedRoom(null);
-        setJoinedRoom(null);
+      await deleteChannel(deleteConfirm.serverId, deleteConfirm.id);
+      if (selectedChannelId === deleteConfirm.id) {
+        setSelectedChannel(null);
+        setJoinedChannel(null);
       }
       setDeleteConfirm(null);
     } catch (err) {
-      console.error("Failed to delete room:", err);
+      console.error("Failed to delete channel:", err);
     }
   };
 
@@ -240,16 +247,16 @@ const ServersPage: React.FC = () => {
     setIsDmModalOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     serverAPI.removeAuthToken();
-    roomAPI.removeAuthToken();
-    logout();
+    channelAPI.removeAuthToken();
+    await signOut();
   };
 
-  const error = serversError || roomsError;
+  const error = serversError || channelsError;
   const clearError = () => {
     clearServersError();
-    clearRoomsError();
+    clearChannelsError();
   };
 
   const userName = user?.name || "You";
@@ -257,8 +264,8 @@ const ServersPage: React.FC = () => {
 
   const winTitle = selectedDm
     ? selectedDm.name
-    : joinedRoom
-      ? `${servers.find((s) => s.id === joinedRoom.serverId)?.name ?? ""} — ${joinedRoom.room.name}`
+    : joinedChannel
+      ? `${servers.find((s) => s.id === joinedChannel.serverId)?.name ?? ""} — ${joinedChannel.channel.name}`
       : selectedServer
         ? `${selectedServer.name} — ${generalChannel?.name ?? "general"}`
         : "Rift";
@@ -287,31 +294,31 @@ const ServersPage: React.FC = () => {
       <div className="body-area">
         <Sidebar
           servers={servers}
-          roomsByServer={roomsByServer}
+          channelsByServer={channelsByServer}
           expandedServerId={expandedServerId}
           selectedServerId={selectedServerId}
-          selectedRoomId={joinedRoom?.room.id ?? null}
+          selectedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
           directs={directs}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
-          onSelectRoom={handleSelectRoom}
+          onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onAddServer={() => setIsServerModalOpen(true)}
-          onAddRoom={(server) => {
-            setRoomModalServerId(server.id);
-            setIsRoomModalOpen(true);
+          onAddChannel={(server) => {
+            setChannelModalServerId(server.id);
+            setIsChannelModalOpen(true);
           }}
           onAddDm={() => setIsDmModalOpen(true)}
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
-          onDeleteRoom={(server, room) =>
+          onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
-              type: "room",
-              id: room.id,
+              type: "channel",
+              id: channel.id,
               serverId: server.id,
-              name: room.name,
+              name: channel.name,
             })
           }
           onOpenSettings={() => setSettingsOpen(true)}
@@ -339,11 +346,11 @@ const ServersPage: React.FC = () => {
             ) : (
               <ChatView
                 channel={{
-                  name: joinedRoom ? joinedRoom.room.name : generalChannel?.name ?? "general",
-                  topic: joinedRoom
-                    ? `${selectedServer?.name ?? ""} · voice room`
+                  name: joinedChannel ? joinedChannel.channel.name : generalChannel?.name ?? "general",
+                  topic: joinedChannel
+                    ? `${selectedServer?.name ?? ""} · voice channel`
                     : generalChannel?.topic,
-                  type: joinedRoom ? "voice" : "text",
+                  type: joinedChannel ? "voice" : "text",
                 }}
                 membersOpen={
                   onTextChannelActive && !!generalChannel
@@ -367,16 +374,16 @@ const ServersPage: React.FC = () => {
               />
             )}
 
-            {joinedRoom && (
+            {joinedChannel && (
               <VoiceView
-                key={joinedRoom.room.id}
-                roomId={joinedRoom.room.id}
-                serverId={joinedRoom.serverId}
-                roomName={joinedRoom.room.name}
+                key={joinedChannel.channel.id}
+                channelId={joinedChannel.channel.id}
+                serverId={joinedChannel.serverId}
+                channelName={joinedChannel.channel.name}
                 currentUserName={userName}
                 onLeave={() => {
-                  setJoinedRoom(null);
-                  setSelectedRoom(null);
+                  setJoinedChannel(null);
+                  setSelectedChannel(null);
                 }}
               />
             )}
@@ -409,13 +416,13 @@ const ServersPage: React.FC = () => {
         onCreate={handleCreateServer}
       />
 
-      <CreateRoomModal
-        isOpen={isRoomModalOpen}
+      <CreateChannelModal
+        isOpen={isChannelModalOpen}
         onClose={() => {
-          setIsRoomModalOpen(false);
-          setRoomModalServerId(null);
+          setIsChannelModalOpen(false);
+          setChannelModalServerId(null);
         }}
-        onCreate={handleCreateRoom}
+        onCreate={handleCreateChannel}
       />
 
       <NewDmModal
@@ -446,14 +453,14 @@ const ServersPage: React.FC = () => {
 
       {deleteConfirm && (
         <ConfirmModal
-          title={`Delete ${deleteConfirm.type === "server" ? "server" : "room"}?`}
+          title={`Delete ${deleteConfirm.type === "server" ? "server" : "channel"}?`}
           subtitle="This can't be undone."
           targetName={deleteConfirm.name}
           confirmLabel="Delete"
           danger
           onCancel={() => setDeleteConfirm(null)}
           onConfirm={
-            deleteConfirm.type === "server" ? handleDeleteServer : handleDeleteRoom
+            deleteConfirm.type === "server" ? handleDeleteServer : handleDeleteChannel
           }
         />
       )}

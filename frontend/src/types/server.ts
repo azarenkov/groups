@@ -7,6 +7,11 @@ export interface Server {
   updatedAt: string;
 }
 
+export interface Member {
+  id: string;
+  name: string;
+}
+
 export interface PaginationMeta {
   total: number;
   page: number;
@@ -16,6 +21,11 @@ export interface PaginationMeta {
 
 export interface ListServersResponse {
   servers: Server[];
+  pagination: PaginationMeta;
+}
+
+export interface ListServerMembersResponse {
+  members: Member[];
   pagination: PaginationMeta;
 }
 

@@ -1,10 +1,17 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import { serverAPI } from "./server";
-import { roomAPI } from "./room";
+import { channelAPI } from "./channel";
 import { useAuthStore } from "../store/authStore";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
+
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+}
 
 class AuthAPI {
   private client: AxiosInstance;
@@ -20,7 +27,6 @@ class AuthAPI {
       timeout: 10000,
     });
 
-    // Response interceptor for handling errors and automatic refresh
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
@@ -28,7 +34,6 @@ class AuthAPI {
           _retry?: boolean;
         };
 
-        // If unauthorized and we haven't retried yet — attempt refresh flow
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
           try {
@@ -41,12 +46,10 @@ class AuthAPI {
             }
             return this.client.request(originalRequest);
           } catch (e) {
-            // Refresh failed — logout handled inside handleRefreshFlow
             throw error;
           }
         }
 
-        // Fallback: extract possible server error message safely
         const respData = error.response ? (error.response.data as any) : null;
         if (respData?.error) {
           throw new Error(respData.error);
@@ -57,8 +60,11 @@ class AuthAPI {
     );
   }
 
-  // Public: register
-  async register(name: string, email: string, password: string) {
+  async register(
+    name: string,
+    email: string,
+    password: string,
+  ): Promise<TokenPair> {
     const response = await this.client.post("/v1/auth/register", {
       name,
       email,
@@ -67,8 +73,20 @@ class AuthAPI {
     return response.data.data;
   }
 
-  // Public: login
-  async login(email: string, password: string) {
+  async confirmRegistration(verificationCode: string): Promise<void> {
+    const tokens = useAuthStore.getState().tokens;
+    await this.client.post(
+      "/v1/auth/confirm_registration",
+      { verificationCode },
+      {
+        headers: tokens?.accessToken
+          ? { Authorization: `Bearer ${tokens.accessToken}` }
+          : undefined,
+      },
+    );
+  }
+
+  async login(email: string, password: string): Promise<TokenPair> {
     const response = await this.client.post("/v1/auth/login", {
       email,
       password,
@@ -76,8 +94,7 @@ class AuthAPI {
     return response.data.data;
   }
 
-  // Public: call refresh endpoint (doesn't update store itself)
-  async refresh(): Promise<{ accessToken: string; refreshToken: string }> {
+  async refresh(): Promise<TokenPair> {
     const tokens = useAuthStore.getState().tokens;
     if (!tokens?.refreshToken) {
       throw new Error("No refresh token available");
@@ -89,7 +106,25 @@ class AuthAPI {
     return response.data.data;
   }
 
-  // Public: perform refresh flow once (with concurrency control)
+  async logout(): Promise<void> {
+    const tokens = useAuthStore.getState().tokens;
+    if (!tokens?.refreshToken || !tokens?.accessToken) {
+      return;
+    }
+
+    try {
+      await this.client.post(
+        "/v1/auth/logout",
+        { refreshToken: tokens.refreshToken },
+        {
+          headers: { Authorization: `Bearer ${tokens.accessToken}` },
+        },
+      );
+    } finally {
+      this.removeAuthToken();
+    }
+  }
+
   public async handleRefreshFlow(): Promise<void> {
     if (this.refreshInProgress) {
       if (!this.refreshPromise) return;
@@ -101,23 +136,13 @@ class AuthAPI {
       try {
         const newTokens = await this.refresh();
 
-        // update zustand store
-        const user = useAuthStore.getState().user;
         useAuthStore.getState().setTokens(newTokens);
-        if (user) {
-          useAuthStore.getState().login(newTokens, user);
-        } else {
-          useAuthStore.getState().setTokens(newTokens);
-        }
-
-        // update axios defaults for all API clients
         this.setAuthToken(newTokens.accessToken);
       } catch (err) {
-        // If refresh fails, logout and clear tokens from clients
         useAuthStore.getState().logout();
         this.removeAuthToken();
         serverAPI.removeAuthToken();
-        roomAPI.removeAuthToken();
+        channelAPI.removeAuthToken();
         throw err;
       } finally {
         this.refreshInProgress = false;
@@ -128,18 +153,16 @@ class AuthAPI {
     return this.refreshPromise;
   }
 
-  // Set auth token for this client and other API clients
   setAuthToken(token: string) {
     this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     serverAPI.setAuthToken(token);
-    roomAPI.setAuthToken(token);
+    channelAPI.setAuthToken(token);
   }
 
-  // Remove auth token from this client and other APIs
   removeAuthToken() {
     delete this.client.defaults.headers.common["Authorization"];
     serverAPI.removeAuthToken();
-    roomAPI.removeAuthToken();
+    channelAPI.removeAuthToken();
   }
 }
 
