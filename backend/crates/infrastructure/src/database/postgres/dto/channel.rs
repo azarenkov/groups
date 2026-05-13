@@ -9,7 +9,6 @@ pub struct ChannelDto {
     pub server_id: Uuid,
     pub owner_id: Uuid,
     pub name: String,
-    pub max_participants: i32,
     pub kind: ChannelKindDto,
     pub visibility: ChannelVisibilityDto,
     pub password_hash: Option<String>,

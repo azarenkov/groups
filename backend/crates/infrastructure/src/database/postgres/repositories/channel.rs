@@ -9,7 +9,6 @@ use domain::{
         events::participant::{ConnectionAbortReason, LeaveReason},
         id::ChannelId,
         kind::ChannelKind,
-        max_paticipants::MaxParticipants,
         name::ChannelName,
         participant_mute::ParticipantMute,
         repository::{ChannelOperationError, ChannelRepository},
@@ -63,16 +62,15 @@ impl ChannelRepository for PostgresChannelRepository {
         sqlx::query!(
             r#"
             INSERT INTO channels (
-                id, server_id, owner_id, name, max_participants,
+                id, server_id, owner_id, name,
                 kind, visibility, password_hash, created_at, updated_at, last_join
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             "#,
             channel.id().uuid(),
             channel.server_id().uuid(),
             channel.owner_id().uuid(),
             channel.name().as_str(),
-            channel.max_participants().value() as i16,
             kind_dto as ChannelKindDto,
             visibility_dto as ChannelVisibilityDto,
             channel.password_hash().map(|ph| ph.as_str()),
@@ -307,7 +305,7 @@ impl ChannelRepository for PostgresChannelRepository {
         let dto = sqlx::query_as!(
             ChannelDto,
             r#"
-            SELECT id, server_id, owner_id, name, max_participants,
+            SELECT id, server_id, owner_id, name,
                    kind AS "kind: ChannelKindDto",
                    visibility AS "visibility: ChannelVisibilityDto",
                    password_hash, created_at, updated_at, last_join
@@ -374,7 +372,6 @@ impl ChannelRepository for PostgresChannelRepository {
             ServerId::new(dto.server_id),
             UserId::new(dto.owner_id),
             ChannelName::new(dto.name),
-            MaxParticipants::new(dto.max_participants as u8),
             kind,
             dto.visibility.into(),
             dto.password_hash.map(PasswordHash::new),
@@ -505,7 +502,7 @@ async fn load_channel_for_update(
     let dto = sqlx::query_as!(
         ChannelDto,
         r#"
-        SELECT id, server_id, owner_id, name, max_participants,
+        SELECT id, server_id, owner_id, name,
                kind AS "kind: ChannelKindDto",
                visibility AS "visibility: ChannelVisibilityDto",
                password_hash, created_at, updated_at, last_join
@@ -574,7 +571,6 @@ async fn load_channel_for_update(
         ServerId::new(dto.server_id),
         UserId::new(dto.owner_id),
         ChannelName::new(dto.name),
-        MaxParticipants::new(dto.max_participants as u8),
         kind,
         dto.visibility.into(),
         dto.password_hash.map(PasswordHash::new),

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, server_id, owner_id, name, max_participants,\n               kind AS \"kind: ChannelKindDto\",\n               visibility AS \"visibility: ChannelVisibilityDto\",\n               password_hash, created_at, updated_at, last_join\n        FROM channels\n        WHERE id = $1\n        FOR UPDATE\n        ",
+  "query": "\n            SELECT id, server_id, owner_id, name,\n                   kind AS \"kind: ChannelKindDto\",\n                   visibility AS \"visibility: ChannelVisibilityDto\",\n                   password_hash, created_at, updated_at, last_join\n            FROM channels\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -25,11 +25,6 @@
       },
       {
         "ordinal": 4,
-        "name": "max_participants",
-        "type_info": "Int4"
-      },
-      {
-        "ordinal": 5,
         "name": "kind: ChannelKindDto",
         "type_info": {
           "Custom": {
@@ -44,7 +39,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "visibility: ChannelVisibilityDto",
         "type_info": {
           "Custom": {
@@ -59,22 +54,22 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "password_hash",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "last_join",
         "type_info": "Timestamptz"
       }
@@ -91,12 +86,11 @@
       false,
       false,
       false,
-      false,
       true,
       false,
       false,
       false
     ]
   },
-  "hash": "4fa56dd5c412c0463bf3d2e9f70f710416f60c632c04e08094ff04e08d01d610"
+  "hash": "822de28039c032bbd7395d3b996fe0a19ff5d4379a9b3b35955f0bc245224018"
 }

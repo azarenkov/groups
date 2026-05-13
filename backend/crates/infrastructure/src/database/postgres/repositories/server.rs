@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use domain::{
     channel::{
-        Channel, id::ChannelId, kind::ChannelKind, max_paticipants::MaxParticipants,
-        name::ChannelName, participant_mute::ParticipantMute, session_id::SessionId,
+        Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
+        participant_mute::ParticipantMute, session_id::SessionId,
     },
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
@@ -201,7 +201,7 @@ impl ServerRepository for PostgresServerRepository {
             ChannelDto,
             r#"
             SELECT
-                id, server_id, owner_id, name, max_participants,
+                id, server_id, owner_id, name,
                 kind as "kind: ChannelKindDto",
                 visibility as "visibility: ChannelVisibilityDto",
                 password_hash, created_at, updated_at, last_join
@@ -283,7 +283,6 @@ impl ServerRepository for PostgresServerRepository {
                     ServerId::new(dto.server_id),
                     UserId::new(dto.owner_id),
                     ChannelName::new(dto.name),
-                    MaxParticipants::new(dto.max_participants as u8),
                     kind,
                     dto.visibility.into(),
                     dto.password_hash.map(PasswordHash::new),

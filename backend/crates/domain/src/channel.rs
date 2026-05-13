@@ -1,7 +1,6 @@
 pub mod events;
 pub mod id;
 pub mod kind;
-pub mod max_paticipants;
 pub mod name;
 pub mod participant_mute;
 pub mod repository;
@@ -25,7 +24,6 @@ use crate::{
         },
         id::ChannelId,
         kind::ChannelKind,
-        max_paticipants::MaxParticipants,
         name::ChannelName,
         participant_mute::ParticipantMute,
         session_id::SessionId,
@@ -72,7 +70,6 @@ pub struct Channel {
     server_id: ServerId,
     owner_id: UserId,
     name: ChannelName,
-    max_participants: MaxParticipants,
     kind: ChannelKind,
     visibility: ChannelVisibility,
     password_hash: Option<PasswordHash>,
@@ -103,7 +100,6 @@ impl Channel {
         }
 
         let id = ChannelId::generate();
-        let max_participants = MaxParticipants::default();
 
         let (muted_participants, voice_participants) = if kind.supports_voice() {
             (Some(HashMap::new()), Some(HashMap::new()))
@@ -116,7 +112,6 @@ impl Channel {
             server_id,
             owner_id,
             name: name.clone(),
-            max_participants,
             kind,
             visibility,
             password_hash,
@@ -142,7 +137,6 @@ impl Channel {
         server_id: ServerId,
         owner_id: UserId,
         name: ChannelName,
-        max_participants: MaxParticipants,
         kind: ChannelKind,
         visibility: ChannelVisibility,
         password_hash: Option<PasswordHash>,
@@ -157,7 +151,6 @@ impl Channel {
             server_id,
             owner_id,
             name,
-            max_participants,
             kind,
             visibility,
             password_hash,
@@ -207,11 +200,6 @@ impl Channel {
         )));
 
         Ok(())
-    }
-
-    pub fn change_max_participants(&mut self, new_max: MaxParticipants, now: DateTime<Utc>) {
-        self.max_participants = new_max;
-        self.updated_at = now;
     }
 
     pub fn change_password(
@@ -350,13 +338,7 @@ impl Channel {
 
         if now_empty {
             self.record(ChannelEvent::ParticipantConnectionAborted(
-                ParticipantConnectionAborted::record(
-                    self.id,
-                    self.server_id,
-                    user_id,
-                    reason,
-                    now,
-                ),
+                ParticipantConnectionAborted::record(self.id, self.server_id, user_id, reason, now),
             ));
         }
 
@@ -445,10 +427,6 @@ impl Channel {
 
     pub fn name(&self) -> &ChannelName {
         &self.name
-    }
-
-    pub fn max_participants(&self) -> &MaxParticipants {
-        &self.max_participants
     }
 
     pub fn password_hash(&self) -> Option<&PasswordHash> {

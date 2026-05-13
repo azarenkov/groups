@@ -11,7 +11,6 @@ pub struct CreateChannelResponse {
     pub owner_id: Uuid,
     pub kind: ChannelKindResponse,
     pub visibility: ChannelVisibilityResponse,
-    pub max_participants: u8,
     pub created_at: DateTime<Utc>,
 }
 
@@ -37,7 +36,6 @@ impl From<Channel> for CreateChannelResponse {
             owner_id: value.owner_id().uuid(),
             kind: value.kind().into(),
             visibility: (&value.visibility()).into(),
-            max_participants: value.max_participants().value(),
             created_at: value.created_at(),
         }
     }
