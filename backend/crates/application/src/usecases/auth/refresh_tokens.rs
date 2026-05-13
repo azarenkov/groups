@@ -4,6 +4,7 @@ use chrono::Utc;
 use domain::{
     refresh_token::{RefreshToken, repository::RefreshTokenRepository},
     shared::repository::error::RepositoryError,
+    user::repository::UserRepository,
 };
 
 use crate::{
@@ -25,25 +26,35 @@ pub enum RefreshTokensError {
     RefreshTokenExpired,
     #[error("Refresh token does not belong to claimed user")]
     UserMismatch,
+    #[error("User not found")]
+    UserNotFound,
 }
 
-pub struct RefreshTokens<R, I>
+pub struct RefreshTokens<R, U, I>
 where
     R: RefreshTokenRepository,
+    U: UserRepository,
     I: TokenIssuer,
 {
     refresh_token_repository: Arc<R>,
+    user_repository: Arc<U>,
     token_issuer: Arc<I>,
 }
 
-impl<R, I> RefreshTokens<R, I>
+impl<R, U, I> RefreshTokens<R, U, I>
 where
     R: RefreshTokenRepository,
+    U: UserRepository,
     I: TokenIssuer,
 {
-    pub fn new(refresh_token_repository: Arc<R>, token_issuer: Arc<I>) -> Self {
+    pub fn new(
+        refresh_token_repository: Arc<R>,
+        user_repository: Arc<U>,
+        token_issuer: Arc<I>,
+    ) -> Self {
         Self {
             refresh_token_repository,
+            user_repository,
             token_issuer,
         }
     }
@@ -84,7 +95,16 @@ where
             return Err(RefreshTokensError::RefreshTokenRevoked);
         }
 
-        let tokens = self.token_issuer.issue(&decoded.user_id).await?;
+        let user = self
+            .user_repository
+            .find_by_id(&decoded.user_id)
+            .await?
+            .ok_or(RefreshTokensError::UserNotFound)?;
+
+        let tokens = self
+            .token_issuer
+            .issue(&decoded.user_id, user.is_verified())
+            .await?;
 
         let new_refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,

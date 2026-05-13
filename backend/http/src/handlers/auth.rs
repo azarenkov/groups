@@ -1,5 +1,5 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
-use domain::user::id::UserId;
+use domain::{user::id::UserId, verification::purpose::VerificationPurpose};
 use shared::middleware::auth::AuthToken;
 use validator::Validate;
 
@@ -10,6 +10,7 @@ use crate::shared::{
             confirm_registration::ConfirmRegistrationRequestBody, login::LoginUserRequestBody,
             logout::LogoutRequestBody, refresh_token::RefreshTokenRequestBody,
             registration::RegisterUserRequestBody,
+            request_verification_code::RequestVerificationCodeRequestBody,
         },
         responses::{ApiResponse, auth::token_pair::TokenPairResponse},
     },
@@ -27,14 +28,32 @@ async fn register_user(
     body.validate()?;
 
     let client = extract_client_context(&req, app_state.trust_forwarded_headers);
-    let tokens = app_state
+    let registered = app_state
         .register_user_usecase
         .execute(body.into_request(client))
         .await?;
 
-    let response: TokenPairResponse = tokens.into();
+    let response: TokenPairResponse = registered.tokens.into();
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[post("/request_verification_code")]
+async fn request_verification_code(
+    auth_token: AuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<RequestVerificationCodeRequestBody>,
+) -> Result<impl Responder, ApiError> {
+    let body: RequestVerificationCodeRequestBody = body.into_inner();
+    body.validate()?;
+    let user_id = UserId::new(auth_token.id);
+
+    app_state
+        .issue_verification_code_usecase
+        .execute(user_id, VerificationPurpose::Registration, body.channel.into())
+        .await?;
+
+    Ok(HttpResponse::Accepted().finish())
 }
 
 #[post("/confirm_registration")]

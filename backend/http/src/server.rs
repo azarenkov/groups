@@ -4,7 +4,8 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{
-        confirm_registration::ConfirmRegistration, login::LoginUser, logout::Logout,
+        confirm_registration::ConfirmRegistration,
+        issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
     channel::{
@@ -91,6 +92,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         hasher.clone(),
         token_issuer.clone(),
     );
+    let issue_verification_code_usecase = IssueVerificationCode::new(
+        user_repository.clone(),
+        verification_code_repository.clone(),
+        hasher.clone(),
+    );
     let login_user_usecase = LoginUser::new(
         user_repository.clone(),
         hasher.clone(),
@@ -102,8 +108,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         hasher.clone(),
         verification_code_repository.clone(),
     );
-    let refresh_tokens_usecase =
-        RefreshTokens::new(refresh_token_repository.clone(), token_issuer.clone());
+    let refresh_tokens_usecase = RefreshTokens::new(
+        refresh_token_repository.clone(),
+        user_repository.clone(),
+        token_issuer.clone(),
+    );
     let logout_usecase = Logout::new(refresh_token_repository.clone(), token_issuer.clone());
 
     let abort_voice_connection_usecase = AbortVoiceConnection::new(channel_repository.clone());
@@ -128,6 +137,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         unmute_channel_usecase,
         delete_channel_usecase,
         register_user_usecase,
+        issue_verification_code_usecase,
         login_user_usecase,
         confirm_registration_usecase,
         refresh_tokens_usecase,

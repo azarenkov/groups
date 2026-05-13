@@ -12,10 +12,7 @@ use domain::{
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
-    dto::{
-        user::UserDto, verification_channel::VerificationChannelDto,
-        verification_purpose::VerificationPurposeDto,
-    },
+    dto::user::UserDto,
     error::map_sqlx_error_to_domain_error,
     repositories::outbox_record::save_outbox_records,
 };
@@ -55,7 +52,6 @@ impl UserRepository for PostgresUserRepository {
     async fn register_user(
         &self,
         user: &User,
-        verification_code: &VerificationCode,
         refresh_token: &RefreshToken,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError> {
@@ -76,34 +72,6 @@ impl UserRepository for PostgresUserRepository {
             user.password_hash().as_str(),
             user.created_at(),
             user.updated_at(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        let channel = VerificationChannelDto::from(verification_code.channel());
-        let purpose = VerificationPurposeDto::from(verification_code.purpose());
-
-        sqlx::query!(
-            r#"
-                INSERT INTO verification_codes (
-                    id, user_id, channel, code_hash, purpose,
-                    expires_at, consumed_at, attempts, created_at
-                )
-                VALUES (
-                    $1, $2, $3, $4, $5,
-                    $6, $7, $8, $9
-                )
-            "#,
-            verification_code.id().uuid(),
-            verification_code.user_id().uuid(),
-            channel as VerificationChannelDto,
-            verification_code.code_hash().as_str(),
-            purpose as VerificationPurposeDto,
-            verification_code.expires_at(),
-            verification_code.consumed_at(),
-            i16::from(verification_code.attempts()),
-            verification_code.created_at(),
         )
         .execute(&mut *tx)
         .await
@@ -154,6 +122,31 @@ impl UserRepository for PostgresUserRepository {
             WHERE id = $1
             "#,
             id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(dto.map(User::from))
+    }
+
+    async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
+        let dto = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT
+                id,
+                name,
+                email,
+                password_hash,
+                created_at,
+                updated_at,
+                email_verified_at,
+                phone_verified_at
+            FROM users
+            WHERE email = $1
+            "#,
+            email.as_str(),
         )
         .fetch_optional(&self.pool)
         .await

@@ -28,9 +28,14 @@ impl JwtTokenIssuer {
         DecodingKey::from_secret(self.secret.as_bytes())
     }
 
-    fn encode_access(&self, user_id: Uuid, now: DateTime<Utc>) -> Result<String, TokenIssuerError> {
+    fn encode_access(
+        &self,
+        user_id: Uuid,
+        now: DateTime<Utc>,
+        verified: bool,
+    ) -> Result<String, TokenIssuerError> {
         let exp = (now + Duration::minutes(ACCESS_TOKEN_EXPIRATION_MINUTES)).timestamp();
-        let claims = AccessTokenClaims::new(user_id, exp, now.timestamp());
+        let claims = AccessTokenClaims::new(user_id, exp, now.timestamp(), verified);
 
         encode(&Header::default(), &claims, &self.encoding_key())
             .map_err(|e| TokenIssuerError::Encoding(e.to_string()))
@@ -53,12 +58,16 @@ impl JwtTokenIssuer {
 
 #[async_trait]
 impl TokenIssuer for JwtTokenIssuer {
-    async fn issue(&self, user_id: &UserId) -> Result<IssuedTokens, TokenIssuerError> {
+    async fn issue(
+        &self,
+        user_id: &UserId,
+        verified: bool,
+    ) -> Result<IssuedTokens, TokenIssuerError> {
         let now = Utc::now();
         let refresh_expires_at = now + Duration::days(REFRESH_TOKEN_EXPIRATION_DAYS);
         let refresh_id = RefreshTokenId::generate();
 
-        let access_token = self.encode_access(user_id.uuid(), now)?;
+        let access_token = self.encode_access(user_id.uuid(), now, verified)?;
         let refresh_token =
             self.encode_refresh(user_id.uuid(), refresh_id.uuid(), now, refresh_expires_at)?;
 

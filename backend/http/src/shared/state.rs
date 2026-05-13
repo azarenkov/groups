@@ -1,6 +1,7 @@
 use application::usecases::{
     auth::{
-        confirm_registration::ConfirmRegistration, login::LoginUser, logout::Logout,
+        confirm_registration::ConfirmRegistration,
+        issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
     channel::{
@@ -43,6 +44,11 @@ pub struct AppState {
 
     pub register_user_usecase:
         RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
+    pub issue_verification_code_usecase: IssueVerificationCode<
+        PostgresUserRepository,
+        PostgresVerificationCodeRepository,
+        BcryptHasher,
+    >,
     pub login_user_usecase: LoginUser<
         PostgresUserRepository,
         BcryptHasher,
@@ -54,7 +60,7 @@ pub struct AppState {
         BcryptHasher,
         PostgresVerificationCodeRepository,
     >,
-    pub refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, JwtTokenIssuer>,
+    pub refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, PostgresUserRepository, JwtTokenIssuer>,
     pub logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
 
     pub handle_livekit_webhook_usecase:
@@ -93,6 +99,11 @@ impl AppState {
             BcryptHasher,
             JwtTokenIssuer,
         >,
+        issue_verification_code_usecase: IssueVerificationCode<
+            PostgresUserRepository,
+            PostgresVerificationCodeRepository,
+            BcryptHasher,
+        >,
         login_user_usecase: LoginUser<
             PostgresUserRepository,
             BcryptHasher,
@@ -104,7 +115,7 @@ impl AppState {
             BcryptHasher,
             PostgresVerificationCodeRepository,
         >,
-        refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, JwtTokenIssuer>,
+        refresh_tokens_usecase: RefreshTokens<PostgresRefreshTokenRepository, PostgresUserRepository, JwtTokenIssuer>,
         logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
         handle_livekit_webhook_usecase: HandleVoiceWebhook<
             LiveKitWebhookReceiver,
@@ -126,6 +137,7 @@ impl AppState {
             unmute_channel_usecase,
             delete_channel_usecase,
             register_user_usecase,
+            issue_verification_code_usecase,
             login_user_usecase,
             confirm_registration_usecase,
             refresh_tokens_usecase,

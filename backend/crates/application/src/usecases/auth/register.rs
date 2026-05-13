@@ -10,11 +10,7 @@ use domain::{
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, email::Email, name::UserName, repository::UserRepository},
-    verification::{
-        channel::VerificationChannel, code::VerificationCode, code_hash::CodeHash,
-        purpose::VerificationPurpose,
-    },
+    user::{User, email::Email, id::UserId, name::UserName, repository::UserRepository},
 };
 
 use crate::{
@@ -35,6 +31,12 @@ pub enum RegistrationError {
     Outbox(#[from] OutboxError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
+}
+
+pub struct RegisteredUser {
+    pub user_id: UserId,
+    pub email: Email,
+    pub tokens: IssuedTokens,
 }
 
 pub struct RegisterUser<T, H, I>
@@ -65,7 +67,7 @@ where
     pub async fn execute(
         &self,
         request: RegisterUserRequest,
-    ) -> Result<IssuedTokens, RegistrationError> {
+    ) -> Result<RegisteredUser, RegistrationError> {
         let password_hash = PasswordHash::new(self.hasher.hash(&request.password)?);
 
         let mut user = User::create(
@@ -76,19 +78,7 @@ where
             request.client.user_agent.clone(),
         );
 
-        let plain_code = VerificationCode::generate();
-        let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
-
-        let mut verification_code = VerificationCode::issue(
-            user.id_ownned(),
-            user.email().clone(),
-            plain_code,
-            VerificationChannel::Email,
-            code_hash,
-            VerificationPurpose::Registration,
-        );
-
-        let tokens = self.token_issuer.issue(user.id()).await?;
+        let tokens = self.token_issuer.issue(user.id(), false).await?;
 
         let refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,
@@ -98,25 +88,23 @@ where
             request.client.user_agent,
         );
 
-        let user_records = user
+        let records: Vec<OutboxRecord> = user
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record())
             .collect::<Result<Vec<_>, _>>()?;
-        let verification_records = verification_code
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record())
-            .collect::<Result<Vec<_>, _>>()?;
-        let records: Vec<OutboxRecord> = user_records
-            .into_iter()
-            .chain(verification_records)
-            .collect();
+
+        let user_id = user.id_ownned();
+        let email = user.email().clone();
 
         self.user_repository
-            .register_user(&user, &verification_code, &refresh_token, &records)
+            .register_user(&user, &refresh_token, &records)
             .await?;
 
-        Ok(tokens)
+        Ok(RegisteredUser {
+            user_id,
+            email,
+            tokens,
+        })
     }
 }

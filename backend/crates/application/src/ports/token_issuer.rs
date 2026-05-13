@@ -30,6 +30,10 @@ pub enum TokenIssuerError {
 
 #[async_trait]
 pub trait TokenIssuer: Send + Sync {
-    async fn issue(&self, user_id: &UserId) -> Result<IssuedTokens, TokenIssuerError>;
+    async fn issue(
+        &self,
+        user_id: &UserId,
+        verified: bool,
+    ) -> Result<IssuedTokens, TokenIssuerError>;
     fn decode_refresh(&self, token: &str) -> Result<DecodedRefreshToken, TokenIssuerError>;
 }

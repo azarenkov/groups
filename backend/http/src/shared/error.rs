@@ -9,7 +9,8 @@ use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{
-        confirm_registration::ConfirmRegistrationError, login::LoginError, logout::LogoutError,
+        confirm_registration::ConfirmRegistrationError,
+        issue_verification_code::IssueVerificationCodeError, login::LoginError, logout::LogoutError,
         refresh_tokens::RefreshTokensError, register::RegistrationError,
     },
     channel::{
@@ -399,7 +400,9 @@ impl ToHttpStatus for RefreshTokensError {
         match self {
             RefreshTokensError::Repository(e) => e.to_http_status(),
             RefreshTokensError::TokenIssuer(e) => e.to_http_status(),
-            RefreshTokensError::RefreshTokenNotFound => StatusCode::NOT_FOUND,
+            RefreshTokensError::RefreshTokenNotFound | RefreshTokensError::UserNotFound => {
+                StatusCode::NOT_FOUND
+            }
             RefreshTokensError::RefreshTokenRevoked
             | RefreshTokensError::RefreshTokenExpired
             | RefreshTokensError::UserMismatch => StatusCode::UNAUTHORIZED,
@@ -414,6 +417,7 @@ impl ToHttpStatus for RefreshTokensError {
             RefreshTokensError::RefreshTokenRevoked => "Refresh token has been revoked".to_string(),
             RefreshTokensError::RefreshTokenExpired => "Refresh token has expired".to_string(),
             RefreshTokensError::UserMismatch => "Refresh token user mismatch".to_string(),
+            RefreshTokensError::UserNotFound => "User not found".to_string(),
         }
     }
 }
@@ -494,6 +498,30 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::Hash(e) => e.to_user_message(),
             RegistrationError::Outbox(e) => e.to_user_message(),
             RegistrationError::TokenIssuer(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for IssueVerificationCodeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            IssueVerificationCodeError::Repository(e) => e.to_http_status(),
+            IssueVerificationCodeError::Hash(e) => e.to_http_status(),
+            IssueVerificationCodeError::Outbox(e) => e.to_http_status(),
+            IssueVerificationCodeError::UnsupportedChannel => StatusCode::BAD_REQUEST,
+            IssueVerificationCodeError::UserAlreadyVerified => StatusCode::CONFLICT,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            IssueVerificationCodeError::Repository(e) => e.to_user_message(),
+            IssueVerificationCodeError::Hash(e) => e.to_user_message(),
+            IssueVerificationCodeError::Outbox(e) => e.to_user_message(),
+            IssueVerificationCodeError::UnsupportedChannel => {
+                "Unsupported verification channel".to_string()
+            }
+            IssueVerificationCodeError::UserAlreadyVerified => "User already verified".to_string(),
         }
     }
 }
@@ -681,6 +709,12 @@ impl From<LoginError> for ApiError {
 
 impl From<RegistrationError> for ApiError {
     fn from(error: RegistrationError) -> Self {
+        Self::from_error(error)
+    }
+}
+
+impl From<IssueVerificationCodeError> for ApiError {
+    fn from(error: IssueVerificationCodeError) -> Self {
         Self::from_error(error)
     }
 }
