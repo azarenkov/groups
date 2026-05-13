@@ -45,25 +45,30 @@
     "files": [
       "build/**/*",
       "node_modules/**/*",
-      "public/electron.js"
+      "public/electron.js",
+      "public/preload.js",
+      "public/icons/**/*"
     ],
     "directories": {
-      "buildResources": "assets"
+      "buildResources": "public/icons"
     },
     "mac": {
       "category": "public.app-category.social-networking",
+      "icon": "public/icons/rift-icon.icns",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
+      "icon": "public/icons/rift-icon-256.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "linux": {
+      "icon": "public/icons/rift-icon-512.png",
       "target": [
         "AppImage",
         "deb"
