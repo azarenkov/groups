@@ -1,16 +1,23 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
 use domain::{
     channel::{
-        Channel, id::ChannelId, kind::ChannelKind, max_paticipants::MaxParticipants,
-        name::ChannelName, participant_mute::ParticipantMute, repository::ChannelRepository,
+        Channel, VoiceChange,
+        events::participant::{ConnectionAbortReason, LeaveReason},
+        id::ChannelId,
+        kind::ChannelKind,
+        name::ChannelName,
+        participant_mute::ParticipantMute,
+        repository::{ChannelOperationError, ChannelRepository},
+        session_id::SessionId,
     },
     server::id::ServerId,
     shared::{
-        outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
+        outbox::{outbox_record::OutboxRecord, to_outbox::ToOutboxRecord},
+        repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
     user::id::UserId,
@@ -55,16 +62,15 @@ impl ChannelRepository for PostgresChannelRepository {
         sqlx::query!(
             r#"
             INSERT INTO channels (
-                id, server_id, owner_id, name, max_participants,
+                id, server_id, owner_id, name,
                 kind, visibility, password_hash, created_at, updated_at, last_join
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             "#,
             channel.id().uuid(),
             channel.server_id().uuid(),
             channel.owner_id().uuid(),
             channel.name().as_str(),
-            channel.max_participants().value() as i16,
             kind_dto as ChannelKindDto,
             visibility_dto as ChannelVisibilityDto,
             channel.password_hash().map(|ph| ph.as_str()),
@@ -103,6 +109,7 @@ impl ChannelRepository for PostgresChannelRepository {
         &self,
         channel: &Channel,
         events: &[OutboxRecord],
+        voice_changes: &[VoiceChange],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
@@ -127,43 +134,7 @@ impl ChannelRepository for PostgresChannelRepository {
             return Err(RepositoryError::NotFound);
         }
 
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
-    async fn record_events(
-        &self,
-        channel_id: &ChannelId,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
-        if events.is_empty() {
-            return Ok(());
-        }
-
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let exists = sqlx::query!(
-            r#"
-            SELECT 1 AS "anchor!"
-            FROM channels
-            WHERE id = $1
-            FOR SHARE
-            "#,
-            channel_id.uuid(),
-        )
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if exists.is_none() {
-            return Err(RepositoryError::NotFound);
-        }
+        apply_voice_changes(&mut tx, channel.id(), voice_changes).await?;
 
         save_outbox_records(&mut tx, events).await?;
 
@@ -171,57 +142,63 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(())
     }
 
-    async fn record_events_with_inbox(
+    async fn apply_participant_joined(
         &self,
         channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        occurred_at: DateTime<Utc>,
         inbox_source: &str,
         inbox_external_id: &str,
-        events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let inbox_result = sqlx::query!(
-            r#"
-            INSERT INTO webhook_inbox (source, external_id)
-            VALUES (($1::text)::webhook_source, $2)
-            ON CONFLICT DO NOTHING
-            "#,
+    ) -> Result<bool, ChannelOperationError> {
+        apply_voice_operation(
+            &self.pool,
+            channel_id,
             inbox_source,
             inbox_external_id,
+            |channel| channel.join(user_id, session_id, occurred_at),
         )
-        .execute(&mut *tx)
         .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+    }
 
-        if inbox_result.rows_affected() == 0 {
-            return Ok(false);
-        }
-
-        let exists = sqlx::query!(
-            r#"
-            SELECT 1 AS "anchor!"
-            FROM channels
-            WHERE id = $1
-            FOR SHARE
-            "#,
-            channel_id.uuid(),
+    async fn apply_participant_left(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        reason: LeaveReason,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+    ) -> Result<bool, ChannelOperationError> {
+        apply_voice_operation(
+            &self.pool,
+            channel_id,
+            inbox_source,
+            inbox_external_id,
+            |channel| channel.leave(user_id, session_id, reason, occurred_at),
         )
-        .fetch_optional(&mut *tx)
         .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+    }
 
-        if exists.is_none() {
-            return Err(RepositoryError::NotFound);
-        }
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+    async fn apply_participant_connection_aborted(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        reason: ConnectionAbortReason,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+    ) -> Result<bool, ChannelOperationError> {
+        apply_voice_operation(
+            &self.pool,
+            channel_id,
+            inbox_source,
+            inbox_external_id,
+            |channel| channel.connection_aborted(user_id, session_id, reason, occurred_at),
+        )
+        .await
     }
 
     async fn delete_channel_with_events(
@@ -328,7 +305,7 @@ impl ChannelRepository for PostgresChannelRepository {
         let dto = sqlx::query_as!(
             ChannelDto,
             r#"
-            SELECT id, server_id, owner_id, name, max_participants,
+            SELECT id, server_id, owner_id, name,
                    kind AS "kind: ChannelKindDto",
                    visibility AS "visibility: ChannelVisibilityDto",
                    password_hash, created_at, updated_at, last_join
@@ -356,7 +333,7 @@ impl ChannelRepository for PostgresChannelRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         let kind: ChannelKind = dto.kind.into();
-        let muted_participants = if kind.supports_voice() {
+        let (muted_participants, voice_participants) = if kind.supports_voice() {
             let map: HashMap<UserId, ParticipantMute> = muted_dtos
                 .into_iter()
                 .map(|dto| {
@@ -364,9 +341,30 @@ impl ChannelRepository for PostgresChannelRepository {
                     (mute.user_id, mute)
                 })
                 .collect();
-            Some(map)
+
+            let voice_rows = sqlx::query!(
+                r#"
+                SELECT user_id, session_id
+                FROM channel_voice_participants
+                WHERE channel_id = $1
+                "#,
+                id.uuid(),
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+            let mut voice: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+            for r in voice_rows {
+                voice
+                    .entry(UserId::new(r.user_id))
+                    .or_default()
+                    .insert(SessionId::new(r.session_id));
+            }
+
+            (Some(map), Some(voice))
         } else {
-            None
+            (None, None)
         };
 
         let channel = Channel::restore(
@@ -374,16 +372,212 @@ impl ChannelRepository for PostgresChannelRepository {
             ServerId::new(dto.server_id),
             UserId::new(dto.owner_id),
             ChannelName::new(dto.name),
-            MaxParticipants::new(dto.max_participants as u8),
             kind,
             dto.visibility.into(),
             dto.password_hash.map(PasswordHash::new),
             dto.created_at,
             dto.updated_at,
             muted_participants,
+            voice_participants,
             dto.last_join,
         );
 
         Ok(channel)
     }
+}
+
+async fn apply_voice_changes(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: &ChannelId,
+    changes: &[VoiceChange],
+) -> Result<(), RepositoryError> {
+    for change in changes {
+        match change {
+            VoiceChange::Added {
+                user_id,
+                session_id,
+            } => {
+                sqlx::query!(
+                    r#"
+                    INSERT INTO channel_voice_participants (channel_id, user_id, session_id)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT DO NOTHING
+                    "#,
+                    channel_id.uuid(),
+                    user_id.uuid(),
+                    session_id.as_str(),
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+            VoiceChange::Removed {
+                user_id,
+                session_id,
+            } => {
+                sqlx::query!(
+                    r#"
+                    DELETE FROM channel_voice_participants
+                    WHERE channel_id = $1 AND user_id = $2 AND session_id = $3
+                    "#,
+                    channel_id.uuid(),
+                    user_id.uuid(),
+                    session_id.as_str(),
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn apply_voice_operation<F>(
+    pool: &Pool<Postgres>,
+    channel_id: &ChannelId,
+    inbox_source: &str,
+    inbox_external_id: &str,
+    mutate: F,
+) -> Result<bool, ChannelOperationError>
+where
+    F: FnOnce(&mut Channel) -> Result<(), domain::channel::ChannelError>,
+{
+    let mut tx = pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+
+    let inbox_result = sqlx::query!(
+        r#"
+        INSERT INTO webhook_inbox (source, external_id)
+        VALUES (($1::text)::webhook_source, $2)
+        ON CONFLICT DO NOTHING
+        "#,
+        inbox_source,
+        inbox_external_id,
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    if inbox_result.rows_affected() == 0 {
+        return Ok(false);
+    }
+
+    let mut channel = load_channel_for_update(&mut tx, channel_id).await?;
+
+    mutate(&mut channel)?;
+
+    let events: Vec<OutboxRecord> = channel
+        .pull_events()
+        .iter()
+        .map(|e| e.to_outbox_record())
+        .collect::<Result<_, _>>()
+        .map_err(|e| RepositoryError::Internal(format!("outbox error: {e}")))?;
+    let voice_changes = channel.pull_voice_changes();
+
+    sqlx::query!(
+        r#"
+        UPDATE channels
+        SET last_join = GREATEST(last_join, $2)
+        WHERE id = $1
+        "#,
+        channel.id().uuid(),
+        channel.last_join(),
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    apply_voice_changes(&mut tx, channel.id(), &voice_changes).await?;
+
+    save_outbox_records(&mut tx, &events).await?;
+
+    tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+    Ok(true)
+}
+
+async fn load_channel_for_update(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: &ChannelId,
+) -> Result<Channel, RepositoryError> {
+    let dto = sqlx::query_as!(
+        ChannelDto,
+        r#"
+        SELECT id, server_id, owner_id, name,
+               kind AS "kind: ChannelKindDto",
+               visibility AS "visibility: ChannelVisibilityDto",
+               password_hash, created_at, updated_at, last_join
+        FROM channels
+        WHERE id = $1
+        FOR UPDATE
+        "#,
+        channel_id.uuid(),
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?
+    .ok_or(RepositoryError::NotFound)?;
+
+    let kind: ChannelKind = dto.kind.into();
+
+    let muted_dtos = sqlx::query_as!(
+        MutedParticipantDto,
+        r#"
+        SELECT channel_id, user_id, muted_by, muted_at
+        FROM channel_muted_participants
+        WHERE channel_id = $1
+        "#,
+        channel_id.uuid(),
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    let (muted_participants, voice_participants) = if kind.supports_voice() {
+        let map: HashMap<UserId, ParticipantMute> = muted_dtos
+            .into_iter()
+            .map(|d| {
+                let mute: ParticipantMute = d.into();
+                (mute.user_id, mute)
+            })
+            .collect();
+
+        let voice_rows = sqlx::query!(
+            r#"
+            SELECT user_id, session_id
+            FROM channel_voice_participants
+            WHERE channel_id = $1
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let mut voice: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+        for r in voice_rows {
+            voice
+                .entry(UserId::new(r.user_id))
+                .or_default()
+                .insert(SessionId::new(r.session_id));
+        }
+
+        (Some(map), Some(voice))
+    } else {
+        (None, None)
+    };
+
+    Ok(Channel::restore(
+        ChannelId::new(dto.id),
+        ServerId::new(dto.server_id),
+        UserId::new(dto.owner_id),
+        ChannelName::new(dto.name),
+        kind,
+        dto.visibility.into(),
+        dto.password_hash.map(PasswordHash::new),
+        dto.created_at,
+        dto.updated_at,
+        muted_participants,
+        voice_participants,
+        dto.last_join,
+    ))
 }

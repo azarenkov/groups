@@ -117,7 +117,8 @@ services:
       nats:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -144,7 +145,8 @@ services:
       nats:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8081/readyz || exit 1"]
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8081/readyz || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -167,7 +169,8 @@ services:
       nats:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8082/readyz || exit 1"]
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8082/readyz || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3

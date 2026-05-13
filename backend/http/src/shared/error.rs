@@ -15,7 +15,7 @@ use application::usecases::{
     },
     channel::{
         abort_voice_connection::AbortVoiceConnectionError, create_channel::CreateChannelError,
-        delete_channel::DeleteChannelError, leave_voice_channel::LeaveVoiceChannelError,
+        delete_channel::DeleteChannelError, join_voice_connection::JoinVoiceConnectionError,
         leave_voice_connection::LeaveVoiceConnectionError, mute_channel::MuteChannelError,
         unmute_channel::UnmuteChannelError,
     },
@@ -189,30 +189,6 @@ impl ToHttpStatus for DeleteChannelError {
     }
 }
 
-impl ToHttpStatus for LeaveVoiceChannelError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            LeaveVoiceChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
-            LeaveVoiceChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
-            LeaveVoiceChannelError::Repository(e) => e.to_http_status(),
-            LeaveVoiceChannelError::Domain(e) => e.to_http_status(),
-            LeaveVoiceChannelError::Outbox(e) => e.to_http_status(),
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            LeaveVoiceChannelError::ChannelNotFound => "Channel not found".to_string(),
-            LeaveVoiceChannelError::VoiceNotSupported => {
-                "Voice is not supported for this channel".to_string()
-            }
-            LeaveVoiceChannelError::Repository(e) => e.to_user_message(),
-            LeaveVoiceChannelError::Domain(e) => e.to_user_message(),
-            LeaveVoiceChannelError::Outbox(e) => e.to_user_message(),
-        }
-    }
-}
-
 impl ToHttpStatus for MuteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -294,21 +270,15 @@ impl ToHttpStatus for VoiceWebhookVerifierError {
 impl ToHttpStatus for AbortVoiceConnectionError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            AbortVoiceConnectionError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             AbortVoiceConnectionError::Repository(e) => e.to_http_status(),
             AbortVoiceConnectionError::Domain(e) => e.to_http_status(),
-            AbortVoiceConnectionError::Outbox(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            AbortVoiceConnectionError::VoiceNotSupported => {
-                "Voice is not supported for this channel".to_string()
-            }
             AbortVoiceConnectionError::Repository(e) => e.to_user_message(),
             AbortVoiceConnectionError::Domain(e) => e.to_user_message(),
-            AbortVoiceConnectionError::Outbox(e) => e.to_user_message(),
         }
     }
 }
@@ -316,21 +286,31 @@ impl ToHttpStatus for AbortVoiceConnectionError {
 impl ToHttpStatus for LeaveVoiceConnectionError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            LeaveVoiceConnectionError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             LeaveVoiceConnectionError::Repository(e) => e.to_http_status(),
             LeaveVoiceConnectionError::Domain(e) => e.to_http_status(),
-            LeaveVoiceConnectionError::Outbox(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            LeaveVoiceConnectionError::VoiceNotSupported => {
-                "Voice is not supported for this channel".to_string()
-            }
             LeaveVoiceConnectionError::Repository(e) => e.to_user_message(),
             LeaveVoiceConnectionError::Domain(e) => e.to_user_message(),
-            LeaveVoiceConnectionError::Outbox(e) => e.to_user_message(),
+        }
+    }
+}
+
+impl ToHttpStatus for JoinVoiceConnectionError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            JoinVoiceConnectionError::Repository(e) => e.to_http_status(),
+            JoinVoiceConnectionError::Domain(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            JoinVoiceConnectionError::Repository(e) => e.to_user_message(),
+            JoinVoiceConnectionError::Domain(e) => e.to_user_message(),
         }
     }
 }
@@ -339,6 +319,7 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
+            HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_http_status(),
         }
@@ -347,6 +328,7 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     fn to_user_message(&self) -> String {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
+            HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_user_message(),
         }
@@ -679,12 +661,6 @@ impl From<CreateChannelError> for ApiError {
 
 impl From<DeleteChannelError> for ApiError {
     fn from(error: DeleteChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<LeaveVoiceChannelError> for ApiError {
-    fn from(error: LeaveVoiceChannelError) -> Self {
         Self::from_error(error)
     }
 }

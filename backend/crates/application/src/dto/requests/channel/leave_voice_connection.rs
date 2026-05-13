@@ -8,6 +8,7 @@ use crate::ports::voice_webhook_verifier::WebhookSource;
 pub struct LeaveVoiceConnectionRequest {
     pub channel_id: Uuid,
     pub user_id: Uuid,
+    pub session_id: String,
     pub reason: LeaveReason,
     pub occurred_at: DateTime<Utc>,
     pub inbox_source: WebhookSource,

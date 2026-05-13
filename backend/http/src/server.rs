@@ -11,8 +11,9 @@ use application::usecases::{
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
         delete_channel::DeleteChannel, join_voice_channel::JoinVoiceChannel,
-        leave_voice_channel::LeaveVoiceChannel, leave_voice_connection::LeaveVoiceConnection,
-        mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
+        join_voice_connection::JoinVoiceConnection,
+        leave_voice_connection::LeaveVoiceConnection, mute_channel::MuteChannel,
+        unmute_channel::UnmuteChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -81,7 +82,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         user_repository.clone(),
         hasher.clone(),
     );
-    let leave_voice_channel_usecase = LeaveVoiceChannel::new(channel_repository.clone());
     let mute_channel_usecase =
         MuteChannel::new(channel_repository.clone(), user_repository.clone());
     let unmute_channel_usecase =
@@ -115,10 +115,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let logout_usecase = Logout::new(refresh_token_repository.clone(), token_issuer.clone());
 
+    let join_voice_connection_usecase = JoinVoiceConnection::new(channel_repository.clone());
     let abort_voice_connection_usecase = AbortVoiceConnection::new(channel_repository.clone());
     let leave_voice_connection_usecase = LeaveVoiceConnection::new(channel_repository.clone());
     let handle_livekit_webhook_usecase = HandleVoiceWebhook::new(
         livekit_webhook_receiver.clone(),
+        join_voice_connection_usecase,
         abort_voice_connection_usecase,
         leave_voice_connection_usecase,
     );
@@ -132,7 +134,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
         join_voice_channel_usecase,
-        leave_voice_channel_usecase,
         mute_channel_usecase,
         unmute_channel_usecase,
         delete_channel_usecase,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, server_id, owner_id, name, max_participants,\n                   kind AS \"kind: ChannelKindDto\",\n                   visibility AS \"visibility: ChannelVisibilityDto\",\n                   password_hash, created_at, updated_at, last_join\n            FROM channels\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT\n                id, server_id, owner_id, name,\n                kind as \"kind: ChannelKindDto\",\n                visibility as \"visibility: ChannelVisibilityDto\",\n                password_hash, created_at, updated_at, last_join\n            FROM channels\n            WHERE server_id = $1\n            ORDER BY created_at DESC\n            LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -25,11 +25,6 @@
       },
       {
         "ordinal": 4,
-        "name": "max_participants",
-        "type_info": "Int4"
-      },
-      {
-        "ordinal": 5,
         "name": "kind: ChannelKindDto",
         "type_info": {
           "Custom": {
@@ -44,7 +39,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "visibility: ChannelVisibilityDto",
         "type_info": {
           "Custom": {
@@ -59,33 +54,34 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "password_hash",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "last_join",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
-      false,
       false,
       false,
       false,
@@ -98,5 +94,5 @@
       false
     ]
   },
-  "hash": "86c07c2067c2fc4855ddb4a2847bfed06ccee1c7035d18329dbf51566fbd3142"
+  "hash": "d821782baa085a50a6984f11774e0f8a1cb539fd0340956ce4ff043494c7fbbb"
 }

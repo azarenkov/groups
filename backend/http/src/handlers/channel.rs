@@ -1,8 +1,7 @@
 use actix_web::{HttpResponse, Responder, delete, post, web};
 use application::dto::requests::channel::{
     create_channel::CreateChannelRequest, join_voice_channel::JoinVoiceChannelRequest,
-    leave_voice_channel::LeaveVoiceChannelRequest, mute_channel::MuteChannelRequest,
-    unmute_channel::UnmuteChannelRequest,
+    mute_channel::MuteChannelRequest, unmute_channel::UnmuteChannelRequest,
 };
 use domain::{channel::id::ChannelId, server::id::ServerId, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
@@ -79,26 +78,6 @@ async fn join_voice_channel(
         .into();
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
-}
-
-#[post("/{server_id}/channels/{channel_id}/leave_voice")]
-async fn leave_voice_channel(
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<(Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
-    let (server_id, channel_id) = path.into_inner();
-
-    let user_id = UserId::new(auth_token.id);
-
-    let data = LeaveVoiceChannelRequest::new(channel_id, server_id);
-
-    app_state
-        .leave_voice_channel_usecase
-        .execute(data, user_id)
-        .await?;
-
-    Ok(HttpResponse::NoContent().finish())
 }
 
 #[post("/{server_id}/channels/{channel_id}/mute")]
