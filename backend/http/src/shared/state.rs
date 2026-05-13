@@ -6,8 +6,8 @@ use application::usecases::{
     },
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
-        join_voice_channel::JoinVoiceChannel, leave_voice_channel::LeaveVoiceChannel,
-        mute_channel::MuteChannel, unmute_channel::UnmuteChannel,
+        join_voice_channel::JoinVoiceChannel, mute_channel::MuteChannel,
+        unmute_channel::UnmuteChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -36,7 +36,6 @@ pub struct AppState {
         PostgresUserRepository,
         BcryptHasher,
     >,
-    pub leave_voice_channel_usecase: LeaveVoiceChannel<PostgresChannelRepository>,
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
@@ -90,7 +89,6 @@ impl AppState {
             PostgresUserRepository,
             BcryptHasher,
         >,
-        leave_voice_channel_usecase: LeaveVoiceChannel<PostgresChannelRepository>,
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
@@ -132,7 +130,6 @@ impl AppState {
         Self {
             create_channel_usecase,
             join_voice_channel_usecase,
-            leave_voice_channel_usecase,
             mute_channel_usecase,
             unmute_channel_usecase,
             delete_channel_usecase,

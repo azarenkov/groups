@@ -1,15 +1,8 @@
 use std::sync::Arc;
 
-use chrono::Utc;
 use domain::{
     channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
+    shared::{outbox::to_outbox::OutboxError, repository::error::RepositoryError},
     user::{id::UserId, repository::UserRepository},
 };
 
@@ -90,7 +83,7 @@ where
     ) -> Result<JoinVoiceChannelResponse, JoinVoiceChannelError> {
         let channel_id = ChannelId::new(request.channel_id);
 
-        let mut channel = self
+        let channel = self
             .channel_repository
             .find_channel_by_id(&channel_id)
             .await?;
@@ -118,16 +111,6 @@ where
             .await?
             .ok_or(JoinVoiceChannelError::UserNotFound)?;
 
-        let now = Utc::now();
-
-        channel.join(user_id, now)?;
-
-        let records: Vec<OutboxRecord> = channel
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record())
-            .collect::<Result<_, _>>()?;
-
         self.voice_service
             .create_voice_channel(channel.id(), channel.server_id())
             .await?;
@@ -135,10 +118,6 @@ where
         let channel_token = self
             .voice_service
             .create_token(&user_id, user.name(), channel.id())
-            .await?;
-
-        self.channel_repository
-            .update_channel_with_events(&channel, &records)
             .await?;
 
         let response =

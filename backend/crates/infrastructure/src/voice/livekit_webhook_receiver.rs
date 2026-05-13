@@ -12,6 +12,7 @@ use crate::config::livekit::LiveKitConfig;
 
 const EVENT_PARTICIPANT_CONNECTION_ABORTED: &str = "participant_connection_aborted";
 const EVENT_PARTICIPANT_LEFT: &str = "participant_left";
+const EVENT_PARTICIPANT_JOINED: &str = "participant_joined";
 
 pub struct LiveKitWebhookReceiver {
     receiver: WebhookReceiver,
@@ -42,18 +43,40 @@ impl VoiceWebhookVerifier for LiveKitWebhookReceiver {
             DateTime::<Utc>::from_timestamp(event.created_at, 0).unwrap_or_else(Utc::now);
 
         let voice_event = match event.event.as_str() {
+            EVENT_PARTICIPANT_JOINED => {
+                let participant = event
+                    .participant
+                    .as_ref()
+                    .ok_or(VoiceWebhookVerifierError::MissingField("participant"))?;
+                match extract_ids(event.room.as_ref(), Some(participant))? {
+                    Some((channel_id, user_id)) => {
+                        let session_id = require_sid(participant)?;
+                        VoiceWebhookEvent::ParticipantJoined {
+                            channel_id,
+                            user_id,
+                            session_id,
+                        }
+                    }
+                    None => VoiceWebhookEvent::Other,
+                }
+            }
             EVENT_PARTICIPANT_CONNECTION_ABORTED => {
                 let participant = event
                     .participant
                     .as_ref()
                     .ok_or(VoiceWebhookVerifierError::MissingField("participant"))?;
-                let (channel_id, user_id) = extract_ids(event.room.as_ref(), Some(participant))?;
-                let reason = parse_disconnect_reason(participant.disconnect_reason);
-
-                VoiceWebhookEvent::ParticipantConnectionAborted {
-                    channel_id,
-                    user_id,
-                    reason: abort_reason_from(reason),
+                match extract_ids(event.room.as_ref(), Some(participant))? {
+                    Some((channel_id, user_id)) => {
+                        let reason = parse_disconnect_reason(participant.disconnect_reason);
+                        let session_id = require_sid(participant)?;
+                        VoiceWebhookEvent::ParticipantConnectionAborted {
+                            channel_id,
+                            user_id,
+                            session_id,
+                            reason: abort_reason_from(reason),
+                        }
+                    }
+                    None => VoiceWebhookEvent::Other,
                 }
             }
             EVENT_PARTICIPANT_LEFT => {
@@ -61,10 +84,14 @@ impl VoiceWebhookVerifier for LiveKitWebhookReceiver {
                     .participant
                     .as_ref()
                     .ok_or(VoiceWebhookVerifierError::MissingField("participant"))?;
-                let (channel_id, user_id) = extract_ids(event.room.as_ref(), Some(participant))?;
-                let reason = parse_disconnect_reason(participant.disconnect_reason);
-
-                map_leave_reason(reason, channel_id, user_id)
+                match extract_ids(event.room.as_ref(), Some(participant))? {
+                    Some((channel_id, user_id)) => {
+                        let reason = parse_disconnect_reason(participant.disconnect_reason);
+                        let session_id = require_sid(participant)?;
+                        map_leave_reason(reason, channel_id, user_id, session_id)
+                    }
+                    None => VoiceWebhookEvent::Other,
+                }
             }
             _ => VoiceWebhookEvent::Other,
         };
@@ -81,10 +108,9 @@ impl VoiceWebhookVerifier for LiveKitWebhookReceiver {
 fn extract_ids(
     room: Option<&Room>,
     participant: Option<&ParticipantInfo>,
-) -> Result<(Uuid, Uuid), VoiceWebhookVerifierError> {
+) -> Result<Option<(Uuid, Uuid)>, VoiceWebhookVerifierError> {
     let room = room.ok_or(VoiceWebhookVerifierError::MissingField("room"))?;
-    let participant =
-        participant.ok_or(VoiceWebhookVerifierError::MissingField("participant"))?;
+    let participant = participant.ok_or(VoiceWebhookVerifierError::MissingField("participant"))?;
 
     let channel_id = Uuid::parse_str(&room.name).map_err(|_| {
         VoiceWebhookVerifierError::InvalidIdentifier(format!(
@@ -92,20 +118,22 @@ fn extract_ids(
             room.name
         ))
     })?;
-    let user_id = Uuid::parse_str(&participant.identity).map_err(|_| {
-        VoiceWebhookVerifierError::InvalidIdentifier(format!(
-            "participant.identity is not a uuid: {}",
-            participant.identity
-        ))
-    })?;
-    Ok((channel_id, user_id))
+    let Ok(user_id) = Uuid::parse_str(&participant.identity) else {
+        return Ok(None);
+    };
+    Ok(Some((channel_id, user_id)))
 }
 
 fn parse_disconnect_reason(reason: i32) -> DisconnectReason {
     DisconnectReason::try_from(reason).unwrap_or(DisconnectReason::UnknownReason)
 }
 
-fn map_leave_reason(reason: DisconnectReason, channel_id: Uuid, user_id: Uuid) -> VoiceWebhookEvent {
+fn map_leave_reason(
+    reason: DisconnectReason,
+    channel_id: Uuid,
+    user_id: Uuid,
+    session_id: String,
+) -> VoiceWebhookEvent {
     match reason {
         DisconnectReason::Migration => VoiceWebhookEvent::Other,
 
@@ -117,6 +145,7 @@ fn map_leave_reason(reason: DisconnectReason, channel_id: Uuid, user_id: Uuid) -
         | DisconnectReason::SipTrunkFailure => VoiceWebhookEvent::ParticipantConnectionAborted {
             channel_id,
             user_id,
+            session_id,
             reason: abort_reason_from(reason),
         },
 
@@ -131,9 +160,17 @@ fn map_leave_reason(reason: DisconnectReason, channel_id: Uuid, user_id: Uuid) -
         | DisconnectReason::UserRejected => VoiceWebhookEvent::ParticipantLeft {
             channel_id,
             user_id,
+            session_id,
             reason: leave_reason_from(reason),
         },
     }
+}
+
+fn require_sid(participant: &ParticipantInfo) -> Result<String, VoiceWebhookVerifierError> {
+    if participant.sid.is_empty() {
+        return Err(VoiceWebhookVerifierError::MissingField("participant.sid"));
+    }
+    Ok(participant.sid.clone())
 }
 
 fn leave_reason_from(reason: DisconnectReason) -> LeaveReason {

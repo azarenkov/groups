@@ -1,14 +1,13 @@
 use std::sync::Arc;
 
 use domain::{
-    channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
+    channel::{
+        ChannelError,
+        id::ChannelId,
+        repository::{ChannelOperationError, ChannelRepository},
+        session_id::SessionId,
     },
+    shared::repository::error::RepositoryError,
     user::id::UserId,
 };
 
@@ -20,10 +19,15 @@ pub enum LeaveVoiceConnectionError {
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
     Domain(#[from] ChannelError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
-    #[error("Voice not supported for this channel")]
-    VoiceNotSupported,
+}
+
+impl From<ChannelOperationError> for LeaveVoiceConnectionError {
+    fn from(error: ChannelOperationError) -> Self {
+        match error {
+            ChannelOperationError::Repository(e) => Self::Repository(e),
+            ChannelOperationError::Domain(e) => Self::Domain(e),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -48,31 +52,18 @@ where
     ) -> Result<bool, LeaveVoiceConnectionError> {
         let channel_id = ChannelId::new(request.channel_id);
         let user_id = UserId::new(request.user_id);
-
-        let mut channel = self
-            .channel_repository
-            .find_channel_by_id(&channel_id)
-            .await?;
-
-        if !channel.kind().supports_voice() {
-            return Err(LeaveVoiceConnectionError::VoiceNotSupported);
-        }
-
-        channel.leave(user_id, request.reason, request.occurred_at)?;
-
-        let records: Vec<OutboxRecord> = channel
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record())
-            .collect::<Result<_, _>>()?;
+        let session_id = SessionId::new(request.session_id);
 
         let processed = self
             .channel_repository
-            .record_events_with_inbox(
+            .apply_participant_left(
                 &channel_id,
+                user_id,
+                session_id,
+                request.reason,
+                request.occurred_at,
                 request.inbox_source.as_str(),
                 &request.inbox_external_id,
-                &records,
             )
             .await?;
 

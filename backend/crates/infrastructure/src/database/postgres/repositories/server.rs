@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 
 use domain::{
     channel::{
         Channel, id::ChannelId, kind::ChannelKind, max_paticipants::MaxParticipants,
-        name::ChannelName, participant_mute::ParticipantMute,
+        name::ChannelName, participant_mute::ParticipantMute, session_id::SessionId,
     },
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
@@ -243,14 +243,40 @@ impl ServerRepository for PostgresServerRepository {
                 .insert(user_id, mute);
         }
 
+        let voice_rows = sqlx::query!(
+            r#"
+            SELECT channel_id, user_id, session_id
+            FROM channel_voice_participants
+            WHERE channel_id = ANY($1)
+            "#,
+            &channel_ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let mut voice_by_channel: HashMap<Uuid, HashMap<UserId, HashSet<SessionId>>> =
+            HashMap::new();
+        for row in voice_rows {
+            voice_by_channel
+                .entry(row.channel_id)
+                .or_default()
+                .entry(UserId::new(row.user_id))
+                .or_default()
+                .insert(SessionId::new(row.session_id));
+        }
+
         let items: Vec<Channel> = channel_dtos
             .into_iter()
             .map(|dto| {
                 let kind: ChannelKind = dto.kind.into();
-                let muted = if kind.supports_voice() {
-                    Some(muted_by_channel.remove(&dto.id).unwrap_or_default())
+                let (muted, voice) = if kind.supports_voice() {
+                    (
+                        Some(muted_by_channel.remove(&dto.id).unwrap_or_default()),
+                        Some(voice_by_channel.remove(&dto.id).unwrap_or_default()),
+                    )
                 } else {
-                    None
+                    (None, None)
                 };
                 Channel::restore(
                     ChannelId::new(dto.id),
@@ -264,6 +290,7 @@ impl ServerRepository for PostgresServerRepository {
                     dto.created_at,
                     dto.updated_at,
                     muted,
+                    voice,
                     dto.last_join,
                 )
             })

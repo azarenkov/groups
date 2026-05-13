@@ -25,14 +25,21 @@ pub struct VerifiedVoiceWebhookEvent {
 
 #[derive(Debug)]
 pub enum VoiceWebhookEvent {
+    ParticipantJoined {
+        channel_id: Uuid,
+        user_id: Uuid,
+        session_id: String,
+    },
     ParticipantLeft {
         channel_id: Uuid,
         user_id: Uuid,
+        session_id: String,
         reason: LeaveReason,
     },
     ParticipantConnectionAborted {
         channel_id: Uuid,
         user_id: Uuid,
+        session_id: String,
         reason: ConnectionAbortReason,
     },
     Other,

@@ -5,10 +5,11 @@ pub mod max_paticipants;
 pub mod name;
 pub mod participant_mute;
 pub mod repository;
+pub mod session_id;
 pub mod token;
 pub mod visibility;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 
@@ -27,6 +28,7 @@ use crate::{
         max_paticipants::MaxParticipants,
         name::ChannelName,
         participant_mute::ParticipantMute,
+        session_id::SessionId,
         visibility::ChannelVisibility,
     },
     server::id::ServerId,
@@ -52,6 +54,18 @@ pub enum ChannelError {
     VoiceNotSupported,
 }
 
+#[derive(Debug, Clone)]
+pub enum VoiceChange {
+    Added {
+        user_id: UserId,
+        session_id: SessionId,
+    },
+    Removed {
+        user_id: UserId,
+        session_id: SessionId,
+    },
+}
+
 #[derive(Debug)]
 pub struct Channel {
     id: ChannelId,
@@ -66,7 +80,9 @@ pub struct Channel {
     updated_at: DateTime<Utc>,
     last_join: DateTime<Utc>,
     muted_participants: Option<HashMap<UserId, ParticipantMute>>,
+    voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
     events: Vec<ChannelEvent>,
+    voice_changes: Vec<VoiceChange>,
 }
 
 impl Channel {
@@ -89,10 +105,10 @@ impl Channel {
         let id = ChannelId::generate();
         let max_participants = MaxParticipants::default();
 
-        let muted_participants = if kind.supports_voice() {
-            Some(HashMap::new())
+        let (muted_participants, voice_participants) = if kind.supports_voice() {
+            (Some(HashMap::new()), Some(HashMap::new()))
         } else {
-            None
+            (None, None)
         };
 
         let mut channel = Self {
@@ -108,7 +124,9 @@ impl Channel {
             updated_at: now,
             last_join: now,
             muted_participants,
+            voice_participants,
             events: Vec::new(),
+            voice_changes: Vec::new(),
         };
 
         channel.record(ChannelEvent::Created(ChannelCreated::record(
@@ -131,6 +149,7 @@ impl Channel {
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
         muted_participants: Option<HashMap<UserId, ParticipantMute>>,
+        voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
         last_join: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -146,7 +165,9 @@ impl Channel {
             updated_at,
             last_join,
             muted_participants,
+            voice_participants,
             events: Vec::new(),
+            voice_changes: Vec::new(),
         }
     }
 
@@ -214,15 +235,42 @@ impl Channel {
         std::mem::take(&mut self.events)
     }
 
-    pub fn join(&mut self, user_id: UserId, now: DateTime<Utc>) -> Result<(), ChannelError> {
-        self.last_join = now;
+    pub fn pull_voice_changes(&mut self) -> Vec<VoiceChange> {
+        std::mem::take(&mut self.voice_changes)
+    }
 
-        self.record(ChannelEvent::ParticipantJoined(ParticipantJoined::record(
-            self.id,
-            self.server_id,
+    pub fn join(
+        &mut self,
+        user_id: UserId,
+        session_id: SessionId,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        let participants = self
+            .voice_participants
+            .as_mut()
+            .ok_or(ChannelError::VoiceNotSupported)?;
+
+        let sessions = participants.entry(user_id).or_default();
+        let was_empty = sessions.is_empty();
+
+        if !sessions.insert(session_id.clone()) {
+            return Ok(());
+        }
+
+        self.last_join = now;
+        self.voice_changes.push(VoiceChange::Added {
             user_id,
-            now,
-        )));
+            session_id,
+        });
+
+        if was_empty {
+            self.record(ChannelEvent::ParticipantJoined(ParticipantJoined::record(
+                self.id,
+                self.server_id,
+                user_id,
+                now,
+            )));
+        }
 
         Ok(())
     }
@@ -230,16 +278,42 @@ impl Channel {
     pub fn leave(
         &mut self,
         user_id: UserId,
+        session_id: SessionId,
         reason: LeaveReason,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
-        self.record(ChannelEvent::ParticipantLeft(ParticipantLeft::record(
-            self.id,
-            self.server_id,
+        let participants = self
+            .voice_participants
+            .as_mut()
+            .ok_or(ChannelError::VoiceNotSupported)?;
+
+        let Some(sessions) = participants.get_mut(&user_id) else {
+            return Ok(());
+        };
+
+        if !sessions.remove(&session_id) {
+            return Ok(());
+        }
+
+        let now_empty = sessions.is_empty();
+        if now_empty {
+            participants.remove(&user_id);
+        }
+
+        self.voice_changes.push(VoiceChange::Removed {
             user_id,
-            reason,
-            now,
-        )));
+            session_id,
+        });
+
+        if now_empty {
+            self.record(ChannelEvent::ParticipantLeft(ParticipantLeft::record(
+                self.id,
+                self.server_id,
+                user_id,
+                reason,
+                now,
+            )));
+        }
 
         Ok(())
     }
@@ -247,18 +321,44 @@ impl Channel {
     pub fn connection_aborted(
         &mut self,
         user_id: UserId,
+        session_id: SessionId,
         reason: ConnectionAbortReason,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
-        self.record(ChannelEvent::ParticipantConnectionAborted(
-            ParticipantConnectionAborted::record(
-                self.id,
-                self.server_id,
-                user_id,
-                reason,
-                now,
-            ),
-        ));
+        let participants = self
+            .voice_participants
+            .as_mut()
+            .ok_or(ChannelError::VoiceNotSupported)?;
+
+        let Some(sessions) = participants.get_mut(&user_id) else {
+            return Ok(());
+        };
+
+        if !sessions.remove(&session_id) {
+            return Ok(());
+        }
+
+        let now_empty = sessions.is_empty();
+        if now_empty {
+            participants.remove(&user_id);
+        }
+
+        self.voice_changes.push(VoiceChange::Removed {
+            user_id,
+            session_id,
+        });
+
+        if now_empty {
+            self.record(ChannelEvent::ParticipantConnectionAborted(
+                ParticipantConnectionAborted::record(
+                    self.id,
+                    self.server_id,
+                    user_id,
+                    reason,
+                    now,
+                ),
+            ));
+        }
 
         Ok(())
     }
