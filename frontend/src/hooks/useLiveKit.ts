@@ -8,7 +8,11 @@ interface UseLiveKitResult {
   isMuted: boolean;
   isConnecting: boolean;
   error: string | null;
-  joinChannel: (channelId: string, serverId: string) => Promise<void>;
+  joinChannel: (
+    channelId: string,
+    serverId: string,
+    password?: string,
+  ) => Promise<void>;
   leaveChannel: () => Promise<void>;
   toggleMute: () => void;
 }
@@ -36,42 +40,45 @@ export function useLiveKit(): UseLiveKitResult {
     },
   );
 
-  const joinChannel = useCallback(async (channelId: string, serverId: string) => {
-    try {
-      // Check if already connecting or connected
-      if (livekitService.isConnectingNow()) {
-        console.log("[useLiveKit] Already connecting, skipping join request");
-        return;
+  const joinChannel = useCallback(
+    async (channelId: string, serverId: string, password?: string) => {
+      try {
+        if (livekitService.isConnectingNow()) {
+          console.log("[useLiveKit] Already connecting, skipping join request");
+          return;
+        }
+
+        if (livekitService.isConnected()) {
+          console.log("[useLiveKit] Already connected, disconnecting first");
+          await livekitService.disconnect();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        setIsConnecting(true);
+        setError(null);
+
+        console.log(
+          `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
+        );
+
+        const response = await channelAPI.joinVoice(serverId, channelId, {
+          password,
+        });
+
+        console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
+
+        await livekitService.connect(response.token, response.url);
+
+        setIsConnecting(false);
+      } catch (err) {
+        console.error("[useLiveKit] Failed to join channel:", err);
+        setError(err instanceof Error ? err.message : "Failed to join channel");
+        setIsConnecting(false);
+        throw err;
       }
-
-      if (livekitService.isConnected()) {
-        console.log("[useLiveKit] Already connected, disconnecting first");
-        await livekitService.disconnect();
-        // Даем время на отключение
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-
-      setIsConnecting(true);
-      setError(null);
-
-      console.log(`[useLiveKit] Joining channel ${channelId} on server ${serverId}`);
-
-      // Get token from backend
-      const response = await channelAPI.joinChannel({ channelId, serverId });
-
-      console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
-
-      // Connect to LiveKit
-      await livekitService.connect(response.token, response.url);
-
-      setIsConnecting(false);
-    } catch (err) {
-      console.error("[useLiveKit] Failed to join channel:", err);
-      setError(err instanceof Error ? err.message : "Failed to join channel");
-      setIsConnecting(false);
-      throw err;
-    }
-  }, []);
+    },
+    [livekitService],
+  );
 
   const leaveChannel = useCallback(async () => {
     try {

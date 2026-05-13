@@ -11,11 +11,15 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import ServersPage from "./pages/ServersPage";
 import { useAuthStore } from "./store/authStore";
 import { useThemeStore, applyTheme } from "./store/themeStore";
+import { isAccessTokenVerified } from "./utils/jwt";
 import "./styles/App.css";
 
 const App: React.FC = () => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, tokens } = useAuthStore();
   const { theme } = useThemeStore();
+
+  const hasUnverifiedSession =
+    !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
 
   useEffect(() => {
     applyTheme(theme);
@@ -41,12 +45,26 @@ const App: React.FC = () => {
             <Route
               path="/app"
               element={
-                isAuthenticated ? <ServersPage /> : <Navigate to="/login" />
+                isAuthenticated && !hasUnverifiedSession ? (
+                  <ServersPage />
+                ) : (
+                  <Navigate to={hasUnverifiedSession ? "/register" : "/login"} />
+                )
               }
             />
             <Route
               path="*"
-              element={<Navigate to={isAuthenticated ? "/app" : "/login"} />}
+              element={
+                <Navigate
+                  to={
+                    isAuthenticated && !hasUnverifiedSession
+                      ? "/app"
+                      : hasUnverifiedSession
+                        ? "/register"
+                        : "/login"
+                  }
+                />
+              }
             />
           </Routes>
         </AnimatePresence>

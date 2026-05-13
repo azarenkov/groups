@@ -7,6 +7,7 @@ import { serverAPI } from "../api/server";
 import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
+import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
@@ -96,7 +97,15 @@ const ServersPage: React.FC = () => {
   } | null>(null);
 
   // Conversation state — exactly one of (joinedChannel | selectedDm | text-channel) is active
-  const [joinedChannel, setJoinedChannel] = useState<{ channel: Channel; serverId: string } | null>(null);
+  const [joinedChannel, setJoinedChannel] = useState<{
+    channel: Channel;
+    serverId: string;
+    password?: string;
+  } | null>(null);
+  const [passwordPrompt, setPasswordPrompt] = useState<{
+    server: Server;
+    channel: Channel;
+  } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
   const [expandedServerId, setExpandedServerId] = useState<string | null>(null);
   const [directs, setDirects] = useState<MockDirect[]>(SEED_DIRECTS);
@@ -164,11 +173,19 @@ const ServersPage: React.FC = () => {
     setSelectedDm(null);
   };
 
-  const handleSelectChannel = (server: Server, channel: Channel) => {
+  const finalizeJoin = (server: Server, channel: Channel, password?: string) => {
     setSelectedServer(server.id);
     setSelectedChannel(channel.id);
-    setJoinedChannel({ channel, serverId: server.id });
+    setJoinedChannel({ channel, serverId: server.id, password });
     setSelectedDm(null);
+  };
+
+  const handleSelectChannel = (server: Server, channel: Channel) => {
+    if (channel.visibility === "private") {
+      setPasswordPrompt({ server, channel });
+      return;
+    }
+    finalizeJoin(server, channel);
   };
 
   const handleSelectDm = (dm: MockDirect) => {
@@ -380,6 +397,7 @@ const ServersPage: React.FC = () => {
                 channelId={joinedChannel.channel.id}
                 serverId={joinedChannel.serverId}
                 channelName={joinedChannel.channel.name}
+                password={joinedChannel.password}
                 currentUserName={userName}
                 onLeave={() => {
                   setJoinedChannel(null);
@@ -423,6 +441,18 @@ const ServersPage: React.FC = () => {
           setChannelModalServerId(null);
         }}
         onCreate={handleCreateChannel}
+      />
+
+      <PasswordPromptModal
+        isOpen={!!passwordPrompt}
+        channelName={passwordPrompt?.channel.name ?? ""}
+        onClose={() => setPasswordPrompt(null)}
+        onSubmit={(password) => {
+          if (passwordPrompt) {
+            finalizeJoin(passwordPrompt.server, passwordPrompt.channel, password);
+            setPasswordPrompt(null);
+          }
+        }}
       />
 
       <NewDmModal

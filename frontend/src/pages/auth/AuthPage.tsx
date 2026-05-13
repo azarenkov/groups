@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "../../store/authStore";
 import { authAPI } from "../../api/auth";
+import { isAccessTokenVerified } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import {
   ArrowLeft,
@@ -162,13 +163,18 @@ const SignInUp: React.FC<SignInUpProps> = ({
   onEmailChange,
   onSwitchMode,
   onSignedIn,
+  goVerify,
   goForgot,
 }) => {
   const isSignup = mode === "signup";
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
 
-  const signInForm = useForm<SignInData>({ values: { email, password: "" } });
-  const signUpForm = useForm<SignUpData>({ values: { name: "", email, password: "" } });
+  const signInForm = useForm<SignInData>({
+    defaultValues: { email, password: "" },
+  });
+  const signUpForm = useForm<SignUpData>({
+    defaultValues: { name: "", email, password: "" },
+  });
 
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(true);
@@ -179,20 +185,33 @@ const SignInUp: React.FC<SignInUpProps> = ({
       setError(null);
       const response = await authAPI.login(data.email, data.password);
       authAPI.setAuthToken(response.accessToken);
-      login(
-        {
-          accessToken: response.accessToken,
-          refreshToken: response.refreshToken,
-          tokenType: response.tokenType,
-          expiresIn: response.expiresIn,
-        },
-        {
-          id: "",
-          name: data.email.split("@")[0],
-          email: data.email,
-        },
-      );
-      onSignedIn();
+      const tokens = {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        tokenType: response.tokenType,
+        expiresIn: response.expiresIn,
+      };
+      const user = {
+        id: "",
+        name: data.email.split("@")[0],
+        email: data.email,
+      };
+
+      const verified = isAccessTokenVerified(response.accessToken);
+      if (!verified) {
+        useAuthStore.getState().setTokens(tokens);
+        useAuthStore.getState().setUser(user);
+        try {
+          await authAPI.requestVerificationCode();
+        } catch (codeErr) {
+          console.error("[Auth] requestVerificationCode failed:", codeErr);
+        }
+        onEmailChange(data.email);
+        goVerify();
+      } else {
+        login(tokens, user);
+        onSignedIn();
+      }
     } catch (err: any) {
       setError(err.message || "Could not sign you in.");
     } finally {
@@ -210,15 +229,22 @@ const SignInUp: React.FC<SignInUpProps> = ({
         data.password,
       );
       authAPI.setAuthToken(response.accessToken);
-      login(
-        {
-          accessToken: response.accessToken,
-          refreshToken: response.refreshToken,
-          tokenType: response.tokenType,
-          expiresIn: response.expiresIn,
-        },
-        { id: "", name: data.name, email: data.email },
-      );
+      useAuthStore.getState().setTokens({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        tokenType: response.tokenType,
+        expiresIn: response.expiresIn,
+      });
+      useAuthStore.getState().setUser({
+        id: "",
+        name: data.name,
+        email: data.email,
+      });
+      try {
+        await authAPI.requestVerificationCode();
+      } catch (codeErr) {
+        console.error("[Auth] requestVerificationCode failed:", codeErr);
+      }
       goVerify();
     } catch (err: any) {
       setError(err.message || "Could not create your account.");
@@ -705,6 +731,17 @@ const VerifyEmail: React.FC<{
     setError("");
     try {
       await authAPI.confirmRegistration(value);
+      try {
+        const fresh = await authAPI.refresh();
+        useAuthStore.getState().setTokens(fresh);
+        authAPI.setAuthToken(fresh.accessToken);
+      } catch (refreshErr) {
+        console.error("[VerifyEmail] refresh after confirm failed:", refreshErr);
+      }
+      const { tokens, user } = useAuthStore.getState();
+      if (tokens && user) {
+        useAuthStore.getState().login(tokens, user);
+      }
       onVerified();
     } catch (err: any) {
       setError(err?.message || "Invalid or expired code");
@@ -788,9 +825,14 @@ const VerifyEmail: React.FC<{
           <a
             className="auth-link muted"
             href="#"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
               setSecondsLeft(30);
+              try {
+                await authAPI.requestVerificationCode();
+              } catch (err) {
+                console.error("[VerifyEmail] resend failed:", err);
+              }
             }}
           >
             Resend the code

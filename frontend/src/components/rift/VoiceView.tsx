@@ -16,6 +16,7 @@ interface VoiceViewProps {
   serverId: string;
   channelName: string;
   currentUserName: string;
+  password?: string;
   onLeave: () => void;
 }
 
@@ -24,6 +25,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   serverId,
   channelName,
   currentUserName,
+  password,
   onLeave,
 }) => {
   const {
@@ -50,7 +52,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       hasJoinedRef.current = true;
       currentChannelRef.current = channelId;
       isJoiningRef.current = true;
-      joinChannel(channelId, serverId)
+      joinChannel(channelId, serverId, password)
         .then(() => {
           isJoiningRef.current = false;
         })
@@ -68,7 +70,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       leaveChannel();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId, serverId]);
+  }, [channelId, serverId, password]);
 
   const handleLeave = async () => {
     await leaveChannel();

@@ -11,6 +11,7 @@ export interface TokenPair {
   refreshToken: string;
   tokenType: string;
   expiresIn: number;
+  requiresVerification?: boolean;
 }
 
 class AuthAPI {
@@ -71,6 +72,21 @@ class AuthAPI {
       password,
     });
     return response.data.data;
+  }
+
+  async requestVerificationCode(
+    channel: "email" | "phone" = "email",
+  ): Promise<void> {
+    const tokens = useAuthStore.getState().tokens;
+    await this.client.post(
+      "/v1/auth/request_verification_code",
+      { channel },
+      {
+        headers: tokens?.accessToken
+          ? { Authorization: `Bearer ${tokens.accessToken}` }
+          : undefined,
+      },
+    );
   }
 
   async confirmRegistration(verificationCode: string): Promise<void> {

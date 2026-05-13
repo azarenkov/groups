@@ -1,5 +1,5 @@
 import {
-  Channel,
+  Room,
   RoomEvent,
   Track,
   RemoteParticipant,
@@ -19,7 +19,7 @@ export interface ParticipantInfo {
 }
 
 export class LiveKitService {
-  private channel: Channel | null = null;
+  private room: Room | null = null;
   private participants: Map<string, ParticipantInfo> = new Map();
   private onParticipantsChange?: (participants: ParticipantInfo[]) => void;
   private onConnectionStateChange?: (connected: boolean) => void;
