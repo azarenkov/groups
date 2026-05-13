@@ -21,6 +21,7 @@ pub enum ChannelOperationError {
 }
 
 #[async_trait]
+#[allow(clippy::too_many_arguments)]
 pub trait ChannelRepository {
     async fn save_channel_with_events(
         &self,
