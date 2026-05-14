@@ -17,6 +17,8 @@ import VoiceView from "../components/rift/VoiceView";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
+import { useLocalQuality } from "../hooks/useLocalQuality";
+import { qualityClass, qualityLabel } from "../utils/quality";
 import { Channel, ChannelKind, ChannelVisibility } from "../types/channel";
 import { Server } from "../types/server";
 import {
@@ -33,6 +35,7 @@ interface ChannelOverride {
 }
 
 const ServersPage: React.FC = () => {
+  const localQuality = useLocalQuality();
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -471,7 +474,10 @@ const ServersPage: React.FC = () => {
                 </div>
                 <h1 className="voice-stage-title">{joinedChannel.channel.name}</h1>
                 <div className="voice-stage-sub">
-                  <span className="voice-stage-dot" />
+                  <span
+                    className={`voice-stage-dot ${qualityClass(localQuality)}`}
+                    title={`Connection: ${qualityLabel(localQuality)}`}
+                  />
                   {voiceJoinFailed ? "Couldn't connect" : "Connected"}
                   {selectedServer ? ` · ${selectedServer.name}` : ""}
                 </div>

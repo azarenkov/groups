@@ -1,8 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getLiveKitService, LiveKitService, ParticipantInfo } from "../services/livekit";
+import {
+  ConnectionQuality,
+  getLiveKitService,
+  LiveKitService,
+  NoiseSuppressionMode,
+  ParticipantInfo,
+} from "../services/livekit";
 import { channelAPI } from "../api/channel";
 import { useAuthStore } from "../store/authStore";
 import { decodeAccessToken } from "../utils/jwt";
+import { useLocalQuality } from "./useLocalQuality";
 
 interface UseLiveKitResult {
   participants: ParticipantInfo[];
@@ -10,6 +17,8 @@ interface UseLiveKitResult {
   isMuted: boolean;
   isConnecting: boolean;
   error: string | null;
+  localQuality: ConnectionQuality;
+  getNoiseSuppressionMode: () => NoiseSuppressionMode;
   joinChannel: (
     channelId: string,
     serverId: string,
@@ -18,7 +27,8 @@ interface UseLiveKitResult {
   leaveChannel: () => Promise<void>;
   toggleMute: () => void;
   getLocalAudioMediaStreamTrack: () => MediaStreamTrack | null;
-  setNoiseSuppression: (enabled: boolean) => Promise<void>;
+  setNoiseSuppression: (mode: NoiseSuppressionMode) => Promise<void>;
+  setNoiseStrength: (value: number) => void;
   getLocalSessionId: () => string | null;
 }
 
@@ -28,6 +38,7 @@ export function useLiveKit(): UseLiveKitResult {
   const [isMuted, setIsMuted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const localQuality = useLocalQuality();
   const activeChannelRef = useRef<{ serverId: string; channelId: string } | null>(null);
   const isMutedRef = useRef(false);
   const isConnectedRef = useRef(false);
@@ -148,9 +159,19 @@ export function useLiveKit(): UseLiveKitResult {
   );
 
   const setNoiseSuppression = useCallback(
-    async (enabled: boolean) => {
-      await serviceRef.current?.setNoiseSuppression(enabled);
+    async (mode: NoiseSuppressionMode) => {
+      await serviceRef.current?.setNoiseSuppressionMode(mode);
     },
+    [],
+  );
+
+  const setNoiseStrength = useCallback((value: number) => {
+    serviceRef.current?.setNoiseStrength(value);
+  }, []);
+
+  const getNoiseSuppressionMode = useCallback(
+    (): NoiseSuppressionMode =>
+      serviceRef.current?.getNoiseSuppressionMode() ?? "standard",
     [],
   );
 
@@ -165,11 +186,14 @@ export function useLiveKit(): UseLiveKitResult {
     isMuted,
     isConnecting,
     error,
+    localQuality,
     joinChannel,
     leaveChannel,
     toggleMute,
     getLocalAudioMediaStreamTrack,
     setNoiseSuppression,
+    setNoiseStrength,
+    getNoiseSuppressionMode,
     getLocalSessionId,
   };
 }
