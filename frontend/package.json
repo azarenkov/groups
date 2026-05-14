@@ -2,6 +2,10 @@
   "name": "rift-desktop",
   "version": "0.1.0",
   "description": "Rift - Discord-like voice chat application",
+  "author": {
+    "name": "Rift",
+    "email": "support@rift.app"
+  },
   "main": "public/electron.js",
   "homepage": "./",
   "private": true,
@@ -58,7 +62,7 @@
       {
         "provider": "github",
         "owner": "rift-space",
-        "repo": "rift"
+        "repo": "rift-releases"
       }
     ],
     "mac": {
