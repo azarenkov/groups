@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { clearRefreshToken, setRefreshToken } from "../utils/secureStorage";
 
 interface User {
   id: string;
@@ -18,6 +18,7 @@ interface AuthState {
   user: User | null;
   tokens: TokenPair | null;
   isAuthenticated: boolean;
+  isHydrating: boolean;
   isLoading: boolean;
   error: string | null;
 
@@ -26,67 +27,47 @@ interface AuthState {
   login: (tokens: TokenPair, user: User) => void;
   logout: () => void;
   signOut: () => Promise<void>;
+  setHydrating: (v: boolean) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      tokens: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+export const useAuthStore = create<AuthState>()((set, get) => ({
+  user: null,
+  tokens: null,
+  isAuthenticated: false,
+  isHydrating: true,
+  isLoading: false,
+  error: null,
 
-      setUser: (user) => set({ user }),
+  setUser: (user) => set({ user }),
 
-      setTokens: (tokens) => set({ tokens }),
+  setTokens: (tokens) => {
+    set({ tokens });
+    void setRefreshToken(tokens.refreshToken);
+  },
 
-      login: (tokens, user) =>
-        set({
-          tokens,
-          user,
-          isAuthenticated: true,
-          error: null,
-        }),
+  login: (tokens, user) => {
+    set({ tokens, user, isAuthenticated: true, error: null });
+    void setRefreshToken(tokens.refreshToken);
+  },
 
-      logout: () =>
-        set({
-          user: null,
-          tokens: null,
-          isAuthenticated: false,
-          error: null,
-        }),
+  logout: () => {
+    set({ user: null, tokens: null, isAuthenticated: false, error: null });
+    void clearRefreshToken();
+  },
 
-      signOut: async () => {
-        const { authAPI } = await import("../api/auth");
-        try {
-          await authAPI.logout();
-        } catch {
-        }
-        set({
-          user: null,
-          tokens: null,
-          isAuthenticated: false,
-          error: null,
-        });
-      },
+  signOut: async () => {
+    const { authAPI } = await import("../api/auth");
+    try {
+      await authAPI.logout();
+    } catch {}
+    get().logout();
+  },
 
-      setLoading: (loading) => set({ isLoading: loading }),
-
-      setError: (error) => set({ error }),
-
-      clearError: () => set({ error: null }),
-    }),
-    {
-      name: "rift-auth-storage",
-      partialize: (state) => ({
-        user: state.user,
-        tokens: state.tokens,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    },
-  ),
-);
+  setHydrating: (v) => set({ isHydrating: v }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
+  clearError: () => set({ error: null }),
+}));

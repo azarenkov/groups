@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Menu, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, nativeImage, safeStorage } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const isDev = require('electron-is-dev');
 
@@ -251,4 +252,45 @@ ipcMain.on('window-maximize', () => {
 
 ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close();
+});
+
+function secureFilePath() {
+  return path.join(app.getPath('userData'), 'auth.bin');
+}
+
+ipcMain.handle('secure:get', () => {
+  try {
+    const file = secureFilePath();
+    if (!fs.existsSync(file)) return null;
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const encrypted = fs.readFileSync(file);
+    return safeStorage.decryptString(encrypted);
+  } catch (e) {
+    console.error('[secure:get] failed:', e);
+    return null;
+  }
+});
+
+ipcMain.handle('secure:set', (_event, value) => {
+  try {
+    if (typeof value !== 'string') return false;
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    const encrypted = safeStorage.encryptString(value);
+    fs.writeFileSync(secureFilePath(), encrypted, { mode: 0o600 });
+    return true;
+  } catch (e) {
+    console.error('[secure:set] failed:', e);
+    return false;
+  }
+});
+
+ipcMain.handle('secure:clear', () => {
+  try {
+    const file = secureFilePath();
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    return true;
+  } catch (e) {
+    console.error('[secure:clear] failed:', e);
+    return false;
+  }
 });

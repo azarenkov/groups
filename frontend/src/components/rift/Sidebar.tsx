@@ -82,7 +82,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="sb-scroll">
-        {}
         <div
           className={"sb-section-head" + (directsCollapsed ? " collapsed" : "")}
           onClick={() => toggleSection("__directs")}
@@ -166,7 +165,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ))}
 
-        {}
         {servers.length === 0 && (
           <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--fg-3)" }}>
             No servers yet. Create one to get started.

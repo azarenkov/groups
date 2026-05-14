@@ -6,4 +6,8 @@ contextBridge.exposeInMainWorld('electron', {
   close: () => ipcRenderer.send('window-close'),
 
   platform: process.platform,
+
+  secureGet: () => ipcRenderer.invoke('secure:get'),
+  secureSet: (value) => ipcRenderer.invoke('secure:set', value),
+  secureClear: () => ipcRenderer.invoke('secure:clear'),
 });

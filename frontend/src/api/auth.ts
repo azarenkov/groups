@@ -119,9 +119,12 @@ class AuthAPI {
     if (!tokens?.refreshToken) {
       throw new Error("No refresh token available");
     }
+    return this.refreshWith(tokens.refreshToken);
+  }
 
+  async refreshWith(refreshToken: string): Promise<TokenPair> {
     const response = await this.client.post("/v1/auth/refresh", {
-      refreshToken: tokens.refreshToken,
+      refreshToken,
     });
     return response.data.data;
   }

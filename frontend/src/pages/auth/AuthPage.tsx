@@ -176,7 +176,6 @@ const SignInUp: React.FC<SignInUpProps> = ({
   });
 
   const [showPw, setShowPw] = useState(false);
-  const [remember, setRemember] = useState(true);
 
   const handleSignIn = async (data: SignInData) => {
     try {
@@ -364,15 +363,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
               <span>Send me product updates</span>
             </label>
           ) : (
-            <label className="auth-check">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-              />
-              <span className="box" />
-              <span>Remember me</span>
-            </label>
+            <span />
           )}
           {!isSignup && (
             <button type="button" className="auth-link" onClick={goForgot}>

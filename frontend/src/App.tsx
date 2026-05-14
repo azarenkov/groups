@@ -11,11 +11,13 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import ServersPage from "./pages/ServersPage";
 import { useAuthStore } from "./store/authStore";
 import { useThemeStore, applyTheme } from "./store/themeStore";
-import { isAccessTokenVerified } from "./utils/jwt";
+import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
+import { getRefreshToken } from "./utils/secureStorage";
+import { authAPI } from "./api/auth";
 import "./styles/App.css";
 
 const App: React.FC = () => {
-  const { isAuthenticated, tokens } = useAuthStore();
+  const { isAuthenticated, tokens, isHydrating } = useAuthStore();
   const { theme } = useThemeStore();
 
   const hasUnverifiedSession =
@@ -24,6 +26,44 @@ const App: React.FC = () => {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+      try {
+        const refreshToken = await getRefreshToken();
+        if (!refreshToken) return;
+        const fresh = await authAPI.refreshWith(refreshToken);
+        if (cancelled) return;
+        const claims = decodeAccessToken(fresh.accessToken);
+        const userId = claims?.sub ?? "";
+        useAuthStore.getState().login(fresh, {
+          id: userId,
+          name: "",
+          email: "",
+        });
+        authAPI.setAuthToken(fresh.accessToken);
+      } catch (err) {
+        console.error("[App] hydrate failed:", err);
+      } finally {
+        if (!cancelled) useAuthStore.getState().setHydrating(false);
+      }
+    };
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (isHydrating) {
+    return (
+      <div className="app">
+        <div className="loading-screen">
+          <div className="spinner" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router
