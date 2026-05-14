@@ -134,74 +134,77 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   );
 
   useEffect(() => {
-    console.log("[meter] effect run", { open, isMuted, isConnected });
     if (!open || isMuted || !isConnected) {
       setMeter(new Array(BARS).fill(0));
       return;
     }
 
-    const track = getLocalAudioMediaStreamTrack();
-    console.log("[meter] got track:", track, "readyState:", track?.readyState);
-    if (!track) {
-      console.warn("[meter] no local audio track");
-      return;
-    }
-
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext;
-    let ctx: AudioContext;
-    let source: MediaStreamAudioSourceNode;
-    let analyser: AnalyserNode;
-    try {
-      ctx = new AudioCtx();
-      source = ctx.createMediaStreamSource(new MediaStream([track]));
-      analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.75;
-      source.connect(analyser);
-      console.log("[meter] audio graph ready, ctx state:", ctx.state);
-    } catch (e) {
-      console.error("[meter] failed to set up audio graph:", e);
-      return;
-    }
-
-    if (ctx.state === "suspended") {
-      ctx.resume().catch((e) => console.warn("[meter] resume failed", e));
-    }
-
-    const bins = analyser.frequencyBinCount;
-    const data = new Uint8Array(bins);
-    const usable = Math.floor(bins * 0.6);
-    const perBar = Math.max(1, Math.floor(usable / BARS));
-
+    let cancelled = false;
+    let ctx: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
     let raf = 0;
-    let logged = 0;
-    const tick = () => {
-      analyser.getByteFrequencyData(data);
-      const next = new Array(BARS).fill(0) as number[];
-      for (let b = 0; b < BARS; b++) {
-        let sum = 0;
-        const start = b * perBar;
-        for (let j = 0; j < perBar; j++) sum += data[start + j] || 0;
-        next[b] = Math.min(1, sum / perBar / 200);
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const start = () => {
+      if (cancelled) return;
+      const track = getLocalAudioMediaStreamTrack();
+      if (!track) {
+        retryTimer = setTimeout(start, 200);
+        return;
       }
-      if (logged < 3) {
-        console.log("[meter] frame", logged, "max bar:", Math.max(...next).toFixed(2));
-        logged++;
+
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      try {
+        ctx = new AudioCtx();
+        source = ctx.createMediaStreamSource(new MediaStream([track]));
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.75;
+        source.connect(analyser);
+      } catch (e) {
+        console.error("[meter] failed to set up audio graph:", e);
+        return;
       }
-      setMeter(next);
+
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+
+      const bins = analyser.frequencyBinCount;
+      const data = new Uint8Array(bins);
+      const usable = Math.floor(bins * 0.6);
+      const perBar = Math.max(1, Math.floor(usable / BARS));
+
+      const tick = () => {
+        if (!analyser) return;
+        analyser.getByteFrequencyData(data);
+        const next = new Array(BARS).fill(0) as number[];
+        for (let b = 0; b < BARS; b++) {
+          let sum = 0;
+          const offset = b * perBar;
+          for (let j = 0; j < perBar; j++) sum += data[offset + j] || 0;
+          next[b] = Math.min(1, sum / perBar / 200);
+        }
+        setMeter(next);
+        raf = requestAnimationFrame(tick);
+      };
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
+
+    start();
 
     return () => {
-      cancelAnimationFrame(raf);
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (raf) cancelAnimationFrame(raf);
       try {
-        source.disconnect();
+        source?.disconnect();
       } catch {}
-      ctx.close().catch(() => {});
+      ctx?.close().catch(() => {});
     };
   }, [open, isMuted, isConnected, getLocalAudioMediaStreamTrack]);
 
