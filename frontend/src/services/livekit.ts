@@ -307,7 +307,7 @@ export class LiveKitService {
 
   async setNoiseSuppressionMode(mode: NoiseSuppressionMode): Promise<void> {
     const run = async () => {
-      if (mode === this.noiseMode && (mode !== "high" || this.dfnPipeline)) {
+      if (mode === "high" && this.noiseMode === "high" && this.dfnPipeline) {
         return;
       }
       this.noiseMode = mode;
