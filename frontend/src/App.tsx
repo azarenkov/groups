@@ -14,6 +14,7 @@ import { useThemeStore, applyTheme } from "./store/themeStore";
 import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
 import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
 import { authAPI } from "./api/auth";
+import { ApiError } from "./utils/apiError";
 import "./styles/App.css";
 
 const App: React.FC = () => {
@@ -45,7 +46,10 @@ const App: React.FC = () => {
         authAPI.setAuthToken(fresh.accessToken);
       } catch (err) {
         console.error("[App] hydrate failed:", err);
-        await clearRefreshToken();
+        const status = err instanceof ApiError ? err.status : undefined;
+        if (status === 400 || status === 401 || status === 403 || status === 422) {
+          await clearRefreshToken();
+        }
       } finally {
         if (!cancelled) useAuthStore.getState().setHydrating(false);
       }

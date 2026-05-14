@@ -53,9 +53,18 @@ export function getApiErrorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-export function toApiError(error: unknown): Error {
-  if (error instanceof Error && !axios.isAxiosError(error)) {
-    return error;
+export class ApiError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
   }
-  return new Error(getApiErrorMessage(error));
+}
+
+export function toApiError(error: unknown): Error {
+  if (error instanceof ApiError) return error;
+  if (error instanceof Error && !axios.isAxiosError(error)) return error;
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  return new ApiError(getApiErrorMessage(error), status);
 }
