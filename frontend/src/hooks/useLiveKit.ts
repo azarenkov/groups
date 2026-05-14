@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getLiveKitService, ParticipantInfo } from "../services/livekit";
+import { getLiveKitService, LiveKitService, ParticipantInfo } from "../services/livekit";
 import { channelAPI } from "../api/channel";
 import { useAuthStore } from "../store/authStore";
 import { decodeAccessToken } from "../utils/jwt";
@@ -29,8 +29,14 @@ export function useLiveKit(): UseLiveKitResult {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activeChannelRef = useRef<{ serverId: string; channelId: string } | null>(null);
+  const isMutedRef = useRef(false);
+  const isConnectedRef = useRef(false);
 
-  const livekitService = getLiveKitService(
+  isMutedRef.current = isMuted;
+  isConnectedRef.current = isConnected;
+
+  const serviceRef = useRef<LiveKitService | null>(null);
+  serviceRef.current = getLiveKitService(
     (updatedParticipants) => {
       setParticipants(updatedParticipants);
     },
@@ -48,15 +54,17 @@ export function useLiveKit(): UseLiveKitResult {
 
   const joinChannel = useCallback(
     async (channelId: string, serverId: string, password?: string) => {
+      const service = serviceRef.current;
+      if (!service) return;
       try {
-        if (livekitService.isConnectingNow()) {
+        if (service.isConnectingNow()) {
           console.log("[useLiveKit] Already connecting, skipping join request");
           return;
         }
 
-        if (livekitService.isConnected()) {
+        if (service.isConnected()) {
           console.log("[useLiveKit] Already connected, disconnecting first");
-          await livekitService.disconnect();
+          await service.disconnect();
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
@@ -73,7 +81,7 @@ export function useLiveKit(): UseLiveKitResult {
 
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
-        await livekitService.connect(response.token, response.url);
+        await service.connect(response.token, response.url);
 
         activeChannelRef.current = { serverId, channelId };
         setIsConnecting(false);
@@ -84,13 +92,15 @@ export function useLiveKit(): UseLiveKitResult {
         throw err;
       }
     },
-    [livekitService],
+    [],
   );
 
   const leaveChannel = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service) return;
     try {
       console.log("[useLiveKit] Leaving channel...");
-      await livekitService.disconnect();
+      await service.disconnect();
       activeChannelRef.current = null;
       setParticipants([]);
       setIsConnected(false);
@@ -102,16 +112,18 @@ export function useLiveKit(): UseLiveKitResult {
   }, []);
 
   const toggleMute = useCallback(() => {
-    const newMutedState = !isMuted;
-    livekitService.setMicrophoneMuted(newMutedState);
-    setIsMuted(newMutedState);
+    const service = serviceRef.current;
+    if (!service) return;
+    const next = !isMutedRef.current;
+    service.setMicrophoneMuted(next);
+    setIsMuted(next);
 
     const active = activeChannelRef.current;
     const auth = useAuthStore.getState();
     const userId = auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
-    console.log("[useLiveKit] toggleMute", { newMutedState, active, userId });
+    console.log("[useLiveKit] toggleMute", { next, active, userId });
     if (active && userId) {
-      const call = newMutedState
+      const call = next
         ? channelAPI.mute(active.serverId, active.channelId, userId)
         : channelAPI.unmute(active.serverId, active.channelId, userId);
       call.catch((err) => {
@@ -120,29 +132,31 @@ export function useLiveKit(): UseLiveKitResult {
     } else {
       console.warn("[useLiveKit] Skipping mute API: missing active channel or user id");
     }
-  }, [isMuted, livekitService]);
+  }, []);
 
   useEffect(() => {
     return () => {
-      if (isConnected) {
-        livekitService.disconnect();
+      if (isConnectedRef.current) {
+        serviceRef.current?.disconnect();
       }
     };
-  }, [isConnected, livekitService]);
+  }, []);
 
   const getLocalAudioMediaStreamTrack = useCallback(
-    () => livekitService.getLocalAudioMediaStreamTrack(),
-    [livekitService],
+    () => serviceRef.current?.getLocalAudioMediaStreamTrack() ?? null,
+    [],
   );
 
   const setNoiseSuppression = useCallback(
-    (enabled: boolean) => livekitService.setNoiseSuppression(enabled),
-    [livekitService],
+    async (enabled: boolean) => {
+      await serviceRef.current?.setNoiseSuppression(enabled);
+    },
+    [],
   );
 
   const getLocalSessionId = useCallback(
-    () => livekitService.getLocalSessionId(),
-    [livekitService],
+    () => serviceRef.current?.getLocalSessionId() ?? null,
+    [],
   );
 
   return {

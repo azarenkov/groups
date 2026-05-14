@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
@@ -98,6 +98,7 @@ const ServersPage: React.FC = () => {
     password?: string;
   } | null>(null);
   const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
+  const [voiceJoinAttempt, setVoiceJoinAttempt] = useState(0);
   const [passwordPrompt, setPasswordPrompt] = useState<{
     server: Server;
     channel: Channel;
@@ -212,6 +213,7 @@ const ServersPage: React.FC = () => {
     setJoinedChannel({ channel, serverId: server.id, password });
     setSelectedDm(null);
     setVoiceJoinFailed(false);
+    setVoiceJoinAttempt((n) => n + 1);
   };
 
   const handleSelectChannel = (server: Server, channel: Channel) => {
@@ -250,6 +252,12 @@ const ServersPage: React.FC = () => {
     } catch (err) {
       console.error("[ServersPage] failed to create default channel:", err);
     }
+    setExpandedServerIds((prev) => {
+      const next = new Set(prev);
+      next.add(server.id);
+      return next;
+    });
+    setSelectedServer(server.id);
   };
 
   const handleCreateChannel = async (
@@ -325,6 +333,16 @@ const ServersPage: React.FC = () => {
     setSelectedDm(newDm);
     setIsDmModalOpen(false);
   };
+
+  const handleVoiceLeave = useCallback(() => {
+    setJoinedChannel(null);
+    setSelectedChannel(null);
+    setVoiceJoinFailed(false);
+  }, [setSelectedChannel]);
+
+  const handleVoiceJoinFailed = useCallback(() => {
+    setVoiceJoinFailed(true);
+  }, []);
 
   const handleLogout = async () => {
     serverAPI.removeAuthToken();
@@ -487,18 +505,14 @@ const ServersPage: React.FC = () => {
 
             {joinedChannel && (
               <VoiceView
-                key={joinedChannel.channel.id}
+                key={`${joinedChannel.channel.id}-${voiceJoinAttempt}`}
                 channelId={joinedChannel.channel.id}
                 serverId={joinedChannel.serverId}
                 channelName={joinedChannel.channel.name}
                 password={joinedChannel.password}
                 currentUserName={userName}
-                onLeave={() => {
-                  setJoinedChannel(null);
-                  setSelectedChannel(null);
-                  setVoiceJoinFailed(false);
-                }}
-                onJoinFailed={() => setVoiceJoinFailed(true)}
+                onLeave={handleVoiceLeave}
+                onJoinFailed={handleVoiceJoinFailed}
               />
             )}
           </div>

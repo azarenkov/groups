@@ -1411,6 +1411,11 @@ select:focus-visible {
   color: var(--accent);
   text-decoration: none;
   font-weight: 500;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
 .auth-link:hover { text-decoration: underline; }
 
@@ -1692,6 +1697,11 @@ select:focus-visible {
   color: var(--accent);
   text-decoration: none;
   font-weight: 500;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
 .auth-link:hover { text-decoration: underline; }
 

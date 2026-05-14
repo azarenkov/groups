@@ -33,10 +33,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         onCancel();
         return;
       }
-      if (e.key === "Enter") {
-        onConfirm();
-        return;
-      }
       if (e.key !== "Tab") return;
       const active = document.activeElement;
       if (e.shiftKey && active === cancelRef.current) {
@@ -52,7 +48,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel, onConfirm]);
+  }, [onCancel]);
 
   return (
     <div className="modal-overlay" onMouseDown={onCancel}>

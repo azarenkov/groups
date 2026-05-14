@@ -76,7 +76,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       isJoiningRef.current = false;
       leaveChannel();
     };
-  }, [channelId, serverId, password]);
+  }, [channelId, serverId, password, joinChannel, leaveChannel, onJoinFailed]);
 
   const handleLeave = async () => {
     await leaveChannel();

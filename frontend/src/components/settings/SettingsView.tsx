@@ -558,9 +558,12 @@ function LanguageSection() {
   );
 }
 
+const ALL_RAIL_IDS = SETTINGS_SECTIONS.flatMap(g => g.items.map(i => i.id));
+
 function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignOut }: SettingsViewProps) {
   const [activeId, setActiveId] = React.useState('account');
   const overlayRef = React.useRef<HTMLDivElement>(null);
+  const railButtonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 
   React.useEffect(() => {
     if (!open) return;
@@ -590,12 +593,9 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
   }, [open, onClose]);
 
   React.useEffect(() => {
-    if (!open || !overlayRef.current) return;
-    const first = overlayRef.current.querySelector<HTMLElement>(
-      'a, button:not([tabindex="-1"]), input, textarea, select, [tabindex]:not([tabindex="-1"])',
-    );
-    first?.focus();
-  }, [open]);
+    if (!open) return;
+    railButtonRefs.current[activeId]?.focus();
+  }, [open, activeId]);
 
   if (!open) return null;
 
@@ -614,14 +614,31 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
     default: body = null;
   }
 
+  const onRailKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    const idx = ALL_RAIL_IDS.indexOf(activeId);
+    let nextIdx = idx;
+    if (e.key === 'ArrowDown') nextIdx = (idx + 1) % ALL_RAIL_IDS.length;
+    if (e.key === 'ArrowUp') nextIdx = (idx - 1 + ALL_RAIL_IDS.length) % ALL_RAIL_IDS.length;
+    if (e.key === 'Home') nextIdx = 0;
+    if (e.key === 'End') nextIdx = ALL_RAIL_IDS.length - 1;
+    const nextId = ALL_RAIL_IDS[nextIdx];
+    setActiveId(nextId);
+    railButtonRefs.current[nextId]?.focus();
+  };
+
   return (
     <div ref={overlayRef} className="settings-overlay">
-      <nav className="settings-rail">
+      <nav className="settings-rail" role="tablist" aria-orientation="vertical" onKeyDown={onRailKeyDown}>
         {SETTINGS_SECTIONS.map(group => (
           <React.Fragment key={group.group}>
             <div className="rail-section">{group.group}</div>
             {group.items.map(item => (
               <button key={item.id}
+                ref={(el) => { railButtonRefs.current[item.id] = el; }}
+                role="tab"
+                aria-selected={activeId === item.id}
                 className={'rail-item' + (activeId === item.id ? ' active' : '')}
                 onClick={() => setActiveId(item.id)}>
                 <span className="ic"><Icon name={item.icon} size={15}/></span>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "../../store/authStore";
@@ -126,9 +126,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
 
       <div className="auth-legal">
         <span>© 2026 Rift</span>
-        <a href="#" onClick={(e) => e.preventDefault()}>Privacy</a>
-        <a href="#" onClick={(e) => e.preventDefault()}>Terms</a>
-        <a href="#" onClick={(e) => e.preventDefault()}>Status</a>
+        <button type="button" className="auth-link" onClick={() => {}}>Privacy</button>
+        <button type="button" className="auth-link" onClick={() => {}}>Terms</button>
+        <button type="button" className="auth-link" onClick={() => {}}>Status</button>
       </div>
     </div>
   );
@@ -375,16 +375,9 @@ const SignInUp: React.FC<SignInUpProps> = ({
             </label>
           )}
           {!isSignup && (
-            <a
-              className="auth-link"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                goForgot();
-              }}
-            >
+            <button type="button" className="auth-link" onClick={goForgot}>
               Forgot password?
-            </a>
+            </button>
           )}
         </div>
 
@@ -430,30 +423,24 @@ const SignInUp: React.FC<SignInUpProps> = ({
         {isSignup ? (
           <>
             Already have an account?{" "}
-            <a
+            <button
+              type="button"
               className="auth-link"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onSwitchMode("signin");
-              }}
+              onClick={() => onSwitchMode("signin")}
             >
               Sign in
-            </a>
+            </button>
           </>
         ) : (
           <>
             New to Rift?{" "}
-            <a
+            <button
+              type="button"
               className="auth-link"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onSwitchMode("signup");
-              }}
+              onClick={() => onSwitchMode("signup")}
             >
               Create an account
-            </a>
+            </button>
           </>
         )}
       </div>
@@ -503,16 +490,9 @@ const Forgot: React.FC<{
     </form>
     <div className="auth-foot">
       Remember it now?{" "}
-      <a
-        className="auth-link"
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          onBack();
-        }}
-      >
+      <button type="button" className="auth-link" onClick={onBack}>
         Sign in
-      </a>
+      </button>
     </div>
   </>
 );
@@ -559,17 +539,16 @@ const ResetSent: React.FC<{
             Resend available in <span className="countdown">{secondsLeft}s</span>
           </>
         ) : (
-          <a
+          <button
+            type="button"
             className="auth-link muted"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setSecondsLeft(30);
               onResend();
             }}
           >
             Resend the email
-          </a>
+          </button>
         )}
       </div>
     </>
@@ -716,35 +695,38 @@ const VerifyEmail: React.FC<{
     return () => clearTimeout(t);
   }, [secondsLeft]);
 
-  const submitCode = async (value: string) => {
-    if (value.length !== 6 || isSubmitting) return;
-    setIsSubmitting(true);
-    setError("");
-    try {
-      await authAPI.confirmRegistration(value);
-      const fresh = await authAPI.refresh();
-      if (!isAccessTokenVerified(fresh.accessToken)) {
-        throw new Error("Verification didn't take effect. Please try again.");
+  const submitCode = useCallback(
+    async (value: string) => {
+      if (value.length !== 6 || isSubmitting) return;
+      setIsSubmitting(true);
+      setError("");
+      try {
+        await authAPI.confirmRegistration(value);
+        const fresh = await authAPI.refresh();
+        if (!isAccessTokenVerified(fresh.accessToken)) {
+          throw new Error("Verification didn't take effect. Please try again.");
+        }
+        useAuthStore.getState().setTokens(fresh);
+        authAPI.setAuthToken(fresh.accessToken);
+        const { user } = useAuthStore.getState();
+        if (user) {
+          useAuthStore.getState().login(fresh, user);
+        }
+        onVerified();
+      } catch (err: any) {
+        setError(err?.message || "Invalid or expired code");
+      } finally {
+        setIsSubmitting(false);
       }
-      useAuthStore.getState().setTokens(fresh);
-      authAPI.setAuthToken(fresh.accessToken);
-      const { user } = useAuthStore.getState();
-      if (user) {
-        useAuthStore.getState().login(fresh, user);
-      }
-      onVerified();
-    } catch (err: any) {
-      setError(err?.message || "Invalid or expired code");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    },
+    [isSubmitting, onVerified],
+  );
 
   useEffect(() => {
     if (code.length === 6) {
       submitCode(code);
     }
-  }, [code]);
+  }, [code, submitCode]);
 
   return (
     <>
@@ -811,11 +793,10 @@ const VerifyEmail: React.FC<{
             <span className="countdown">{secondsLeft}s</span>
           </>
         ) : (
-          <a
+          <button
+            type="button"
             className="auth-link muted"
-            href="#"
-            onClick={async (e) => {
-              e.preventDefault();
+            onClick={async () => {
               setSecondsLeft(30);
               try {
                 await authAPI.requestVerificationCode();
@@ -825,7 +806,7 @@ const VerifyEmail: React.FC<{
             }}
           >
             Resend the code
-          </a>
+          </button>
         )}
       </div>
     </>
@@ -879,13 +860,9 @@ const TwoFa: React.FC<{ onVerified: () => void; onBack: () => void }> = ({
       </form>
       <div className="auth-resend">
         Lost access?{" "}
-        <a
-          className="auth-link muted"
-          href="#"
-          onClick={(e) => e.preventDefault()}
-        >
+        <button type="button" className="auth-link muted" onClick={() => {}}>
           Use a recovery code
-        </a>
+        </button>
       </div>
     </>
   );
