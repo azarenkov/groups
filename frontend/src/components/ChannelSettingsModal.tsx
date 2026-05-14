@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Icon from "./rift/Icon";
 
 interface ChannelSettingsModalProps {
@@ -18,11 +18,18 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
 }) => {
   const [name, setName] = useState(channel.name);
   const [topic, setTopic] = useState(channel.topic || "");
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setName(channel.name);
     setTopic(channel.topic || "");
   }, [channel.id, channel.name, channel.topic]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    nameInputRef.current?.focus();
+    nameInputRef.current?.select();
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -33,14 +40,47 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen, onClose]);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !modalRef.current) return;
+      const focusables = modalRef.current.querySelectorAll<HTMLElement>(
+        'input, textarea, button:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (active && !modalRef.current.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onMouseDown={onClose}>
-      <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
+      <div ref={modalRef} className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="m-head">
           <h3>#{channel.name} · settings</h3>
-          <button type="button" className="close" onClick={onClose} title="Close">
+          <button
+            type="button"
+            tabIndex={-1}
+            className="close"
+            onClick={onClose}
+            title="Close"
+          >
             <Icon name="x" size={14} />
           </button>
         </div>
@@ -48,6 +88,7 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
           <div className="m-field">
             <label>Channel name</label>
             <input
+              ref={nameInputRef}
               value={name}
               onChange={(e) =>
                 setName(e.target.value.replace(/\s+/g, "-").toLowerCase())

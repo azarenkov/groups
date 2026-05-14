@@ -560,13 +560,42 @@ function LanguageSection() {
 
 function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignOut }: SettingsViewProps) {
   const [activeId, setActiveId] = React.useState('account');
+  const overlayRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab' || !overlayRef.current) return;
+      const focusables = overlayRef.current.querySelectorAll<HTMLElement>(
+        'a, button:not([tabindex="-1"]), input, textarea, select, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (active && !overlayRef.current.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  React.useEffect(() => {
+    if (!open || !overlayRef.current) return;
+    const first = overlayRef.current.querySelector<HTMLElement>(
+      'a, button:not([tabindex="-1"]), input, textarea, select, [tabindex]:not([tabindex="-1"])',
+    );
+    first?.focus();
+  }, [open]);
 
   if (!open) return null;
 
@@ -586,7 +615,7 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
   }
 
   return (
-    <div className="settings-overlay">
+    <div ref={overlayRef} className="settings-overlay">
       <nav className="settings-rail">
         {SETTINGS_SECTIONS.map(group => (
           <React.Fragment key={group.group}>

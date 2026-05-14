@@ -15,7 +15,7 @@ import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
 import MembersPanel from "../components/rift/MembersPanel";
-import SettingsView, { TweaksPanel } from "../components/settings/SettingsView";
+import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
 import { Channel, ChannelKind, ChannelVisibility } from "../types/channel";
 import { Server } from "../types/server";
@@ -85,7 +85,6 @@ const ServersPage: React.FC = () => {
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tweaksOpen, setTweaksOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "server" | "channel";
     id: string;
@@ -362,15 +361,6 @@ const ServersPage: React.FC = () => {
         </div>
         <div className="win-title">{winTitle}</div>
         <div className="spacer" />
-        <button
-          type="button"
-          className="icon-btn"
-          title="Tweaks"
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-          onClick={() => setTweaksOpen((v) => !v)}
-        >
-          <Icon name="palette" size={14} />
-        </button>
       </div>
 
       <div className="body-area">
@@ -529,7 +519,6 @@ const ServersPage: React.FC = () => {
         )}
       </div>
 
-      {tweaksOpen && <TweaksPanel theme={theme} onTheme={setTheme} />}
 
       <CreateServerModal
         isOpen={isServerModalOpen}

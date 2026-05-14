@@ -46,6 +46,14 @@ class AuthAPI {
               originalRequest.headers["Authorization"] =
                 `Bearer ${tokens.accessToken}`;
             }
+            if (
+              originalRequest.url?.endsWith("/v1/auth/logout") &&
+              tokens?.refreshToken
+            ) {
+              originalRequest.data = JSON.stringify({
+                refreshToken: tokens.refreshToken,
+              });
+            }
             return this.client.request(originalRequest);
           } catch (e) {
             throw toApiError(error);
