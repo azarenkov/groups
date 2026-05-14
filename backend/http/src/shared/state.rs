@@ -66,7 +66,7 @@ pub struct AppState {
         HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
-    pub delete_server_usecase: DeleteServer<PostgresServerRepository>,
+    pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
@@ -120,7 +120,7 @@ impl AppState {
             PostgresChannelRepository,
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
-        delete_server_usecase: DeleteServer<PostgresServerRepository>,
+        delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,

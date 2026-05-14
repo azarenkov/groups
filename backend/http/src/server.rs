@@ -127,7 +127,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
 
     let create_server_usecase = CreateServer::new(server_repository.clone());
-    let delete_server_usecase = DeleteServer::new(server_repository.clone());
+    let delete_server_usecase = DeleteServer::new(
+        server_repository.clone(),
+        channel_repository.clone(),
+        livekit_service.clone(),
+    );
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());

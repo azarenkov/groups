@@ -537,6 +537,7 @@ impl ToHttpStatus for DeleteServerError {
         match self {
             DeleteServerError::Repository(e) => e.to_http_status(),
             DeleteServerError::Outbox(e) => e.to_http_status(),
+            DeleteServerError::VoiceService(_) => StatusCode::BAD_GATEWAY,
         }
     }
 
@@ -544,6 +545,9 @@ impl ToHttpStatus for DeleteServerError {
         match self {
             DeleteServerError::Repository(e) => e.to_user_message(),
             DeleteServerError::Outbox(e) => e.to_user_message(),
+            DeleteServerError::VoiceService(_) => {
+                "Voice service is temporarily unavailable.".to_string()
+            }
         }
     }
 }

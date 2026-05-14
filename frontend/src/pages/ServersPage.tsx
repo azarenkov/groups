@@ -520,10 +520,7 @@ const ServersPage: React.FC = () => {
             accent={accent}
             onAccent={setAccent}
             onClose={() => setSettingsOpen(false)}
-            onSignOut={() => {
-              setSettingsOpen(false);
-              handleLogout();
-            }}
+            onSignOut={handleLogout}
           />
         )}
       </div>

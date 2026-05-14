@@ -91,4 +91,9 @@ pub trait ChannelRepository {
         channel_id: &ChannelId,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
+
+    async fn list_voice_channel_ids_by_server(
+        &self,
+        server_id: &crate::server::id::ServerId,
+    ) -> Result<Vec<ChannelId>, RepositoryError>;
 }
