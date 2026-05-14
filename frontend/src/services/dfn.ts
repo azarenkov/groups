@@ -2,6 +2,7 @@ import * as ort from "onnxruntime-web";
 import FFT from "fft.js";
 
 ort.env.wasm.numThreads = 1;
+ort.env.wasm.wasmPaths = `${process.env.PUBLIC_URL ?? ""}/ort/`;
 
 const HOP = 128;
 const WINDOW = 512;
@@ -9,8 +10,8 @@ const FREQ_BINS = WINDOW / 2 + 1;
 const STATE_SHAPE: number[] = [1, 2, 128, 2];
 const STATE_SIZE = STATE_SHAPE.reduce((a, b) => a * b, 1);
 
-const MODEL_1_URL = "/models/dtln/model_1.onnx";
-const MODEL_2_URL = "/models/dtln/model_2.onnx";
+const MODEL_1_URL = "models/dtln/model_1.onnx";
+const MODEL_2_URL = "models/dtln/model_2.onnx";
 
 export const DENOISER_SAMPLE_RATE = 16000;
 
@@ -176,7 +177,7 @@ export async function buildDfnPipeline({
   source,
   context,
 }: BuildOptions): Promise<DfnPipeline> {
-  await context.audioWorklet.addModule("/worklets/dfn-processor.js");
+  await context.audioWorklet.addModule("worklets/dfn-processor.js");
   const node = new AudioWorkletNode(context, "dfn-processor");
   const destination = context.createMediaStreamDestination();
   source.connect(node);

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, nativeImage, safeStorage, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, nativeImage, safeStorage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const isDev = require('electron-is-dev');
@@ -211,13 +211,6 @@ function runBootUpdateThenLaunch() {
 
 app.on('ready', () => {
   Menu.setApplicationMenu(null);
-
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const headers = { ...details.responseHeaders };
-    headers['Cross-Origin-Opener-Policy'] = ['same-origin'];
-    headers['Cross-Origin-Embedder-Policy'] = ['credentialless'];
-    callback({ responseHeaders: headers });
-  });
 
   if (autoUpdater) {
     createSplash();

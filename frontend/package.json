@@ -10,6 +10,7 @@
   "homepage": "./",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/copy-ort-wasm.js",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
@@ -57,7 +58,8 @@
       "public/splash.html",
       "public/icons/**/*",
       "public/worklets/**/*",
-      "public/models/**/*"
+      "public/models/**/*",
+      "public/ort/**/*"
     ],
     "directories": {
       "buildResources": "public/icons"
