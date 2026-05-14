@@ -150,12 +150,31 @@ const ServersPage: React.FC = () => {
       }
     : null;
 
+  const selectedTextChannel =
+    selectedServer && selectedChannelId
+      ? channelsByServer[selectedServer.id]?.find(
+          (c) => c.id === selectedChannelId && c.kind === "text",
+        ) ?? null
+      : null;
+
+  const activeChannelOverride = selectedTextChannel
+    ? channelOverrides[selectedTextChannel.id] || {}
+    : {};
+
+  const activeTextChannel = selectedTextChannel
+    ? {
+        id: selectedTextChannel.id,
+        name: activeChannelOverride.name ?? selectedTextChannel.name,
+        topic: activeChannelOverride.topic,
+      }
+    : generalChannel;
+
   const viewingJoinedVoice =
     !!joinedChannel && selectedChannelId === joinedChannel.channel.id;
   const onTextChannelActive =
     !!selectedServer && !selectedDm && !viewingJoinedVoice;
   const showMembersForChannel =
-    onTextChannelActive && !!generalChannel && !!membersOpenById[generalChannel.id];
+    onTextChannelActive && !!activeTextChannel && !!membersOpenById[activeTextChannel.id];
 
   const handleToggleServer = (serverId: string) => {
     setExpandedServerId((prev) => (prev === serverId ? null : serverId));
@@ -289,7 +308,7 @@ const ServersPage: React.FC = () => {
     : joinedChannel
       ? `${servers.find((s) => s.id === joinedChannel.serverId)?.name ?? ""} — ${joinedChannel.channel.name}`
       : selectedServer
-        ? `${selectedServer.name} — ${generalChannel?.name ?? "general"}`
+        ? `${selectedServer.name} — ${activeTextChannel?.name ?? "general"}`
         : "Rift";
 
   return (
@@ -385,24 +404,31 @@ const ServersPage: React.FC = () => {
             ) : (
               <ChatView
                 channel={{
-                  name: generalChannel?.name ?? "general",
-                  topic: generalChannel?.topic,
+                  name: activeTextChannel?.name ?? "general",
+                  topic: activeTextChannel?.topic,
                   type: "text",
                 }}
                 membersOpen={
-                  !!generalChannel ? !!membersOpenById[generalChannel.id] : false
+                  !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }
                 onToggleMembers={
-                  generalChannel
+                  activeTextChannel
                     ? () =>
                         setMembersOpenById((prev) => ({
                           ...prev,
-                          [generalChannel.id]: !prev[generalChannel.id],
+                          [activeTextChannel.id]: !prev[activeTextChannel.id],
                         }))
                     : undefined
                 }
                 onOpenChannelSettings={
-                  generalChannel ? () => setEditingChannel(generalChannel) : undefined
+                  activeTextChannel
+                    ? () =>
+                        setEditingChannel({
+                          id: activeTextChannel.id,
+                          name: activeTextChannel.name,
+                          topic: activeTextChannel.topic,
+                        })
+                    : undefined
                 }
               />
             )}
