@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
@@ -110,6 +110,7 @@ const ServersPage: React.FC = () => {
     useState<Record<string, ChannelOverride>>({});
   const [editingChannel, setEditingChannel] = useState<{
     id: string;
+    serverId: string;
     name: string;
     topic?: string;
   } | null>(null);
@@ -130,12 +131,28 @@ const ServersPage: React.FC = () => {
     }
   }, [expandedServerId, tokens, fetchChannels, channelsByServer]);
 
+  const didInitialExpandRef = useRef(false);
   useEffect(() => {
-    if (!expandedServerId && servers.length > 0) {
-      setExpandedServerId(servers[0].id);
-      setSelectedServer(servers[0].id);
-    }
-  }, [servers, expandedServerId, setSelectedServer]);
+    if (didInitialExpandRef.current) return;
+    if (servers.length === 0) return;
+    didInitialExpandRef.current = true;
+    setExpandedServerId(servers[0].id);
+    setSelectedServer(servers[0].id);
+  }, [servers, setSelectedServer]);
+
+  useEffect(() => {
+    if (!selectedServerId || selectedChannelId || selectedDm) return;
+    const list = channelsByServer[selectedServerId];
+    if (!list) return;
+    const firstText = list.find((c) => c.kind === "text");
+    if (firstText) setSelectedChannel(firstText.id);
+  }, [
+    selectedServerId,
+    selectedChannelId,
+    selectedDm,
+    channelsByServer,
+    setSelectedChannel,
+  ]);
 
   const selectedServer = servers.find((s) => s.id === selectedServerId) || null;
 
@@ -182,8 +199,9 @@ const ServersPage: React.FC = () => {
 
   const handleSelectServer = (serverId: string) => {
     setSelectedServer(serverId);
-    setSelectedChannel(null);
     setSelectedDm(null);
+    const firstText = channelsByServer[serverId]?.find((c) => c.kind === "text");
+    setSelectedChannel(firstText ? firstText.id : null);
   };
 
   const finalizeJoin = (server: Server, channel: Channel, password?: string) => {
@@ -219,7 +237,12 @@ const ServersPage: React.FC = () => {
   };
 
   const handleCreateServer = async (name: string, description?: string) => {
-    await createServer(name, description);
+    const server = await createServer(name, description);
+    try {
+      await createChannel(server.id, "general", "text", "public");
+    } catch (err) {
+      console.error("[ServersPage] failed to create default channel:", err);
+    }
   };
 
   const handleCreateChannel = async (
@@ -337,7 +360,6 @@ const ServersPage: React.FC = () => {
           servers={servers}
           channelsByServer={channelsByServer}
           expandedServerId={expandedServerId}
-          selectedServerId={selectedServerId}
           selectedChannelId={selectedChannelId}
           joinedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
@@ -374,7 +396,6 @@ const ServersPage: React.FC = () => {
               <Welcome
                 loading={serversLoading && servers.length === 0}
                 onCreate={() => setIsServerModalOpen(true)}
-                onLogout={handleLogout}
               />
             ) : selectedDm ? (
               <ChatView
@@ -387,6 +408,20 @@ const ServersPage: React.FC = () => {
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
               <div className="voice-stage">
+                <button
+                  type="button"
+                  className="voice-stage-settings"
+                  title="Channel settings"
+                  onClick={() =>
+                    setEditingChannel({
+                      id: joinedChannel.channel.id,
+                      serverId: joinedChannel.serverId,
+                      name: joinedChannel.channel.name,
+                    })
+                  }
+                >
+                  <Icon name="settings" size={14} />
+                </button>
                 <div className="voice-stage-orb">
                   <span className="voice-stage-orb-ring" />
                   <span className="voice-stage-orb-ring delay" />
@@ -421,10 +456,11 @@ const ServersPage: React.FC = () => {
                     : undefined
                 }
                 onOpenChannelSettings={
-                  activeTextChannel
+                  activeTextChannel && selectedServer
                     ? () =>
                         setEditingChannel({
                           id: activeTextChannel.id,
+                          serverId: selectedServer.id,
                           name: activeTextChannel.name,
                           topic: activeTextChannel.topic,
                         })
@@ -517,6 +553,12 @@ const ServersPage: React.FC = () => {
             setEditingChannel(null);
           }}
           onDelete={() => {
+            setDeleteConfirm({
+              type: "channel",
+              id: editingChannel.id,
+              serverId: editingChannel.serverId,
+              name: editingChannel.name,
+            });
             setEditingChannel(null);
           }}
         />
@@ -585,25 +627,16 @@ const ServersPage: React.FC = () => {
 interface WelcomeProps {
   loading: boolean;
   onCreate: () => void;
-  onLogout: () => void;
 }
 
-const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate, onLogout }) => (
+const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => (
   <div className="empty-state" style={{ padding: 60 }}>
     <div className="icon-wrap" style={{ width: 64, height: 64 }}>
       <Icon name="hash" size={26} />
     </div>
     <h3>Welcome to Rift</h3>
     <p>Pick a server on the left or create one to start talking.</p>
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 12,
-        marginTop: 20,
-      }}
-    >
+    <div style={{ marginTop: 20 }}>
       {loading ? (
         <span className="loading-spinner" />
       ) : (
@@ -617,26 +650,6 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate, onLogout }) => (
           Create a server
         </button>
       )}
-      <button
-        type="button"
-        onClick={onLogout}
-        style={{
-          background: "transparent",
-          color: "var(--fg-3)",
-          border: "none",
-          padding: "6px 10px",
-          borderRadius: 6,
-          fontSize: 12,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <Icon name="logout" size={12} />
-        Sign out
-      </button>
     </div>
   </div>
 );

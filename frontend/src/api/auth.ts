@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import { serverAPI } from "./server";
 import { channelAPI } from "./channel";
 import { useAuthStore } from "../store/authStore";
+import { toApiError } from "../utils/apiError";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -47,16 +48,11 @@ class AuthAPI {
             }
             return this.client.request(originalRequest);
           } catch (e) {
-            throw error;
+            throw toApiError(error);
           }
         }
 
-        const respData = error.response ? (error.response.data as any) : null;
-        if (respData?.error) {
-          throw new Error(respData.error);
-        }
-
-        throw error;
+        throw toApiError(error);
       },
     );
   }

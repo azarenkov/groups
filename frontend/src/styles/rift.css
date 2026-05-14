@@ -2177,6 +2177,23 @@ textarea.s-input {
   gap: 44px;
   pointer-events: none;
 }
+.voice-stage-settings {
+  position: absolute; top: 18px; right: 18px;
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-1);
+  border-radius: 8px;
+  color: var(--fg-2);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+.voice-stage-settings:hover {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+}
 .voice-stage-orb {
   position: relative;
   width: 140px; height: 140px;

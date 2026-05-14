@@ -8,7 +8,6 @@ interface SidebarProps {
   servers: Server[];
   channelsByServer: Record<string, Channel[]>;
   expandedServerId: string | null;
-  selectedServerId: string | null;
   selectedChannelId: string | null;
   joinedChannelId: string | null;
   selectedDmId: string | null;
@@ -38,7 +37,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   servers,
   channelsByServer,
   expandedServerId,
-  selectedServerId,
   selectedChannelId,
   joinedChannelId,
   selectedDmId,
@@ -211,20 +209,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {!isCol && (
                 <>
-                  <div
-                    className={
-                      "sb-item" +
-                      (selectedServerId === server.id && !selectedChannelId && !selectedDmId
-                        ? " active"
-                        : "")
-                    }
-                    onClick={() => onSelectServer(server.id)}
-                  >
-                    <span className="sb-icon">
-                      <Icon name="hash" size={14} />
-                    </span>
-                    <span className="sb-label">general</span>
-                  </div>
                   {channels.map((channel) => (
                     <div
                       key={channel.id}
@@ -240,7 +224,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                       }}
                     >
                       <span className="sb-icon">
-                        <Icon name="volume" size={14} />
+                        <Icon
+                          name={channel.kind === "voice" ? "volume" : "hash"}
+                          size={14}
+                        />
                       </span>
                       <span className="sb-label">{channel.name}</span>
                       {channel.visibility === "private" && (
