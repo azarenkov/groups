@@ -114,8 +114,10 @@ function createMainWindow() {
     mainWindow.show();
   });
 
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
+  if (isDev || process.env.RIFT_DEVTOOLS === '1') {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
   }
 
   mainWindow.webContents.setVisualZoomLevelLimits(1, 1);

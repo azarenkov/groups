@@ -368,19 +368,28 @@ export class LiveKitService {
 
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
+      let step = "init";
       try {
+        step = "applyConstraints";
         try {
           await rawTrack.applyConstraints({ noiseSuppression: false });
         } catch {}
 
+        step = "AudioContext";
         const AudioCtx =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext })
             .webkitAudioContext;
         const ctx = new AudioCtx({ sampleRate: DENOISER_SAMPLE_RATE });
-        if (ctx.state === "suspended") await ctx.resume();
+        if (ctx.state === "suspended") {
+          step = "ctx.resume";
+          await ctx.resume();
+        }
+        step = "createMediaStreamSource";
         const source = ctx.createMediaStreamSource(new MediaStream([rawTrack]));
+        step = "buildDfnPipeline";
         const pipeline = await buildDfnPipeline({ source, context: ctx });
+        step = "replaceTrack";
         await localTrack.replaceTrack(pipeline.outputTrack);
 
         this.dfnPipeline = pipeline;
@@ -393,7 +402,7 @@ export class LiveKitService {
       } catch (e) {
         lastErr = e;
         console.warn(
-          `[LiveKitService] enableDfnPipeline attempt ${attempt} failed:`,
+          `[LiveKitService] enableDfnPipeline attempt ${attempt} failed at step "${step}":`,
           e,
         );
         await new Promise((r) => setTimeout(r, 200));

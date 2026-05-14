@@ -2,7 +2,7 @@ import * as ort from "onnxruntime-web";
 import FFT from "fft.js";
 
 ort.env.wasm.numThreads = 1;
-ort.env.wasm.wasmPaths = `${process.env.PUBLIC_URL ?? ""}/ort/`;
+ort.env.wasm.wasmPaths = assetUrl("ort/");
 
 const HOP = 128;
 const WINDOW = 512;
@@ -10,8 +10,19 @@ const FREQ_BINS = WINDOW / 2 + 1;
 const STATE_SHAPE: number[] = [1, 2, 128, 2];
 const STATE_SIZE = STATE_SHAPE.reduce((a, b) => a * b, 1);
 
-const MODEL_1_URL = "models/dtln/model_1.onnx";
-const MODEL_2_URL = "models/dtln/model_2.onnx";
+function assetBase(): string {
+  const electron = (window as unknown as { electron?: { appBase?: string } })
+    .electron;
+  if (electron?.appBase) return electron.appBase;
+  return window.location.href.replace(/[^/]*$/, "");
+}
+
+function assetUrl(rel: string): string {
+  return new URL(rel, assetBase()).toString();
+}
+
+const MODEL_1_URL = assetUrl("models/dtln/model_1.onnx");
+const MODEL_2_URL = assetUrl("models/dtln/model_2.onnx");
 
 export const DENOISER_SAMPLE_RATE = 16000;
 
@@ -156,13 +167,20 @@ async function loadModels(): Promise<LoadedModels | null> {
   if (!modelsPromise) {
     modelsPromise = (async () => {
       try {
+        console.log("[dtln] HEAD probe", MODEL_1_URL, MODEL_2_URL);
         const head1 = await fetch(MODEL_1_URL, { method: "HEAD" });
         const head2 = await fetch(MODEL_2_URL, { method: "HEAD" });
+        console.log("[dtln] HEAD probe results", head1.status, head2.status);
         if (!head1.ok || !head2.ok) return null;
-        const [model1, model2] = await Promise.all([
-          ort.InferenceSession.create(MODEL_1_URL, { executionProviders: ["wasm"] }),
-          ort.InferenceSession.create(MODEL_2_URL, { executionProviders: ["wasm"] }),
-        ]);
+        console.log("[dtln] creating InferenceSession (model_1)");
+        const model1 = await ort.InferenceSession.create(MODEL_1_URL, {
+          executionProviders: ["wasm"],
+        });
+        console.log("[dtln] creating InferenceSession (model_2)");
+        const model2 = await ort.InferenceSession.create(MODEL_2_URL, {
+          executionProviders: ["wasm"],
+        });
+        console.log("[dtln] models loaded");
         return { model1, model2 };
       } catch (err) {
         console.warn("[dtln] models not available, running in passthrough mode:", err);
@@ -177,7 +195,17 @@ export async function buildDfnPipeline({
   source,
   context,
 }: BuildOptions): Promise<DfnPipeline> {
-  await context.audioWorklet.addModule("worklets/dfn-processor.js");
+  console.log("[dtln] adding audio worklet");
+  const workletRes = await fetch(assetUrl("worklets/dfn-processor.js"));
+  const workletSrc = await workletRes.text();
+  const workletBlob = new Blob([workletSrc], { type: "application/javascript" });
+  const workletUrl = URL.createObjectURL(workletBlob);
+  try {
+    await context.audioWorklet.addModule(workletUrl);
+  } finally {
+    URL.revokeObjectURL(workletUrl);
+  }
+  console.log("[dtln] worklet added");
   const node = new AudioWorkletNode(context, "dfn-processor");
   const destination = context.createMediaStreamDestination();
   source.connect(node);
