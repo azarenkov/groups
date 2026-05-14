@@ -9,10 +9,8 @@ export async function getRefreshToken(): Promise<string | null> {
   if (electron?.secureGet) {
     try {
       const value = await electron.secureGet();
-      return value ?? null;
-    } catch {
-      return null;
-    }
+      if (value) return value;
+    } catch {}
   }
   return localStorage.getItem(LS_KEY);
 }

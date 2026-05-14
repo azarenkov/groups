@@ -335,8 +335,12 @@ const ServersPage: React.FC = () => {
   };
 
   const handleVoiceLeave = useCallback(() => {
-    setJoinedChannel(null);
-    setSelectedChannel(null);
+    setJoinedChannel((prev) => {
+      if (prev && useChannelStore.getState().selectedChannelId === prev.channel.id) {
+        setSelectedChannel(null);
+      }
+      return null;
+    });
     setVoiceJoinFailed(false);
   }, [setSelectedChannel]);
 
