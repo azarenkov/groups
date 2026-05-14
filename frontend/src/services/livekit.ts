@@ -306,9 +306,24 @@ export class LiveKitService {
   }
 
   async setNoiseSuppressionMode(mode: NoiseSuppressionMode): Promise<void> {
+    return this.applyNoiseSuppressionMode(mode, false);
+  }
+
+  private async applyNoiseSuppressionMode(
+    mode: NoiseSuppressionMode,
+    force: boolean,
+  ): Promise<void> {
     const run = async () => {
-      if (mode === "high" && this.noiseMode === "high" && this.dfnPipeline) {
+      if (
+        !force &&
+        mode === "high" &&
+        this.noiseMode === "high" &&
+        this.dfnPipeline
+      ) {
         return;
+      }
+      if (force && mode === "high" && this.dfnPipeline) {
+        await this.disableDfnPipeline();
       }
       this.noiseMode = mode;
 
@@ -394,7 +409,9 @@ export class LiveKitService {
         step = "buildDfnPipeline";
         pipeline = await buildDfnPipeline({ source, context: ctx });
         step = "replaceTrack";
-        await localTrack.replaceTrack(pipeline.outputTrack);
+        await localTrack.replaceTrack(pipeline.outputTrack, {
+          userProvidedTrack: false,
+        });
 
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
@@ -453,7 +470,9 @@ export class LiveKitService {
       const localTrack = publication?.track;
       if (localTrack instanceof LocalAudioTrack) {
         try {
-          await localTrack.replaceTrack(rawTrack);
+          await localTrack.replaceTrack(rawTrack, {
+            userProvidedTrack: false,
+          });
         } catch (e) {
           console.warn("[LiveKitService] failed to restore raw mic track:", e);
         }
@@ -573,7 +592,7 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
       if (publication.kind !== Track.Kind.Audio) return;
-      this.setNoiseSuppressionMode(this.noiseMode).catch((e) => {
+      this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) => {
         console.warn(
           "[LiveKitService] reapply noise mode after publish failed:",
           e,
