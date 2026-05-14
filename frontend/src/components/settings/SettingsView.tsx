@@ -76,7 +76,6 @@ function SettingsRow({ label, hint, children }: SettingsRowProps) {
   );
 }
 
-// --- Sections ---------------------------------------------------------
 
 function AccountSection() {
   return (
@@ -562,7 +561,6 @@ function LanguageSection() {
 function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignOut }: SettingsViewProps) {
   const [activeId, setActiveId] = React.useState('account');
 
-  // Esc to close
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -623,9 +621,6 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
   );
 }
 
-// ======================================================================
-// Tweaks panel (custom — not visible unless the toolbar toggle is on)
-// ======================================================================
 function TweaksPanel({ theme, onTheme }: TweaksPanelProps) {
   return (
     <div className="tweaks-panel">

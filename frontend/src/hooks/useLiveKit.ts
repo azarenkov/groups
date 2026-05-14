@@ -122,7 +122,6 @@ export function useLiveKit(): UseLiveKitResult {
     }
   }, [isMuted, livekitService]);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (isConnected) {

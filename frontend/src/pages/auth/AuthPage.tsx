@@ -134,7 +134,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
   );
 };
 
-// -------------------- Sign in / Sign up combined --------------------
 
 interface SignInData {
   email: string;
@@ -261,9 +260,6 @@ const SignInUp: React.FC<SignInUpProps> = ({
     ? (signUpForm.formState.errors as any)
     : (signInForm.formState.errors as any);
 
-  // react-hook-form's `register` is generic on the form's data type, so the
-  // ternary creates a non-callable union. Cast each form's register up to a
-  // shared (string, opts) signature so we can drive both forms from one tree.
   type AnyRegister = (name: string, opts?: any) => any;
   const registerEmail: AnyRegister = isSignup
     ? (signUpForm.register as unknown as AnyRegister)
@@ -465,7 +461,6 @@ const SignInUp: React.FC<SignInUpProps> = ({
   );
 };
 
-// -------------------- Forgot password --------------------
 
 const Forgot: React.FC<{
   email: string;
@@ -522,7 +517,6 @@ const Forgot: React.FC<{
   </>
 );
 
-// -------------------- Reset link sent --------------------
 
 const ResetSent: React.FC<{
   email: string;
@@ -582,7 +576,6 @@ const ResetSent: React.FC<{
   );
 };
 
-// -------------------- Reset password --------------------
 
 const ResetPassword: React.FC<{
   onSubmit: () => void;
@@ -692,7 +685,6 @@ const ResetPassword: React.FC<{
   );
 };
 
-// -------------------- Reset success --------------------
 
 const ResetSuccess: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
   <>
@@ -707,7 +699,6 @@ const ResetSuccess: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
   </>
 );
 
-// -------------------- Verify email --------------------
 
 const VerifyEmail: React.FC<{
   email: string;
@@ -754,7 +745,6 @@ const VerifyEmail: React.FC<{
     if (code.length === 6) {
       submitCode(code);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
   return (
@@ -843,7 +833,6 @@ const VerifyEmail: React.FC<{
   );
 };
 
-// -------------------- 2FA --------------------
 
 const TwoFa: React.FC<{ onVerified: () => void; onBack: () => void }> = ({
   onVerified,

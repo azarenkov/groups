@@ -1,4 +1,4 @@
-name: Build and Publish
+name: Release Services
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
               - 'docker/http/**'
               - '.sqlx/**'
               - 'migrations/**'
-              - '.github/workflows/build-and-publish.yml'
+              - '.github/workflows/release-services.yml'
             outbox-worker:
               - 'backend/outbox-worker/**'
               - 'backend/crates/**'
@@ -43,7 +43,7 @@ jobs:
               - 'docker/outbox-worker/**'
               - '.sqlx/**'
               - 'migrations/**'
-              - '.github/workflows/build-and-publish.yml'
+              - '.github/workflows/release-services.yml'
             notification-service:
               - 'backend/notification-service/**'
               - 'backend/crates/**'
@@ -52,7 +52,7 @@ jobs:
               - 'docker/notification-service/**'
               - '.sqlx/**'
               - 'migrations/**'
-              - '.github/workflows/build-and-publish.yml'
+              - '.github/workflows/release-services.yml'
 
   build-and-push:
     needs: changes

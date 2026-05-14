@@ -71,7 +71,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       isJoiningRef.current = false;
       leaveChannel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId, serverId, password]);
 
   const handleLeave = async () => {

@@ -8,6 +8,20 @@ if (isDev) {
 
 app.setName('Rift');
 
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const UPDATE_BOOT_TIMEOUT_MS = 8000;
+
+let autoUpdater = null;
+if (!isDev) {
+  try {
+    autoUpdater = require('electron-updater').autoUpdater;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+  } catch (e) {
+    console.error('[updater] failed to load electron-updater:', e);
+  }
+}
+
 const iconPath = path.join(
   __dirname,
   'icons',
@@ -20,12 +34,56 @@ if (process.platform === 'darwin' && app.dock && !appIcon.isEmpty()) {
 }
 
 let mainWindow;
+let splashWindow;
 
 const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 1.5;
 const ZOOM_STEP = 0.1;
 
-function createWindow() {
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width: 360,
+    height: 280,
+    resizable: false,
+    movable: true,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    frame: false,
+    transparent: false,
+    backgroundColor: '#0d0d0f',
+    icon: appIcon,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+}
+
+function setSplashStatus(text) {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.send('updater:status', text);
+  }
+}
+
+function setSplashProgress(percent) {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.send('updater:progress', percent);
+  }
+}
+
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.destroy();
+  }
+  splashWindow = null;
+}
+
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
@@ -35,6 +93,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     frame: false,
     icon: appIcon,
+    show: isDev,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -48,6 +107,11 @@ function createWindow() {
     : `file://${path.join(__dirname, '../build/index.html')}`;
 
   mainWindow.loadURL(startURL);
+
+  mainWindow.once('ready-to-show', () => {
+    closeSplash();
+    mainWindow.show();
+  });
 
   if (isDev) {
     mainWindow.webContents.openDevTools();
@@ -98,9 +162,65 @@ function createWindow() {
   });
 }
 
+function runBootUpdateThenLaunch() {
+  let resolved = false;
+
+  const proceed = () => {
+    if (resolved) return;
+    resolved = true;
+    createMainWindow();
+  };
+
+  const installNow = () => {
+    if (resolved) return;
+    resolved = true;
+    setSplashStatus('Installing update…');
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 250);
+  };
+
+  autoUpdater.on('error', (err) => {
+    console.error('[updater] error:', err);
+    proceed();
+  });
+  autoUpdater.on('update-not-available', () => {
+    proceed();
+  });
+  autoUpdater.on('update-available', (info) => {
+    setSplashStatus(`Downloading update ${info.version}…`);
+  });
+  autoUpdater.on('download-progress', (p) => {
+    setSplashProgress(p.percent);
+  });
+  autoUpdater.on('update-downloaded', () => {
+    installNow();
+  });
+
+  setTimeout(() => {
+    if (!resolved) {
+      console.warn('[updater] boot check timed out, launching app');
+      proceed();
+    }
+  }, UPDATE_BOOT_TIMEOUT_MS);
+
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error('[updater] checkForUpdates failed:', err);
+    proceed();
+  });
+}
+
 app.on('ready', () => {
   Menu.setApplicationMenu(null);
-  createWindow();
+  if (autoUpdater) {
+    createSplash();
+    runBootUpdateThenLaunch();
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.error('[updater] periodic check failed:', err);
+      });
+    }, UPDATE_CHECK_INTERVAL_MS);
+  } else {
+    createMainWindow();
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -111,7 +231,7 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (mainWindow === null) {
-    createWindow();
+    createMainWindow();
   }
 });
 

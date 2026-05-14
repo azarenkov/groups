@@ -1,0 +1,94 @@
+name: Release Desktop
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/release-desktop.yml'
+
+  release:
+    needs: changes
+    if: |
+      needs.changes.outputs.frontend == 'true' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build React
+        run: npm run build
+        env:
+          CI: false
+
+      - name: Resolve publish flag
+        id: publish
+        shell: bash
+        run: |
+          if [[ "${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}" == "true" ]]; then
+            echo "mode=always" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=never" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build & Publish (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npx electron-builder --mac --publish ${{ steps.publish.outputs.mode }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Publish (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npx electron-builder --win --publish ${{ steps.publish.outputs.mode }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Publish (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npx electron-builder --linux --publish ${{ steps.publish.outputs.mode }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -65,7 +65,6 @@ export const useAuthStore = create<AuthState>()(
         try {
           await authAPI.logout();
         } catch {
-          // best-effort: still clear local state below
         }
         set({
           user: null,

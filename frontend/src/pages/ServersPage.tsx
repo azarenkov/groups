@@ -61,7 +61,6 @@ const ServersPage: React.FC = () => {
   const { theme, setTheme } = useThemeStore();
   const [accent, setAccent] = useState("#0071e3");
 
-  // Apply accent CSS var
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", accent);
     document.documentElement.style.setProperty(
@@ -70,7 +69,6 @@ const ServersPage: React.FC = () => {
     );
   }, [accent]);
 
-  // Cmd+, opens settings
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ",") {
@@ -82,7 +80,6 @@ const ServersPage: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Modals + side panels
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
@@ -96,7 +93,6 @@ const ServersPage: React.FC = () => {
     name: string;
   } | null>(null);
 
-  // Conversation state — exactly one of (joinedChannel | selectedDm | text-channel) is active
   const [joinedChannel, setJoinedChannel] = useState<{
     channel: Channel;
     serverId: string;
@@ -110,7 +106,6 @@ const ServersPage: React.FC = () => {
   const [expandedServerId, setExpandedServerId] = useState<string | null>(null);
   const [directs, setDirects] = useState<MockDirect[]>(SEED_DIRECTS);
 
-  // Channel overrides (text channel name/topic edits) keyed by `${serverId}:general`
   const [channelOverrides, setChannelOverrides] =
     useState<Record<string, ChannelOverride>>({});
   const [editingChannel, setEditingChannel] = useState<{
@@ -119,7 +114,6 @@ const ServersPage: React.FC = () => {
     topic?: string;
   } | null>(null);
 
-  // Members panel toggle (per text-channel id)
   const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -145,7 +139,6 @@ const ServersPage: React.FC = () => {
 
   const selectedServer = servers.find((s) => s.id === selectedServerId) || null;
 
-  // Effective text-channel meta for the active server's "general"
   const generalChannelKey = selectedServer ? `${selectedServer.id}:general` : "";
   const generalOverride = channelOverrides[generalChannelKey] || {};
   const generalChannel = selectedServer
@@ -498,7 +491,6 @@ const ServersPage: React.FC = () => {
             setEditingChannel(null);
           }}
           onDelete={() => {
-            // No backend for "delete general channel" — close modal as no-op
             setEditingChannel(null);
           }}
         />

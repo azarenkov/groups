@@ -1,6 +1,3 @@
-/* ============================================================
-   Rift Design System — Tokens (trimmed; see colors_and_type.css for full)
-   ============================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
@@ -109,9 +106,6 @@ body {
 
 ::selection { background: var(--accent-tint-2); color: var(--fg-1); }
 :focus-visible { outline: none; box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
-/* Inputs/textareas live inside wrappers that paint their own focus state.
-   Suppress the global glow on the bare element so it doesn't leak as an
-   offset rectangle inside the wrapper's padding. */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
@@ -119,9 +113,6 @@ select:focus-visible {
   border-radius: 0;
 }
 
-/* ============================================================
-   Window chrome — shared across all variants
-   ============================================================ */
 .win {
   display: flex;
   flex-direction: column;
@@ -131,15 +122,12 @@ select:focus-visible {
 .titlebar {
   height: var(--h-titlebar);
   display: flex; align-items: center;
-  /* Reserve room on the left so macOS traffic-light buttons don't overlap. */
   padding: 0 14px 0 84px;
   gap: 10px;
   -webkit-app-region: drag;
   flex-shrink: 0;
   position: relative;
 }
-/* macOS draws native traffic-light controls via titleBarStyle: 'hiddenInset' —
-   hide the in-app placeholders so they don't double-render and overlap. */
 .traffic { display: none; }
 .titlebar .spacer { flex: 1; }
 .titlebar .icon-btn,
@@ -155,15 +143,11 @@ select:focus-visible {
 
 .body-area { flex: 1; display: flex; min-height: 0; position: relative; }
 
-/* ============================================================
-   Shared sidebar base
-   ============================================================ */
 .sb {
   width: var(--w-sidebar);
   flex-shrink: 0;
   display: flex; flex-direction: column;
-  background: transparent;  /* app canvas shows through */
-  padding: 0 8px 8px;
+  background: transparent;  padding: 0 8px 8px;
   gap: 2px;
 }
 .sb-search {
@@ -226,7 +210,6 @@ select:focus-visible {
 }
 .sb-section-head.collapsed .chev { transform: rotate(-90deg); }
 
-/* Tiny "+" button on a sidebar section header (e.g. New DM) */
 .sb-section-add {
   width: 20px; height: 20px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -283,9 +266,6 @@ select:focus-visible {
   margin-top: 4px;
 }
 
-/* ============================================================
-   Main area — chat/voice
-   ============================================================ */
 .main {
   flex: 1;
   min-width: 0;
@@ -343,9 +323,6 @@ select:focus-visible {
   background: var(--accent);
 }
 
-/* ============================================================
-   Notification settings popover (anchored under bell)
-   ============================================================ */
 .popover-wrap { position: relative; display: inline-flex; }
 .popover {
   position: absolute;
@@ -390,9 +367,6 @@ select:focus-visible {
 .popover .pop-item .sub { font-size: 11px; color: var(--fg-3); margin-top: 1px; }
 .popover .pop-divider { height: 1px; background: var(--hairline); margin: 4px 8px; }
 
-/* ============================================================
-   Members panel (right rail)
-   ============================================================ */
 .members-panel {
   width: 240px; flex-shrink: 0;
   display: flex; flex-direction: column;
@@ -439,9 +413,6 @@ select:focus-visible {
 .member-row.offline .name { color: var(--fg-3); }
 .member-row .role { font-size: 11px; color: var(--fg-3); }
 
-/* ============================================================
-   Channel settings modal
-   ============================================================ */
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.4);
@@ -534,9 +505,6 @@ select:focus-visible {
 }
 .modal .m-foot button.danger:hover { background: rgba(255,69,58,0.10); }
 
-/* ============================================================
-   New-DM modal — search field + scrollable people picker
-   ============================================================ */
 .newdm-modal { width: 440px; }
 .newdm-search {
   display: flex; align-items: center; gap: 10px;
@@ -640,9 +608,6 @@ select:focus-visible {
   color: var(--fg-3);
 }
 
-/* ============================================================
-   Add-server modal (Create / Join tabs)
-   ============================================================ */
 .server-modal { width: 480px; }
 .server-tabs {
   display: flex;
@@ -675,7 +640,6 @@ select:focus-visible {
   border-radius: 2px 2px 0 0;
 }
 
-/* Join form bits */
 .js-error {
   margin-top: 6px;
   font-size: 12px;
@@ -782,9 +746,6 @@ select:focus-visible {
 }
 .js-row:hover .js-join-tag { opacity: 1; }
 
-/* ============================================================
-   Create-server button at the bottom of the sidebar
-   ============================================================ */
 .sb-create-server {
   display: flex; align-items: center; gap: 8px;
   width: calc(100% - 16px);
@@ -817,7 +778,6 @@ select:focus-visible {
   color: #fff;
 }
 
-/* Create-server form bits */
 .cs-glyph-row {
   display: flex; align-items: center; gap: 14px;
   margin-bottom: 16px;
@@ -854,7 +814,6 @@ select:focus-visible {
   border: 2px solid var(--fg-1);
 }
 
-/* Chat body */
 .chat-body {
   flex: 1;
   overflow-y: auto;
@@ -884,7 +843,6 @@ select:focus-visible {
 .msg.cont .ava { visibility: hidden; height: 0; }
 .msg.cont .head { display: none; }
 
-/* Composer */
 .composer { padding: 10px 24px 20px; }
 .composer-wrap {
   background: var(--surface-sunken);
@@ -916,7 +874,6 @@ select:focus-visible {
 }
 .composer .send-btn.enabled { opacity: 1; pointer-events: auto; }
 
-/* Empty state */
 .empty-state {
   flex:1; display:flex; align-items:center; justify-content:center;
   flex-direction: column; gap: 10px; padding: 40px;
@@ -936,9 +893,6 @@ select:focus-visible {
 }
 .empty-state p { margin: 0; font-size: 13px; max-width: 320px; }
 
-/* ============================================================
-   Floating voice pill
-   ============================================================ */
 .voice-pill {
   position: absolute;
   left: 50%;
@@ -983,7 +937,6 @@ select:focus-visible {
 .voice-pill .vp-btn.leave { background: var(--danger); color: #fff; }
 .voice-pill .vp-btn.on { background: var(--surface-active); color: var(--fg-1); }
 
-/* Audio popover — Apple HUD style, anchored above the pill */
 .vp-popover {
   position: absolute;
   left: 50%;
@@ -1023,7 +976,6 @@ select:focus-visible {
 .vp-pop-label .k { flex: 1; color: var(--fg-2); font-weight: 500; }
 .vp-pop-label .v { color: var(--fg-1); font-variant-numeric: tabular-nums; font-size: 12px; }
 
-/* Apple-style horizontal slider with glyphs at the ends */
 .vp-slider {
   position: relative;
   height: 28px;
@@ -1061,7 +1013,6 @@ select:focus-visible {
 }
 .vp-slider input[type=range]:active::-webkit-slider-thumb { transform: scale(1.08); }
 
-/* Segmented control — Apple-style */
 .vp-seg {
   display: flex;
   background: var(--surface-sunken);
@@ -1088,7 +1039,6 @@ select:focus-visible {
   box-shadow: var(--shadow-xs);
 }
 
-/* Live input meter */
 .vp-meter {
   display: flex; gap: 2px; height: 18px; min-height: 18px;
   align-items: flex-end;
@@ -1104,7 +1054,6 @@ select:focus-visible {
 .vp-meter i.on { background: var(--voice-live); }
 .vp-meter i.hot { background: var(--warning, #ff9f0a); }
 
-/* Per-participant volume rows */
 .vp-people { display: flex; flex-direction: column; gap: 2px; margin: 2px -4px 0; }
 .vp-person {
   display: flex; align-items: center; gap: 10px;
@@ -1157,9 +1106,6 @@ select:focus-visible {
 .wave.on i:nth-child(3) { animation-delay: 0.2s; }
 @keyframes wv { 0%,100% { transform: scaleY(0.6); } 50% { transform: scaleY(1.4); } }
 
-/* ============================================================
-   User pill (sidebar footer)
-   ============================================================ */
 .user-pill {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 8px;
@@ -1184,9 +1130,6 @@ select:focus-visible {
 .user-pill .n { font-size: 13px; font-weight: 500; color: var(--fg-1); }
 .user-pill .s { font-size: 11px; color: var(--fg-3); }
 
-/* ============================================================
-   Variant badges / pills
-   ============================================================ */
 .live-pip {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10px; font-weight: 600;
@@ -1203,9 +1146,6 @@ select:focus-visible {
 }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* ============================================================
-   V2 Unified — room labels on items
-   ============================================================ */
 .sb-item .room-tag {
   font-size: 10px;
   font-weight: 600;
@@ -1228,9 +1168,6 @@ select:focus-visible {
   margin: 8px 12px;
 }
 
-/* ============================================================
-   V3 Notion — emoji-ish room icons, accent tinting
-   ============================================================ */
 .sb-room-head {
   display: flex; align-items: center; gap: 6px;
   padding: 6px 10px;
@@ -1266,16 +1203,10 @@ select:focus-visible {
   margin-left: 16px;
 }
 
-/* ============================================================
-   V3 — accent-tinted active (per room)
-   ============================================================ */
 .sb-item.tinted.active {
   background: var(--room-accent, var(--accent));
 }
 
-/* ============================================================
-   Variant switcher (Tweaks panel)
-   ============================================================ */
 .tweaks-panel {
   position: fixed;
   bottom: 20px; right: 20px;
@@ -1326,7 +1257,6 @@ select:focus-visible {
   box-shadow: var(--shadow-xs);
 }
 
-/* Auth — minimal, single column, quiet canvas */
 .auth-page {
   width: 100vw; height: 100vh;
   display: flex; flex-direction: column;
@@ -1335,10 +1265,6 @@ select:focus-visible {
   overflow: hidden;
 }
 
-/* Top bar with brand — restrained.
-   Padding-left reserves room for the macOS traffic-light buttons (~70px wide
-   plus a small gap); the whole bar is a draggable region so users can move
-   the window from any empty space. */
 .auth-topbar {
   height: 52px;
   display: flex; align-items: center;
@@ -1354,10 +1280,6 @@ select:focus-visible {
   -webkit-app-region: no-drag;
 }
 
-/* Centered form area — scrolls when content is taller than the viewport.
-   `margin: auto` on a flex item centers it on both axes when there's free
-   space and collapses to 0 when content overflows, so the card keeps a
-   fixed compact width regardless of window size. */
 .auth-form-wrap {
   flex: 1;
   min-height: 0;
@@ -1374,7 +1296,6 @@ select:focus-visible {
   display: flex; flex-direction: column;
 }
 
-/* Segmented tab for Sign in / Sign up */
 .auth-tabs {
   display: flex;
   background: var(--surface-sunken);
@@ -1541,7 +1462,6 @@ select:focus-visible {
   color: var(--fg-3);
 }
 
-/* Minimal legal footer at the bottom of the viewport */
 .auth-legal {
   display: flex; align-items: center; justify-content: center; gap: 20px;
   padding: 20px 0 24px;
@@ -1552,7 +1472,6 @@ select:focus-visible {
 .auth-legal a { color: inherit; text-decoration: none; }
 .auth-legal a:hover { color: var(--fg-2); }
 
-/* Dark-mode form polish */
 .dark .field input { background: rgba(255,255,255,0.04); }
 .dark .field input:focus { background: rgba(255,255,255,0.06); }
 .dark .btn.social { background: rgba(255,255,255,0.04); }
@@ -1560,9 +1479,6 @@ select:focus-visible {
 .dark .auth-tabs { background: rgba(255,255,255,0.04); }
 .dark .auth-tabs button.on { background: rgba(255,255,255,0.10); }
 
-/* ============================================================
-   Extra auth-flow UI (forgot / reset / verify / 2FA / success)
-   ============================================================ */
 .auth-back {
   display: inline-flex; align-items: center; gap: 6px;
   background: transparent; border: 0;
@@ -1576,7 +1492,6 @@ select:focus-visible {
 .auth-back svg { transition: transform var(--dur-fast); }
 .auth-back:hover svg { transform: translateX(-2px); }
 
-/* Success / hero icon at top of confirmation screens */
 .auth-hero {
   width: 56px; height: 56px;
   border-radius: 14px;
@@ -1588,7 +1503,6 @@ select:focus-visible {
 .auth-hero.success { color: #30d158; background: color-mix(in srgb, #30d158 16%, transparent); }
 .auth-hero.warn    { color: #ff9f0a; background: color-mix(in srgb, #ff9f0a 18%, transparent); }
 
-/* Inline contextual banner (e.g. "We sent a code to you@rift.app") */
 .auth-note {
   background: var(--surface-sunken);
   border-radius: 10px;
@@ -1604,7 +1518,6 @@ select:focus-visible {
 }
 .auth-note b { color: var(--fg-1); font-weight: 600; }
 
-/* OTP code — 6 boxes */
 .auth-otp {
   display: flex; gap: 8px;
   justify-content: center;
@@ -1629,7 +1542,6 @@ select:focus-visible {
 }
 .auth-otp input.filled { border-color: var(--fg-3); }
 
-/* Inline strength meter for new-password screens */
 .pw-strength {
   display: flex; gap: 4px;
   margin: 6px 2px 0;
@@ -1649,7 +1561,6 @@ select:focus-visible {
   display: flex; justify-content: space-between;
 }
 
-/* Centered text-button row at bottom of subviews */
 .auth-resend {
   text-align: center;
   font-size: 12px; color: var(--fg-3);
@@ -1668,7 +1579,6 @@ select:focus-visible {
   font-size: 15px; font-weight: 600;
   letter-spacing: -0.005em;
 }
-/* Segmented tab for Sign in / Sign up */
 .auth-tabs {
   display: flex;
   background: var(--surface-sunken);
@@ -1833,9 +1743,6 @@ select:focus-visible {
   color: var(--fg-3);
 }
 
-/* ============================================================
-   Settings overlay — full-window, fades in over chat view
-   ============================================================ */
 .settings-overlay {
   position: absolute;
   inset: 0;
@@ -1955,7 +1862,6 @@ select:focus-visible {
   border-bottom: 1px solid var(--hairline);
 }
 
-/* A row inside a section: label + control aligned */
 .s-row {
   display: flex;
   align-items: center;
@@ -1977,7 +1883,6 @@ select:focus-visible {
 }
 .s-row .s-row-control { flex-shrink: 0; }
 
-/* Profile card at top of Account/Profile sections */
 .profile-card {
   display: flex; align-items: center; gap: 16px;
   padding: 20px;
@@ -2019,7 +1924,6 @@ select:focus-visible {
   margin-top: 2px;
 }
 
-/* Inputs reused */
 .s-input {
   width: 100%;
   height: 36px;
@@ -2058,7 +1962,6 @@ textarea.s-input {
   color: var(--fg-3);
 }
 
-/* Toggle switch */
 .s-switch {
   position: relative;
   width: 36px; height: 20px;
@@ -2082,7 +1985,6 @@ textarea.s-input {
 .s-switch.on { background: var(--accent); }
 .s-switch.on::after { transform: translateX(16px); }
 
-/* Segmented control */
 .s-seg {
   display: inline-flex;
   background: var(--surface-sunken);
@@ -2108,7 +2010,6 @@ textarea.s-input {
   box-shadow: var(--shadow-xs);
 }
 
-/* Theme picker (visual cards) */
 .theme-grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 12px;
@@ -2149,7 +2050,6 @@ textarea.s-input {
 .theme-card.system-pv .preview .pp-side { background: linear-gradient(135deg, #ebeae5 50%, #161619 50%); }
 .theme-card.system-pv .preview .pp-main { background: linear-gradient(135deg, #f6f5f1 50%, #0d0d0f 50%); }
 
-/* Accent swatch picker */
 .accent-row {
   display: flex; gap: 10px; flex-wrap: wrap;
 }
@@ -2170,7 +2070,6 @@ textarea.s-input {
   border: 2px solid var(--fg-1);
 }
 
-/* Connections list */
 .conn-row {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 0;
@@ -2202,7 +2101,6 @@ textarea.s-input {
 .conn-row .conn-action.connect { background: var(--accent); color: #fff; border-color: transparent; }
 .conn-row .conn-action.connect:hover { background: var(--accent-hover); }
 
-/* Keyboard shortcut row */
 .kbd-row {
   display: flex; align-items: center; gap: 16px;
   padding: 10px 0;
@@ -2225,7 +2123,6 @@ textarea.s-input {
   color: var(--fg-1);
 }
 
-/* Plan card */
 .plan-card {
   display: flex; align-items: center; gap: 16px;
   padding: 18px;
@@ -2250,7 +2147,6 @@ textarea.s-input {
   border-radius: 4px;
 }
 
-/* Danger button + small primary used in settings */
 .s-btn {
   border: 0;
   font: inherit; font-size: 13px; font-weight: 500;
@@ -2275,7 +2171,6 @@ textarea.s-input {
 .s-btn.danger:hover { background: #d33b3b; color: #fff; }
 
 
-/* Voice channel stage (main area when viewing the joined voice channel) */
 .voice-stage {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2324,7 +2219,6 @@ textarea.s-input {
   box-shadow: 0 0 0 3px var(--success-tint);
 }
 
-/* Voice connection indicator in sidebar */
 .sb-item.in-voice .sb-icon { color: var(--voice-live); }
 .sb-item.in-voice.active .sb-icon { color: #fff; }
 .sb-live-dot {
