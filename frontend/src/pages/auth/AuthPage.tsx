@@ -169,10 +169,10 @@ const SignInUp: React.FC<SignInUpProps> = ({
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
 
   const signInForm = useForm<SignInData>({
-    defaultValues: { email, password: "" },
+    values: { email, password: "" },
   });
   const signUpForm = useForm<SignUpData>({
-    defaultValues: { name: "", email, password: "" },
+    values: { name: "", email, password: "" },
   });
 
   const [showPw, setShowPw] = useState(false);
@@ -722,16 +722,15 @@ const VerifyEmail: React.FC<{
     setError("");
     try {
       await authAPI.confirmRegistration(value);
-      try {
-        const fresh = await authAPI.refresh();
-        useAuthStore.getState().setTokens(fresh);
-        authAPI.setAuthToken(fresh.accessToken);
-      } catch (refreshErr) {
-        console.error("[VerifyEmail] refresh after confirm failed:", refreshErr);
+      const fresh = await authAPI.refresh();
+      if (!isAccessTokenVerified(fresh.accessToken)) {
+        throw new Error("Verification didn't take effect. Please try again.");
       }
-      const { tokens, user } = useAuthStore.getState();
-      if (tokens && user) {
-        useAuthStore.getState().login(tokens, user);
+      useAuthStore.getState().setTokens(fresh);
+      authAPI.setAuthToken(fresh.accessToken);
+      const { user } = useAuthStore.getState();
+      if (user) {
+        useAuthStore.getState().login(fresh, user);
       }
       onVerified();
     } catch (err: any) {
