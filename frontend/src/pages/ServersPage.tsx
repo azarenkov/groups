@@ -179,10 +179,13 @@ const ServersPage: React.FC = () => {
       }
     : null;
 
-  const serverHasTextChannel = !!(
-    selectedServer &&
-    channelsByServer[selectedServer.id]?.some((c) => c.kind === "text")
-  );
+  const selectedServerChannels = selectedServer
+    ? channelsByServer[selectedServer.id]
+    : undefined;
+  const selectedServerChannelsLoaded = selectedServerChannels !== undefined;
+  const serverHasTextChannel =
+    selectedServerChannelsLoaded &&
+    selectedServerChannels!.some((c) => c.kind === "text");
 
   const viewingJoinedVoice =
     !!joinedChannel && selectedChannelId === joinedChannel.channel.id;
@@ -250,7 +253,12 @@ const ServersPage: React.FC = () => {
     try {
       await createChannel(server.id, "general", "text", "public");
     } catch (err) {
-      console.error("[ServersPage] failed to create default channel:", err);
+      console.error("[ServersPage] failed to create default text channel:", err);
+    }
+    try {
+      await createChannel(server.id, "voice", "voice", "public");
+    } catch (err) {
+      console.error("[ServersPage] failed to create default voice channel:", err);
     }
     setExpandedServerIds((prev) => {
       const next = new Set(prev);
@@ -258,6 +266,8 @@ const ServersPage: React.FC = () => {
       return next;
     });
     setSelectedServer(server.id);
+    setSelectedChannel(null);
+    setSelectedDm(null);
   };
 
   const handleCreateChannel = async (
@@ -465,6 +475,10 @@ const ServersPage: React.FC = () => {
                   {voiceJoinFailed ? "Couldn't connect" : "Connected"}
                   {selectedServer ? ` · ${selectedServer.name}` : ""}
                 </div>
+              </div>
+            ) : !selectedServerChannelsLoaded ? (
+              <div className="empty-state" style={{ padding: 60 }}>
+                <span className="loading-spinner" />
               </div>
             ) : !serverHasTextChannel ? (
               <NoTextChannel
