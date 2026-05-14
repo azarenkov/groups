@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;
 use domain::{
@@ -14,31 +14,45 @@ use domain::{
     user::id::UserId,
 };
 
+use crate::ports::voice_service::{VoiceService, VoiceServiceError};
+
+const VOICE_DRAIN_GRACE: Duration = Duration::from_millis(750);
+
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteChannelError {
     #[error("Channel not found")]
     ChannelNotFound,
+    #[error("Only the channel owner can delete it")]
+    NotOwner,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
     Domain(#[from] ChannelError),
     #[error("Outbox error: {0}")]
     Outbox(#[from] OutboxError),
+    #[error("Voice service error: {0}")]
+    VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteChannel<T>
+pub struct DeleteChannel<C, V>
 where
-    T: ChannelRepository,
+    C: ChannelRepository,
+    V: VoiceService,
 {
-    channel_repository: Arc<T>,
+    channel_repository: Arc<C>,
+    voice_service: Arc<V>,
 }
 
-impl<T> DeleteChannel<T>
+impl<C, V> DeleteChannel<C, V>
 where
-    T: ChannelRepository,
+    C: ChannelRepository,
+    V: VoiceService,
 {
-    pub fn new(channel_repository: Arc<T>) -> Self {
-        Self { channel_repository }
+    pub fn new(channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
+        Self {
+            channel_repository,
+            voice_service,
+        }
     }
 
     pub async fn execute(
@@ -57,9 +71,10 @@ where
         }
 
         let now = Utc::now();
+        let supports_voice = channel.supports_voice();
 
         channel.delete(deleted_by, now).map_err(|e| match e {
-            ChannelError::NotOwner => DeleteChannelError::Repository(RepositoryError::NotFound),
+            ChannelError::NotOwner => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;
 
@@ -68,6 +83,18 @@ where
             .iter()
             .map(|e| e.to_outbox_record())
             .collect::<Result<_, _>>()?;
+
+        if supports_voice {
+            if let Err(err) = self.voice_service.delete_voice_channel(&channel_id).await {
+                tracing::warn!(
+                    channel_id = %channel_id.uuid(),
+                    error = %err,
+                    "Failed to delete LiveKit room before channel removal",
+                );
+            } else {
+                tokio::time::sleep(VOICE_DRAIN_GRACE).await;
+            }
+        }
 
         self.channel_repository
             .delete_channel_with_events(&channel_id, &records)

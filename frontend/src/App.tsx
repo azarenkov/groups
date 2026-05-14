@@ -38,13 +38,21 @@ const App: React.FC = () => {
             <Route
               path="/login"
               element={
-                !isAuthenticated ? <LoginPage /> : <Navigate to="/app" />
+                !isAuthenticated || hasUnverifiedSession ? (
+                  <LoginPage />
+                ) : (
+                  <Navigate to="/app" />
+                )
               }
             />
             <Route
               path="/register"
               element={
-                !isAuthenticated ? <RegisterPage /> : <Navigate to="/app" />
+                !isAuthenticated || hasUnverifiedSession ? (
+                  <RegisterPage />
+                ) : (
+                  <Navigate to="/app" />
+                )
               }
             />
             <Route

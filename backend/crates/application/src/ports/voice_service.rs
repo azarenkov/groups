@@ -18,6 +18,10 @@ pub trait VoiceService {
         channel_id: &ChannelId,
         server_id: &ServerId,
     ) -> Result<(), VoiceServiceError>;
+    async fn delete_voice_channel(
+        &self,
+        channel_id: &ChannelId,
+    ) -> Result<(), VoiceServiceError>;
     fn client_url(&self) -> String;
 }
 
@@ -27,4 +31,6 @@ pub enum VoiceServiceError {
     TokenCreation(String),
     #[error("Voice channel creation error: {0}")]
     VoiceChannelCreation(String),
+    #[error("Voice channel deletion error: {0}")]
+    VoiceChannelDeletion(String),
 }

@@ -501,6 +501,8 @@ select:focus-visible {
 .modal .m-foot button.danger {
   background: transparent; color: #ff453a;
   border-color: transparent;
+}
+.modal .m-foot button.danger:first-child {
   margin-right: auto;
 }
 .modal .m-foot button.danger:hover { background: rgba(255,69,58,0.10); }

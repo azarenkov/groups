@@ -86,7 +86,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         MuteChannel::new(channel_repository.clone(), user_repository.clone());
     let unmute_channel_usecase =
         UnmuteChannel::new(channel_repository.clone(), user_repository.clone());
-    let delete_channel_usecase = DeleteChannel::new(channel_repository.clone());
+    let delete_channel_usecase =
+        DeleteChannel::new(channel_repository.clone(), livekit_service.clone());
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
