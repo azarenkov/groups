@@ -535,6 +535,8 @@ impl ToHttpStatus for CreateServerError {
 impl ToHttpStatus for DeleteServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
+            DeleteServerError::ServerNotFound => StatusCode::NOT_FOUND,
+            DeleteServerError::NotOwner => StatusCode::FORBIDDEN,
             DeleteServerError::Repository(e) => e.to_http_status(),
             DeleteServerError::Outbox(e) => e.to_http_status(),
             DeleteServerError::VoiceService(_) => StatusCode::BAD_GATEWAY,
@@ -543,6 +545,10 @@ impl ToHttpStatus for DeleteServerError {
 
     fn to_user_message(&self) -> String {
         match self {
+            DeleteServerError::ServerNotFound => "Server not found".to_string(),
+            DeleteServerError::NotOwner => {
+                "Only the server owner can delete it.".to_string()
+            }
             DeleteServerError::Repository(e) => e.to_user_message(),
             DeleteServerError::Outbox(e) => e.to_user_message(),
             DeleteServerError::VoiceService(_) => {

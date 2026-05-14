@@ -60,11 +60,24 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const directsCollapsed = !!collapsed["__directs"];
 
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="sb">
       <div className="sb-search">
         <Icon name="search" size={14} />
-        <input placeholder="Search" />
+        <input ref={searchInputRef} placeholder="Search" />
         <kbd>⌘K</kbd>
       </div>
 
@@ -78,6 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <button
               type="button"
+              tabIndex={-1}
               className="sb-section-add"
               title="New direct message"
               onClick={(e) => {
@@ -99,12 +113,20 @@ const Sidebar: React.FC<SidebarProps> = ({
           directs.map((d) => (
             <div
               key={d.id}
+              role="button"
+              tabIndex={0}
               className={
                 "sb-item" +
                 (selectedDmId === d.id ? " active" : "") +
                 (d.unread ? " unread" : "")
               }
               onClick={() => onSelectDm(d)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectDm(d);
+                }
+              }}
             >
               <span className="sb-icon">
                 <span
@@ -194,6 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {!isCol && (
                     <button
                       type="button"
+                      tabIndex={-1}
                       className="sb-section-add"
                       title="Create channel"
                       onClick={(e) => {
@@ -212,12 +235,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {channels.map((channel) => (
                     <div
                       key={channel.id}
+                      role="button"
+                      tabIndex={0}
                       className={
                         "sb-item" +
                         (selectedChannelId === channel.id ? " active" : "") +
                         (joinedChannelId === channel.id ? " in-voice" : "")
                       }
                       onClick={() => onSelectChannel(server, channel)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectChannel(server, channel);
+                        }
+                      }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         onDeleteChannel(server, channel);
@@ -246,7 +277,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        <button type="button" className="sb-create-server" onClick={onAddServer}>
+        <button type="button" tabIndex={-1} className="sb-create-server" onClick={onAddServer}>
           <span className="plus">
             <Icon name="plus" size={12} />
           </span>

@@ -158,7 +158,6 @@ select:focus-visible {
   height: 28px;
   color: var(--fg-3);
   margin: 0 4px 8px;
-  transition: background var(--dur-fast);
 }
 .sb-search:focus-within { background: var(--surface-panel); box-shadow: var(--shadow-xs); }
 .sb-search input {
@@ -759,7 +758,6 @@ select:focus-visible {
   color: var(--fg-3);
   font: inherit; font-size: 13px; font-weight: 500;
   cursor: pointer;
-  transition: all var(--dur-fast) var(--ease-standard);
 }
 .sb-create-server:hover {
   border-color: var(--accent);
@@ -773,7 +771,6 @@ select:focus-visible {
   background: var(--surface-sunken);
   color: var(--fg-2);
   flex-shrink: 0;
-  transition: all var(--dur-fast);
 }
 .sb-create-server:hover .plus {
   background: var(--accent);

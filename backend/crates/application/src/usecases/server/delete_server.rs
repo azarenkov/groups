@@ -24,6 +24,10 @@ const VOICE_DRAIN_GRACE: Duration = Duration::from_millis(750);
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteServerError {
+    #[error("Server not found")]
+    ServerNotFound,
+    #[error("Only the server owner can delete it")]
+    NotOwner,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Outbox error: {0}")]
@@ -66,6 +70,16 @@ where
         server_id: ServerId,
         owner_id: UserId,
     ) -> Result<bool, DeleteServerError> {
+        let actual_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?
+            .ok_or(DeleteServerError::ServerNotFound)?;
+
+        if actual_owner.uuid() != owner_id.uuid() {
+            return Err(DeleteServerError::NotOwner);
+        }
+
         let voice_channel_ids = self
             .channel_repository
             .list_voice_channel_ids_by_server(&server_id)
