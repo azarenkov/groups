@@ -571,18 +571,13 @@ export class LiveKitService {
     });
 
     this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
-      if (
-        publication.kind === Track.Kind.Audio &&
-        this.noiseMode === "high" &&
-        !this.dfnPipeline
-      ) {
-        this.setNoiseSuppressionMode("high").catch((e) => {
-          console.warn(
-            "[LiveKitService] late DFN enable after publish failed:",
-            e,
-          );
-        });
-      }
+      if (publication.kind !== Track.Kind.Audio) return;
+      this.setNoiseSuppressionMode(this.noiseMode).catch((e) => {
+        console.warn(
+          "[LiveKitService] reapply noise mode after publish failed:",
+          e,
+        );
+      });
     });
 
     this.room.on(RoomEvent.MediaDevicesError, (error) => {

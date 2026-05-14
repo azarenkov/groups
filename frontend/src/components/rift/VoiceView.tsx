@@ -109,7 +109,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
   const [open, setOpen] = React.useState(false);
   const [volumes, setVolumes] = React.useState<Record<string, number>>({});
-  const [noise, setNoise] = React.useState<"off" | "standard" | "high">("standard");
+  const [noise, setNoise] = React.useState<"off" | "standard" | "high">(() =>
+    getNoiseSuppressionMode(),
+  );
   const [noiseStrengthPct, setNoiseStrengthPct] = React.useState(50);
   const localTrack = useLocalTrack();
   const trackId = localTrack?.id ?? "";
