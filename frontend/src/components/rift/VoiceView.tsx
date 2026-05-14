@@ -18,6 +18,7 @@ interface VoiceViewProps {
   currentUserName: string;
   password?: string;
   onLeave: () => void;
+  onJoinFailed?: (message: string) => void;
 }
 
 const VoiceView: React.FC<VoiceViewProps> = ({
@@ -27,6 +28,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   currentUserName,
   password,
   onLeave,
+  onJoinFailed,
 }) => {
   const {
     participants,
@@ -62,6 +64,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           console.error("[VoiceView] join failed:", err);
           hasJoinedRef.current = false;
           isJoiningRef.current = false;
+          const message =
+            err instanceof Error ? err.message : "Failed to join voice channel";
+          onJoinFailed?.(message);
         });
     }
 

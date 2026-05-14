@@ -98,12 +98,15 @@ const ServersPage: React.FC = () => {
     serverId: string;
     password?: string;
   } | null>(null);
+  const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
   const [passwordPrompt, setPasswordPrompt] = useState<{
     server: Server;
     channel: Channel;
   } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
-  const [expandedServerId, setExpandedServerId] = useState<string | null>(null);
+  const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
   const [directs, setDirects] = useState<MockDirect[]>(SEED_DIRECTS);
 
   const [channelOverrides, setChannelOverrides] =
@@ -126,17 +129,18 @@ const ServersPage: React.FC = () => {
   }, [tokens, fetchServers]);
 
   useEffect(() => {
-    if (expandedServerId && tokens?.accessToken && !channelsByServer[expandedServerId]) {
-      fetchChannels(expandedServerId);
-    }
-  }, [expandedServerId, tokens, fetchChannels, channelsByServer]);
+    if (!tokens?.accessToken) return;
+    expandedServerIds.forEach((id) => {
+      if (!channelsByServer[id]) fetchChannels(id);
+    });
+  }, [expandedServerIds, tokens, fetchChannels, channelsByServer]);
 
   const didInitialExpandRef = useRef(false);
   useEffect(() => {
     if (didInitialExpandRef.current) return;
     if (servers.length === 0) return;
     didInitialExpandRef.current = true;
-    setExpandedServerId(servers[0].id);
+    setExpandedServerIds(new Set([servers[0].id]));
     setSelectedServer(servers[0].id);
   }, [servers, setSelectedServer]);
 
@@ -156,17 +160,6 @@ const ServersPage: React.FC = () => {
 
   const selectedServer = servers.find((s) => s.id === selectedServerId) || null;
 
-  const generalChannelKey = selectedServer ? `${selectedServer.id}:general` : "";
-  const generalOverride = channelOverrides[generalChannelKey] || {};
-  const generalChannel = selectedServer
-    ? {
-        id: generalChannelKey,
-        name: generalOverride.name ?? "general",
-        topic:
-          generalOverride.topic ?? (selectedServer.description || selectedServer.name),
-      }
-    : null;
-
   const selectedTextChannel =
     selectedServer && selectedChannelId
       ? channelsByServer[selectedServer.id]?.find(
@@ -184,7 +177,12 @@ const ServersPage: React.FC = () => {
         name: activeChannelOverride.name ?? selectedTextChannel.name,
         topic: activeChannelOverride.topic,
       }
-    : generalChannel;
+    : null;
+
+  const serverHasTextChannel = !!(
+    selectedServer &&
+    channelsByServer[selectedServer.id]?.some((c) => c.kind === "text")
+  );
 
   const viewingJoinedVoice =
     !!joinedChannel && selectedChannelId === joinedChannel.channel.id;
@@ -194,7 +192,12 @@ const ServersPage: React.FC = () => {
     onTextChannelActive && !!activeTextChannel && !!membersOpenById[activeTextChannel.id];
 
   const handleToggleServer = (serverId: string) => {
-    setExpandedServerId((prev) => (prev === serverId ? null : serverId));
+    setExpandedServerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(serverId)) next.delete(serverId);
+      else next.add(serverId);
+      return next;
+    });
   };
 
   const handleSelectServer = (serverId: string) => {
@@ -209,6 +212,7 @@ const ServersPage: React.FC = () => {
     setSelectedChannel(channel.id);
     setJoinedChannel({ channel, serverId: server.id, password });
     setSelectedDm(null);
+    setVoiceJoinFailed(false);
   };
 
   const handleSelectChannel = (server: Server, channel: Channel) => {
@@ -270,7 +274,12 @@ const ServersPage: React.FC = () => {
         setSelectedServer(null);
         clearChannels(deleteConfirm.id);
       }
-      if (expandedServerId === deleteConfirm.id) setExpandedServerId(null);
+      setExpandedServerIds((prev) => {
+        if (!prev.has(deleteConfirm.id)) return prev;
+        const next = new Set(prev);
+        next.delete(deleteConfirm.id);
+        return next;
+      });
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to delete server:", err);
@@ -331,7 +340,9 @@ const ServersPage: React.FC = () => {
     : joinedChannel
       ? `${servers.find((s) => s.id === joinedChannel.serverId)?.name ?? ""} — ${joinedChannel.channel.name}`
       : selectedServer
-        ? `${selectedServer.name} — ${activeTextChannel?.name ?? "general"}`
+        ? activeTextChannel
+          ? `${selectedServer.name} — ${activeTextChannel.name}`
+          : selectedServer.name
         : "Rift";
 
   return (
@@ -359,7 +370,7 @@ const ServersPage: React.FC = () => {
         <Sidebar
           servers={servers}
           channelsByServer={channelsByServer}
-          expandedServerId={expandedServerId}
+          expandedServerIds={expandedServerIds}
           selectedChannelId={selectedChannelId}
           joinedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
@@ -407,7 +418,7 @@ const ServersPage: React.FC = () => {
                 }}
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
-              <div className="voice-stage">
+              <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
                 <button
                   type="button"
                   className="voice-stage-settings"
@@ -432,14 +443,22 @@ const ServersPage: React.FC = () => {
                 <h1 className="voice-stage-title">{joinedChannel.channel.name}</h1>
                 <div className="voice-stage-sub">
                   <span className="voice-stage-dot" />
-                  Connected
+                  {voiceJoinFailed ? "Couldn't connect" : "Connected"}
                   {selectedServer ? ` · ${selectedServer.name}` : ""}
                 </div>
               </div>
+            ) : !serverHasTextChannel ? (
+              <NoTextChannel
+                serverName={selectedServer?.name ?? ""}
+                onCreate={() => {
+                  setChannelModalServerId(selectedServer?.id ?? null);
+                  setIsChannelModalOpen(true);
+                }}
+              />
             ) : (
               <ChatView
                 channel={{
-                  name: activeTextChannel?.name ?? "general",
+                  name: activeTextChannel?.name ?? "",
                   topic: activeTextChannel?.topic,
                   type: "text",
                 }}
@@ -456,13 +475,13 @@ const ServersPage: React.FC = () => {
                     : undefined
                 }
                 onOpenChannelSettings={
-                  activeTextChannel && selectedServer
+                  selectedTextChannel && selectedServer
                     ? () =>
                         setEditingChannel({
-                          id: activeTextChannel.id,
+                          id: selectedTextChannel.id,
                           serverId: selectedServer.id,
-                          name: activeTextChannel.name,
-                          topic: activeTextChannel.topic,
+                          name: activeChannelOverride.name ?? selectedTextChannel.name,
+                          topic: activeChannelOverride.topic,
                         })
                     : undefined
                 }
@@ -480,7 +499,9 @@ const ServersPage: React.FC = () => {
                 onLeave={() => {
                   setJoinedChannel(null);
                   setSelectedChannel(null);
+                  setVoiceJoinFailed(false);
                 }}
+                onJoinFailed={() => setVoiceJoinFailed(true)}
               />
             )}
           </div>
@@ -650,6 +671,36 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => (
           Create a server
         </button>
       )}
+    </div>
+  </div>
+);
+
+interface NoTextChannelProps {
+  serverName: string;
+  onCreate: () => void;
+}
+
+const NoTextChannel: React.FC<NoTextChannelProps> = ({ serverName, onCreate }) => (
+  <div className="empty-state" style={{ padding: 60 }}>
+    <div className="icon-wrap" style={{ width: 64, height: 64 }}>
+      <Icon name="hash" size={26} />
+    </div>
+    <h3>No text channels yet</h3>
+    <p>
+      {serverName
+        ? `${serverName} doesn't have any text channels. Create one to start chatting.`
+        : "Create a text channel to start chatting."}
+    </p>
+    <div style={{ marginTop: 20 }}>
+      <button
+        type="button"
+        className="btn primary"
+        onClick={onCreate}
+        style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
+      >
+        <Icon name="plus" size={14} />
+        Create channel
+      </button>
     </div>
   </div>
 );

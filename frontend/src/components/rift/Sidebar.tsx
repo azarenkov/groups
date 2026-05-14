@@ -7,7 +7,7 @@ import type { MockDirect } from "../../data/mockData";
 interface SidebarProps {
   servers: Server[];
   channelsByServer: Record<string, Channel[]>;
-  expandedServerId: string | null;
+  expandedServerIds: Set<string>;
   selectedChannelId: string | null;
   joinedChannelId: string | null;
   selectedDmId: string | null;
@@ -36,7 +36,7 @@ const accentFor = (id: string): string => {
 const Sidebar: React.FC<SidebarProps> = ({
   servers,
   channelsByServer,
-  expandedServerId,
+  expandedServerIds,
   selectedChannelId,
   joinedChannelId,
   selectedDmId,
@@ -152,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {servers.map((server) => {
-          const isCol = expandedServerId !== server.id;
+          const isCol = !expandedServerIds.has(server.id);
           const channels = channelsByServer[server.id] || [];
           const accent = accentFor(server.id);
           return (

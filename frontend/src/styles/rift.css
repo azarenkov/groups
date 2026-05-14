@@ -2235,6 +2235,15 @@ textarea.s-input {
   background: var(--voice-live);
   box-shadow: 0 0 0 3px var(--success-tint);
 }
+.voice-stage.failed .voice-stage-orb {
+  filter: grayscale(0.7);
+  opacity: 0.55;
+}
+.voice-stage.failed .voice-stage-orb-ring { display: none; }
+.voice-stage.failed .voice-stage-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-tint);
+}
 
 .sb-item.in-voice .sb-icon { color: var(--voice-live); }
 .sb-item.in-voice.active .sb-icon { color: #fff; }
