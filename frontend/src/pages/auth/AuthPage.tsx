@@ -30,8 +30,22 @@ interface AuthPageProps {
 
 const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>(defaultMode);
-  const [email, setEmail] = useState("");
+  const tokens = useAuthStore((s) => s.tokens);
+  const storedUser = useAuthStore((s) => s.user);
+  const hasUnverifiedSession =
+    !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
+
+  const [mode, setMode] = useState<Mode>(
+    hasUnverifiedSession ? "verify-email" : defaultMode,
+  );
+  const [email, setEmail] = useState(storedUser?.email ?? "");
+
+  useEffect(() => {
+    if (hasUnverifiedSession) {
+      setMode("verify-email");
+      if (storedUser?.email) setEmail(storedUser.email);
+    }
+  }, [hasUnverifiedSession, storedUser?.email]);
 
   const onSignedIn = () => navigate("/app");
 
@@ -730,7 +744,7 @@ const VerifyEmail: React.FC<{
       <h1>Verify your email</h1>
       <p className="sub">
         Enter the 6-digit code we sent to{" "}
-        <b style={{ color: "var(--fg-1)" }}>{email}</b> to finish creating your account.
+        <b style={{ color: "var(--fg-1)" }}>{email || "your email"}</b> to finish creating your account.
       </p>
 
       <form
