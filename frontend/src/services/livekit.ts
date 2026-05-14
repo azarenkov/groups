@@ -484,6 +484,7 @@ export class LiveKitService {
     const pipeline = this.dfnPipeline;
     const ctx = this.dfnContext;
 
+    let restored = !room || !rawTrack;
     if (room && rawTrack) {
       const publication = Array.from(
         room.localParticipant.audioTrackPublications.values(),
@@ -494,21 +495,30 @@ export class LiveKitService {
           await localTrack.replaceTrack(rawTrack, {
             userProvidedTrack: false,
           });
+          restored = true;
         } catch (e) {
           console.warn("[LiveKitService] failed to restore raw mic track:", e);
         }
+      } else {
+        restored = true;
       }
     }
 
     try {
       await pipeline.dispose();
     } catch {}
-    try {
-      pipeline.outputTrack.stop();
-    } catch {}
-    try {
-      await ctx?.close();
-    } catch {}
+    if (restored) {
+      try {
+        pipeline.outputTrack.stop();
+      } catch {}
+      try {
+        await ctx?.close();
+      } catch {}
+    } else {
+      console.warn(
+        "[LiveKitService] keeping outputTrack alive — publication still bound to it",
+      );
+    }
 
     this.dfnPipeline = null;
     this.dfnContext = null;
