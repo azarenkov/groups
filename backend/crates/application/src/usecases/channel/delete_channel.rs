@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
@@ -15,8 +15,6 @@ use domain::{
 };
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
-
-const VOICE_DRAIN_GRACE: Duration = Duration::from_millis(750);
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteChannelError {
@@ -84,21 +82,19 @@ where
             .map(|e| e.to_outbox_record())
             .collect::<Result<_, _>>()?;
 
-        if supports_voice {
-            if let Err(err) = self.voice_service.delete_voice_channel(&channel_id).await {
-                tracing::warn!(
-                    channel_id = %channel_id.uuid(),
-                    error = %err,
-                    "Failed to delete LiveKit room before channel removal",
-                );
-            } else {
-                tokio::time::sleep(VOICE_DRAIN_GRACE).await;
-            }
-        }
-
         self.channel_repository
             .delete_channel_with_events(&channel_id, &records)
             .await?;
+
+        if supports_voice
+            && let Err(err) = self.voice_service.delete_voice_channel(&channel_id).await
+        {
+            tracing::warn!(
+                channel_id = %channel_id.uuid(),
+                error = %err,
+                "Failed to delete LiveKit room after channel removal",
+            );
+        }
 
         Ok(())
     }

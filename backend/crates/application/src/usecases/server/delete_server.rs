@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
@@ -19,8 +19,6 @@ use domain::{
 };
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
-
-const VOICE_DRAIN_GRACE: Duration = Duration::from_millis(750);
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteServerError {
@@ -85,25 +83,6 @@ where
             .list_voice_channel_ids_by_server(&server_id)
             .await?;
 
-        let mut had_voice_rooms = false;
-        for channel_id in &voice_channel_ids {
-            match self.voice_service.delete_voice_channel(channel_id).await {
-                Ok(_) => had_voice_rooms = true,
-                Err(err) => {
-                    tracing::warn!(
-                        channel_id = %channel_id.uuid(),
-                        server_id = %server_id.uuid(),
-                        error = %err,
-                        "Failed to delete LiveKit room while deleting server",
-                    );
-                }
-            }
-        }
-
-        if had_voice_rooms {
-            tokio::time::sleep(VOICE_DRAIN_GRACE).await;
-        }
-
         let event = ServerEvent::Deleted(ServerDeleted::record(server_id, owner_id, Utc::now()));
         let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
 
@@ -112,6 +91,21 @@ where
             .delete_server_by_owner_with_events(&server_id, &owner_id, &records)
             .await?;
 
-        Ok(deleted)
+        if !deleted {
+            return Ok(false);
+        }
+
+        for channel_id in &voice_channel_ids {
+            if let Err(err) = self.voice_service.delete_voice_channel(channel_id).await {
+                tracing::warn!(
+                    channel_id = %channel_id.uuid(),
+                    server_id = %server_id.uuid(),
+                    error = %err,
+                    "Failed to delete LiveKit room after deleting server",
+                );
+            }
+        }
+
+        Ok(true)
     }
 }
