@@ -61,9 +61,11 @@ export class LiveKitService {
     onConnectionStateChange?: (connected: boolean) => void,
     onError?: (error: Error) => void,
   ) {
-    this.onParticipantsChange = onParticipantsChange;
-    this.onConnectionStateChange = onConnectionStateChange;
-    this.onError = onError;
+    if (onParticipantsChange !== undefined)
+      this.onParticipantsChange = onParticipantsChange;
+    if (onConnectionStateChange !== undefined)
+      this.onConnectionStateChange = onConnectionStateChange;
+    if (onError !== undefined) this.onError = onError;
   }
 
   getLocalQuality(): ConnectionQuality {
@@ -369,6 +371,8 @@ export class LiveKitService {
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
       let step = "init";
+      let ctx: AudioContext | null = null;
+      let pipeline: DfnPipeline | null = null;
       try {
         step = "applyConstraints";
         try {
@@ -380,7 +384,7 @@ export class LiveKitService {
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext })
             .webkitAudioContext;
-        const ctx = new AudioCtx({ sampleRate: DENOISER_SAMPLE_RATE });
+        ctx = new AudioCtx({ sampleRate: DENOISER_SAMPLE_RATE });
         if (ctx.state === "suspended") {
           step = "ctx.resume";
           await ctx.resume();
@@ -388,7 +392,7 @@ export class LiveKitService {
         step = "createMediaStreamSource";
         const source = ctx.createMediaStreamSource(new MediaStream([rawTrack]));
         step = "buildDfnPipeline";
-        const pipeline = await buildDfnPipeline({ source, context: ctx });
+        pipeline = await buildDfnPipeline({ source, context: ctx });
         step = "replaceTrack";
         await localTrack.replaceTrack(pipeline.outputTrack);
 
@@ -405,6 +409,19 @@ export class LiveKitService {
           `[LiveKitService] enableDfnPipeline attempt ${attempt} failed at step "${step}":`,
           e,
         );
+        if (pipeline) {
+          try {
+            await pipeline.dispose();
+          } catch {}
+          try {
+            pipeline.outputTrack.stop();
+          } catch {}
+        }
+        if (ctx) {
+          try {
+            await ctx.close();
+          } catch {}
+        }
         await new Promise((r) => setTimeout(r, 200));
       }
     }
