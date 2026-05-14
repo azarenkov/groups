@@ -124,7 +124,14 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => !isLoading && setKind(opt.value)}
+                    onClick={() => {
+                      if (isLoading) return;
+                      setKind(opt.value);
+                      if (opt.value === "text") {
+                        setVisibility("public");
+                        setPassword("");
+                      }
+                    }}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -151,6 +158,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
             </div>
           </div>
 
+          {kind === "voice" && (
           <div className="m-field">
             <label>Privacy</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -191,8 +199,9 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
               })}
             </div>
           </div>
+          )}
 
-          {visibility === "private" && (
+          {kind === "voice" && visibility === "private" && (
             <div className="m-field">
               <label>Password</label>
               <input

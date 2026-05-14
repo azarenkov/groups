@@ -12,7 +12,7 @@ import ServersPage from "./pages/ServersPage";
 import { useAuthStore } from "./store/authStore";
 import { useThemeStore, applyTheme } from "./store/themeStore";
 import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
-import { getRefreshToken } from "./utils/secureStorage";
+import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
 import { authAPI } from "./api/auth";
 import "./styles/App.css";
 
@@ -45,6 +45,7 @@ const App: React.FC = () => {
         authAPI.setAuthToken(fresh.accessToken);
       } catch (err) {
         console.error("[App] hydrate failed:", err);
+        await clearRefreshToken();
       } finally {
         if (!cancelled) useAuthStore.getState().setHydrating(false);
       }
