@@ -168,24 +168,27 @@ export class LiveKitService {
     }
   }
 
+  private async tearDownDfn(): Promise<void> {
+    if (!this.dfnPipeline) return;
+    try {
+      await this.dfnPipeline.dispose();
+    } catch {}
+    try {
+      this.dfnPipeline.outputTrack.stop();
+    } catch {}
+    try {
+      await this.dfnContext?.close();
+    } catch {}
+    try {
+      this.dfnRawTrack?.stop();
+    } catch {}
+    this.dfnPipeline = null;
+    this.dfnContext = null;
+    this.dfnRawTrack = null;
+  }
+
   async disconnect(): Promise<void> {
-    if (this.dfnPipeline) {
-      try {
-        await this.dfnPipeline.dispose();
-      } catch {}
-      try {
-        this.dfnPipeline.outputTrack.stop();
-      } catch {}
-      try {
-        await this.dfnContext?.close();
-      } catch {}
-      try {
-        this.dfnRawTrack?.stop();
-      } catch {}
-      this.dfnPipeline = null;
-      this.dfnContext = null;
-      this.dfnRawTrack = null;
-    }
+    await this.tearDownDfn();
     if (this.room) {
       console.log("[LiveKitService] Disconnecting from room");
       await this.room.disconnect();
@@ -587,6 +590,7 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
+      void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.notifyParticipantsChange();
