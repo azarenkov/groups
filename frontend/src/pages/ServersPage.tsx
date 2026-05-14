@@ -222,7 +222,11 @@ const ServersPage: React.FC = () => {
       setSelectedDm(null);
       return;
     }
-    if (joinedChannel && joinedChannel.channel.id === channel.id) {
+    if (
+      joinedChannel &&
+      joinedChannel.channel.id === channel.id &&
+      !voiceJoinFailed
+    ) {
       setSelectedServer(server.id);
       setSelectedChannel(channel.id);
       setSelectedDm(null);
