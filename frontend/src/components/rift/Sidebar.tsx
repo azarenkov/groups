@@ -10,6 +10,7 @@ interface SidebarProps {
   expandedServerId: string | null;
   selectedServerId: string | null;
   selectedChannelId: string | null;
+  joinedChannelId: string | null;
   selectedDmId: string | null;
   directs: MockDirect[];
   onToggleServer: (serverId: string) => void;
@@ -39,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   expandedServerId,
   selectedServerId,
   selectedChannelId,
+  joinedChannelId,
   selectedDmId,
   directs,
   onToggleServer,
@@ -226,7 +228,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {channels.map((channel) => (
                     <div
                       key={channel.id}
-                      className={"sb-item" + (selectedChannelId === channel.id ? " active" : "")}
+                      className={
+                        "sb-item" +
+                        (selectedChannelId === channel.id ? " active" : "") +
+                        (joinedChannelId === channel.id ? " in-voice" : "")
+                      }
                       onClick={() => onSelectChannel(server, channel)}
                       onContextMenu={(e) => {
                         e.preventDefault();
@@ -241,6 +247,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <span className="lock">
                           <Icon name="lock" size={11} />
                         </span>
+                      )}
+                      {joinedChannelId === channel.id && (
+                        <span className="sb-live-dot" aria-hidden="true" />
                       )}
                     </div>
                   ))}

@@ -107,12 +107,6 @@ class ChannelAPI {
     return response.data.data;
   }
 
-  async leaveVoice(serverId: string, channelId: string): Promise<void> {
-    await this.client.post(
-      `/v1/servers/${serverId}/channels/${channelId}/leave_voice`,
-    );
-  }
-
   async mute(
     serverId: string,
     channelId: string,

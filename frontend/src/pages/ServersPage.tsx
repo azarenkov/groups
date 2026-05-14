@@ -157,8 +157,10 @@ const ServersPage: React.FC = () => {
       }
     : null;
 
+  const viewingJoinedVoice =
+    !!joinedChannel && selectedChannelId === joinedChannel.channel.id;
   const onTextChannelActive =
-    !!selectedServer && !joinedChannel && !selectedDm;
+    !!selectedServer && !selectedDm && !viewingJoinedVoice;
   const showMembersForChannel =
     onTextChannelActive && !!generalChannel && !!membersOpenById[generalChannel.id];
 
@@ -169,7 +171,6 @@ const ServersPage: React.FC = () => {
   const handleSelectServer = (serverId: string) => {
     setSelectedServer(serverId);
     setSelectedChannel(null);
-    setJoinedChannel(null);
     setSelectedDm(null);
   };
 
@@ -181,6 +182,18 @@ const ServersPage: React.FC = () => {
   };
 
   const handleSelectChannel = (server: Server, channel: Channel) => {
+    if (channel.kind === "text") {
+      setSelectedServer(server.id);
+      setSelectedChannel(channel.id);
+      setSelectedDm(null);
+      return;
+    }
+    if (joinedChannel && joinedChannel.channel.id === channel.id) {
+      setSelectedServer(server.id);
+      setSelectedChannel(channel.id);
+      setSelectedDm(null);
+      return;
+    }
     if (channel.visibility === "private") {
       setPasswordPrompt({ server, channel });
       return;
@@ -190,7 +203,6 @@ const ServersPage: React.FC = () => {
 
   const handleSelectDm = (dm: MockDirect) => {
     setSelectedDm(dm);
-    setJoinedChannel(null);
     setSelectedChannel(null);
   };
 
@@ -314,7 +326,8 @@ const ServersPage: React.FC = () => {
           channelsByServer={channelsByServer}
           expandedServerId={expandedServerId}
           selectedServerId={selectedServerId}
-          selectedChannelId={joinedChannel?.channel.id ?? null}
+          selectedChannelId={selectedChannelId}
+          joinedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
           directs={directs}
           onToggleServer={handleToggleServer}
@@ -360,22 +373,34 @@ const ServersPage: React.FC = () => {
                   online: selectedDm.online,
                 }}
               />
+            ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
+              <div className="voice-stage">
+                <div className="voice-stage-orb">
+                  <span className="voice-stage-orb-ring" />
+                  <span className="voice-stage-orb-ring delay" />
+                  <span className="voice-stage-orb-letter">
+                    {joinedChannel.channel.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <h1 className="voice-stage-title">{joinedChannel.channel.name}</h1>
+                <div className="voice-stage-sub">
+                  <span className="voice-stage-dot" />
+                  Connected
+                  {selectedServer ? ` · ${selectedServer.name}` : ""}
+                </div>
+              </div>
             ) : (
               <ChatView
                 channel={{
-                  name: joinedChannel ? joinedChannel.channel.name : generalChannel?.name ?? "general",
-                  topic: joinedChannel
-                    ? `${selectedServer?.name ?? ""} · voice channel`
-                    : generalChannel?.topic,
-                  type: joinedChannel ? "voice" : "text",
+                  name: generalChannel?.name ?? "general",
+                  topic: generalChannel?.topic,
+                  type: "text",
                 }}
                 membersOpen={
-                  onTextChannelActive && !!generalChannel
-                    ? !!membersOpenById[generalChannel.id]
-                    : false
+                  !!generalChannel ? !!membersOpenById[generalChannel.id] : false
                 }
                 onToggleMembers={
-                  onTextChannelActive && generalChannel
+                  generalChannel
                     ? () =>
                         setMembersOpenById((prev) => ({
                           ...prev,
@@ -384,9 +409,7 @@ const ServersPage: React.FC = () => {
                     : undefined
                 }
                 onOpenChannelSettings={
-                  onTextChannelActive && generalChannel
-                    ? () => setEditingChannel(generalChannel)
-                    : undefined
+                  generalChannel ? () => setEditingChannel(generalChannel) : undefined
                 }
               />
             )}
@@ -554,7 +577,15 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate, onLogout }) => (
     </div>
     <h3>Welcome to Rift</h3>
     <p>Pick a server on the left or create one to start talking.</p>
-    <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 12,
+        marginTop: 20,
+      }}
+    >
       {loading ? (
         <span className="loading-spinner" />
       ) : (
@@ -562,7 +593,7 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate, onLogout }) => (
           type="button"
           className="btn primary"
           onClick={onCreate}
-          style={{ height: 36, padding: "0 14px" }}
+          style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
         >
           <Icon name="plus" size={14} />
           Create a server
@@ -572,18 +603,20 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate, onLogout }) => (
         type="button"
         onClick={onLogout}
         style={{
-          height: 36,
-          padding: "0 14px",
           background: "transparent",
           color: "var(--fg-3)",
-          borderRadius: 7,
-          fontSize: 13,
+          border: "none",
+          padding: "6px 10px",
+          borderRadius: 6,
+          fontSize: 12,
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
         }}
       >
-        <Icon name="logout" size={14} />
+        <Icon name="logout" size={12} />
         Sign out
       </button>
     </div>

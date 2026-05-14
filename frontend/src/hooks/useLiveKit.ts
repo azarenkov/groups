@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getLiveKitService, ParticipantInfo } from "../services/livekit";
 import { channelAPI } from "../api/channel";
+import { useAuthStore } from "../store/authStore";
+import { decodeAccessToken } from "../utils/jwt";
 
 interface UseLiveKitResult {
   participants: ParticipantInfo[];
@@ -15,6 +17,9 @@ interface UseLiveKitResult {
   ) => Promise<void>;
   leaveChannel: () => Promise<void>;
   toggleMute: () => void;
+  getLocalAudioMediaStreamTrack: () => MediaStreamTrack | null;
+  setNoiseSuppression: (enabled: boolean) => Promise<void>;
+  getLocalSessionId: () => string | null;
 }
 
 export function useLiveKit(): UseLiveKitResult {
@@ -23,6 +28,7 @@ export function useLiveKit(): UseLiveKitResult {
   const [isMuted, setIsMuted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeChannelRef = useRef<{ serverId: string; channelId: string } | null>(null);
 
   const livekitService = getLiveKitService(
     (updatedParticipants) => {
@@ -69,6 +75,7 @@ export function useLiveKit(): UseLiveKitResult {
 
         await livekitService.connect(response.token, response.url);
 
+        activeChannelRef.current = { serverId, channelId };
         setIsConnecting(false);
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
@@ -84,6 +91,7 @@ export function useLiveKit(): UseLiveKitResult {
     try {
       console.log("[useLiveKit] Leaving channel...");
       await livekitService.disconnect();
+      activeChannelRef.current = null;
       setParticipants([]);
       setIsConnected(false);
       setIsMuted(false);
@@ -97,6 +105,21 @@ export function useLiveKit(): UseLiveKitResult {
     const newMutedState = !isMuted;
     livekitService.setMicrophoneMuted(newMutedState);
     setIsMuted(newMutedState);
+
+    const active = activeChannelRef.current;
+    const auth = useAuthStore.getState();
+    const userId = auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+    console.log("[useLiveKit] toggleMute", { newMutedState, active, userId });
+    if (active && userId) {
+      const call = newMutedState
+        ? channelAPI.mute(active.serverId, active.channelId, userId)
+        : channelAPI.unmute(active.serverId, active.channelId, userId);
+      call.catch((err) => {
+        console.error("[useLiveKit] Failed to sync mute state with backend:", err);
+      });
+    } else {
+      console.warn("[useLiveKit] Skipping mute API: missing active channel or user id");
+    }
   }, [isMuted, livekitService]);
 
   // Clean up on unmount
@@ -108,6 +131,21 @@ export function useLiveKit(): UseLiveKitResult {
     };
   }, [isConnected, livekitService]);
 
+  const getLocalAudioMediaStreamTrack = useCallback(
+    () => livekitService.getLocalAudioMediaStreamTrack(),
+    [livekitService],
+  );
+
+  const setNoiseSuppression = useCallback(
+    (enabled: boolean) => livekitService.setNoiseSuppression(enabled),
+    [livekitService],
+  );
+
+  const getLocalSessionId = useCallback(
+    () => livekitService.getLocalSessionId(),
+    [livekitService],
+  );
+
   return {
     participants,
     isConnected,
@@ -117,5 +155,8 @@ export function useLiveKit(): UseLiveKitResult {
     joinChannel,
     leaveChannel,
     toggleMute,
+    getLocalAudioMediaStreamTrack,
+    setNoiseSuppression,
+    getLocalSessionId,
   };
 }

@@ -1,6 +1,10 @@
-const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
+
+if (isDev) {
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+}
 
 app.setName('Rift');
 
@@ -16,6 +20,10 @@ if (process.platform === 'darwin' && app.dock && !appIcon.isEmpty()) {
 }
 
 let mainWindow;
+
+const ZOOM_MIN = 0.7;
+const ZOOM_MAX = 1.5;
+const ZOOM_STEP = 0.1;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -45,12 +53,55 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+
+  const clampZoom = () => {
+    const current = mainWindow.webContents.getZoomFactor();
+    if (current > ZOOM_MAX + 0.001) {
+      mainWindow.webContents.setZoomFactor(ZOOM_MAX);
+    } else if (current < ZOOM_MIN - 0.001) {
+      mainWindow.webContents.setZoomFactor(ZOOM_MIN);
+    }
+  };
+
+  mainWindow.webContents.on('zoom-changed', () => {
+    clampZoom();
+  });
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const mod = input.meta || input.control;
+    if (!mod) return;
+    const key = input.key;
+    if (key === '=' || key === '+') {
+      const next = Math.min(
+        ZOOM_MAX,
+        +(mainWindow.webContents.getZoomFactor() + ZOOM_STEP).toFixed(2),
+      );
+      mainWindow.webContents.setZoomFactor(next);
+      event.preventDefault();
+    } else if (key === '-') {
+      const next = Math.max(
+        ZOOM_MIN,
+        +(mainWindow.webContents.getZoomFactor() - ZOOM_STEP).toFixed(2),
+      );
+      mainWindow.webContents.setZoomFactor(next);
+      event.preventDefault();
+    } else if (key === '0') {
+      mainWindow.webContents.setZoomFactor(1.0);
+      event.preventDefault();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  Menu.setApplicationMenu(null);
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -64,7 +115,6 @@ app.on('activate', () => {
   }
 });
 
-// Window controls for frameless window
 ipcMain.on('window-minimize', () => {
   if (mainWindow) mainWindow.minimize();
 });

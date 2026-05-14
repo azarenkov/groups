@@ -186,6 +186,32 @@ export class LiveKitService {
     return audioTracks.some((pub) => pub.track?.isMuted);
   }
 
+  getLocalAudioMediaStreamTrack(): MediaStreamTrack | null {
+    if (!this.room) return null;
+    const publications = Array.from(
+      this.room.localParticipant.audioTrackPublications.values(),
+    );
+    for (const pub of publications) {
+      const track = pub.track?.mediaStreamTrack;
+      if (track) return track;
+    }
+    return null;
+  }
+
+  getLocalSessionId(): string | null {
+    return this.room?.localParticipant.sid ?? null;
+  }
+
+  async setNoiseSuppression(enabled: boolean): Promise<void> {
+    const track = this.getLocalAudioMediaStreamTrack();
+    if (!track) return;
+    try {
+      await track.applyConstraints({ noiseSuppression: enabled });
+    } catch (e) {
+      console.warn("[LiveKitService] applyConstraints failed:", e);
+    }
+  }
+
   getParticipants(): ParticipantInfo[] {
     return Array.from(this.participants.values());
   }

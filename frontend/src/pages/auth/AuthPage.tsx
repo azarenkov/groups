@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "../../store/authStore";
 import { authAPI } from "../../api/auth";
-import { isAccessTokenVerified } from "../../utils/jwt";
+import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import {
   ArrowLeft,
@@ -192,7 +192,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
         expiresIn: response.expiresIn,
       };
       const user = {
-        id: "",
+        id: decodeAccessToken(response.accessToken)?.sub ?? "",
         name: data.email.split("@")[0],
         email: data.email,
       };
@@ -236,7 +236,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
         expiresIn: response.expiresIn,
       });
       useAuthStore.getState().setUser({
-        id: "",
+        id: decodeAccessToken(response.accessToken)?.sub ?? "",
         name: data.name,
         email: data.email,
       });
