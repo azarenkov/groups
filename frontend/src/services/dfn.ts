@@ -221,19 +221,25 @@ export async function buildDfnPipeline({
   node.port.onmessage = (event) => {
     if (disposed) return;
     const msg = event.data;
-    if (!msg || msg.type !== "frame" || !(msg.payload instanceof Float32Array)) {
+    if (
+      !msg ||
+      msg.type !== "frame" ||
+      typeof msg.seq !== "number" ||
+      !(msg.payload instanceof Float32Array)
+    ) {
       return;
     }
+    const seq: number = msg.seq;
     if (!session) {
       const passthrough = new Float32Array(HOP);
       passthrough.set(msg.payload);
-      node.port.postMessage({ type: "frame", payload: passthrough }, [
+      node.port.postMessage({ type: "frame", seq, payload: passthrough }, [
         passthrough.buffer,
       ]);
       return;
     }
     if (pending >= MAX_PENDING) {
-      node.port.postMessage({ type: "drop" });
+      node.port.postMessage({ type: "drop", seq });
       return;
     }
     const payload = msg.payload;
@@ -246,7 +252,7 @@ export async function buildDfnPipeline({
       try {
         const processed = await session.process(payload);
         if (!disposed) {
-          node.port.postMessage({ type: "frame", payload: processed }, [
+          node.port.postMessage({ type: "frame", seq, payload: processed }, [
             processed.buffer,
           ]);
         }
@@ -255,7 +261,7 @@ export async function buildDfnPipeline({
         if (!disposed) {
           const fallback = new Float32Array(HOP);
           fallback.set(payload);
-          node.port.postMessage({ type: "frame", payload: fallback }, [
+          node.port.postMessage({ type: "frame", seq, payload: fallback }, [
             fallback.buffer,
           ]);
         }

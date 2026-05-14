@@ -223,6 +223,24 @@ export class LiveKitService {
   async disableMicrophone(): Promise<void> {
     if (!this.room) return;
 
+    if (this.dfnPipeline) {
+      try {
+        await this.dfnPipeline.dispose();
+      } catch {}
+      try {
+        this.dfnPipeline.outputTrack.stop();
+      } catch {}
+      try {
+        await this.dfnContext?.close();
+      } catch {}
+      try {
+        this.dfnRawTrack?.stop();
+      } catch {}
+      this.dfnPipeline = null;
+      this.dfnContext = null;
+      this.dfnRawTrack = null;
+    }
+
     const audioTracks = Array.from(
       this.room.localParticipant.audioTrackPublications.values(),
     );

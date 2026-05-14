@@ -1,6 +1,6 @@
 const HOP = 128;
 const RING_CAPACITY = HOP * 64;
-const DRY_QUEUE_MAX = 8;
+const DRY_MAX = 8;
 
 class DfnProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -13,7 +13,9 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.outputAvailable = 0;
     this.bypass = true;
     this.strength = 1.0;
-    this.dryQueue = [];
+    this.dryMap = new Map();
+    this.dryOrder = [];
+    this.seq = 0;
 
     this.port.onmessage = (event) => {
       const msg = event.data;
@@ -30,25 +32,32 @@ class DfnProcessor extends AudioWorkletProcessor {
         return;
       }
       if (msg.type === 'frame' && msg.payload instanceof Float32Array) {
-        this.handleProcessedFrame(msg.payload);
+        this.handleProcessedFrame(msg.seq, msg.payload);
         return;
       }
       if (msg.type === 'drop') {
-        this.handleDroppedFrame();
+        this.handleDroppedFrame(msg.seq);
         return;
       }
     };
   }
 
-  handleDroppedFrame() {
-    const dry = this.dryQueue.shift();
-    if (dry) {
-      this.enqueueOutput(dry);
-    }
+  takeDry(seq) {
+    const dry = this.dryMap.get(seq);
+    if (!dry) return null;
+    this.dryMap.delete(seq);
+    const idx = this.dryOrder.indexOf(seq);
+    if (idx >= 0) this.dryOrder.splice(idx, 1);
+    return dry;
   }
 
-  handleProcessedFrame(wet) {
-    const dry = this.dryQueue.shift();
+  handleDroppedFrame(seq) {
+    const dry = this.takeDry(seq);
+    if (dry) this.enqueueOutput(dry);
+  }
+
+  handleProcessedFrame(seq, wet) {
+    const dry = this.takeDry(seq);
     const mixed = new Float32Array(HOP);
     if (dry) {
       const s = this.strength;
@@ -110,14 +119,21 @@ class DfnProcessor extends AudioWorkletProcessor {
       if (this.inputFill >= HOP) {
         const dry = new Float32Array(HOP);
         dry.set(this.inputBuffer);
-        if (this.dryQueue.length >= DRY_QUEUE_MAX) {
-          const stale = this.dryQueue.shift();
+        if (this.dryOrder.length >= DRY_MAX) {
+          const oldestSeq = this.dryOrder.shift();
+          const stale = this.dryMap.get(oldestSeq);
+          this.dryMap.delete(oldestSeq);
           if (stale) this.enqueueOutput(stale);
         }
-        this.dryQueue.push(dry);
+        const seq = this.seq++;
+        this.dryMap.set(seq, dry);
+        this.dryOrder.push(seq);
         const forSend = new Float32Array(HOP);
         forSend.set(this.inputBuffer);
-        this.port.postMessage({ type: 'frame', payload: forSend }, [forSend.buffer]);
+        this.port.postMessage(
+          { type: 'frame', seq, payload: forSend },
+          [forSend.buffer],
+        );
         this.inputFill = 0;
       }
     }
