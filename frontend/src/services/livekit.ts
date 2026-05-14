@@ -399,6 +399,7 @@ export class LiveKitService {
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
         this.dfnRawTrack = rawTrack;
+        rawTrack.enabled = !this.isMicrophoneMuted();
         pipeline.setStrength(this.noiseStrength);
         this.emitLocalTrack();
         console.log("[LiveKitService] DFN pipeline enabled on attempt", attempt);

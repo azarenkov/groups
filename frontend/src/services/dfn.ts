@@ -164,31 +164,35 @@ interface LoadedModels {
 let modelsPromise: Promise<LoadedModels | null> | null = null;
 
 async function loadModels(): Promise<LoadedModels | null> {
-  if (!modelsPromise) {
-    modelsPromise = (async () => {
-      try {
-        console.log("[dtln] HEAD probe", MODEL_1_URL, MODEL_2_URL);
-        const head1 = await fetch(MODEL_1_URL, { method: "HEAD" });
-        const head2 = await fetch(MODEL_2_URL, { method: "HEAD" });
-        console.log("[dtln] HEAD probe results", head1.status, head2.status);
-        if (!head1.ok || !head2.ok) return null;
-        console.log("[dtln] creating InferenceSession (model_1)");
-        const model1 = await ort.InferenceSession.create(MODEL_1_URL, {
-          executionProviders: ["wasm"],
-        });
-        console.log("[dtln] creating InferenceSession (model_2)");
-        const model2 = await ort.InferenceSession.create(MODEL_2_URL, {
-          executionProviders: ["wasm"],
-        });
-        console.log("[dtln] models loaded");
-        return { model1, model2 };
-      } catch (err) {
-        console.warn("[dtln] models not available, running in passthrough mode:", err);
-        return null;
-      }
-    })();
+  if (modelsPromise) return modelsPromise;
+  const p: Promise<LoadedModels | null> = (async () => {
+    try {
+      console.log("[dtln] HEAD probe", MODEL_1_URL, MODEL_2_URL);
+      const head1 = await fetch(MODEL_1_URL, { method: "HEAD" });
+      const head2 = await fetch(MODEL_2_URL, { method: "HEAD" });
+      console.log("[dtln] HEAD probe results", head1.status, head2.status);
+      if (!head1.ok || !head2.ok) return null;
+      console.log("[dtln] creating InferenceSession (model_1)");
+      const model1 = await ort.InferenceSession.create(MODEL_1_URL, {
+        executionProviders: ["wasm"],
+      });
+      console.log("[dtln] creating InferenceSession (model_2)");
+      const model2 = await ort.InferenceSession.create(MODEL_2_URL, {
+        executionProviders: ["wasm"],
+      });
+      console.log("[dtln] models loaded");
+      return { model1, model2 };
+    } catch (err) {
+      console.warn("[dtln] models not available, running in passthrough mode:", err);
+      return null;
+    }
+  })();
+  modelsPromise = p;
+  const result = await p;
+  if (result === null && modelsPromise === p) {
+    modelsPromise = null;
   }
-  return modelsPromise;
+  return result;
 }
 
 export async function buildDfnPipeline({
