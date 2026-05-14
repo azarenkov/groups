@@ -292,7 +292,10 @@ const ServersPage: React.FC = () => {
       await deleteChannel(deleteConfirm.serverId, deleteConfirm.id);
       if (selectedChannelId === deleteConfirm.id) {
         setSelectedChannel(null);
+      }
+      if (joinedChannel?.channel.id === deleteConfirm.id) {
         setJoinedChannel(null);
+        setVoiceJoinFailed(false);
       }
       setDeleteConfirm(null);
     } catch (err) {
