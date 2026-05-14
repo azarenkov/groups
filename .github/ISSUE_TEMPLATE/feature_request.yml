@@ -35,7 +35,7 @@ body:
       description: Which part of the codebase would this change touch?
       options:
         - Frontend (Electron / React)
-        - Backend API
+        - Backend HTTP
         - Backend WebSocket
         - Backend Outbox service
         - Backend Notification service
