@@ -443,35 +443,36 @@ export class LiveKitService {
     if (!this.dfnPipeline) return;
     const room = this.room;
     const rawTrack = this.dfnRawTrack;
+    const pipeline = this.dfnPipeline;
+    const ctx = this.dfnContext;
+
+    if (room && rawTrack) {
+      const publication = Array.from(
+        room.localParticipant.audioTrackPublications.values(),
+      )[0];
+      const localTrack = publication?.track;
+      if (localTrack instanceof LocalAudioTrack) {
+        try {
+          await localTrack.replaceTrack(rawTrack);
+        } catch (e) {
+          console.warn("[LiveKitService] failed to restore raw mic track:", e);
+        }
+      }
+    }
+
     try {
-      await this.dfnPipeline.dispose();
+      await pipeline.dispose();
     } catch {}
     try {
-      this.dfnPipeline.outputTrack.stop();
+      pipeline.outputTrack.stop();
     } catch {}
     try {
-      await this.dfnContext?.close();
+      await ctx?.close();
     } catch {}
 
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
-
-    if (!room || !rawTrack) {
-      this.emitLocalTrack();
-      return;
-    }
-    const publication = Array.from(
-      room.localParticipant.audioTrackPublications.values(),
-    )[0];
-    const localTrack = publication?.track;
-    if (localTrack instanceof LocalAudioTrack) {
-      try {
-        await localTrack.replaceTrack(rawTrack);
-      } catch (e) {
-        console.warn("[LiveKitService] failed to restore raw mic track:", e);
-      }
-    }
     this.emitLocalTrack();
   }
 
