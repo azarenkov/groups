@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Rift</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0d0d0f;
+        color: #f5f5f7;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+        overflow: hidden;
+      }
+      .wrap {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+      }
+      .logo {
+        width: 96px;
+        height: 96px;
+        border-radius: 22px;
+        background: url('./icons/rift-icon-256-padded.png') center/cover no-repeat;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      }
+      .status {
+        font-size: 13px;
+        color: rgba(245, 245, 247, 0.65);
+        letter-spacing: 0.2px;
+      }
+      .bar {
+        width: 220px;
+        height: 3px;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        width: 0%;
+        background: #0a84ff;
+        border-radius: 99px;
+        transition: width 0.18s linear;
+      }
+      .bar.indeterminate .bar-fill {
+        width: 40%;
+        animation: slide 1.2s ease-in-out infinite;
+      }
+      @keyframes slide {
+        0%   { transform: translateX(-100%); }
+        100% { transform: translateX(250%); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="logo"></div>
+      <div class="bar indeterminate"><div class="bar-fill" id="fill"></div></div>
+      <div class="status" id="status">Checking for updates…</div>
+    </div>
+    <script>
+      const { ipcRenderer } = require('electron');
+      const fill = document.getElementById('fill');
+      const status = document.getElementById('status');
+      const bar = document.querySelector('.bar');
+
+      ipcRenderer.on('updater:status', (_, text) => {
+        status.textContent = text;
+      });
+      ipcRenderer.on('updater:progress', (_, percent) => {
+        bar.classList.remove('indeterminate');
+        fill.style.width = Math.max(0, Math.min(100, percent)) + '%';
+      });
+    </script>
+  </body>
+</html>

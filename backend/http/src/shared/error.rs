@@ -173,18 +173,26 @@ impl ToHttpStatus for DeleteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeleteChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            DeleteChannelError::NotOwner => StatusCode::FORBIDDEN,
             DeleteChannelError::Repository(e) => e.to_http_status(),
             DeleteChannelError::Domain(e) => e.to_http_status(),
             DeleteChannelError::Outbox(e) => e.to_http_status(),
+            DeleteChannelError::VoiceService(_) => StatusCode::BAD_GATEWAY,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
             DeleteChannelError::ChannelNotFound => "Channel not found".to_string(),
+            DeleteChannelError::NotOwner => {
+                "Only the channel owner can delete it.".to_string()
+            }
             DeleteChannelError::Repository(e) => e.to_user_message(),
             DeleteChannelError::Domain(e) => e.to_user_message(),
             DeleteChannelError::Outbox(e) => e.to_user_message(),
+            DeleteChannelError::VoiceService(_) => {
+                "Voice service is temporarily unavailable.".to_string()
+            }
         }
     }
 }
@@ -527,15 +535,25 @@ impl ToHttpStatus for CreateServerError {
 impl ToHttpStatus for DeleteServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
+            DeleteServerError::ServerNotFound => StatusCode::NOT_FOUND,
+            DeleteServerError::NotOwner => StatusCode::FORBIDDEN,
             DeleteServerError::Repository(e) => e.to_http_status(),
             DeleteServerError::Outbox(e) => e.to_http_status(),
+            DeleteServerError::VoiceService(_) => StatusCode::BAD_GATEWAY,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
+            DeleteServerError::ServerNotFound => "Server not found".to_string(),
+            DeleteServerError::NotOwner => {
+                "Only the server owner can delete it.".to_string()
+            }
             DeleteServerError::Repository(e) => e.to_user_message(),
             DeleteServerError::Outbox(e) => e.to_user_message(),
+            DeleteServerError::VoiceService(_) => {
+                "Voice service is temporarily unavailable.".to_string()
+            }
         }
     }
 }

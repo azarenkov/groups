@@ -36,7 +36,6 @@ export class LiveKitService {
     this.onError = onError;
   }
 
-  // Update callbacks dynamically (for singleton pattern)
   updateCallbacks(
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
     onConnectionStateChange?: (connected: boolean) => void,
@@ -48,13 +47,11 @@ export class LiveKitService {
   }
 
   async connect(token: string, url: string): Promise<void> {
-    // Prevent concurrent connection attempts
     if (this.isConnecting) {
       console.log("[LiveKitService] Connection already in progress, skipping");
       return;
     }
 
-    // Check if already connected to this room
     if (this.room?.state === "connected") {
       console.log("[LiveKitService] Already connected to a room, skipping");
       return;
@@ -64,7 +61,6 @@ export class LiveKitService {
       this.isConnecting = true;
       console.log("Connecting to LiveKit...", { url });
 
-      // Create new room instance
       this.room = new Room({
         adaptiveStream: true,
         dynacast: true,
@@ -75,10 +71,8 @@ export class LiveKitService {
         },
       });
 
-      // Set up event listeners
       this.setupEventListeners();
 
-      // Connect to room
       const connectOptions: RoomConnectOptions = {
         autoSubscribe: true,
       };
@@ -87,7 +81,6 @@ export class LiveKitService {
       await this.room.connect(url, token, connectOptions);
       console.log("Successfully connected to room");
 
-      // Enable local audio
       await this.enableMicrophone();
 
       this.isConnecting = false;
@@ -186,6 +179,32 @@ export class LiveKitService {
     return audioTracks.some((pub) => pub.track?.isMuted);
   }
 
+  getLocalAudioMediaStreamTrack(): MediaStreamTrack | null {
+    if (!this.room) return null;
+    const publications = Array.from(
+      this.room.localParticipant.audioTrackPublications.values(),
+    );
+    for (const pub of publications) {
+      const track = pub.track?.mediaStreamTrack;
+      if (track) return track;
+    }
+    return null;
+  }
+
+  getLocalSessionId(): string | null {
+    return this.room?.localParticipant.sid ?? null;
+  }
+
+  async setNoiseSuppression(enabled: boolean): Promise<void> {
+    const track = this.getLocalAudioMediaStreamTrack();
+    if (!track) return;
+    try {
+      await track.applyConstraints({ noiseSuppression: enabled });
+    } catch (e) {
+      console.warn("[LiveKitService] applyConstraints failed:", e);
+    }
+  }
+
   getParticipants(): ParticipantInfo[] {
     return Array.from(this.participants.values());
   }
@@ -201,21 +220,19 @@ export class LiveKitService {
   private setupEventListeners(): void {
     if (!this.room) return;
 
-    // Connection state events
     this.room.on(RoomEvent.Connected, () => {
-      console.log("Room connected successfully");
+      console.log("Channel connected successfully");
       this.onConnectionStateChange?.(true);
     });
 
     this.room.on(RoomEvent.Reconnecting, () => {
-      console.log("Room reconnecting...");
+      console.log("Channel reconnecting...");
     });
 
     this.room.on(RoomEvent.Reconnected, () => {
-      console.log("Room reconnected");
+      console.log("Channel reconnected");
     });
 
-    // Participant connected
     this.room.on(
       RoomEvent.ParticipantConnected,
       (participant: RemoteParticipant) => {
@@ -224,7 +241,6 @@ export class LiveKitService {
       },
     );
 
-    // Participant disconnected
     this.room.on(
       RoomEvent.ParticipantDisconnected,
       (participant: RemoteParticipant) => {
@@ -233,7 +249,6 @@ export class LiveKitService {
       },
     );
 
-    // Track subscribed
     this.room.on(
       RoomEvent.TrackSubscribed,
       (
@@ -248,7 +263,6 @@ export class LiveKitService {
       },
     );
 
-    // Track unsubscribed
     this.room.on(
       RoomEvent.TrackUnsubscribed,
       (
@@ -263,7 +277,6 @@ export class LiveKitService {
       },
     );
 
-    // Connection state changed
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
       this.participants.clear();
@@ -271,7 +284,6 @@ export class LiveKitService {
       this.onConnectionStateChange?.(false);
     });
 
-    // Connection quality
     this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
       console.log("Connection quality changed:", {
         quality,
@@ -279,18 +291,15 @@ export class LiveKitService {
       });
     });
 
-    // Connection state
     this.room.on(RoomEvent.ConnectionStateChanged, (state) => {
       console.log("Connection state changed:", state);
     });
 
-    // Media devices error
     this.room.on(RoomEvent.MediaDevicesError, (error) => {
       console.error("Media devices error:", error);
       this.onError?.(error);
     });
 
-    // Participant permission changed
     this.room.on(
       RoomEvent.ParticipantPermissionsChanged,
       (prevPermissions, participant) => {
@@ -301,7 +310,6 @@ export class LiveKitService {
       },
     );
 
-    // Add existing participants
     this.room.remoteParticipants.forEach((participant) => {
       this.addParticipant(participant);
     });
@@ -317,7 +325,6 @@ export class LiveKitService {
 
     this.participants.set(participant.identity, info);
 
-    // Check for existing audio tracks
     participant.audioTrackPublications.forEach((publication) => {
       if (publication.track) {
         this.handleAudioTrack(publication.track as AudioTrack, participant);
@@ -349,12 +356,10 @@ export class LiveKitService {
   ): void {
     this.updateParticipant(participant.identity, { audioTrack: track });
 
-    // Attach audio element for playback
     const audioElement = track.attach();
     audioElement.volume = 1.0;
     document.body.appendChild(audioElement);
 
-    // Clean up when track ends
     track.on(TrackEvent.Ended, () => {
       audioElement.remove();
       this.updateParticipant(participant.identity, { audioTrack: null });
@@ -366,7 +371,6 @@ export class LiveKitService {
   }
 }
 
-// Singleton instance
 let livekitService: LiveKitService | null = null;
 
 export function getLiveKitService(
@@ -381,7 +385,6 @@ export function getLiveKitService(
       onError,
     );
   } else {
-    // Update callbacks for existing singleton
     livekitService.updateCallbacks(
       onParticipantsChange,
       onConnectionStateChange,

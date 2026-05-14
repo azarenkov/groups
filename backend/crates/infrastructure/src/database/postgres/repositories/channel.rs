@@ -227,6 +227,25 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(())
     }
 
+    async fn list_voice_channel_ids_by_server(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<ChannelId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT id
+            FROM channels
+            WHERE server_id = $1 AND kind = 'voice'::kind
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows.into_iter().map(|r| ChannelId::new(r.id)).collect())
+    }
+
     async fn mute_participant_with_events(
         &self,
         channel_id: &ChannelId,

@@ -39,7 +39,7 @@ pub struct AppState {
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
-    pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
+    pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
 
     pub register_user_usecase:
         RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
@@ -66,7 +66,7 @@ pub struct AppState {
         HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
-    pub delete_server_usecase: DeleteServer<PostgresServerRepository>,
+    pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
@@ -91,7 +91,7 @@ impl AppState {
         >,
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
-        delete_channel_usecase: DeleteChannel<PostgresChannelRepository>,
+        delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
@@ -120,7 +120,7 @@ impl AppState {
             PostgresChannelRepository,
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
-        delete_server_usecase: DeleteServer<PostgresServerRepository>,
+        delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,

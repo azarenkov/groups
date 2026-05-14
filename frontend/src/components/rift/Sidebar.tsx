@@ -1,26 +1,26 @@
 import React from "react";
 import Icon from "./Icon";
 import type { Server } from "../../types/server";
-import type { Room } from "../../types/room";
+import type { Channel } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 
 interface SidebarProps {
   servers: Server[];
-  roomsByServer: Record<string, Room[]>;
-  expandedServerId: string | null;
-  selectedServerId: string | null;
-  selectedRoomId: string | null;
+  channelsByServer: Record<string, Channel[]>;
+  expandedServerIds: Set<string>;
+  selectedChannelId: string | null;
+  joinedChannelId: string | null;
   selectedDmId: string | null;
   directs: MockDirect[];
   onToggleServer: (serverId: string) => void;
   onSelectServer: (serverId: string) => void;
-  onSelectRoom: (server: Server, room: Room) => void;
+  onSelectChannel: (server: Server, channel: Channel) => void;
   onSelectDm: (dm: MockDirect) => void;
   onAddServer: () => void;
-  onAddRoom: (server: Server) => void;
+  onAddChannel: (server: Server) => void;
   onAddDm: () => void;
   onDeleteServer: (server: Server) => void;
-  onDeleteRoom: (server: Server, room: Room) => void;
+  onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
   currentUserName: string;
   currentUserStatus: string;
@@ -35,21 +35,21 @@ const accentFor = (id: string): string => {
 
 const Sidebar: React.FC<SidebarProps> = ({
   servers,
-  roomsByServer,
-  expandedServerId,
-  selectedServerId,
-  selectedRoomId,
+  channelsByServer,
+  expandedServerIds,
+  selectedChannelId,
+  joinedChannelId,
   selectedDmId,
   directs,
   onToggleServer,
   onSelectServer,
-  onSelectRoom,
+  onSelectChannel,
   onSelectDm,
   onAddServer,
-  onAddRoom,
+  onAddChannel,
   onAddDm,
   onDeleteServer,
-  onDeleteRoom,
+  onDeleteChannel,
   onOpenSettings,
   currentUserName,
   currentUserStatus,
@@ -60,16 +60,28 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const directsCollapsed = !!collapsed["__directs"];
 
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="sb">
       <div className="sb-search">
         <Icon name="search" size={14} />
-        <input placeholder="Search" />
+        <input ref={searchInputRef} placeholder="Search" />
         <kbd>⌘K</kbd>
       </div>
 
       <div className="sb-scroll">
-        {/* Direct messages */}
         <div
           className={"sb-section-head" + (directsCollapsed ? " collapsed" : "")}
           onClick={() => toggleSection("__directs")}
@@ -78,6 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <button
               type="button"
+              tabIndex={-1}
               className="sb-section-add"
               title="New direct message"
               onClick={(e) => {
@@ -99,12 +112,20 @@ const Sidebar: React.FC<SidebarProps> = ({
           directs.map((d) => (
             <div
               key={d.id}
+              role="button"
+              tabIndex={0}
               className={
                 "sb-item" +
                 (selectedDmId === d.id ? " active" : "") +
                 (d.unread ? " unread" : "")
               }
               onClick={() => onSelectDm(d)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectDm(d);
+                }
+              }}
             >
               <span className="sb-icon">
                 <span
@@ -144,7 +165,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ))}
 
-        {/* Servers */}
         {servers.length === 0 && (
           <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--fg-3)" }}>
             No servers yet. Create one to get started.
@@ -152,8 +172,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {servers.map((server) => {
-          const isCol = expandedServerId !== server.id;
-          const rooms = roomsByServer[server.id] || [];
+          const isCol = !expandedServerIds.has(server.id);
+          const channels = channelsByServer[server.id] || [];
           const accent = accentFor(server.id);
           return (
             <div key={server.id}>
@@ -194,11 +214,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {!isCol && (
                     <button
                       type="button"
+                      tabIndex={-1}
                       className="sb-section-add"
-                      title="Create room"
+                      title="Create channel"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAddRoom(server);
+                        onAddChannel(server);
                       }}
                     >
                       <Icon name="plus" size={14} />
@@ -209,38 +230,42 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {!isCol && (
                 <>
-                  <div
-                    className={
-                      "sb-item" +
-                      (selectedServerId === server.id && !selectedRoomId && !selectedDmId
-                        ? " active"
-                        : "")
-                    }
-                    onClick={() => onSelectServer(server.id)}
-                  >
-                    <span className="sb-icon">
-                      <Icon name="hash" size={14} />
-                    </span>
-                    <span className="sb-label">general</span>
-                  </div>
-                  {rooms.map((room) => (
+                  {channels.map((channel) => (
                     <div
-                      key={room.id}
-                      className={"sb-item" + (selectedRoomId === room.id ? " active" : "")}
-                      onClick={() => onSelectRoom(server, room)}
+                      key={channel.id}
+                      role="button"
+                      tabIndex={0}
+                      className={
+                        "sb-item" +
+                        (selectedChannelId === channel.id ? " active" : "") +
+                        (joinedChannelId === channel.id ? " in-voice" : "")
+                      }
+                      onClick={() => onSelectChannel(server, channel)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectChannel(server, channel);
+                        }
+                      }}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        onDeleteRoom(server, room);
+                        onDeleteChannel(server, channel);
                       }}
                     >
                       <span className="sb-icon">
-                        <Icon name="volume" size={14} />
+                        <Icon
+                          name={channel.kind === "voice" ? "volume" : "hash"}
+                          size={14}
+                        />
                       </span>
-                      <span className="sb-label">{room.name}</span>
-                      {room.roomType === "private" && (
+                      <span className="sb-label">{channel.name}</span>
+                      {channel.visibility === "private" && (
                         <span className="lock">
                           <Icon name="lock" size={11} />
                         </span>
+                      )}
+                      {joinedChannelId === channel.id && (
+                        <span className="sb-live-dot" aria-hidden="true" />
                       )}
                     </div>
                   ))}
@@ -250,7 +275,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        <button type="button" className="sb-create-server" onClick={onAddServer}>
+        <button type="button" tabIndex={-1} className="sb-create-server" onClick={onAddServer}>
           <span className="plus">
             <Icon name="plus" size={12} />
           </span>

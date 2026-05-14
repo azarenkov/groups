@@ -161,6 +161,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   const [bellOpen, setBellOpen] = React.useState(false);
   const [notifLevel, setNotifLevel] = React.useState<"all" | "mentions" | "none">("all");
   const bellRef = React.useRef<HTMLDivElement>(null);
+  const bellButtonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
     if (!bellOpen) return;
@@ -171,6 +172,34 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
+  }, [bellOpen]);
+
+  React.useEffect(() => {
+    if (!bellOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setBellOpen(false);
+        bellButtonRef.current?.focus();
+        return;
+      }
+      if (e.key !== "Tab" || !bellRef.current) return;
+      const focusables = bellRef.current.querySelectorAll<HTMLElement>(
+        'button:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [bellOpen]);
 
   if (dm) {
@@ -226,6 +255,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       <div className="right">
         <div className="popover-wrap" ref={bellRef}>
           <button
+            ref={bellButtonRef}
             type="button"
             className={"icon-btn" + (bellOpen ? " on" : "")}
             title="Notification settings"

@@ -14,7 +14,6 @@ interface ServerState {
     totalPages: number;
   } | null;
 
-  // Actions
   setServers: (servers: Server[]) => void;
   setSelectedServer: (serverId: string | null) => void;
   addServer: (server: Server) => void;
@@ -24,9 +23,8 @@ interface ServerState {
   clearError: () => void;
   setPagination: (pagination: ListServersResponse["pagination"]) => void;
 
-  // Async actions
   fetchServers: (page?: number, perPage?: number) => Promise<void>;
-  createServer: (name: string, description?: string) => Promise<void>;
+  createServer: (name: string, description?: string) => Promise<Server>;
   deleteServer: (serverId: string) => Promise<void>;
 }
 
@@ -80,6 +78,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
       const server = await serverAPI.createServer({ name, description });
       get().addServer(server);
       set({ isLoading: false });
+      return server;
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Failed to create server",

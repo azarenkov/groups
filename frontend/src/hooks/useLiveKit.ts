@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
-import { getLiveKitService, ParticipantInfo } from "../services/livekit";
-import { roomAPI } from "../api/room";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { getLiveKitService, LiveKitService, ParticipantInfo } from "../services/livekit";
+import { channelAPI } from "../api/channel";
+import { useAuthStore } from "../store/authStore";
+import { decodeAccessToken } from "../utils/jwt";
 
 interface UseLiveKitResult {
   participants: ParticipantInfo[];
@@ -8,9 +10,16 @@ interface UseLiveKitResult {
   isMuted: boolean;
   isConnecting: boolean;
   error: string | null;
-  joinRoom: (roomId: string, serverId: string) => Promise<void>;
-  leaveRoom: () => Promise<void>;
+  joinChannel: (
+    channelId: string,
+    serverId: string,
+    password?: string,
+  ) => Promise<void>;
+  leaveChannel: () => Promise<void>;
   toggleMute: () => void;
+  getLocalAudioMediaStreamTrack: () => MediaStreamTrack | null;
+  setNoiseSuppression: (enabled: boolean) => Promise<void>;
+  getLocalSessionId: () => string | null;
 }
 
 export function useLiveKit(): UseLiveKitResult {
@@ -19,8 +28,15 @@ export function useLiveKit(): UseLiveKitResult {
   const [isMuted, setIsMuted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeChannelRef = useRef<{ serverId: string; channelId: string } | null>(null);
+  const isMutedRef = useRef(false);
+  const isConnectedRef = useRef(false);
 
-  const livekitService = getLiveKitService(
+  isMutedRef.current = isMuted;
+  isConnectedRef.current = isConnected;
+
+  const serviceRef = useRef<LiveKitService | null>(null);
+  serviceRef.current = getLiveKitService(
     (updatedParticipants) => {
       setParticipants(updatedParticipants);
     },
@@ -36,70 +52,112 @@ export function useLiveKit(): UseLiveKitResult {
     },
   );
 
-  const joinRoom = useCallback(async (roomId: string, serverId: string) => {
-    try {
-      // Check if already connecting or connected
-      if (livekitService.isConnectingNow()) {
-        console.log("[useLiveKit] Already connecting, skipping join request");
-        return;
+  const joinChannel = useCallback(
+    async (channelId: string, serverId: string, password?: string) => {
+      const service = serviceRef.current;
+      if (!service) return;
+      try {
+        if (service.isConnectingNow()) {
+          console.log("[useLiveKit] Already connecting, skipping join request");
+          return;
+        }
+
+        if (service.isConnected()) {
+          console.log("[useLiveKit] Already connected, disconnecting first");
+          await service.disconnect();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        setIsConnecting(true);
+        setError(null);
+
+        console.log(
+          `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
+        );
+
+        const response = await channelAPI.joinVoice(serverId, channelId, {
+          password,
+        });
+
+        console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
+
+        await service.connect(response.token, response.url);
+
+        activeChannelRef.current = { serverId, channelId };
+        setIsConnecting(false);
+      } catch (err) {
+        console.error("[useLiveKit] Failed to join channel:", err);
+        setError(err instanceof Error ? err.message : "Failed to join channel");
+        setIsConnecting(false);
+        throw err;
       }
+    },
+    [],
+  );
 
-      if (livekitService.isConnected()) {
-        console.log("[useLiveKit] Already connected, disconnecting first");
-        await livekitService.disconnect();
-        // Даем время на отключение
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-
-      setIsConnecting(true);
-      setError(null);
-
-      console.log(`[useLiveKit] Joining room ${roomId} on server ${serverId}`);
-
-      // Get token from backend
-      const response = await roomAPI.joinRoom({ roomId, serverId });
-
-      console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
-
-      // Connect to LiveKit
-      await livekitService.connect(response.token, response.url);
-
-      setIsConnecting(false);
-    } catch (err) {
-      console.error("[useLiveKit] Failed to join room:", err);
-      setError(err instanceof Error ? err.message : "Failed to join room");
-      setIsConnecting(false);
-      throw err;
-    }
-  }, []);
-
-  const leaveRoom = useCallback(async () => {
+  const leaveChannel = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service) return;
     try {
-      console.log("[useLiveKit] Leaving room...");
-      await livekitService.disconnect();
+      console.log("[useLiveKit] Leaving channel...");
+      await service.disconnect();
+      activeChannelRef.current = null;
       setParticipants([]);
       setIsConnected(false);
       setIsMuted(false);
       setError(null);
     } catch (err) {
-      console.error("[useLiveKit] Failed to leave room:", err);
+      console.error("[useLiveKit] Failed to leave channel:", err);
     }
   }, []);
 
   const toggleMute = useCallback(() => {
-    const newMutedState = !isMuted;
-    livekitService.setMicrophoneMuted(newMutedState);
-    setIsMuted(newMutedState);
-  }, [isMuted, livekitService]);
+    const service = serviceRef.current;
+    if (!service) return;
+    const next = !isMutedRef.current;
+    service.setMicrophoneMuted(next);
+    setIsMuted(next);
 
-  // Clean up on unmount
+    const active = activeChannelRef.current;
+    const auth = useAuthStore.getState();
+    const userId = auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+    console.log("[useLiveKit] toggleMute", { next, active, userId });
+    if (active && userId) {
+      const call = next
+        ? channelAPI.mute(active.serverId, active.channelId, userId)
+        : channelAPI.unmute(active.serverId, active.channelId, userId);
+      call.catch((err) => {
+        console.error("[useLiveKit] Failed to sync mute state with backend:", err);
+      });
+    } else {
+      console.warn("[useLiveKit] Skipping mute API: missing active channel or user id");
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
-      if (isConnected) {
-        livekitService.disconnect();
+      if (isConnectedRef.current) {
+        serviceRef.current?.disconnect();
       }
     };
-  }, [isConnected, livekitService]);
+  }, []);
+
+  const getLocalAudioMediaStreamTrack = useCallback(
+    () => serviceRef.current?.getLocalAudioMediaStreamTrack() ?? null,
+    [],
+  );
+
+  const setNoiseSuppression = useCallback(
+    async (enabled: boolean) => {
+      await serviceRef.current?.setNoiseSuppression(enabled);
+    },
+    [],
+  );
+
+  const getLocalSessionId = useCallback(
+    () => serviceRef.current?.getLocalSessionId() ?? null,
+    [],
+  );
 
   return {
     participants,
@@ -107,8 +165,11 @@ export function useLiveKit(): UseLiveKitResult {
     isMuted,
     isConnecting,
     error,
-    joinRoom,
-    leaveRoom,
+    joinChannel,
+    leaveChannel,
     toggleMute,
+    getLocalAudioMediaStreamTrack,
+    setNoiseSuppression,
+    getLocalSessionId,
   };
 }

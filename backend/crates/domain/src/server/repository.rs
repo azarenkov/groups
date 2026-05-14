@@ -45,4 +45,8 @@ pub trait ServerRepository {
         owner_id: &UserId,
         events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
+    async fn find_server_owner(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Option<UserId>, RepositoryError>;
 }

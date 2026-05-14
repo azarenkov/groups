@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
-import { useRoomStore } from "../store/roomStore";
+import { useChannelStore } from "../store/channelStore";
 import { useThemeStore } from "../store/themeStore";
 import { serverAPI } from "../api/server";
-import { roomAPI } from "../api/room";
+import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
-import CreateRoomModal from "../components/CreateRoomModal";
+import CreateChannelModal from "../components/CreateChannelModal";
+import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
@@ -14,9 +15,9 @@ import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
 import MembersPanel from "../components/rift/MembersPanel";
-import SettingsView, { TweaksPanel } from "../components/settings/SettingsView";
+import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
-import { Room, RoomType } from "../types/room";
+import { Channel, ChannelKind, ChannelVisibility } from "../types/channel";
 import { Server } from "../types/server";
 import {
   SEED_DIRECTS,
@@ -32,7 +33,7 @@ interface ChannelOverride {
 }
 
 const ServersPage: React.FC = () => {
-  const { tokens, user, logout } = useAuthStore();
+  const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
     selectedServerId,
@@ -46,21 +47,20 @@ const ServersPage: React.FC = () => {
   } = useServerStore();
 
   const {
-    roomsByServer,
-    selectedRoomId,
-    error: roomsError,
-    setSelectedRoom,
-    fetchRooms,
-    createRoom,
-    deleteRoom,
-    clearError: clearRoomsError,
-    clearRooms,
-  } = useRoomStore();
+    channelsByServer,
+    selectedChannelId,
+    error: channelsError,
+    setSelectedChannel,
+    fetchChannels,
+    createChannel,
+    deleteChannel,
+    clearError: clearChannelsError,
+    clearChannels,
+  } = useChannelStore();
 
   const { theme, setTheme } = useThemeStore();
   const [accent, setAccent] = useState("#0071e3");
 
-  // Apply accent CSS var
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", accent);
     document.documentElement.style.setProperty(
@@ -69,7 +69,6 @@ const ServersPage: React.FC = () => {
     );
   }, [accent]);
 
-  // Cmd+, opens settings
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ",") {
@@ -81,113 +80,210 @@ const ServersPage: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Modals + side panels
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
-  const [roomModalServerId, setRoomModalServerId] = useState<string | null>(null);
+  const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
+  const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tweaksOpen, setTweaksOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: "server" | "room";
+    type: "server" | "channel";
     id: string;
     serverId?: string;
     name: string;
   } | null>(null);
 
-  // Conversation state — exactly one of (joinedRoom | selectedDm | text-channel) is active
-  const [joinedRoom, setJoinedRoom] = useState<{ room: Room; serverId: string } | null>(null);
+  const [joinedChannel, setJoinedChannel] = useState<{
+    channel: Channel;
+    serverId: string;
+    password?: string;
+  } | null>(null);
+  const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
+  const [voiceJoinAttempt, setVoiceJoinAttempt] = useState(0);
+  const [passwordPrompt, setPasswordPrompt] = useState<{
+    server: Server;
+    channel: Channel;
+  } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
-  const [expandedServerId, setExpandedServerId] = useState<string | null>(null);
+  const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
   const [directs, setDirects] = useState<MockDirect[]>(SEED_DIRECTS);
 
-  // Channel overrides (text channel name/topic edits) keyed by `${serverId}:general`
   const [channelOverrides, setChannelOverrides] =
     useState<Record<string, ChannelOverride>>({});
   const [editingChannel, setEditingChannel] = useState<{
     id: string;
+    serverId: string;
     name: string;
     topic?: string;
   } | null>(null);
 
-  // Members panel toggle (per text-channel id)
   const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (tokens?.accessToken) {
       serverAPI.setAuthToken(tokens.accessToken);
-      roomAPI.setAuthToken(tokens.accessToken);
+      channelAPI.setAuthToken(tokens.accessToken);
       fetchServers();
     }
   }, [tokens, fetchServers]);
 
   useEffect(() => {
-    if (expandedServerId && tokens?.accessToken && !roomsByServer[expandedServerId]) {
-      fetchRooms(expandedServerId);
-    }
-  }, [expandedServerId, tokens, fetchRooms, roomsByServer]);
+    if (!tokens?.accessToken) return;
+    expandedServerIds.forEach((id) => {
+      if (!channelsByServer[id]) fetchChannels(id);
+    });
+  }, [expandedServerIds, tokens, fetchChannels, channelsByServer]);
+
+  const didInitialExpandRef = useRef(false);
+  useEffect(() => {
+    if (didInitialExpandRef.current) return;
+    if (servers.length === 0) return;
+    didInitialExpandRef.current = true;
+    setExpandedServerIds(new Set([servers[0].id]));
+    setSelectedServer(servers[0].id);
+  }, [servers, setSelectedServer]);
 
   useEffect(() => {
-    if (!expandedServerId && servers.length > 0) {
-      setExpandedServerId(servers[0].id);
-      setSelectedServer(servers[0].id);
-    }
-  }, [servers, expandedServerId, setSelectedServer]);
+    if (!selectedServerId || selectedChannelId || selectedDm) return;
+    const list = channelsByServer[selectedServerId];
+    if (!list) return;
+    const firstText = list.find((c) => c.kind === "text");
+    if (firstText) setSelectedChannel(firstText.id);
+  }, [
+    selectedServerId,
+    selectedChannelId,
+    selectedDm,
+    channelsByServer,
+    setSelectedChannel,
+  ]);
 
   const selectedServer = servers.find((s) => s.id === selectedServerId) || null;
 
-  // Effective text-channel meta for the active server's "general"
-  const generalChannelKey = selectedServer ? `${selectedServer.id}:general` : "";
-  const generalOverride = channelOverrides[generalChannelKey] || {};
-  const generalChannel = selectedServer
+  const selectedTextChannel =
+    selectedServer && selectedChannelId
+      ? channelsByServer[selectedServer.id]?.find(
+          (c) => c.id === selectedChannelId && c.kind === "text",
+        ) ?? null
+      : null;
+
+  const activeChannelOverride = selectedTextChannel
+    ? channelOverrides[selectedTextChannel.id] || {}
+    : {};
+
+  const activeTextChannel = selectedTextChannel
     ? {
-        id: generalChannelKey,
-        name: generalOverride.name ?? "general",
-        topic:
-          generalOverride.topic ?? (selectedServer.description || selectedServer.name),
+        id: selectedTextChannel.id,
+        name: activeChannelOverride.name ?? selectedTextChannel.name,
+        topic: activeChannelOverride.topic,
       }
     : null;
 
+  const selectedServerChannels = selectedServer
+    ? channelsByServer[selectedServer.id]
+    : undefined;
+  const selectedServerChannelsLoaded = selectedServerChannels !== undefined;
+  const serverHasTextChannel =
+    selectedServerChannelsLoaded &&
+    selectedServerChannels!.some((c) => c.kind === "text");
+
+  const viewingJoinedVoice =
+    !!joinedChannel && selectedChannelId === joinedChannel.channel.id;
   const onTextChannelActive =
-    !!selectedServer && !joinedRoom && !selectedDm;
+    !!selectedServer && !selectedDm && !viewingJoinedVoice;
   const showMembersForChannel =
-    onTextChannelActive && !!generalChannel && !!membersOpenById[generalChannel.id];
+    onTextChannelActive && !!activeTextChannel && !!membersOpenById[activeTextChannel.id];
 
   const handleToggleServer = (serverId: string) => {
-    setExpandedServerId((prev) => (prev === serverId ? null : serverId));
+    setExpandedServerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(serverId)) next.delete(serverId);
+      else next.add(serverId);
+      return next;
+    });
   };
 
   const handleSelectServer = (serverId: string) => {
     setSelectedServer(serverId);
-    setSelectedRoom(null);
-    setJoinedRoom(null);
     setSelectedDm(null);
+    const firstText = channelsByServer[serverId]?.find((c) => c.kind === "text");
+    setSelectedChannel(firstText ? firstText.id : null);
   };
 
-  const handleSelectRoom = (server: Server, room: Room) => {
+  const finalizeJoin = (server: Server, channel: Channel, password?: string) => {
     setSelectedServer(server.id);
-    setSelectedRoom(room.id);
-    setJoinedRoom({ room, serverId: server.id });
+    setSelectedChannel(channel.id);
+    setJoinedChannel({ channel, serverId: server.id, password });
     setSelectedDm(null);
+    setVoiceJoinFailed(false);
+    setVoiceJoinAttempt((n) => n + 1);
+  };
+
+  const handleSelectChannel = (server: Server, channel: Channel) => {
+    if (channel.kind === "text") {
+      setSelectedServer(server.id);
+      setSelectedChannel(channel.id);
+      setSelectedDm(null);
+      return;
+    }
+    if (
+      joinedChannel &&
+      joinedChannel.channel.id === channel.id &&
+      !voiceJoinFailed
+    ) {
+      setSelectedServer(server.id);
+      setSelectedChannel(channel.id);
+      setSelectedDm(null);
+      return;
+    }
+    if (channel.visibility === "private") {
+      setPasswordPrompt({ server, channel });
+      return;
+    }
+    finalizeJoin(server, channel);
   };
 
   const handleSelectDm = (dm: MockDirect) => {
     setSelectedDm(dm);
-    setJoinedRoom(null);
-    setSelectedRoom(null);
+    setSelectedChannel(null);
   };
 
   const handleCreateServer = async (name: string, description?: string) => {
-    await createServer(name, description);
+    const server = await createServer(name, description);
+    try {
+      await createChannel(server.id, "general", "text", "public");
+    } catch (err) {
+      console.error("[ServersPage] failed to create default text channel:", err);
+    }
+    try {
+      await createChannel(server.id, "voice", "voice", "public");
+    } catch (err) {
+      console.error("[ServersPage] failed to create default voice channel:", err);
+    }
+    setExpandedServerIds((prev) => {
+      const next = new Set(prev);
+      next.add(server.id);
+      return next;
+    });
+    setSelectedServer(server.id);
+    setSelectedChannel(null);
+    setSelectedDm(null);
   };
 
-  const handleCreateRoom = async (
+  const handleCreateChannel = async (
     name: string,
-    roomType: RoomType,
+    kind: ChannelKind,
+    visibility: ChannelVisibility,
     password?: string,
   ) => {
-    if (roomModalServerId) {
-      await createRoom(roomModalServerId, name, roomType, password);
+    if (channelModalServerId) {
+      await createChannel(
+        channelModalServerId,
+        name,
+        kind,
+        visibility,
+        password,
+      );
     }
   };
 
@@ -197,26 +293,34 @@ const ServersPage: React.FC = () => {
       await deleteServer(deleteConfirm.id);
       if (selectedServerId === deleteConfirm.id) {
         setSelectedServer(null);
-        clearRooms(deleteConfirm.id);
+        clearChannels(deleteConfirm.id);
       }
-      if (expandedServerId === deleteConfirm.id) setExpandedServerId(null);
+      setExpandedServerIds((prev) => {
+        if (!prev.has(deleteConfirm.id)) return prev;
+        const next = new Set(prev);
+        next.delete(deleteConfirm.id);
+        return next;
+      });
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to delete server:", err);
     }
   };
 
-  const handleDeleteRoom = async () => {
-    if (deleteConfirm?.type !== "room" || !deleteConfirm.serverId) return;
+  const handleDeleteChannel = async () => {
+    if (deleteConfirm?.type !== "channel" || !deleteConfirm.serverId) return;
     try {
-      await deleteRoom(deleteConfirm.serverId, deleteConfirm.id);
-      if (selectedRoomId === deleteConfirm.id) {
-        setSelectedRoom(null);
-        setJoinedRoom(null);
+      await deleteChannel(deleteConfirm.serverId, deleteConfirm.id);
+      if (selectedChannelId === deleteConfirm.id) {
+        setSelectedChannel(null);
+      }
+      if (joinedChannel?.channel.id === deleteConfirm.id) {
+        setJoinedChannel(null);
+        setVoiceJoinFailed(false);
       }
       setDeleteConfirm(null);
     } catch (err) {
-      console.error("Failed to delete room:", err);
+      console.error("Failed to delete channel:", err);
     }
   };
 
@@ -240,16 +344,30 @@ const ServersPage: React.FC = () => {
     setIsDmModalOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleVoiceLeave = useCallback(() => {
+    setJoinedChannel((prev) => {
+      if (prev && useChannelStore.getState().selectedChannelId === prev.channel.id) {
+        setSelectedChannel(null);
+      }
+      return null;
+    });
+    setVoiceJoinFailed(false);
+  }, [setSelectedChannel]);
+
+  const handleVoiceJoinFailed = useCallback(() => {
+    setVoiceJoinFailed(true);
+  }, []);
+
+  const handleLogout = async () => {
     serverAPI.removeAuthToken();
-    roomAPI.removeAuthToken();
-    logout();
+    channelAPI.removeAuthToken();
+    await signOut();
   };
 
-  const error = serversError || roomsError;
+  const error = serversError || channelsError;
   const clearError = () => {
     clearServersError();
-    clearRoomsError();
+    clearChannelsError();
   };
 
   const userName = user?.name || "You";
@@ -257,10 +375,12 @@ const ServersPage: React.FC = () => {
 
   const winTitle = selectedDm
     ? selectedDm.name
-    : joinedRoom
-      ? `${servers.find((s) => s.id === joinedRoom.serverId)?.name ?? ""} — ${joinedRoom.room.name}`
+    : joinedChannel
+      ? `${servers.find((s) => s.id === joinedChannel.serverId)?.name ?? ""} — ${joinedChannel.channel.name}`
       : selectedServer
-        ? `${selectedServer.name} — ${generalChannel?.name ?? "general"}`
+        ? activeTextChannel
+          ? `${selectedServer.name} — ${activeTextChannel.name}`
+          : selectedServer.name
         : "Rift";
 
   return (
@@ -273,45 +393,36 @@ const ServersPage: React.FC = () => {
         </div>
         <div className="win-title">{winTitle}</div>
         <div className="spacer" />
-        <button
-          type="button"
-          className="icon-btn"
-          title="Tweaks"
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-          onClick={() => setTweaksOpen((v) => !v)}
-        >
-          <Icon name="palette" size={14} />
-        </button>
       </div>
 
       <div className="body-area">
         <Sidebar
           servers={servers}
-          roomsByServer={roomsByServer}
-          expandedServerId={expandedServerId}
-          selectedServerId={selectedServerId}
-          selectedRoomId={joinedRoom?.room.id ?? null}
+          channelsByServer={channelsByServer}
+          expandedServerIds={expandedServerIds}
+          selectedChannelId={selectedChannelId}
+          joinedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
           directs={directs}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
-          onSelectRoom={handleSelectRoom}
+          onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onAddServer={() => setIsServerModalOpen(true)}
-          onAddRoom={(server) => {
-            setRoomModalServerId(server.id);
-            setIsRoomModalOpen(true);
+          onAddChannel={(server) => {
+            setChannelModalServerId(server.id);
+            setIsChannelModalOpen(true);
           }}
           onAddDm={() => setIsDmModalOpen(true)}
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
-          onDeleteRoom={(server, room) =>
+          onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
-              type: "room",
-              id: room.id,
+              type: "channel",
+              id: channel.id,
               serverId: server.id,
-              name: room.name,
+              name: channel.name,
             })
           }
           onOpenSettings={() => setSettingsOpen(true)}
@@ -325,7 +436,6 @@ const ServersPage: React.FC = () => {
               <Welcome
                 loading={serversLoading && servers.length === 0}
                 onCreate={() => setIsServerModalOpen(true)}
-                onLogout={handleLogout}
               />
             ) : selectedDm ? (
               <ChatView
@@ -336,48 +446,91 @@ const ServersPage: React.FC = () => {
                   online: selectedDm.online,
                 }}
               />
+            ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
+              <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
+                <button
+                  type="button"
+                  className="voice-stage-settings"
+                  title="Channel settings"
+                  onClick={() =>
+                    setEditingChannel({
+                      id: joinedChannel.channel.id,
+                      serverId: joinedChannel.serverId,
+                      name: joinedChannel.channel.name,
+                    })
+                  }
+                >
+                  <Icon name="settings" size={14} />
+                </button>
+                <div className="voice-stage-orb">
+                  <span className="voice-stage-orb-ring" />
+                  <span className="voice-stage-orb-ring delay" />
+                  <span className="voice-stage-orb-letter">
+                    {joinedChannel.channel.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <h1 className="voice-stage-title">{joinedChannel.channel.name}</h1>
+                <div className="voice-stage-sub">
+                  <span className="voice-stage-dot" />
+                  {voiceJoinFailed ? "Couldn't connect" : "Connected"}
+                  {selectedServer ? ` · ${selectedServer.name}` : ""}
+                </div>
+              </div>
+            ) : !selectedServerChannelsLoaded ? (
+              <div className="empty-state" style={{ padding: 60 }}>
+                <span className="loading-spinner" />
+              </div>
+            ) : !serverHasTextChannel ? (
+              <NoTextChannel
+                serverName={selectedServer?.name ?? ""}
+                onCreate={() => {
+                  setChannelModalServerId(selectedServer?.id ?? null);
+                  setIsChannelModalOpen(true);
+                }}
+              />
             ) : (
               <ChatView
                 channel={{
-                  name: joinedRoom ? joinedRoom.room.name : generalChannel?.name ?? "general",
-                  topic: joinedRoom
-                    ? `${selectedServer?.name ?? ""} · voice room`
-                    : generalChannel?.topic,
-                  type: joinedRoom ? "voice" : "text",
+                  name: activeTextChannel?.name ?? "",
+                  topic: activeTextChannel?.topic,
+                  type: "text",
                 }}
                 membersOpen={
-                  onTextChannelActive && !!generalChannel
-                    ? !!membersOpenById[generalChannel.id]
-                    : false
+                  !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }
                 onToggleMembers={
-                  onTextChannelActive && generalChannel
+                  activeTextChannel
                     ? () =>
                         setMembersOpenById((prev) => ({
                           ...prev,
-                          [generalChannel.id]: !prev[generalChannel.id],
+                          [activeTextChannel.id]: !prev[activeTextChannel.id],
                         }))
                     : undefined
                 }
                 onOpenChannelSettings={
-                  onTextChannelActive && generalChannel
-                    ? () => setEditingChannel(generalChannel)
+                  selectedTextChannel && selectedServer
+                    ? () =>
+                        setEditingChannel({
+                          id: selectedTextChannel.id,
+                          serverId: selectedServer.id,
+                          name: activeChannelOverride.name ?? selectedTextChannel.name,
+                          topic: activeChannelOverride.topic,
+                        })
                     : undefined
                 }
               />
             )}
 
-            {joinedRoom && (
+            {joinedChannel && (
               <VoiceView
-                key={joinedRoom.room.id}
-                roomId={joinedRoom.room.id}
-                serverId={joinedRoom.serverId}
-                roomName={joinedRoom.room.name}
+                key={`${joinedChannel.channel.id}-${voiceJoinAttempt}`}
+                channelId={joinedChannel.channel.id}
+                serverId={joinedChannel.serverId}
+                channelName={joinedChannel.channel.name}
+                password={joinedChannel.password}
                 currentUserName={userName}
-                onLeave={() => {
-                  setJoinedRoom(null);
-                  setSelectedRoom(null);
-                }}
+                onLeave={handleVoiceLeave}
+                onJoinFailed={handleVoiceJoinFailed}
               />
             )}
           </div>
@@ -393,15 +546,11 @@ const ServersPage: React.FC = () => {
             accent={accent}
             onAccent={setAccent}
             onClose={() => setSettingsOpen(false)}
-            onSignOut={() => {
-              setSettingsOpen(false);
-              handleLogout();
-            }}
+            onSignOut={handleLogout}
           />
         )}
       </div>
 
-      {tweaksOpen && <TweaksPanel theme={theme} onTheme={setTheme} />}
 
       <CreateServerModal
         isOpen={isServerModalOpen}
@@ -409,13 +558,25 @@ const ServersPage: React.FC = () => {
         onCreate={handleCreateServer}
       />
 
-      <CreateRoomModal
-        isOpen={isRoomModalOpen}
+      <CreateChannelModal
+        isOpen={isChannelModalOpen}
         onClose={() => {
-          setIsRoomModalOpen(false);
-          setRoomModalServerId(null);
+          setIsChannelModalOpen(false);
+          setChannelModalServerId(null);
         }}
-        onCreate={handleCreateRoom}
+        onCreate={handleCreateChannel}
+      />
+
+      <PasswordPromptModal
+        isOpen={!!passwordPrompt}
+        channelName={passwordPrompt?.channel.name ?? ""}
+        onClose={() => setPasswordPrompt(null)}
+        onSubmit={(password) => {
+          if (passwordPrompt) {
+            finalizeJoin(passwordPrompt.server, passwordPrompt.channel, password);
+            setPasswordPrompt(null);
+          }
+        }}
       />
 
       <NewDmModal
@@ -438,7 +599,12 @@ const ServersPage: React.FC = () => {
             setEditingChannel(null);
           }}
           onDelete={() => {
-            // No backend for "delete general channel" — close modal as no-op
+            setDeleteConfirm({
+              type: "channel",
+              id: editingChannel.id,
+              serverId: editingChannel.serverId,
+              name: editingChannel.name,
+            });
             setEditingChannel(null);
           }}
         />
@@ -446,14 +612,14 @@ const ServersPage: React.FC = () => {
 
       {deleteConfirm && (
         <ConfirmModal
-          title={`Delete ${deleteConfirm.type === "server" ? "server" : "room"}?`}
+          title={`Delete ${deleteConfirm.type === "server" ? "server" : "channel"}?`}
           subtitle="This can't be undone."
           targetName={deleteConfirm.name}
           confirmLabel="Delete"
           danger
           onCancel={() => setDeleteConfirm(null)}
           onConfirm={
-            deleteConfirm.type === "server" ? handleDeleteServer : handleDeleteRoom
+            deleteConfirm.type === "server" ? handleDeleteServer : handleDeleteChannel
           }
         />
       )}
@@ -507,17 +673,16 @@ const ServersPage: React.FC = () => {
 interface WelcomeProps {
   loading: boolean;
   onCreate: () => void;
-  onLogout: () => void;
 }
 
-const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate, onLogout }) => (
+const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => (
   <div className="empty-state" style={{ padding: 60 }}>
     <div className="icon-wrap" style={{ width: 64, height: 64 }}>
       <Icon name="hash" size={26} />
     </div>
     <h3>Welcome to Rift</h3>
     <p>Pick a server on the left or create one to start talking.</p>
-    <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+    <div style={{ marginTop: 20 }}>
       {loading ? (
         <span className="loading-spinner" />
       ) : (
@@ -525,29 +690,41 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate, onLogout }) => (
           type="button"
           className="btn primary"
           onClick={onCreate}
-          style={{ height: 36, padding: "0 14px" }}
+          style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
         >
           <Icon name="plus" size={14} />
           Create a server
         </button>
       )}
+    </div>
+  </div>
+);
+
+interface NoTextChannelProps {
+  serverName: string;
+  onCreate: () => void;
+}
+
+const NoTextChannel: React.FC<NoTextChannelProps> = ({ serverName, onCreate }) => (
+  <div className="empty-state" style={{ padding: 60 }}>
+    <div className="icon-wrap" style={{ width: 64, height: 64 }}>
+      <Icon name="hash" size={26} />
+    </div>
+    <h3>No text channels yet</h3>
+    <p>
+      {serverName
+        ? `${serverName} doesn't have any text channels. Create one to start chatting.`
+        : "Create a text channel to start chatting."}
+    </p>
+    <div style={{ marginTop: 20 }}>
       <button
         type="button"
-        onClick={onLogout}
-        style={{
-          height: 36,
-          padding: "0 14px",
-          background: "transparent",
-          color: "var(--fg-3)",
-          borderRadius: 7,
-          fontSize: 13,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-        }}
+        className="btn primary"
+        onClick={onCreate}
+        style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
       >
-        <Icon name="logout" size={14} />
-        Sign out
+        <Icon name="plus" size={14} />
+        Create channel
       </button>
     </div>
   </div>

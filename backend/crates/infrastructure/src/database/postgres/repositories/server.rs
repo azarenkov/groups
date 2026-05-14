@@ -352,4 +352,19 @@ impl ServerRepository for PostgresServerRepository {
 
         Ok(true)
     }
+
+    async fn find_server_owner(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Option<UserId>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"SELECT owner_id FROM servers WHERE id = $1"#,
+            server_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.map(|r| UserId::new(r.owner_id)))
+    }
 }

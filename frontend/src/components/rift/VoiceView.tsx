@@ -12,19 +12,23 @@ const colorFor = (id: string): string => {
 };
 
 interface VoiceViewProps {
-  roomId: string;
+  channelId: string;
   serverId: string;
-  roomName: string;
+  channelName: string;
   currentUserName: string;
+  password?: string;
   onLeave: () => void;
+  onJoinFailed?: (message: string) => void;
 }
 
 const VoiceView: React.FC<VoiceViewProps> = ({
-  roomId,
+  channelId,
   serverId,
-  roomName,
+  channelName,
   currentUserName,
+  password,
   onLeave,
+  onJoinFailed,
 }) => {
   const {
     participants,
@@ -32,25 +36,27 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     isMuted,
     isConnecting,
     error,
-    joinRoom,
-    leaveRoom,
+    joinChannel,
+    leaveChannel,
     toggleMute,
+    getLocalAudioMediaStreamTrack,
+    setNoiseSuppression,
   } = useLiveKit();
 
   const hasJoinedRef = useRef(false);
-  const currentRoomRef = useRef<string | null>(null);
+  const currentChannelRef = useRef<string | null>(null);
   const isJoiningRef = useRef(false);
 
   useEffect(() => {
     const shouldJoin =
-      (!hasJoinedRef.current || currentRoomRef.current !== roomId) &&
+      (!hasJoinedRef.current || currentChannelRef.current !== channelId) &&
       !isJoiningRef.current;
 
     if (shouldJoin) {
       hasJoinedRef.current = true;
-      currentRoomRef.current = roomId;
+      currentChannelRef.current = channelId;
       isJoiningRef.current = true;
-      joinRoom(roomId, serverId)
+      joinChannel(channelId, serverId, password)
         .then(() => {
           isJoiningRef.current = false;
         })
@@ -58,26 +64,35 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           console.error("[VoiceView] join failed:", err);
           hasJoinedRef.current = false;
           isJoiningRef.current = false;
+          const message =
+            err instanceof Error ? err.message : "Failed to join voice channel";
+          onJoinFailed?.(message);
         });
     }
 
     return () => {
       hasJoinedRef.current = false;
-      currentRoomRef.current = null;
+      currentChannelRef.current = null;
       isJoiningRef.current = false;
-      leaveRoom();
+      leaveChannel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, serverId]);
+  }, [channelId, serverId, password, joinChannel, leaveChannel, onJoinFailed]);
 
   const handleLeave = async () => {
-    await leaveRoom();
+    await leaveChannel();
     onLeave();
   };
 
   const [open, setOpen] = React.useState(false);
   const [volumes, setVolumes] = React.useState<Record<string, number>>({});
-  const [noise, setNoise] = React.useState<"off" | "standard" | "high">("standard");
+  const [noise, setNoise] = React.useState<"off" | "standard">("standard");
+
+  const handleNoiseChange = (next: "off" | "standard") => {
+    setNoise(next);
+    setNoiseSuppression(next === "standard").catch((e) =>
+      console.warn("[VoiceView] noise suppression toggle failed:", e),
+    );
+  };
   const rootRef = useRef<HTMLDivElement>(null);
 
   const speakingPerson = participants.find((p) => p.isSpeaking);
@@ -113,13 +128,85 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     };
   }, [open]);
 
-  const meter = React.useMemo(() => {
-    if (isMuted) return new Array(12).fill(0) as number[];
-    return Array.from({ length: 12 }, (_, i) => {
-      const bias = 1 - Math.abs(i - 5.5) / 7;
-      return Math.max(0.12, bias * 0.55);
-    });
-  }, [isMuted]);
+  const BARS = 12;
+  const [meter, setMeter] = React.useState<number[]>(() =>
+    new Array(BARS).fill(0),
+  );
+
+  useEffect(() => {
+    if (!open || isMuted || !isConnected) {
+      setMeter(new Array(BARS).fill(0));
+      return;
+    }
+
+    let cancelled = false;
+    let ctx: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
+    let raf = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const start = () => {
+      if (cancelled) return;
+      const track = getLocalAudioMediaStreamTrack();
+      if (!track) {
+        retryTimer = setTimeout(start, 200);
+        return;
+      }
+
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      try {
+        ctx = new AudioCtx();
+        source = ctx.createMediaStreamSource(new MediaStream([track]));
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.75;
+        source.connect(analyser);
+      } catch (e) {
+        console.error("[meter] failed to set up audio graph:", e);
+        return;
+      }
+
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+
+      const bins = analyser.frequencyBinCount;
+      const data = new Uint8Array(bins);
+      const usable = Math.floor(bins * 0.6);
+      const perBar = Math.max(1, Math.floor(usable / BARS));
+
+      const tick = () => {
+        if (!analyser) return;
+        analyser.getByteFrequencyData(data);
+        const next = new Array(BARS).fill(0) as number[];
+        for (let b = 0; b < BARS; b++) {
+          let sum = 0;
+          const offset = b * perBar;
+          for (let j = 0; j < perBar; j++) sum += data[offset + j] || 0;
+          next[b] = Math.min(1, sum / perBar / 200);
+        }
+        setMeter(next);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    };
+
+    start();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (raf) cancelAnimationFrame(raf);
+      try {
+        source?.disconnect();
+      } catch {}
+      ctx?.close().catch(() => {});
+    };
+  }, [open, isMuted, isConnected, getLocalAudioMediaStreamTrack]);
 
   const totalConnected = isConnected ? participants.length + 1 : 0;
   const youColor = "#0071e3";
@@ -144,7 +231,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
         className="voice-pill"
         style={{ background: "var(--danger-tint)", color: "var(--danger)" }}
       >
-        <span>Voice unavailable: {error}</span>
+        <span>{error}</span>
         <button className="vp-btn leave" onClick={handleLeave} title="Leave">
           <Icon name="logout" size={15} />
         </button>
@@ -157,7 +244,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       <div className="voice-pill">
         <span className="vp-dot" />
         <div>
-          <div className="vp-title">{roomName}</div>
+          <div className="vp-title">{channelName}</div>
           <div className="vp-meta">Connecting…</div>
         </div>
         <button className="vp-btn leave" onClick={handleLeave} title="Cancel">
@@ -171,7 +258,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     <div className="voice-pill" ref={rootRef}>
       <span className="vp-dot" />
       <div>
-        <div className="vp-title">{roomName}</div>
+        <div className="vp-title">{channelName}</div>
         <div className="vp-meta">
           {speakingPerson
             ? `${speakingPerson.name || speakingPerson.identity} is speaking`
@@ -246,16 +333,19 @@ const VoiceView: React.FC<VoiceViewProps> = ({
               <span className="k">Noise suppression</span>
             </div>
             <div className="vp-seg">
-              <button className={noise === "off" ? "on" : ""} onClick={() => setNoise("off")}>
+              <button
+                className={noise === "off" ? "on" : ""}
+                onClick={() => handleNoiseChange("off")}
+              >
                 Off
               </button>
               <button
                 className={noise === "standard" ? "on" : ""}
-                onClick={() => setNoise("standard")}
+                onClick={() => handleNoiseChange("standard")}
               >
                 Standard
               </button>
-              <button className={noise === "high" ? "on" : ""} onClick={() => setNoise("high")}>
+              <button disabled title="Coming soon">
                 <Icon name="sparkles" size={11} />
                 High
               </button>

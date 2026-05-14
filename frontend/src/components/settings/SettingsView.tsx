@@ -76,7 +76,6 @@ function SettingsRow({ label, hint, children }: SettingsRowProps) {
   );
 }
 
-// --- Sections ---------------------------------------------------------
 
 function AccountSection() {
   return (
@@ -559,16 +558,44 @@ function LanguageSection() {
   );
 }
 
+const ALL_RAIL_IDS = SETTINGS_SECTIONS.flatMap(g => g.items.map(i => i.id));
+
 function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignOut }: SettingsViewProps) {
   const [activeId, setActiveId] = React.useState('account');
+  const overlayRef = React.useRef<HTMLDivElement>(null);
+  const railButtonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // Esc to close
   React.useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab' || !overlayRef.current) return;
+      const focusables = overlayRef.current.querySelectorAll<HTMLElement>(
+        'a, button:not([tabindex="-1"]), input, textarea, select, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (active && !overlayRef.current.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    railButtonRefs.current[activeId]?.focus();
+  }, [open, activeId]);
 
   if (!open) return null;
 
@@ -587,14 +614,31 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
     default: body = null;
   }
 
+  const onRailKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    const idx = ALL_RAIL_IDS.indexOf(activeId);
+    let nextIdx = idx;
+    if (e.key === 'ArrowDown') nextIdx = (idx + 1) % ALL_RAIL_IDS.length;
+    if (e.key === 'ArrowUp') nextIdx = (idx - 1 + ALL_RAIL_IDS.length) % ALL_RAIL_IDS.length;
+    if (e.key === 'Home') nextIdx = 0;
+    if (e.key === 'End') nextIdx = ALL_RAIL_IDS.length - 1;
+    const nextId = ALL_RAIL_IDS[nextIdx];
+    setActiveId(nextId);
+    railButtonRefs.current[nextId]?.focus();
+  };
+
   return (
-    <div className="settings-overlay">
-      <nav className="settings-rail">
+    <div ref={overlayRef} className="settings-overlay">
+      <nav className="settings-rail" role="tablist" aria-orientation="vertical" onKeyDown={onRailKeyDown}>
         {SETTINGS_SECTIONS.map(group => (
           <React.Fragment key={group.group}>
             <div className="rail-section">{group.group}</div>
             {group.items.map(item => (
               <button key={item.id}
+                ref={(el) => { railButtonRefs.current[item.id] = el; }}
+                role="tab"
+                aria-selected={activeId === item.id}
                 className={'rail-item' + (activeId === item.id ? ' active' : '')}
                 onClick={() => setActiveId(item.id)}>
                 <span className="ic"><Icon name={item.icon} size={15}/></span>
@@ -623,9 +667,6 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
   );
 }
 
-// ======================================================================
-// Tweaks panel (custom — not visible unless the toolbar toggle is on)
-// ======================================================================
 function TweaksPanel({ theme, onTheme }: TweaksPanelProps) {
   return (
     <div className="tweaks-panel">

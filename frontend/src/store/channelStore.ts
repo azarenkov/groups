@@ -1,0 +1,140 @@
+import { create } from "zustand";
+import { Channel, ChannelKind, ChannelVisibility } from "../types/channel";
+import { channelAPI } from "../api/channel";
+
+interface ChannelState {
+  channelsByServer: Record<string, Channel[]>;
+  selectedChannelId: string | null;
+  isLoading: boolean;
+  error: string | null;
+
+  setChannels: (serverId: string, channels: Channel[]) => void;
+  setSelectedChannel: (channelId: string | null) => void;
+  addChannel: (serverId: string, channel: Channel) => void;
+  removeChannel: (serverId: string, channelId: string) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  clearError: () => void;
+  clearChannels: (serverId: string) => void;
+
+  fetchChannels: (serverId: string) => Promise<void>;
+  createChannel: (
+    serverId: string,
+    name: string,
+    kind: ChannelKind,
+    visibility: ChannelVisibility,
+    password?: string,
+  ) => Promise<void>;
+  deleteChannel: (serverId: string, channelId: string) => Promise<void>;
+}
+
+export const useChannelStore = create<ChannelState>((set, get) => ({
+  channelsByServer: {},
+  selectedChannelId: null,
+  isLoading: false,
+  error: null,
+
+  setChannels: (serverId, channels) =>
+    set((state) => ({
+      channelsByServer: {
+        ...state.channelsByServer,
+        [serverId]: channels,
+      },
+    })),
+
+  setSelectedChannel: (channelId) => set({ selectedChannelId: channelId }),
+
+  addChannel: (serverId, channel) =>
+    set((state) => ({
+      channelsByServer: {
+        ...state.channelsByServer,
+        [serverId]: [...(state.channelsByServer[serverId] || []), channel],
+      },
+    })),
+
+  removeChannel: (serverId, channelId) =>
+    set((state) => ({
+      channelsByServer: {
+        ...state.channelsByServer,
+        [serverId]: (state.channelsByServer[serverId] || []).filter(
+          (c) => c.id !== channelId,
+        ),
+      },
+    })),
+
+  setLoading: (loading) => set({ isLoading: loading }),
+
+  setError: (error) => set({ error }),
+
+  clearError: () => set({ error: null }),
+
+  clearChannels: (serverId) =>
+    set((state) => {
+      const next = { ...state.channelsByServer };
+      delete next[serverId];
+      return { channelsByServer: next };
+    }),
+
+  fetchChannels: async (serverId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await channelAPI.listByServer(serverId);
+      set((state) => ({
+        channelsByServer: {
+          ...state.channelsByServer,
+          [serverId]: response.channels,
+        },
+        isLoading: false,
+      }));
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to fetch channels",
+        isLoading: false,
+      });
+    }
+  },
+
+  createChannel: async (
+    serverId: string,
+    name: string,
+    kind: ChannelKind,
+    visibility: ChannelVisibility,
+    password?: string,
+  ) => {
+    set({ isLoading: true, error: null });
+    try {
+      const channel = await channelAPI.create(serverId, {
+        name,
+        kind,
+        visibility,
+        password,
+      });
+      get().addChannel(serverId, channel);
+      set({ isLoading: false });
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to create channel",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  deleteChannel: async (serverId: string, channelId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await channelAPI.delete(serverId, channelId);
+      get().removeChannel(serverId, channelId);
+      set({ isLoading: false });
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to delete channel",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+}));

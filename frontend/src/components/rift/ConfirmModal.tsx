@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Icon from "./Icon";
 
 interface ConfirmModalProps {
@@ -19,45 +19,84 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   danger,
   onCancel,
   onConfirm,
-}) => (
-  <div className="modal-overlay" onMouseDown={onCancel}>
-    <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
-      <div className="m-head">
-        <h3>{title}</h3>
-        <button type="button" className="close" onClick={onCancel} title="Close">
-          <Icon name="x" size={14} />
-        </button>
-      </div>
-      <div className="m-body">
-        {subtitle && (
-          <p style={{ fontSize: 13, color: "var(--fg-3)", margin: "0 0 8px" }}>{subtitle}</p>
-        )}
-        {targetName && (
-          <p style={{ fontSize: 13, color: "var(--fg-2)", margin: 0 }}>
-            You're about to delete{" "}
-            <strong style={{ color: "var(--fg-1)", fontWeight: 600 }}>{targetName}</strong>.
-          </p>
-        )}
-      </div>
-      <div className="m-foot">
-        <button type="button" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={danger ? "danger" : "primary"}
-          onClick={onConfirm}
-          style={
-            danger
-              ? { background: "var(--danger)", color: "#fff", borderColor: "transparent" }
-              : undefined
-          }
-        >
-          {confirmLabel}
-        </button>
+}) => {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCancel();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const active = document.activeElement;
+      if (e.shiftKey && active === cancelRef.current) {
+        e.preventDefault();
+        confirmRef.current?.focus();
+      } else if (!e.shiftKey && active === confirmRef.current) {
+        e.preventDefault();
+        cancelRef.current?.focus();
+      } else if (active !== cancelRef.current && active !== confirmRef.current) {
+        e.preventDefault();
+        cancelRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  return (
+    <div className="modal-overlay" onMouseDown={onCancel}>
+      <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="m-head">
+          <h3>{title}</h3>
+          <button
+            type="button"
+            tabIndex={-1}
+            className="close"
+            onClick={onCancel}
+            title="Close"
+          >
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+        <div className="m-body">
+          {subtitle && (
+            <p style={{ fontSize: 13, color: "var(--fg-3)", margin: "0 0 8px" }}>{subtitle}</p>
+          )}
+          {targetName && (
+            <p style={{ fontSize: 13, color: "var(--fg-2)", margin: 0 }}>
+              You're about to delete{" "}
+              <strong style={{ color: "var(--fg-1)", fontWeight: 600 }}>{targetName}</strong>.
+            </p>
+          )}
+        </div>
+        <div className="m-foot">
+          <button ref={cancelRef} type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            ref={confirmRef}
+            type="button"
+            className={danger ? "danger" : "primary"}
+            onClick={onConfirm}
+            style={
+              danger
+                ? { background: "var(--danger)", color: "#fff", borderColor: "transparent" }
+                : undefined
+            }
+          >
+            {confirmLabel}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default ConfirmModal;

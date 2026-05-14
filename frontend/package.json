@@ -2,6 +2,10 @@
   "name": "rift-desktop",
   "version": "0.1.0",
   "description": "Rift - Discord-like voice chat application",
+  "author": {
+    "name": "Rift",
+    "email": "support@rift.app"
+  },
   "main": "public/electron.js",
   "homepage": "./",
   "private": true,
@@ -20,6 +24,7 @@
   "dependencies": {
     "axios": "^1.6.2",
     "electron-is-dev": "^2.0.0",
+    "electron-updater": "^6.8.3",
     "framer-motion": "^10.16.16",
     "livekit-client": "^2.17.2",
     "react": "^18.2.0",
@@ -45,25 +50,38 @@
     "files": [
       "build/**/*",
       "node_modules/**/*",
-      "public/electron.js"
+      "public/electron.js",
+      "public/preload.js",
+      "public/splash.html",
+      "public/icons/**/*"
     ],
     "directories": {
-      "buildResources": "assets"
+      "buildResources": "public/icons"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "rift-space",
+        "repo": "rift-releases"
+      }
+    ],
     "mac": {
       "category": "public.app-category.social-networking",
+      "icon": "public/icons/rift-icon.icns",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
+      "icon": "public/icons/rift-icon-256.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "linux": {
+      "icon": "public/icons/rift-icon-512.png",
       "target": [
         "AppImage",
         "deb"

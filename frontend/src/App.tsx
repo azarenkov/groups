@@ -11,42 +11,118 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import ServersPage from "./pages/ServersPage";
 import { useAuthStore } from "./store/authStore";
 import { useThemeStore, applyTheme } from "./store/themeStore";
+import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
+import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
+import { authAPI } from "./api/auth";
+import { ApiError } from "./utils/apiError";
 import "./styles/App.css";
 
 const App: React.FC = () => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, tokens, isHydrating } = useAuthStore();
   const { theme } = useThemeStore();
+
+  const hasUnverifiedSession =
+    !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+      try {
+        const refreshToken = await getRefreshToken();
+        if (!refreshToken) return;
+        const fresh = await authAPI.refreshWith(refreshToken);
+        if (cancelled) return;
+        const claims = decodeAccessToken(fresh.accessToken);
+        const userId = claims?.sub ?? "";
+        useAuthStore.getState().login(fresh, {
+          id: userId,
+          name: "",
+          email: "",
+        });
+        authAPI.setAuthToken(fresh.accessToken);
+      } catch (err) {
+        console.error("[App] hydrate failed:", err);
+        const status = err instanceof ApiError ? err.status : undefined;
+        if (status === 400 || status === 401 || status === 403 || status === 422) {
+          await clearRefreshToken();
+        }
+      } finally {
+        if (!cancelled) useAuthStore.getState().setHydrating(false);
+      }
+    };
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (isHydrating) {
+    return (
+      <div className="app">
+        <div className="loading-screen">
+          <div className="spinner" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <div className="app">
         <AnimatePresence mode="wait">
           <Routes>
             <Route
               path="/login"
               element={
-                !isAuthenticated ? <LoginPage /> : <Navigate to="/app" />
+                !isAuthenticated || hasUnverifiedSession ? (
+                  <LoginPage />
+                ) : (
+                  <Navigate to="/app" />
+                )
               }
             />
             <Route
               path="/register"
               element={
-                !isAuthenticated ? <RegisterPage /> : <Navigate to="/app" />
+                !isAuthenticated || hasUnverifiedSession ? (
+                  <RegisterPage />
+                ) : (
+                  <Navigate to="/app" />
+                )
               }
             />
             <Route
               path="/app"
               element={
-                isAuthenticated ? <ServersPage /> : <Navigate to="/login" />
+                isAuthenticated && !hasUnverifiedSession ? (
+                  <ServersPage />
+                ) : (
+                  <Navigate to={hasUnverifiedSession ? "/register" : "/login"} />
+                )
               }
             />
             <Route
               path="*"
-              element={<Navigate to={isAuthenticated ? "/app" : "/login"} />}
+              element={
+                <Navigate
+                  to={
+                    isAuthenticated && !hasUnverifiedSession
+                      ? "/app"
+                      : hasUnverifiedSession
+                        ? "/register"
+                        : "/login"
+                  }
+                />
+              }
             />
           </Routes>
         </AnimatePresence>

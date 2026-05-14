@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "../../store/authStore";
 import { authAPI } from "../../api/auth";
+import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import {
   ArrowLeft,
@@ -29,8 +30,22 @@ interface AuthPageProps {
 
 const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>(defaultMode);
-  const [email, setEmail] = useState("");
+  const tokens = useAuthStore((s) => s.tokens);
+  const storedUser = useAuthStore((s) => s.user);
+  const hasUnverifiedSession =
+    !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
+
+  const [mode, setMode] = useState<Mode>(
+    hasUnverifiedSession ? "verify-email" : defaultMode,
+  );
+  const [email, setEmail] = useState(storedUser?.email ?? "");
+
+  useEffect(() => {
+    if (hasUnverifiedSession) {
+      setMode("verify-email");
+      if (storedUser?.email) setEmail(storedUser.email);
+    }
+  }, [hasUnverifiedSession, storedUser?.email]);
 
   const onSignedIn = () => navigate("/app");
 
@@ -125,15 +140,14 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
 
       <div className="auth-legal">
         <span>© 2026 Rift</span>
-        <a href="#" onClick={(e) => e.preventDefault()}>Privacy</a>
-        <a href="#" onClick={(e) => e.preventDefault()}>Terms</a>
-        <a href="#" onClick={(e) => e.preventDefault()}>Status</a>
+        <button type="button" className="auth-link" onClick={() => {}}>Privacy</button>
+        <button type="button" className="auth-link" onClick={() => {}}>Terms</button>
+        <button type="button" className="auth-link" onClick={() => {}}>Status</button>
       </div>
     </div>
   );
 };
 
-// -------------------- Sign in / Sign up combined --------------------
 
 interface SignInData {
   email: string;
@@ -162,16 +176,20 @@ const SignInUp: React.FC<SignInUpProps> = ({
   onEmailChange,
   onSwitchMode,
   onSignedIn,
+  goVerify,
   goForgot,
 }) => {
   const isSignup = mode === "signup";
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
 
-  const signInForm = useForm<SignInData>({ values: { email, password: "" } });
-  const signUpForm = useForm<SignUpData>({ values: { name: "", email, password: "" } });
+  const signInForm = useForm<SignInData>({
+    values: { email, password: "" },
+  });
+  const signUpForm = useForm<SignUpData>({
+    values: { name: "", email, password: "" },
+  });
 
   const [showPw, setShowPw] = useState(false);
-  const [remember, setRemember] = useState(true);
 
   const handleSignIn = async (data: SignInData) => {
     try {
@@ -179,15 +197,33 @@ const SignInUp: React.FC<SignInUpProps> = ({
       setError(null);
       const response = await authAPI.login(data.email, data.password);
       authAPI.setAuthToken(response.accessToken);
-      login(
-        { accessToken: response.accessToken, refreshToken: response.refreshToken },
-        {
-          id: response.userId || "",
-          name: data.email.split("@")[0],
-          email: data.email,
-        },
-      );
-      onSignedIn();
+      const tokens = {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        tokenType: response.tokenType,
+        expiresIn: response.expiresIn,
+      };
+      const user = {
+        id: decodeAccessToken(response.accessToken)?.sub ?? "",
+        name: data.email.split("@")[0],
+        email: data.email,
+      };
+
+      const verified = isAccessTokenVerified(response.accessToken);
+      if (!verified) {
+        useAuthStore.getState().setTokens(tokens);
+        useAuthStore.getState().setUser(user);
+        try {
+          await authAPI.requestVerificationCode();
+        } catch (codeErr) {
+          console.error("[Auth] requestVerificationCode failed:", codeErr);
+        }
+        onEmailChange(data.email);
+        goVerify();
+      } else {
+        login(tokens, user);
+        onSignedIn();
+      }
     } catch (err: any) {
       setError(err.message || "Could not sign you in.");
     } finally {
@@ -199,15 +235,29 @@ const SignInUp: React.FC<SignInUpProps> = ({
     try {
       setLoading(true);
       setError(null);
-      await authAPI.register(data.name, data.email, data.password);
-      // Try auto sign-in after register
-      const response = await authAPI.login(data.email, data.password);
-      authAPI.setAuthToken(response.accessToken);
-      login(
-        { accessToken: response.accessToken, refreshToken: response.refreshToken },
-        { id: response.userId || "", name: data.name, email: data.email },
+      const response = await authAPI.register(
+        data.name,
+        data.email,
+        data.password,
       );
-      onSignedIn();
+      authAPI.setAuthToken(response.accessToken);
+      useAuthStore.getState().setTokens({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        tokenType: response.tokenType,
+        expiresIn: response.expiresIn,
+      });
+      useAuthStore.getState().setUser({
+        id: decodeAccessToken(response.accessToken)?.sub ?? "",
+        name: data.name,
+        email: data.email,
+      });
+      try {
+        await authAPI.requestVerificationCode();
+      } catch (codeErr) {
+        console.error("[Auth] requestVerificationCode failed:", codeErr);
+      }
+      goVerify();
     } catch (err: any) {
       setError(err.message || "Could not create your account.");
     } finally {
@@ -223,9 +273,6 @@ const SignInUp: React.FC<SignInUpProps> = ({
     ? (signUpForm.formState.errors as any)
     : (signInForm.formState.errors as any);
 
-  // react-hook-form's `register` is generic on the form's data type, so the
-  // ternary creates a non-callable union. Cast each form's register up to a
-  // shared (string, opts) signature so we can drive both forms from one tree.
   type AnyRegister = (name: string, opts?: any) => any;
   const registerEmail: AnyRegister = isSignup
     ? (signUpForm.register as unknown as AnyRegister)
@@ -330,27 +377,12 @@ const SignInUp: React.FC<SignInUpProps> = ({
               <span>Send me product updates</span>
             </label>
           ) : (
-            <label className="auth-check">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-              />
-              <span className="box" />
-              <span>Remember me</span>
-            </label>
+            <span />
           )}
           {!isSignup && (
-            <a
-              className="auth-link"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                goForgot();
-              }}
-            >
+            <button type="button" className="auth-link" onClick={goForgot}>
               Forgot password?
-            </a>
+            </button>
           )}
         </div>
 
@@ -396,30 +428,24 @@ const SignInUp: React.FC<SignInUpProps> = ({
         {isSignup ? (
           <>
             Already have an account?{" "}
-            <a
+            <button
+              type="button"
               className="auth-link"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onSwitchMode("signin");
-              }}
+              onClick={() => onSwitchMode("signin")}
             >
               Sign in
-            </a>
+            </button>
           </>
         ) : (
           <>
             New to Rift?{" "}
-            <a
+            <button
+              type="button"
               className="auth-link"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onSwitchMode("signup");
-              }}
+              onClick={() => onSwitchMode("signup")}
             >
               Create an account
-            </a>
+            </button>
           </>
         )}
       </div>
@@ -427,7 +453,6 @@ const SignInUp: React.FC<SignInUpProps> = ({
   );
 };
 
-// -------------------- Forgot password --------------------
 
 const Forgot: React.FC<{
   email: string;
@@ -470,21 +495,13 @@ const Forgot: React.FC<{
     </form>
     <div className="auth-foot">
       Remember it now?{" "}
-      <a
-        className="auth-link"
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          onBack();
-        }}
-      >
+      <button type="button" className="auth-link" onClick={onBack}>
         Sign in
-      </a>
+      </button>
     </div>
   </>
 );
 
-// -------------------- Reset link sent --------------------
 
 const ResetSent: React.FC<{
   email: string;
@@ -527,24 +544,22 @@ const ResetSent: React.FC<{
             Resend available in <span className="countdown">{secondsLeft}s</span>
           </>
         ) : (
-          <a
+          <button
+            type="button"
             className="auth-link muted"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setSecondsLeft(30);
               onResend();
             }}
           >
             Resend the email
-          </a>
+          </button>
         )}
       </div>
     </>
   );
 };
 
-// -------------------- Reset password --------------------
 
 const ResetPassword: React.FC<{
   onSubmit: () => void;
@@ -654,7 +669,6 @@ const ResetPassword: React.FC<{
   );
 };
 
-// -------------------- Reset success --------------------
 
 const ResetSuccess: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
   <>
@@ -669,7 +683,6 @@ const ResetSuccess: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
   </>
 );
 
-// -------------------- Verify email --------------------
 
 const VerifyEmail: React.FC<{
   email: string;
@@ -679,6 +692,7 @@ const VerifyEmail: React.FC<{
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -686,12 +700,38 @@ const VerifyEmail: React.FC<{
     return () => clearTimeout(t);
   }, [secondsLeft]);
 
+  const submitCode = useCallback(
+    async (value: string) => {
+      if (value.length !== 6 || isSubmitting) return;
+      setIsSubmitting(true);
+      setError("");
+      try {
+        await authAPI.confirmRegistration(value);
+        const fresh = await authAPI.refresh();
+        if (!isAccessTokenVerified(fresh.accessToken)) {
+          throw new Error("Verification didn't take effect. Please try again.");
+        }
+        useAuthStore.getState().setTokens(fresh);
+        authAPI.setAuthToken(fresh.accessToken);
+        const { user } = useAuthStore.getState();
+        if (user) {
+          useAuthStore.getState().login(fresh, user);
+        }
+        onVerified();
+      } catch (err: any) {
+        setError(err?.message || "Invalid or expired code");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [isSubmitting, onVerified],
+  );
+
   useEffect(() => {
     if (code.length === 6) {
-      const t = setTimeout(() => onVerified(), 250);
-      return () => clearTimeout(t);
+      submitCode(code);
     }
-  }, [code, onVerified]);
+  }, [code, submitCode]);
 
   return (
     <>
@@ -704,17 +744,13 @@ const VerifyEmail: React.FC<{
       <h1>Verify your email</h1>
       <p className="sub">
         Enter the 6-digit code we sent to{" "}
-        <b style={{ color: "var(--fg-1)" }}>{email}</b> to finish creating your account.
+        <b style={{ color: "var(--fg-1)" }}>{email || "your email"}</b> to finish creating your account.
       </p>
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (code.length !== 6) {
-            setError("Enter the 6-digit code");
-            return;
-          }
-          onVerified();
+          submitCode(code);
         }}
       >
         <OtpInput
@@ -740,13 +776,18 @@ const VerifyEmail: React.FC<{
         <button
           type="submit"
           className="btn primary"
-          disabled={code.length !== 6}
+          disabled={code.length !== 6 || isSubmitting}
           style={{
-            opacity: code.length === 6 ? 1 : 0.55,
-            cursor: code.length === 6 ? "pointer" : "not-allowed",
+            opacity: code.length === 6 && !isSubmitting ? 1 : 0.55,
+            cursor:
+              code.length === 6 && !isSubmitting ? "pointer" : "not-allowed",
           }}
         >
-          Verify and continue
+          {isSubmitting ? (
+            <span className="loading-spinner" />
+          ) : (
+            "Verify and continue"
+          )}
         </button>
       </form>
 
@@ -757,23 +798,26 @@ const VerifyEmail: React.FC<{
             <span className="countdown">{secondsLeft}s</span>
           </>
         ) : (
-          <a
+          <button
+            type="button"
             className="auth-link muted"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={async () => {
               setSecondsLeft(30);
+              try {
+                await authAPI.requestVerificationCode();
+              } catch (err) {
+                console.error("[VerifyEmail] resend failed:", err);
+              }
             }}
           >
             Resend the code
-          </a>
+          </button>
         )}
       </div>
     </>
   );
 };
 
-// -------------------- 2FA --------------------
 
 const TwoFa: React.FC<{ onVerified: () => void; onBack: () => void }> = ({
   onVerified,
@@ -821,13 +865,9 @@ const TwoFa: React.FC<{ onVerified: () => void; onBack: () => void }> = ({
       </form>
       <div className="auth-resend">
         Lost access?{" "}
-        <a
-          className="auth-link muted"
-          href="#"
-          onClick={(e) => e.preventDefault()}
-        >
+        <button type="button" className="auth-link muted" onClick={() => {}}>
           Use a recovery code
-        </a>
+        </button>
       </div>
     </>
   );

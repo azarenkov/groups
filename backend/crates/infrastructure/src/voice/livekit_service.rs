@@ -10,7 +10,10 @@ use domain::{
 };
 use livekit_api::{
     access_token::{self, AccessToken},
-    services::room::{CreateRoomOptions, RoomClient},
+    services::{
+        ServiceError, TwirpError, TwirpErrorCode,
+        room::{CreateRoomOptions, RoomClient},
+    },
 };
 use tokio::{net::TcpStream, time::timeout};
 
@@ -70,6 +73,24 @@ impl VoiceService for LiveKitService {
         Ok(())
     }
 
+    async fn delete_voice_channel(&self, channel_id: &ChannelId) -> Result<(), VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::VoiceChannelDeletion(e.to_string()))?;
+
+        match livekit_room
+            .delete_room(&channel_id.uuid().to_string())
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
+                if code.code == TwirpErrorCode::NOT_FOUND =>
+            {
+                Ok(())
+            }
+            Err(e) => Err(VoiceServiceError::VoiceChannelDeletion(e.to_string())),
+        }
+    }
+
     fn client_url(&self) -> String {
         self.config.client_url.clone()
     }
@@ -80,7 +101,11 @@ pub async fn is_livekit_reachable(url: &str) -> bool {
         return false;
     };
     matches!(
-        timeout(Duration::from_secs(2), TcpStream::connect(host_port.as_str())).await,
+        timeout(
+            Duration::from_secs(2),
+            TcpStream::connect(host_port.as_str())
+        )
+        .await,
         Ok(Ok(_))
     )
 }
