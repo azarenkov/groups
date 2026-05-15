@@ -15,7 +15,10 @@ use domain::{
     },
 };
 
-use crate::ports::hasher::{HashError, Hasher};
+use crate::{
+    dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest,
+    ports::hasher::{HashError, Hasher},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum IssueVerificationCodeError {
@@ -63,10 +66,9 @@ where
     pub async fn execute(
         &self,
         user_id: UserId,
-        purpose: VerificationPurpose,
-        channel: VerificationChannel,
+        request: IssueVerificationCodeRequest,
     ) -> Result<(), IssueVerificationCodeError> {
-        if !matches!(channel, VerificationChannel::Email) {
+        if !matches!(request.channel, VerificationChannel::Email) {
             return Err(IssueVerificationCodeError::UnsupportedChannel);
         }
 
@@ -76,7 +78,7 @@ where
             .await?
             .ok_or(RepositoryError::NotFound)?;
 
-        if matches!(purpose, VerificationPurpose::Registration) && user.is_verified() {
+        if matches!(request.purpose, VerificationPurpose::Registration) && user.is_verified() {
             return Err(IssueVerificationCodeError::UserAlreadyVerified);
         }
 
@@ -87,15 +89,16 @@ where
             user_id,
             user.email().clone(),
             plain_code,
-            channel,
+            request.channel,
             code_hash,
-            purpose,
+            request.purpose,
         );
 
+        let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = verification_code
             .pull_events()
             .iter()
-            .map(|e| e.to_outbox_record())
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<Vec<_>, _>>()?;
 
         self.verification_code_repository

@@ -1,6 +1,6 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, http, post, web};
 
-use crate::shared::{error::ApiError, state::AppState};
+use crate::shared::{context::request_context, error::ApiError, state::AppState};
 
 #[post("/livekit")]
 async fn livekit_webhook(
@@ -16,6 +16,7 @@ async fn livekit_webhook(
             ApiError::new(
                 "Missing authorization header".to_string(),
                 http::StatusCode::UNAUTHORIZED,
+                "WEBHOOK_MISSING_AUTH",
             )
         })?;
 
@@ -23,12 +24,13 @@ async fn livekit_webhook(
         ApiError::new(
             "Body is not valid UTF-8".to_string(),
             http::StatusCode::BAD_REQUEST,
+            "WEBHOOK_INVALID_BODY",
         )
     })?;
 
     app_state
         .handle_livekit_webhook_usecase
-        .execute(body_str, auth_token)
+        .execute(body_str, auth_token, request_context(&req))
         .await?;
 
     Ok(HttpResponse::Ok().finish())

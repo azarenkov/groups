@@ -1,10 +1,12 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
+use application::dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest;
 use domain::{user::id::UserId, verification::purpose::VerificationPurpose};
 use shared::middleware::auth::AuthToken;
 use validator::Validate;
 
 use crate::shared::{
     client::extract_client_context,
+    context::request_context,
     dto::{
         requests::auth::{
             confirm_registration::ConfirmRegistrationRequestBody, login::LoginUserRequestBody,
@@ -28,9 +30,10 @@ async fn register_user(
     body.validate()?;
 
     let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let ctx = request_context(&req);
     let registered = app_state
         .register_user_usecase
-        .execute(body.into_request(client))
+        .execute(body.into_request(client, ctx))
         .await?;
 
     let response: TokenPairResponse = registered.tokens.into();
@@ -40,6 +43,7 @@ async fn register_user(
 
 #[post("/request_verification_code")]
 async fn request_verification_code(
+    req: HttpRequest,
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<RequestVerificationCodeRequestBody>,
@@ -47,10 +51,17 @@ async fn request_verification_code(
     let body: RequestVerificationCodeRequestBody = body.into_inner();
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
+
+    let data = IssueVerificationCodeRequest {
+        purpose: VerificationPurpose::Registration,
+        channel: body.channel.into(),
+        ctx,
+    };
 
     app_state
         .issue_verification_code_usecase
-        .execute(user_id, VerificationPurpose::Registration, body.channel.into())
+        .execute(user_id, data)
         .await?;
 
     Ok(HttpResponse::Accepted().finish())
@@ -58,6 +69,7 @@ async fn request_verification_code(
 
 #[post("/confirm_registration")]
 async fn confirm_registration(
+    req: HttpRequest,
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     request: web::Json<ConfirmRegistrationRequestBody>,
@@ -65,10 +77,11 @@ async fn confirm_registration(
     let request: ConfirmRegistrationRequestBody = request.into_inner();
     request.validate()?;
     let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
 
     app_state
         .confirm_registration_usecase
-        .execute(user_id, request.into())
+        .execute(user_id, request.into_request(ctx))
         .await?;
 
     Ok(HttpResponse::NoContent().finish())
@@ -84,9 +97,10 @@ async fn login_user(
     request.validate()?;
 
     let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let ctx = request_context(&req);
     let tokens = app_state
         .login_user_usecase
-        .execute(request.into_request(client))
+        .execute(request.into_request(client, ctx))
         .await?;
 
     let response: TokenPairResponse = tokens.into();
@@ -126,9 +140,10 @@ async fn logout(
     let user_id = UserId::new(auth_token.id);
 
     let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let ctx = request_context(&req);
     app_state
         .logout_usecase
-        .execute(user_id, request.into_request(client))
+        .execute(user_id, request.into_request(client, ctx))
         .await?;
 
     Ok(HttpResponse::NoContent().finish())

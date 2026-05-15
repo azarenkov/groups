@@ -44,10 +44,12 @@ use shared::{
     rate_limiting::{config::RateLimitingConfig, create_rate_limiter},
 };
 
+use shared::middleware::request_id::RequestIdMiddleware;
+
 use crate::{config::ServerConfig, routes, shared::state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    shared::observability::init("http");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
@@ -186,14 +188,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
+            .expose_headers(["x-request-id"])
             .max_age(3600);
 
         App::new()
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())
-            .wrap(cors)
+            .wrap(RequestIdMiddleware)
             .wrap(Logger::default())
+            .wrap(cors)
             .configure(routes::configure)
     })
     .bind((server_config.host, server_config.port))?

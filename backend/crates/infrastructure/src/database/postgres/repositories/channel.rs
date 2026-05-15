@@ -150,12 +150,14 @@ impl ChannelRepository for PostgresChannelRepository {
         occurred_at: DateTime<Utc>,
         inbox_source: &str,
         inbox_external_id: &str,
+        request_id: Option<String>,
     ) -> Result<bool, ChannelOperationError> {
         apply_voice_operation(
             &self.pool,
             channel_id,
             inbox_source,
             inbox_external_id,
+            request_id,
             |channel| channel.join(user_id, session_id, occurred_at),
         )
         .await
@@ -170,12 +172,14 @@ impl ChannelRepository for PostgresChannelRepository {
         occurred_at: DateTime<Utc>,
         inbox_source: &str,
         inbox_external_id: &str,
+        request_id: Option<String>,
     ) -> Result<bool, ChannelOperationError> {
         apply_voice_operation(
             &self.pool,
             channel_id,
             inbox_source,
             inbox_external_id,
+            request_id,
             |channel| channel.leave(user_id, session_id, reason, occurred_at),
         )
         .await
@@ -190,12 +194,14 @@ impl ChannelRepository for PostgresChannelRepository {
         occurred_at: DateTime<Utc>,
         inbox_source: &str,
         inbox_external_id: &str,
+        request_id: Option<String>,
     ) -> Result<bool, ChannelOperationError> {
         apply_voice_operation(
             &self.pool,
             channel_id,
             inbox_source,
             inbox_external_id,
+            request_id,
             |channel| channel.connection_aborted(user_id, session_id, reason, occurred_at),
         )
         .await
@@ -457,6 +463,7 @@ async fn apply_voice_operation<F>(
     channel_id: &ChannelId,
     inbox_source: &str,
     inbox_external_id: &str,
+    request_id: Option<String>,
     mutate: F,
 ) -> Result<bool, ChannelOperationError>
 where
@@ -488,7 +495,7 @@ where
     let events: Vec<OutboxRecord> = channel
         .pull_events()
         .iter()
-        .map(|e| e.to_outbox_record())
+        .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
         .collect::<Result<_, _>>()
         .map_err(|e| RepositoryError::Internal(format!("outbox error: {e}")))?;
     let voice_changes = channel.pull_voice_changes();

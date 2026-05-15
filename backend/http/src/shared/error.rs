@@ -10,8 +10,8 @@ use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{
         confirm_registration::ConfirmRegistrationError,
-        issue_verification_code::IssueVerificationCodeError, login::LoginError, logout::LogoutError,
-        refresh_tokens::RefreshTokensError, register::RegistrationError,
+        issue_verification_code::IssueVerificationCodeError, login::LoginError,
+        logout::LogoutError, refresh_tokens::RefreshTokensError, register::RegistrationError,
     },
     channel::{
         abort_voice_connection::AbortVoiceConnectionError, create_channel::CreateChannelError,
@@ -27,17 +27,30 @@ use domain::shared::outbox::to_outbox::OutboxError;
 use domain::shared::pagination::PaginationError;
 use domain::shared::repository::error::RepositoryError;
 use serde::Serialize;
-use validator::ValidationErrors;
+use validator::{ValidationErrors, ValidationErrorsKind};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldError {
+    pub field: String,
+    pub code: String,
+    pub message: String,
+}
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ErrorResponse {
+    code: &'static str,
     message: String,
     status: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fields: Option<Vec<FieldError>>,
 }
 
 pub trait ToHttpStatus {
     fn to_http_status(&self) -> StatusCode;
     fn to_user_message(&self) -> String;
+    fn to_error_code(&self) -> &'static str;
 }
 
 impl ToHttpStatus for RepositoryError {
@@ -60,6 +73,16 @@ impl ToHttpStatus for RepositoryError {
             RepositoryError::Internal(_) => "Internal server error".to_string(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RepositoryError::NotFound => "RESOURCE_NOT_FOUND",
+            RepositoryError::AlreadyExists => "RESOURCE_ALREADY_EXISTS",
+            RepositoryError::ConnectionError(_) => "SERVICE_UNAVAILABLE",
+            RepositoryError::InvalidData(_) => "INVALID_DATA",
+            RepositoryError::Internal(_) => "INTERNAL_ERROR",
+        }
+    }
 }
 
 impl ToHttpStatus for VoiceServiceError {
@@ -69,6 +92,14 @@ impl ToHttpStatus for VoiceServiceError {
 
     fn to_user_message(&self) -> String {
         "Voice service error".to_string()
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            VoiceServiceError::TokenCreation(_) => "VOICE_TOKEN_CREATION_FAILED",
+            VoiceServiceError::VoiceChannelCreation(_) => "VOICE_CHANNEL_CREATION_FAILED",
+            VoiceServiceError::VoiceChannelDeletion(_) => "VOICE_CHANNEL_DELETION_FAILED",
+        }
     }
 }
 
@@ -80,6 +111,10 @@ impl ToHttpStatus for HashError {
     fn to_user_message(&self) -> String {
         "Authentication error".to_string()
     }
+
+    fn to_error_code(&self) -> &'static str {
+        "INTERNAL_ERROR"
+    }
 }
 
 impl ToHttpStatus for MailerError {
@@ -89,6 +124,10 @@ impl ToHttpStatus for MailerError {
 
     fn to_user_message(&self) -> String {
         "Could not send email. Please try again in a moment.".to_string()
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        "MAILER_UNAVAILABLE"
     }
 }
 
@@ -121,6 +160,18 @@ impl ToHttpStatus for ChannelError {
             }
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ChannelError::PrivateChannelRequiresPassword => "CHANNEL_PASSWORD_REQUIRED",
+            ChannelError::PublicChannelCannotHavePassword => "CHANNEL_PASSWORD_NOT_ALLOWED",
+            ChannelError::NameUnchanged => "CHANNEL_NAME_UNCHANGED",
+            ChannelError::NotOwner => "CHANNEL_NOT_OWNER",
+            ChannelError::AlreadyMuted => "PARTICIPANT_ALREADY_MUTED",
+            ChannelError::NotMuted => "PARTICIPANT_NOT_MUTED",
+            ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+        }
+    }
 }
 
 impl ToHttpStatus for OutboxError {
@@ -131,6 +182,10 @@ impl ToHttpStatus for OutboxError {
     fn to_user_message(&self) -> String {
         "Internal server error".to_string()
     }
+
+    fn to_error_code(&self) -> &'static str {
+        "INTERNAL_ERROR"
+    }
 }
 
 impl ToHttpStatus for PaginationError {
@@ -140,6 +195,13 @@ impl ToHttpStatus for PaginationError {
 
     fn to_user_message(&self) -> String {
         self.to_string()
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            PaginationError::InvalidPage => "PAGINATION_INVALID_PAGE",
+            PaginationError::InvalidPerPage(_) => "PAGINATION_INVALID_PER_PAGE",
+        }
     }
 }
 
@@ -167,6 +229,17 @@ impl ToHttpStatus for CreateChannelError {
             CreateChannelError::Outbox(e) => e.to_user_message(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            CreateChannelError::Repository(e) => e.to_error_code(),
+            CreateChannelError::Hash(e) => e.to_error_code(),
+            CreateChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
+            CreateChannelError::InvalidData => "CHANNEL_INVALID_DATA",
+            CreateChannelError::Domain(e) => e.to_error_code(),
+            CreateChannelError::Outbox(e) => e.to_error_code(),
+        }
+    }
 }
 
 impl ToHttpStatus for DeleteChannelError {
@@ -184,15 +257,24 @@ impl ToHttpStatus for DeleteChannelError {
     fn to_user_message(&self) -> String {
         match self {
             DeleteChannelError::ChannelNotFound => "Channel not found".to_string(),
-            DeleteChannelError::NotOwner => {
-                "Only the channel owner can delete it.".to_string()
-            }
+            DeleteChannelError::NotOwner => "Only the channel owner can delete it.".to_string(),
             DeleteChannelError::Repository(e) => e.to_user_message(),
             DeleteChannelError::Domain(e) => e.to_user_message(),
             DeleteChannelError::Outbox(e) => e.to_user_message(),
             DeleteChannelError::VoiceService(_) => {
                 "Voice service is temporarily unavailable.".to_string()
             }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            DeleteChannelError::NotOwner => "CHANNEL_NOT_OWNER",
+            DeleteChannelError::Repository(e) => e.to_error_code(),
+            DeleteChannelError::Domain(e) => e.to_error_code(),
+            DeleteChannelError::Outbox(e) => e.to_error_code(),
+            DeleteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
@@ -222,6 +304,17 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::Outbox(e) => e.to_user_message(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            MuteChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            MuteChannelError::TargetUserNotFound => "TARGET_USER_NOT_FOUND",
+            MuteChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            MuteChannelError::Repository(e) => e.to_error_code(),
+            MuteChannelError::Domain(e) => e.to_error_code(),
+            MuteChannelError::Outbox(e) => e.to_error_code(),
+        }
+    }
 }
 
 impl ToHttpStatus for UnmuteChannelError {
@@ -249,6 +342,17 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Outbox(e) => e.to_user_message(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UnmuteChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            UnmuteChannelError::TargetUserNotFound => "TARGET_USER_NOT_FOUND",
+            UnmuteChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            UnmuteChannelError::Repository(e) => e.to_error_code(),
+            UnmuteChannelError::Domain(e) => e.to_error_code(),
+            UnmuteChannelError::Outbox(e) => e.to_error_code(),
+        }
+    }
 }
 
 impl ToHttpStatus for VoiceWebhookVerifierError {
@@ -273,6 +377,15 @@ impl ToHttpStatus for VoiceWebhookVerifierError {
             }
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            VoiceWebhookVerifierError::InvalidSignature => "WEBHOOK_INVALID_SIGNATURE",
+            VoiceWebhookVerifierError::InvalidBody(_) => "WEBHOOK_INVALID_BODY",
+            VoiceWebhookVerifierError::MissingField(_) => "WEBHOOK_MISSING_FIELD",
+            VoiceWebhookVerifierError::InvalidIdentifier(_) => "WEBHOOK_INVALID_IDENTIFIER",
+        }
+    }
 }
 
 impl ToHttpStatus for AbortVoiceConnectionError {
@@ -287,6 +400,13 @@ impl ToHttpStatus for AbortVoiceConnectionError {
         match self {
             AbortVoiceConnectionError::Repository(e) => e.to_user_message(),
             AbortVoiceConnectionError::Domain(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            AbortVoiceConnectionError::Repository(e) => e.to_error_code(),
+            AbortVoiceConnectionError::Domain(e) => e.to_error_code(),
         }
     }
 }
@@ -305,6 +425,13 @@ impl ToHttpStatus for LeaveVoiceConnectionError {
             LeaveVoiceConnectionError::Domain(e) => e.to_user_message(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            LeaveVoiceConnectionError::Repository(e) => e.to_error_code(),
+            LeaveVoiceConnectionError::Domain(e) => e.to_error_code(),
+        }
+    }
 }
 
 impl ToHttpStatus for JoinVoiceConnectionError {
@@ -319,6 +446,13 @@ impl ToHttpStatus for JoinVoiceConnectionError {
         match self {
             JoinVoiceConnectionError::Repository(e) => e.to_user_message(),
             JoinVoiceConnectionError::Domain(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            JoinVoiceConnectionError::Repository(e) => e.to_error_code(),
+            JoinVoiceConnectionError::Domain(e) => e.to_error_code(),
         }
     }
 }
@@ -341,6 +475,15 @@ impl ToHttpStatus for HandleVoiceWebhookError {
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_user_message(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            HandleVoiceWebhookError::Verifier(e) => e.to_error_code(),
+            HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_error_code(),
+            HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_error_code(),
+            HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_error_code(),
+        }
+    }
 }
 
 impl ToHttpStatus for TokenIssuerError {
@@ -359,6 +502,14 @@ impl ToHttpStatus for TokenIssuerError {
             TokenIssuerError::Decoding(_) | TokenIssuerError::InvalidTokenType => {
                 "Invalid refresh token".to_string()
             }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            TokenIssuerError::Encoding(_) => "TOKEN_ENCODING_FAILED",
+            TokenIssuerError::Decoding(_) => "TOKEN_DECODING_FAILED",
+            TokenIssuerError::InvalidTokenType => "TOKEN_INVALID_TYPE",
         }
     }
 }
@@ -381,6 +532,16 @@ impl ToHttpStatus for LoginError {
             LoginError::Outbox(e) => e.to_user_message(),
             LoginError::TokenIssuer(e) => e.to_user_message(),
             LoginError::InvalidCredentials => "Invalid credentials".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            LoginError::Repository(e) => e.to_error_code(),
+            LoginError::Hash(e) => e.to_error_code(),
+            LoginError::Outbox(e) => e.to_error_code(),
+            LoginError::TokenIssuer(e) => e.to_error_code(),
+            LoginError::InvalidCredentials => "INVALID_CREDENTIALS",
         }
     }
 }
@@ -410,6 +571,18 @@ impl ToHttpStatus for RefreshTokensError {
             RefreshTokensError::UserNotFound => "User not found".to_string(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RefreshTokensError::Repository(e) => e.to_error_code(),
+            RefreshTokensError::TokenIssuer(e) => e.to_error_code(),
+            RefreshTokensError::RefreshTokenNotFound => "REFRESH_TOKEN_NOT_FOUND",
+            RefreshTokensError::RefreshTokenRevoked => "REFRESH_TOKEN_REVOKED",
+            RefreshTokensError::RefreshTokenExpired => "REFRESH_TOKEN_EXPIRED",
+            RefreshTokensError::UserMismatch => "REFRESH_TOKEN_USER_MISMATCH",
+            RefreshTokensError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
 }
 
 impl ToHttpStatus for LogoutError {
@@ -430,6 +603,16 @@ impl ToHttpStatus for LogoutError {
             LogoutError::TokenIssuer(e) => e.to_user_message(),
             LogoutError::RefreshTokenNotFound => "Refresh token not found".to_string(),
             LogoutError::UserMismatch => "Refresh token user mismatch".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            LogoutError::Repository(e) => e.to_error_code(),
+            LogoutError::Outbox(e) => e.to_error_code(),
+            LogoutError::TokenIssuer(e) => e.to_error_code(),
+            LogoutError::RefreshTokenNotFound => "REFRESH_TOKEN_NOT_FOUND",
+            LogoutError::UserMismatch => "REFRESH_TOKEN_USER_MISMATCH",
         }
     }
 }
@@ -470,6 +653,20 @@ impl ToHttpStatus for ConfirmRegistrationError {
             ConfirmRegistrationError::Outbox(e) => e.to_user_message(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ConfirmRegistrationError::UserAlreadyVerified => "USER_ALREADY_VERIFIED",
+            ConfirmRegistrationError::TooManyAttempts => "VERIFICATION_TOO_MANY_ATTEMPTS",
+            ConfirmRegistrationError::VerificationCodeExpired => "VERIFICATION_CODE_EXPIRED",
+            ConfirmRegistrationError::BadVerificationCode => "VERIFICATION_CODE_INVALID",
+            ConfirmRegistrationError::NotRegistration => "VERIFICATION_CODE_NOT_REGISTRATION",
+            ConfirmRegistrationError::UserNotFound => "USER_NOT_FOUND",
+            ConfirmRegistrationError::Repository(e) => e.to_error_code(),
+            ConfirmRegistrationError::Hash(e) => e.to_error_code(),
+            ConfirmRegistrationError::Outbox(e) => e.to_error_code(),
+        }
+    }
 }
 
 impl ToHttpStatus for RegistrationError {
@@ -488,6 +685,18 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::Hash(e) => e.to_user_message(),
             RegistrationError::Outbox(e) => e.to_user_message(),
             RegistrationError::TokenIssuer(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RegistrationError::Repository(e) => match e {
+                RepositoryError::AlreadyExists => "EMAIL_ALREADY_TAKEN",
+                _ => e.to_error_code(),
+            },
+            RegistrationError::Hash(e) => e.to_error_code(),
+            RegistrationError::Outbox(e) => e.to_error_code(),
+            RegistrationError::TokenIssuer(e) => e.to_error_code(),
         }
     }
 }
@@ -514,6 +723,16 @@ impl ToHttpStatus for IssueVerificationCodeError {
             IssueVerificationCodeError::UserAlreadyVerified => "User already verified".to_string(),
         }
     }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            IssueVerificationCodeError::Repository(e) => e.to_error_code(),
+            IssueVerificationCodeError::Hash(e) => e.to_error_code(),
+            IssueVerificationCodeError::Outbox(e) => e.to_error_code(),
+            IssueVerificationCodeError::UnsupportedChannel => "VERIFICATION_CHANNEL_UNSUPPORTED",
+            IssueVerificationCodeError::UserAlreadyVerified => "USER_ALREADY_VERIFIED",
+        }
+    }
 }
 
 impl ToHttpStatus for CreateServerError {
@@ -528,6 +747,13 @@ impl ToHttpStatus for CreateServerError {
         match self {
             CreateServerError::Repository(e) => e.to_user_message(),
             CreateServerError::Outbox(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            CreateServerError::Repository(e) => e.to_error_code(),
+            CreateServerError::Outbox(e) => e.to_error_code(),
         }
     }
 }
@@ -546,14 +772,22 @@ impl ToHttpStatus for DeleteServerError {
     fn to_user_message(&self) -> String {
         match self {
             DeleteServerError::ServerNotFound => "Server not found".to_string(),
-            DeleteServerError::NotOwner => {
-                "Only the server owner can delete it.".to_string()
-            }
+            DeleteServerError::NotOwner => "Only the server owner can delete it.".to_string(),
             DeleteServerError::Repository(e) => e.to_user_message(),
             DeleteServerError::Outbox(e) => e.to_user_message(),
             DeleteServerError::VoiceService(_) => {
                 "Voice service is temporarily unavailable.".to_string()
             }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteServerError::ServerNotFound => "SERVER_NOT_FOUND",
+            DeleteServerError::NotOwner => "SERVER_NOT_OWNER",
+            DeleteServerError::Repository(e) => e.to_error_code(),
+            DeleteServerError::Outbox(e) => e.to_error_code(),
+            DeleteServerError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
@@ -593,53 +827,64 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::Outbox(e) => e.to_user_message(),
         }
     }
-}
 
-impl ToHttpStatus for ListServersByUserError {
-    fn to_http_status(&self) -> StatusCode {
-        let ListServersByUserError::Repository(e) = self;
-        e.to_http_status()
-    }
-
-    fn to_user_message(&self) -> String {
-        let ListServersByUserError::Repository(e) = self;
-        e.to_user_message()
-    }
-}
-
-impl ToHttpStatus for ListServerMembersError {
-    fn to_http_status(&self) -> StatusCode {
-        let ListServerMembersError::Repository(e) = self;
-        e.to_http_status()
-    }
-
-    fn to_user_message(&self) -> String {
-        let ListServerMembersError::Repository(e) = self;
-        e.to_user_message()
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            JoinVoiceChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            JoinVoiceChannelError::UserNotFound => "USER_NOT_FOUND",
+            JoinVoiceChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
+            JoinVoiceChannelError::InvalidPassword => "INVALID_CHANNEL_PASSWORD",
+            JoinVoiceChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            JoinVoiceChannelError::Repository(e) => e.to_error_code(),
+            JoinVoiceChannelError::VoiceService(e) => e.to_error_code(),
+            JoinVoiceChannelError::Hash(e) => e.to_error_code(),
+            JoinVoiceChannelError::Domain(e) => e.to_error_code(),
+            JoinVoiceChannelError::Outbox(e) => e.to_error_code(),
+        }
     }
 }
 
-impl ToHttpStatus for ListServerChannelsError {
-    fn to_http_status(&self) -> StatusCode {
-        let ListServerChannelsError::Repository(e) = self;
-        e.to_http_status()
-    }
+macro_rules! impl_to_http_status_delegate {
+    ($err:ident, $variant:ident) => {
+        impl ToHttpStatus for $err {
+            fn to_http_status(&self) -> StatusCode {
+                let $err::$variant(e) = self;
+                e.to_http_status()
+            }
 
-    fn to_user_message(&self) -> String {
-        let ListServerChannelsError::Repository(e) = self;
-        e.to_user_message()
-    }
+            fn to_user_message(&self) -> String {
+                let $err::$variant(e) = self;
+                e.to_user_message()
+            }
+
+            fn to_error_code(&self) -> &'static str {
+                let $err::$variant(e) = self;
+                e.to_error_code()
+            }
+        }
+    };
 }
+
+impl_to_http_status_delegate!(ListServersByUserError, Repository);
+impl_to_http_status_delegate!(ListServerMembersError, Repository);
+impl_to_http_status_delegate!(ListServerChannelsError, Repository);
 
 #[derive(Debug)]
 pub struct ApiError {
     message: String,
     status: StatusCode,
+    code: &'static str,
+    fields: Option<Vec<FieldError>>,
 }
 
 impl ApiError {
-    pub fn new(message: String, status: StatusCode) -> Self {
-        Self { message, status }
+    pub fn new(message: String, status: StatusCode, code: &'static str) -> Self {
+        Self {
+            message,
+            status,
+            code,
+            fields: None,
+        }
     }
 
     fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
@@ -647,6 +892,8 @@ impl ApiError {
         Self {
             message: error.to_user_message(),
             status: error.to_http_status(),
+            code: error.to_error_code(),
+            fields: None,
         }
     }
 }
@@ -664,127 +911,98 @@ impl ResponseError for ApiError {
 
     fn error_response(&self) -> HttpResponse {
         let response = ErrorResponse {
+            code: self.code,
             message: self.message.clone(),
             status: self.status.as_u16(),
+            fields: self.fields.clone(),
         };
         HttpResponse::build(self.status).json(response)
     }
 }
 
-impl From<CreateChannelError> for ApiError {
-    fn from(error: CreateChannelError) -> Self {
-        Self::from_error(error)
-    }
+macro_rules! impl_from_for_api_error {
+    ($($err:ty),* $(,)?) => {
+        $(
+            impl From<$err> for ApiError {
+                fn from(error: $err) -> Self {
+                    Self::from_error(error)
+                }
+            }
+        )*
+    };
 }
 
-impl From<DeleteChannelError> for ApiError {
-    fn from(error: DeleteChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<MuteChannelError> for ApiError {
-    fn from(error: MuteChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<UnmuteChannelError> for ApiError {
-    fn from(error: UnmuteChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<LoginError> for ApiError {
-    fn from(error: LoginError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<RegistrationError> for ApiError {
-    fn from(error: RegistrationError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<IssueVerificationCodeError> for ApiError {
-    fn from(error: IssueVerificationCodeError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<ConfirmRegistrationError> for ApiError {
-    fn from(error: ConfirmRegistrationError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<RefreshTokensError> for ApiError {
-    fn from(error: RefreshTokensError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<LogoutError> for ApiError {
-    fn from(error: LogoutError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<HandleVoiceWebhookError> for ApiError {
-    fn from(error: HandleVoiceWebhookError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<CreateServerError> for ApiError {
-    fn from(error: CreateServerError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<DeleteServerError> for ApiError {
-    fn from(error: DeleteServerError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<PaginationError> for ApiError {
-    fn from(error: PaginationError) -> Self {
-        Self::from_error(error)
-    }
-}
+impl_from_for_api_error!(
+    CreateChannelError,
+    DeleteChannelError,
+    MuteChannelError,
+    UnmuteChannelError,
+    LoginError,
+    RegistrationError,
+    IssueVerificationCodeError,
+    ConfirmRegistrationError,
+    RefreshTokensError,
+    LogoutError,
+    HandleVoiceWebhookError,
+    CreateServerError,
+    DeleteServerError,
+    PaginationError,
+    JoinVoiceChannelError,
+    ListServersByUserError,
+    ListServerMembersError,
+    ListServerChannelsError,
+);
 
 impl From<ValidationErrors> for ApiError {
     fn from(error: ValidationErrors) -> Self {
         tracing::error!("Validation error: {:?}", error);
+        let fields = flatten_validation_errors(&error, "");
         Self {
-            message: error.to_string(),
+            message: "Validation failed".to_string(),
             status: StatusCode::BAD_REQUEST,
+            code: "VALIDATION_FAILED",
+            fields: Some(fields),
         }
     }
 }
 
-impl From<JoinVoiceChannelError> for ApiError {
-    fn from(error: JoinVoiceChannelError) -> Self {
-        Self::from_error(error)
+fn flatten_validation_errors(errors: &ValidationErrors, prefix: &str) -> Vec<FieldError> {
+    let mut out = Vec::new();
+    for (field, kind) in errors.errors() {
+        let path = if prefix.is_empty() {
+            field.to_string()
+        } else {
+            format!("{prefix}.{field}")
+        };
+        match kind {
+            ValidationErrorsKind::Field(errs) => {
+                for e in errs {
+                    let message = e
+                        .message
+                        .as_ref()
+                        .map(|m| m.to_string())
+                        .unwrap_or_else(|| code_to_message(&e.code));
+                    out.push(FieldError {
+                        field: path.clone(),
+                        code: e.code.to_string(),
+                        message,
+                    });
+                }
+            }
+            ValidationErrorsKind::Struct(inner) => {
+                out.extend(flatten_validation_errors(inner, &path));
+            }
+            ValidationErrorsKind::List(map) => {
+                for (idx, inner) in map.iter() {
+                    let item_path = format!("{path}.{idx}");
+                    out.extend(flatten_validation_errors(inner, &item_path));
+                }
+            }
+        }
     }
+    out
 }
 
-impl From<ListServersByUserError> for ApiError {
-    fn from(error: ListServersByUserError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<ListServerMembersError> for ApiError {
-    fn from(error: ListServerMembersError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<ListServerChannelsError> for ApiError {
-    fn from(error: ListServerChannelsError) -> Self {
-        Self::from_error(error)
-    }
+fn code_to_message(code: &str) -> String {
+    format!("validation failed: {code}")
 }

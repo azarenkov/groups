@@ -68,7 +68,10 @@ class ServerAPI {
     const response = await this.client.get("/v1/servers", {
       params: { page, per_page: perPage },
     });
-    return response.data.data;
+    return {
+      ...response.data.data,
+      pagination: response.data.meta?.pagination,
+    };
   }
 
   async createServer(data: CreateServerRequest): Promise<CreateServerResponse> {
@@ -89,7 +92,10 @@ class ServerAPI {
       `/v1/servers/${serverId}/members`,
       { params: { page, per_page: perPage } },
     );
-    return response.data.data;
+    return {
+      ...response.data.data,
+      pagination: response.data.meta?.pagination,
+    };
   }
 }
 

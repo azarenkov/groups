@@ -5,7 +5,6 @@ use domain::{
     channel::repository::ChannelRepository,
     server::{
         events::{ServerEvent, lifecycle::ServerDeleted},
-        id::ServerId,
         repository::ServerRepository,
     },
     shared::{
@@ -15,10 +14,12 @@ use domain::{
         },
         repository::error::RepositoryError,
     },
-    user::id::UserId,
 };
 
-use crate::ports::voice_service::{VoiceService, VoiceServiceError};
+use crate::{
+    dto::requests::server::delete_server::DeleteServerRequest,
+    ports::voice_service::{VoiceService, VoiceServiceError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteServerError {
@@ -63,11 +64,13 @@ where
         }
     }
 
-    pub async fn execute(
-        &self,
-        server_id: ServerId,
-        owner_id: UserId,
-    ) -> Result<bool, DeleteServerError> {
+    pub async fn execute(&self, request: DeleteServerRequest) -> Result<bool, DeleteServerError> {
+        let DeleteServerRequest {
+            server_id,
+            owner_id,
+            ctx,
+        } = request;
+
         let actual_owner = self
             .server_repository
             .find_server_owner(&server_id)
@@ -84,7 +87,8 @@ where
             .await?;
 
         let event = ServerEvent::Deleted(ServerDeleted::record(server_id, owner_id, Utc::now()));
-        let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
+        let records: Vec<OutboxRecord> =
+            vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
         let deleted = self
             .server_repository

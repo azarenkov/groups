@@ -3,20 +3,16 @@ use domain::channel::{Channel, kind::ChannelKind, visibility::ChannelVisibility}
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::shared::dto::pagination::PaginationMeta;
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListServerChannelsResponse {
     pub channels: Vec<ChannelResponse>,
-    pub pagination: PaginationMeta,
 }
 
 impl ListServerChannelsResponse {
-    pub fn new(channels: Vec<Channel>, pagination: PaginationMeta) -> Self {
+    pub fn new(channels: Vec<Channel>) -> Self {
         Self {
             channels: channels.into_iter().map(ChannelResponse::from).collect(),
-            pagination,
         }
     }
 }

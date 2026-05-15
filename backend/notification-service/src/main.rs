@@ -15,6 +15,8 @@ use infrastructure::{
     },
 };
 use shared::health::{self, Readiness};
+use shared::middleware::request_id::REQUEST_ID;
+use tracing::Instrument;
 use tokio::signal;
 
 use crate::config::NotificationConfig;
@@ -23,7 +25,7 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    shared::observability::init("notification-service");
 
     let notification_config = NotificationConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;
@@ -94,7 +96,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
             msg = messages.next() => {
                 match msg {
                     Some(Ok(msg)) => {
-                        handle_verification_message(mailer.as_ref(), msg).await;
+                        let request_id = msg.request_id.clone();
+                        let span = tracing::info_span!(
+                            "nats_message",
+                            request_id = ?request_id,
+                        );
+                        let fut = handle_verification_message(mailer.as_ref(), msg).instrument(span);
+                        match request_id {
+                            Some(id) => REQUEST_ID.scope(id, fut).await,
+                            None => fut.await,
+                        }
                     }
                     Some(Err(e)) => {
                         tracing::error!(error = %e, "Consumer stream error");

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use domain::shared::outbox::outbox_record::OutboxRecord;
 
 const MSG_ID_HEADER: &str = "Nats-Msg-Id";
+const REQUEST_ID_HEADER: &str = "X-Request-Id";
 
 pub struct NatsOutboxPublisher {
     jetstream: Context,
@@ -37,6 +38,9 @@ impl OutboxPublisher for NatsOutboxPublisher {
 
         let mut headers = HeaderMap::new();
         headers.insert(MSG_ID_HEADER, record.id.to_string().as_str());
+        if let Some(request_id) = record.request_id.as_deref() {
+            headers.insert(REQUEST_ID_HEADER, request_id);
+        }
 
         let ack_future = self
             .jetstream

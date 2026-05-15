@@ -21,12 +21,12 @@ export interface PaginationMeta {
 
 export interface ListServersResponse {
   servers: Server[];
-  pagination: PaginationMeta;
+  pagination?: PaginationMeta;
 }
 
 export interface ListServerMembersResponse {
   members: Member[];
-  pagination: PaginationMeta;
+  pagination?: PaginationMeta;
 }
 
 export interface CreateServerRequest {

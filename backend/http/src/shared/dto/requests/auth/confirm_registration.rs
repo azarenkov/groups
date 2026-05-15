@@ -1,4 +1,6 @@
-use application::dto::requests::auth::confirm_registration::ConfirmRegistrationRequest;
+use application::dto::{
+    RequestContext, requests::auth::confirm_registration::ConfirmRegistrationRequest,
+};
 use serde::Deserialize;
 use validator::Validate;
 
@@ -9,10 +11,11 @@ pub struct ConfirmRegistrationRequestBody {
     pub verification_code: String,
 }
 
-impl From<ConfirmRegistrationRequestBody> for ConfirmRegistrationRequest {
-    fn from(value: ConfirmRegistrationRequestBody) -> Self {
-        Self {
-            verification_code: value.verification_code,
+impl ConfirmRegistrationRequestBody {
+    pub fn into_request(self, ctx: RequestContext) -> ConfirmRegistrationRequest {
+        ConfirmRegistrationRequest {
+            verification_code: self.verification_code,
+            ctx,
         }
     }
 }

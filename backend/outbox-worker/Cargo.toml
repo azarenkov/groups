@@ -10,7 +10,6 @@ infrastructure = { workspace = true }
 shared = { workspace = true }
 
 tracing = { workspace = true }
-env_logger = { workspace = true }
 dotenv = { workspace = true }
 envy = { workspace = true }
 serde = { workspace = true }

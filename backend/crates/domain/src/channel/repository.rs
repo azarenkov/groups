@@ -44,6 +44,7 @@ pub trait ChannelRepository {
         occurred_at: DateTime<Utc>,
         inbox_source: &str,
         inbox_external_id: &str,
+        request_id: Option<String>,
     ) -> Result<bool, ChannelOperationError>;
 
     async fn apply_participant_left(
@@ -55,6 +56,7 @@ pub trait ChannelRepository {
         occurred_at: DateTime<Utc>,
         inbox_source: &str,
         inbox_external_id: &str,
+        request_id: Option<String>,
     ) -> Result<bool, ChannelOperationError>;
 
     async fn apply_participant_connection_aborted(
@@ -66,6 +68,7 @@ pub trait ChannelRepository {
         occurred_at: DateTime<Utc>,
         inbox_source: &str,
         inbox_external_id: &str,
+        request_id: Option<String>,
     ) -> Result<bool, ChannelOperationError>;
 
     async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError>;

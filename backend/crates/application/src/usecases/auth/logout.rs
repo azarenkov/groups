@@ -91,7 +91,8 @@ where
             request.client.user_agent,
             now,
         ));
-        let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
+        let records: Vec<OutboxRecord> =
+            vec![event.to_outbox_record_with_request_id(request.ctx.request_id)?];
 
         self.refresh_token_repository
             .revoke_with_events(&refresh_token, &records)

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO outbox (\n                id, aggregate_id, aggregate_type,\n                parent_id, parent_type,\n                event_type, payload, occurred_at\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n            ",
+  "query": "\n            INSERT INTO outbox (\n                id, aggregate_id, aggregate_type,\n                parent_id, parent_type,\n                event_type, payload, occurred_at, request_id\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n            ",
   "describe": {
     "columns": [],
     "parameters": {
@@ -34,10 +34,11 @@
         },
         "Varchar",
         "Jsonb",
-        "Timestamptz"
+        "Timestamptz",
+        "Text"
       ]
     },
     "nullable": []
   },
-  "hash": "68aa03362837d716cf00104b52950dd8214bb5d633ec0179f8736e8d54e1ffc4"
+  "hash": "cfb9ac016e59830a67be835c180f61900f1f011490ce8337ab80aab288100fe4"
 }

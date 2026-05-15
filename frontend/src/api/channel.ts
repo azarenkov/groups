@@ -71,7 +71,10 @@ class ChannelAPI {
       `/v1/servers/${serverId}/channels`,
       { params: { page, per_page: perPage } },
     );
-    return response.data.data;
+    return {
+      ...response.data.data,
+      pagination: response.data.meta?.pagination,
+    };
   }
 
   async create(

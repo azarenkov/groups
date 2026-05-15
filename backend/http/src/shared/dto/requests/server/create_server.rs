@@ -1,5 +1,7 @@
+use application::dto::{
+    RequestContext, requests::server::create_server::CreateServerRequest,
+};
 use serde::Deserialize;
-
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
@@ -11,13 +13,12 @@ pub struct CreateServerRequestBody {
     pub description: Option<String>,
 }
 
-impl From<CreateServerRequestBody>
-    for application::dto::requests::server::create_server::CreateServerRequest
-{
-    fn from(value: CreateServerRequestBody) -> Self {
-        Self {
-            name: value.name,
-            description: value.description,
+impl CreateServerRequestBody {
+    pub fn into_request(self, ctx: RequestContext) -> CreateServerRequest {
+        CreateServerRequest {
+            name: self.name,
+            description: self.description,
+            ctx,
         }
     }
 }

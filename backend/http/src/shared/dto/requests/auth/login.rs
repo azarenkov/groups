@@ -1,5 +1,6 @@
-use application::dto::requests::{
-    auth::login_user::LoginUserRequest, client_context::ClientContext,
+use application::dto::{
+    RequestContext,
+    requests::{auth::login_user::LoginUserRequest, client_context::ClientContext},
 };
 use serde::Deserialize;
 use validator::Validate;
@@ -14,11 +15,12 @@ pub struct LoginUserRequestBody {
 }
 
 impl LoginUserRequestBody {
-    pub fn into_request(self, client: ClientContext) -> LoginUserRequest {
+    pub fn into_request(self, client: ClientContext, ctx: RequestContext) -> LoginUserRequest {
         LoginUserRequest {
             email: self.email,
             password: self.password,
             client,
+            ctx,
         }
     }
 }

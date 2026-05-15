@@ -50,10 +50,11 @@ where
             request.description.map(ServerDescription::new),
         );
 
+        let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = server
             .pull_events()
             .iter()
-            .map(|e| e.to_outbox_record())
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
         self.server_repository

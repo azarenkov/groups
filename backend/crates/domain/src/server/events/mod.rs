@@ -55,6 +55,7 @@ impl ToOutboxRecord for ServerEvent {
             event_type: self.event_type().to_string(),
             payload: serde_json::to_value(self)?,
             occurred_at: self.occurred_at(),
+            request_id: None,
         })
     }
 }

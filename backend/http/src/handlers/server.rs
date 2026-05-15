@@ -1,10 +1,12 @@
-use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, post, web};
+use application::dto::requests::server::delete_server::DeleteServerRequest;
 use domain::{server::id::ServerId, shared::pagination::Pagination, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::shared::{
+    context::request_context,
     dto::{
         pagination::{PaginationMeta, PaginationQuery},
         requests::server::create_server::CreateServerRequestBody,
@@ -24,6 +26,7 @@ use crate::shared::{
 
 #[post("")]
 async fn create_server(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<CreateServerRequestBody>,
@@ -31,9 +34,10 @@ async fn create_server(
     let body: CreateServerRequestBody = body.into_inner();
     body.validate()?;
 
+    let ctx = request_context(&req);
     let server = app_state
         .create_server_usecase
-        .execute(body.into(), UserId::new(auth_token.id))
+        .execute(body.into_request(ctx), UserId::new(auth_token.id))
         .await?;
 
     let response = CreateServerResponse::from(server);
@@ -58,9 +62,9 @@ async fn list_servers_by_user(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServersByUserResponse::new(result.items, pagination_meta);
+    let response = ListServersByUserResponse::new(result.items);
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+    Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
 #[get("/{server_id}/members")]
@@ -81,9 +85,9 @@ async fn list_server_members(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServerMembersResponse::new(result.items, pagination_meta);
+    let response = ListServerMembersResponse::new(result.items);
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+    Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
 #[get("/{server_id}/channels")]
@@ -104,13 +108,14 @@ async fn list_server_channels(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServerChannelsResponse::new(result.items, pagination_meta);
+    let response = ListServerChannelsResponse::new(result.items);
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+    Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
 #[delete("/{server_id}")]
 async fn delete_server(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -118,10 +123,13 @@ async fn delete_server(
     let server_id = ServerId::new(path.into_inner());
     let owner_id = UserId::new(auth_token.id);
 
-    let deleted = app_state
-        .delete_server_usecase
-        .execute(server_id, owner_id)
-        .await?;
+    let data = DeleteServerRequest {
+        server_id,
+        owner_id,
+        ctx: request_context(&req),
+    };
+
+    let deleted = app_state.delete_server_usecase.execute(data).await?;
 
     if deleted {
         Ok(HttpResponse::NoContent().finish())

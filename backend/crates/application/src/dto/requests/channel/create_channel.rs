@@ -1,6 +1,8 @@
 use domain::channel::{kind::ChannelKind, visibility::ChannelVisibility};
 use uuid::Uuid;
 
+use crate::dto::RequestContext;
+
 #[derive(Debug)]
 pub struct CreateChannelRequest {
     pub server_id: Uuid,
@@ -8,6 +10,7 @@ pub struct CreateChannelRequest {
     pub kind: ChannelKindDto,
     pub visibility: ChannelVisibilityDto,
     pub password: Option<String>,
+    pub ctx: RequestContext,
 }
 
 impl CreateChannelRequest {
@@ -17,6 +20,7 @@ impl CreateChannelRequest {
         kind: ChannelKindDto,
         visibility: ChannelVisibilityDto,
         password: Option<String>,
+        ctx: RequestContext,
     ) -> Self {
         Self {
             server_id,
@@ -24,6 +28,7 @@ impl CreateChannelRequest {
             kind,
             visibility,
             password,
+            ctx,
         }
     }
 }

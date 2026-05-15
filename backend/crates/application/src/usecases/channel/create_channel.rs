@@ -101,10 +101,11 @@ where
             now,
         )?;
 
+        let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel
             .pull_events()
             .iter()
-            .map(|e| e.to_outbox_record())
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
         self.channel_repository
