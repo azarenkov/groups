@@ -16,3 +16,4 @@ anyhow = { workspace = true }
 governor = "0.10"
 tracing = { workspace = true }
 futures = { workspace = true }
+tokio = { workspace = true }

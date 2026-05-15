@@ -11,6 +11,10 @@ use uuid::Uuid;
 
 pub const REQUEST_ID_HEADER: &str = "x-request-id";
 
+tokio::task_local! {
+    pub static REQUEST_ID: String;
+}
+
 #[derive(Debug, Clone)]
 pub struct RequestId(pub String);
 
@@ -63,7 +67,8 @@ where
         req.extensions_mut().insert(RequestId(request_id.clone()));
 
         let http_req = req.request().clone();
-        let fut = self.service.call(req);
+        let scoped_id = request_id.clone();
+        let fut = REQUEST_ID.scope(scoped_id, self.service.call(req));
 
         Box::pin(async move {
             let header_value = HeaderValue::from_str(&request_id).ok();

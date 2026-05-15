@@ -2,6 +2,7 @@ use actix_web::{
     HttpResponse, ResponseError,
     http::{StatusCode, header::HeaderValue},
 };
+use shared::middleware::request_id::REQUEST_ID;
 use application::ports::{
     hasher::HashError, mailer::MailerError, token_issuer::TokenIssuerError,
     voice_service::VoiceServiceError, voice_webhook_verifier::VoiceWebhookVerifierError,
@@ -884,12 +885,14 @@ pub struct ApiError {
 }
 
 impl ApiError {
-    pub fn new(message: String, status: StatusCode) -> Self {
+    pub fn new(message: String, status: StatusCode, code: &'static str) -> Self {
         Self {
             message,
             status,
-            code: "INTERNAL_ERROR",
-            request_id: None,
+            code,
+            request_id: REQUEST_ID
+                .try_with(|id| id.clone())
+                .ok(),
             fields: None,
         }
     }
@@ -900,7 +903,9 @@ impl ApiError {
             message: error.to_user_message(),
             status: error.to_http_status(),
             code: error.to_error_code(),
-            request_id: None,
+            request_id: REQUEST_ID
+                .try_with(|id| id.clone())
+                .ok(),
             fields: None,
         }
     }
@@ -976,7 +981,7 @@ impl From<ValidationErrors> for ApiError {
             message: "Validation failed".to_string(),
             status: StatusCode::BAD_REQUEST,
             code: "VALIDATION_FAILED",
-            request_id: None,
+            request_id: REQUEST_ID.try_with(|id| id.clone()).ok(),
             fields: Some(fields),
         }
     }

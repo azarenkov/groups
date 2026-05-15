@@ -16,6 +16,7 @@ async fn livekit_webhook(
             ApiError::new(
                 "Missing authorization header".to_string(),
                 http::StatusCode::UNAUTHORIZED,
+                "WEBHOOK_MISSING_AUTH",
             )
         })?;
 
@@ -23,6 +24,7 @@ async fn livekit_webhook(
         ApiError::new(
             "Body is not valid UTF-8".to_string(),
             http::StatusCode::BAD_REQUEST,
+            "WEBHOOK_INVALID_BODY",
         )
     })?;
 
