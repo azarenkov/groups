@@ -17,6 +17,10 @@ import VoiceView from "../components/rift/VoiceView";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
+import { useLocalQuality } from "../hooks/useLocalQuality";
+import { useLocalSpeaking } from "../hooks/useLocalSpeaking";
+import { useParticipants } from "../hooks/useParticipants";
+import { qualityClass, qualityLabel } from "../utils/quality";
 import { Channel, ChannelKind, ChannelVisibility } from "../types/channel";
 import { Server } from "../types/server";
 import {
@@ -33,6 +37,9 @@ interface ChannelOverride {
 }
 
 const ServersPage: React.FC = () => {
+  const localQuality = useLocalQuality();
+  const localSpeaking = useLocalSpeaking();
+  const voiceParticipants = useParticipants();
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -145,9 +152,13 @@ const ServersPage: React.FC = () => {
   }, [servers, setSelectedServer]);
 
   useEffect(() => {
-    if (!selectedServerId || selectedChannelId || selectedDm) return;
+    if (!selectedServerId || selectedDm) return;
     const list = channelsByServer[selectedServerId];
     if (!list) return;
+    if (selectedChannelId) {
+      const current = list.find((c) => c.id === selectedChannelId);
+      if (current) return;
+    }
     const firstText = list.find((c) => c.kind === "text");
     if (firstText) setSelectedChannel(firstText.id);
   }, [
@@ -178,6 +189,16 @@ const ServersPage: React.FC = () => {
         topic: activeChannelOverride.topic,
       }
     : null;
+
+  const selectedVoiceChannelNotJoined =
+    selectedServer && selectedChannelId
+      ? channelsByServer[selectedServer.id]?.find(
+          (c) =>
+            c.id === selectedChannelId &&
+            c.kind === "voice" &&
+            joinedChannel?.channel.id !== c.id,
+        ) ?? null
+      : null;
 
   const selectedServerChannels = selectedServer
     ? channelsByServer[selectedServer.id]
@@ -345,14 +366,9 @@ const ServersPage: React.FC = () => {
   };
 
   const handleVoiceLeave = useCallback(() => {
-    setJoinedChannel((prev) => {
-      if (prev && useChannelStore.getState().selectedChannelId === prev.channel.id) {
-        setSelectedChannel(null);
-      }
-      return null;
-    });
+    setJoinedChannel(null);
     setVoiceJoinFailed(false);
-  }, [setSelectedChannel]);
+  }, []);
 
   const handleVoiceJoinFailed = useCallback(() => {
     setVoiceJoinFailed(true);
@@ -447,38 +463,135 @@ const ServersPage: React.FC = () => {
                 }}
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
-              <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
-                <button
-                  type="button"
-                  className="voice-stage-settings"
-                  title="Channel settings"
-                  onClick={() =>
-                    setEditingChannel({
-                      id: joinedChannel.channel.id,
-                      serverId: joinedChannel.serverId,
-                      name: joinedChannel.channel.name,
-                    })
-                  }
-                >
-                  <Icon name="settings" size={14} />
-                </button>
-                <div className="voice-stage-orb">
-                  <span className="voice-stage-orb-ring" />
-                  <span className="voice-stage-orb-ring delay" />
-                  <span className="voice-stage-orb-letter">
-                    {joinedChannel.channel.name.charAt(0).toUpperCase()}
+              <div className="voice-stage-wrap">
+                <header className="main-header">
+                  <span className="ch-ico">
+                    <Icon name="volume" size={16} />
                   </span>
-                </div>
-                <h1 className="voice-stage-title">{joinedChannel.channel.name}</h1>
-                <div className="voice-stage-sub">
-                  <span className="voice-stage-dot" />
-                  {voiceJoinFailed ? "Couldn't connect" : "Connected"}
-                  {selectedServer ? ` · ${selectedServer.name}` : ""}
+                  <span className="ch-name">{joinedChannel.channel.name}</span>
+                  <span className="sep" />
+                  <span className="topic voice-stage-status">
+                    <span
+                      className={`voice-stage-dot ${qualityClass(localQuality)}`}
+                      title={`Connection: ${qualityLabel(localQuality)}`}
+                    />
+                    {voiceJoinFailed ? "Couldn't connect" : "Connected"}
+                    {selectedServer ? ` · ${selectedServer.name}` : ""}
+                  </span>
+                  <div className="right">
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Channel settings"
+                      onClick={() =>
+                        setEditingChannel({
+                          id: joinedChannel.channel.id,
+                          serverId: joinedChannel.serverId,
+                          name: joinedChannel.channel.name,
+                        })
+                      }
+                    >
+                      <Icon name="settings" size={15} />
+                    </button>
+                  </div>
+                </header>
+                <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
+                {(() => {
+                  const initials = (s: string) =>
+                    s ? s.charAt(0).toUpperCase() : "?";
+                  const PALETTE = [
+                    "#0071e3",
+                    "#ff6b35",
+                    "#30a46c",
+                    "#bf5af2",
+                    "#ff9f0a",
+                    "#5e6ad2",
+                  ];
+                  const colorFor = (id: string) => {
+                    let h = 0;
+                    for (let i = 0; i < id.length; i++)
+                      h = (h * 31 + id.charCodeAt(i)) >>> 0;
+                    return PALETTE[h % PALETTE.length];
+                  };
+                  const orbs = [
+                    {
+                      id: user?.id || "you",
+                      label: initials(userName),
+                      color: "#30a46c",
+                      speaking: localSpeaking,
+                    },
+                    ...voiceParticipants.map((p) => ({
+                      id: p.identity,
+                      label: initials(p.name || p.identity),
+                      color: colorFor(p.identity),
+                      speaking: p.isSpeaking,
+                    })),
+                  ];
+                  const sizeClass =
+                    orbs.length === 1
+                      ? "solo"
+                      : orbs.length <= 4
+                        ? "row"
+                        : "grid";
+                  return (
+                    <div className={`voice-stage-orbs ${sizeClass}`}>
+                      {orbs.map((o) => (
+                        <div
+                          key={o.id}
+                          className={
+                            "voice-stage-orb" + (o.speaking ? " speaking" : "")
+                          }
+                          style={
+                            {
+                              "--orb-color": o.color,
+                            } as React.CSSProperties
+                          }
+                        >
+                          <span className="voice-stage-orb-letter">
+                            {o.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 </div>
               </div>
             ) : !selectedServerChannelsLoaded ? (
               <div className="empty-state" style={{ padding: 60 }}>
                 <span className="loading-spinner" />
+              </div>
+            ) : selectedVoiceChannelNotJoined && selectedServer ? (
+              <div className="voice-stage-wrap">
+                <header className="main-header">
+                  <span className="ch-ico">
+                    <Icon name="volume" size={16} />
+                  </span>
+                  <span className="ch-name">
+                    {selectedVoiceChannelNotJoined.name}
+                  </span>
+                  <span className="sep" />
+                  <span className="topic">Disconnected</span>
+                </header>
+                <div className="voice-preview">
+                  <div className="voice-preview-empty">No one is here yet.</div>
+                  <button
+                    type="button"
+                    className="btn primary voice-preview-join"
+                    onClick={() => {
+                      if (selectedVoiceChannelNotJoined.visibility === "private") {
+                        setPasswordPrompt({
+                          server: selectedServer,
+                          channel: selectedVoiceChannelNotJoined,
+                        });
+                        return;
+                      }
+                      finalizeJoin(selectedServer, selectedVoiceChannelNotJoined);
+                    }}
+                  >
+                    Connect
+                  </button>
+                </div>
               </div>
             ) : !serverHasTextChannel ? (
               <NoTextChannel

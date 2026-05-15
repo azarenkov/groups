@@ -1,4 +1,5 @@
 import {
+  ConnectionQuality,
   Room,
   RoomEvent,
   Track,
@@ -6,16 +7,24 @@ import {
   RemoteTrackPublication,
   RemoteTrack,
   AudioTrack,
+  LocalAudioTrack,
   createLocalAudioTrack,
   RoomConnectOptions,
   TrackEvent,
 } from "livekit-client";
+
+import type { DfnPipeline } from "./dfn";
+
+export type NoiseSuppressionMode = "off" | "standard" | "high";
+
+export { ConnectionQuality };
 
 export interface ParticipantInfo {
   identity: string;
   name: string;
   isSpeaking: boolean;
   audioTrack: AudioTrack | null;
+  quality: ConnectionQuality;
 }
 
 export class LiveKitService {
@@ -25,6 +34,22 @@ export class LiveKitService {
   private onConnectionStateChange?: (connected: boolean) => void;
   private onError?: (error: Error) => void;
   private isConnecting: boolean = false;
+  private dfnPipeline: DfnPipeline | null = null;
+  private dfnContext: AudioContext | null = null;
+  private dfnRawTrack: MediaStreamTrack | null = null;
+  private noiseMode: NoiseSuppressionMode = "standard";
+  private noiseStrength: number = 1.0;
+  private noiseModeChain: Promise<void> = Promise.resolve();
+  private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
+  private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
+    new Set();
+  private localTrackListeners: Set<(track: MediaStreamTrack | null) => void> =
+    new Set();
+  private localSpeaking: boolean = false;
+  private localSpeakingListeners: Set<(speaking: boolean) => void> = new Set();
+  private participantsListeners: Set<
+    (participants: ParticipantInfo[]) => void
+  > = new Set();
 
   constructor(
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
@@ -41,9 +66,78 @@ export class LiveKitService {
     onConnectionStateChange?: (connected: boolean) => void,
     onError?: (error: Error) => void,
   ) {
-    this.onParticipantsChange = onParticipantsChange;
-    this.onConnectionStateChange = onConnectionStateChange;
-    this.onError = onError;
+    if (onParticipantsChange !== undefined)
+      this.onParticipantsChange = onParticipantsChange;
+    if (onConnectionStateChange !== undefined)
+      this.onConnectionStateChange = onConnectionStateChange;
+    if (onError !== undefined) this.onError = onError;
+  }
+
+  getLocalQuality(): ConnectionQuality {
+    return this.localQuality;
+  }
+
+  subscribeLocalQuality(
+    fn: (quality: ConnectionQuality) => void,
+  ): () => void {
+    this.localQualityListeners.add(fn);
+    return () => {
+      this.localQualityListeners.delete(fn);
+    };
+  }
+
+  subscribeLocalTrack(
+    fn: (track: MediaStreamTrack | null) => void,
+  ): () => void {
+    this.localTrackListeners.add(fn);
+    return () => {
+      this.localTrackListeners.delete(fn);
+    };
+  }
+
+  getLocalSpeaking(): boolean {
+    return this.localSpeaking;
+  }
+
+  subscribeLocalSpeaking(fn: (speaking: boolean) => void): () => void {
+    this.localSpeakingListeners.add(fn);
+    return () => {
+      this.localSpeakingListeners.delete(fn);
+    };
+  }
+
+  setLocalSpeaking(speaking: boolean): void {
+    if (speaking === this.localSpeaking) return;
+    this.localSpeaking = speaking;
+    this.localSpeakingListeners.forEach((fn) => {
+      try {
+        fn(speaking);
+      } catch (e) {
+        console.warn("[LiveKitService] localSpeaking listener error:", e);
+      }
+    });
+  }
+
+  private emitLocalTrack(): void {
+    const track = this.getLocalAudioMediaStreamTrack();
+    this.localTrackListeners.forEach((fn) => {
+      try {
+        fn(track);
+      } catch (e) {
+        console.warn("[LiveKitService] localTrack listener error:", e);
+      }
+    });
+  }
+
+  private emitLocalQuality(quality: ConnectionQuality): void {
+    this.localQuality = quality;
+    this.localQualityListeners.forEach((fn) => {
+      try {
+        fn(quality);
+      } catch (e) {
+        console.warn("[LiveKitService] localQuality listener error:", e);
+      }
+    });
   }
 
   async connect(token: string, url: string): Promise<void> {
@@ -102,13 +196,36 @@ export class LiveKitService {
     }
   }
 
+  private async tearDownDfn(): Promise<void> {
+    if (!this.dfnPipeline) return;
+    try {
+      await this.dfnPipeline.dispose();
+    } catch {}
+    try {
+      this.dfnPipeline.outputTrack.stop();
+    } catch {}
+    try {
+      await this.dfnContext?.close();
+    } catch {}
+    try {
+      this.dfnRawTrack?.stop();
+    } catch {}
+    this.dfnPipeline = null;
+    this.dfnContext = null;
+    this.dfnRawTrack = null;
+  }
+
   async disconnect(): Promise<void> {
+    await this.tearDownDfn();
     if (this.room) {
       console.log("[LiveKitService] Disconnecting from room");
       await this.room.disconnect();
       this.room = null;
       this.participants.clear();
       this.isConnecting = false;
+      this.emitLocalQuality(ConnectionQuality.Unknown);
+      this.emitLocalTrack();
+      this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
     }
@@ -124,6 +241,7 @@ export class LiveKitService {
         autoGainControl: true,
       });
       await this.room.localParticipant.publishTrack(track);
+      this.emitLocalTrack();
     } catch (error) {
       console.error("Failed to enable microphone:", error);
       this.onError?.(
@@ -137,6 +255,24 @@ export class LiveKitService {
   async disableMicrophone(): Promise<void> {
     if (!this.room) return;
 
+    if (this.dfnPipeline) {
+      try {
+        await this.dfnPipeline.dispose();
+      } catch {}
+      try {
+        this.dfnPipeline.outputTrack.stop();
+      } catch {}
+      try {
+        await this.dfnContext?.close();
+      } catch {}
+      try {
+        this.dfnRawTrack?.stop();
+      } catch {}
+      this.dfnPipeline = null;
+      this.dfnContext = null;
+      this.dfnRawTrack = null;
+    }
+
     const audioTracks = Array.from(
       this.room.localParticipant.audioTrackPublications.values(),
     );
@@ -147,6 +283,7 @@ export class LiveKitService {
         publication.track.stop();
       }
     }
+    this.emitLocalTrack();
   }
 
   setMicrophoneMuted(muted: boolean): void {
@@ -165,6 +302,10 @@ export class LiveKitService {
         }
       }
     }
+
+    if (this.dfnRawTrack) {
+      this.dfnRawTrack.enabled = !muted;
+    }
   }
 
   isMicrophoneMuted(): boolean {
@@ -180,6 +321,7 @@ export class LiveKitService {
   }
 
   getLocalAudioMediaStreamTrack(): MediaStreamTrack | null {
+    if (this.dfnPipeline) return this.dfnPipeline.outputTrack;
     if (!this.room) return null;
     const publications = Array.from(
       this.room.localParticipant.audioTrackPublications.values(),
@@ -196,13 +338,253 @@ export class LiveKitService {
   }
 
   async setNoiseSuppression(enabled: boolean): Promise<void> {
-    const track = this.getLocalAudioMediaStreamTrack();
-    if (!track) return;
-    try {
-      await track.applyConstraints({ noiseSuppression: enabled });
-    } catch (e) {
-      console.warn("[LiveKitService] applyConstraints failed:", e);
+    await this.setNoiseSuppressionMode(enabled ? "standard" : "off");
+  }
+
+  getNoiseSuppressionMode(): NoiseSuppressionMode {
+    return this.noiseMode;
+  }
+
+  getNoiseStrength(): number {
+    return this.noiseStrength;
+  }
+
+  setNoiseStrength(value: number): void {
+    const clamped = Math.min(1, Math.max(0, value));
+    this.noiseStrength = clamped;
+    this.dfnPipeline?.setStrength(clamped);
+  }
+
+  async setNoiseSuppressionMode(mode: NoiseSuppressionMode): Promise<void> {
+    return this.applyNoiseSuppressionMode(mode, false);
+  }
+
+  private async applyNoiseSuppressionMode(
+    mode: NoiseSuppressionMode,
+    force: boolean,
+  ): Promise<void> {
+    const run = async () => {
+      if (
+        !force &&
+        mode === "high" &&
+        this.noiseMode === "high" &&
+        this.dfnPipeline
+      ) {
+        return;
+      }
+      if (force && mode === "high" && this.dfnPipeline) {
+        await this.disableDfnPipeline();
+      }
+      this.noiseMode = mode;
+
+      if (mode === "high") {
+        await this.enableDfnPipeline();
+        return;
+      }
+
+      await this.disableDfnPipeline();
+
+      const track = this.getLocalAudioMediaStreamTrack();
+      if (!track) return;
+      try {
+        await track.applyConstraints({ noiseSuppression: mode === "standard" });
+      } catch (e) {
+        console.warn("[LiveKitService] applyConstraints failed:", e);
+      }
+    };
+    this.noiseModeChain = this.noiseModeChain.then(run, run);
+    return this.noiseModeChain;
+  }
+
+  private async waitForLocalAudioTrack(
+    timeoutMs: number,
+  ): Promise<LocalAudioTrack | null> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (!this.room) return null;
+      const publication = Array.from(
+        this.room.localParticipant.audioTrackPublications.values(),
+      )[0];
+      const track = publication?.track;
+      if (track instanceof LocalAudioTrack && track.mediaStreamTrack) {
+        return track;
+      }
+      await new Promise((r) => setTimeout(r, 100));
     }
+    return null;
+  }
+
+  private async enableDfnPipeline(): Promise<void> {
+    if (!this.room) return;
+    if (this.dfnPipeline) {
+      await this.disableDfnPipeline();
+      if (this.dfnPipeline) {
+        console.warn(
+          "[LiveKitService] enableDfnPipeline: existing pipeline could not be torn down, aborting",
+        );
+        return;
+      }
+    }
+    const localTrack = await this.waitForLocalAudioTrack(5000);
+    if (!localTrack) {
+      const err = new Error("Local audio track did not appear in time");
+      console.warn("[LiveKitService] enableDfnPipeline:", err.message);
+      this.noiseMode = "standard";
+      this.onError?.(err);
+      return;
+    }
+    const rawTrack = localTrack.mediaStreamTrack;
+    if (!rawTrack) {
+      const err = new Error("Raw mic track missing");
+      console.warn("[LiveKitService] enableDfnPipeline:", err.message);
+      this.noiseMode = "standard";
+      this.onError?.(err);
+      return;
+    }
+
+    let dfnModule: typeof import("./dfn");
+    try {
+      dfnModule = await import("./dfn");
+    } catch (e) {
+      console.error("[LiveKitService] failed to load DFN module:", e);
+      this.noiseMode = "standard";
+      this.onError?.(
+        e instanceof Error ? e : new Error("Failed to load noise suppression"),
+      );
+      return;
+    }
+    const { buildDfnPipeline, DENOISER_SAMPLE_RATE } = dfnModule;
+
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      let step = "init";
+      let ctx: AudioContext | null = null;
+      let pipeline: DfnPipeline | null = null;
+      try {
+        step = "applyConstraints";
+        try {
+          await rawTrack.applyConstraints({ noiseSuppression: false });
+        } catch {}
+
+        step = "AudioContext";
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        ctx = new AudioCtx({ sampleRate: DENOISER_SAMPLE_RATE });
+        if (ctx.state === "suspended") {
+          step = "ctx.resume";
+          await ctx.resume();
+        }
+        step = "createMediaStreamSource";
+        const source = ctx.createMediaStreamSource(new MediaStream([rawTrack]));
+        step = "buildDfnPipeline";
+        pipeline = await buildDfnPipeline({ source, context: ctx });
+        if (!pipeline.hasDenoiser) {
+          console.warn(
+            "[LiveKitService] DFN models unavailable; falling back to standard",
+          );
+          try {
+            await pipeline.dispose();
+          } catch {}
+          try {
+            pipeline.outputTrack.stop();
+          } catch {}
+          try {
+            await ctx.close();
+          } catch {}
+          this.noiseMode = "standard";
+          try {
+            await rawTrack.applyConstraints({ noiseSuppression: true });
+          } catch {}
+          this.onError?.(new Error("Noise suppression models unavailable"));
+          return;
+        }
+        step = "replaceTrack";
+        await localTrack.replaceTrack(pipeline.outputTrack);
+
+        this.dfnPipeline = pipeline;
+        this.dfnContext = ctx;
+        this.dfnRawTrack = rawTrack;
+        rawTrack.enabled = !this.isMicrophoneMuted();
+        pipeline.setStrength(this.noiseStrength);
+        this.emitLocalTrack();
+        console.log("[LiveKitService] DFN pipeline enabled on attempt", attempt);
+        return;
+      } catch (e) {
+        lastErr = e;
+        console.warn(
+          `[LiveKitService] enableDfnPipeline attempt ${attempt} failed at step "${step}":`,
+          e,
+        );
+        if (pipeline) {
+          try {
+            await pipeline.dispose();
+          } catch {}
+          try {
+            pipeline.outputTrack.stop();
+          } catch {}
+        }
+        if (ctx) {
+          try {
+            await ctx.close();
+          } catch {}
+        }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+
+    console.error("[LiveKitService] failed to enable DFN pipeline:", lastErr);
+    this.noiseMode = "standard";
+    try {
+      await rawTrack.applyConstraints({ noiseSuppression: true });
+    } catch {}
+    this.onError?.(
+      lastErr instanceof Error
+        ? lastErr
+        : new Error("Failed to enable noise suppression"),
+    );
+  }
+
+  private async disableDfnPipeline(): Promise<void> {
+    if (!this.dfnPipeline) return;
+    const room = this.room;
+    const rawTrack = this.dfnRawTrack;
+    const pipeline = this.dfnPipeline;
+    const ctx = this.dfnContext;
+
+    if (room && rawTrack) {
+      const publication = Array.from(
+        room.localParticipant.audioTrackPublications.values(),
+      )[0];
+      const localTrack = publication?.track;
+      if (localTrack instanceof LocalAudioTrack) {
+        try {
+          await localTrack.replaceTrack(rawTrack);
+        } catch (e) {
+          console.warn(
+            "[LiveKitService] failed to restore raw mic track, keeping DFN pipeline alive:",
+            e,
+          );
+          return;
+        }
+      }
+    }
+
+    try {
+      await pipeline.dispose();
+    } catch {}
+    try {
+      pipeline.outputTrack.stop();
+    } catch {}
+    try {
+      await ctx?.close();
+    } catch {}
+
+    this.dfnPipeline = null;
+    this.dfnContext = null;
+    this.dfnRawTrack = null;
+    this.emitLocalTrack();
   }
 
   getParticipants(): ParticipantInfo[] {
@@ -279,20 +661,37 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
+      void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
+      this.emitLocalQuality(ConnectionQuality.Unknown);
+      this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
     });
 
     this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
-      console.log("Connection quality changed:", {
-        quality,
-        participant: participant?.identity || "local",
-      });
+      const isLocal =
+        !participant ||
+        participant.identity === this.room?.localParticipant.identity;
+      if (isLocal) {
+        this.emitLocalQuality(quality);
+        return;
+      }
+      this.updateParticipant(participant.identity, { quality });
     });
 
     this.room.on(RoomEvent.ConnectionStateChanged, (state) => {
       console.log("Connection state changed:", state);
+    });
+
+    this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
+      if (publication.kind !== Track.Kind.Audio) return;
+      this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) => {
+        console.warn(
+          "[LiveKitService] reapply noise mode after publish failed:",
+          e,
+        );
+      });
     });
 
     this.room.on(RoomEvent.MediaDevicesError, (error) => {
@@ -321,6 +720,7 @@ export class LiveKitService {
       name: participant.name || participant.identity,
       isSpeaking: false,
       audioTrack: null,
+      quality: participant.connectionQuality ?? ConnectionQuality.Unknown,
     };
 
     this.participants.set(participant.identity, info);
@@ -367,7 +767,24 @@ export class LiveKitService {
   }
 
   private notifyParticipantsChange(): void {
-    this.onParticipantsChange?.(this.getParticipants());
+    const list = this.getParticipants();
+    this.onParticipantsChange?.(list);
+    this.participantsListeners.forEach((fn) => {
+      try {
+        fn(list);
+      } catch (e) {
+        console.warn("[LiveKitService] participants listener error:", e);
+      }
+    });
+  }
+
+  subscribeParticipants(
+    fn: (participants: ParticipantInfo[]) => void,
+  ): () => void {
+    this.participantsListeners.add(fn);
+    return () => {
+      this.participantsListeners.delete(fn);
+    };
   }
 }
 

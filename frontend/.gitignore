@@ -37,5 +37,8 @@ lerna-debug.log*
 /out
 /release
 
+# ORT WASM (copied from node_modules by postinstall)
+/public/ort
+
 # OS
 Thumbs.db

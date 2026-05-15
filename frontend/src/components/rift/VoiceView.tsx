@@ -1,6 +1,14 @@
 import React, { useEffect, useRef } from "react";
 import Icon from "./Icon";
 import { useLiveKit } from "../../hooks/useLiveKit";
+import { useLocalTrack } from "../../hooks/useLocalTrack";
+import { getLiveKitService } from "../../services/livekit";
+import { ConnectionQuality } from "../../services/livekit";
+import {
+  qualityActiveBars,
+  qualityClass,
+  qualityLabel,
+} from "../../utils/quality";
 
 const initials = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
 
@@ -9,6 +17,21 @@ const colorFor = (id: string): string => {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return AVA_COLORS[h % AVA_COLORS.length];
+};
+
+const QualityBars: React.FC<{ quality: ConnectionQuality }> = ({ quality }) => {
+  const active = qualityActiveBars(quality);
+  return (
+    <span
+      className={`vp-quality ${qualityClass(quality)}`}
+      title={`Connection: ${qualityLabel(quality)}`}
+      aria-label={`Connection ${qualityLabel(quality)}`}
+    >
+      {[0, 1, 2].map((i) => (
+        <i key={i} className={i < active ? "on" : ""} />
+      ))}
+    </span>
+  );
 };
 
 interface VoiceViewProps {
@@ -36,11 +59,13 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     isMuted,
     isConnecting,
     error,
+    localQuality,
     joinChannel,
     leaveChannel,
     toggleMute,
-    getLocalAudioMediaStreamTrack,
     setNoiseSuppression,
+    setNoiseStrength,
+    getNoiseSuppressionMode,
   } = useLiveKit();
 
   const hasJoinedRef = useRef(false);
@@ -85,13 +110,33 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
   const [open, setOpen] = React.useState(false);
   const [volumes, setVolumes] = React.useState<Record<string, number>>({});
-  const [noise, setNoise] = React.useState<"off" | "standard">("standard");
+  const [noise, setNoise] = React.useState<"off" | "standard" | "high">(() =>
+    getNoiseSuppressionMode(),
+  );
+  const [noiseStrengthPct, setNoiseStrengthPct] = React.useState(50);
+  const localTrack = useLocalTrack();
+  const trackId = localTrack?.id ?? "";
 
-  const handleNoiseChange = (next: "off" | "standard") => {
+  const handleNoiseChange = async (next: "off" | "standard" | "high") => {
     setNoise(next);
-    setNoiseSuppression(next === "standard").catch((e) =>
-      console.warn("[VoiceView] noise suppression toggle failed:", e),
-    );
+    if (next === "high") {
+      setNoiseStrengthPct(50);
+      setNoiseStrength(0.5);
+    }
+    try {
+      await setNoiseSuppression(next);
+    } catch (e) {
+      console.warn("[VoiceView] noise suppression toggle failed:", e);
+    }
+    const actual = getNoiseSuppressionMode();
+    if (actual !== next) {
+      setNoise(actual);
+    }
+  };
+
+  const handleStrengthChange = (pct: number) => {
+    setNoiseStrengthPct(pct);
+    setNoiseStrength(pct / 100);
   };
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -132,10 +177,16 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   const [meter, setMeter] = React.useState<number[]>(() =>
     new Array(BARS).fill(0),
   );
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   useEffect(() => {
-    if (!open || isMuted || !isConnected) {
+    const service = getLiveKitService();
+    if (isMuted || !isConnected || !localTrack) {
       setMeter(new Array(BARS).fill(0));
+      service.setLocalSpeaking(false);
       return;
     }
 
@@ -144,15 +195,26 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     let source: MediaStreamAudioSourceNode | null = null;
     let analyser: AnalyserNode | null = null;
     let raf = 0;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastSpeaking = false;
+    let lastSpeakingChangeAt = 0;
+
+    const teardown = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      try {
+        source?.disconnect();
+      } catch {}
+      source = null;
+      analyser = null;
+      const oldCtx = ctx;
+      ctx = null;
+      oldCtx?.close().catch(() => {});
+    };
 
     const start = () => {
       if (cancelled) return;
-      const track = getLocalAudioMediaStreamTrack();
-      if (!track) {
-        retryTimer = setTimeout(start, 200);
-        return;
-      }
+      const track = localTrack;
+      if (!track) return;
 
       const AudioCtx =
         window.AudioContext ||
@@ -170,26 +232,43 @@ const VoiceView: React.FC<VoiceViewProps> = ({
         return;
       }
 
-      if (ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
-      }
+      void ctx.resume().catch(() => {});
 
       const bins = analyser.frequencyBinCount;
       const data = new Uint8Array(bins);
       const usable = Math.floor(bins * 0.6);
       const perBar = Math.max(1, Math.floor(usable / BARS));
+      const SPEAK_ON = 22;
+      const SPEAK_OFF = 12;
+      const SPEAK_RELEASE_MS = 250;
 
       const tick = () => {
-        if (!analyser) return;
+        if (!analyser || cancelled) return;
         analyser.getByteFrequencyData(data);
+        let maxSample = 0;
         const next = new Array(BARS).fill(0) as number[];
         for (let b = 0; b < BARS; b++) {
           let sum = 0;
           const offset = b * perBar;
-          for (let j = 0; j < perBar; j++) sum += data[offset + j] || 0;
+          for (let j = 0; j < perBar; j++) {
+            const v = data[offset + j] || 0;
+            sum += v;
+            if (v > maxSample) maxSample = v;
+          }
           next[b] = Math.min(1, sum / perBar / 200);
         }
-        setMeter(next);
+        if (openRef.current) setMeter(next);
+
+        const now = performance.now();
+        const wantSpeaking = lastSpeaking
+          ? maxSample > SPEAK_OFF ||
+            now - lastSpeakingChangeAt < SPEAK_RELEASE_MS
+          : maxSample > SPEAK_ON;
+        if (wantSpeaking !== lastSpeaking) {
+          lastSpeaking = wantSpeaking;
+          lastSpeakingChangeAt = now;
+          service.setLocalSpeaking(wantSpeaking);
+        }
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
@@ -199,14 +278,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
     return () => {
       cancelled = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      if (raf) cancelAnimationFrame(raf);
-      try {
-        source?.disconnect();
-      } catch {}
-      ctx?.close().catch(() => {});
+      teardown();
+      service.setLocalSpeaking(false);
     };
-  }, [open, isMuted, isConnected, getLocalAudioMediaStreamTrack]);
+  }, [isMuted, isConnected, trackId, localTrack]);
 
   const totalConnected = isConnected ? participants.length + 1 : 0;
   const youColor = "#0071e3";
@@ -256,7 +331,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
   return (
     <div className="voice-pill" ref={rootRef}>
-      <span className="vp-dot" />
+      <span
+        className={`vp-dot ${qualityClass(localQuality)}`}
+        title={`Connection: ${qualityLabel(localQuality)}`}
+      />
       <div>
         <div className="vp-title">{channelName}</div>
         <div className="vp-meta">
@@ -310,6 +388,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
                     {initials(p.name || p.identity)}
                   </div>
                   <div className="name">{p.name || p.identity}</div>
+                  <QualityBars quality={p.quality} />
                   <div className="vp-slider">
                     <input
                       type="range"
@@ -345,12 +424,36 @@ const VoiceView: React.FC<VoiceViewProps> = ({
               >
                 Standard
               </button>
-              <button disabled title="Coming soon">
+              <button
+                className={noise === "high" ? "on" : ""}
+                onClick={() => handleNoiseChange("high")}
+              >
                 <Icon name="sparkles" size={11} />
                 High
               </button>
             </div>
           </div>
+
+          {noise === "high" && (
+            <div className="vp-pop-row">
+              <div className="vp-pop-label">
+                <span className="k">Suppression strength</span>
+                <span className="v">{noiseStrengthPct}%</span>
+              </div>
+              <div className="vp-slider accent">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={noiseStrengthPct}
+                  onChange={(e) => handleStrengthChange(Number(e.target.value))}
+                  style={{ ["--pct" as unknown as string]: `${noiseStrengthPct}%` } as React.CSSProperties}
+                  title={`${noiseStrengthPct}%`}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="vp-pop-row">
             <div className="vp-pop-label">
