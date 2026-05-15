@@ -103,8 +103,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_repository.clone(),
         server_repository.clone(),
     );
-    let edit_channel_message_usecase =
-        EditChannelMessage::new(message_repository.clone(), server_repository.clone());
+    let edit_channel_message_usecase = EditChannelMessage::new(
+        message_repository.clone(),
+        channel_repository.clone(),
+        server_repository.clone(),
+    );
     let delete_channel_message_usecase = DeleteChannelMessage::new(
         message_repository.clone(),
         channel_repository.clone(),

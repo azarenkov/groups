@@ -99,6 +99,10 @@ where
                 other => DeleteChannelMessageError::Repository(other),
             })?;
 
+        if channel.server_id() != &server_id {
+            return Err(DeleteChannelMessageError::MessageNotFound);
+        }
+
         let is_owner = channel.owner_id() == &deleter_id;
 
         let now = Utc::now();

@@ -52,8 +52,11 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresServerRepository,
     >,
-    pub edit_channel_message_usecase:
-        EditChannelMessage<PostgresMessageRepository, PostgresServerRepository>,
+    pub edit_channel_message_usecase: EditChannelMessage<
+        PostgresMessageRepository,
+        PostgresChannelRepository,
+        PostgresServerRepository,
+    >,
     pub delete_channel_message_usecase: DeleteChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
@@ -123,6 +126,7 @@ impl AppState {
         >,
         edit_channel_message_usecase: EditChannelMessage<
             PostgresMessageRepository,
+            PostgresChannelRepository,
             PostgresServerRepository,
         >,
         delete_channel_message_usecase: DeleteChannelMessage<

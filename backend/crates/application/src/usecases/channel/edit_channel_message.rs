@@ -5,7 +5,7 @@ use domain::{
     message::{
         MessageError, content::MessageContent, id::MessageId, repository::MessageRepository,
     },
-    channel::id::ChannelId,
+    channel::{id::ChannelId, repository::ChannelRepository},
     server::{id::ServerId, repository::ServerRepository},
     shared::{
         outbox::{
@@ -33,23 +33,31 @@ pub enum EditChannelMessageError {
     MessageNotFound,
 }
 
-pub struct EditChannelMessage<M, S>
+pub struct EditChannelMessage<M, C, S>
 where
     M: MessageRepository,
+    C: ChannelRepository,
     S: ServerRepository,
 {
     message_repository: Arc<M>,
+    channel_repository: Arc<C>,
     server_repository: Arc<S>,
 }
 
-impl<M, S> EditChannelMessage<M, S>
+impl<M, C, S> EditChannelMessage<M, C, S>
 where
     M: MessageRepository,
+    C: ChannelRepository,
     S: ServerRepository,
 {
-    pub fn new(message_repository: Arc<M>, server_repository: Arc<S>) -> Self {
+    pub fn new(
+        message_repository: Arc<M>,
+        channel_repository: Arc<C>,
+        server_repository: Arc<S>,
+    ) -> Self {
         Self {
             message_repository,
+            channel_repository,
             server_repository,
         }
     }
@@ -81,6 +89,19 @@ where
             })?;
 
         if message.channel_id().uuid() != channel_id.uuid() {
+            return Err(EditChannelMessageError::MessageNotFound);
+        }
+
+        let channel = self
+            .channel_repository
+            .find_channel_by_id(&channel_id)
+            .await
+            .map_err(|e| match e {
+                RepositoryError::NotFound => EditChannelMessageError::MessageNotFound,
+                other => EditChannelMessageError::Repository(other),
+            })?;
+
+        if channel.server_id() != &server_id {
             return Err(EditChannelMessageError::MessageNotFound);
         }
 
