@@ -60,17 +60,29 @@ where
 
         let request_id = incoming.unwrap_or_else(|| Uuid::new_v4().to_string());
 
-        req.extensions_mut()
-            .insert(RequestId(request_id.clone()));
+        req.extensions_mut().insert(RequestId(request_id.clone()));
 
+        let http_req = req.request().clone();
         let fut = self.service.call(req);
 
         Box::pin(async move {
-            let mut res = fut.await?;
-            if let Ok(value) = HeaderValue::from_str(&request_id) {
-                res.headers_mut().insert(header_name, value);
+            let header_value = HeaderValue::from_str(&request_id).ok();
+            match fut.await {
+                Ok(mut res) => {
+                    if let Some(value) = header_value {
+                        res.headers_mut().insert(header_name, value);
+                    }
+                    Ok(res.map_into_left_body())
+                }
+                Err(err) => {
+                    let mut http_res = err.error_response();
+                    if let Some(value) = header_value {
+                        http_res.headers_mut().insert(header_name, value);
+                    }
+                    let res = ServiceResponse::new(http_req, http_res);
+                    Ok(res.map_into_right_body())
+                }
             }
-            Ok(res.map_into_left_body())
         })
     }
 }

@@ -51,10 +51,19 @@ const App: React.FC = () => {
         const status = apiErr?.status;
         const sessionDead =
           code === "REFRESH_TOKEN_REVOKED" ||
+          code === "REFRESH_TOKEN_EXPIRED" ||
+          code === "REFRESH_TOKEN_NOT_FOUND" ||
+          code === "REFRESH_TOKEN_USER_MISMATCH" ||
           code === "SESSION_EXPIRED" ||
           code === "INVALID_CREDENTIALS" ||
+          code === "TOKEN_INVALID_TYPE" ||
+          code === "TOKEN_DECODING_FAILED" ||
+          code === "USER_NOT_FOUND" ||
           code === "VALIDATION_FAILED" ||
-          (!code && (status === 400 || status === 401 || status === 403 || status === 422));
+          status === 400 ||
+          status === 401 ||
+          status === 403 ||
+          status === 422;
         if (sessionDead) {
           await clearRefreshToken();
         }
