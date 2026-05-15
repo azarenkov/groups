@@ -13,7 +13,7 @@ import {
   TrackEvent,
 } from "livekit-client";
 
-import { buildDfnPipeline, DENOISER_SAMPLE_RATE, DfnPipeline } from "./dfn";
+import type { DfnPipeline } from "./dfn";
 
 export type NoiseSuppressionMode = "off" | "standard" | "high";
 
@@ -412,6 +412,19 @@ export class LiveKitService {
       this.onError?.(err);
       return;
     }
+
+    let dfnModule: typeof import("./dfn");
+    try {
+      dfnModule = await import("./dfn");
+    } catch (e) {
+      console.error("[LiveKitService] failed to load DFN module:", e);
+      this.noiseMode = "standard";
+      this.onError?.(
+        e instanceof Error ? e : new Error("Failed to load noise suppression"),
+      );
+      return;
+    }
+    const { buildDfnPipeline, DENOISER_SAMPLE_RATE } = dfnModule;
 
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
