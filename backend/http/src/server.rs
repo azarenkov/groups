@@ -195,9 +195,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())
-            .wrap(cors)
-            .wrap(Logger::default())
             .wrap(RequestIdMiddleware)
+            .wrap(Logger::default())
+            .wrap(cors)
             .configure(routes::configure)
     })
     .bind((server_config.host, server_config.port))?
