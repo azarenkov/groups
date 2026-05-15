@@ -23,6 +23,16 @@ export interface ListChannelsResponse {
   pagination?: PaginationMeta;
 }
 
+export interface ChannelParticipant {
+  id: string;
+  name: string;
+}
+
+export interface ListChannelParticipantsResponse {
+  participants: ChannelParticipant[];
+  pagination?: PaginationMeta;
+}
+
 export interface CreateChannelRequest {
   name: string;
   kind: ChannelKind;

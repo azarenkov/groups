@@ -4,6 +4,7 @@ use application::ports::{
     voice_service::VoiceServiceError, voice_webhook_verifier::VoiceWebhookVerifierError,
 };
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
+use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
@@ -868,6 +869,7 @@ macro_rules! impl_to_http_status_delegate {
 impl_to_http_status_delegate!(ListServersByUserError, Repository);
 impl_to_http_status_delegate!(ListServerMembersError, Repository);
 impl_to_http_status_delegate!(ListServerChannelsError, Repository);
+impl_to_http_status_delegate!(ListChannelParticipantsError, Repository);
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -951,6 +953,7 @@ impl_from_for_api_error!(
     ListServersByUserError,
     ListServerMembersError,
     ListServerChannelsError,
+    ListChannelParticipantsError,
 );
 
 impl From<ValidationErrors> for ApiError {

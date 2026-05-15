@@ -17,17 +17,18 @@ use domain::{
     server::id::ServerId,
     shared::{
         outbox::{outbox_record::OutboxRecord, to_outbox::ToOutboxRecord},
+        pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::id::UserId,
+    user::{User, id::UserId},
 };
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
     dto::{
         channel::ChannelDto, kind::ChannelKindDto, muted_participant::MutedParticipantDto,
-        visibility::ChannelVisibilityDto,
+        user::UserDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
     repositories::outbox_record::save_outbox_records,
@@ -324,6 +325,69 @@ impl ChannelRepository for PostgresChannelRepository {
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
+    }
+
+    async fn list_channel_participants(
+        &self,
+        channel_id: &ChannelId,
+        pagination: Pagination,
+    ) -> Result<PaginatedResult<User>, RepositoryError> {
+        let kind_row = sqlx::query!(
+            r#"
+            SELECT kind AS "kind: ChannelKindDto"
+            FROM channels
+            WHERE id = $1
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+
+        let kind: ChannelKind = kind_row.kind.into();
+
+        if !kind.supports_voice() {
+            return Ok(PaginatedResult::new(Vec::new(), 0, pagination));
+        }
+
+        let total = sqlx::query!(
+            r#"
+            SELECT COUNT(DISTINCT user_id) AS "count!"
+            FROM channel_voice_participants
+            WHERE channel_id = $1
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .count;
+
+        let users = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at
+            FROM users u
+            INNER JOIN (
+                SELECT user_id, MIN(joined_at) AS first_joined_at
+                FROM channel_voice_participants
+                WHERE channel_id = $1
+                GROUP BY user_id
+            ) p ON p.user_id = u.id
+            ORDER BY p.first_joined_at ASC
+            LIMIT $2 OFFSET $3
+            "#,
+            channel_id.uuid(),
+            pagination.limit(),
+            pagination.offset(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let items = users.into_iter().map(|dto| dto.into()).collect();
+        Ok(PaginatedResult::new(items, total, pagination))
     }
 
     async fn find_channel_by_id(&self, id: &ChannelId) -> Result<Channel, RepositoryError> {

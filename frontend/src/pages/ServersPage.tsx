@@ -21,7 +21,12 @@ import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useLocalSpeaking } from "../hooks/useLocalSpeaking";
 import { useParticipants } from "../hooks/useParticipants";
 import { qualityClass, qualityLabel } from "../utils/quality";
-import { Channel, ChannelKind, ChannelVisibility } from "../types/channel";
+import {
+  Channel,
+  ChannelKind,
+  ChannelParticipant,
+  ChannelVisibility,
+} from "../types/channel";
 import { Server } from "../types/server";
 import {
   SEED_DIRECTS,
@@ -40,6 +45,9 @@ const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
   const localSpeaking = useLocalSpeaking();
   const voiceParticipants = useParticipants();
+  const [previewParticipants, setPreviewParticipants] = useState<
+    ChannelParticipant[]
+  >([]);
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -199,6 +207,30 @@ const ServersPage: React.FC = () => {
             joinedChannel?.channel.id !== c.id,
         ) ?? null
       : null;
+
+  useEffect(() => {
+    if (!selectedVoiceChannelNotJoined || !selectedServer) {
+      setPreviewParticipants([]);
+      return;
+    }
+    const serverId = selectedServer.id;
+    const channelId = selectedVoiceChannelNotJoined.id;
+    let cancelled = false;
+    channelAPI
+      .listParticipants(serverId, channelId)
+      .then((res) => {
+        if (!cancelled) setPreviewParticipants(res.participants);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.warn("[ServersPage] failed to load participants:", err);
+          setPreviewParticipants([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVoiceChannelNotJoined, selectedServer]);
 
   const selectedServerChannels = selectedServer
     ? channelsByServer[selectedServer.id]
@@ -574,7 +606,53 @@ const ServersPage: React.FC = () => {
                   <span className="topic">Disconnected</span>
                 </header>
                 <div className="voice-preview">
-                  <div className="voice-preview-empty">No one is here yet.</div>
+                  {previewParticipants.length === 0 ? (
+                    <div className="voice-preview-empty">No one is here yet.</div>
+                  ) : (
+                    (() => {
+                      const initials = (s: string) =>
+                        s ? s.charAt(0).toUpperCase() : "?";
+                      const PALETTE = [
+                        "#0071e3",
+                        "#ff6b35",
+                        "#30a46c",
+                        "#bf5af2",
+                        "#ff9f0a",
+                        "#5e6ad2",
+                      ];
+                      const colorFor = (id: string) => {
+                        let h = 0;
+                        for (let i = 0; i < id.length; i++)
+                          h = (h * 31 + id.charCodeAt(i)) >>> 0;
+                        return PALETTE[h % PALETTE.length];
+                      };
+                      const sizeClass =
+                        previewParticipants.length === 1
+                          ? "solo"
+                          : previewParticipants.length <= 4
+                            ? "row"
+                            : "grid";
+                      return (
+                        <div className={`voice-stage-orbs ${sizeClass}`}>
+                          {previewParticipants.map((p) => (
+                            <div
+                              key={p.id}
+                              className="voice-stage-orb"
+                              style={
+                                {
+                                  "--orb-color": colorFor(p.id),
+                                } as React.CSSProperties
+                              }
+                            >
+                              <span className="voice-stage-orb-letter">
+                                {initials(p.name)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  )}
                   <button
                     type="button"
                     className="btn primary voice-preview-join"
