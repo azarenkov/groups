@@ -92,10 +92,11 @@ where
             purpose,
         );
 
+        let request_id = shared::middleware::request_id::current();
         let records: Vec<OutboxRecord> = verification_code
             .pull_events()
             .iter()
-            .map(|e| e.to_outbox_record())
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<Vec<_>, _>>()?;
 
         self.verification_code_repository

@@ -19,7 +19,7 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    shared::observability::init("outbox-worker");
 
     let worker_config = WorkerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;

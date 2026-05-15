@@ -84,7 +84,8 @@ where
             .await?;
 
         let event = ServerEvent::Deleted(ServerDeleted::record(server_id, owner_id, Utc::now()));
-        let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
+        let request_id = shared::middleware::request_id::current();
+        let records: Vec<OutboxRecord> = vec![event.to_outbox_record_with_request_id(request_id)?];
 
         let deleted = self
             .server_repository

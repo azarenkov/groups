@@ -17,9 +17,9 @@ pub async fn save_outbox_records(
             INSERT INTO outbox (
                 id, aggregate_id, aggregate_type,
                 parent_id, parent_type,
-                event_type, payload, occurred_at
+                event_type, payload, occurred_at, request_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
             record.id,
             record.aggregate_id,
@@ -29,6 +29,7 @@ pub async fn save_outbox_records(
             record.event_type,
             record.payload,
             record.occurred_at,
+            record.request_id,
         )
         .execute(&mut **tx)
         .await

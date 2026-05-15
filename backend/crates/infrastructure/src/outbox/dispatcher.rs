@@ -60,7 +60,8 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                 parent_type AS "parent_type: AggregateTypeDto",
                 event_type,
                 payload,
-                occurred_at
+                occurred_at,
+                request_id
             FROM outbox
             WHERE processed_at IS NULL
               AND attempts < $1
@@ -95,7 +96,16 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
             event_type: row.event_type,
             payload: row.payload,
             occurred_at: row.occurred_at,
+            request_id: row.request_id,
         };
+
+        let dispatch_span = tracing::info_span!(
+            "outbox_dispatch",
+            outbox_id = %record.id,
+            event_type = %record.event_type,
+            request_id = ?record.request_id,
+        );
+        let _enter = dispatch_span.enter();
 
         match self.publisher.publish(&record).await {
             Ok(()) => {

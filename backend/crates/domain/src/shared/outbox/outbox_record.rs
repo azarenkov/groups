@@ -12,6 +12,7 @@ pub struct OutboxRecord {
     pub event_type: String,
     pub payload: Value,
     pub occurred_at: DateTime<Utc>,
+    pub request_id: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

@@ -49,7 +49,7 @@ use shared::middleware::request_id::RequestIdMiddleware;
 use crate::{config::ServerConfig, routes, shared::state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    shared::observability::init("http");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;

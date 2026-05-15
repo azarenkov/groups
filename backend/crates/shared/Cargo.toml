@@ -15,4 +15,6 @@ jsonwebtoken = { workspace = true }
 anyhow = { workspace = true }
 governor = "0.10"
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
 futures = { workspace = true }

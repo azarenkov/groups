@@ -88,10 +88,11 @@ where
             request.client.user_agent,
         );
 
+        let request_id = shared::middleware::request_id::current();
         let records: Vec<OutboxRecord> = user
             .pull_events()
             .iter()
-            .map(|e| e.to_outbox_record())
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<Vec<_>, _>>()?;
 
         let user_id = user.id_ownned();
