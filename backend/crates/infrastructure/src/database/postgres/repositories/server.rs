@@ -367,4 +367,26 @@ impl ServerRepository for PostgresServerRepository {
 
         Ok(row.map(|r| UserId::new(r.owner_id)))
     }
+
+    async fn is_server_member(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            user_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.exists)
+    }
 }

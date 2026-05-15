@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import {
   ListChannelsResponse,
+  ListChannelParticipantsResponse,
   CreateChannelRequest,
   CreateChannelResponse,
   JoinVoiceChannelRequest,
@@ -69,6 +70,22 @@ class ChannelAPI {
   ): Promise<ListChannelsResponse> {
     const response = await this.client.get(
       `/v1/servers/${serverId}/channels`,
+      { params: { page, per_page: perPage } },
+    );
+    return {
+      ...response.data.data,
+      pagination: response.data.meta?.pagination,
+    };
+  }
+
+  async listParticipants(
+    serverId: string,
+    channelId: string,
+    page: number = 1,
+    perPage: number = 50,
+  ): Promise<ListChannelParticipantsResponse> {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/channels/${channelId}/participants`,
       { params: { page, per_page: perPage } },
     );
     return {

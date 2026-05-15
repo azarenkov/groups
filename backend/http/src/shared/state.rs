@@ -6,7 +6,8 @@ use application::usecases::{
     },
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
-        join_voice_channel::JoinVoiceChannel, mute_channel::MuteChannel,
+        join_voice_channel::JoinVoiceChannel,
+        list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
         unmute_channel::UnmuteChannel,
     },
     server::{
@@ -40,6 +41,7 @@ pub struct AppState {
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
     pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
+    pub list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
 
     pub register_user_usecase:
         RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
@@ -92,6 +94,7 @@ impl AppState {
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
+        list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
@@ -133,6 +136,7 @@ impl AppState {
             mute_channel_usecase,
             unmute_channel_usecase,
             delete_channel_usecase,
+            list_channel_participants_usecase,
             register_user_usecase,
             issue_verification_code_usecase,
             login_user_usecase,

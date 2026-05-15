@@ -12,7 +12,8 @@ use application::usecases::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
         delete_channel::DeleteChannel, join_voice_channel::JoinVoiceChannel,
         join_voice_connection::JoinVoiceConnection,
-        leave_voice_connection::LeaveVoiceConnection, mute_channel::MuteChannel,
+        leave_voice_connection::LeaveVoiceConnection,
+        list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
         unmute_channel::UnmuteChannel,
     },
     server::{
@@ -90,6 +91,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         UnmuteChannel::new(channel_repository.clone(), user_repository.clone());
     let delete_channel_usecase =
         DeleteChannel::new(channel_repository.clone(), livekit_service.clone());
+    let list_channel_participants_usecase =
+        ListChannelParticipants::new(channel_repository.clone(), server_repository.clone());
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
@@ -144,6 +147,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mute_channel_usecase,
         unmute_channel_usecase,
         delete_channel_usecase,
+        list_channel_participants_usecase,
         register_user_usecase,
         issue_verification_code_usecase,
         login_user_usecase,
