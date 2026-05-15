@@ -69,7 +69,7 @@ async fn list_servers_by_user(
 
 #[get("/{server_id}/members")]
 async fn list_server_members(
-    _auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<PaginationQuery>,
@@ -77,11 +77,12 @@ async fn list_server_members(
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
+    let requester_id = UserId::new(auth_token.id);
     let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_members_usecase
-        .execute(server_id, pagination)
+        .execute(server_id, requester_id, pagination)
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
@@ -92,7 +93,7 @@ async fn list_server_members(
 
 #[get("/{server_id}/channels")]
 async fn list_server_channels(
-    _auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<PaginationQuery>,
@@ -100,11 +101,12 @@ async fn list_server_channels(
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
+    let requester_id = UserId::new(auth_token.id);
     let pagination = Pagination::new(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_channels_usecase
-        .execute(server_id, pagination)
+        .execute(server_id, requester_id, pagination)
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);

@@ -106,6 +106,7 @@ pub trait ChannelRepository {
 
     async fn list_channel_participants(
         &self,
+        server_id: &crate::server::id::ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<User>, RepositoryError>;

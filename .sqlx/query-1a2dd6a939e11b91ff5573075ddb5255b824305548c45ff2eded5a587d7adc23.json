@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT kind AS \"kind: ChannelKindDto\"\n            FROM channels\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT kind AS \"kind: ChannelKindDto\"\n            FROM channels\n            WHERE id = $1 AND server_id = $2\n            ",
   "describe": {
     "columns": [
       {
@@ -21,6 +21,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -28,5 +29,5 @@
       false
     ]
   },
-  "hash": "8e1ded0ad2696419ba4e86f66a78559460db556e089e14a0afc738b9718043c6"
+  "hash": "1a2dd6a939e11b91ff5573075ddb5255b824305548c45ff2eded5a587d7adc23"
 }

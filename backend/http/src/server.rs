@@ -92,7 +92,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let delete_channel_usecase =
         DeleteChannel::new(channel_repository.clone(), livekit_service.clone());
     let list_channel_participants_usecase =
-        ListChannelParticipants::new(channel_repository.clone());
+        ListChannelParticipants::new(channel_repository.clone(), server_repository.clone());
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),

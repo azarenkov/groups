@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use domain::{
     channel::{id::ChannelId, repository::ChannelRepository},
+    server::{id::ServerId, repository::ServerRepository},
     shared::{pagination::PaginatedResult, repository::error::RepositoryError},
+    user::id::UserId,
 };
 
 use crate::dto::{
@@ -14,32 +16,50 @@ use crate::dto::{
 pub enum ListChannelParticipantsError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("Not a member of the server")]
+    NotMember,
 }
 
-pub struct ListChannelParticipants<T>
+pub struct ListChannelParticipants<C, S>
 where
-    T: ChannelRepository,
+    C: ChannelRepository,
+    S: ServerRepository,
 {
-    channel_repository: Arc<T>,
+    channel_repository: Arc<C>,
+    server_repository: Arc<S>,
 }
 
-impl<T> ListChannelParticipants<T>
+impl<C, S> ListChannelParticipants<C, S>
 where
-    T: ChannelRepository,
+    C: ChannelRepository,
+    S: ServerRepository,
 {
-    pub fn new(channel_repository: Arc<T>) -> Self {
-        Self { channel_repository }
+    pub fn new(channel_repository: Arc<C>, server_repository: Arc<S>) -> Self {
+        Self {
+            channel_repository,
+            server_repository,
+        }
     }
 
     pub async fn execute(
         &self,
         request: ListChannelParticipantsRequest,
     ) -> Result<PaginatedResult<ChannelParticipantDto>, ListChannelParticipantsError> {
+        let server_id = ServerId::new(request.server_id);
         let channel_id = ChannelId::new(request.channel_id);
+        let requester_id = UserId::new(request.requester_id);
+
+        let is_member = self
+            .server_repository
+            .is_server_member(&server_id, &requester_id)
+            .await?;
+        if !is_member {
+            return Err(ListChannelParticipantsError::NotMember);
+        }
 
         let result = self
             .channel_repository
-            .list_channel_participants(&channel_id, request.pagination)
+            .list_channel_participants(&server_id, &channel_id, request.pagination)
             .await?;
 
         let items = result

@@ -146,17 +146,23 @@ async fn unmute_channel(
 #[get("/{server_id}/channels/{channel_id}/participants")]
 async fn list_channel_participants(
     req: HttpRequest,
-    _auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     query: web::Query<PaginationQuery>,
 ) -> Result<impl Responder, ApiError> {
     query.validate()?;
 
-    let (_server_id, channel_id) = path.into_inner();
+    let (server_id, channel_id) = path.into_inner();
     let pagination = Pagination::new(query.page, query.per_page)?;
 
-    let data = ListChannelParticipantsRequest::new(channel_id, pagination, request_context(&req));
+    let data = ListChannelParticipantsRequest::new(
+        server_id,
+        channel_id,
+        auth_token.id,
+        pagination,
+        request_context(&req),
+    );
 
     let result = app_state
         .list_channel_participants_usecase

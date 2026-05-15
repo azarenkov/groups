@@ -41,7 +41,7 @@ pub struct AppState {
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
     pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
-    pub list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository>,
+    pub list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
 
     pub register_user_usecase:
         RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
@@ -94,7 +94,7 @@ impl AppState {
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
-        list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository>,
+        list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,

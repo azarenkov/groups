@@ -867,9 +867,80 @@ macro_rules! impl_to_http_status_delegate {
 }
 
 impl_to_http_status_delegate!(ListServersByUserError, Repository);
-impl_to_http_status_delegate!(ListServerMembersError, Repository);
-impl_to_http_status_delegate!(ListServerChannelsError, Repository);
-impl_to_http_status_delegate!(ListChannelParticipantsError, Repository);
+
+impl ToHttpStatus for ListServerMembersError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListServerMembersError::Repository(e) => e.to_http_status(),
+            ListServerMembersError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListServerMembersError::Repository(e) => e.to_user_message(),
+            ListServerMembersError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListServerMembersError::Repository(e) => e.to_error_code(),
+            ListServerMembersError::NotMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
+
+impl ToHttpStatus for ListServerChannelsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListServerChannelsError::Repository(e) => e.to_http_status(),
+            ListServerChannelsError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListServerChannelsError::Repository(e) => e.to_user_message(),
+            ListServerChannelsError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListServerChannelsError::Repository(e) => e.to_error_code(),
+            ListServerChannelsError::NotMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
+impl ToHttpStatus for ListChannelParticipantsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListChannelParticipantsError::Repository(e) => e.to_http_status(),
+            ListChannelParticipantsError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListChannelParticipantsError::Repository(e) => e.to_user_message(),
+            ListChannelParticipantsError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListChannelParticipantsError::Repository(e) => e.to_error_code(),
+            ListChannelParticipantsError::NotMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct ApiError {

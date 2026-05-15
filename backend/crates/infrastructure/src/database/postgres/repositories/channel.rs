@@ -329,6 +329,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
     async fn list_channel_participants(
         &self,
+        server_id: &ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<User>, RepositoryError> {
@@ -336,9 +337,10 @@ impl ChannelRepository for PostgresChannelRepository {
             r#"
             SELECT kind AS "kind: ChannelKindDto"
             FROM channels
-            WHERE id = $1
+            WHERE id = $1 AND server_id = $2
             "#,
             channel_id.uuid(),
+            server_id.uuid(),
         )
         .fetch_optional(&self.pool)
         .await

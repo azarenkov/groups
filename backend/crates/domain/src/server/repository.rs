@@ -49,4 +49,9 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError>;
+    async fn is_server_member(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
 }
