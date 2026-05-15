@@ -452,9 +452,7 @@ export class LiveKitService {
         step = "buildDfnPipeline";
         pipeline = await buildDfnPipeline({ source, context: ctx });
         step = "replaceTrack";
-        await localTrack.replaceTrack(pipeline.outputTrack, {
-          userProvidedTrack: false,
-        });
+        await localTrack.replaceTrack(pipeline.outputTrack);
 
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
@@ -513,9 +511,7 @@ export class LiveKitService {
       const localTrack = publication?.track;
       if (localTrack instanceof LocalAudioTrack) {
         try {
-          await localTrack.replaceTrack(rawTrack, {
-            userProvidedTrack: false,
-          });
+          await localTrack.replaceTrack(rawTrack);
         } catch (e) {
           console.warn(
             "[LiveKitService] failed to restore raw mic track, keeping DFN pipeline alive:",
