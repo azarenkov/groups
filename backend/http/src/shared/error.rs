@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use actix_web::{
     HttpResponse, ResponseError,
     http::{StatusCode, header::HeaderValue},
@@ -954,10 +952,10 @@ impl ResponseError for ApiError {
             fields: self.fields.clone(),
         };
         let mut builder = HttpResponse::build(self.status);
-        if let Some(ref rid) = self.request_id {
-            if let Ok(value) = HeaderValue::from_str(rid) {
-                builder.insert_header(("X-Request-Id", value));
-            }
+        if let Some(ref rid) = self.request_id
+            && let Ok(value) = HeaderValue::from_str(rid)
+        {
+            builder.insert_header(("X-Request-Id", value));
         }
         builder.json(response)
     }
@@ -1098,7 +1096,7 @@ fn flatten_validation_errors(errors: &ValidationErrors, prefix: &str) -> Vec<Fie
     out
 }
 
-fn code_to_message(code: &Cow<'static, str>) -> String {
+fn code_to_message(code: &str) -> String {
     format!("validation failed: {code}")
 }
 
