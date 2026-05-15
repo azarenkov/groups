@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import Icon from "./Icon";
 import { useLiveKit } from "../../hooks/useLiveKit";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
+import { getLiveKitService } from "../../services/livekit";
 import { ConnectionQuality } from "../../services/livekit";
 import {
   qualityActiveBars,
@@ -176,10 +177,16 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   const [meter, setMeter] = React.useState<number[]>(() =>
     new Array(BARS).fill(0),
   );
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   useEffect(() => {
-    if (!open || isMuted || !isConnected) {
+    const service = getLiveKitService();
+    if (isMuted || !isConnected || !localTrack) {
       setMeter(new Array(BARS).fill(0));
+      service.setLocalSpeaking(false);
       return;
     }
 
@@ -188,6 +195,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     let source: MediaStreamAudioSourceNode | null = null;
     let analyser: AnalyserNode | null = null;
     let raf = 0;
+    let lastSpeaking = false;
+    let lastSpeakingChangeAt = 0;
 
     const teardown = () => {
       if (raf) cancelAnimationFrame(raf);
@@ -229,20 +238,37 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       const data = new Uint8Array(bins);
       const usable = Math.floor(bins * 0.6);
       const perBar = Math.max(1, Math.floor(usable / BARS));
+      const SPEAK_ON = 22;
+      const SPEAK_OFF = 12;
+      const SPEAK_RELEASE_MS = 250;
 
       const tick = () => {
         if (!analyser || cancelled) return;
         analyser.getByteFrequencyData(data);
+        let maxSample = 0;
         const next = new Array(BARS).fill(0) as number[];
         for (let b = 0; b < BARS; b++) {
           let sum = 0;
           const offset = b * perBar;
           for (let j = 0; j < perBar; j++) {
-            sum += data[offset + j] || 0;
+            const v = data[offset + j] || 0;
+            sum += v;
+            if (v > maxSample) maxSample = v;
           }
           next[b] = Math.min(1, sum / perBar / 200);
         }
-        setMeter(next);
+        if (openRef.current) setMeter(next);
+
+        const now = performance.now();
+        const wantSpeaking = lastSpeaking
+          ? maxSample > SPEAK_OFF ||
+            now - lastSpeakingChangeAt < SPEAK_RELEASE_MS
+          : maxSample > SPEAK_ON;
+        if (wantSpeaking !== lastSpeaking) {
+          lastSpeaking = wantSpeaking;
+          lastSpeakingChangeAt = now;
+          service.setLocalSpeaking(wantSpeaking);
+        }
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
@@ -253,8 +279,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     return () => {
       cancelled = true;
       teardown();
+      service.setLocalSpeaking(false);
     };
-  }, [open, isMuted, isConnected, trackId, localTrack]);
+  }, [isMuted, isConnected, trackId, localTrack]);
 
   const totalConnected = isConnected ? participants.length + 1 : 0;
   const youColor = "#0071e3";

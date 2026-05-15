@@ -45,6 +45,11 @@ export class LiveKitService {
     new Set();
   private localTrackListeners: Set<(track: MediaStreamTrack | null) => void> =
     new Set();
+  private localSpeaking: boolean = false;
+  private localSpeakingListeners: Set<(speaking: boolean) => void> = new Set();
+  private participantsListeners: Set<
+    (participants: ParticipantInfo[]) => void
+  > = new Set();
 
   constructor(
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
@@ -88,6 +93,29 @@ export class LiveKitService {
     return () => {
       this.localTrackListeners.delete(fn);
     };
+  }
+
+  getLocalSpeaking(): boolean {
+    return this.localSpeaking;
+  }
+
+  subscribeLocalSpeaking(fn: (speaking: boolean) => void): () => void {
+    this.localSpeakingListeners.add(fn);
+    return () => {
+      this.localSpeakingListeners.delete(fn);
+    };
+  }
+
+  setLocalSpeaking(speaking: boolean): void {
+    if (speaking === this.localSpeaking) return;
+    this.localSpeaking = speaking;
+    this.localSpeakingListeners.forEach((fn) => {
+      try {
+        fn(speaking);
+      } catch (e) {
+        console.warn("[LiveKitService] localSpeaking listener error:", e);
+      }
+    });
   }
 
   private emitLocalTrack(): void {
@@ -197,6 +225,7 @@ export class LiveKitService {
       this.isConnecting = false;
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.emitLocalTrack();
+      this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
     }
@@ -635,6 +664,7 @@ export class LiveKitService {
       void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
       this.emitLocalQuality(ConnectionQuality.Unknown);
+      this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
     });
@@ -737,7 +767,24 @@ export class LiveKitService {
   }
 
   private notifyParticipantsChange(): void {
-    this.onParticipantsChange?.(this.getParticipants());
+    const list = this.getParticipants();
+    this.onParticipantsChange?.(list);
+    this.participantsListeners.forEach((fn) => {
+      try {
+        fn(list);
+      } catch (e) {
+        console.warn("[LiveKitService] participants listener error:", e);
+      }
+    });
+  }
+
+  subscribeParticipants(
+    fn: (participants: ParticipantInfo[]) => void,
+  ): () => void {
+    this.participantsListeners.add(fn);
+    return () => {
+      this.participantsListeners.delete(fn);
+    };
   }
 }
 

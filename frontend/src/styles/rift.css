@@ -2246,6 +2246,18 @@ textarea.s-input {
 .s-btn.danger:hover { background: #d33b3b; color: #fff; }
 
 
+.voice-stage-wrap {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+}
+.voice-stage-wrap > .voice-stage {
+  position: static;
+  flex: 1;
+  inset: auto;
+}
+.voice-stage-status {
+  display: inline-flex; align-items: center; gap: 6px;
+}
 .voice-stage {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2269,14 +2281,39 @@ textarea.s-input {
   background: var(--surface-hover);
   color: var(--fg-1);
 }
+.voice-stage-orbs {
+  display: flex; flex-wrap: wrap; gap: 28px;
+  align-items: center; justify-content: center;
+  max-width: min(720px, 90%);
+}
+.voice-stage-orbs.row { gap: 24px; }
+.voice-stage-orbs.grid { gap: 18px; max-width: 520px; }
+
 .voice-stage-orb {
   position: relative;
   width: 140px; height: 140px;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--voice-live) 60%, #fff 0%), color-mix(in srgb, var(--voice-live) 80%, #000 20%));
+    radial-gradient(
+      circle at 35% 30%,
+      color-mix(in srgb, var(--orb-color, var(--voice-live)) 60%, #fff 0%),
+      color-mix(in srgb, var(--orb-color, var(--voice-live)) 80%, #000 20%)
+    );
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+  transition: box-shadow 160ms ease-out;
+  flex-shrink: 0;
+}
+.voice-stage-orbs.row .voice-stage-orb { width: 96px; height: 96px; }
+.voice-stage-orbs.grid .voice-stage-orb { width: 72px; height: 72px; }
+.voice-stage-orbs.row .voice-stage-orb-letter { font-size: 38px; }
+.voice-stage-orbs.grid .voice-stage-orb-letter { font-size: 28px; }
+
+.voice-stage-orb.speaking {
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.08),
+    0 0 0 2px color-mix(in srgb, var(--orb-color, var(--voice-live)) 70%, transparent),
+    0 0 24px 4px color-mix(in srgb, var(--orb-color, var(--voice-live)) 45%, transparent);
 }
 .voice-stage-orb-letter {
   font-size: 56px; font-weight: 600; color: #fff;
