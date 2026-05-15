@@ -13,9 +13,9 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.outputAvailable = 0;
     this.bypass = true;
     this.strength = 1.0;
-    this.dryMap = new Map();
-    this.dryOrder = [];
+    this.frames = new Map();
     this.seq = 0;
+    this.nextOut = 0;
 
     this.port.onmessage = (event) => {
       const msg = event.data;
@@ -32,43 +32,49 @@ class DfnProcessor extends AudioWorkletProcessor {
         return;
       }
       if (msg.type === 'frame' && msg.payload instanceof Float32Array) {
-        this.handleProcessedFrame(msg.seq, msg.payload);
+        this.markWet(msg.seq, msg.payload);
         return;
       }
       if (msg.type === 'drop') {
-        this.handleDroppedFrame(msg.seq);
+        this.markDryOnly(msg.seq);
         return;
       }
     };
   }
 
-  takeDry(seq) {
-    const dry = this.dryMap.get(seq);
-    if (!dry) return null;
-    this.dryMap.delete(seq);
-    const idx = this.dryOrder.indexOf(seq);
-    if (idx >= 0) this.dryOrder.splice(idx, 1);
-    return dry;
+  markWet(seq, wet) {
+    const entry = this.frames.get(seq);
+    if (!entry || entry.status !== 'pending') return;
+    entry.status = 'wet';
+    entry.wet = wet;
+    this.drain();
   }
 
-  handleDroppedFrame(seq) {
-    const dry = this.takeDry(seq);
-    if (dry) this.enqueueOutput(dry);
+  markDryOnly(seq) {
+    const entry = this.frames.get(seq);
+    if (!entry || entry.status !== 'pending') return;
+    entry.status = 'dry';
+    this.drain();
   }
 
-  handleProcessedFrame(seq, wet) {
-    const dry = this.takeDry(seq);
-    const mixed = new Float32Array(HOP);
-    if (dry) {
-      const s = this.strength;
-      const inv = 1 - s;
-      for (let i = 0; i < HOP; i++) {
-        mixed[i] = inv * dry[i] + s * wet[i];
+  drain() {
+    while (true) {
+      const entry = this.frames.get(this.nextOut);
+      if (!entry || entry.status === 'pending') return;
+      this.frames.delete(this.nextOut);
+      this.nextOut += 1;
+      if (entry.status === 'wet' && entry.wet) {
+        const mixed = new Float32Array(HOP);
+        const s = this.strength;
+        const inv = 1 - s;
+        for (let i = 0; i < HOP; i++) {
+          mixed[i] = inv * entry.dry[i] + s * entry.wet[i];
+        }
+        this.enqueueOutput(mixed);
+      } else {
+        this.enqueueOutput(entry.dry);
       }
-    } else {
-      mixed.set(wet);
     }
-    this.enqueueOutput(mixed);
   }
 
   enqueueOutput(frame) {
@@ -95,6 +101,17 @@ class DfnProcessor extends AudioWorkletProcessor {
     }
   }
 
+  evictOldestPendingIfFull() {
+    if (this.frames.size < DRY_MAX) return;
+    for (const entry of this.frames.values()) {
+      if (entry.status === 'pending') {
+        entry.status = 'dry';
+        this.drain();
+        return;
+      }
+    }
+  }
+
   process(inputs, outputs) {
     const inputChannels = inputs[0];
     const outputChannels = outputs[0];
@@ -117,17 +134,11 @@ class DfnProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < input.length; i++) {
       this.inputBuffer[this.inputFill++] = input[i];
       if (this.inputFill >= HOP) {
+        this.evictOldestPendingIfFull();
         const dry = new Float32Array(HOP);
         dry.set(this.inputBuffer);
-        if (this.dryOrder.length >= DRY_MAX) {
-          const oldestSeq = this.dryOrder.shift();
-          const stale = this.dryMap.get(oldestSeq);
-          this.dryMap.delete(oldestSeq);
-          if (stale) this.enqueueOutput(stale);
-        }
         const seq = this.seq++;
-        this.dryMap.set(seq, dry);
-        this.dryOrder.push(seq);
+        this.frames.set(seq, { dry, status: 'pending', wet: null });
         const forSend = new Float32Array(HOP);
         forSend.set(this.inputBuffer);
         this.port.postMessage(
