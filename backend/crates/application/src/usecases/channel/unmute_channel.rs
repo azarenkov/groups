@@ -83,7 +83,7 @@ where
 
         channel.unmute(target, initiator, now)?;
 
-        let request_id = shared::middleware::request_id::current();
+        let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel
             .pull_events()
             .iter()

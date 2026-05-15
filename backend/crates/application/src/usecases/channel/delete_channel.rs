@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
-    server::id::ServerId,
+    channel::{ChannelError, repository::ChannelRepository},
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -11,10 +10,12 @@ use domain::{
         },
         repository::error::RepositoryError,
     },
-    user::id::UserId,
 };
 
-use crate::ports::voice_service::{VoiceService, VoiceServiceError};
+use crate::{
+    dto::requests::channel::delete_channel::DeleteChannelRequest,
+    ports::voice_service::{VoiceService, VoiceServiceError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteChannelError {
@@ -53,12 +54,14 @@ where
         }
     }
 
-    pub async fn execute(
-        &self,
-        server_id: ServerId,
-        channel_id: ChannelId,
-        deleted_by: UserId,
-    ) -> Result<(), DeleteChannelError> {
+    pub async fn execute(&self, request: DeleteChannelRequest) -> Result<(), DeleteChannelError> {
+        let DeleteChannelRequest {
+            server_id,
+            channel_id,
+            deleted_by,
+            ctx,
+        } = request;
+
         let mut channel = self
             .channel_repository
             .find_channel_by_id(&channel_id)
@@ -76,7 +79,7 @@ where
             other => DeleteChannelError::Domain(other),
         })?;
 
-        let request_id = shared::middleware::request_id::current();
+        let request_id = ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel
             .pull_events()
             .iter()

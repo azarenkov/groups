@@ -50,7 +50,7 @@ where
             request.description.map(ServerDescription::new),
         );
 
-        let request_id = shared::middleware::request_id::current();
+        let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = server
             .pull_events()
             .iter()

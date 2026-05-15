@@ -13,6 +13,7 @@ use domain::{
     user::{User, email::Email, id::UserId, name::UserName, repository::UserRepository},
 };
 
+
 use crate::{
     dto::requests::auth::register_user::RegisterUserRequest,
     ports::{
@@ -88,7 +89,7 @@ where
             request.client.user_agent,
         );
 
-        let request_id = shared::middleware::request_id::current();
+        let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = user
             .pull_events()
             .iter()

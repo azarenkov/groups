@@ -1,5 +1,6 @@
 pub mod abort_voice_connection;
 pub mod create_channel;
+pub mod delete_channel;
 pub mod join_voice_channel;
 pub mod join_voice_connection;
 pub mod leave_voice_connection;

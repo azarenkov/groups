@@ -1,7 +1,8 @@
-use actix_web::{HttpResponse, Responder, delete, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, post, web};
 use application::dto::requests::channel::{
-    create_channel::CreateChannelRequest, join_voice_channel::JoinVoiceChannelRequest,
-    mute_channel::MuteChannelRequest, unmute_channel::UnmuteChannelRequest,
+    create_channel::CreateChannelRequest, delete_channel::DeleteChannelRequest,
+    join_voice_channel::JoinVoiceChannelRequest, mute_channel::MuteChannelRequest,
+    unmute_channel::UnmuteChannelRequest,
 };
 use domain::{channel::id::ChannelId, server::id::ServerId, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
@@ -9,6 +10,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::shared::{
+    context::request_context,
     dto::{
         requests::channel::{
             create_channel::CreateChannelRequestBody,
@@ -28,6 +30,7 @@ use crate::shared::{
 
 #[post("/{server_id}/channels")]
 async fn create_channel(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -45,6 +48,7 @@ async fn create_channel(
         body.kind.into(),
         body.visibility.into(),
         body.password,
+        request_context(&req),
     );
 
     let channel = app_state
@@ -82,6 +86,7 @@ async fn join_voice_channel(
 
 #[post("/{server_id}/channels/{channel_id}/mute")]
 async fn mute_channel(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
@@ -95,6 +100,7 @@ async fn mute_channel(
         channel_id,
         server_id,
         target_user_id: body.target_user_id,
+        ctx: request_context(&req),
     };
 
     app_state
@@ -106,6 +112,7 @@ async fn mute_channel(
 
 #[post("/{server_id}/channels/{channel_id}/unmute")]
 async fn unmute_channel(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
@@ -119,6 +126,7 @@ async fn unmute_channel(
         channel_id,
         server_id,
         target_user_id: body.target_user_id,
+        ctx: request_context(&req),
     };
 
     app_state
@@ -130,6 +138,7 @@ async fn unmute_channel(
 
 #[delete("/{server_id}/channels/{channel_id}")]
 async fn delete_channel(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
@@ -139,10 +148,14 @@ async fn delete_channel(
     let server_id = ServerId::new(server_id);
     let owner_id = UserId::new(auth_token.id);
 
-    app_state
-        .delete_channel_usecase
-        .execute(server_id, channel_id, owner_id)
-        .await?;
+    let data = DeleteChannelRequest {
+        server_id,
+        channel_id,
+        deleted_by: owner_id,
+        ctx: request_context(&req),
+    };
+
+    app_state.delete_channel_usecase.execute(data).await?;
 
     Ok(HttpResponse::NoContent().finish())
 }

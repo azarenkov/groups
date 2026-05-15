@@ -129,7 +129,7 @@ where
 
         verification_code.set_consumed_at(Some(now));
 
-        let request_id = shared::middleware::request_id::current();
+        let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = user
             .pull_events()
             .iter()
