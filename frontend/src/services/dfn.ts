@@ -14,7 +14,9 @@ function assetBase(): string {
   const electron = (window as unknown as { electron?: { appBase?: string } })
     .electron;
   if (electron?.appBase) return electron.appBase;
-  return window.location.href.replace(/[^/]*$/, "");
+  const pub = process.env.PUBLIC_URL || ".";
+  const baseStr = pub.endsWith("/") ? pub : pub + "/";
+  return new URL(baseStr, window.location.origin + "/").toString();
 }
 
 function assetUrl(rel: string): string {
