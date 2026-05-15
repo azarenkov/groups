@@ -3,10 +3,13 @@ use std::sync::Arc;
 use domain::{channel::repository::ChannelRepository, shared::repository::error::RepositoryError};
 
 use crate::{
-    dto::requests::channel::{
-        abort_voice_connection::AbortVoiceConnectionRequest,
-        join_voice_connection::JoinVoiceConnectionRequest,
-        leave_voice_connection::LeaveVoiceConnectionRequest,
+    dto::{
+        context::RequestContext,
+        requests::channel::{
+            abort_voice_connection::AbortVoiceConnectionRequest,
+            join_voice_connection::JoinVoiceConnectionRequest,
+            leave_voice_connection::LeaveVoiceConnectionRequest,
+        },
     },
     ports::voice_webhook_verifier::{
         VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError,
@@ -64,6 +67,7 @@ where
         &self,
         body: &str,
         auth_token: &str,
+        ctx: RequestContext,
     ) -> Result<(), HandleVoiceWebhookError> {
         let envelope = self.verifier.verify(body, auth_token)?;
 
@@ -86,6 +90,7 @@ where
                         occurred_at,
                         inbox_source: source,
                         inbox_external_id: external_id.clone(),
+                        ctx: ctx.clone(),
                     })
                     .await;
 
@@ -119,6 +124,7 @@ where
                         occurred_at,
                         inbox_source: source,
                         inbox_external_id: external_id.clone(),
+                        ctx: ctx.clone(),
                     })
                     .await;
 
@@ -152,6 +158,7 @@ where
                         occurred_at,
                         inbox_source: source,
                         inbox_external_id: external_id.clone(),
+                        ctx: ctx.clone(),
                     })
                     .await;
 

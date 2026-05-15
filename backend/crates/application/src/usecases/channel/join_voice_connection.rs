@@ -63,6 +63,7 @@ where
                 request.occurred_at,
                 request.inbox_source.as_str(),
                 &request.inbox_external_id,
+                request.ctx.request_id,
             )
             .await?;
 
