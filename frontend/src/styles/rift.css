@@ -2250,6 +2250,19 @@ textarea.s-input {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
 }
+.voice-preview {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 24px;
+}
+.voice-preview-empty {
+  font-size: 14px; color: var(--fg-3);
+}
+.voice-preview .btn.primary.voice-preview-join {
+  width: auto;
+  min-width: 160px;
+  align-self: center;
+}
 .voice-stage-wrap > .voice-stage {
   position: static;
   flex: 1;
@@ -2309,12 +2322,6 @@ textarea.s-input {
 .voice-stage-orbs.row .voice-stage-orb-letter { font-size: 38px; }
 .voice-stage-orbs.grid .voice-stage-orb-letter { font-size: 28px; }
 
-.voice-stage-orb.speaking {
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.08),
-    0 0 0 2px color-mix(in srgb, var(--orb-color, var(--voice-live)) 70%, transparent),
-    0 0 24px 4px color-mix(in srgb, var(--orb-color, var(--voice-live)) 45%, transparent);
-}
 .voice-stage-orb-letter {
   font-size: 56px; font-weight: 600; color: #fff;
   text-shadow: 0 2px 8px rgba(0,0,0,0.25);

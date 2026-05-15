@@ -152,9 +152,13 @@ const ServersPage: React.FC = () => {
   }, [servers, setSelectedServer]);
 
   useEffect(() => {
-    if (!selectedServerId || selectedChannelId || selectedDm) return;
+    if (!selectedServerId || selectedDm) return;
     const list = channelsByServer[selectedServerId];
     if (!list) return;
+    if (selectedChannelId) {
+      const current = list.find((c) => c.id === selectedChannelId);
+      if (current) return;
+    }
     const firstText = list.find((c) => c.kind === "text");
     if (firstText) setSelectedChannel(firstText.id);
   }, [
@@ -185,6 +189,16 @@ const ServersPage: React.FC = () => {
         topic: activeChannelOverride.topic,
       }
     : null;
+
+  const selectedVoiceChannelNotJoined =
+    selectedServer && selectedChannelId
+      ? channelsByServer[selectedServer.id]?.find(
+          (c) =>
+            c.id === selectedChannelId &&
+            c.kind === "voice" &&
+            joinedChannel?.channel.id !== c.id,
+        ) ?? null
+      : null;
 
   const selectedServerChannels = selectedServer
     ? channelsByServer[selectedServer.id]
@@ -352,14 +366,9 @@ const ServersPage: React.FC = () => {
   };
 
   const handleVoiceLeave = useCallback(() => {
-    setJoinedChannel((prev) => {
-      if (prev && useChannelStore.getState().selectedChannelId === prev.channel.id) {
-        setSelectedChannel(null);
-      }
-      return null;
-    });
+    setJoinedChannel(null);
     setVoiceJoinFailed(false);
-  }, [setSelectedChannel]);
+  }, []);
 
   const handleVoiceJoinFailed = useCallback(() => {
     setVoiceJoinFailed(true);
@@ -551,6 +560,38 @@ const ServersPage: React.FC = () => {
             ) : !selectedServerChannelsLoaded ? (
               <div className="empty-state" style={{ padding: 60 }}>
                 <span className="loading-spinner" />
+              </div>
+            ) : selectedVoiceChannelNotJoined && selectedServer ? (
+              <div className="voice-stage-wrap">
+                <header className="main-header">
+                  <span className="ch-ico">
+                    <Icon name="volume" size={16} />
+                  </span>
+                  <span className="ch-name">
+                    {selectedVoiceChannelNotJoined.name}
+                  </span>
+                  <span className="sep" />
+                  <span className="topic">Disconnected</span>
+                </header>
+                <div className="voice-preview">
+                  <div className="voice-preview-empty">No one is here yet.</div>
+                  <button
+                    type="button"
+                    className="btn primary voice-preview-join"
+                    onClick={() => {
+                      if (selectedVoiceChannelNotJoined.visibility === "private") {
+                        setPasswordPrompt({
+                          server: selectedServer,
+                          channel: selectedVoiceChannelNotJoined,
+                        });
+                        return;
+                      }
+                      finalizeJoin(selectedServer, selectedVoiceChannelNotJoined);
+                    }}
+                  >
+                    Connect
+                  </button>
+                </div>
               </div>
             ) : !serverHasTextChannel ? (
               <NoTextChannel
