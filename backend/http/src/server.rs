@@ -44,10 +44,9 @@ use shared::{
     rate_limiting::{config::RateLimitingConfig, create_rate_limiter},
 };
 
-use crate::{
-    config::ServerConfig, middleware::request_id::RequestIdMiddleware, routes,
-    shared::state::AppState,
-};
+use shared::middleware::request_id::RequestIdMiddleware;
+
+use crate::{config::ServerConfig, routes, shared::state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));

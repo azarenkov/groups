@@ -15,8 +15,8 @@ use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{
         confirm_registration::ConfirmRegistrationError,
-        issue_verification_code::IssueVerificationCodeError, login::LoginError, logout::LogoutError,
-        refresh_tokens::RefreshTokensError, register::RegistrationError,
+        issue_verification_code::IssueVerificationCodeError, login::LoginError,
+        logout::LogoutError, refresh_tokens::RefreshTokensError, register::RegistrationError,
     },
     channel::{
         abort_voice_connection::AbortVoiceConnectionError, create_channel::CreateChannelError,
@@ -264,9 +264,7 @@ impl ToHttpStatus for DeleteChannelError {
     fn to_user_message(&self) -> String {
         match self {
             DeleteChannelError::ChannelNotFound => "Channel not found".to_string(),
-            DeleteChannelError::NotOwner => {
-                "Only the channel owner can delete it.".to_string()
-            }
+            DeleteChannelError::NotOwner => "Only the channel owner can delete it.".to_string(),
             DeleteChannelError::Repository(e) => e.to_user_message(),
             DeleteChannelError::Domain(e) => e.to_user_message(),
             DeleteChannelError::Outbox(e) => e.to_user_message(),
@@ -781,9 +779,7 @@ impl ToHttpStatus for DeleteServerError {
     fn to_user_message(&self) -> String {
         match self {
             DeleteServerError::ServerNotFound => "Server not found".to_string(),
-            DeleteServerError::NotOwner => {
-                "Only the server owner can delete it.".to_string()
-            }
+            DeleteServerError::NotOwner => "Only the server owner can delete it.".to_string(),
             DeleteServerError::Repository(e) => e.to_user_message(),
             DeleteServerError::Outbox(e) => e.to_user_message(),
             DeleteServerError::VoiceService(_) => {
