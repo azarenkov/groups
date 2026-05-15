@@ -849,56 +849,30 @@ impl ToHttpStatus for JoinVoiceChannelError {
     }
 }
 
-impl ToHttpStatus for ListServersByUserError {
-    fn to_http_status(&self) -> StatusCode {
-        let ListServersByUserError::Repository(e) = self;
-        e.to_http_status()
-    }
+macro_rules! impl_to_http_status_delegate {
+    ($err:ident, $variant:ident) => {
+        impl ToHttpStatus for $err {
+            fn to_http_status(&self) -> StatusCode {
+                let $err::$variant(e) = self;
+                e.to_http_status()
+            }
 
-    fn to_user_message(&self) -> String {
-        let ListServersByUserError::Repository(e) = self;
-        e.to_user_message()
-    }
+            fn to_user_message(&self) -> String {
+                let $err::$variant(e) = self;
+                e.to_user_message()
+            }
 
-    fn to_error_code(&self) -> &'static str {
-        let ListServersByUserError::Repository(e) = self;
-        e.to_error_code()
-    }
+            fn to_error_code(&self) -> &'static str {
+                let $err::$variant(e) = self;
+                e.to_error_code()
+            }
+        }
+    };
 }
 
-impl ToHttpStatus for ListServerMembersError {
-    fn to_http_status(&self) -> StatusCode {
-        let ListServerMembersError::Repository(e) = self;
-        e.to_http_status()
-    }
-
-    fn to_user_message(&self) -> String {
-        let ListServerMembersError::Repository(e) = self;
-        e.to_user_message()
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        let ListServerMembersError::Repository(e) = self;
-        e.to_error_code()
-    }
-}
-
-impl ToHttpStatus for ListServerChannelsError {
-    fn to_http_status(&self) -> StatusCode {
-        let ListServerChannelsError::Repository(e) = self;
-        e.to_http_status()
-    }
-
-    fn to_user_message(&self) -> String {
-        let ListServerChannelsError::Repository(e) = self;
-        e.to_user_message()
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        let ListServerChannelsError::Repository(e) = self;
-        e.to_error_code()
-    }
-}
+impl_to_http_status_delegate!(ListServersByUserError, Repository);
+impl_to_http_status_delegate!(ListServerMembersError, Repository);
+impl_to_http_status_delegate!(ListServerChannelsError, Repository);
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -961,89 +935,38 @@ impl ResponseError for ApiError {
     }
 }
 
-impl From<CreateChannelError> for ApiError {
-    fn from(error: CreateChannelError) -> Self {
-        Self::from_error(error)
-    }
+macro_rules! impl_from_for_api_error {
+    ($($err:ty),* $(,)?) => {
+        $(
+            impl From<$err> for ApiError {
+                fn from(error: $err) -> Self {
+                    Self::from_error(error)
+                }
+            }
+        )*
+    };
 }
 
-impl From<DeleteChannelError> for ApiError {
-    fn from(error: DeleteChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<MuteChannelError> for ApiError {
-    fn from(error: MuteChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<UnmuteChannelError> for ApiError {
-    fn from(error: UnmuteChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<LoginError> for ApiError {
-    fn from(error: LoginError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<RegistrationError> for ApiError {
-    fn from(error: RegistrationError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<IssueVerificationCodeError> for ApiError {
-    fn from(error: IssueVerificationCodeError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<ConfirmRegistrationError> for ApiError {
-    fn from(error: ConfirmRegistrationError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<RefreshTokensError> for ApiError {
-    fn from(error: RefreshTokensError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<LogoutError> for ApiError {
-    fn from(error: LogoutError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<HandleVoiceWebhookError> for ApiError {
-    fn from(error: HandleVoiceWebhookError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<CreateServerError> for ApiError {
-    fn from(error: CreateServerError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<DeleteServerError> for ApiError {
-    fn from(error: DeleteServerError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<PaginationError> for ApiError {
-    fn from(error: PaginationError) -> Self {
-        Self::from_error(error)
-    }
-}
+impl_from_for_api_error!(
+    CreateChannelError,
+    DeleteChannelError,
+    MuteChannelError,
+    UnmuteChannelError,
+    LoginError,
+    RegistrationError,
+    IssueVerificationCodeError,
+    ConfirmRegistrationError,
+    RefreshTokensError,
+    LogoutError,
+    HandleVoiceWebhookError,
+    CreateServerError,
+    DeleteServerError,
+    PaginationError,
+    JoinVoiceChannelError,
+    ListServersByUserError,
+    ListServerMembersError,
+    ListServerChannelsError,
+);
 
 impl From<ValidationErrors> for ApiError {
     fn from(error: ValidationErrors) -> Self {
@@ -1098,28 +1021,4 @@ fn flatten_validation_errors(errors: &ValidationErrors, prefix: &str) -> Vec<Fie
 
 fn code_to_message(code: &str) -> String {
     format!("validation failed: {code}")
-}
-
-impl From<JoinVoiceChannelError> for ApiError {
-    fn from(error: JoinVoiceChannelError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<ListServersByUserError> for ApiError {
-    fn from(error: ListServersByUserError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<ListServerMembersError> for ApiError {
-    fn from(error: ListServerMembersError) -> Self {
-        Self::from_error(error)
-    }
-}
-
-impl From<ListServerChannelsError> for ApiError {
-    fn from(error: ListServerChannelsError) -> Self {
-        Self::from_error(error)
-    }
 }
