@@ -33,6 +33,7 @@ export interface DfnPipeline {
   outputTrack: MediaStreamTrack;
   setStrength: (value: number) => void;
   dispose: () => Promise<void>;
+  hasDenoiser: boolean;
 }
 
 interface BuildOptions {
@@ -278,6 +279,7 @@ export async function buildDfnPipeline({
   return {
     destination,
     outputTrack,
+    hasDenoiser: !!session,
     setStrength: (value: number) => {
       const clamped = Math.min(1, Math.max(0, value));
       node.port.postMessage({ type: "strength", value: clamped });

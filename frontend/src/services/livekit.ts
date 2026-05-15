@@ -451,6 +451,26 @@ export class LiveKitService {
         const source = ctx.createMediaStreamSource(new MediaStream([rawTrack]));
         step = "buildDfnPipeline";
         pipeline = await buildDfnPipeline({ source, context: ctx });
+        if (!pipeline.hasDenoiser) {
+          console.warn(
+            "[LiveKitService] DFN models unavailable; falling back to standard",
+          );
+          try {
+            await pipeline.dispose();
+          } catch {}
+          try {
+            pipeline.outputTrack.stop();
+          } catch {}
+          try {
+            await ctx.close();
+          } catch {}
+          this.noiseMode = "standard";
+          try {
+            await rawTrack.applyConstraints({ noiseSuppression: true });
+          } catch {}
+          this.onError?.(new Error("Noise suppression models unavailable"));
+          return;
+        }
         step = "replaceTrack";
         await localTrack.replaceTrack(pipeline.outputTrack);
 
