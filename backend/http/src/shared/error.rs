@@ -1,8 +1,4 @@
-use actix_web::{
-    HttpResponse, ResponseError,
-    http::{StatusCode, header::HeaderValue},
-};
-use shared::middleware::request_id::REQUEST_ID;
+use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use application::ports::{
     hasher::HashError, mailer::MailerError, token_issuer::TokenIssuerError,
     voice_service::VoiceServiceError, voice_webhook_verifier::VoiceWebhookVerifierError,
@@ -47,8 +43,6 @@ struct ErrorResponse {
     code: &'static str,
     message: String,
     status: u16,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     fields: Option<Vec<FieldError>>,
 }
@@ -880,7 +874,6 @@ pub struct ApiError {
     message: String,
     status: StatusCode,
     code: &'static str,
-    request_id: Option<String>,
     fields: Option<Vec<FieldError>>,
 }
 
@@ -890,9 +883,6 @@ impl ApiError {
             message,
             status,
             code,
-            request_id: REQUEST_ID
-                .try_with(|id| id.clone())
-                .ok(),
             fields: None,
         }
     }
@@ -903,9 +893,6 @@ impl ApiError {
             message: error.to_user_message(),
             status: error.to_http_status(),
             code: error.to_error_code(),
-            request_id: REQUEST_ID
-                .try_with(|id| id.clone())
-                .ok(),
             fields: None,
         }
     }
@@ -927,16 +914,9 @@ impl ResponseError for ApiError {
             code: self.code,
             message: self.message.clone(),
             status: self.status.as_u16(),
-            request_id: self.request_id.clone(),
             fields: self.fields.clone(),
         };
-        let mut builder = HttpResponse::build(self.status);
-        if let Some(ref rid) = self.request_id
-            && let Ok(value) = HeaderValue::from_str(rid)
-        {
-            builder.insert_header(("X-Request-Id", value));
-        }
-        builder.json(response)
+        HttpResponse::build(self.status).json(response)
     }
 }
 
@@ -981,7 +961,6 @@ impl From<ValidationErrors> for ApiError {
             message: "Validation failed".to_string(),
             status: StatusCode::BAD_REQUEST,
             code: "VALIDATION_FAILED",
-            request_id: REQUEST_ID.try_with(|id| id.clone()).ok(),
             fields: Some(fields),
         }
     }

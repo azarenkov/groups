@@ -7,13 +7,10 @@ use actix_web::{
     http::header::{HeaderName, HeaderValue},
 };
 use futures::future::LocalBoxFuture;
+use tracing::Instrument;
 use uuid::Uuid;
 
 pub const REQUEST_ID_HEADER: &str = "x-request-id";
-
-tokio::task_local! {
-    pub static REQUEST_ID: String;
-}
 
 #[derive(Debug, Clone)]
 pub struct RequestId(pub String);
@@ -67,8 +64,15 @@ where
         req.extensions_mut().insert(RequestId(request_id.clone()));
 
         let http_req = req.request().clone();
-        let scoped_id = request_id.clone();
-        let fut = REQUEST_ID.scope(scoped_id, self.service.call(req));
+        let method = req.method().clone();
+        let path = req.path().to_string();
+        let span = tracing::info_span!(
+            "request",
+            request_id = %request_id,
+            method = %method,
+            path = %path,
+        );
+        let fut = self.service.call(req).instrument(span);
 
         Box::pin(async move {
             let header_value = HeaderValue::from_str(&request_id).ok();

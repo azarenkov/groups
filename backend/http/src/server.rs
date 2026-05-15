@@ -188,6 +188,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
+            .expose_headers(["x-request-id"])
             .max_age(3600);
 
         App::new()

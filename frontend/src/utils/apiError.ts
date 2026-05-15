@@ -10,7 +10,6 @@ interface ErrorEnvelope {
   code?: string;
   message?: string;
   status?: number;
-  requestId?: string;
   fields?: ApiFieldError[];
   error?: string;
 }
@@ -116,6 +115,17 @@ export class ApiError extends Error {
   }
 }
 
+function headerRequestId(error: unknown): string | undefined {
+  if (!axios.isAxiosError(error)) return undefined;
+  const headers = (error as AxiosError).response?.headers as
+    | Record<string, string | string[]>
+    | undefined;
+  if (!headers) return undefined;
+  const value = headers["x-request-id"] ?? headers["X-Request-Id"];
+  if (Array.isArray(value)) return value[0];
+  return typeof value === "string" ? value : undefined;
+}
+
 export function toApiError(error: unknown): Error {
   if (error instanceof ApiError) return error;
   if (error instanceof Error && !axios.isAxiosError(error)) return error;
@@ -125,7 +135,7 @@ export function toApiError(error: unknown): Error {
     getApiErrorMessage(error),
     status,
     body?.code,
-    body?.requestId,
+    headerRequestId(error),
     body?.fields,
   );
 }
