@@ -23,6 +23,7 @@ use crate::shared::{
         pagination::{PaginationMeta, PaginationQuery},
         requests::channel::{
             create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody,
+            join_text_channel::JoinTextChannelRequestBody,
             join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
             send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody,
         },
@@ -186,11 +187,14 @@ async fn join_text_channel(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
+    body: Option<web::Json<JoinTextChannelRequestBody>>,
 ) -> Result<HttpResponse, ApiError> {
     let (server_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
+    let password = body.and_then(|b| b.into_inner().password);
 
-    let data = JoinTextChannelRequest::new(server_id, channel_id, request_context(&req));
+    let data =
+        JoinTextChannelRequest::new(server_id, channel_id, password, request_context(&req));
 
     app_state
         .join_text_channel_usecase

@@ -14,7 +14,10 @@ use domain::{
     user::id::UserId,
 };
 
-use crate::dto::requests::channel::join_text_channel::JoinTextChannelRequest;
+use crate::{
+    dto::requests::channel::join_text_channel::JoinTextChannelRequest,
+    ports::hasher::{HashError, Hasher},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum JoinTextChannelError {
@@ -24,32 +27,42 @@ pub enum JoinTextChannelError {
     Domain(#[from] ChannelError),
     #[error("Outbox error: {0}")]
     Outbox(#[from] OutboxError),
+    #[error("Hash error: {0}")]
+    Hash(#[from] HashError),
     #[error("Not a member of the server")]
     NotServerMember,
     #[error("Channel not found")]
     ChannelNotFound,
     #[error("Channel is not a text channel")]
     NotTextChannel,
+    #[error("Password is required")]
+    PasswordRequired,
+    #[error("Invalid password")]
+    InvalidPassword,
 }
 
-pub struct JoinTextChannel<C, S>
+pub struct JoinTextChannel<C, S, H>
 where
     C: ChannelRepository,
     S: ServerRepository,
+    H: Hasher,
 {
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
+    hasher: Arc<H>,
 }
 
-impl<C, S> JoinTextChannel<C, S>
+impl<C, S, H> JoinTextChannel<C, S, H>
 where
     C: ChannelRepository,
     S: ServerRepository,
+    H: Hasher,
 {
-    pub fn new(channel_repository: Arc<C>, server_repository: Arc<S>) -> Self {
+    pub fn new(channel_repository: Arc<C>, server_repository: Arc<S>, hasher: Arc<H>) -> Self {
         Self {
             channel_repository,
             server_repository,
+            hasher,
         }
     }
 
@@ -84,6 +97,16 @@ where
 
         if !channel.supports_text() {
             return Err(JoinTextChannelError::NotTextChannel);
+        }
+
+        if let Some(expected_hash) = channel.password_hash() {
+            let provided = request
+                .password
+                .as_deref()
+                .ok_or(JoinTextChannelError::PasswordRequired)?;
+            if !self.hasher.verify(provided, expected_hash.as_str())? {
+                return Err(JoinTextChannelError::InvalidPassword);
+            }
         }
 
         let now = Utc::now();

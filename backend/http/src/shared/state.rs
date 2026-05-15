@@ -47,7 +47,7 @@ pub struct AppState {
     pub list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
 
     pub join_text_channel_usecase:
-        JoinTextChannel<PostgresChannelRepository, PostgresServerRepository>,
+        JoinTextChannel<PostgresChannelRepository, PostgresServerRepository, BcryptHasher>,
     pub send_channel_message_usecase: SendChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
@@ -124,6 +124,7 @@ impl AppState {
         join_text_channel_usecase: JoinTextChannel<
             PostgresChannelRepository,
             PostgresServerRepository,
+            BcryptHasher,
         >,
         send_channel_message_usecase: SendChannelMessage<
             PostgresMessageRepository,

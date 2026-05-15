@@ -440,7 +440,7 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        sqlx::query!(
+        let result = sqlx::query!(
             r#"
             INSERT INTO channel_text_participants (channel_id, user_id)
             VALUES ($1, $2)
@@ -452,6 +452,10 @@ impl ChannelRepository for PostgresChannelRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(());
+        }
 
         save_outbox_records(&mut tx, events).await?;
 

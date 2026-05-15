@@ -97,8 +97,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         DeleteChannel::new(channel_repository.clone(), livekit_service.clone());
     let list_channel_participants_usecase =
         ListChannelParticipants::new(channel_repository.clone(), server_repository.clone());
-    let join_text_channel_usecase =
-        JoinTextChannel::new(channel_repository.clone(), server_repository.clone());
+    let join_text_channel_usecase = JoinTextChannel::new(
+        channel_repository.clone(),
+        server_repository.clone(),
+        hasher.clone(),
+    );
     let send_channel_message_usecase = SendChannelMessage::new(
         message_repository.clone(),
         channel_repository.clone(),

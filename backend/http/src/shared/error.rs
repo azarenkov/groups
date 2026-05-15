@@ -967,9 +967,12 @@ impl ToHttpStatus for JoinTextChannelError {
             JoinTextChannelError::Repository(e) => e.to_http_status(),
             JoinTextChannelError::Domain(e) => e.to_http_status(),
             JoinTextChannelError::Outbox(e) => e.to_http_status(),
+            JoinTextChannelError::Hash(e) => e.to_http_status(),
             JoinTextChannelError::NotServerMember => StatusCode::FORBIDDEN,
             JoinTextChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
             JoinTextChannelError::NotTextChannel => StatusCode::BAD_REQUEST,
+            JoinTextChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
+            JoinTextChannelError::InvalidPassword => StatusCode::UNAUTHORIZED,
         }
     }
 
@@ -978,13 +981,16 @@ impl ToHttpStatus for JoinTextChannelError {
             JoinTextChannelError::Repository(e) => e.to_user_message(),
             JoinTextChannelError::Domain(e) => e.to_user_message(),
             JoinTextChannelError::Outbox(e) => e.to_user_message(),
+            JoinTextChannelError::Hash(e) => e.to_user_message(),
             JoinTextChannelError::NotServerMember => {
                 "You are not a member of this server".to_string()
             }
             JoinTextChannelError::ChannelNotFound => "Channel not found".to_string(),
-            JoinTextChannelError::NotTextChannel => {
-                "Channel does not support text".to_string()
+            JoinTextChannelError::NotTextChannel => "Channel does not support text".to_string(),
+            JoinTextChannelError::PasswordRequired => {
+                "Password is required to join this channel".to_string()
             }
+            JoinTextChannelError::InvalidPassword => "Invalid password".to_string(),
         }
     }
 
@@ -993,9 +999,12 @@ impl ToHttpStatus for JoinTextChannelError {
             JoinTextChannelError::Repository(e) => e.to_error_code(),
             JoinTextChannelError::Domain(e) => e.to_error_code(),
             JoinTextChannelError::Outbox(e) => e.to_error_code(),
+            JoinTextChannelError::Hash(e) => e.to_error_code(),
             JoinTextChannelError::NotServerMember => "SERVER_NOT_MEMBER",
             JoinTextChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             JoinTextChannelError::NotTextChannel => "CHANNEL_NOT_TEXT",
+            JoinTextChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
+            JoinTextChannelError::InvalidPassword => "INVALID_CHANNEL_PASSWORD",
         }
     }
 }
