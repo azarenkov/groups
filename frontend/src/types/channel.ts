@@ -20,7 +20,7 @@ export interface PaginationMeta {
 
 export interface ListChannelsResponse {
   channels: Channel[];
-  pagination: PaginationMeta;
+  pagination?: PaginationMeta;
 }
 
 export interface CreateChannelRequest {

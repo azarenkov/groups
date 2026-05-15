@@ -20,3 +20,4 @@ env_logger = { workspace = true }
 actix-web = { workspace = true }
 actix-cors = { workspace = true }
 validator = { workspace = true }
+futures = { workspace = true }

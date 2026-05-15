@@ -1,0 +1,76 @@
+use std::future::{Ready, ready};
+
+use actix_web::{
+    Error, HttpMessage,
+    body::EitherBody,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
+    http::header::{HeaderName, HeaderValue},
+};
+use futures::future::LocalBoxFuture;
+use uuid::Uuid;
+
+pub const REQUEST_ID_HEADER: &str = "x-request-id";
+
+#[derive(Debug, Clone)]
+pub struct RequestId(pub String);
+
+pub struct RequestIdMiddleware;
+
+impl<S, B> Transform<S, ServiceRequest> for RequestIdMiddleware
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<EitherBody<B>>;
+    type Error = Error;
+    type Transform = RequestIdMiddlewareService<S>;
+    type InitError = ();
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(RequestIdMiddlewareService { service }))
+    }
+}
+
+pub struct RequestIdMiddlewareService<S> {
+    service: S,
+}
+
+impl<S, B> Service<ServiceRequest> for RequestIdMiddlewareService<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<EitherBody<B>>;
+    type Error = Error;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    forward_ready!(service);
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let header_name = HeaderName::from_static(REQUEST_ID_HEADER);
+
+        let incoming = req
+            .headers()
+            .get(&header_name)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+
+        let request_id = incoming.unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        req.extensions_mut()
+            .insert(RequestId(request_id.clone()));
+
+        let fut = self.service.call(req);
+
+        Box::pin(async move {
+            let mut res = fut.await?;
+            if let Ok(value) = HeaderValue::from_str(&request_id) {
+                res.headers_mut().insert(header_name, value);
+            }
+            Ok(res.map_into_left_body())
+        })
+    }
+}

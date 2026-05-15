@@ -1413,6 +1413,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "envy",
+ "futures",
  "infrastructure",
  "serde",
  "serde_json",

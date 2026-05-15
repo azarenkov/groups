@@ -58,9 +58,9 @@ async fn list_servers_by_user(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServersByUserResponse::new(result.items, pagination_meta);
+    let response = ListServersByUserResponse::new(result.items);
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+    Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
 #[get("/{server_id}/members")]
@@ -81,9 +81,9 @@ async fn list_server_members(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServerMembersResponse::new(result.items, pagination_meta);
+    let response = ListServerMembersResponse::new(result.items);
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+    Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
 #[get("/{server_id}/channels")]
@@ -104,9 +104,9 @@ async fn list_server_channels(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServerChannelsResponse::new(result.items, pagination_meta);
+    let response = ListServerChannelsResponse::new(result.items);
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+    Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
 #[delete("/{server_id}")]

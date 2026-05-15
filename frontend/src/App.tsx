@@ -46,8 +46,16 @@ const App: React.FC = () => {
         authAPI.setAuthToken(fresh.accessToken);
       } catch (err) {
         console.error("[App] hydrate failed:", err);
-        const status = err instanceof ApiError ? err.status : undefined;
-        if (status === 400 || status === 401 || status === 403 || status === 422) {
+        const apiErr = err instanceof ApiError ? err : null;
+        const code = apiErr?.code;
+        const status = apiErr?.status;
+        const sessionDead =
+          code === "REFRESH_TOKEN_REVOKED" ||
+          code === "SESSION_EXPIRED" ||
+          code === "INVALID_CREDENTIALS" ||
+          code === "VALIDATION_FAILED" ||
+          (!code && (status === 400 || status === 401 || status === 403 || status === 422));
+        if (sessionDead) {
           await clearRefreshToken();
         }
       } finally {

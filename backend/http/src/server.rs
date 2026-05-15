@@ -44,7 +44,10 @@ use shared::{
     rate_limiting::{config::RateLimitingConfig, create_rate_limiter},
 };
 
-use crate::{config::ServerConfig, routes, shared::state::AppState};
+use crate::{
+    config::ServerConfig, middleware::request_id::RequestIdMiddleware, routes,
+    shared::state::AppState,
+};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
@@ -194,6 +197,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(rate_limiter_data.clone())
             .wrap(cors)
             .wrap(Logger::default())
+            .wrap(RequestIdMiddleware)
             .configure(routes::configure)
     })
     .bind((server_config.host, server_config.port))?
