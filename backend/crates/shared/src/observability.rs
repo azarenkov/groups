@@ -1,7 +1,10 @@
+use tracing_log::LogTracer;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 
 pub fn init(service_name: &'static str) {
+    let _ = LogTracer::init();
+
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     let json_output = std::env::var("RIFT_LOG_JSON")
