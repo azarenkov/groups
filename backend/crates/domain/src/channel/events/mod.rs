@@ -8,7 +8,7 @@ use crate::{
             lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
             participant::{
                 ParticipantConnectionAborted, ParticipantJoined, ParticipantLeft, ParticipantMuted,
-                ParticipantUnmuted,
+                ParticipantUnmuted, TextChannelJoined,
             },
         },
         id::ChannelId,
@@ -33,6 +33,7 @@ pub enum ChannelEvent {
     ParticipantMuted(ParticipantMuted),
     ParticipantUnmuted(ParticipantUnmuted),
     ParticipantConnectionAborted(ParticipantConnectionAborted),
+    TextJoined(TextChannelJoined),
 }
 
 impl ChannelEvent {
@@ -46,6 +47,7 @@ impl ChannelEvent {
             Self::ParticipantMuted(e) => &e.channel_id,
             Self::ParticipantUnmuted(e) => &e.channel_id,
             Self::ParticipantConnectionAborted(e) => &e.channel_id,
+            Self::TextJoined(e) => &e.channel_id,
         }
     }
 
@@ -59,6 +61,7 @@ impl ChannelEvent {
             Self::ParticipantMuted(e) => &e.server_id,
             Self::ParticipantUnmuted(e) => &e.server_id,
             Self::ParticipantConnectionAborted(e) => &e.server_id,
+            Self::TextJoined(e) => &e.server_id,
         }
     }
 
@@ -72,6 +75,7 @@ impl ChannelEvent {
             Self::ParticipantMuted(e) => e.occurred_at,
             Self::ParticipantUnmuted(e) => e.occurred_at,
             Self::ParticipantConnectionAborted(e) => e.occurred_at,
+            Self::TextJoined(e) => e.joined_at,
         }
     }
 
@@ -85,6 +89,7 @@ impl ChannelEvent {
             Self::ParticipantMuted(_) => "participant.muted",
             Self::ParticipantUnmuted(_) => "participant.unmuted",
             Self::ParticipantConnectionAborted(_) => "participant.connection_aborted",
+            Self::TextJoined(_) => "text.joined",
         }
     }
 }

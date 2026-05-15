@@ -349,47 +349,136 @@ impl ChannelRepository for PostgresChannelRepository {
 
         let kind: ChannelKind = kind_row.kind.into();
 
-        if !kind.supports_voice() {
-            return Ok(PaginatedResult::new(Vec::new(), 0, pagination));
-        }
-
-        let total = sqlx::query!(
-            r#"
-            SELECT COUNT(DISTINCT user_id) AS "count!"
-            FROM channel_voice_participants
-            WHERE channel_id = $1
-            "#,
-            channel_id.uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .count;
-
-        let users = sqlx::query_as!(
-            UserDto,
-            r#"
-            SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at
-            FROM users u
-            INNER JOIN (
-                SELECT user_id, MIN(joined_at) AS first_joined_at
+        if kind.supports_voice() {
+            let total = sqlx::query!(
+                r#"
+                SELECT COUNT(DISTINCT user_id) AS "count!"
                 FROM channel_voice_participants
                 WHERE channel_id = $1
-                GROUP BY user_id
-            ) p ON p.user_id = u.id
-            ORDER BY p.first_joined_at ASC
-            LIMIT $2 OFFSET $3
+                "#,
+                channel_id.uuid(),
+            )
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .count;
+
+            let users = sqlx::query_as!(
+                UserDto,
+                r#"
+                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at
+                FROM users u
+                INNER JOIN (
+                    SELECT user_id, MIN(joined_at) AS first_joined_at
+                    FROM channel_voice_participants
+                    WHERE channel_id = $1
+                    GROUP BY user_id
+                ) p ON p.user_id = u.id
+                ORDER BY p.first_joined_at ASC
+                LIMIT $2 OFFSET $3
+                "#,
+                channel_id.uuid(),
+                pagination.limit(),
+                pagination.offset(),
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+            let items = users.into_iter().map(|dto| dto.into()).collect();
+            return Ok(PaginatedResult::new(items, total, pagination));
+        }
+
+        if kind.supports_text() {
+            let total = sqlx::query!(
+                r#"
+                SELECT COUNT(*) AS "count!"
+                FROM channel_text_participants
+                WHERE channel_id = $1
+                "#,
+                channel_id.uuid(),
+            )
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .count;
+
+            let users = sqlx::query_as!(
+                UserDto,
+                r#"
+                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at
+                FROM users u
+                INNER JOIN channel_text_participants p ON p.user_id = u.id
+                WHERE p.channel_id = $1
+                ORDER BY p.joined_at ASC
+                LIMIT $2 OFFSET $3
+                "#,
+                channel_id.uuid(),
+                pagination.limit(),
+                pagination.offset(),
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+            let items = users.into_iter().map(|dto| dto.into()).collect();
+            return Ok(PaginatedResult::new(items, total, pagination));
+        }
+
+        Ok(PaginatedResult::new(Vec::new(), 0, pagination))
+    }
+
+    async fn join_text_with_events(
+        &self,
+        channel: &Channel,
+        joined_user_id: &UserId,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO channel_text_participants (channel_id, user_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
             "#,
-            channel_id.uuid(),
-            pagination.limit(),
-            pagination.offset(),
+            channel.id().uuid(),
+            joined_user_id.uuid(),
         )
-        .fetch_all(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        let items = users.into_iter().map(|dto| dto.into()).collect();
-        Ok(PaginatedResult::new(items, total, pagination))
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn is_text_channel_member(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM channel_text_participants
+                WHERE channel_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            channel_id.uuid(),
+            user_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.exists)
     }
 
     async fn find_channel_by_id(&self, id: &ChannelId) -> Result<Channel, RepositoryError> {
@@ -458,6 +547,28 @@ impl ChannelRepository for PostgresChannelRepository {
             (None, None)
         };
 
+        let text_participants = if kind.supports_text() {
+            let text_rows = sqlx::query!(
+                r#"
+                SELECT user_id
+                FROM channel_text_participants
+                WHERE channel_id = $1
+                "#,
+                id.uuid(),
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+            let set: HashSet<UserId> = text_rows
+                .into_iter()
+                .map(|r| UserId::new(r.user_id))
+                .collect();
+            Some(set)
+        } else {
+            None
+        };
+
         let channel = Channel::restore(
             ChannelId::new(dto.id),
             ServerId::new(dto.server_id),
@@ -470,6 +581,7 @@ impl ChannelRepository for PostgresChannelRepository {
             dto.updated_at,
             muted_participants,
             voice_participants,
+            text_participants,
             dto.last_join,
         );
 
@@ -658,6 +770,28 @@ async fn load_channel_for_update(
         (None, None)
     };
 
+    let text_participants = if kind.supports_text() {
+        let text_rows = sqlx::query!(
+            r#"
+            SELECT user_id
+            FROM channel_text_participants
+            WHERE channel_id = $1
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let set: HashSet<UserId> = text_rows
+            .into_iter()
+            .map(|r| UserId::new(r.user_id))
+            .collect();
+        Some(set)
+    } else {
+        None
+    };
+
     Ok(Channel::restore(
         ChannelId::new(dto.id),
         ServerId::new(dto.server_id),
@@ -670,6 +804,7 @@ async fn load_channel_for_update(
         dto.updated_at,
         muted_participants,
         voice_participants,
+        text_participants,
         dto.last_join,
     ))
 }

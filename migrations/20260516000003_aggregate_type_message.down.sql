@@ -1,0 +1,1 @@
+-- Postgres does not support removing enum values; leaving 'message' value in place.

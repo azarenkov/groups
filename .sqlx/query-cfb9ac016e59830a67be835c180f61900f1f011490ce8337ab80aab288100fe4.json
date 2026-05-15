@@ -14,7 +14,8 @@
               "Enum": [
                 "channel",
                 "server",
-                "user"
+                "user",
+                "message"
               ]
             }
           }
@@ -27,7 +28,8 @@
               "Enum": [
                 "channel",
                 "server",
-                "user"
+                "user",
+                "message"
               ]
             }
           }

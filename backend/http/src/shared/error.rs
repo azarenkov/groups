@@ -16,14 +16,18 @@ use application::usecases::{
     },
     channel::{
         abort_voice_connection::AbortVoiceConnectionError, create_channel::CreateChannelError,
-        delete_channel::DeleteChannelError, join_voice_connection::JoinVoiceConnectionError,
+        delete_channel::DeleteChannelError,
+        delete_channel_message::DeleteChannelMessageError,
+        edit_channel_message::EditChannelMessageError,
+        join_text_channel::JoinTextChannelError, join_voice_connection::JoinVoiceConnectionError,
         leave_voice_connection::LeaveVoiceConnectionError, mute_channel::MuteChannelError,
-        unmute_channel::UnmuteChannelError,
+        send_channel_message::SendChannelMessageError, unmute_channel::UnmuteChannelError,
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
     webhook::voice::HandleVoiceWebhookError,
 };
 use domain::channel::ChannelError;
+use domain::message::MessageError;
 use domain::shared::outbox::to_outbox::OutboxError;
 use domain::shared::pagination::PaginationError;
 use domain::shared::repository::error::RepositoryError;
@@ -140,7 +144,9 @@ impl ToHttpStatus for ChannelError {
             | ChannelError::NameUnchanged => StatusCode::BAD_REQUEST,
             ChannelError::NotOwner => StatusCode::FORBIDDEN,
             ChannelError::AlreadyMuted | ChannelError::NotMuted => StatusCode::CONFLICT,
-            ChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            ChannelError::VoiceNotSupported | ChannelError::TextNotSupported => {
+                StatusCode::BAD_REQUEST
+            }
         }
     }
 
@@ -159,6 +165,9 @@ impl ToHttpStatus for ChannelError {
             ChannelError::VoiceNotSupported => {
                 "Voice is not supported for this channel".to_string()
             }
+            ChannelError::TextNotSupported => {
+                "Text is not supported for this channel".to_string()
+            }
         }
     }
 
@@ -171,6 +180,40 @@ impl ToHttpStatus for ChannelError {
             ChannelError::AlreadyMuted => "PARTICIPANT_ALREADY_MUTED",
             ChannelError::NotMuted => "PARTICIPANT_NOT_MUTED",
             ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            ChannelError::TextNotSupported => "CHANNEL_NOT_TEXT",
+        }
+    }
+}
+
+impl ToHttpStatus for MessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            MessageError::ContentEmpty
+            | MessageError::ContentTooLong
+            | MessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
+            MessageError::NotAuthor => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            MessageError::ContentEmpty => "Message content cannot be empty".to_string(),
+            MessageError::ContentTooLong => {
+                "Message content exceeds maximum length".to_string()
+            }
+            MessageError::ContentUnchanged => "Message content unchanged".to_string(),
+            MessageError::NotAuthor => {
+                "Only the message author can perform this action".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            MessageError::ContentEmpty => "MESSAGE_CONTENT_EMPTY",
+            MessageError::ContentTooLong => "MESSAGE_CONTENT_TOO_LONG",
+            MessageError::ContentUnchanged => "MESSAGE_CONTENT_UNCHANGED",
+            MessageError::NotAuthor => "MESSAGE_NOT_AUTHOR",
         }
     }
 }
@@ -917,6 +960,160 @@ impl ToHttpStatus for ListServerChannelsError {
         }
     }
 }
+impl ToHttpStatus for JoinTextChannelError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            JoinTextChannelError::Repository(e) => e.to_http_status(),
+            JoinTextChannelError::Domain(e) => e.to_http_status(),
+            JoinTextChannelError::Outbox(e) => e.to_http_status(),
+            JoinTextChannelError::NotServerMember => StatusCode::FORBIDDEN,
+            JoinTextChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
+            JoinTextChannelError::NotTextChannel => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            JoinTextChannelError::Repository(e) => e.to_user_message(),
+            JoinTextChannelError::Domain(e) => e.to_user_message(),
+            JoinTextChannelError::Outbox(e) => e.to_user_message(),
+            JoinTextChannelError::NotServerMember => {
+                "You are not a member of this server".to_string()
+            }
+            JoinTextChannelError::ChannelNotFound => "Channel not found".to_string(),
+            JoinTextChannelError::NotTextChannel => {
+                "Channel does not support text".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            JoinTextChannelError::Repository(e) => e.to_error_code(),
+            JoinTextChannelError::Domain(e) => e.to_error_code(),
+            JoinTextChannelError::Outbox(e) => e.to_error_code(),
+            JoinTextChannelError::NotServerMember => "SERVER_NOT_MEMBER",
+            JoinTextChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            JoinTextChannelError::NotTextChannel => "CHANNEL_NOT_TEXT",
+        }
+    }
+}
+
+impl ToHttpStatus for SendChannelMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SendChannelMessageError::Repository(e) => e.to_http_status(),
+            SendChannelMessageError::Domain(e) => e.to_http_status(),
+            SendChannelMessageError::Channel(e) => e.to_http_status(),
+            SendChannelMessageError::Outbox(e) => e.to_http_status(),
+            SendChannelMessageError::NotServerMember
+            | SendChannelMessageError::NotChannelMember => StatusCode::FORBIDDEN,
+            SendChannelMessageError::ChannelNotFound => StatusCode::NOT_FOUND,
+            SendChannelMessageError::NotTextChannel => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            SendChannelMessageError::Repository(e) => e.to_user_message(),
+            SendChannelMessageError::Domain(e) => e.to_user_message(),
+            SendChannelMessageError::Channel(e) => e.to_user_message(),
+            SendChannelMessageError::Outbox(e) => e.to_user_message(),
+            SendChannelMessageError::NotServerMember => {
+                "You are not a member of this server".to_string()
+            }
+            SendChannelMessageError::NotChannelMember => {
+                "You are not a member of this channel".to_string()
+            }
+            SendChannelMessageError::ChannelNotFound => "Channel not found".to_string(),
+            SendChannelMessageError::NotTextChannel => {
+                "Channel does not support text".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SendChannelMessageError::Repository(e) => e.to_error_code(),
+            SendChannelMessageError::Domain(e) => e.to_error_code(),
+            SendChannelMessageError::Channel(e) => e.to_error_code(),
+            SendChannelMessageError::Outbox(e) => e.to_error_code(),
+            SendChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
+            SendChannelMessageError::NotChannelMember => "CHANNEL_NOT_MEMBER",
+            SendChannelMessageError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            SendChannelMessageError::NotTextChannel => "CHANNEL_NOT_TEXT",
+        }
+    }
+}
+
+impl ToHttpStatus for EditChannelMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            EditChannelMessageError::Repository(e) => e.to_http_status(),
+            EditChannelMessageError::Domain(e) => e.to_http_status(),
+            EditChannelMessageError::Outbox(e) => e.to_http_status(),
+            EditChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
+            EditChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            EditChannelMessageError::Repository(e) => e.to_user_message(),
+            EditChannelMessageError::Domain(e) => e.to_user_message(),
+            EditChannelMessageError::Outbox(e) => e.to_user_message(),
+            EditChannelMessageError::NotServerMember => {
+                "You are not a member of this server".to_string()
+            }
+            EditChannelMessageError::MessageNotFound => "Message not found".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            EditChannelMessageError::Repository(e) => e.to_error_code(),
+            EditChannelMessageError::Domain(e) => e.to_error_code(),
+            EditChannelMessageError::Outbox(e) => e.to_error_code(),
+            EditChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
+            EditChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for DeleteChannelMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteChannelMessageError::Repository(e) => e.to_http_status(),
+            DeleteChannelMessageError::Domain(e) => e.to_http_status(),
+            DeleteChannelMessageError::Outbox(e) => e.to_http_status(),
+            DeleteChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
+            DeleteChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteChannelMessageError::Repository(e) => e.to_user_message(),
+            DeleteChannelMessageError::Domain(e) => e.to_user_message(),
+            DeleteChannelMessageError::Outbox(e) => e.to_user_message(),
+            DeleteChannelMessageError::NotServerMember => {
+                "You are not a member of this server".to_string()
+            }
+            DeleteChannelMessageError::MessageNotFound => "Message not found".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteChannelMessageError::Repository(e) => e.to_error_code(),
+            DeleteChannelMessageError::Domain(e) => e.to_error_code(),
+            DeleteChannelMessageError::Outbox(e) => e.to_error_code(),
+            DeleteChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
+            DeleteChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
+        }
+    }
+}
+
 impl ToHttpStatus for ListChannelParticipantsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1025,6 +1222,10 @@ impl_from_for_api_error!(
     ListServerMembersError,
     ListServerChannelsError,
     ListChannelParticipantsError,
+    JoinTextChannelError,
+    SendChannelMessageError,
+    EditChannelMessageError,
+    DeleteChannelMessageError,
 );
 
 impl From<ValidationErrors> for ApiError {

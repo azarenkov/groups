@@ -110,4 +110,17 @@ pub trait ChannelRepository {
         channel_id: &ChannelId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<User>, RepositoryError>;
+
+    async fn join_text_with_events(
+        &self,
+        channel: &Channel,
+        joined_user_id: &UserId,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError>;
+
+    async fn is_text_channel_member(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
 }
