@@ -188,9 +188,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     let source: MediaStreamAudioSourceNode | null = null;
     let analyser: AnalyserNode | null = null;
     let raf = 0;
-    let healTimer: ReturnType<typeof setTimeout> | null = null;
-    let silentFrames = 0;
-    let everShowedSignal = false;
 
     const teardown = () => {
       if (raf) cancelAnimationFrame(raf);
@@ -233,38 +230,19 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       const usable = Math.floor(bins * 0.6);
       const perBar = Math.max(1, Math.floor(usable / BARS));
 
-      silentFrames = 0;
-
       const tick = () => {
         if (!analyser || cancelled) return;
         analyser.getByteFrequencyData(data);
-        let maxSample = 0;
         const next = new Array(BARS).fill(0) as number[];
         for (let b = 0; b < BARS; b++) {
           let sum = 0;
           const offset = b * perBar;
           for (let j = 0; j < perBar; j++) {
-            const v = data[offset + j] || 0;
-            sum += v;
-            if (v > maxSample) maxSample = v;
+            sum += data[offset + j] || 0;
           }
           next[b] = Math.min(1, sum / perBar / 200);
         }
         setMeter(next);
-
-        if (maxSample > 1) {
-          everShowedSignal = true;
-          silentFrames = 0;
-        } else {
-          silentFrames += 1;
-          const threshold = everShowedSignal ? 300 : 90;
-          if (silentFrames >= threshold) {
-            silentFrames = 0;
-            teardown();
-            healTimer = setTimeout(start, 80);
-            return;
-          }
-        }
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
@@ -274,7 +252,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
     return () => {
       cancelled = true;
-      if (healTimer) clearTimeout(healTimer);
       teardown();
     };
   }, [open, isMuted, isConnected, trackId, localTrack]);
