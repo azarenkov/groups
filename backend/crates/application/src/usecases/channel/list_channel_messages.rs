@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::{
-    channel::{id::ChannelId, repository::ChannelRepository},
+    channel::{id::ChannelId, repository::ChannelRepository, visibility::ChannelVisibility},
     message::{id::MessageId, repository::MessageRepository},
     server::{id::ServerId, repository::ServerRepository},
     shared::repository::error::RepositoryError,
@@ -22,6 +22,8 @@ pub enum ListChannelMessagesError {
     Repository(#[from] RepositoryError),
     #[error("Not a member of the server")]
     NotServerMember,
+    #[error("Not a member of the channel")]
+    NotChannelMember,
     #[error("Channel not found")]
     ChannelNotFound,
 }
@@ -81,6 +83,12 @@ where
             })?;
         if channel.server_id() != &server_id {
             return Err(ListChannelMessagesError::ChannelNotFound);
+        }
+
+        if channel.visibility() == ChannelVisibility::Private
+            && !channel.is_text_member(&requester_id)
+        {
+            return Err(ListChannelMessagesError::NotChannelMember);
         }
 
         let limit = clamp_limit(request.limit);

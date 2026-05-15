@@ -99,6 +99,10 @@ where
             return Err(JoinTextChannelError::NotTextChannel);
         }
 
+        if channel.is_text_member(&requester_id) {
+            return Ok(());
+        }
+
         if let Some(expected_hash) = channel.password_hash() {
             let provided = request
                 .password
