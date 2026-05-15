@@ -1,4 +1,6 @@
-use application::dto::responses::channel::send_channel_message::SendChannelMessageResponse;
+use application::dto::responses::channel::{
+    channel_message::ChannelMessageDto, send_channel_message::SendChannelMessageResponse,
+};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use uuid::Uuid;
@@ -24,5 +26,29 @@ impl From<SendChannelMessageResponse> for MessageResponse {
             created_at: value.created_at,
             edited_at: None,
         }
+    }
+}
+
+impl From<ChannelMessageDto> for MessageResponse {
+    fn from(value: ChannelMessageDto) -> Self {
+        Self {
+            id: value.id,
+            channel_id: value.channel_id,
+            author_id: value.author_id,
+            content: value.content,
+            created_at: value.created_at,
+            edited_at: value.edited_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListChannelMessagesResponse {
+    pub messages: Vec<MessageResponse>,
+}
+
+impl ListChannelMessagesResponse {
+    pub fn new(messages: Vec<MessageResponse>) -> Self {
+        Self { messages }
     }
 }

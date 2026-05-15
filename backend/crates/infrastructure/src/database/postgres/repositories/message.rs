@@ -143,16 +143,85 @@ impl MessageRepository for PostgresMessageRepository {
         .map_err(map_sqlx_error_to_domain_error)?
         .ok_or(RepositoryError::NotFound)?;
 
-        let content = MessageContent::new(dto.content)
-            .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
-
-        Ok(Message::restore(
-            MessageId::new(dto.id),
-            ChannelId::new(dto.channel_id),
-            UserId::new(dto.author_id),
-            content,
-            dto.created_at,
-            dto.edited_at,
-        ))
+        dto_to_message(dto)
     }
+
+    async fn list_messages_in_channel(
+        &self,
+        channel_id: &ChannelId,
+        before: Option<&MessageId>,
+        after: Option<&MessageId>,
+        limit: i64,
+    ) -> Result<Vec<Message>, RepositoryError> {
+        let dtos = match (before, after) {
+            (Some(b), _) => sqlx::query_as!(
+                MessageDto,
+                r#"
+                SELECT id, channel_id, author_id, content, created_at, edited_at
+                FROM messages
+                WHERE channel_id = $1
+                  AND (created_at, id) < (
+                      SELECT created_at, id FROM messages WHERE id = $2
+                  )
+                ORDER BY created_at DESC, id DESC
+                LIMIT $3
+                "#,
+                channel_id.uuid(),
+                b.uuid(),
+                limit,
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?,
+            (None, Some(a)) => sqlx::query_as!(
+                MessageDto,
+                r#"
+                SELECT id, channel_id, author_id, content, created_at, edited_at
+                FROM messages
+                WHERE channel_id = $1
+                  AND (created_at, id) > (
+                      SELECT created_at, id FROM messages WHERE id = $2
+                  )
+                ORDER BY created_at ASC, id ASC
+                LIMIT $3
+                "#,
+                channel_id.uuid(),
+                a.uuid(),
+                limit,
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?,
+            (None, None) => sqlx::query_as!(
+                MessageDto,
+                r#"
+                SELECT id, channel_id, author_id, content, created_at, edited_at
+                FROM messages
+                WHERE channel_id = $1
+                ORDER BY created_at DESC, id DESC
+                LIMIT $2
+                "#,
+                channel_id.uuid(),
+                limit,
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?,
+        };
+
+        dtos.into_iter().map(dto_to_message).collect()
+    }
+}
+
+fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
+    let content = MessageContent::new(dto.content)
+        .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
+    Ok(Message::restore(
+        MessageId::new(dto.id),
+        ChannelId::new(dto.channel_id),
+        UserId::new(dto.author_id),
+        content,
+        dto.created_at,
+        dto.edited_at,
+    ))
 }

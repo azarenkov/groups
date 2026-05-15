@@ -4,6 +4,7 @@ use application::ports::{
     voice_service::VoiceServiceError, voice_webhook_verifier::VoiceWebhookVerifierError,
 };
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
+use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
@@ -1114,6 +1115,34 @@ impl ToHttpStatus for DeleteChannelMessageError {
     }
 }
 
+impl ToHttpStatus for ListChannelMessagesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListChannelMessagesError::Repository(e) => e.to_http_status(),
+            ListChannelMessagesError::NotServerMember => StatusCode::FORBIDDEN,
+            ListChannelMessagesError::ChannelNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListChannelMessagesError::Repository(e) => e.to_user_message(),
+            ListChannelMessagesError::NotServerMember => {
+                "You are not a member of this server".to_string()
+            }
+            ListChannelMessagesError::ChannelNotFound => "Channel not found".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListChannelMessagesError::Repository(e) => e.to_error_code(),
+            ListChannelMessagesError::NotServerMember => "SERVER_NOT_MEMBER",
+            ListChannelMessagesError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+        }
+    }
+}
+
 impl ToHttpStatus for ListChannelParticipantsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1222,6 +1251,7 @@ impl_from_for_api_error!(
     ListServerMembersError,
     ListServerChannelsError,
     ListChannelParticipantsError,
+    ListChannelMessagesError,
     JoinTextChannelError,
     SendChannelMessageError,
     EditChannelMessageError,

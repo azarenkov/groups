@@ -4,9 +4,11 @@ use application::dto::requests::channel::{
     delete_channel_message::DeleteChannelMessageRequest,
     edit_channel_message::EditChannelMessageRequest,
     join_text_channel::JoinTextChannelRequest, join_voice_channel::JoinVoiceChannelRequest,
+    list_channel_messages::ListChannelMessagesRequest,
     list_channel_participants::ListChannelParticipantsRequest, mute_channel::MuteChannelRequest,
     send_channel_message::SendChannelMessageRequest, unmute_channel::UnmuteChannelRequest,
 };
+use serde::Deserialize;
 use domain::{
     channel::id::ChannelId, server::id::ServerId, shared::pagination::Pagination,
     user::id::UserId,
@@ -30,7 +32,7 @@ use crate::shared::{
                 create_channel::CreateChannelResponse,
                 join_voice_channel::JoinVoiceChannelResponse,
                 list_channel_participants::ListChannelParticipantsResponse,
-                message::MessageResponse,
+                message::{ListChannelMessagesResponse, MessageResponse},
             },
         },
     },
@@ -196,6 +198,44 @@ async fn join_text_channel(
         .await?;
 
     Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListMessagesQuery {
+    pub before: Option<Uuid>,
+    pub after: Option<Uuid>,
+    pub limit: Option<i64>,
+}
+
+#[get("/{server_id}/channels/{channel_id}/messages")]
+async fn list_channel_messages(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    query: web::Query<ListMessagesQuery>,
+) -> Result<impl Responder, ApiError> {
+    let (server_id, channel_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+
+    let data = ListChannelMessagesRequest::new(
+        server_id,
+        channel_id,
+        query.before,
+        query.after,
+        query.limit.unwrap_or(0),
+        request_context(&req),
+    );
+
+    let messages = app_state
+        .list_channel_messages_usecase
+        .execute(data, user_id)
+        .await?;
+
+    let response =
+        ListChannelMessagesResponse::new(messages.into_iter().map(MessageResponse::from).collect());
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
 #[post("/{server_id}/channels/{channel_id}/messages")]

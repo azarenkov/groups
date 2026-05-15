@@ -14,6 +14,7 @@ use application::usecases::{
         edit_channel_message::EditChannelMessage, join_text_channel::JoinTextChannel,
         join_voice_channel::JoinVoiceChannel, join_voice_connection::JoinVoiceConnection,
         leave_voice_connection::LeaveVoiceConnection,
+        list_channel_messages::ListChannelMessages,
         list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
     },
@@ -113,6 +114,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_repository.clone(),
         server_repository.clone(),
     );
+    let list_channel_messages_usecase = ListChannelMessages::new(
+        message_repository.clone(),
+        channel_repository.clone(),
+        server_repository.clone(),
+    );
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
@@ -172,6 +178,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         send_channel_message_usecase,
         edit_channel_message_usecase,
         delete_channel_message_usecase,
+        list_channel_messages_usecase,
         register_user_usecase,
         issue_verification_code_usecase,
         login_user_usecase,

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
+    channel::id::ChannelId,
     message::{Message, id::MessageId},
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
 };
@@ -29,4 +30,12 @@ pub trait MessageRepository {
         &self,
         message_id: &MessageId,
     ) -> Result<Message, RepositoryError>;
+
+    async fn list_messages_in_channel(
+        &self,
+        channel_id: &ChannelId,
+        before: Option<&MessageId>,
+        after: Option<&MessageId>,
+        limit: i64,
+    ) -> Result<Vec<Message>, RepositoryError>;
 }

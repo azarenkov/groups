@@ -9,6 +9,7 @@ use application::usecases::{
         delete_channel_message::DeleteChannelMessage,
         edit_channel_message::EditChannelMessage, join_text_channel::JoinTextChannel,
         join_voice_channel::JoinVoiceChannel,
+        list_channel_messages::ListChannelMessages,
         list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
     },
@@ -58,6 +59,11 @@ pub struct AppState {
         PostgresServerRepository,
     >,
     pub delete_channel_message_usecase: DeleteChannelMessage<
+        PostgresMessageRepository,
+        PostgresChannelRepository,
+        PostgresServerRepository,
+    >,
+    pub list_channel_messages_usecase: ListChannelMessages<
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
@@ -134,6 +140,11 @@ impl AppState {
             PostgresChannelRepository,
             PostgresServerRepository,
         >,
+        list_channel_messages_usecase: ListChannelMessages<
+            PostgresMessageRepository,
+            PostgresChannelRepository,
+            PostgresServerRepository,
+        >,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
@@ -180,6 +191,7 @@ impl AppState {
             send_channel_message_usecase,
             edit_channel_message_usecase,
             delete_channel_message_usecase,
+            list_channel_messages_usecase,
             register_user_usecase,
             issue_verification_code_usecase,
             login_user_usecase,
