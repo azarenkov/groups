@@ -30,6 +30,8 @@ pub enum ListChannelMessagesError {
     NotTextChannel,
     #[error("Invalid pagination cursor")]
     InvalidCursor,
+    #[error("Cannot specify both before and after cursors")]
+    ConflictingCursors,
 }
 
 pub struct ListChannelMessages<M, C, S>
@@ -106,6 +108,10 @@ where
         let limit = clamp_limit(request.limit);
         let before = request.before.map(MessageId::new);
         let after = request.after.map(MessageId::new);
+
+        if before.is_some() && after.is_some() {
+            return Err(ListChannelMessagesError::ConflictingCursors);
+        }
 
         let has_cursor = before.is_some() || after.is_some();
         let messages = self

@@ -132,6 +132,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (!hasMore) return;
     if (messages.length === 0) return;
     const oldestId = messages[0].id;
+    const targetChannelId = channel.id;
     loadingOlderRef.current = true;
     setLoadingOlder(true);
     const body = bodyRef.current;
@@ -145,6 +146,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         before: oldestId,
         limit: PAGE_LIMIT,
       });
+      if (loadedChannelIdRef.current !== targetChannelId) return;
       const older = [...res.messages].reverse();
       if (older.length === 0) {
         setHasMore(false);

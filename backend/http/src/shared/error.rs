@@ -1137,6 +1137,7 @@ impl ToHttpStatus for ListChannelMessagesError {
             ListChannelMessagesError::ChannelNotFound => StatusCode::NOT_FOUND,
             ListChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
             ListChannelMessagesError::InvalidCursor => StatusCode::BAD_REQUEST,
+            ListChannelMessagesError::ConflictingCursors => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -1154,6 +1155,9 @@ impl ToHttpStatus for ListChannelMessagesError {
                 "Channel does not support text".to_string()
             }
             ListChannelMessagesError::InvalidCursor => "Invalid pagination cursor".to_string(),
+            ListChannelMessagesError::ConflictingCursors => {
+                "Cannot specify both before and after cursors".to_string()
+            }
         }
     }
 
@@ -1165,6 +1169,7 @@ impl ToHttpStatus for ListChannelMessagesError {
             ListChannelMessagesError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             ListChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
             ListChannelMessagesError::InvalidCursor => "INVALID_CURSOR",
+            ListChannelMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
         }
     }
 }
