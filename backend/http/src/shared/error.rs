@@ -848,7 +848,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
                 StatusCode::NOT_FOUND
             }
             JoinVoiceChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
-            JoinVoiceChannelError::InvalidPassword => StatusCode::UNAUTHORIZED,
+            JoinVoiceChannelError::InvalidPassword => StatusCode::FORBIDDEN,
             JoinVoiceChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             JoinVoiceChannelError::Repository(e) => e.to_http_status(),
             JoinVoiceChannelError::VoiceService(e) => e.to_http_status(),
@@ -976,7 +976,7 @@ impl ToHttpStatus for JoinTextChannelError {
             JoinTextChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
             JoinTextChannelError::NotTextChannel => StatusCode::BAD_REQUEST,
             JoinTextChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
-            JoinTextChannelError::InvalidPassword => StatusCode::UNAUTHORIZED,
+            JoinTextChannelError::InvalidPassword => StatusCode::FORBIDDEN,
         }
     }
 

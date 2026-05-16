@@ -1,7 +1,10 @@
-use std::future::{Ready, ready};
+use std::{
+    fmt,
+    future::{Ready, ready},
+};
 
 use actix_web::{
-    Error, HttpMessage,
+    Error, HttpMessage, HttpResponse, ResponseError,
     dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
     http::header::{HeaderName, HeaderValue},
 };
@@ -21,6 +24,35 @@ pub fn current() -> Option<String> {
 
 #[derive(Debug, Clone)]
 pub struct RequestId(pub String);
+
+#[derive(Debug)]
+struct TaggedError {
+    inner: Error,
+    request_id: String,
+}
+
+impl fmt::Display for TaggedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl ResponseError for TaggedError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        self.inner.as_response_error().status_code()
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        let mut res = self.inner.error_response();
+        if let Ok(value) = HeaderValue::from_str(&self.request_id) {
+            res.headers_mut().insert(
+                HeaderName::from_static(REQUEST_ID_HEADER),
+                value,
+            );
+        }
+        res
+    }
+}
 
 pub struct RequestIdMiddleware;
 
@@ -83,11 +115,18 @@ where
         let fut = REQUEST_ID.scope(scoped_id, call.instrument(span));
 
         Box::pin(async move {
-            let mut res = fut.await?;
-            if let Ok(value) = HeaderValue::from_str(&request_id) {
-                res.headers_mut().insert(header_name, value);
+            match fut.await {
+                Ok(mut res) => {
+                    if let Ok(value) = HeaderValue::from_str(&request_id) {
+                        res.headers_mut().insert(header_name, value);
+                    }
+                    Ok(res)
+                }
+                Err(inner) => Err(Error::from(TaggedError {
+                    inner,
+                    request_id,
+                })),
             }
-            Ok(res)
         })
     }
 }
