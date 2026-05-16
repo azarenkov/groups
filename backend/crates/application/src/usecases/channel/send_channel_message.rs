@@ -104,7 +104,11 @@ where
             return Err(SendChannelMessageError::NotTextChannel);
         }
 
-        if !channel.is_text_member(&author_id) {
+        let is_text_member = self
+            .channel_repository
+            .is_text_channel_member(&channel_id, &author_id)
+            .await?;
+        if !is_text_member {
             return Err(SendChannelMessageError::NotChannelMember);
         }
 

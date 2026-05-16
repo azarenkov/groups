@@ -91,10 +91,14 @@ where
             return Err(ListChannelMessagesError::NotTextChannel);
         }
 
-        if channel.visibility() == ChannelVisibility::Private
-            && !channel.is_text_member(&requester_id)
-        {
-            return Err(ListChannelMessagesError::NotChannelMember);
+        if channel.visibility() == ChannelVisibility::Private {
+            let is_text_member = self
+                .channel_repository
+                .is_text_channel_member(&channel_id, &requester_id)
+                .await?;
+            if !is_text_member {
+                return Err(ListChannelMessagesError::NotChannelMember);
+            }
         }
 
         let limit = clamp_limit(request.limit);

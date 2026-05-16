@@ -552,23 +552,7 @@ impl ChannelRepository for PostgresChannelRepository {
         };
 
         let text_participants = if kind.supports_text() {
-            let text_rows = sqlx::query!(
-                r#"
-                SELECT user_id
-                FROM channel_text_participants
-                WHERE channel_id = $1
-                "#,
-                id.uuid(),
-            )
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-            let set: HashSet<UserId> = text_rows
-                .into_iter()
-                .map(|r| UserId::new(r.user_id))
-                .collect();
-            Some(set)
+            Some(HashSet::<UserId>::new())
         } else {
             None
         };
@@ -775,23 +759,7 @@ async fn load_channel_for_update(
     };
 
     let text_participants = if kind.supports_text() {
-        let text_rows = sqlx::query!(
-            r#"
-            SELECT user_id
-            FROM channel_text_participants
-            WHERE channel_id = $1
-            "#,
-            channel_id.uuid(),
-        )
-        .fetch_all(&mut **tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        let set: HashSet<UserId> = text_rows
-            .into_iter()
-            .map(|r| UserId::new(r.user_id))
-            .collect();
-        Some(set)
+        Some(HashSet::<UserId>::new())
     } else {
         None
     };

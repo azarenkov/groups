@@ -99,7 +99,11 @@ where
             return Err(JoinTextChannelError::NotTextChannel);
         }
 
-        if channel.is_text_member(&requester_id) {
+        if self
+            .channel_repository
+            .is_text_channel_member(&channel_id, &requester_id)
+            .await?
+        {
             return Ok(());
         }
 

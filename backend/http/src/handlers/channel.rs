@@ -187,11 +187,11 @@ async fn join_text_channel(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-    body: Option<web::Json<JoinTextChannelRequestBody>>,
+    body: web::Json<JoinTextChannelRequestBody>,
 ) -> Result<HttpResponse, ApiError> {
     let (server_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
-    let password = body.and_then(|b| b.into_inner().password);
+    let password = body.into_inner().password;
 
     let data =
         JoinTextChannelRequest::new(server_id, channel_id, password, request_context(&req));
