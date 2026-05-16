@@ -26,6 +26,8 @@ pub enum ListChannelMessagesError {
     NotChannelMember,
     #[error("Channel not found")]
     ChannelNotFound,
+    #[error("Channel is not a text channel")]
+    NotTextChannel,
 }
 
 pub struct ListChannelMessages<M, C, S>
@@ -83,6 +85,10 @@ where
             })?;
         if channel.server_id() != &server_id {
             return Err(ListChannelMessagesError::ChannelNotFound);
+        }
+
+        if !channel.supports_text() {
+            return Err(ListChannelMessagesError::NotTextChannel);
         }
 
         if channel.visibility() == ChannelVisibility::Private

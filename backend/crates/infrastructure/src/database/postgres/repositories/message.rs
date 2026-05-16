@@ -161,7 +161,8 @@ impl MessageRepository for PostgresMessageRepository {
                 FROM messages
                 WHERE channel_id = $1
                   AND (created_at, id) < (
-                      SELECT created_at, id FROM messages WHERE id = $2
+                      SELECT created_at, id FROM messages
+                      WHERE id = $2 AND channel_id = $1
                   )
                 ORDER BY created_at DESC, id DESC
                 LIMIT $3
@@ -180,7 +181,8 @@ impl MessageRepository for PostgresMessageRepository {
                 FROM messages
                 WHERE channel_id = $1
                   AND (created_at, id) > (
-                      SELECT created_at, id FROM messages WHERE id = $2
+                      SELECT created_at, id FROM messages
+                      WHERE id = $2 AND channel_id = $1
                   )
                 ORDER BY created_at ASC, id ASC
                 LIMIT $3

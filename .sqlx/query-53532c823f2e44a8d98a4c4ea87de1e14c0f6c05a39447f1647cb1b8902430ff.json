@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, channel_id, author_id, content, created_at, edited_at\n                FROM messages\n                WHERE channel_id = $1\n                  AND (created_at, id) < (\n                      SELECT created_at, id FROM messages WHERE id = $2\n                  )\n                ORDER BY created_at DESC, id DESC\n                LIMIT $3\n                ",
+  "query": "\n                SELECT id, channel_id, author_id, content, created_at, edited_at\n                FROM messages\n                WHERE channel_id = $1\n                  AND (created_at, id) > (\n                      SELECT created_at, id FROM messages\n                      WHERE id = $2 AND channel_id = $1\n                  )\n                ORDER BY created_at ASC, id ASC\n                LIMIT $3\n                ",
   "describe": {
     "columns": [
       {
@@ -50,5 +50,5 @@
       true
     ]
   },
-  "hash": "1601f482c681f412a1746283aad1e70491a4c2f4a77ec7c181fed0c913a88625"
+  "hash": "53532c823f2e44a8d98a4c4ea87de1e14c0f6c05a39447f1647cb1b8902430ff"
 }

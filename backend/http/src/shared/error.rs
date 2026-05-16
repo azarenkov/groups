@@ -1131,6 +1131,7 @@ impl ToHttpStatus for ListChannelMessagesError {
             ListChannelMessagesError::NotServerMember => StatusCode::FORBIDDEN,
             ListChannelMessagesError::NotChannelMember => StatusCode::FORBIDDEN,
             ListChannelMessagesError::ChannelNotFound => StatusCode::NOT_FOUND,
+            ListChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -1144,6 +1145,9 @@ impl ToHttpStatus for ListChannelMessagesError {
                 "You are not a member of this channel".to_string()
             }
             ListChannelMessagesError::ChannelNotFound => "Channel not found".to_string(),
+            ListChannelMessagesError::NotTextChannel => {
+                "Channel does not support text".to_string()
+            }
         }
     }
 
@@ -1153,6 +1157,7 @@ impl ToHttpStatus for ListChannelMessagesError {
             ListChannelMessagesError::NotServerMember => "SERVER_NOT_MEMBER",
             ListChannelMessagesError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             ListChannelMessagesError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            ListChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
         }
     }
 }
