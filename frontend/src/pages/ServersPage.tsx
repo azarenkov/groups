@@ -733,7 +733,12 @@ const ServersPage: React.FC = () => {
             )}
           </div>
 
-          {showMembersForChannel && <MembersPanel members={SEED_MEMBERS} />}
+          {showMembersForChannel && selectedServer && activeTextChannel && (
+            <MembersPanel
+              serverId={selectedServer.id}
+              channelId={activeTextChannel.id}
+            />
+          )}
         </main>
 
         {settingsOpen && (
