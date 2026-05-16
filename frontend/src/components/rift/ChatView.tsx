@@ -60,6 +60,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [editText, setEditText] = React.useState("");
   const [deleteTarget, setDeleteTarget] = React.useState<ChannelMessage | null>(null);
   const [sending, setSending] = React.useState(false);
+  const [accessError, setAccessError] = React.useState<string | null>(null);
 
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const loadingOlderRef = React.useRef(false);
@@ -79,6 +80,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     setEditText("");
     setDeleteTarget(null);
     setHasMore(false);
+    setAccessError(null);
     if (!isText || !channel || !serverId) return;
 
     let cancelled = false;
@@ -94,7 +96,16 @@ const ChatView: React.FC<ChatViewProps> = ({
       })
       .catch((err) => {
         if (cancelled) return;
-        console.warn("[ChatView] failed to load messages:", err);
+        const apiErr = err instanceof ApiError ? err : null;
+        if (
+          apiErr?.code === "CHANNEL_NOT_MEMBER" ||
+          apiErr?.code === "CHANNEL_PASSWORD_REQUIRED" ||
+          apiErr?.code === "INVALID_CHANNEL_PASSWORD"
+        ) {
+          setAccessError(apiErr.message || "You haven't joined this channel yet.");
+        } else {
+          console.warn("[ChatView] failed to load messages:", err);
+        }
       })
       .finally(() => {
         if (cancelled) return;
@@ -178,6 +189,32 @@ const ChatView: React.FC<ChatViewProps> = ({
       setHasMore(res.messages.length >= PAGE_LIMIT);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
+    }
+  };
+
+  const handleJoinFromAccessError = async () => {
+    if (!channel || !serverId) return;
+    try {
+      await channelAPI.joinText(serverId, channel.id);
+      setAccessError(null);
+      await refreshHistoryAfterJoin();
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      const code = apiErr?.code;
+      if (code === "CHANNEL_PASSWORD_REQUIRED" || code === "INVALID_CHANNEL_PASSWORD") {
+        const pw = window.prompt(`Enter password for #${channel.name}`);
+        if (pw === null) return;
+        try {
+          await channelAPI.joinText(serverId, channel.id, pw);
+          setAccessError(null);
+          await refreshHistoryAfterJoin();
+        } catch (retryErr) {
+          const r = retryErr instanceof ApiError ? retryErr : null;
+          setAccessError(r?.message || "Couldn't join channel.");
+        }
+      } else {
+        setAccessError(apiErr?.message || "Couldn't join channel.");
+      }
     }
   };
 
@@ -347,6 +384,21 @@ const ChatView: React.FC<ChatViewProps> = ({
         {showInitialLoader ? (
           <div className="empty-state">
             <span className="loading-spinner" />
+          </div>
+        ) : accessError ? (
+          <div className="empty-state">
+            <div className="icon-wrap">
+              <Icon name="hash" size={22} />
+            </div>
+            <h3>Join #{headerName}</h3>
+            <p>{accessError}</p>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={handleJoinFromAccessError}
+            >
+              Join channel
+            </button>
           </div>
         ) : messages.length === 0 ? (
           <div className="empty-state">

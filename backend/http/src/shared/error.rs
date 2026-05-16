@@ -1,4 +1,8 @@
-use actix_web::{HttpResponse, ResponseError, http::StatusCode};
+use actix_web::{
+    HttpResponse, ResponseError,
+    http::{StatusCode, header::HeaderValue},
+};
+use shared::middleware::request_id::{self, REQUEST_ID_HEADER};
 use application::ports::{
     hasher::HashError, mailer::MailerError, token_issuer::TokenIssuerError,
     voice_service::VoiceServiceError, voice_webhook_verifier::VoiceWebhookVerifierError,
@@ -1245,7 +1249,11 @@ impl ResponseError for ApiError {
             status: self.status.as_u16(),
             fields: self.fields.clone(),
         };
-        HttpResponse::build(self.status).json(response)
+        let mut builder = HttpResponse::build(self.status);
+        if let Some(value) = request_id::current().and_then(|r| HeaderValue::from_str(&r).ok()) {
+            builder.insert_header((REQUEST_ID_HEADER, value));
+        }
+        builder.json(response)
     }
 }
 
