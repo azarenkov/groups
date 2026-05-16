@@ -30,7 +30,6 @@ import {
 import { Server } from "../types/server";
 import {
   SEED_DIRECTS,
-  SEED_MEMBERS,
   type MockDirect,
   type MockMember,
 } from "../data/mockData";
