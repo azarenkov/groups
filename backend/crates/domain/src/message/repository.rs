@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     channel::id::ChannelId,
-    message::{Message, id::MessageId},
+    message::{Message, id::MessageId, view::MessageView},
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
 };
 
@@ -37,5 +37,5 @@ pub trait MessageRepository {
         before: Option<&MessageId>,
         after: Option<&MessageId>,
         limit: i64,
-    ) -> Result<Vec<Message>, RepositoryError>;
+    ) -> Result<Vec<MessageView>, RepositoryError>;
 }

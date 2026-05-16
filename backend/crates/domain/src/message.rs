@@ -2,6 +2,7 @@ pub mod content;
 pub mod events;
 pub mod id;
 pub mod repository;
+pub mod view;
 
 use chrono::{DateTime, Utc};
 

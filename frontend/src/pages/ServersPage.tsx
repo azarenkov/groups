@@ -692,6 +692,7 @@ const ServersPage: React.FC = () => {
                 }
                 serverId={selectedServer?.id}
                 currentUserId={user?.id}
+                currentUserName={userName}
                 membersOpen={
                   !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }

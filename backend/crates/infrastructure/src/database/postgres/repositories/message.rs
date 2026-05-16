@@ -3,6 +3,7 @@ use domain::{
     channel::id::ChannelId,
     message::{
         Message, content::MessageContent, id::MessageId, repository::MessageRepository,
+        view::MessageView,
     },
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
@@ -10,7 +11,8 @@ use domain::{
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
-    dto::message::MessageDto, error::map_sqlx_error_to_domain_error,
+    dto::message::{MessageDto, MessageViewDto},
+    error::map_sqlx_error_to_domain_error,
     repositories::outbox_record::save_outbox_records,
 };
 
@@ -181,18 +183,20 @@ impl MessageRepository for PostgresMessageRepository {
         before: Option<&MessageId>,
         after: Option<&MessageId>,
         limit: i64,
-    ) -> Result<Vec<Message>, RepositoryError> {
+    ) -> Result<Vec<MessageView>, RepositoryError> {
         let dtos = match (before, after) {
             (Some(b), _) => {
                 let cursor = self.fetch_cursor(channel_id, b).await?;
                 sqlx::query_as!(
-                    MessageDto,
+                    MessageViewDto,
                     r#"
-                    SELECT id, channel_id, author_id, content, created_at, edited_at
-                    FROM messages
-                    WHERE channel_id = $1
-                      AND (created_at, id) < ($2, $3)
-                    ORDER BY created_at DESC, id DESC
+                    SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
+                           m.content, m.created_at, m.edited_at
+                    FROM messages m
+                    INNER JOIN users u ON u.id = m.author_id
+                    WHERE m.channel_id = $1
+                      AND (m.created_at, m.id) < ($2, $3)
+                    ORDER BY m.created_at DESC, m.id DESC
                     LIMIT $4
                     "#,
                     channel_id.uuid(),
@@ -207,13 +211,15 @@ impl MessageRepository for PostgresMessageRepository {
             (None, Some(a)) => {
                 let cursor = self.fetch_cursor(channel_id, a).await?;
                 let mut rows = sqlx::query_as!(
-                    MessageDto,
+                    MessageViewDto,
                     r#"
-                    SELECT id, channel_id, author_id, content, created_at, edited_at
-                    FROM messages
-                    WHERE channel_id = $1
-                      AND (created_at, id) > ($2, $3)
-                    ORDER BY created_at ASC, id ASC
+                    SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
+                           m.content, m.created_at, m.edited_at
+                    FROM messages m
+                    INNER JOIN users u ON u.id = m.author_id
+                    WHERE m.channel_id = $1
+                      AND (m.created_at, m.id) > ($2, $3)
+                    ORDER BY m.created_at ASC, m.id ASC
                     LIMIT $4
                     "#,
                     channel_id.uuid(),
@@ -228,12 +234,14 @@ impl MessageRepository for PostgresMessageRepository {
                 rows
             }
             (None, None) => sqlx::query_as!(
-                MessageDto,
+                MessageViewDto,
                 r#"
-                SELECT id, channel_id, author_id, content, created_at, edited_at
-                FROM messages
-                WHERE channel_id = $1
-                ORDER BY created_at DESC, id DESC
+                SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
+                       m.content, m.created_at, m.edited_at
+                FROM messages m
+                INNER JOIN users u ON u.id = m.author_id
+                WHERE m.channel_id = $1
+                ORDER BY m.created_at DESC, m.id DESC
                 LIMIT $2
                 "#,
                 channel_id.uuid(),
@@ -244,7 +252,7 @@ impl MessageRepository for PostgresMessageRepository {
             .map_err(map_sqlx_error_to_domain_error)?,
         };
 
-        dtos.into_iter().map(dto_to_message).collect()
+        Ok(dtos.into_iter().map(view_dto_to_view).collect())
     }
 }
 
@@ -259,4 +267,16 @@ fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
         dto.created_at,
         dto.edited_at,
     ))
+}
+
+fn view_dto_to_view(dto: MessageViewDto) -> MessageView {
+    MessageView {
+        id: MessageId::new(dto.id),
+        channel_id: ChannelId::new(dto.channel_id),
+        author_id: UserId::new(dto.author_id),
+        author_name: dto.author_name,
+        content: dto.content,
+        created_at: dto.created_at,
+        edited_at: dto.edited_at,
+    }
 }

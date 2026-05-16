@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT id, channel_id, author_id, content, created_at, edited_at\n                    FROM messages\n                    WHERE channel_id = $1\n                      AND (created_at, id) < ($2, $3)\n                    ORDER BY created_at DESC, id DESC\n                    LIMIT $4\n                    ",
+  "query": "\n                    SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,\n                           m.content, m.created_at, m.edited_at\n                    FROM messages m\n                    INNER JOIN users u ON u.id = m.author_id\n                    WHERE m.channel_id = $1\n                      AND (m.created_at, m.id) > ($2, $3)\n                    ORDER BY m.created_at ASC, m.id ASC\n                    LIMIT $4\n                    ",
   "describe": {
     "columns": [
       {
@@ -20,16 +20,21 @@
       },
       {
         "ordinal": 3,
+        "name": "author_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
         "name": "content",
         "type_info": "Text"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "edited_at",
         "type_info": "Timestamptz"
       }
@@ -48,8 +53,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "e31d4d61caa9218bc3a7530843712683e9fedb30777a39658872d6477f67baf0"
+  "hash": "32a777d7c3faf43b6747a41257847365a69a80178dea2ea2ffbe0b8ca356e7ab"
 }

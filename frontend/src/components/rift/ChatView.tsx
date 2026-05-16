@@ -33,6 +33,7 @@ interface ChatViewProps {
   channel?: ChannelMeta;
   serverId?: string;
   currentUserId?: string;
+  currentUserName?: string;
   dm?: DmMeta;
   membersOpen?: boolean;
   onToggleMembers?: () => void;
@@ -43,6 +44,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   channel,
   serverId,
   currentUserId,
+  currentUserName,
   dm,
   membersOpen,
   onToggleMembers,
@@ -344,10 +346,12 @@ const ChatView: React.FC<ChatViewProps> = ({
               const within = !!prev && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
               const cont = sameAuthor && within;
               const isMine = !!currentUserId && m.authorId === currentUserId;
+              const displayName = m.authorName ?? (isMine ? currentUserName : undefined) ?? m.authorId;
               return (
                 <Message
                   key={m.id}
                   msg={m}
+                  displayName={displayName}
                   continued={cont}
                   isMine={isMine}
                   editing={editingId === m.id}
@@ -585,6 +589,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
 interface MessageProps {
   msg: ChannelMessage;
+  displayName: string;
   continued: boolean;
   isMine: boolean;
   editing: boolean;
@@ -598,6 +603,7 @@ interface MessageProps {
 
 const Message: React.FC<MessageProps> = ({
   msg,
+  displayName,
   continued,
   isMine,
   editing,
@@ -613,16 +619,16 @@ const Message: React.FC<MessageProps> = ({
     hour: "2-digit",
     minute: "2-digit",
   });
-  const author = msg.authorId.slice(0, 1).toUpperCase();
+  const initial = displayName.slice(0, 1).toUpperCase();
   return (
     <div className={"msg" + (continued ? " cont" : "")}>
       <div className="ava" style={{ background: colorFor(msg.authorId) }}>
-        {author}
+        {initial}
       </div>
       <div className="body">
         {!continued && (
           <div className="head">
-            <b>{msg.authorId}</b>
+            <b>{displayName}</b>
             <time>{time}</time>
           </div>
         )}
