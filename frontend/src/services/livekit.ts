@@ -1,5 +1,6 @@
 import {
   ConnectionQuality,
+  ConnectionState,
   DisconnectReason,
   Room,
   RoomEvent,
@@ -242,7 +243,7 @@ export class LiveKitService {
   }
 
   private startReconnectAbortTimer(): void {
-    this.clearReconnectAbortTimer();
+    if (this.reconnectAbortTimer) return;
     this.reconnectAbortTimer = setTimeout(() => {
       console.warn(
         `[LiveKitService] Reconnect did not recover within ${this.RECONNECT_GIVE_UP_MS}ms — aborting`,
@@ -640,12 +641,10 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.Reconnecting, () => {
       console.log("Channel reconnecting...");
-      this.startReconnectAbortTimer();
     });
 
     this.room.on(RoomEvent.Reconnected, () => {
       console.log("Channel reconnected");
-      this.clearReconnectAbortTimer();
     });
 
     this.room.on(
@@ -719,6 +718,14 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.ConnectionStateChanged, (state) => {
       console.log("Connection state changed:", state);
+      if (
+        state === ConnectionState.Reconnecting ||
+        state === ConnectionState.SignalReconnecting
+      ) {
+        this.startReconnectAbortTimer();
+      } else {
+        this.clearReconnectAbortTimer();
+      }
     });
 
     this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
