@@ -52,6 +52,8 @@ export class LiveKitService {
   private participantsListeners: Set<
     (participants: ParticipantInfo[]) => void
   > = new Set();
+  private reconnectAbortTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly RECONNECT_GIVE_UP_MS = 15000;
 
   constructor(
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
@@ -223,6 +225,7 @@ export class LiveKitService {
   }
 
   async disconnect(): Promise<void> {
+    this.clearReconnectAbortTimer();
     await this.tearDownDfn();
     if (this.room) {
       console.log("[LiveKitService] Disconnecting from room");
@@ -235,6 +238,27 @@ export class LiveKitService {
       this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
+    }
+  }
+
+  private startReconnectAbortTimer(): void {
+    this.clearReconnectAbortTimer();
+    this.reconnectAbortTimer = setTimeout(() => {
+      console.warn(
+        `[LiveKitService] Reconnect did not recover within ${this.RECONNECT_GIVE_UP_MS}ms — aborting`,
+      );
+      this.reconnectAbortTimer = null;
+      const cb = this.onUnexpectedDisconnect;
+      void this.disconnect().finally(() => {
+        cb?.(DisconnectReason.UNKNOWN_REASON);
+      });
+    }, this.RECONNECT_GIVE_UP_MS);
+  }
+
+  private clearReconnectAbortTimer(): void {
+    if (this.reconnectAbortTimer) {
+      clearTimeout(this.reconnectAbortTimer);
+      this.reconnectAbortTimer = null;
     }
   }
 
@@ -616,10 +640,12 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.Reconnecting, () => {
       console.log("Channel reconnecting...");
+      this.startReconnectAbortTimer();
     });
 
     this.room.on(RoomEvent.Reconnected, () => {
       console.log("Channel reconnected");
+      this.clearReconnectAbortTimer();
     });
 
     this.room.on(
@@ -668,6 +694,7 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
+      this.clearReconnectAbortTimer();
       void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
       this.emitLocalQuality(ConnectionQuality.Unknown);
