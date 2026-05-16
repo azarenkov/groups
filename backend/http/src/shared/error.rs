@@ -1132,6 +1132,7 @@ impl ToHttpStatus for ListChannelMessagesError {
             ListChannelMessagesError::NotChannelMember => StatusCode::FORBIDDEN,
             ListChannelMessagesError::ChannelNotFound => StatusCode::NOT_FOUND,
             ListChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
+            ListChannelMessagesError::InvalidCursor => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -1148,6 +1149,7 @@ impl ToHttpStatus for ListChannelMessagesError {
             ListChannelMessagesError::NotTextChannel => {
                 "Channel does not support text".to_string()
             }
+            ListChannelMessagesError::InvalidCursor => "Invalid pagination cursor".to_string(),
         }
     }
 
@@ -1158,6 +1160,7 @@ impl ToHttpStatus for ListChannelMessagesError {
             ListChannelMessagesError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             ListChannelMessagesError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             ListChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
+            ListChannelMessagesError::InvalidCursor => "INVALID_CURSOR",
         }
     }
 }

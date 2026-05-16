@@ -28,6 +28,8 @@ pub enum ListChannelMessagesError {
     ChannelNotFound,
     #[error("Channel is not a text channel")]
     NotTextChannel,
+    #[error("Invalid pagination cursor")]
+    InvalidCursor,
 }
 
 pub struct ListChannelMessages<M, C, S>
@@ -105,10 +107,17 @@ where
         let before = request.before.map(MessageId::new);
         let after = request.after.map(MessageId::new);
 
+        let has_cursor = before.is_some() || after.is_some();
         let messages = self
             .message_repository
             .list_messages_in_channel(&channel_id, before.as_ref(), after.as_ref(), limit)
-            .await?;
+            .await
+            .map_err(|e| match e {
+                RepositoryError::NotFound if has_cursor => {
+                    ListChannelMessagesError::InvalidCursor
+                }
+                other => ListChannelMessagesError::Repository(other),
+            })?;
 
         Ok(messages.into_iter().map(ChannelMessageDto::from).collect())
     }

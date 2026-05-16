@@ -22,6 +22,35 @@ impl PostgresMessageRepository {
     pub fn new(pool: Pool<Postgres>) -> Self {
         Self { pool }
     }
+
+    async fn fetch_cursor(
+        &self,
+        channel_id: &ChannelId,
+        message_id: &MessageId,
+    ) -> Result<MessageCursor, RepositoryError> {
+        sqlx::query!(
+            r#"
+            SELECT id, created_at
+            FROM messages
+            WHERE id = $1 AND channel_id = $2
+            "#,
+            message_id.uuid(),
+            channel_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .map(|r| MessageCursor {
+            id: r.id,
+            created_at: r.created_at,
+        })
+        .ok_or(RepositoryError::NotFound)
+    }
+}
+
+struct MessageCursor {
+    id: uuid::Uuid,
+    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[async_trait]
@@ -154,42 +183,42 @@ impl MessageRepository for PostgresMessageRepository {
         limit: i64,
     ) -> Result<Vec<Message>, RepositoryError> {
         let dtos = match (before, after) {
-            (Some(b), _) => sqlx::query_as!(
-                MessageDto,
-                r#"
-                SELECT id, channel_id, author_id, content, created_at, edited_at
-                FROM messages
-                WHERE channel_id = $1
-                  AND (created_at, id) < (
-                      SELECT created_at, id FROM messages
-                      WHERE id = $2 AND channel_id = $1
-                  )
-                ORDER BY created_at DESC, id DESC
-                LIMIT $3
-                "#,
-                channel_id.uuid(),
-                b.uuid(),
-                limit,
-            )
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?,
+            (Some(b), _) => {
+                let cursor = self.fetch_cursor(channel_id, b).await?;
+                sqlx::query_as!(
+                    MessageDto,
+                    r#"
+                    SELECT id, channel_id, author_id, content, created_at, edited_at
+                    FROM messages
+                    WHERE channel_id = $1
+                      AND (created_at, id) < ($2, $3)
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT $4
+                    "#,
+                    channel_id.uuid(),
+                    cursor.created_at,
+                    cursor.id,
+                    limit,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?
+            }
             (None, Some(a)) => {
+                let cursor = self.fetch_cursor(channel_id, a).await?;
                 let mut rows = sqlx::query_as!(
                     MessageDto,
                     r#"
                     SELECT id, channel_id, author_id, content, created_at, edited_at
                     FROM messages
                     WHERE channel_id = $1
-                      AND (created_at, id) > (
-                          SELECT created_at, id FROM messages
-                          WHERE id = $2 AND channel_id = $1
-                      )
+                      AND (created_at, id) > ($2, $3)
                     ORDER BY created_at ASC, id ASC
-                    LIMIT $3
+                    LIMIT $4
                     "#,
                     channel_id.uuid(),
-                    a.uuid(),
+                    cursor.created_at,
+                    cursor.id,
                     limit,
                 )
                 .fetch_all(&self.pool)
