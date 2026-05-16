@@ -681,11 +681,18 @@ const ServersPage: React.FC = () => {
               />
             ) : (
               <ChatView
-                channel={{
-                  name: activeTextChannel?.name ?? "",
-                  topic: activeTextChannel?.topic,
-                  type: "text",
-                }}
+                channel={
+                  activeTextChannel
+                    ? {
+                        id: activeTextChannel.id,
+                        name: activeTextChannel.name,
+                        topic: activeTextChannel.topic,
+                        type: "text",
+                      }
+                    : undefined
+                }
+                serverId={selectedServer?.id}
+                currentUserId={user?.id}
                 membersOpen={
                   !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }
