@@ -167,6 +167,20 @@ const ChatView: React.FC<ChatViewProps> = ({
     return channelAPI.sendMessage(serverId, channel.id, content);
   };
 
+  const refreshHistoryAfterJoin = async () => {
+    if (!channel || !serverId) return;
+    try {
+      const res = await channelAPI.listMessages(serverId, channel.id, {
+        limit: PAGE_LIMIT,
+      });
+      const ordered = [...res.messages].reverse();
+      setMessages(ordered);
+      setHasMore(res.messages.length >= PAGE_LIMIT);
+    } catch (err) {
+      console.warn("[ChatView] failed to refresh history after join:", err);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!channel || !serverId) return;
@@ -188,6 +202,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       if (code === "CHANNEL_NOT_MEMBER") {
         try {
           await channelAPI.joinText(serverId, channel.id);
+          await refreshHistoryAfterJoin();
           const msg = await sendOnce(v);
           setMessages((prev) => [...prev, msg]);
           setText("");
@@ -202,6 +217,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             }
             try {
               await channelAPI.joinText(serverId, channel.id, pw);
+              await refreshHistoryAfterJoin();
               const msg = await sendOnce(v);
               setMessages((prev) => [...prev, msg]);
               setText("");

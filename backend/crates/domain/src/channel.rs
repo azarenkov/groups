@@ -112,7 +112,9 @@ impl Channel {
         };
 
         let text_participants = if kind.supports_text() {
-            Some(HashSet::new())
+            let mut set = HashSet::new();
+            set.insert(owner_id);
+            Some(set)
         } else {
             None
         };

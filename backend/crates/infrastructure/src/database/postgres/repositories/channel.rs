@@ -100,6 +100,24 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
 
+        if let Some(participants) = channel.text_participants() {
+            for user_id in participants {
+                sqlx::query!(
+                    r#"
+                    INSERT INTO channel_text_participants (channel_id, user_id, joined_at)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (channel_id, user_id) DO NOTHING
+                    "#,
+                    channel.id().uuid(),
+                    user_id.uuid(),
+                    channel.created_at(),
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+        }
+
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
