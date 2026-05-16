@@ -65,8 +65,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   const loadingOlderRef = React.useRef(false);
   const skipNextAutoScrollRef = React.useRef(false);
   const lastScrollHeightRef = React.useRef(0);
+  const loadedChannelIdRef = React.useRef<string | null>(null);
 
   const isText = !!channel && !!serverId;
+  const channelNotReady = isText && loadedChannelIdRef.current !== channel!.id;
+  const showInitialLoader = loadingInitial || channelNotReady;
 
   React.useEffect(() => {
     setMessages([]);
@@ -80,11 +83,13 @@ const ChatView: React.FC<ChatViewProps> = ({
 
     let cancelled = false;
     setLoadingInitial(true);
+    const targetChannelId = channel.id;
     channelAPI
       .listMessages(serverId, channel.id, { limit: PAGE_LIMIT })
       .then((res) => {
         if (cancelled) return;
         const ordered = [...res.messages].reverse();
+        loadedChannelIdRef.current = targetChannelId;
         setMessages(ordered);
         setHasMore(res.messages.length >= PAGE_LIMIT);
       })
@@ -318,7 +323,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         onOpenChannelSettings={onOpenChannelSettings}
       />
       <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>
-        {loadingInitial ? (
+        {showInitialLoader ? (
           <div className="empty-state">
             <span className="loading-spinner" />
           </div>
