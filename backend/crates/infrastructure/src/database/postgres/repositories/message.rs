@@ -174,26 +174,30 @@ impl MessageRepository for PostgresMessageRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(map_sqlx_error_to_domain_error)?,
-            (None, Some(a)) => sqlx::query_as!(
-                MessageDto,
-                r#"
-                SELECT id, channel_id, author_id, content, created_at, edited_at
-                FROM messages
-                WHERE channel_id = $1
-                  AND (created_at, id) > (
-                      SELECT created_at, id FROM messages
-                      WHERE id = $2 AND channel_id = $1
-                  )
-                ORDER BY created_at ASC, id ASC
-                LIMIT $3
-                "#,
-                channel_id.uuid(),
-                a.uuid(),
-                limit,
-            )
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?,
+            (None, Some(a)) => {
+                let mut rows = sqlx::query_as!(
+                    MessageDto,
+                    r#"
+                    SELECT id, channel_id, author_id, content, created_at, edited_at
+                    FROM messages
+                    WHERE channel_id = $1
+                      AND (created_at, id) > (
+                          SELECT created_at, id FROM messages
+                          WHERE id = $2 AND channel_id = $1
+                      )
+                    ORDER BY created_at ASC, id ASC
+                    LIMIT $3
+                    "#,
+                    channel_id.uuid(),
+                    a.uuid(),
+                    limit,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                rows.reverse();
+                rows
+            }
             (None, None) => sqlx::query_as!(
                 MessageDto,
                 r#"
