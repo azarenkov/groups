@@ -603,6 +603,22 @@ const ServersPage: React.FC = () => {
                   </span>
                   <span className="sep" />
                   <span className="topic">Disconnected</span>
+                  <div className="right">
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Channel settings"
+                      onClick={() =>
+                        setEditingChannel({
+                          id: selectedVoiceChannelNotJoined.id,
+                          serverId: selectedServer.id,
+                          name: selectedVoiceChannelNotJoined.name,
+                        })
+                      }
+                    >
+                      <Icon name="settings" size={15} />
+                    </button>
+                  </div>
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
