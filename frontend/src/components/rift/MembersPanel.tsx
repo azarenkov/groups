@@ -35,10 +35,29 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    channelAPI
-      .listParticipants(serverId, channelId)
-      .then((res) => {
-        if (!cancelled) setMembers(res.participants);
+
+    const PER_PAGE = 50;
+    const fetchAll = async (): Promise<ChannelParticipant[]> => {
+      const acc: ChannelParticipant[] = [];
+      let page = 1;
+      while (!cancelled) {
+        const res = await channelAPI.listParticipants(
+          serverId,
+          channelId,
+          page,
+          PER_PAGE,
+        );
+        acc.push(...res.participants);
+        const totalPages = res.pagination?.totalPages ?? 1;
+        if (page >= totalPages || res.participants.length < PER_PAGE) break;
+        page += 1;
+      }
+      return acc;
+    };
+
+    fetchAll()
+      .then((all) => {
+        if (!cancelled) setMembers(all);
       })
       .catch((err) => {
         if (!cancelled) {

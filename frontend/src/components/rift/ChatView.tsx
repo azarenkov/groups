@@ -124,7 +124,11 @@ const ChatView: React.FC<ChatViewProps> = ({
     loadingOlderRef.current = true;
     setLoadingOlder(true);
     const body = bodyRef.current;
-    if (body) lastScrollHeightRef.current = body.scrollHeight;
+    let prevScrollTop = 0;
+    if (body) {
+      lastScrollHeightRef.current = body.scrollHeight;
+      prevScrollTop = body.scrollTop;
+    }
     try {
       const res = await channelAPI.listMessages(serverId, channel.id, {
         before: oldestId,
@@ -141,7 +145,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           const b = bodyRef.current;
           if (!b) return;
           const delta = b.scrollHeight - lastScrollHeightRef.current;
-          b.scrollTop = delta;
+          b.scrollTop = prevScrollTop + delta;
         });
       }
     } catch (err) {
