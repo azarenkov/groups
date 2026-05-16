@@ -1170,6 +1170,8 @@ impl ToHttpStatus for ListChannelParticipantsError {
         match self {
             ListChannelParticipantsError::Repository(e) => e.to_http_status(),
             ListChannelParticipantsError::NotMember => StatusCode::FORBIDDEN,
+            ListChannelParticipantsError::NotChannelMember => StatusCode::FORBIDDEN,
+            ListChannelParticipantsError::ChannelNotFound => StatusCode::NOT_FOUND,
         }
     }
 
@@ -1179,6 +1181,10 @@ impl ToHttpStatus for ListChannelParticipantsError {
             ListChannelParticipantsError::NotMember => {
                 "You are not a member of this server".to_string()
             }
+            ListChannelParticipantsError::NotChannelMember => {
+                "You are not a member of this channel".to_string()
+            }
+            ListChannelParticipantsError::ChannelNotFound => "Channel not found".to_string(),
         }
     }
 
@@ -1186,6 +1192,8 @@ impl ToHttpStatus for ListChannelParticipantsError {
         match self {
             ListChannelParticipantsError::Repository(e) => e.to_error_code(),
             ListChannelParticipantsError::NotMember => "SERVER_NOT_MEMBER",
+            ListChannelParticipantsError::NotChannelMember => "CHANNEL_NOT_MEMBER",
+            ListChannelParticipantsError::ChannelNotFound => "CHANNEL_NOT_FOUND",
         }
     }
 }

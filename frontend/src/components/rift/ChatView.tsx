@@ -89,7 +89,6 @@ const ChatView: React.FC<ChatViewProps> = ({
       .then((res) => {
         if (cancelled) return;
         const ordered = [...res.messages].reverse();
-        loadedChannelIdRef.current = targetChannelId;
         setMessages(ordered);
         setHasMore(res.messages.length >= PAGE_LIMIT);
       })
@@ -98,7 +97,9 @@ const ChatView: React.FC<ChatViewProps> = ({
         console.warn("[ChatView] failed to load messages:", err);
       })
       .finally(() => {
-        if (!cancelled) setLoadingInitial(false);
+        if (cancelled) return;
+        loadedChannelIdRef.current = targetChannelId;
+        setLoadingInitial(false);
       });
     return () => {
       cancelled = true;

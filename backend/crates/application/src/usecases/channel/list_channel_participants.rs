@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::{
-    channel::{id::ChannelId, repository::ChannelRepository},
+    channel::{id::ChannelId, repository::ChannelRepository, visibility::ChannelVisibility},
     server::{id::ServerId, repository::ServerRepository},
     shared::{pagination::PaginatedResult, repository::error::RepositoryError},
     user::id::UserId,
@@ -18,6 +18,10 @@ pub enum ListChannelParticipantsError {
     Repository(#[from] RepositoryError),
     #[error("Not a member of the server")]
     NotMember,
+    #[error("Channel not found")]
+    ChannelNotFound,
+    #[error("Not a member of the channel")]
+    NotChannelMember,
 }
 
 pub struct ListChannelParticipants<C, S>
@@ -55,6 +59,28 @@ where
             .await?;
         if !is_member {
             return Err(ListChannelParticipantsError::NotMember);
+        }
+
+        let channel = self
+            .channel_repository
+            .find_channel_by_id(&channel_id)
+            .await
+            .map_err(|e| match e {
+                RepositoryError::NotFound => ListChannelParticipantsError::ChannelNotFound,
+                other => ListChannelParticipantsError::Repository(other),
+            })?;
+        if channel.server_id() != &server_id {
+            return Err(ListChannelParticipantsError::ChannelNotFound);
+        }
+
+        if channel.supports_text() && channel.visibility() == ChannelVisibility::Private {
+            let is_text_member = self
+                .channel_repository
+                .is_text_channel_member(&channel_id, &requester_id)
+                .await?;
+            if !is_text_member {
+                return Err(ListChannelParticipantsError::NotChannelMember);
+            }
         }
 
         let result = self
