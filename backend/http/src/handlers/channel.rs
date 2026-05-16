@@ -187,11 +187,23 @@ async fn join_text_channel(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-    body: web::Json<JoinTextChannelRequestBody>,
+    body: web::Bytes,
 ) -> Result<HttpResponse, ApiError> {
     let (server_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
-    let password = body.into_inner().password;
+    let password = if body.is_empty() {
+        None
+    } else {
+        serde_json::from_slice::<JoinTextChannelRequestBody>(&body)
+            .map_err(|e| {
+                ApiError::new(
+                    format!("Invalid request body: {e}"),
+                    actix_web::http::StatusCode::BAD_REQUEST,
+                    "INVALID_BODY",
+                )
+            })?
+            .password
+    };
 
     let data =
         JoinTextChannelRequest::new(server_id, channel_id, password, request_context(&req));
