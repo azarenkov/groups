@@ -1,5 +1,6 @@
 import {
   ConnectionQuality,
+  DisconnectReason,
   Room,
   RoomEvent,
   Track,
@@ -17,7 +18,7 @@ import type { DfnPipeline } from "./dfn";
 
 export type NoiseSuppressionMode = "off" | "standard" | "high";
 
-export { ConnectionQuality };
+export { ConnectionQuality, DisconnectReason };
 
 export interface ParticipantInfo {
   identity: string;
@@ -33,6 +34,7 @@ export class LiveKitService {
   private onParticipantsChange?: (participants: ParticipantInfo[]) => void;
   private onConnectionStateChange?: (connected: boolean) => void;
   private onError?: (error: Error) => void;
+  private onUnexpectedDisconnect?: (reason: DisconnectReason) => void;
   private isConnecting: boolean = false;
   private dfnPipeline: DfnPipeline | null = null;
   private dfnContext: AudioContext | null = null;
@@ -55,22 +57,27 @@ export class LiveKitService {
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
     onConnectionStateChange?: (connected: boolean) => void,
     onError?: (error: Error) => void,
+    onUnexpectedDisconnect?: (reason: DisconnectReason) => void,
   ) {
     this.onParticipantsChange = onParticipantsChange;
     this.onConnectionStateChange = onConnectionStateChange;
     this.onError = onError;
+    this.onUnexpectedDisconnect = onUnexpectedDisconnect;
   }
 
   updateCallbacks(
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
     onConnectionStateChange?: (connected: boolean) => void,
     onError?: (error: Error) => void,
+    onUnexpectedDisconnect?: (reason: DisconnectReason) => void,
   ) {
     if (onParticipantsChange !== undefined)
       this.onParticipantsChange = onParticipantsChange;
     if (onConnectionStateChange !== undefined)
       this.onConnectionStateChange = onConnectionStateChange;
     if (onError !== undefined) this.onError = onError;
+    if (onUnexpectedDisconnect !== undefined)
+      this.onUnexpectedDisconnect = onUnexpectedDisconnect;
   }
 
   getLocalQuality(): ConnectionQuality {
@@ -667,6 +674,9 @@ export class LiveKitService {
       this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
+      if (reason !== undefined && reason !== DisconnectReason.CLIENT_INITIATED) {
+        this.onUnexpectedDisconnect?.(reason);
+      }
     });
 
     this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
@@ -794,18 +804,21 @@ export function getLiveKitService(
   onParticipantsChange?: (participants: ParticipantInfo[]) => void,
   onConnectionStateChange?: (connected: boolean) => void,
   onError?: (error: Error) => void,
+  onUnexpectedDisconnect?: (reason: DisconnectReason) => void,
 ): LiveKitService {
   if (!livekitService) {
     livekitService = new LiveKitService(
       onParticipantsChange,
       onConnectionStateChange,
       onError,
+      onUnexpectedDisconnect,
     );
   } else {
     livekitService.updateCallbacks(
       onParticipantsChange,
       onConnectionStateChange,
       onError,
+      onUnexpectedDisconnect,
     );
   }
   return livekitService;

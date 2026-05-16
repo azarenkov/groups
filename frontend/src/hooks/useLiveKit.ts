@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ConnectionQuality,
+  DisconnectReason,
   getLiveKitService,
   LiveKitService,
   NoiseSuppressionMode,
@@ -32,7 +33,11 @@ interface UseLiveKitResult {
   getLocalSessionId: () => string | null;
 }
 
-export function useLiveKit(): UseLiveKitResult {
+interface UseLiveKitOptions {
+  onUnexpectedDisconnect?: (reason: DisconnectReason) => void;
+}
+
+export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const [participants, setParticipants] = useState<ParticipantInfo[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -45,6 +50,9 @@ export function useLiveKit(): UseLiveKitResult {
 
   isMutedRef.current = isMuted;
   isConnectedRef.current = isConnected;
+
+  const onUnexpectedDisconnectRef = useRef(options?.onUnexpectedDisconnect);
+  onUnexpectedDisconnectRef.current = options?.onUnexpectedDisconnect;
 
   const serviceRef = useRef<LiveKitService | null>(null);
   serviceRef.current = getLiveKitService(
@@ -60,6 +68,9 @@ export function useLiveKit(): UseLiveKitResult {
     (err) => {
       setError(err.message);
       setIsConnecting(false);
+    },
+    (reason) => {
+      onUnexpectedDisconnectRef.current?.(reason);
     },
   );
 

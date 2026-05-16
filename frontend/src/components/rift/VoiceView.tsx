@@ -53,6 +53,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   onLeave,
   onJoinFailed,
 }) => {
+  const onLeaveRef = useRef(onLeave);
+  onLeaveRef.current = onLeave;
   const {
     participants,
     isConnected,
@@ -66,7 +68,12 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     setNoiseSuppression,
     setNoiseStrength,
     getNoiseSuppressionMode,
-  } = useLiveKit();
+  } = useLiveKit({
+    onUnexpectedDisconnect: (reason) => {
+      console.warn("[VoiceView] unexpected disconnect, leaving:", reason);
+      onLeaveRef.current();
+    },
+  });
 
   const hasJoinedRef = useRef(false);
   const currentChannelRef = useRef<string | null>(null);
