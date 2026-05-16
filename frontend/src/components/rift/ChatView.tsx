@@ -103,7 +103,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [channel, serverId, isText]);
+  }, [channel?.id, serverId, isText]);
 
   React.useEffect(() => {
     if (!bodyRef.current) return;
@@ -149,7 +149,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       loadingOlderRef.current = false;
       setLoadingOlder(false);
     }
-  }, [channel, serverId, hasMore, messages]);
+  }, [channel?.id, serverId, hasMore, messages]);
 
   const handleScroll = React.useCallback(() => {
     const b = bodyRef.current;
