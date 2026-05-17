@@ -9,6 +9,7 @@ use application::ports::{
 };
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
+use application::usecases::channel::search_channel_messages::SearchChannelMessagesError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
@@ -1174,6 +1175,47 @@ impl ToHttpStatus for ListChannelMessagesError {
     }
 }
 
+impl ToHttpStatus for SearchChannelMessagesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SearchChannelMessagesError::Repository(e) => e.to_http_status(),
+            SearchChannelMessagesError::NotServerMember => StatusCode::FORBIDDEN,
+            SearchChannelMessagesError::NotChannelMember => StatusCode::FORBIDDEN,
+            SearchChannelMessagesError::ChannelNotFound => StatusCode::NOT_FOUND,
+            SearchChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
+            SearchChannelMessagesError::EmptyQuery => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            SearchChannelMessagesError::Repository(e) => e.to_user_message(),
+            SearchChannelMessagesError::NotServerMember => {
+                "You are not a member of this server".to_string()
+            }
+            SearchChannelMessagesError::NotChannelMember => {
+                "You are not a member of this channel".to_string()
+            }
+            SearchChannelMessagesError::ChannelNotFound => "Channel not found".to_string(),
+            SearchChannelMessagesError::NotTextChannel => {
+                "This channel does not support text messages".to_string()
+            }
+            SearchChannelMessagesError::EmptyQuery => "Search query cannot be empty".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SearchChannelMessagesError::Repository(e) => e.to_error_code(),
+            SearchChannelMessagesError::NotServerMember => "SERVER_NOT_MEMBER",
+            SearchChannelMessagesError::NotChannelMember => "CHANNEL_NOT_MEMBER",
+            SearchChannelMessagesError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            SearchChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
+            SearchChannelMessagesError::EmptyQuery => "EMPTY_QUERY",
+        }
+    }
+}
+
 impl ToHttpStatus for ListChannelParticipantsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1295,6 +1337,7 @@ impl_from_for_api_error!(
     ListServerChannelsError,
     ListChannelParticipantsError,
     ListChannelMessagesError,
+    SearchChannelMessagesError,
     JoinTextChannelError,
     SendChannelMessageError,
     EditChannelMessageError,

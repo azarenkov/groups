@@ -61,6 +61,13 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [deleteTarget, setDeleteTarget] = React.useState<ChannelMessage | null>(null);
   const [sending, setSending] = React.useState(false);
   const [accessError, setAccessError] = React.useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchInput, setSearchInput] = React.useState("");
+  const [searchResults, setSearchResults] = React.useState<ChannelMessage[]>([]);
+  const [searchLoading, setSearchLoading] = React.useState(false);
+  const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [searchTotal, setSearchTotal] = React.useState(0);
 
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const loadingOlderRef = React.useRef(false);
@@ -81,6 +88,12 @@ const ChatView: React.FC<ChatViewProps> = ({
     setDeleteTarget(null);
     setHasMore(false);
     setAccessError(null);
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchInput("");
+    setSearchResults([]);
+    setSearchError(null);
+    setSearchTotal(0);
     if (!isText || !channel || !serverId) return;
 
     let cancelled = false;
@@ -192,6 +205,64 @@ const ChatView: React.FC<ChatViewProps> = ({
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
     }
+  };
+
+  React.useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (!searchOpen) return;
+    if (!channel || !serverId) return;
+    if (trimmed.length === 0) {
+      setSearchQuery("");
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchTotal(0);
+      return;
+    }
+    const timeout = window.setTimeout(() => setSearchQuery(trimmed), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchInput, searchOpen, channel, serverId]);
+
+  React.useEffect(() => {
+    if (!searchOpen || !channel || !serverId) return;
+    const q = searchQuery.trim();
+    if (q.length === 0) return;
+    let cancelled = false;
+    setSearchLoading(true);
+    setSearchError(null);
+    channelAPI
+      .searchMessages(serverId, channel.id, q, 1, 50)
+      .then((res) => {
+        if (cancelled) return;
+        setSearchResults(res.messages);
+        setSearchTotal(res.pagination?.total ?? res.messages.length);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const apiErr = err instanceof ApiError ? err : null;
+        setSearchError(apiErr?.message || "Search failed.");
+        setSearchResults([]);
+        setSearchTotal(0);
+      })
+      .finally(() => {
+        if (!cancelled) setSearchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery, searchOpen, channel, serverId]);
+
+  const toggleSearch = () => {
+    setSearchOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        setSearchInput("");
+        setSearchQuery("");
+        setSearchResults([]);
+        setSearchError(null);
+        setSearchTotal(0);
+      }
+      return next;
+    });
   };
 
   const handleJoinFromAccessError = async () => {
@@ -379,11 +450,96 @@ const ChatView: React.FC<ChatViewProps> = ({
       <ChannelHeader
         channel={channel}
         membersOpen={membersOpen}
+        searchActive={searchOpen}
+        onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
       />
+      {searchOpen && (
+        <div className="search-bar">
+          <Icon name="search" size={14} />
+          <input
+            autoFocus
+            type="text"
+            placeholder={`Search in #${channel.name}`}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                toggleSearch();
+              }
+            }}
+          />
+          {searchInput && (
+            <button
+              type="button"
+              className="search-clear"
+              onClick={() => setSearchInput("")}
+              title="Clear"
+            >
+              <Icon name="x" size={12} />
+            </button>
+          )}
+        </div>
+      )}
       <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>
-        {showInitialLoader ? (
+        {searchOpen && searchInput.trim().length > 0 ? (
+          <div className="search-results">
+            {searchLoading ? (
+              <div className="empty-state">
+                <span className="loading-spinner" />
+              </div>
+            ) : searchError ? (
+              <div className="empty-state">
+                <p>{searchError}</p>
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon-wrap">
+                  <Icon name="search" size={22} />
+                </div>
+                <h3>No results</h3>
+                <p>Nothing matched "{searchQuery}".</p>
+              </div>
+            ) : (
+              <>
+                <div className="search-meta">
+                  {searchTotal} {searchTotal === 1 ? "result" : "results"} for "{searchQuery}"
+                </div>
+                {searchResults.map((m) => {
+                  const isMine = !!currentUserId && m.authorId === currentUserId;
+                  const displayName =
+                    m.authorName ?? (isMine ? currentUserName : undefined) ?? m.authorId;
+                  const time = new Date(m.createdAt).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const initial = displayName.slice(0, 1).toUpperCase();
+                  return (
+                    <div key={m.id} className="search-result">
+                      <div
+                        className="ava"
+                        style={{ background: colorFor(m.authorId) }}
+                      >
+                        {initial}
+                      </div>
+                      <div className="body">
+                        <div className="head">
+                          <b>{displayName}</b>
+                          <time>{time}</time>
+                        </div>
+                        <div className="content">{m.content}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        ) : showInitialLoader ? (
           <div className="empty-state">
             <span className="loading-spinner" />
           </div>
@@ -489,6 +645,8 @@ interface ChannelHeaderProps {
   channel?: ChannelMeta;
   dm?: DmMeta;
   membersOpen?: boolean;
+  searchActive?: boolean;
+  onToggleSearch?: () => void;
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
 }
@@ -497,6 +655,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   channel,
   dm,
   membersOpen,
+  searchActive,
+  onToggleSearch,
   onToggleMembers,
   onOpenChannelSettings,
 }) => {
@@ -650,6 +810,16 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             onClick={onToggleMembers}
           >
             <Icon name="users" size={15} />
+          </button>
+        )}
+        {onToggleSearch && (
+          <button
+            type="button"
+            className={"icon-btn" + (searchActive ? " on" : "")}
+            title={searchActive ? "Close search" : "Search messages"}
+            onClick={onToggleSearch}
+          >
+            <Icon name="search" size={15} />
           </button>
         )}
         {onOpenChannelSettings && (

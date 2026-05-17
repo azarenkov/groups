@@ -5,7 +5,11 @@ use domain::{
         Message, content::MessageContent, id::MessageId, repository::MessageRepository,
         view::MessageView,
     },
-    shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
+    shared::{
+        outbox::outbox_record::OutboxRecord,
+        pagination::{PaginatedResult, Pagination},
+        repository::error::RepositoryError,
+    },
     user::id::UserId,
 };
 use sqlx::{Pool, Postgres};
@@ -253,6 +257,53 @@ impl MessageRepository for PostgresMessageRepository {
         };
 
         Ok(dtos.into_iter().map(view_dto_to_view).collect())
+    }
+
+    async fn search_messages_in_channel(
+        &self,
+        channel_id: &ChannelId,
+        query: &str,
+        pagination: Pagination,
+    ) -> Result<PaginatedResult<MessageView>, RepositoryError> {
+        let total = sqlx::query!(
+            r#"
+            SELECT COUNT(*) AS "count!"
+            FROM messages
+            WHERE channel_id = $1
+              AND search_tsv @@ plainto_tsquery('simple', $2)
+            "#,
+            channel_id.uuid(),
+            query,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .count;
+
+        let rows = sqlx::query_as!(
+            MessageViewDto,
+            r#"
+            SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
+                   m.content, m.created_at, m.edited_at
+            FROM messages m
+            INNER JOIN users u ON u.id = m.author_id
+            WHERE m.channel_id = $1
+              AND m.search_tsv @@ plainto_tsquery('simple', $2)
+            ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,
+                     m.created_at DESC, m.id DESC
+            LIMIT $3 OFFSET $4
+            "#,
+            channel_id.uuid(),
+            query,
+            pagination.limit(),
+            pagination.offset(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let items: Vec<MessageView> = rows.into_iter().map(view_dto_to_view).collect();
+        Ok(PaginatedResult::new(items, total, pagination))
     }
 }
 
