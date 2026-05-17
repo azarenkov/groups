@@ -85,6 +85,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   const skipNextAutoScrollRef = React.useRef(false);
   const lastScrollHeightRef = React.useRef(0);
   const loadedChannelIdRef = React.useRef<string | null>(null);
+  const currentChannelIdRef = React.useRef<string | undefined>();
+  currentChannelIdRef.current = channel?.id;
 
   const isText = !!channel && !!serverId;
   const channelNotReady = isText && loadedChannelIdRef.current !== channel!.id;
@@ -232,7 +234,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
     const timeout = window.setTimeout(() => setSearchQuery(trimmed), 250);
     return () => window.clearTimeout(timeout);
-  }, [searchInput, searchOpen, channel, serverId]);
+  }, [searchInput, searchOpen, channel?.id, serverId]);
 
   React.useEffect(() => {
     if (!searchOpen || !channel || !serverId) return;
@@ -261,10 +263,11 @@ const ChatView: React.FC<ChatViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [searchQuery, searchOpen, channel, serverId]);
+  }, [searchQuery, searchOpen, channel?.id, serverId]);
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
     if (!channel || !serverId) return;
+    const targetChannelId = channel.id;
     setSearchInput("");
     setSearchQuery("");
     setSearchResults([]);
@@ -273,13 +276,20 @@ const ChatView: React.FC<ChatViewProps> = ({
     setLoadingInitial(true);
     try {
       const [olderRes, newerRes] = await Promise.all([
-        channelAPI.listMessages(serverId, channel.id, { before: target.id, limit: 25 }),
-        channelAPI.listMessages(serverId, channel.id, { after: target.id, limit: 25 }),
+        channelAPI.listMessages(serverId, targetChannelId, {
+          before: target.id,
+          limit: 25,
+        }),
+        channelAPI.listMessages(serverId, targetChannelId, {
+          after: target.id,
+          limit: 25,
+        }),
       ]);
+      if (currentChannelIdRef.current !== targetChannelId) return;
       const older = [...olderRes.messages].reverse();
       const newer = [...newerRes.messages].reverse();
       const combined = [...older, target, ...newer];
-      loadedChannelIdRef.current = channel.id;
+      loadedChannelIdRef.current = targetChannelId;
       skipNextAutoScrollRef.current = true;
       setMessages(combined);
       setHasMore(olderRes.messages.length >= 25);
@@ -287,7 +297,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     } catch (err) {
       console.warn("[ChatView] failed to jump to message:", err);
     } finally {
-      setLoadingInitial(false);
+      if (currentChannelIdRef.current === targetChannelId) {
+        setLoadingInitial(false);
+      }
     }
   };
 
