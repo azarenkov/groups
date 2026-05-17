@@ -455,7 +455,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
       />
-      {searchOpen && (
+      {searchOpen && channel && (
         <div className="search-bar">
           <Icon name="search" size={14} />
           <input
