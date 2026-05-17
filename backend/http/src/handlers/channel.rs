@@ -26,6 +26,7 @@ use crate::shared::{
             create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody,
             join_text_channel::JoinTextChannelRequestBody,
             join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
+            search_messages::SearchMessagesQuery,
             send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody,
         },
         responses::{
@@ -227,23 +228,6 @@ pub struct ListMessagesQuery {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, Validate)]
-pub struct SearchMessagesQuery {
-    #[validate(length(min = 1, max = 200))]
-    pub q: String,
-    #[serde(default = "default_search_page")]
-    pub page: u32,
-    #[serde(default = "default_search_per_page")]
-    pub per_page: u32,
-}
-
-fn default_search_page() -> u32 {
-    1
-}
-
-fn default_search_per_page() -> u32 {
-    25
-}
 
 #[get("/{server_id}/channels/{channel_id}/messages")]
 async fn list_channel_messages(
