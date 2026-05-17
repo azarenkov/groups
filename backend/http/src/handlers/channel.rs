@@ -1,10 +1,14 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, web};
 use application::dto::requests::channel::{
     create_channel::CreateChannelRequest, delete_channel::DeleteChannelRequest,
-    join_voice_channel::JoinVoiceChannelRequest,
+    delete_channel_message::DeleteChannelMessageRequest,
+    edit_channel_message::EditChannelMessageRequest,
+    join_text_channel::JoinTextChannelRequest, join_voice_channel::JoinVoiceChannelRequest,
+    list_channel_messages::ListChannelMessagesRequest,
     list_channel_participants::ListChannelParticipantsRequest, mute_channel::MuteChannelRequest,
-    unmute_channel::UnmuteChannelRequest,
+    send_channel_message::SendChannelMessageRequest, unmute_channel::UnmuteChannelRequest,
 };
+use serde::Deserialize;
 use domain::{
     channel::id::ChannelId, server::id::ServerId, shared::pagination::Pagination,
     user::id::UserId,
@@ -18,9 +22,10 @@ use crate::shared::{
     dto::{
         pagination::{PaginationMeta, PaginationQuery},
         requests::channel::{
-            create_channel::CreateChannelRequestBody,
+            create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody,
+            join_text_channel::JoinTextChannelRequestBody,
             join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
-            unmute_channel::UnmuteRequestBody,
+            send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody,
         },
         responses::{
             ApiResponse,
@@ -28,6 +33,7 @@ use crate::shared::{
                 create_channel::CreateChannelResponse,
                 join_voice_channel::JoinVoiceChannelResponse,
                 list_channel_participants::ListChannelParticipantsResponse,
+                message::{ListChannelMessagesResponse, MessageResponse},
             },
         },
     },
@@ -173,6 +179,163 @@ async fn list_channel_participants(
     let response = ListChannelParticipantsResponse::new(result.items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
+}
+
+#[post("/{server_id}/channels/{channel_id}/join")]
+async fn join_text_channel(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Bytes,
+) -> Result<HttpResponse, ApiError> {
+    let (server_id, channel_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+    let password = if body.is_empty() {
+        None
+    } else {
+        serde_json::from_slice::<JoinTextChannelRequestBody>(&body)
+            .map_err(|e| {
+                ApiError::new(
+                    format!("Invalid request body: {e}"),
+                    actix_web::http::StatusCode::BAD_REQUEST,
+                    "INVALID_BODY",
+                )
+            })?
+            .password
+    };
+
+    let data =
+        JoinTextChannelRequest::new(server_id, channel_id, password, request_context(&req));
+
+    app_state
+        .join_text_channel_usecase
+        .execute(data, user_id)
+        .await?;
+
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListMessagesQuery {
+    pub before: Option<Uuid>,
+    pub after: Option<Uuid>,
+    pub limit: Option<i64>,
+}
+
+#[get("/{server_id}/channels/{channel_id}/messages")]
+async fn list_channel_messages(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    query: web::Query<ListMessagesQuery>,
+) -> Result<impl Responder, ApiError> {
+    let (server_id, channel_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+
+    let data = ListChannelMessagesRequest::new(
+        server_id,
+        channel_id,
+        query.before,
+        query.after,
+        query.limit.unwrap_or(0),
+        request_context(&req),
+    );
+
+    let messages = app_state
+        .list_channel_messages_usecase
+        .execute(data, user_id)
+        .await?;
+
+    let response =
+        ListChannelMessagesResponse::new(messages.into_iter().map(MessageResponse::from).collect());
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[post("/{server_id}/channels/{channel_id}/messages")]
+async fn send_channel_message(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<SendMessageRequestBody>,
+) -> Result<impl Responder, ApiError> {
+    let (server_id, channel_id) = path.into_inner();
+    let body = body.into_inner();
+    body.validate()?;
+
+    let user_id = UserId::new(auth_token.id);
+
+    let data = SendChannelMessageRequest::new(
+        server_id,
+        channel_id,
+        body.content,
+        request_context(&req),
+    );
+
+    let response = app_state
+        .send_channel_message_usecase
+        .execute(data, user_id)
+        .await?;
+
+    Ok(HttpResponse::Created().json(ApiResponse::success(MessageResponse::from(response))))
+}
+
+#[patch("/{server_id}/channels/{channel_id}/messages/{message_id}")]
+async fn edit_channel_message(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid, Uuid)>,
+    body: web::Json<EditMessageRequestBody>,
+) -> Result<HttpResponse, ApiError> {
+    let (server_id, channel_id, message_id) = path.into_inner();
+    let body = body.into_inner();
+    body.validate()?;
+
+    let user_id = UserId::new(auth_token.id);
+
+    let data = EditChannelMessageRequest::new(
+        server_id,
+        channel_id,
+        message_id,
+        body.content,
+        request_context(&req),
+    );
+
+    app_state
+        .edit_channel_message_usecase
+        .execute(data, user_id)
+        .await?;
+
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[delete("/{server_id}/channels/{channel_id}/messages/{message_id}")]
+async fn delete_channel_message(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid, Uuid)>,
+) -> Result<HttpResponse, ApiError> {
+    let (server_id, channel_id, message_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+
+    let data = DeleteChannelMessageRequest::new(
+        server_id,
+        channel_id,
+        message_id,
+        request_context(&req),
+    );
+
+    app_state
+        .delete_channel_message_usecase
+        .execute(data, user_id)
+        .await?;
+
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[delete("/{server_id}/channels/{channel_id}")]

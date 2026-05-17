@@ -1,8 +1,10 @@
-use std::future::{Ready, ready};
+use std::{
+    fmt,
+    future::{Ready, ready},
+};
 
 use actix_web::{
-    Error, HttpMessage,
-    body::EitherBody,
+    Error, HttpMessage, HttpResponse, ResponseError,
     dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
     http::header::{HeaderName, HeaderValue},
 };
@@ -23,6 +25,35 @@ pub fn current() -> Option<String> {
 #[derive(Debug, Clone)]
 pub struct RequestId(pub String);
 
+#[derive(Debug)]
+struct TaggedError {
+    inner: Error,
+    request_id: String,
+}
+
+impl fmt::Display for TaggedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl ResponseError for TaggedError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        self.inner.as_response_error().status_code()
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        let mut res = self.inner.error_response();
+        if let Ok(value) = HeaderValue::from_str(&self.request_id) {
+            res.headers_mut().insert(
+                HeaderName::from_static(REQUEST_ID_HEADER),
+                value,
+            );
+        }
+        res
+    }
+}
+
 pub struct RequestIdMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for RequestIdMiddleware
@@ -31,7 +62,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<EitherBody<B>>;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type Transform = RequestIdMiddlewareService<S>;
     type InitError = ();
@@ -52,7 +83,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<EitherBody<B>>;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -71,7 +102,6 @@ where
 
         req.extensions_mut().insert(RequestId(request_id.clone()));
 
-        let http_req = req.request().clone();
         let method = req.method().clone();
         let path = req.path().to_string();
         let span = tracing::info_span!(
@@ -85,22 +115,17 @@ where
         let fut = REQUEST_ID.scope(scoped_id, call.instrument(span));
 
         Box::pin(async move {
-            let header_value = HeaderValue::from_str(&request_id).ok();
             match fut.await {
                 Ok(mut res) => {
-                    if let Some(value) = header_value {
+                    if let Ok(value) = HeaderValue::from_str(&request_id) {
                         res.headers_mut().insert(header_name, value);
                     }
-                    Ok(res.map_into_left_body())
+                    Ok(res)
                 }
-                Err(err) => {
-                    let mut http_res = err.error_response();
-                    if let Some(value) = header_value {
-                        http_res.headers_mut().insert(header_name, value);
-                    }
-                    let res = ServiceResponse::new(http_req, http_res);
-                    Ok(res.map_into_right_body())
-                }
+                Err(inner) => Err(Error::from(TaggedError {
+                    inner,
+                    request_id,
+                })),
             }
         })
     }

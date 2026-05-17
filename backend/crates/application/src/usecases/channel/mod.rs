@@ -1,9 +1,14 @@
 pub mod abort_voice_connection;
 pub mod create_channel;
 pub mod delete_channel;
+pub mod delete_channel_message;
+pub mod edit_channel_message;
+pub mod join_text_channel;
 pub mod join_voice_channel;
 pub mod join_voice_connection;
 pub mod leave_voice_connection;
+pub mod list_channel_messages;
 pub mod list_channel_participants;
 pub mod mute_channel;
+pub mod send_channel_message;
 pub mod unmute_channel;

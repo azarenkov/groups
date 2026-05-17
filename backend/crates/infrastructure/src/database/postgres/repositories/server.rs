@@ -266,6 +266,26 @@ impl ServerRepository for PostgresServerRepository {
                 .insert(SessionId::new(row.session_id));
         }
 
+        let text_rows = sqlx::query!(
+            r#"
+            SELECT channel_id, user_id
+            FROM channel_text_participants
+            WHERE channel_id = ANY($1)
+            "#,
+            &channel_ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let mut text_by_channel: HashMap<Uuid, HashSet<UserId>> = HashMap::new();
+        for row in text_rows {
+            text_by_channel
+                .entry(row.channel_id)
+                .or_default()
+                .insert(UserId::new(row.user_id));
+        }
+
         let items: Vec<Channel> = channel_dtos
             .into_iter()
             .map(|dto| {
@@ -277,6 +297,11 @@ impl ServerRepository for PostgresServerRepository {
                     )
                 } else {
                     (None, None)
+                };
+                let text = if kind.supports_text() {
+                    Some(text_by_channel.remove(&dto.id).unwrap_or_default())
+                } else {
+                    None
                 };
                 Channel::restore(
                     ChannelId::new(dto.id),
@@ -290,6 +315,7 @@ impl ServerRepository for PostgresServerRepository {
                     dto.updated_at,
                     muted,
                     voice,
+                    text,
                     dto.last_join,
                 )
             })

@@ -382,6 +382,7 @@ select:focus-visible {
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 .mp-section .count { color: var(--fg-4); margin-left: 4px; font-weight: 500; }
+.mp-empty { padding: 8px 16px; font-size: 12px; color: var(--fg-3); }
 .member-row {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 10px;
@@ -825,8 +826,42 @@ select:focus-visible {
 
 .chat-body > .inner { display: flex; flex-direction: column; gap: 2px; }
 
-.msg { display: flex; gap: 12px; padding: 4px 8px; border-radius: 8px; }
+.msg { display: flex; gap: 12px; padding: 4px 8px; border-radius: 8px; position: relative; }
 .msg:hover { background: var(--surface-hover); }
+.msg-actions {
+  position: absolute;
+  top: -10px;
+  right: 8px;
+  display: none;
+  gap: 2px;
+  background: var(--surface-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 2px;
+  box-shadow: var(--shadow-md);
+}
+.msg:hover .msg-actions { display: flex; }
+.msg-actions .icon-btn { width: 26px; height: 26px; }
+.msg-edited { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
+.msg-edit { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.msg-edit input {
+  width: 100%;
+  background: var(--surface-sunken);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg-1);
+  outline: 0;
+}
+.msg-edit-hint { font-size: 11px; color: var(--fg-3); }
+.msg-loader { display: flex; justify-content: center; padding: 8px 0; }
+.composer-error {
+  font-size: 12px;
+  color: var(--danger);
+  padding: 6px 4px 0;
+}
 .msg .ava {
   width: 32px; height: 32px; border-radius: 50%;
   color: #fff; font-weight: 600; font-size: 13px;

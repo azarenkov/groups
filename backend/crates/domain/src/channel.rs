@@ -20,6 +20,7 @@ use crate::{
             participant::{
                 ConnectionAbortReason, LeaveReason, ParticipantConnectionAborted,
                 ParticipantJoined, ParticipantLeft, ParticipantMuted, ParticipantUnmuted,
+                TextChannelJoined,
             },
         },
         id::ChannelId,
@@ -50,6 +51,8 @@ pub enum ChannelError {
     AlreadyMuted,
     #[error("Voice is not supported for this channel")]
     VoiceNotSupported,
+    #[error("Text is not supported for this channel")]
+    TextNotSupported,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +81,7 @@ pub struct Channel {
     last_join: DateTime<Utc>,
     muted_participants: Option<HashMap<UserId, ParticipantMute>>,
     voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
+    text_participants: Option<HashSet<UserId>>,
     events: Vec<ChannelEvent>,
     voice_changes: Vec<VoiceChange>,
 }
@@ -107,6 +111,14 @@ impl Channel {
             (None, None)
         };
 
+        let text_participants = if kind.supports_text() {
+            let mut set = HashSet::new();
+            set.insert(owner_id);
+            Some(set)
+        } else {
+            None
+        };
+
         let mut channel = Self {
             id,
             server_id,
@@ -120,6 +132,7 @@ impl Channel {
             last_join: now,
             muted_participants,
             voice_participants,
+            text_participants,
             events: Vec::new(),
             voice_changes: Vec::new(),
         };
@@ -144,6 +157,7 @@ impl Channel {
         updated_at: DateTime<Utc>,
         muted_participants: Option<HashMap<UserId, ParticipantMute>>,
         voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
+        text_participants: Option<HashSet<UserId>>,
         last_join: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -159,6 +173,7 @@ impl Channel {
             last_join,
             muted_participants,
             voice_participants,
+            text_participants,
             events: Vec::new(),
             voice_changes: Vec::new(),
         }
@@ -463,5 +478,40 @@ impl Channel {
 
     pub fn supports_text(&self) -> bool {
         self.kind.supports_text()
+    }
+
+    pub fn join_text(
+        &mut self,
+        user_id: UserId,
+        now: DateTime<Utc>,
+    ) -> Result<bool, ChannelError> {
+        let participants = self
+            .text_participants
+            .as_mut()
+            .ok_or(ChannelError::TextNotSupported)?;
+
+        if !participants.insert(user_id) {
+            return Ok(false);
+        }
+
+        self.record(ChannelEvent::TextJoined(TextChannelJoined::record(
+            self.id,
+            self.server_id,
+            user_id,
+            now,
+        )));
+
+        Ok(true)
+    }
+
+    pub fn is_text_member(&self, user_id: &UserId) -> bool {
+        self.text_participants
+            .as_ref()
+            .map(|p| p.contains(user_id))
+            .unwrap_or(false)
+    }
+
+    pub fn text_participants(&self) -> Option<&HashSet<UserId>> {
+        self.text_participants.as_ref()
     }
 }

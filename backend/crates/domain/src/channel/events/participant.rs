@@ -143,6 +143,32 @@ impl ParticipantUnmuted {
 }
 
 #[derive(Debug, Serialize)]
+pub struct TextChannelJoined {
+    pub id: EventId,
+    pub channel_id: ChannelId,
+    pub server_id: ServerId,
+    pub user_id: UserId,
+    pub joined_at: DateTime<Utc>,
+}
+
+impl TextChannelJoined {
+    pub fn record(
+        channel_id: ChannelId,
+        server_id: ServerId,
+        user_id: UserId,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            channel_id,
+            server_id,
+            user_id,
+            joined_at: now,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct ParticipantConnectionAborted {
     pub id: EventId,
     pub channel_id: ChannelId,

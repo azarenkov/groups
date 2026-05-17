@@ -6,6 +6,7 @@ pub enum AggregateTypeDto {
     Channel,
     Server,
     User,
+    Message,
 }
 
 impl From<&AggregateType> for AggregateTypeDto {
@@ -14,6 +15,7 @@ impl From<&AggregateType> for AggregateTypeDto {
             AggregateType::Channel => Self::Channel,
             AggregateType::Server => Self::Server,
             AggregateType::User => Self::User,
+            AggregateType::Message => Self::Message,
         }
     }
 }
@@ -24,6 +26,7 @@ impl From<AggregateTypeDto> for AggregateType {
             AggregateTypeDto::Channel => Self::Channel,
             AggregateTypeDto::Server => Self::Server,
             AggregateTypeDto::User => Self::User,
+            AggregateTypeDto::Message => Self::Message,
         }
     }
 }

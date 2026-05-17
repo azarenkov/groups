@@ -20,6 +20,7 @@ pub enum AggregateType {
     Channel,
     Server,
     User,
+    Message,
 }
 
 impl AggregateType {
@@ -28,6 +29,7 @@ impl AggregateType {
             Self::Channel => "channel",
             Self::Server => "server",
             Self::User => "user",
+            Self::Message => "message",
         }
     }
 }

@@ -1,6 +1,7 @@
 pub mod aggregate_type;
 pub mod channel;
 pub mod kind;
+pub mod message;
 pub mod visibility;
 pub mod muted_participant;
 pub mod server;

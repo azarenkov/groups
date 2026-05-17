@@ -1,57 +1,99 @@
-import React from "react";
-import type { MockMember } from "../../data/mockData";
+import React, { useEffect, useState } from "react";
+import { channelAPI } from "../../api/channel";
+import type { ChannelParticipant } from "../../types/channel";
 
 interface MembersPanelProps {
-  members: MockMember[];
+  serverId: string;
+  channelId: string;
 }
 
-const ORDER: MockMember["status"][] = ["online", "idle", "dnd", "offline"];
-const LABELS: Record<MockMember["status"], string> = {
-  online: "Online",
-  idle: "Idle",
-  dnd: "Do not disturb",
-  offline: "Offline",
-};
+const PALETTE = [
+  "#0071e3",
+  "#ff6b35",
+  "#30a46c",
+  "#bf5af2",
+  "#ff9f0a",
+  "#5e6ad2",
+];
 
-const MembersPanel: React.FC<MembersPanelProps> = ({ members }) => {
-  const groups = React.useMemo(() => {
-    const buckets: Partial<Record<MockMember["status"], MockMember[]>> = {};
-    members.forEach((m) => {
-      (buckets[m.status] ||= []).push(m);
-    });
-    return ORDER.filter((k) => buckets[k] && buckets[k]!.length).map((k) => ({
-      key: k,
-      label: LABELS[k],
-      items: buckets[k]!,
-    }));
-  }, [members]);
+function colorFor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+function initialsFor(name: string): string {
+  return name ? name.charAt(0).toUpperCase() : "?";
+}
+
+const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
+  const [members, setMembers] = useState<ChannelParticipant[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const PER_PAGE = 50;
+    const fetchAll = async (): Promise<ChannelParticipant[]> => {
+      const acc: ChannelParticipant[] = [];
+      let page = 1;
+      while (!cancelled) {
+        const res = await channelAPI.listParticipants(
+          serverId,
+          channelId,
+          page,
+          PER_PAGE,
+        );
+        acc.push(...res.participants);
+        const totalPages = res.pagination?.totalPages ?? 1;
+        if (page >= totalPages || res.participants.length < PER_PAGE) break;
+        page += 1;
+      }
+      return acc;
+    };
+
+    fetchAll()
+      .then((all) => {
+        if (!cancelled) setMembers(all);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load members");
+          setMembers([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [serverId, channelId]);
 
   return (
     <aside className="members-panel">
-      {groups.map((g) => (
-        <div key={g.key}>
-          <div className="mp-section">
-            {g.label}
-            <span className="count">— {g.items.length}</span>
+      <div className="mp-section">
+        Members
+        <span className="count">— {members.length}</span>
+      </div>
+      {loading && members.length === 0 && (
+        <div className="mp-empty">Loading…</div>
+      )}
+      {error && <div className="mp-empty">{error}</div>}
+      {!loading && !error && members.length === 0 && (
+        <div className="mp-empty">No one has joined yet.</div>
+      )}
+      {members.map((m) => (
+        <div key={m.id} className="member-row">
+          <div className="ava" style={{ background: colorFor(m.id) }}>
+            {initialsFor(m.name)}
           </div>
-          {g.items.map((m) => (
-            <div
-              key={m.id}
-              className={"member-row" + (g.key === "offline" ? " offline" : "")}
-            >
-              <div
-                className="ava"
-                style={{ background: m.color, opacity: g.key === "offline" ? 0.55 : 1 }}
-              >
-                {m.initials}
-                <span className={"presence " + g.key} />
-              </div>
-              <div className="info">
-                <div className="name">{m.name}</div>
-                <div className="role">{m.role}</div>
-              </div>
-            </div>
-          ))}
+          <div className="info">
+            <div className="name">{m.name}</div>
+          </div>
         </div>
       ))}
     </aside>

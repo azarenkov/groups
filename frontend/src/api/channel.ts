@@ -6,6 +6,8 @@ import {
   CreateChannelResponse,
   JoinVoiceChannelRequest,
   JoinVoiceChannelResponse,
+  ChannelMessage,
+  ListChannelMessagesResponse,
 } from "../types/channel";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
@@ -142,6 +144,69 @@ class ChannelAPI {
     await this.client.post(
       `/v1/servers/${serverId}/channels/${channelId}/unmute`,
       { targetUserId },
+    );
+  }
+
+  async listMessages(
+    serverId: string,
+    channelId: string,
+    opts: { before?: string; after?: string; limit?: number } = {},
+  ): Promise<ListChannelMessagesResponse> {
+    const params: Record<string, string | number> = {};
+    if (opts.before) params.before = opts.before;
+    if (opts.after) params.after = opts.after;
+    if (opts.limit !== undefined) params.limit = opts.limit;
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/channels/${channelId}/messages`,
+      { params },
+    );
+    return response.data.data;
+  }
+
+  async sendMessage(
+    serverId: string,
+    channelId: string,
+    content: string,
+  ): Promise<ChannelMessage> {
+    const response = await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/messages`,
+      { content },
+    );
+    return response.data.data;
+  }
+
+  async editMessage(
+    serverId: string,
+    channelId: string,
+    messageId: string,
+    content: string,
+  ): Promise<void> {
+    await this.client.patch(
+      `/v1/servers/${serverId}/channels/${channelId}/messages/${messageId}`,
+      { content },
+    );
+  }
+
+  async deleteMessage(
+    serverId: string,
+    channelId: string,
+    messageId: string,
+  ): Promise<void> {
+    await this.client.delete(
+      `/v1/servers/${serverId}/channels/${channelId}/messages/${messageId}`,
+    );
+  }
+
+  async joinText(
+    serverId: string,
+    channelId: string,
+    password?: string,
+  ): Promise<void> {
+    const body: { password?: string } = {};
+    if (password !== undefined) body.password = password;
+    await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/join`,
+      body,
     );
   }
 }

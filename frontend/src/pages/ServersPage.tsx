@@ -30,7 +30,6 @@ import {
 import { Server } from "../types/server";
 import {
   SEED_DIRECTS,
-  SEED_MEMBERS,
   type MockDirect,
   type MockMember,
 } from "../data/mockData";
@@ -145,10 +144,12 @@ const ServersPage: React.FC = () => {
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
+    const existing = new Set(servers.map((s) => s.id));
     expandedServerIds.forEach((id) => {
+      if (!existing.has(id)) return;
       if (!channelsByServer[id]) fetchChannels(id);
     });
-  }, [expandedServerIds, tokens, fetchChannels, channelsByServer]);
+  }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
 
   const didInitialExpandRef = useRef(false);
   useEffect(() => {
@@ -604,6 +605,22 @@ const ServersPage: React.FC = () => {
                   </span>
                   <span className="sep" />
                   <span className="topic">Disconnected</span>
+                  <div className="right">
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Channel settings"
+                      onClick={() =>
+                        setEditingChannel({
+                          id: selectedVoiceChannelNotJoined.id,
+                          serverId: selectedServer.id,
+                          name: selectedVoiceChannelNotJoined.name,
+                        })
+                      }
+                    >
+                      <Icon name="settings" size={15} />
+                    </button>
+                  </div>
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
@@ -681,11 +698,19 @@ const ServersPage: React.FC = () => {
               />
             ) : (
               <ChatView
-                channel={{
-                  name: activeTextChannel?.name ?? "",
-                  topic: activeTextChannel?.topic,
-                  type: "text",
-                }}
+                channel={
+                  activeTextChannel
+                    ? {
+                        id: activeTextChannel.id,
+                        name: activeTextChannel.name,
+                        topic: activeTextChannel.topic,
+                        type: "text",
+                      }
+                    : undefined
+                }
+                serverId={selectedServer?.id}
+                currentUserId={user?.id}
+                currentUserName={userName}
                 membersOpen={
                   !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }
@@ -726,7 +751,12 @@ const ServersPage: React.FC = () => {
             )}
           </div>
 
-          {showMembersForChannel && <MembersPanel members={SEED_MEMBERS} />}
+          {showMembersForChannel && selectedServer && activeTextChannel && (
+            <MembersPanel
+              serverId={selectedServer.id}
+              channelId={activeTextChannel.id}
+            />
+          )}
         </main>
 
         {settingsOpen && (

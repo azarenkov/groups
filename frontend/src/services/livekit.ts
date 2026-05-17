@@ -1,5 +1,7 @@
 import {
   ConnectionQuality,
+  ConnectionState,
+  DisconnectReason,
   Room,
   RoomEvent,
   Track,
@@ -17,7 +19,7 @@ import type { DfnPipeline } from "./dfn";
 
 export type NoiseSuppressionMode = "off" | "standard" | "high";
 
-export { ConnectionQuality };
+export { ConnectionQuality, DisconnectReason };
 
 export interface ParticipantInfo {
   identity: string;
@@ -33,6 +35,7 @@ export class LiveKitService {
   private onParticipantsChange?: (participants: ParticipantInfo[]) => void;
   private onConnectionStateChange?: (connected: boolean) => void;
   private onError?: (error: Error) => void;
+  private onUnexpectedDisconnect?: (reason: DisconnectReason) => void;
   private isConnecting: boolean = false;
   private dfnPipeline: DfnPipeline | null = null;
   private dfnContext: AudioContext | null = null;
@@ -50,27 +53,34 @@ export class LiveKitService {
   private participantsListeners: Set<
     (participants: ParticipantInfo[]) => void
   > = new Set();
+  private reconnectAbortTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly RECONNECT_GIVE_UP_MS = 15000;
 
   constructor(
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
     onConnectionStateChange?: (connected: boolean) => void,
     onError?: (error: Error) => void,
+    onUnexpectedDisconnect?: (reason: DisconnectReason) => void,
   ) {
     this.onParticipantsChange = onParticipantsChange;
     this.onConnectionStateChange = onConnectionStateChange;
     this.onError = onError;
+    this.onUnexpectedDisconnect = onUnexpectedDisconnect;
   }
 
   updateCallbacks(
     onParticipantsChange?: (participants: ParticipantInfo[]) => void,
     onConnectionStateChange?: (connected: boolean) => void,
     onError?: (error: Error) => void,
+    onUnexpectedDisconnect?: (reason: DisconnectReason) => void,
   ) {
     if (onParticipantsChange !== undefined)
       this.onParticipantsChange = onParticipantsChange;
     if (onConnectionStateChange !== undefined)
       this.onConnectionStateChange = onConnectionStateChange;
     if (onError !== undefined) this.onError = onError;
+    if (onUnexpectedDisconnect !== undefined)
+      this.onUnexpectedDisconnect = onUnexpectedDisconnect;
   }
 
   getLocalQuality(): ConnectionQuality {
@@ -216,6 +226,7 @@ export class LiveKitService {
   }
 
   async disconnect(): Promise<void> {
+    this.clearReconnectAbortTimer();
     await this.tearDownDfn();
     if (this.room) {
       console.log("[LiveKitService] Disconnecting from room");
@@ -228,6 +239,27 @@ export class LiveKitService {
       this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
+    }
+  }
+
+  private startReconnectAbortTimer(): void {
+    if (this.reconnectAbortTimer) return;
+    this.reconnectAbortTimer = setTimeout(() => {
+      console.warn(
+        `[LiveKitService] Reconnect did not recover within ${this.RECONNECT_GIVE_UP_MS}ms — aborting`,
+      );
+      this.reconnectAbortTimer = null;
+      const cb = this.onUnexpectedDisconnect;
+      void this.disconnect().finally(() => {
+        cb?.(DisconnectReason.UNKNOWN_REASON);
+      });
+    }, this.RECONNECT_GIVE_UP_MS);
+  }
+
+  private clearReconnectAbortTimer(): void {
+    if (this.reconnectAbortTimer) {
+      clearTimeout(this.reconnectAbortTimer);
+      this.reconnectAbortTimer = null;
     }
   }
 
@@ -661,12 +693,16 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
+      this.clearReconnectAbortTimer();
       void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.setLocalSpeaking(false);
       this.notifyParticipantsChange();
       this.onConnectionStateChange?.(false);
+      if (reason !== undefined && reason !== DisconnectReason.CLIENT_INITIATED) {
+        this.onUnexpectedDisconnect?.(reason);
+      }
     });
 
     this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
@@ -682,6 +718,14 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.ConnectionStateChanged, (state) => {
       console.log("Connection state changed:", state);
+      if (
+        state === ConnectionState.Reconnecting ||
+        state === ConnectionState.SignalReconnecting
+      ) {
+        this.startReconnectAbortTimer();
+      } else {
+        this.clearReconnectAbortTimer();
+      }
     });
 
     this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
@@ -794,18 +838,21 @@ export function getLiveKitService(
   onParticipantsChange?: (participants: ParticipantInfo[]) => void,
   onConnectionStateChange?: (connected: boolean) => void,
   onError?: (error: Error) => void,
+  onUnexpectedDisconnect?: (reason: DisconnectReason) => void,
 ): LiveKitService {
   if (!livekitService) {
     livekitService = new LiveKitService(
       onParticipantsChange,
       onConnectionStateChange,
       onError,
+      onUnexpectedDisconnect,
     );
   } else {
     livekitService.updateCallbacks(
       onParticipantsChange,
       onConnectionStateChange,
       onError,
+      onUnexpectedDisconnect,
     );
   }
   return livekitService;

@@ -6,9 +6,12 @@ use application::usecases::{
     },
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
+        delete_channel_message::DeleteChannelMessage,
+        edit_channel_message::EditChannelMessage, join_text_channel::JoinTextChannel,
         join_voice_channel::JoinVoiceChannel,
+        list_channel_messages::ListChannelMessages,
         list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
-        unmute_channel::UnmuteChannel,
+        send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -20,9 +23,9 @@ use application::usecases::{
 use infrastructure::{
     auth::jwt_token_issuer::JwtTokenIssuer,
     database::postgres::repositories::{
-        channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
-        server::PostgresServerRepository, user::PostgresUserRepository,
-        verification_code::PostgresVerificationCodeRepository,
+        channel::PostgresChannelRepository, message::PostgresMessageRepository,
+        refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
+        user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
@@ -42,6 +45,29 @@ pub struct AppState {
 
     pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
     pub list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
+
+    pub join_text_channel_usecase:
+        JoinTextChannel<PostgresChannelRepository, PostgresServerRepository, BcryptHasher>,
+    pub send_channel_message_usecase: SendChannelMessage<
+        PostgresMessageRepository,
+        PostgresChannelRepository,
+        PostgresServerRepository,
+    >,
+    pub edit_channel_message_usecase: EditChannelMessage<
+        PostgresMessageRepository,
+        PostgresChannelRepository,
+        PostgresServerRepository,
+    >,
+    pub delete_channel_message_usecase: DeleteChannelMessage<
+        PostgresMessageRepository,
+        PostgresChannelRepository,
+        PostgresServerRepository,
+    >,
+    pub list_channel_messages_usecase: ListChannelMessages<
+        PostgresMessageRepository,
+        PostgresChannelRepository,
+        PostgresServerRepository,
+    >,
 
     pub register_user_usecase:
         RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
@@ -95,6 +121,31 @@ impl AppState {
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
         list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
+        join_text_channel_usecase: JoinTextChannel<
+            PostgresChannelRepository,
+            PostgresServerRepository,
+            BcryptHasher,
+        >,
+        send_channel_message_usecase: SendChannelMessage<
+            PostgresMessageRepository,
+            PostgresChannelRepository,
+            PostgresServerRepository,
+        >,
+        edit_channel_message_usecase: EditChannelMessage<
+            PostgresMessageRepository,
+            PostgresChannelRepository,
+            PostgresServerRepository,
+        >,
+        delete_channel_message_usecase: DeleteChannelMessage<
+            PostgresMessageRepository,
+            PostgresChannelRepository,
+            PostgresServerRepository,
+        >,
+        list_channel_messages_usecase: ListChannelMessages<
+            PostgresMessageRepository,
+            PostgresChannelRepository,
+            PostgresServerRepository,
+        >,
         register_user_usecase: RegisterUser<
             PostgresUserRepository,
             BcryptHasher,
@@ -137,6 +188,11 @@ impl AppState {
             unmute_channel_usecase,
             delete_channel_usecase,
             list_channel_participants_usecase,
+            join_text_channel_usecase,
+            send_channel_message_usecase,
+            edit_channel_message_usecase,
+            delete_channel_message_usecase,
+            list_channel_messages_usecase,
             register_user_usecase,
             issue_verification_code_usecase,
             login_user_usecase,

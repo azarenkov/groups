@@ -10,11 +10,13 @@ use application::usecases::{
     },
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
-        delete_channel::DeleteChannel, join_voice_channel::JoinVoiceChannel,
-        join_voice_connection::JoinVoiceConnection,
+        delete_channel::DeleteChannel, delete_channel_message::DeleteChannelMessage,
+        edit_channel_message::EditChannelMessage, join_text_channel::JoinTextChannel,
+        join_voice_channel::JoinVoiceChannel, join_voice_connection::JoinVoiceConnection,
         leave_voice_connection::LeaveVoiceConnection,
+        list_channel_messages::ListChannelMessages,
         list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
-        unmute_channel::UnmuteChannel,
+        send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
     },
     server::{
         create_server::CreateServer, delete_server::DeleteServer,
@@ -29,8 +31,9 @@ use infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            channel::PostgresChannelRepository, refresh_token::PostgresRefreshTokenRepository,
-            server::PostgresServerRepository, user::PostgresUserRepository,
+            channel::PostgresChannelRepository, message::PostgresMessageRepository,
+            refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
+            user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
         },
     },
@@ -61,6 +64,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
+    let message_repository = Arc::new(PostgresMessageRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
     let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
     let verification_code_repository = Arc::new(PostgresVerificationCodeRepository::new(
@@ -93,6 +97,31 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         DeleteChannel::new(channel_repository.clone(), livekit_service.clone());
     let list_channel_participants_usecase =
         ListChannelParticipants::new(channel_repository.clone(), server_repository.clone());
+    let join_text_channel_usecase = JoinTextChannel::new(
+        channel_repository.clone(),
+        server_repository.clone(),
+        hasher.clone(),
+    );
+    let send_channel_message_usecase = SendChannelMessage::new(
+        message_repository.clone(),
+        channel_repository.clone(),
+        server_repository.clone(),
+    );
+    let edit_channel_message_usecase = EditChannelMessage::new(
+        message_repository.clone(),
+        channel_repository.clone(),
+        server_repository.clone(),
+    );
+    let delete_channel_message_usecase = DeleteChannelMessage::new(
+        message_repository.clone(),
+        channel_repository.clone(),
+        server_repository.clone(),
+    );
+    let list_channel_messages_usecase = ListChannelMessages::new(
+        message_repository.clone(),
+        channel_repository.clone(),
+        server_repository.clone(),
+    );
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
@@ -148,6 +177,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         unmute_channel_usecase,
         delete_channel_usecase,
         list_channel_participants_usecase,
+        join_text_channel_usecase,
+        send_channel_message_usecase,
+        edit_channel_message_usecase,
+        delete_channel_message_usecase,
+        list_channel_messages_usecase,
         register_user_usecase,
         issue_verification_code_usecase,
         login_user_usecase,
