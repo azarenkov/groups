@@ -505,6 +505,20 @@ const ChatView: React.FC<ChatViewProps> = ({
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
       />
+      {highlightedMessageId && !searchOpen && (
+        <div className="jump-banner">
+          <Icon name="search" size={13} />
+          <span>Jumped to a message</span>
+          <button
+            type="button"
+            className="jump-banner-close"
+            onClick={() => setHighlightedMessageId(null)}
+            title="Dismiss"
+          >
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      )}
       {searchOpen && channel && (
         <div className="search-bar">
           <Icon name="search" size={14} />
@@ -533,14 +547,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           )}
         </div>
       )}
-      <div
-        className="chat-body"
-        ref={bodyRef}
-        onScroll={handleScroll}
-        onClick={() => {
-          if (highlightedMessageId) setHighlightedMessageId(null);
-        }}
-      >
+      <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>
         {searchOpen && searchInput.trim().length > 0 ? (
           <div className="search-results">
             {searchLoading ? (
