@@ -870,9 +870,24 @@ select:focus-visible {
   display: flex; gap: 12px;
   padding: 8px;
   border-radius: 8px;
-  cursor: default;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
 }
 .search-result:hover { background: var(--surface-hover); }
+
+.msg.highlight {
+  background: var(--accent-tint, rgba(0, 113, 227, 0.18));
+  animation: msgHighlightFade 2s ease-out;
+}
+@keyframes msgHighlightFade {
+  0% { background: var(--accent-tint, rgba(0, 113, 227, 0.28)); }
+  100% { background: transparent; }
+}
 .search-result .ava {
   width: 36px; height: 36px; border-radius: 50%;
   flex-shrink: 0;

@@ -68,6 +68,17 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState<string | null>(null);
   const [searchTotal, setSearchTotal] = React.useState(0);
+  const [highlightedMessageId, setHighlightedMessageId] = React.useState<string | null>(null);
+
+  const composerRef = React.useRef<HTMLInputElement>(null);
+  const wasSendingRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (wasSendingRef.current && !sending) {
+      composerRef.current?.focus();
+    }
+    wasSendingRef.current = sending;
+  }, [sending]);
 
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const loadingOlderRef = React.useRef(false);
@@ -250,6 +261,47 @@ const ChatView: React.FC<ChatViewProps> = ({
       cancelled = true;
     };
   }, [searchQuery, searchOpen, channel, serverId]);
+
+  const handleJumpToMessage = async (target: ChannelMessage) => {
+    if (!channel || !serverId) return;
+    setSearchOpen(false);
+    setSearchInput("");
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchError(null);
+    setSearchTotal(0);
+    setLoadingInitial(true);
+    try {
+      const [olderRes, newerRes] = await Promise.all([
+        channelAPI.listMessages(serverId, channel.id, { before: target.id, limit: 25 }),
+        channelAPI.listMessages(serverId, channel.id, { after: target.id, limit: 25 }),
+      ]);
+      const older = [...olderRes.messages].reverse();
+      const newer = [...newerRes.messages].reverse();
+      const combined = [...older, target, ...newer];
+      loadedChannelIdRef.current = channel.id;
+      skipNextAutoScrollRef.current = true;
+      setMessages(combined);
+      setHasMore(olderRes.messages.length >= 25);
+      setHighlightedMessageId(target.id);
+    } catch (err) {
+      console.warn("[ChatView] failed to jump to message:", err);
+    } finally {
+      setLoadingInitial(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!highlightedMessageId) return;
+    const el = document.querySelector(
+      `[data-msg-id="${highlightedMessageId}"]`,
+    ) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    const timeout = window.setTimeout(() => setHighlightedMessageId(null), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedMessageId, messages]);
 
   const toggleSearch = () => {
     setSearchOpen((prev) => {
@@ -519,7 +571,12 @@ const ChatView: React.FC<ChatViewProps> = ({
                   });
                   const initial = displayName.slice(0, 1).toUpperCase();
                   return (
-                    <div key={m.id} className="search-result">
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="search-result"
+                      onClick={() => handleJumpToMessage(m)}
+                    >
                       <div
                         className="ava"
                         style={{ background: colorFor(m.authorId) }}
@@ -533,7 +590,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                         </div>
                         <div className="content">{m.content}</div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </>
@@ -591,6 +648,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   continued={cont}
                   isMine={isMine}
                   editing={editingId === m.id}
+                  highlighted={highlightedMessageId === m.id}
                   editText={editText}
                   onEditTextChange={setEditText}
                   onStartEdit={() => startEdit(m)}
@@ -606,6 +664,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       <form className="composer" onSubmit={handleSend}>
         <div className="composer-wrap">
           <input
+            ref={composerRef}
             placeholder={placeholder}
             value={text}
             onChange={(e) => {
@@ -843,6 +902,7 @@ interface MessageProps {
   continued: boolean;
   isMine: boolean;
   editing: boolean;
+  highlighted: boolean;
   editText: string;
   onEditTextChange: (v: string) => void;
   onStartEdit: () => void;
@@ -857,6 +917,7 @@ const Message: React.FC<MessageProps> = ({
   continued,
   isMine,
   editing,
+  highlighted,
   editText,
   onEditTextChange,
   onStartEdit,
@@ -871,7 +932,12 @@ const Message: React.FC<MessageProps> = ({
   });
   const initial = displayName.slice(0, 1).toUpperCase();
   return (
-    <div className={"msg" + (continued ? " cont" : "")}>
+    <div
+      data-msg-id={msg.id}
+      className={
+        "msg" + (continued ? " cont" : "") + (highlighted ? " highlight" : "")
+      }
+    >
       <div className="ava" style={{ background: colorFor(msg.authorId) }}>
         {initial}
       </div>
