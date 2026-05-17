@@ -299,8 +299,6 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-    const timeout = window.setTimeout(() => setHighlightedMessageId(null), 2000);
-    return () => window.clearTimeout(timeout);
   }, [highlightedMessageId, messages]);
 
   const toggleSearch = () => {
@@ -535,7 +533,14 @@ const ChatView: React.FC<ChatViewProps> = ({
           )}
         </div>
       )}
-      <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>
+      <div
+        className="chat-body"
+        ref={bodyRef}
+        onScroll={handleScroll}
+        onClick={() => {
+          if (highlightedMessageId) setHighlightedMessageId(null);
+        }}
+      >
         {searchOpen && searchInput.trim().length > 0 ? (
           <div className="search-results">
             {searchLoading ? (
