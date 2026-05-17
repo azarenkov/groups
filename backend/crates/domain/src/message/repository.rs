@@ -3,7 +3,11 @@ use async_trait::async_trait;
 use crate::{
     channel::id::ChannelId,
     message::{Message, id::MessageId, view::MessageView},
-    shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
+    shared::{
+        outbox::outbox_record::OutboxRecord,
+        pagination::{PaginatedResult, Pagination},
+        repository::error::RepositoryError,
+    },
 };
 
 #[async_trait]
@@ -38,4 +42,11 @@ pub trait MessageRepository {
         after: Option<&MessageId>,
         limit: i64,
     ) -> Result<Vec<MessageView>, RepositoryError>;
+
+    async fn search_messages_in_channel(
+        &self,
+        channel_id: &ChannelId,
+        query: &str,
+        pagination: Pagination,
+    ) -> Result<PaginatedResult<MessageView>, RepositoryError>;
 }

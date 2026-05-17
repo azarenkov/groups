@@ -56,3 +56,14 @@ impl ListChannelMessagesResponse {
         Self { messages }
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct SearchChannelMessagesResponse {
+    pub messages: Vec<MessageResponse>,
+}
+
+impl SearchChannelMessagesResponse {
+    pub fn new(messages: Vec<MessageResponse>) -> Self {
+        Self { messages }
+    }
+}

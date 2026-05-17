@@ -61,12 +61,32 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [deleteTarget, setDeleteTarget] = React.useState<ChannelMessage | null>(null);
   const [sending, setSending] = React.useState(false);
   const [accessError, setAccessError] = React.useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchInput, setSearchInput] = React.useState("");
+  const [searchResults, setSearchResults] = React.useState<ChannelMessage[]>([]);
+  const [searchLoading, setSearchLoading] = React.useState(false);
+  const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [searchTotal, setSearchTotal] = React.useState(0);
+  const [highlightedMessageId, setHighlightedMessageId] = React.useState<string | null>(null);
+
+  const composerRef = React.useRef<HTMLInputElement>(null);
+  const wasSendingRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (wasSendingRef.current && !sending) {
+      composerRef.current?.focus();
+    }
+    wasSendingRef.current = sending;
+  }, [sending]);
 
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const loadingOlderRef = React.useRef(false);
   const skipNextAutoScrollRef = React.useRef(false);
   const lastScrollHeightRef = React.useRef(0);
   const loadedChannelIdRef = React.useRef<string | null>(null);
+  const currentChannelIdRef = React.useRef<string | undefined>();
+  currentChannelIdRef.current = channel?.id;
 
   const isText = !!channel && !!serverId;
   const channelNotReady = isText && loadedChannelIdRef.current !== channel!.id;
@@ -81,6 +101,12 @@ const ChatView: React.FC<ChatViewProps> = ({
     setDeleteTarget(null);
     setHasMore(false);
     setAccessError(null);
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchInput("");
+    setSearchResults([]);
+    setSearchError(null);
+    setSearchTotal(0);
     if (!isText || !channel || !serverId) return;
 
     let cancelled = false;
@@ -172,8 +198,9 @@ const ChatView: React.FC<ChatViewProps> = ({
   const handleScroll = React.useCallback(() => {
     const b = bodyRef.current;
     if (!b) return;
+    if (searchOpen && searchInput.trim().length > 0) return;
     if (b.scrollTop < 80) void loadOlder();
-  }, [loadOlder]);
+  }, [loadOlder, searchOpen, searchInput]);
 
   const sendOnce = async (content: string): Promise<ChannelMessage> => {
     if (!channel || !serverId) throw new Error("no channel");
@@ -192,6 +219,119 @@ const ChatView: React.FC<ChatViewProps> = ({
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
     }
+  };
+
+  React.useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (!searchOpen) return;
+    if (!channel || !serverId) return;
+    if (trimmed.length === 0) {
+      setSearchQuery("");
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchTotal(0);
+      return;
+    }
+    const timeout = window.setTimeout(() => setSearchQuery(trimmed), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchInput, searchOpen, channel?.id, serverId]);
+
+  React.useEffect(() => {
+    if (!searchOpen || !channel || !serverId) return;
+    const q = searchQuery.trim();
+    if (q.length === 0) return;
+    let cancelled = false;
+    setSearchLoading(true);
+    setSearchError(null);
+    channelAPI
+      .searchMessages(serverId, channel.id, q, 1, 50)
+      .then((res) => {
+        if (cancelled) return;
+        setSearchResults(res.messages);
+        setSearchTotal(res.pagination?.total ?? res.messages.length);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const apiErr = err instanceof ApiError ? err : null;
+        setSearchError(apiErr?.message || "Search failed.");
+        setSearchResults([]);
+        setSearchTotal(0);
+      })
+      .finally(() => {
+        if (!cancelled) setSearchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery, searchOpen, channel?.id, serverId]);
+
+  const handleJumpToMessage = async (target: ChannelMessage) => {
+    if (!channel || !serverId) return;
+    const targetChannelId = channel.id;
+    setSearchInput("");
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchError(null);
+    setSearchTotal(0);
+    setLoadingInitial(true);
+    try {
+      const [olderRes, newerRes] = await Promise.all([
+        channelAPI.listMessages(serverId, targetChannelId, {
+          before: target.id,
+          limit: 25,
+        }),
+        channelAPI.listMessages(serverId, targetChannelId, {
+          after: target.id,
+          limit: 25,
+        }),
+      ]);
+      if (currentChannelIdRef.current !== targetChannelId) return;
+      const older = [...olderRes.messages].reverse();
+      const newer = [...newerRes.messages].reverse();
+      const combined = [...older, target, ...newer];
+      loadedChannelIdRef.current = targetChannelId;
+      skipNextAutoScrollRef.current = true;
+      setMessages(combined);
+      setHasMore(olderRes.messages.length >= 25);
+      setHighlightedMessageId(target.id);
+    } catch (err) {
+      console.warn("[ChatView] failed to jump to message:", err);
+    } finally {
+      if (currentChannelIdRef.current === targetChannelId) {
+        setLoadingInitial(false);
+      }
+    }
+  };
+
+  const lastScrolledToRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!highlightedMessageId) {
+      lastScrolledToRef.current = null;
+      return;
+    }
+    if (lastScrolledToRef.current === highlightedMessageId) return;
+    const el = document.querySelector(
+      `[data-msg-id="${highlightedMessageId}"]`,
+    ) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      lastScrolledToRef.current = highlightedMessageId;
+    }
+  }, [highlightedMessageId, messages]);
+
+  const toggleSearch = () => {
+    setSearchOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        setSearchInput("");
+        setSearchQuery("");
+        setSearchResults([]);
+        setSearchError(null);
+        setSearchTotal(0);
+        setHighlightedMessageId(null);
+      }
+      return next;
+    });
   };
 
   const handleJoinFromAccessError = async () => {
@@ -379,11 +519,99 @@ const ChatView: React.FC<ChatViewProps> = ({
       <ChannelHeader
         channel={channel}
         membersOpen={membersOpen}
+        searchActive={searchOpen}
+        onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
       />
+      {searchOpen && channel && (
+        <div className="search-bar">
+          <Icon name="search" size={14} />
+          <input
+            autoFocus
+            type="text"
+            placeholder={`Search in #${channel.name}`}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                toggleSearch();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="search-clear"
+            onClick={toggleSearch}
+            title="Close search"
+          >
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      )}
       <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>
-        {showInitialLoader ? (
+        {searchOpen && searchInput.trim().length > 0 ? (
+          <div className="search-results">
+            {searchLoading ? (
+              <div className="empty-state">
+                <span className="loading-spinner" />
+              </div>
+            ) : searchError ? (
+              <div className="empty-state">
+                <p>{searchError}</p>
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon-wrap">
+                  <Icon name="search" size={22} />
+                </div>
+                <h3>No results</h3>
+                <p>Nothing matched "{searchQuery}".</p>
+              </div>
+            ) : (
+              <>
+                <div className="search-meta">
+                  {searchTotal} {searchTotal === 1 ? "result" : "results"} for "{searchQuery}"
+                </div>
+                {searchResults.map((m) => {
+                  const isMine = !!currentUserId && m.authorId === currentUserId;
+                  const displayName =
+                    m.authorName ?? (isMine ? currentUserName : undefined) ?? m.authorId;
+                  const time = new Date(m.createdAt).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const initial = displayName.slice(0, 1).toUpperCase();
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="search-result"
+                      onClick={() => handleJumpToMessage(m)}
+                    >
+                      <div
+                        className="ava"
+                        style={{ background: colorFor(m.authorId) }}
+                      >
+                        {initial}
+                      </div>
+                      <div className="body">
+                        <div className="head">
+                          <b>{displayName}</b>
+                          <time>{time}</time>
+                        </div>
+                        <div className="content">{m.content}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        ) : showInitialLoader ? (
           <div className="empty-state">
             <span className="loading-spinner" />
           </div>
@@ -435,6 +663,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   continued={cont}
                   isMine={isMine}
                   editing={editingId === m.id}
+                  highlighted={highlightedMessageId === m.id}
                   editText={editText}
                   onEditTextChange={setEditText}
                   onStartEdit={() => startEdit(m)}
@@ -450,6 +679,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       <form className="composer" onSubmit={handleSend}>
         <div className="composer-wrap">
           <input
+            ref={composerRef}
             placeholder={placeholder}
             value={text}
             onChange={(e) => {
@@ -489,6 +719,8 @@ interface ChannelHeaderProps {
   channel?: ChannelMeta;
   dm?: DmMeta;
   membersOpen?: boolean;
+  searchActive?: boolean;
+  onToggleSearch?: () => void;
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
 }
@@ -497,6 +729,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   channel,
   dm,
   membersOpen,
+  searchActive,
+  onToggleSearch,
   onToggleMembers,
   onOpenChannelSettings,
 }) => {
@@ -652,6 +886,16 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             <Icon name="users" size={15} />
           </button>
         )}
+        {onToggleSearch && (
+          <button
+            type="button"
+            className={"icon-btn" + (searchActive ? " on" : "")}
+            title={searchActive ? "Close search" : "Search messages"}
+            onClick={onToggleSearch}
+          >
+            <Icon name="search" size={15} />
+          </button>
+        )}
         {onOpenChannelSettings && (
           <button
             type="button"
@@ -673,6 +917,7 @@ interface MessageProps {
   continued: boolean;
   isMine: boolean;
   editing: boolean;
+  highlighted: boolean;
   editText: string;
   onEditTextChange: (v: string) => void;
   onStartEdit: () => void;
@@ -687,6 +932,7 @@ const Message: React.FC<MessageProps> = ({
   continued,
   isMine,
   editing,
+  highlighted,
   editText,
   onEditTextChange,
   onStartEdit,
@@ -701,7 +947,12 @@ const Message: React.FC<MessageProps> = ({
   });
   const initial = displayName.slice(0, 1).toUpperCase();
   return (
-    <div className={"msg" + (continued ? " cont" : "")}>
+    <div
+      data-msg-id={msg.id}
+      className={
+        "msg" + (continued ? " cont" : "") + (highlighted ? " highlight" : "")
+      }
+    >
       <div className="ava" style={{ background: colorFor(msg.authorId) }}>
         {initial}
       </div>

@@ -72,3 +72,8 @@ export interface ChannelMessage {
 export interface ListChannelMessagesResponse {
   messages: ChannelMessage[];
 }
+
+export interface SearchChannelMessagesResponse {
+  messages: ChannelMessage[];
+  pagination?: PaginationMeta;
+}

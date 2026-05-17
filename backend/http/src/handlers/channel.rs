@@ -6,6 +6,7 @@ use application::dto::requests::channel::{
     join_text_channel::JoinTextChannelRequest, join_voice_channel::JoinVoiceChannelRequest,
     list_channel_messages::ListChannelMessagesRequest,
     list_channel_participants::ListChannelParticipantsRequest, mute_channel::MuteChannelRequest,
+    search_channel_messages::SearchChannelMessagesRequest,
     send_channel_message::SendChannelMessageRequest, unmute_channel::UnmuteChannelRequest,
 };
 use serde::Deserialize;
@@ -25,6 +26,7 @@ use crate::shared::{
             create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody,
             join_text_channel::JoinTextChannelRequestBody,
             join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
+            search_messages::SearchMessagesQuery,
             send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody,
         },
         responses::{
@@ -33,7 +35,10 @@ use crate::shared::{
                 create_channel::CreateChannelResponse,
                 join_voice_channel::JoinVoiceChannelResponse,
                 list_channel_participants::ListChannelParticipantsResponse,
-                message::{ListChannelMessagesResponse, MessageResponse},
+                message::{
+                    ListChannelMessagesResponse, MessageResponse,
+                    SearchChannelMessagesResponse,
+                },
             },
         },
     },
@@ -223,6 +228,7 @@ pub struct ListMessagesQuery {
     pub limit: Option<i64>,
 }
 
+
 #[get("/{server_id}/channels/{channel_id}/messages")]
 async fn list_channel_messages(
     req: HttpRequest,
@@ -252,6 +258,40 @@ async fn list_channel_messages(
         ListChannelMessagesResponse::new(messages.into_iter().map(MessageResponse::from).collect());
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[get("/{server_id}/channels/{channel_id}/messages/search")]
+async fn search_channel_messages(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    query: web::Query<SearchMessagesQuery>,
+) -> Result<impl Responder, ApiError> {
+    query.validate()?;
+    let (server_id, channel_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+    let pagination = Pagination::new(query.page, query.per_page)?;
+
+    let data = SearchChannelMessagesRequest::new(
+        server_id,
+        channel_id,
+        query.q.clone(),
+        pagination,
+        request_context(&req),
+    );
+
+    let result = app_state
+        .search_channel_messages_usecase
+        .execute(data, user_id)
+        .await?;
+
+    let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
+    let response = SearchChannelMessagesResponse::new(
+        result.items.into_iter().map(MessageResponse::from).collect(),
+    );
+
+    Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
 #[post("/{server_id}/channels/{channel_id}/messages")]

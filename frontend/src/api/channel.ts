@@ -8,6 +8,7 @@ import {
   JoinVoiceChannelResponse,
   ChannelMessage,
   ListChannelMessagesResponse,
+  SearchChannelMessagesResponse,
 } from "../types/channel";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
@@ -161,6 +162,23 @@ class ChannelAPI {
       { params },
     );
     return response.data.data;
+  }
+
+  async searchMessages(
+    serverId: string,
+    channelId: string,
+    query: string,
+    page: number = 1,
+    perPage: number = 25,
+  ): Promise<SearchChannelMessagesResponse> {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/channels/${channelId}/messages/search`,
+      { params: { q: query, page, per_page: perPage } },
+    );
+    return {
+      ...response.data.data,
+      pagination: response.data.meta?.pagination,
+    };
   }
 
   async sendMessage(
