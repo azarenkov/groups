@@ -264,7 +264,6 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
     if (!channel || !serverId) return;
-    setSearchOpen(false);
     setSearchInput("");
     setSearchQuery("");
     setSearchResults([]);
@@ -310,6 +309,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         setSearchResults([]);
         setSearchError(null);
         setSearchTotal(0);
+        setHighlightedMessageId(null);
       }
       return next;
     });
@@ -505,20 +505,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
       />
-      {highlightedMessageId && !searchOpen && (
-        <div className="jump-banner">
-          <Icon name="search" size={13} />
-          <span>Jumped to a message</span>
-          <button
-            type="button"
-            className="jump-banner-close"
-            onClick={() => setHighlightedMessageId(null)}
-            title="Dismiss"
-          >
-            <Icon name="x" size={12} />
-          </button>
-        </div>
-      )}
       {searchOpen && channel && (
         <div className="search-bar">
           <Icon name="search" size={14} />
@@ -535,16 +521,14 @@ const ChatView: React.FC<ChatViewProps> = ({
               }
             }}
           />
-          {searchInput && (
-            <button
-              type="button"
-              className="search-clear"
-              onClick={() => setSearchInput("")}
-              title="Clear"
-            >
-              <Icon name="x" size={12} />
-            </button>
-          )}
+          <button
+            type="button"
+            className="search-clear"
+            onClick={toggleSearch}
+            title="Close search"
+          >
+            <Icon name="x" size={12} />
+          </button>
         </div>
       )}
       <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>

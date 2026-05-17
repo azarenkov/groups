@@ -883,26 +883,6 @@ select:focus-visible {
 .msg.highlight {
   background-color: rgba(0, 113, 227, 0.22);
 }
-
-.jump-banner {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--surface);
-  color: var(--fg-2);
-  font-size: 13px;
-}
-.jump-banner-close {
-  margin-left: auto;
-  background: transparent;
-  border: none;
-  color: var(--fg-3);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  display: flex; align-items: center;
-}
-.jump-banner-close:hover { background: var(--surface-hover); color: var(--fg); }
 .search-result .ava {
   width: 36px; height: 36px; border-radius: 50%;
   flex-shrink: 0;
