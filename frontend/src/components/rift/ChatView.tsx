@@ -196,8 +196,9 @@ const ChatView: React.FC<ChatViewProps> = ({
   const handleScroll = React.useCallback(() => {
     const b = bodyRef.current;
     if (!b) return;
+    if (searchOpen && searchInput.trim().length > 0) return;
     if (b.scrollTop < 80) void loadOlder();
-  }, [loadOlder]);
+  }, [loadOlder, searchOpen, searchInput]);
 
   const sendOnce = async (content: string): Promise<ChannelMessage> => {
     if (!channel || !serverId) throw new Error("no channel");
@@ -290,13 +291,19 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
+  const lastScrolledToRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!highlightedMessageId) return;
+    if (!highlightedMessageId) {
+      lastScrolledToRef.current = null;
+      return;
+    }
+    if (lastScrolledToRef.current === highlightedMessageId) return;
     const el = document.querySelector(
       `[data-msg-id="${highlightedMessageId}"]`,
     ) as HTMLElement | null;
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
+      lastScrolledToRef.current = highlightedMessageId;
     }
   }, [highlightedMessageId, messages]);
 
