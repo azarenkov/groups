@@ -144,10 +144,12 @@ const ServersPage: React.FC = () => {
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
+    const existing = new Set(servers.map((s) => s.id));
     expandedServerIds.forEach((id) => {
+      if (!existing.has(id)) return;
       if (!channelsByServer[id]) fetchChannels(id);
     });
-  }, [expandedServerIds, tokens, fetchChannels, channelsByServer]);
+  }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
 
   const didInitialExpandRef = useRef(false);
   useEffect(() => {
