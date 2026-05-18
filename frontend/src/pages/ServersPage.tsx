@@ -9,6 +9,10 @@ import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
+import AddFriendModal from "../components/AddFriendModal";
+import PendingFriendsModal from "../components/PendingFriendsModal";
+import { useFriendshipStore } from "../store/friendshipStore";
+import { friendshipAPI } from "../api/friendship";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
@@ -29,7 +33,6 @@ import {
 } from "../types/channel";
 import { Server } from "../types/server";
 import {
-  SEED_DIRECTS,
   type MockDirect,
   type MockMember,
 } from "../data/mockData";
@@ -98,9 +101,13 @@ const ServersPage: React.FC = () => {
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  const [isPendingOpen, setIsPendingOpen] = useState(false);
+  const friends = useFriendshipStore((s) => s.friends);
+  const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: "server" | "channel";
+    type: "server" | "channel" | "friend";
     id: string;
     serverId?: string;
     name: string;
@@ -121,7 +128,41 @@ const ServersPage: React.FC = () => {
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
-  const [directs, setDirects] = useState<MockDirect[]>(SEED_DIRECTS);
+  const [directs, setDirects] = useState<MockDirect[]>([]);
+
+  const PALETTE = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a", "#5e6ad2"];
+  const colorFor = (id: string): string => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  };
+  const initialsFor = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
+
+  const acceptedFriends: MockDirect[] = React.useMemo(
+    () =>
+      friends
+        .filter((f) => f.status === "accepted")
+        .map((f) => ({
+          id: f.friendId,
+          name: f.friendName,
+          initials: initialsFor(f.friendName),
+          color: colorFor(f.friendId),
+          online: false,
+          unread: 0,
+        })),
+    [friends],
+  );
+
+  const pendingCount = React.useMemo(
+    () =>
+      friends.filter(
+        (f) =>
+          f.status === "pending_incoming" ||
+          f.status === "pending_outgoing" ||
+          f.status === "declined",
+      ).length,
+    [friends],
+  );
 
   const [channelOverrides, setChannelOverrides] =
     useState<Record<string, ChannelOverride>>({});
@@ -138,9 +179,11 @@ const ServersPage: React.FC = () => {
     if (tokens?.accessToken) {
       serverAPI.setAuthToken(tokens.accessToken);
       channelAPI.setAuthToken(tokens.accessToken);
+      friendshipAPI.setAuthToken(tokens.accessToken);
       fetchServers();
+      fetchFriends();
     }
-  }, [tokens, fetchServers]);
+  }, [tokens, fetchServers, fetchFriends]);
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
@@ -378,6 +421,17 @@ const ServersPage: React.FC = () => {
     }
   };
 
+  const handleRemoveFriend = async () => {
+    if (deleteConfirm?.type !== "friend") return;
+    try {
+      await useFriendshipStore.getState().remove(deleteConfirm.id);
+      if (selectedDm?.id === deleteConfirm.id) setSelectedDm(null);
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error("Failed to remove friend:", err);
+    }
+  };
+
   const handlePickDmFromModal = (person: MockMember) => {
     const existing = directs.find((d) => d.name === person.name);
     if (existing) {
@@ -410,6 +464,7 @@ const ServersPage: React.FC = () => {
   const handleLogout = async () => {
     serverAPI.removeAuthToken();
     channelAPI.removeAuthToken();
+    friendshipAPI.removeAuthToken();
     await signOut();
   };
 
@@ -452,7 +507,8 @@ const ServersPage: React.FC = () => {
           selectedChannelId={selectedChannelId}
           joinedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
-          directs={directs}
+          directs={acceptedFriends}
+          pendingCount={pendingCount}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}
@@ -462,7 +518,8 @@ const ServersPage: React.FC = () => {
             setChannelModalServerId(server.id);
             setIsChannelModalOpen(true);
           }}
-          onAddDm={() => setIsDmModalOpen(true)}
+          onAddDm={() => setIsAddFriendOpen(true)}
+          onOpenPendingRequests={() => setIsPendingOpen(true)}
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
@@ -494,6 +551,13 @@ const ServersPage: React.FC = () => {
                   color: selectedDm.color,
                   online: selectedDm.online,
                 }}
+                onRemoveFriend={() =>
+                  setDeleteConfirm({
+                    type: "friend",
+                    id: selectedDm.id,
+                    name: selectedDm.name,
+                  })
+                }
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
               <div className="voice-stage-wrap">
@@ -807,6 +871,16 @@ const ServersPage: React.FC = () => {
         onPick={handlePickDmFromModal}
       />
 
+      <AddFriendModal
+        isOpen={isAddFriendOpen}
+        onClose={() => setIsAddFriendOpen(false)}
+      />
+
+      <PendingFriendsModal
+        isOpen={isPendingOpen}
+        onClose={() => setIsPendingOpen(false)}
+      />
+
       {editingChannel && (
         <ChannelSettingsModal
           isOpen={!!editingChannel}
@@ -833,14 +907,30 @@ const ServersPage: React.FC = () => {
 
       {deleteConfirm && (
         <ConfirmModal
-          title={`Delete ${deleteConfirm.type === "server" ? "server" : "channel"}?`}
-          subtitle="This can't be undone."
+          title={
+            deleteConfirm.type === "server"
+              ? "Delete server?"
+              : deleteConfirm.type === "channel"
+                ? "Delete channel?"
+                : "Remove friend?"
+          }
+          subtitle={
+            deleteConfirm.type === "friend"
+              ? "You can send a new request later."
+              : "This can't be undone."
+          }
           targetName={deleteConfirm.name}
-          confirmLabel="Delete"
+          confirmLabel={
+            deleteConfirm.type === "friend" ? "Remove" : "Delete"
+          }
           danger
           onCancel={() => setDeleteConfirm(null)}
           onConfirm={
-            deleteConfirm.type === "server" ? handleDeleteServer : handleDeleteChannel
+            deleteConfirm.type === "server"
+              ? handleDeleteServer
+              : deleteConfirm.type === "channel"
+                ? handleDeleteChannel
+                : handleRemoveFriend
           }
         />
       )}

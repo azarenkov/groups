@@ -1,4 +1,5 @@
 pub mod channel;
+pub mod friendship;
 pub mod message;
 pub mod outbox_record;
 pub mod refresh_token;

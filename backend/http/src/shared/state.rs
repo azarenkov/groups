@@ -4,6 +4,11 @@ use application::usecases::{
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
+    friendship::{
+        accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
+        remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
+    },
+    user::search_users::SearchUsers,
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         delete_channel_message::DeleteChannelMessage,
@@ -24,9 +29,10 @@ use application::usecases::{
 use infrastructure::{
     auth::jwt_token_issuer::JwtTokenIssuer,
     database::postgres::repositories::{
-        channel::PostgresChannelRepository, message::PostgresMessageRepository,
-        refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
-        user::PostgresUserRepository, verification_code::PostgresVerificationCodeRepository,
+        channel::PostgresChannelRepository, friendship::PostgresFriendshipRepository,
+        message::PostgresMessageRepository, refresh_token::PostgresRefreshTokenRepository,
+        server::PostgresServerRepository, user::PostgresUserRepository,
+        verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
@@ -98,6 +104,14 @@ pub struct AppState {
 
     pub handle_livekit_webhook_usecase:
         HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository>,
+
+    pub send_friend_request_usecase:
+        SendFriendRequest<PostgresFriendshipRepository, PostgresUserRepository>,
+    pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipRepository>,
+    pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
+    pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
+
+    pub search_users_usecase: SearchUsers<PostgresUserRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
@@ -189,6 +203,14 @@ impl AppState {
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
+        send_friend_request_usecase: SendFriendRequest<
+            PostgresFriendshipRepository,
+            PostgresUserRepository,
+        >,
+        accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipRepository>,
+        remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
+        list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
+        search_users_usecase: SearchUsers<PostgresUserRepository>,
         jwt_secret: String,
         trust_forwarded_headers: bool,
     ) -> Self {
@@ -217,6 +239,11 @@ impl AppState {
             list_servers_by_user_usecase,
             list_server_members_usecase,
             list_server_channels_usecase,
+            send_friend_request_usecase,
+            accept_friend_request_usecase,
+            remove_friendship_usecase,
+            list_friends_usecase,
+            search_users_usecase,
             jwt_secret,
             trust_forwarded_headers,
         }

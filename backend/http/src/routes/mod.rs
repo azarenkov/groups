@@ -4,7 +4,9 @@ use crate::handlers::health::{livez, readyz};
 
 pub mod auth;
 pub mod channel;
+pub mod friendship;
 pub mod server;
+pub mod user;
 pub mod webhook;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
@@ -18,6 +20,11 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                     web::scope("/v1/servers")
                         .configure(server::server_routes)
                         .configure(channel::channel_routes),
+                )
+                .service(
+                    web::scope("/v1/users")
+                        .configure(user::user_routes)
+                        .configure(friendship::friendship_routes),
                 ),
         );
 }

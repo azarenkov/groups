@@ -1,5 +1,6 @@
 pub mod aggregate_type;
 pub mod channel;
+pub mod friendship_status;
 pub mod kind;
 pub mod message;
 pub mod visibility;

@@ -155,6 +155,61 @@ impl UserRepository for PostgresUserRepository {
         Ok(dto.map(User::from))
     }
 
+    async fn search_by_name_prefix(
+        &self,
+        prefix: &str,
+        limit: i64,
+        exclude_user: &UserId,
+    ) -> Result<Vec<(UserId, UserName)>, RepositoryError> {
+        let pattern = format!("{}%", prefix.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, name
+            FROM users
+            WHERE name ILIKE $1 ESCAPE '\'
+              AND id <> $2
+            ORDER BY name ASC
+            LIMIT $3
+            "#,
+            pattern,
+            exclude_user.uuid(),
+            limit,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| (UserId::new(r.id), UserName::new(r.name)))
+            .collect())
+    }
+
+    async fn find_by_name(&self, name: &UserName) -> Result<Option<User>, RepositoryError> {
+        let dto = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT
+                id,
+                name,
+                email,
+                password_hash,
+                created_at,
+                updated_at,
+                email_verified_at,
+                phone_verified_at
+            FROM users
+            WHERE name = $1
+            "#,
+            name.as_str(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(dto.map(User::from))
+    }
+
     async fn get_password_hash_by_email(
         &self,
         email: &Email,

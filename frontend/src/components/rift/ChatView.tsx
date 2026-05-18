@@ -38,6 +38,7 @@ interface ChatViewProps {
   membersOpen?: boolean;
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
+  onRemoveFriend?: () => void;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -49,6 +50,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   membersOpen,
   onToggleMembers,
   onOpenChannelSettings,
+  onRemoveFriend,
 }) => {
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
   const [text, setText] = React.useState("");
@@ -490,6 +492,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           membersOpen={membersOpen}
           onToggleMembers={onToggleMembers}
           onOpenChannelSettings={onOpenChannelSettings}
+          onRemoveFriend={onRemoveFriend}
         />
         <div className="chat-body">
           <div className="empty-state">
@@ -723,6 +726,7 @@ interface ChannelHeaderProps {
   onToggleSearch?: () => void;
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
+  onRemoveFriend?: () => void;
 }
 
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({
@@ -733,6 +737,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onToggleSearch,
   onToggleMembers,
   onOpenChannelSettings,
+  onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
   const [notifLevel, setNotifLevel] = React.useState<"all" | "mentions" | "none">("all");
@@ -806,6 +811,16 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           <button type="button" className="icon-btn" title="Start a voice call">
             <Icon name="mic" size={16} />
           </button>
+          {onRemoveFriend && (
+            <button
+              type="button"
+              className="icon-btn"
+              title="Remove friend"
+              onClick={onRemoveFriend}
+            >
+              <Icon name="user-check" size={16} />
+            </button>
+          )}
           <button type="button" className="icon-btn" title="Conversation settings">
             <Icon name="settings" size={16} />
           </button>
