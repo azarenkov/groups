@@ -565,12 +565,6 @@ const ChatView: React.FC<ChatViewProps> = ({
             }
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                toggleSearch();
-              }
-            }}
           />
           <button
             type="button"
