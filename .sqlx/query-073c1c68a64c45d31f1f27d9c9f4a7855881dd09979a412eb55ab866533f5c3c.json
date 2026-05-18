@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                INSERT INTO friendships (user_id, friend_id, status, created_at, updated_at)\n                VALUES ($1, $2, $3, $4, $5)\n                ",
+  "query": "\n            DELETE FROM friendships\n            WHERE user_id = $1 AND friend_id = $2 AND status = $3\n            ",
   "describe": {
     "columns": [],
     "parameters": {
@@ -14,16 +14,15 @@
               "Enum": [
                 "pending_outgoing",
                 "pending_incoming",
-                "accepted"
+                "accepted",
+                "declined"
               ]
             }
           }
-        },
-        "Timestamptz",
-        "Timestamptz"
+        }
       ]
     },
     "nullable": []
   },
-  "hash": "b1d7841806b15ef526ae85fe0ca0bd804773de26ccbb8269dc8f241a53072d43"
+  "hash": "073c1c68a64c45d31f1f27d9c9f4a7855881dd09979a412eb55ab866533f5c3c"
 }

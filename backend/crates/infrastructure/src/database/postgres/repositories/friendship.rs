@@ -74,6 +74,9 @@ impl FriendshipRepository for PostgresFriendshipRepository {
                 r#"
                 INSERT INTO friendships (user_id, friend_id, status, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (user_id, friend_id) DO UPDATE
+                    SET status = EXCLUDED.status,
+                        updated_at = EXCLUDED.updated_at
                 "#,
                 row.user_id.uuid(),
                 row.friend_id.uuid(),
@@ -140,6 +143,63 @@ impl FriendshipRepository for PostgresFriendshipRepository {
         .rows_affected();
 
         if updated_accepter == 0 || updated_sender == 0 {
+            tx.rollback()
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            return Ok(false);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
+    }
+
+    async fn decline_request_with_events(
+        &self,
+        decliner: &UserId,
+        sender: &UserId,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let now: DateTime<Utc> = Utc::now();
+
+        let updated_sender = sqlx::query!(
+            r#"
+            UPDATE friendships
+            SET status = $3, updated_at = $4
+            WHERE user_id = $1 AND friend_id = $2 AND status = $5
+            "#,
+            sender.uuid(),
+            decliner.uuid(),
+            FriendshipStatusDto::Declined as FriendshipStatusDto,
+            now,
+            FriendshipStatusDto::PendingOutgoing as FriendshipStatusDto,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .rows_affected();
+
+        let deleted_self = sqlx::query!(
+            r#"
+            DELETE FROM friendships
+            WHERE user_id = $1 AND friend_id = $2 AND status = $3
+            "#,
+            decliner.uuid(),
+            sender.uuid(),
+            FriendshipStatusDto::PendingIncoming as FriendshipStatusDto,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .rows_affected();
+
+        if updated_sender == 0 || deleted_self == 0 {
             tx.rollback()
                 .await
                 .map_err(map_sqlx_error_to_domain_error)?;

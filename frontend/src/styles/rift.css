@@ -528,6 +528,9 @@ select:focus-visible {
   font-size: 11px;
   color: var(--fg-3);
 }
+.pf-tag-danger {
+  color: var(--danger);
+}
 .pf-btn {
   width: 28px; height: 28px;
   border-radius: 6px;

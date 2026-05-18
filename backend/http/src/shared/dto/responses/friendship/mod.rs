@@ -42,6 +42,7 @@ fn status_str(status: FriendshipStatus) -> &'static str {
         FriendshipStatus::Accepted => "accepted",
         FriendshipStatus::PendingIncoming => "pending_incoming",
         FriendshipStatus::PendingOutgoing => "pending_outgoing",
+        FriendshipStatus::Declined => "declined",
     }
 }
 
@@ -50,6 +51,7 @@ pub fn parse_status(s: &str) -> Option<FriendshipStatus> {
         "accepted" => Some(FriendshipStatus::Accepted),
         "pending_incoming" => Some(FriendshipStatus::PendingIncoming),
         "pending_outgoing" => Some(FriendshipStatus::PendingOutgoing),
+        "declined" => Some(FriendshipStatus::Declined),
         _ => None,
     }
 }

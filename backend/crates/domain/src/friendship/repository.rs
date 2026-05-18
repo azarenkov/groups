@@ -35,6 +35,13 @@ pub trait FriendshipRepository {
         events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
 
+    async fn decline_request_with_events(
+        &self,
+        decliner: &UserId,
+        sender: &UserId,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError>;
+
     async fn list_for_user(
         &self,
         user_id: &UserId,

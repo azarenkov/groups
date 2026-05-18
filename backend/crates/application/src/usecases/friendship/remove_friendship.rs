@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    friendship::{Friendship, repository::FriendshipRepository},
+    friendship::{Friendship, repository::FriendshipRepository, status::FriendshipStatus},
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -49,6 +49,12 @@ where
     ) -> Result<(), RemoveFriendshipError> {
         let other_id = UserId::new(request.other_user_id);
 
+        let existing = self
+            .friendship_repository
+            .find_pair(&requester_id, &other_id)
+            .await?
+            .ok_or(RemoveFriendshipError::NotFound)?;
+
         let now = Utc::now();
         let events = Friendship::removal_events(requester_id, other_id, now);
 
@@ -58,11 +64,20 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        let deleted = self
-            .friendship_repository
-            .delete_pair_with_events(&requester_id, &other_id, &records)
-            .await?;
-        if !deleted {
+        let success = match existing.status {
+            FriendshipStatus::PendingIncoming => {
+                self.friendship_repository
+                    .decline_request_with_events(&requester_id, &other_id, &records)
+                    .await?
+            }
+            _ => {
+                self.friendship_repository
+                    .delete_pair_with_events(&requester_id, &other_id, &records)
+                    .await?
+            }
+        };
+
+        if !success {
             return Err(RemoveFriendshipError::NotFound);
         }
         Ok(())

@@ -1,7 +1,8 @@
 export type FriendshipStatus =
   | "pending_outgoing"
   | "pending_incoming"
-  | "accepted";
+  | "accepted"
+  | "declined";
 
 export interface Friendship {
   friendId: string;

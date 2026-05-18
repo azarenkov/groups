@@ -3,4 +3,5 @@ pub enum FriendshipStatus {
     PendingOutgoing,
     PendingIncoming,
     Accepted,
+    Declined,
 }

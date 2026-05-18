@@ -6,6 +6,7 @@ pub enum FriendshipStatusDto {
     PendingOutgoing,
     PendingIncoming,
     Accepted,
+    Declined,
 }
 
 impl From<FriendshipStatus> for FriendshipStatusDto {
@@ -14,6 +15,7 @@ impl From<FriendshipStatus> for FriendshipStatusDto {
             FriendshipStatus::PendingOutgoing => Self::PendingOutgoing,
             FriendshipStatus::PendingIncoming => Self::PendingIncoming,
             FriendshipStatus::Accepted => Self::Accepted,
+            FriendshipStatus::Declined => Self::Declined,
         }
     }
 }
@@ -24,6 +26,7 @@ impl From<FriendshipStatusDto> for FriendshipStatus {
             FriendshipStatusDto::PendingOutgoing => Self::PendingOutgoing,
             FriendshipStatusDto::PendingIncoming => Self::PendingIncoming,
             FriendshipStatusDto::Accepted => Self::Accepted,
+            FriendshipStatusDto::Declined => Self::Declined,
         }
     }
 }

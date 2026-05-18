@@ -23,7 +23,8 @@
               "Enum": [
                 "pending_outgoing",
                 "pending_incoming",
-                "accepted"
+                "accepted",
+                "declined"
               ]
             }
           }
@@ -55,7 +56,8 @@
               "Enum": [
                 "pending_outgoing",
                 "pending_incoming",
-                "accepted"
+                "accepted",
+                "declined"
               ]
             }
           }

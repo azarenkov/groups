@@ -88,11 +88,18 @@ where
             .find_pair(&sender_id, &target_id)
             .await?
         {
-            return Err(match existing.status {
-                FriendshipStatus::Accepted => SendFriendRequestError::AlreadyFriends,
-                FriendshipStatus::PendingOutgoing => SendFriendRequestError::AlreadyRequested,
-                FriendshipStatus::PendingIncoming => SendFriendRequestError::IncomingPending,
-            });
+            match existing.status {
+                FriendshipStatus::Accepted => {
+                    return Err(SendFriendRequestError::AlreadyFriends);
+                }
+                FriendshipStatus::PendingOutgoing => {
+                    return Err(SendFriendRequestError::AlreadyRequested);
+                }
+                FriendshipStatus::PendingIncoming => {
+                    return Err(SendFriendRequestError::IncomingPending);
+                }
+                FriendshipStatus::Declined => {}
+            }
         }
 
         let now = Utc::now();

@@ -36,6 +36,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
 
   const incoming = friends.filter((f) => f.status === "pending_incoming");
   const outgoing = friends.filter((f) => f.status === "pending_outgoing");
+  const declined = friends.filter((f) => f.status === "declined");
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -52,9 +53,11 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
           </button>
         </div>
         <div className="m-body">
-          {incoming.length === 0 && outgoing.length === 0 && (
-            <div className="pf-empty">No pending friend requests.</div>
-          )}
+          {incoming.length === 0 &&
+            outgoing.length === 0 &&
+            declined.length === 0 && (
+              <div className="pf-empty">No pending friend requests.</div>
+            )}
 
           {incoming.length > 0 && (
             <div className="pf-section">
@@ -110,6 +113,34 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                     type="button"
                     className="pf-btn decline"
                     title="Cancel"
+                    onClick={() => remove(f.friendId)}
+                  >
+                    <Icon name="x" size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {declined.length > 0 && (
+            <div className="pf-section">
+              <div className="pf-section-title">
+                Declined · {declined.length}
+              </div>
+              {declined.map((f) => (
+                <div key={f.friendId} className="pf-row">
+                  <div
+                    className="pf-ava"
+                    style={{ background: colorFor(f.friendId) }}
+                  >
+                    {initialsFor(f.friendName)}
+                  </div>
+                  <div className="pf-name">{f.friendName}</div>
+                  <span className="pf-tag pf-tag-danger">declined</span>
+                  <button
+                    type="button"
+                    className="pf-btn decline"
+                    title="Dismiss"
                     onClick={() => remove(f.friendId)}
                   >
                     <Icon name="x" size={14} />
