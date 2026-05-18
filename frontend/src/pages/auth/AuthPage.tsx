@@ -183,10 +183,10 @@ const SignInUp: React.FC<SignInUpProps> = ({
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
 
   const signInForm = useForm<SignInData>({
-    values: { email, password: "" },
+    defaultValues: { email, password: "" },
   });
   const signUpForm = useForm<SignUpData>({
-    values: { name: "", email, password: "" },
+    defaultValues: { name: "", email, password: "" },
   });
 
   const [showPw, setShowPw] = useState(false);
