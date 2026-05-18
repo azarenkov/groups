@@ -4,6 +4,6 @@ use validator::Validate;
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct EditMessageRequestBody {
-    #[validate(length(min = 1, max = 4000))]
+    #[validate(length(min = 1, max = 2000))]
     pub content: String,
 }

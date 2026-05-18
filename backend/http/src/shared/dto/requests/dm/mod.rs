@@ -4,13 +4,13 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct SendDmMessageBody {
-    #[validate(length(min = 1, max = 4000))]
+    #[validate(length(min = 1, max = 2000))]
     pub content: String,
 }
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct EditDmMessageBody {
-    #[validate(length(min = 1, max = 4000))]
+    #[validate(length(min = 1, max = 2000))]
     pub content: String,
 }
 

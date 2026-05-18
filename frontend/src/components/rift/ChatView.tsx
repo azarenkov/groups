@@ -8,7 +8,29 @@ import { ApiError } from "../../utils/apiError";
 
 const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
 const PAGE_LIMIT = 50;
-const MAX_CONTENT = 4000;
+const MAX_CONTENT = 2000;
+
+const splitForSend = (text: string, maxLen: number): string[] => {
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > maxLen) {
+    const slice = remaining.slice(0, maxLen);
+    const nl = slice.lastIndexOf("\n");
+    let cut = maxLen;
+    if (nl >= maxLen - 200 && nl > 0) {
+      cut = nl + 1;
+    } else {
+      const sp = slice.lastIndexOf(" ");
+      if (sp >= maxLen - 100 && sp > 0) cut = sp + 1;
+    }
+    const piece = remaining.slice(0, cut).trimEnd();
+    if (piece.length > 0) chunks.push(piece);
+    remaining = remaining.slice(cut).trimStart();
+  }
+  const tail = remaining.trim();
+  if (tail.length > 0) chunks.push(tail);
+  return chunks;
+};
 
 const colorFor = (id: string): string => {
   let h = 0;
@@ -421,53 +443,60 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (!messenger) return;
     const v = text.trim();
     if (!v) return;
-    if (v.length > MAX_CONTENT) {
-      setComposerError(`Message too long (max ${MAX_CONTENT} chars).`);
-      return;
-    }
+    const chunks = splitForSend(v, MAX_CONTENT);
+    if (chunks.length === 0) return;
+
     setSending(true);
     setComposerError(null);
-    try {
-      const msg = await sendOnce(v);
+
+    const sendChunk = async (chunk: string) => {
+      const msg = await sendOnce(chunk);
       setMessages((prev) => [...prev, msg]);
+    };
+
+    try {
+      try {
+        await sendChunk(chunks[0]);
+      } catch (err) {
+        const apiErr = err instanceof ApiError ? err : null;
+        const code = apiErr?.code;
+        if (isText && channel && serverId && code === "CHANNEL_NOT_MEMBER") {
+          try {
+            await channelAPI.joinText(serverId, channel.id);
+            await refreshHistoryAfterJoin();
+            await sendChunk(chunks[0]);
+          } catch (joinErr) {
+            const joinApi = joinErr instanceof ApiError ? joinErr : null;
+            const jc = joinApi?.code;
+            if (jc === "CHANNEL_PASSWORD_REQUIRED" || jc === "INVALID_CHANNEL_PASSWORD") {
+              const pw = window.prompt(`Enter password for #${channel.name}`);
+              if (pw === null) {
+                setSending(false);
+                return;
+              }
+              await channelAPI.joinText(serverId, channel.id, pw);
+              await refreshHistoryAfterJoin();
+              await sendChunk(chunks[0]);
+            } else {
+              setComposerError(joinApi?.message || "Couldn't join channel.");
+              return;
+            }
+          }
+        } else {
+          throw err;
+        }
+      }
+      for (let i = 1; i < chunks.length; i++) {
+        await sendChunk(chunks[i]);
+      }
       setText("");
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
-      if (isText && channel && serverId && code === "CHANNEL_NOT_MEMBER") {
-        try {
-          await channelAPI.joinText(serverId, channel.id);
-          await refreshHistoryAfterJoin();
-          const msg = await sendOnce(v);
-          setMessages((prev) => [...prev, msg]);
-          setText("");
-        } catch (joinErr) {
-          const joinApi = joinErr instanceof ApiError ? joinErr : null;
-          const jc = joinApi?.code;
-          if (jc === "CHANNEL_PASSWORD_REQUIRED" || jc === "INVALID_CHANNEL_PASSWORD") {
-            const pw = window.prompt(`Enter password for #${channel.name}`);
-            if (pw === null) {
-              setSending(false);
-              return;
-            }
-            try {
-              await channelAPI.joinText(serverId, channel.id, pw);
-              await refreshHistoryAfterJoin();
-              const msg = await sendOnce(v);
-              setMessages((prev) => [...prev, msg]);
-              setText("");
-            } catch (retryErr) {
-              const r = retryErr instanceof ApiError ? retryErr : null;
-              setComposerError(r?.message || "Couldn't join channel.");
-            }
-          } else {
-            setComposerError(joinApi?.message || "Couldn't join channel.");
-          }
-        }
-      } else if (code === "MESSAGE_CONTENT_EMPTY") {
+      if (code === "MESSAGE_CONTENT_EMPTY") {
         setComposerError("Message can't be empty.");
       } else if (code === "MESSAGE_CONTENT_TOO_LONG") {
-        setComposerError(`Message too long (max ${MAX_CONTENT} chars).`);
+        setComposerError("One of the chunks was too long.");
       } else {
         console.warn("[ChatView] send failed:", err);
         setComposerError(apiErr?.message || "Couldn't send message.");
@@ -712,7 +741,6 @@ const ChatView: React.FC<ChatViewProps> = ({
               setText(e.target.value);
               if (composerError) setComposerError(null);
             }}
-            maxLength={MAX_CONTENT}
             autoFocus
             disabled={sending}
           />
