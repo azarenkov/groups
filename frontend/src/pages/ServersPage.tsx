@@ -10,6 +10,7 @@ import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
+import PendingFriendsModal from "../components/PendingFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { friendshipAPI } from "../api/friendship";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
@@ -101,10 +102,9 @@ const ServersPage: React.FC = () => {
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  const [isPendingOpen, setIsPendingOpen] = useState(false);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
-  const acceptFriend = useFriendshipStore((s) => s.accept);
-  const removeFriend = useFriendshipStore((s) => s.remove);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "server" | "channel";
@@ -153,19 +153,8 @@ const ServersPage: React.FC = () => {
     [friends],
   );
 
-  const pendingFriends = React.useMemo(
-    () =>
-      friends
-        .filter((f) => f.status !== "accepted")
-        .map((f) => ({
-          id: f.friendId,
-          name: f.friendName,
-          initials: initialsFor(f.friendName),
-          color: colorFor(f.friendId),
-          direction: (f.status === "pending_incoming" ? "incoming" : "outgoing") as
-            | "incoming"
-            | "outgoing",
-        })),
+  const pendingCount = React.useMemo(
+    () => friends.filter((f) => f.status !== "accepted").length,
     [friends],
   );
 
@@ -502,7 +491,7 @@ const ServersPage: React.FC = () => {
           joinedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
-          pendingFriends={pendingFriends}
+          pendingCount={pendingCount}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}
@@ -513,12 +502,7 @@ const ServersPage: React.FC = () => {
             setIsChannelModalOpen(true);
           }}
           onAddDm={() => setIsAddFriendOpen(true)}
-          onAcceptFriend={(id) => {
-            void acceptFriend(id);
-          }}
-          onCancelFriendRequest={(id) => {
-            void removeFriend(id);
-          }}
+          onOpenPendingRequests={() => setIsPendingOpen(true)}
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
@@ -866,6 +850,11 @@ const ServersPage: React.FC = () => {
       <AddFriendModal
         isOpen={isAddFriendOpen}
         onClose={() => setIsAddFriendOpen(false)}
+      />
+
+      <PendingFriendsModal
+        isOpen={isPendingOpen}
+        onClose={() => setIsPendingOpen(false)}
       />
 
       {editingChannel && (
