@@ -59,8 +59,9 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
         setSuggestions(users);
         setShowSuggestions(true);
         setHighlightIdx(0);
-      } catch {
+      } catch (err) {
         if (!cancelled) {
+          console.warn("[AddFriendModal] user search failed:", err);
           setSuggestions([]);
           setShowSuggestions(false);
         }
