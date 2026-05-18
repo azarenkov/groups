@@ -107,7 +107,7 @@ const ServersPage: React.FC = () => {
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: "server" | "channel";
+    type: "server" | "channel" | "friend";
     id: string;
     serverId?: string;
     name: string;
@@ -421,6 +421,17 @@ const ServersPage: React.FC = () => {
     }
   };
 
+  const handleRemoveFriend = async () => {
+    if (deleteConfirm?.type !== "friend") return;
+    try {
+      await useFriendshipStore.getState().remove(deleteConfirm.id);
+      if (selectedDm?.id === deleteConfirm.id) setSelectedDm(null);
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error("Failed to remove friend:", err);
+    }
+  };
+
   const handlePickDmFromModal = (person: MockMember) => {
     const existing = directs.find((d) => d.name === person.name);
     if (existing) {
@@ -509,6 +520,9 @@ const ServersPage: React.FC = () => {
           }}
           onAddDm={() => setIsAddFriendOpen(true)}
           onOpenPendingRequests={() => setIsPendingOpen(true)}
+          onRemoveDm={(dm) =>
+            setDeleteConfirm({ type: "friend", id: dm.id, name: dm.name })
+          }
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
@@ -889,14 +903,30 @@ const ServersPage: React.FC = () => {
 
       {deleteConfirm && (
         <ConfirmModal
-          title={`Delete ${deleteConfirm.type === "server" ? "server" : "channel"}?`}
-          subtitle="This can't be undone."
+          title={
+            deleteConfirm.type === "server"
+              ? "Delete server?"
+              : deleteConfirm.type === "channel"
+                ? "Delete channel?"
+                : "Remove friend?"
+          }
+          subtitle={
+            deleteConfirm.type === "friend"
+              ? "You can send a new request later."
+              : "This can't be undone."
+          }
           targetName={deleteConfirm.name}
-          confirmLabel="Delete"
+          confirmLabel={
+            deleteConfirm.type === "friend" ? "Remove" : "Delete"
+          }
           danger
           onCancel={() => setDeleteConfirm(null)}
           onConfirm={
-            deleteConfirm.type === "server" ? handleDeleteServer : handleDeleteChannel
+            deleteConfirm.type === "server"
+              ? handleDeleteServer
+              : deleteConfirm.type === "channel"
+                ? handleDeleteChannel
+                : handleRemoveFriend
           }
         />
       )}

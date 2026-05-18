@@ -21,6 +21,7 @@ interface SidebarProps {
   onAddChannel: (server: Server) => void;
   onAddDm: () => void;
   onOpenPendingRequests?: () => void;
+  onRemoveDm?: (dm: MockDirect) => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
@@ -52,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddChannel,
   onAddDm,
   onOpenPendingRequests,
+  onRemoveDm,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
@@ -183,6 +185,19 @@ const Sidebar: React.FC<SidebarProps> = ({
               </span>
               <span className="sb-label">{d.name}</span>
               {d.unread > 0 && <span className="meta">{d.unread}</span>}
+              {onRemoveDm && (
+                <button
+                  type="button"
+                  className="sb-item-remove"
+                  title="Remove friend"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveDm(d);
+                  }}
+                >
+                  <Icon name="x" size={12} />
+                </button>
+              )}
             </div>
           ))}
 
