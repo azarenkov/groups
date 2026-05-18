@@ -520,9 +520,6 @@ const ServersPage: React.FC = () => {
           }}
           onAddDm={() => setIsAddFriendOpen(true)}
           onOpenPendingRequests={() => setIsPendingOpen(true)}
-          onRemoveDm={(dm) =>
-            setDeleteConfirm({ type: "friend", id: dm.id, name: dm.name })
-          }
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
@@ -554,6 +551,13 @@ const ServersPage: React.FC = () => {
                   color: selectedDm.color,
                   online: selectedDm.online,
                 }}
+                onRemoveFriend={() =>
+                  setDeleteConfirm({
+                    type: "friend",
+                    id: selectedDm.id,
+                    name: selectedDm.name,
+                  })
+                }
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
               <div className="voice-stage-wrap">
