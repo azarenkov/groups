@@ -818,7 +818,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               title="Remove friend"
               onClick={onRemoveFriend}
             >
-              <Icon name="trash" size={16} />
+              <Icon name="user-check" size={16} />
             </button>
           )}
           <button type="button" className="icon-btn" title="Conversation settings">
