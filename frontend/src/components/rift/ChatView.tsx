@@ -209,7 +209,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [convId, isText, isDm, messenger]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convId, isText, isDm]);
 
   React.useEffect(() => {
     if (!bodyRef.current) return;
@@ -261,7 +262,8 @@ const ChatView: React.FC<ChatViewProps> = ({
       loadingOlderRef.current = false;
       setLoadingOlder(false);
     }
-  }, [convId, messenger, hasMore, messages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convId, hasMore, messages]);
 
   const handleScroll = React.useCallback(() => {
     const b = bodyRef.current;
@@ -300,7 +302,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
     const timeout = window.setTimeout(() => setSearchQuery(trimmed), 250);
     return () => window.clearTimeout(timeout);
-  }, [searchInput, searchOpen, convId, messenger]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput, searchOpen, convId]);
 
   React.useEffect(() => {
     if (!searchOpen || !messenger) return;
@@ -329,7 +332,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [searchQuery, searchOpen, convId, messenger]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, searchOpen, convId]);
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
     if (!messenger || !convId) return;
@@ -449,6 +453,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     setSending(true);
     setComposerError(null);
 
+    const remaining = [...chunks];
+    const updateComposer = () => setText(remaining.join("\n\n"));
+
     const sendChunk = async (chunk: string) => {
       const msg = await sendOnce(chunk);
       setMessages((prev) => [...prev, msg]);
@@ -456,7 +463,9 @@ const ChatView: React.FC<ChatViewProps> = ({
 
     try {
       try {
-        await sendChunk(chunks[0]);
+        await sendChunk(remaining[0]);
+        remaining.shift();
+        updateComposer();
       } catch (err) {
         const apiErr = err instanceof ApiError ? err : null;
         const code = apiErr?.code;
@@ -464,7 +473,9 @@ const ChatView: React.FC<ChatViewProps> = ({
           try {
             await channelAPI.joinText(serverId, channel.id);
             await refreshHistoryAfterJoin();
-            await sendChunk(chunks[0]);
+            await sendChunk(remaining[0]);
+            remaining.shift();
+            updateComposer();
           } catch (joinErr) {
             const joinApi = joinErr instanceof ApiError ? joinErr : null;
             const jc = joinApi?.code;
@@ -476,7 +487,9 @@ const ChatView: React.FC<ChatViewProps> = ({
               }
               await channelAPI.joinText(serverId, channel.id, pw);
               await refreshHistoryAfterJoin();
-              await sendChunk(chunks[0]);
+              await sendChunk(remaining[0]);
+              remaining.shift();
+              updateComposer();
             } else {
               setComposerError(joinApi?.message || "Couldn't join channel.");
               return;
@@ -486,10 +499,11 @@ const ChatView: React.FC<ChatViewProps> = ({
           throw err;
         }
       }
-      for (let i = 1; i < chunks.length; i++) {
-        await sendChunk(chunks[i]);
+      while (remaining.length > 0) {
+        await sendChunk(remaining[0]);
+        remaining.shift();
+        updateComposer();
       }
-      setText("");
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
