@@ -50,22 +50,26 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="m-head">Add friend</div>
+        <div className="m-head">
+          <h3>Add friend</h3>
+        </div>
         <form onSubmit={handleSubmit}>
           <div className="m-body">
-            <label className="form-label">Username</label>
-            <input
-              autoFocus
-              type="text"
-              placeholder="Enter exact username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              maxLength={100}
-              disabled={submitting}
-            />
-            {error && <div className="form-error">{error}</div>}
+            <div className="m-field">
+              <label>Username</label>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Enter exact username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                maxLength={100}
+                disabled={submitting}
+              />
+            </div>
+            {error && <div className="m-error">{error}</div>}
           </div>
           <div className="m-foot">
             <button type="button" onClick={onClose} disabled={submitting}>
