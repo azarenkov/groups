@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT m.id, m.sender_id, m.recipient_id,\n                       u.name AS sender_name,\n                       m.content, m.created_at, m.edited_at\n                FROM dm_messages m\n                INNER JOIN users u ON u.id = m.sender_id\n                WHERE (m.sender_id = $1 AND m.recipient_id = $2)\n                   OR (m.sender_id = $2 AND m.recipient_id = $1)\n                ORDER BY m.created_at DESC, m.id DESC\n                LIMIT $3\n                ",
+  "query": "\n                    SELECT m.id, m.sender_id, m.recipient_id,\n                           u.name AS sender_name,\n                           m.content, m.created_at, m.edited_at\n                    FROM dm_messages m\n                    INNER JOIN users u ON u.id = m.sender_id\n                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                      AND (m.created_at, m.id) > ($3, $4)\n                    ORDER BY m.created_at ASC, m.id ASC\n                    LIMIT $5\n                    ",
   "describe": {
     "columns": [
       {
@@ -43,6 +43,8 @@
       "Left": [
         "Uuid",
         "Uuid",
+        "Timestamptz",
+        "Uuid",
         "Int8"
       ]
     },
@@ -56,5 +58,5 @@
       true
     ]
   },
-  "hash": "e5a7d4613ccf70b09c8b0567debe6fa384d3ede74933e77fd018ebe587a08597"
+  "hash": "e26662db4b16c8cb76d79fc1c1079c9c1c168b1b92a7bc1d4bcae8ac9a42393c"
 }

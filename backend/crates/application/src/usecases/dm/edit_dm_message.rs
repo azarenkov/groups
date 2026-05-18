@@ -61,6 +61,10 @@ where
                 other => EditDmMessageError::Repository(other),
             })?;
 
+        if message.sender_id() != &editor_id {
+            return Err(EditDmMessageError::NotFound);
+        }
+
         let new_content = MessageContent::new(request.content)?;
         let now = Utc::now();
         message.edit(new_content, editor_id, now)?;

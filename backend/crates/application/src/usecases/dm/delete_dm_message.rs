@@ -58,6 +58,10 @@ where
                 other => DeleteDmMessageError::Repository(other),
             })?;
 
+        if message.sender_id() != &deleter_id {
+            return Err(DeleteDmMessageError::NotFound);
+        }
+
         let now = Utc::now();
         message.mark_deleted(deleter_id, now)?;
         let request_id = request.ctx.request_id.clone();

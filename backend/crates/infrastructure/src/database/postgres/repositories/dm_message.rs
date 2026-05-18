@@ -38,8 +38,8 @@ impl PostgresDmMessageRepository {
             SELECT id, created_at
             FROM dm_messages
             WHERE id = $1
-              AND ((sender_id = $2 AND recipient_id = $3)
-                OR (sender_id = $3 AND recipient_id = $2))
+              AND LEAST(sender_id, recipient_id) = LEAST($2::uuid, $3::uuid)
+              AND GREATEST(sender_id, recipient_id) = GREATEST($2::uuid, $3::uuid)
             "#,
             message_id.uuid(),
             user_a.uuid(),
@@ -196,8 +196,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.created_at, m.edited_at
                     FROM dm_messages m
                     INNER JOIN users u ON u.id = m.sender_id
-                    WHERE ((m.sender_id = $1 AND m.recipient_id = $2)
-                       OR (m.sender_id = $2 AND m.recipient_id = $1))
+                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
+                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                       AND (m.created_at, m.id) < ($3, $4)
                     ORDER BY m.created_at DESC, m.id DESC
                     LIMIT $5
@@ -232,8 +232,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.created_at, m.edited_at
                     FROM dm_messages m
                     INNER JOIN users u ON u.id = m.sender_id
-                    WHERE ((m.sender_id = $1 AND m.recipient_id = $2)
-                       OR (m.sender_id = $2 AND m.recipient_id = $1))
+                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
+                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                       AND (m.created_at, m.id) > ($3, $4)
                     ORDER BY m.created_at ASC, m.id ASC
                     LIMIT $5
@@ -268,8 +268,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                        m.content, m.created_at, m.edited_at
                 FROM dm_messages m
                 INNER JOIN users u ON u.id = m.sender_id
-                WHERE (m.sender_id = $1 AND m.recipient_id = $2)
-                   OR (m.sender_id = $2 AND m.recipient_id = $1)
+                WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
+                  AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                 ORDER BY m.created_at DESC, m.id DESC
                 LIMIT $3
                 "#,
@@ -307,8 +307,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             r#"
             SELECT COUNT(*) AS "count!"
             FROM dm_messages
-            WHERE ((sender_id = $1 AND recipient_id = $2)
-               OR (sender_id = $2 AND recipient_id = $1))
+            WHERE LEAST(sender_id, recipient_id) = LEAST($1::uuid, $2::uuid)
+              AND GREATEST(sender_id, recipient_id) = GREATEST($1::uuid, $2::uuid)
               AND search_tsv @@ plainto_tsquery('simple', $3)
             "#,
             user_a.uuid(),
@@ -327,8 +327,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    m.content, m.created_at, m.edited_at
             FROM dm_messages m
             INNER JOIN users u ON u.id = m.sender_id
-            WHERE ((m.sender_id = $1 AND m.recipient_id = $2)
-               OR (m.sender_id = $2 AND m.recipient_id = $1))
+            WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
+              AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
               AND m.search_tsv @@ plainto_tsquery('simple', $3)
             ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $3)) DESC,
                      m.created_at DESC, m.id DESC
