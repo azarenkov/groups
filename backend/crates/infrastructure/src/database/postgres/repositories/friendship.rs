@@ -68,7 +68,12 @@ impl FriendshipRepository for PostgresFriendshipRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        for row in [outgoing, incoming] {
+        let mut pair = [outgoing, incoming];
+        pair.sort_by(|a, b| {
+            (a.user_id.uuid(), a.friend_id.uuid())
+                .cmp(&(b.user_id.uuid(), b.friend_id.uuid()))
+        });
+        for row in pair {
             let status_dto = FriendshipStatusDto::from(row.status);
             sqlx::query!(
                 r#"

@@ -18,7 +18,7 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [highlightIdx, setHighlightIdx] = useState(0);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const sendRequest = useFriendshipStore((s) => s.sendRequest);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -39,7 +39,7 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
       setSubmitting(false);
       setSuggestions([]);
       setShowSuggestions(false);
-      setHighlightIdx(0);
+      setHighlightIdx(-1);
     }
   }, [isOpen]);
 
@@ -58,7 +58,7 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
         if (cancelled) return;
         setSuggestions(users);
         setShowSuggestions(true);
-        setHighlightIdx(0);
+        setHighlightIdx(-1);
       } catch (err) {
         if (!cancelled) {
           console.warn("[AddFriendModal] user search failed:", err);
@@ -106,15 +106,21 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
     if (!showSuggestions || suggestions.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightIdx((i) => Math.min(i + 1, suggestions.length - 1));
+      setHighlightIdx((i) =>
+        i < 0 ? 0 : Math.min(i + 1, suggestions.length - 1),
+      );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightIdx((i) => Math.max(i - 1, 0));
+      setHighlightIdx((i) =>
+        i < 0 ? suggestions.length - 1 : Math.max(i - 1, 0),
+      );
     } else if (e.key === "Enter") {
+      if (highlightIdx < 0) return;
       e.preventDefault();
       const picked = suggestions[highlightIdx];
       if (picked) pickSuggestion(picked);
     } else if (e.key === "Tab") {
+      if (highlightIdx < 0) return;
       const picked = suggestions[highlightIdx];
       if (picked) {
         e.preventDefault();
