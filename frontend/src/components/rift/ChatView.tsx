@@ -540,13 +540,17 @@ const ChatView: React.FC<ChatViewProps> = ({
         onOpenChannelSettings={onOpenChannelSettings}
         onRemoveFriend={onRemoveFriend}
       />
-      {searchOpen && channel && (
+      {searchOpen && (channel || dm) && (
         <div className="search-bar">
           <Icon name="search" size={14} />
           <input
             autoFocus
             type="text"
-            placeholder={`Search in #${channel.name}`}
+            placeholder={
+              channel
+                ? `Search in #${channel.name}`
+                : `Search with ${dm!.name}`
+            }
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => {
@@ -824,6 +828,16 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           <button type="button" className="icon-btn" title="Start a voice call">
             <Icon name="mic" size={16} />
           </button>
+          {onToggleSearch && (
+            <button
+              type="button"
+              className={"icon-btn" + (searchActive ? " on" : "")}
+              title={searchActive ? "Close search" : "Search messages"}
+              onClick={onToggleSearch}
+            >
+              <Icon name="search" size={15} />
+            </button>
+          )}
           {onRemoveFriend && (
             <button
               type="button"
