@@ -12,6 +12,7 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    user::search_users::SearchUsers,
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
         delete_channel::DeleteChannel, delete_channel_message::DeleteChannelMessage,
@@ -193,6 +194,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let remove_friendship_usecase = RemoveFriendship::new(friendship_repository.clone());
     let list_friends_usecase = ListFriends::new(friendship_repository.clone());
 
+    let search_users_usecase = SearchUsers::new(user_repository.clone());
+
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
         join_voice_channel_usecase,
@@ -222,6 +225,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         accept_friend_request_usecase,
         remove_friendship_usecase,
         list_friends_usecase,
+        search_users_usecase,
         server_config.jwt_secret,
         server_config.trust_forwarded_headers,
     ));

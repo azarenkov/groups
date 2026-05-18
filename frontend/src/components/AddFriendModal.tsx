@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ApiError } from "../utils/apiError";
+import { friendshipAPI } from "../api/friendship";
 import { useFriendshipStore } from "../store/friendshipStore";
 
 interface AddFriendModalProps {
@@ -7,11 +8,20 @@ interface AddFriendModalProps {
   onClose: () => void;
 }
 
+interface Suggestion {
+  id: string;
+  name: string;
+}
+
 const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [highlightIdx, setHighlightIdx] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const sendRequest = useFriendshipStore((s) => s.sendRequest);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -27,14 +37,45 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
       setUsername("");
       setError(null);
       setSubmitting(false);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setHighlightIdx(0);
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const trimmed = username.trim();
+    if (trimmed.length === 0) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      try {
+        const users = await friendshipAPI.searchUsers(trimmed, 8);
+        if (cancelled) return;
+        setSuggestions(users);
+        setShowSuggestions(true);
+        setHighlightIdx(0);
+      } catch {
+        if (!cancelled) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [username, isOpen]);
+
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = username.trim();
+  const submit = async (name: string) => {
+    const trimmed = name.trim();
     if (!trimmed) return;
     setSubmitting(true);
     setError(null);
@@ -49,6 +90,39 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void submit(username);
+  };
+
+  const pickSuggestion = (s: Suggestion) => {
+    setUsername(s.name);
+    setShowSuggestions(false);
+    void submit(s.name);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIdx((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const picked = suggestions[highlightIdx];
+      if (picked) pickSuggestion(picked);
+    } else if (e.key === "Tab") {
+      const picked = suggestions[highlightIdx];
+      if (picked) {
+        e.preventDefault();
+        setUsername(picked.name);
+        setShowSuggestions(false);
+      }
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -57,17 +131,42 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
         </div>
         <form onSubmit={handleSubmit}>
           <div className="m-body">
-            <div className="m-field">
+            <div className="m-field" style={{ position: "relative" }}>
               <label>Username</label>
               <input
+                ref={inputRef}
                 autoFocus
                 type="text"
-                placeholder="Enter exact username"
+                placeholder="Start typing a username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={onKeyDown}
+                onFocus={() =>
+                  suggestions.length > 0 && setShowSuggestions(true)
+                }
                 maxLength={100}
                 disabled={submitting}
+                autoComplete="off"
               />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="user-suggest">
+                  {suggestions.map((s, i) => (
+                    <div
+                      key={s.id}
+                      className={
+                        "user-suggest-item" + (i === highlightIdx ? " on" : "")
+                      }
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        pickSuggestion(s);
+                      }}
+                      onMouseEnter={() => setHighlightIdx(i)}
+                    >
+                      {s.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {error && <div className="m-error">{error}</div>}
           </div>

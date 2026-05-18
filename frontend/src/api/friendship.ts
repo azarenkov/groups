@@ -76,6 +76,16 @@ class FriendshipAPI {
     });
     return response.data.data;
   }
+
+  async searchUsers(
+    query: string,
+    limit: number = 8,
+  ): Promise<{ id: string; name: string }[]> {
+    const response = await this.client.get("/v1/users/search", {
+      params: { q: query, limit },
+    });
+    return response.data.data.users;
+  }
 }
 
 export const friendshipAPI = new FriendshipAPI();

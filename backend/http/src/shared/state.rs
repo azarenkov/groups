@@ -8,6 +8,7 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    user::search_users::SearchUsers,
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         delete_channel_message::DeleteChannelMessage,
@@ -110,6 +111,8 @@ pub struct AppState {
     pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
 
+    pub search_users_usecase: SearchUsers<PostgresUserRepository>,
+
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
@@ -207,6 +210,7 @@ impl AppState {
         accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipRepository>,
         remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
         list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
+        search_users_usecase: SearchUsers<PostgresUserRepository>,
         jwt_secret: String,
         trust_forwarded_headers: bool,
     ) -> Self {
@@ -239,6 +243,7 @@ impl AppState {
             accept_friend_request_usecase,
             remove_friendship_usecase,
             list_friends_usecase,
+            search_users_usecase,
             jwt_secret,
             trust_forwarded_headers,
         }

@@ -511,6 +511,29 @@ select:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-tint);
 }
+.user-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 10;
+}
+.user-suggest-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--fg-1);
+  cursor: pointer;
+}
+.user-suggest-item.on,
+.user-suggest-item:hover {
+  background: var(--surface-hover);
+}
+
 .modal .m-error {
   margin-top: 8px;
   padding: 8px 10px;

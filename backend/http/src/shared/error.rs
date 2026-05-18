@@ -14,6 +14,7 @@ use application::usecases::friendship::{
     accept_friend_request::AcceptFriendRequestError, list_friends::ListFriendsError,
     remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
 };
+use application::usecases::user::search_users::SearchUsersError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
@@ -1357,6 +1358,29 @@ impl ToHttpStatus for RemoveFriendshipError {
     }
 }
 
+impl ToHttpStatus for SearchUsersError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SearchUsersError::Repository(e) => e.to_http_status(),
+            SearchUsersError::QueryTooShort => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            SearchUsersError::Repository(e) => e.to_user_message(),
+            SearchUsersError::QueryTooShort => "Search query too short".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SearchUsersError::Repository(e) => e.to_error_code(),
+            SearchUsersError::QueryTooShort => "QUERY_TOO_SHORT",
+        }
+    }
+}
+
 impl ToHttpStatus for ListFriendsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1507,6 +1531,7 @@ impl_from_for_api_error!(
     AcceptFriendRequestError,
     RemoveFriendshipError,
     ListFriendsError,
+    SearchUsersError,
 );
 
 impl From<ValidationErrors> for ApiError {
