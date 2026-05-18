@@ -32,7 +32,6 @@ import {
 } from "../types/channel";
 import { Server } from "../types/server";
 import {
-  SEED_DIRECTS,
   type MockDirect,
   type MockMember,
 } from "../data/mockData";
