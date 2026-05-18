@@ -9,6 +9,9 @@ import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
+import AddFriendModal from "../components/AddFriendModal";
+import { useFriendshipStore } from "../store/friendshipStore";
+import { friendshipAPI } from "../api/friendship";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
@@ -98,6 +101,11 @@ const ServersPage: React.FC = () => {
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  const friends = useFriendshipStore((s) => s.friends);
+  const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
+  const acceptFriend = useFriendshipStore((s) => s.accept);
+  const removeFriend = useFriendshipStore((s) => s.remove);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "server" | "channel";
@@ -121,7 +129,46 @@ const ServersPage: React.FC = () => {
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
-  const [directs, setDirects] = useState<MockDirect[]>(SEED_DIRECTS);
+  const [directs, setDirects] = useState<MockDirect[]>([]);
+
+  const PALETTE = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a", "#5e6ad2"];
+  const colorFor = (id: string): string => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  };
+  const initialsFor = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
+
+  const acceptedFriends: MockDirect[] = React.useMemo(
+    () =>
+      friends
+        .filter((f) => f.status === "accepted")
+        .map((f) => ({
+          id: f.friendId,
+          name: f.friendName,
+          initials: initialsFor(f.friendName),
+          color: colorFor(f.friendId),
+          online: false,
+          unread: 0,
+        })),
+    [friends],
+  );
+
+  const pendingFriends = React.useMemo(
+    () =>
+      friends
+        .filter((f) => f.status !== "accepted")
+        .map((f) => ({
+          id: f.friendId,
+          name: f.friendName,
+          initials: initialsFor(f.friendName),
+          color: colorFor(f.friendId),
+          direction: (f.status === "pending_incoming" ? "incoming" : "outgoing") as
+            | "incoming"
+            | "outgoing",
+        })),
+    [friends],
+  );
 
   const [channelOverrides, setChannelOverrides] =
     useState<Record<string, ChannelOverride>>({});
@@ -138,9 +185,11 @@ const ServersPage: React.FC = () => {
     if (tokens?.accessToken) {
       serverAPI.setAuthToken(tokens.accessToken);
       channelAPI.setAuthToken(tokens.accessToken);
+      friendshipAPI.setAuthToken(tokens.accessToken);
       fetchServers();
+      fetchFriends();
     }
-  }, [tokens, fetchServers]);
+  }, [tokens, fetchServers, fetchFriends]);
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
@@ -410,6 +459,7 @@ const ServersPage: React.FC = () => {
   const handleLogout = async () => {
     serverAPI.removeAuthToken();
     channelAPI.removeAuthToken();
+    friendshipAPI.removeAuthToken();
     await signOut();
   };
 
@@ -452,7 +502,8 @@ const ServersPage: React.FC = () => {
           selectedChannelId={selectedChannelId}
           joinedChannelId={joinedChannel?.channel.id ?? null}
           selectedDmId={selectedDm?.id ?? null}
-          directs={directs}
+          directs={acceptedFriends}
+          pendingFriends={pendingFriends}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}
@@ -462,7 +513,13 @@ const ServersPage: React.FC = () => {
             setChannelModalServerId(server.id);
             setIsChannelModalOpen(true);
           }}
-          onAddDm={() => setIsDmModalOpen(true)}
+          onAddDm={() => setIsAddFriendOpen(true)}
+          onAcceptFriend={(id) => {
+            void acceptFriend(id);
+          }}
+          onCancelFriendRequest={(id) => {
+            void removeFriend(id);
+          }}
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
@@ -805,6 +862,11 @@ const ServersPage: React.FC = () => {
         existingDirects={directs}
         onClose={() => setIsDmModalOpen(false)}
         onPick={handlePickDmFromModal}
+      />
+
+      <AddFriendModal
+        isOpen={isAddFriendOpen}
+        onClose={() => setIsAddFriendOpen(false)}
       />
 
       {editingChannel && (

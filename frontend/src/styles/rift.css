@@ -249,6 +249,41 @@ select:focus-visible {
 .sb-item .meta { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); letter-spacing: 0; }
 .sb-item .lock { color: var(--fg-4); }
 
+.sb-subsection {
+  padding: 4px 8px 2px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.sb-pending-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.sb-pending-row .sb-icon { flex-shrink: 0; width: 16px; }
+.sb-pending-row .sb-label {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; flex-direction: column;
+}
+.sb-pending-tag {
+  font-size: 10px;
+  color: var(--fg-3);
+}
+.sb-pending-btn {
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 6px;
+  padding: 2px 4px;
+  color: var(--fg-2);
+  cursor: pointer;
+  display: flex; align-items: center;
+}
+.sb-pending-btn.accept:hover { color: #30d158; border-color: #30d158; }
+.sb-pending-btn.decline:hover { color: var(--danger); border-color: var(--danger); }
+
 .sb-item.unread .sb-label { font-weight: 600; }
 .sb-item.unread:not(.active) .sb-label::before {
   content: "";

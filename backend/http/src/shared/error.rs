@@ -10,6 +10,10 @@ use application::ports::{
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
 use application::usecases::channel::search_channel_messages::SearchChannelMessagesError;
+use application::usecases::friendship::{
+    accept_friend_request::AcceptFriendRequestError, list_friends::ListFriendsError,
+    remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
+};
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
@@ -33,6 +37,7 @@ use application::usecases::{
     webhook::voice::HandleVoiceWebhookError,
 };
 use domain::channel::ChannelError;
+use domain::friendship::FriendshipError;
 use domain::message::MessageError;
 use domain::shared::outbox::to_outbox::OutboxError;
 use domain::shared::pagination::PaginationError;
@@ -220,6 +225,33 @@ impl ToHttpStatus for MessageError {
             MessageError::ContentTooLong => "MESSAGE_CONTENT_TOO_LONG",
             MessageError::ContentUnchanged => "MESSAGE_CONTENT_UNCHANGED",
             MessageError::NotAuthor => "MESSAGE_NOT_AUTHOR",
+        }
+    }
+}
+
+impl ToHttpStatus for FriendshipError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            FriendshipError::SelfFriendship => StatusCode::BAD_REQUEST,
+            FriendshipError::AlreadyRequested
+            | FriendshipError::AlreadyFriends => StatusCode::CONFLICT,
+            FriendshipError::NoPendingRequest | FriendshipError::NotFriends => {
+                StatusCode::NOT_FOUND
+            }
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        self.to_string()
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            FriendshipError::SelfFriendship => "FRIENDSHIP_SELF",
+            FriendshipError::AlreadyRequested => "FRIEND_REQUEST_ALREADY_SENT",
+            FriendshipError::AlreadyFriends => "ALREADY_FRIENDS",
+            FriendshipError::NoPendingRequest => "NO_PENDING_REQUEST",
+            FriendshipError::NotFriends => "NOT_FRIENDS",
         }
     }
 }
@@ -1216,6 +1248,135 @@ impl ToHttpStatus for SearchChannelMessagesError {
     }
 }
 
+impl ToHttpStatus for SendFriendRequestError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SendFriendRequestError::Repository(e) => e.to_http_status(),
+            SendFriendRequestError::Domain(e) => e.to_http_status(),
+            SendFriendRequestError::Outbox(e) => e.to_http_status(),
+            SendFriendRequestError::InvalidUsername => StatusCode::BAD_REQUEST,
+            SendFriendRequestError::UserNotFound => StatusCode::NOT_FOUND,
+            SendFriendRequestError::SelfTarget => StatusCode::BAD_REQUEST,
+            SendFriendRequestError::AlreadyRequested => StatusCode::CONFLICT,
+            SendFriendRequestError::AlreadyFriends => StatusCode::CONFLICT,
+            SendFriendRequestError::IncomingPending => StatusCode::CONFLICT,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            SendFriendRequestError::Repository(e) => e.to_user_message(),
+            SendFriendRequestError::Domain(e) => e.to_user_message(),
+            SendFriendRequestError::Outbox(e) => e.to_user_message(),
+            SendFriendRequestError::InvalidUsername => "Invalid username".to_string(),
+            SendFriendRequestError::UserNotFound => "User not found".to_string(),
+            SendFriendRequestError::SelfTarget => {
+                "You cannot send a friend request to yourself".to_string()
+            }
+            SendFriendRequestError::AlreadyRequested => {
+                "Friend request already sent".to_string()
+            }
+            SendFriendRequestError::AlreadyFriends => {
+                "You are already friends with this user".to_string()
+            }
+            SendFriendRequestError::IncomingPending => {
+                "This user already sent you a friend request".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SendFriendRequestError::Repository(e) => e.to_error_code(),
+            SendFriendRequestError::Domain(e) => e.to_error_code(),
+            SendFriendRequestError::Outbox(e) => e.to_error_code(),
+            SendFriendRequestError::InvalidUsername => "INVALID_USERNAME",
+            SendFriendRequestError::UserNotFound => "USER_NOT_FOUND",
+            SendFriendRequestError::SelfTarget => "SELF_FRIEND_REQUEST",
+            SendFriendRequestError::AlreadyRequested => "FRIEND_REQUEST_ALREADY_SENT",
+            SendFriendRequestError::AlreadyFriends => "ALREADY_FRIENDS",
+            SendFriendRequestError::IncomingPending => "INCOMING_REQUEST_PENDING",
+        }
+    }
+}
+
+impl ToHttpStatus for AcceptFriendRequestError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            AcceptFriendRequestError::Repository(e) => e.to_http_status(),
+            AcceptFriendRequestError::Domain(e) => e.to_http_status(),
+            AcceptFriendRequestError::Outbox(e) => e.to_http_status(),
+            AcceptFriendRequestError::NoPendingRequest => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            AcceptFriendRequestError::Repository(e) => e.to_user_message(),
+            AcceptFriendRequestError::Domain(e) => e.to_user_message(),
+            AcceptFriendRequestError::Outbox(e) => e.to_user_message(),
+            AcceptFriendRequestError::NoPendingRequest => {
+                "No pending friend request from this user".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            AcceptFriendRequestError::Repository(e) => e.to_error_code(),
+            AcceptFriendRequestError::Domain(e) => e.to_error_code(),
+            AcceptFriendRequestError::Outbox(e) => e.to_error_code(),
+            AcceptFriendRequestError::NoPendingRequest => "NO_PENDING_REQUEST",
+        }
+    }
+}
+
+impl ToHttpStatus for RemoveFriendshipError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RemoveFriendshipError::Repository(e) => e.to_http_status(),
+            RemoveFriendshipError::Outbox(e) => e.to_http_status(),
+            RemoveFriendshipError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RemoveFriendshipError::Repository(e) => e.to_user_message(),
+            RemoveFriendshipError::Outbox(e) => e.to_user_message(),
+            RemoveFriendshipError::NotFound => "Friendship not found".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RemoveFriendshipError::Repository(e) => e.to_error_code(),
+            RemoveFriendshipError::Outbox(e) => e.to_error_code(),
+            RemoveFriendshipError::NotFound => "FRIENDSHIP_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for ListFriendsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListFriendsError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListFriendsError::Repository(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListFriendsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for ListChannelParticipantsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1342,6 +1503,10 @@ impl_from_for_api_error!(
     SendChannelMessageError,
     EditChannelMessageError,
     DeleteChannelMessageError,
+    SendFriendRequestError,
+    AcceptFriendRequestError,
+    RemoveFriendshipError,
+    ListFriendsError,
 );
 
 impl From<ValidationErrors> for ApiError {

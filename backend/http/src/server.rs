@@ -8,6 +8,10 @@ use application::usecases::{
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
+    friendship::{
+        accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
+        remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
+    },
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
         delete_channel::DeleteChannel, delete_channel_message::DeleteChannelMessage,
@@ -32,7 +36,9 @@ use infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            channel::PostgresChannelRepository, message::PostgresMessageRepository,
+            channel::PostgresChannelRepository,
+            friendship::PostgresFriendshipRepository,
+            message::PostgresMessageRepository,
             refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
             user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
@@ -176,6 +182,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
 
+    let friendship_repository =
+        Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
+    let send_friend_request_usecase = SendFriendRequest::new(
+        friendship_repository.clone(),
+        user_repository.clone(),
+    );
+    let accept_friend_request_usecase =
+        AcceptFriendRequest::new(friendship_repository.clone());
+    let remove_friendship_usecase = RemoveFriendship::new(friendship_repository.clone());
+    let list_friends_usecase = ListFriends::new(friendship_repository.clone());
+
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
         join_voice_channel_usecase,
@@ -201,6 +218,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_servers_by_user_usecase,
         list_server_members_usecase,
         list_server_channels_usecase,
+        send_friend_request_usecase,
+        accept_friend_request_usecase,
+        remove_friendship_usecase,
+        list_friends_usecase,
         server_config.jwt_secret,
         server_config.trust_forwarded_headers,
     ));

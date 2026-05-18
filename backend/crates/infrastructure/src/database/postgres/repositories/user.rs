@@ -155,6 +155,31 @@ impl UserRepository for PostgresUserRepository {
         Ok(dto.map(User::from))
     }
 
+    async fn find_by_name(&self, name: &UserName) -> Result<Option<User>, RepositoryError> {
+        let dto = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT
+                id,
+                name,
+                email,
+                password_hash,
+                created_at,
+                updated_at,
+                email_verified_at,
+                phone_verified_at
+            FROM users
+            WHERE name = $1
+            "#,
+            name.as_str(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(dto.map(User::from))
+    }
+
     async fn get_password_hash_by_email(
         &self,
         email: &Email,

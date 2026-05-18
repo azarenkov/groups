@@ -21,6 +21,7 @@ pub trait UserRepository {
     ) -> Result<(), RepositoryError>;
     async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError>;
+    async fn find_by_name(&self, name: &UserName) -> Result<Option<User>, RepositoryError>;
     async fn get_password_hash_by_email(
         &self,
         email: &Email,

@@ -4,6 +4,14 @@ import type { Server } from "../../types/server";
 import type { Channel } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 
+interface PendingFriend {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  direction: "incoming" | "outgoing";
+}
+
 interface SidebarProps {
   servers: Server[];
   channelsByServer: Record<string, Channel[]>;
@@ -12,6 +20,7 @@ interface SidebarProps {
   joinedChannelId: string | null;
   selectedDmId: string | null;
   directs: MockDirect[];
+  pendingFriends?: PendingFriend[];
   onToggleServer: (serverId: string) => void;
   onSelectServer: (serverId: string) => void;
   onSelectChannel: (server: Server, channel: Channel) => void;
@@ -19,6 +28,8 @@ interface SidebarProps {
   onAddServer: () => void;
   onAddChannel: (server: Server) => void;
   onAddDm: () => void;
+  onAcceptFriend?: (friendId: string) => void;
+  onCancelFriendRequest?: (friendId: string) => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
@@ -41,6 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   joinedChannelId,
   selectedDmId,
   directs,
+  pendingFriends = [],
   onToggleServer,
   onSelectServer,
   onSelectChannel,
@@ -48,6 +60,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddServer,
   onAddChannel,
   onAddDm,
+  onAcceptFriend,
+  onCancelFriendRequest,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
@@ -103,7 +117,66 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Icon name="chev" size={12} className="chev" />
           </span>
         </div>
-        {!directsCollapsed && directs.length === 0 && (
+        {!directsCollapsed && pendingFriends.length > 0 && (
+          <>
+            <div className="sb-subsection">Pending</div>
+            {pendingFriends.map((p) => (
+              <div key={p.id} className="sb-pending-row" title={p.name}>
+                <span className="sb-icon">
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: p.color,
+                      color: "#fff",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {p.initials}
+                  </span>
+                </span>
+                <span className="sb-label">
+                  {p.name}
+                  <span className="sb-pending-tag">
+                    {p.direction === "incoming" ? "wants to add you" : "request sent"}
+                  </span>
+                </span>
+                {p.direction === "incoming" && onAcceptFriend && (
+                  <button
+                    type="button"
+                    className="sb-pending-btn accept"
+                    title="Accept"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAcceptFriend(p.id);
+                    }}
+                  >
+                    <Icon name="check" size={12} />
+                  </button>
+                )}
+                {onCancelFriendRequest && (
+                  <button
+                    type="button"
+                    className="sb-pending-btn decline"
+                    title={p.direction === "incoming" ? "Decline" : "Cancel"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCancelFriendRequest(p.id);
+                    }}
+                  >
+                    <Icon name="x" size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+        {!directsCollapsed && directs.length === 0 && pendingFriends.length === 0 && (
           <div className="sb-item" style={{ color: "var(--fg-3)", cursor: "default" }}>
             <span className="sb-label">No direct messages yet</span>
           </div>
