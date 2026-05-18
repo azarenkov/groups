@@ -378,6 +378,18 @@ const ChatView: React.FC<ChatViewProps> = ({
     });
   };
 
+  React.useEffect(() => {
+    if (!searchOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        toggleSearch();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
+
   const handleJoinFromAccessError = async () => {
     if (!channel || !serverId) return;
     try {
