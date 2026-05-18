@@ -8,6 +8,11 @@ use application::usecases::{
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
+    dm::{
+        delete_dm_message::DeleteDmMessage, edit_dm_message::EditDmMessage,
+        list_dm_messages::ListDmMessages, search_dm_messages::SearchDmMessages,
+        send_dm_message::SendDmMessage,
+    },
     friendship::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
@@ -38,6 +43,7 @@ use infrastructure::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
             channel::PostgresChannelRepository,
+            dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository,
             message::PostgresMessageRepository,
             refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
@@ -196,6 +202,22 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let search_users_usecase = SearchUsers::new(user_repository.clone());
 
+    let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
+    let send_dm_message_usecase = SendDmMessage::new(
+        dm_repository.clone(),
+        friendship_repository.clone(),
+    );
+    let edit_dm_message_usecase = EditDmMessage::new(dm_repository.clone());
+    let delete_dm_message_usecase = DeleteDmMessage::new(dm_repository.clone());
+    let list_dm_messages_usecase = ListDmMessages::new(
+        dm_repository.clone(),
+        friendship_repository.clone(),
+    );
+    let search_dm_messages_usecase = SearchDmMessages::new(
+        dm_repository.clone(),
+        friendship_repository.clone(),
+    );
+
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
         join_voice_channel_usecase,
@@ -226,6 +248,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         remove_friendship_usecase,
         list_friends_usecase,
         search_users_usecase,
+        send_dm_message_usecase,
+        edit_dm_message_usecase,
+        delete_dm_message_usecase,
+        list_dm_messages_usecase,
+        search_dm_messages_usecase,
         server_config.jwt_secret,
         server_config.trust_forwarded_headers,
     ));

@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT m.id, m.sender_id, m.recipient_id,\n                           u.name AS sender_name,\n                           m.content, m.created_at, m.edited_at\n                    FROM dm_messages m\n                    INNER JOIN users u ON u.id = m.sender_id\n                    WHERE ((m.sender_id = $1 AND m.recipient_id = $2)\n                       OR (m.sender_id = $2 AND m.recipient_id = $1))\n                      AND (m.created_at, m.id) < ($3, $4)\n                    ORDER BY m.created_at DESC, m.id DESC\n                    LIMIT $5\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sender_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "recipient_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "sender_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "edited_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "07e33c59f51185a5dd3b8bc031091e405a2de43ca24d1df5e6fbb9de1578c0db"
+}

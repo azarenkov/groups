@@ -4,6 +4,7 @@ use crate::handlers::health::{livez, readyz};
 
 pub mod auth;
 pub mod channel;
+pub mod dm;
 pub mod friendship;
 pub mod server;
 pub mod user;
@@ -24,6 +25,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 .service(
                     web::scope("/v1/users")
                         .configure(user::user_routes)
+                        .configure(dm::dm_routes)
                         .configure(friendship::friendship_routes),
                 ),
         );

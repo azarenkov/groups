@@ -2,6 +2,7 @@ import React from "react";
 import Icon from "./Icon";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
+import { dmAPI } from "../../api/dm";
 import { ChannelMessage } from "../../types/channel";
 import { ApiError } from "../../utils/apiError";
 
@@ -23,6 +24,7 @@ interface ChannelMeta {
 }
 
 interface DmMeta {
+  friendId: string;
   name: string;
   initials: string;
   color: string;
@@ -88,11 +90,52 @@ const ChatView: React.FC<ChatViewProps> = ({
   const lastScrollHeightRef = React.useRef(0);
   const loadedChannelIdRef = React.useRef<string | null>(null);
   const currentChannelIdRef = React.useRef<string | undefined>();
-  currentChannelIdRef.current = channel?.id;
+  const convId = channel?.id ?? dm?.friendId;
+  currentChannelIdRef.current = convId;
 
   const isText = !!channel && !!serverId;
-  const channelNotReady = isText && loadedChannelIdRef.current !== channel!.id;
-  const showInitialLoader = loadingInitial || channelNotReady;
+  const isDm = !!dm && !!dm.friendId;
+  const isConversation = isText || isDm;
+  const conversationNotReady =
+    isConversation && loadedChannelIdRef.current !== convId;
+  const showInitialLoader = loadingInitial || conversationNotReady;
+
+  const messenger = React.useMemo(() => {
+    if (isDm && dm) {
+      return {
+        listMessages: (opts: {
+          before?: string;
+          after?: string;
+          limit?: number;
+        }) => dmAPI.listMessages(dm.friendId, opts),
+        sendMessage: (content: string) =>
+          dmAPI.sendMessage(dm.friendId, content),
+        editMessage: (messageId: string, content: string) =>
+          dmAPI.editMessage(messageId, content),
+        deleteMessage: (messageId: string) => dmAPI.deleteMessage(messageId),
+        searchMessages: (query: string, page: number, perPage: number) =>
+          dmAPI.searchMessages(dm.friendId, query, page, perPage),
+      };
+    }
+    if (channel && serverId) {
+      return {
+        listMessages: (opts: {
+          before?: string;
+          after?: string;
+          limit?: number;
+        }) => channelAPI.listMessages(serverId, channel.id, opts),
+        sendMessage: (content: string) =>
+          channelAPI.sendMessage(serverId, channel.id, content),
+        editMessage: (messageId: string, content: string) =>
+          channelAPI.editMessage(serverId, channel.id, messageId, content),
+        deleteMessage: (messageId: string) =>
+          channelAPI.deleteMessage(serverId, channel.id, messageId),
+        searchMessages: (query: string, page: number, perPage: number) =>
+          channelAPI.searchMessages(serverId, channel.id, query, page, perPage),
+      };
+    }
+    return null;
+  }, [isDm, dm, channel, serverId]);
 
   React.useEffect(() => {
     setMessages([]);
@@ -109,13 +152,13 @@ const ChatView: React.FC<ChatViewProps> = ({
     setSearchResults([]);
     setSearchError(null);
     setSearchTotal(0);
-    if (!isText || !channel || !serverId) return;
+    if (!messenger || !convId) return;
 
     let cancelled = false;
     setLoadingInitial(true);
-    const targetChannelId = channel.id;
-    channelAPI
-      .listMessages(serverId, channel.id, { limit: PAGE_LIMIT })
+    const targetId = convId;
+    messenger
+      .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
         if (cancelled) return;
         const ordered = [...res.messages].reverse();
@@ -126,9 +169,10 @@ const ChatView: React.FC<ChatViewProps> = ({
         if (cancelled) return;
         const apiErr = err instanceof ApiError ? err : null;
         if (
-          apiErr?.code === "CHANNEL_NOT_MEMBER" ||
-          apiErr?.code === "CHANNEL_PASSWORD_REQUIRED" ||
-          apiErr?.code === "INVALID_CHANNEL_PASSWORD"
+          isText &&
+          (apiErr?.code === "CHANNEL_NOT_MEMBER" ||
+            apiErr?.code === "CHANNEL_PASSWORD_REQUIRED" ||
+            apiErr?.code === "INVALID_CHANNEL_PASSWORD")
         ) {
           setAccessError(apiErr.message || "You haven't joined this channel yet.");
         } else {
@@ -137,13 +181,13 @@ const ChatView: React.FC<ChatViewProps> = ({
       })
       .finally(() => {
         if (cancelled) return;
-        loadedChannelIdRef.current = targetChannelId;
+        loadedChannelIdRef.current = targetId;
         setLoadingInitial(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [channel?.id, serverId, isText]);
+  }, [convId, isText, isDm, messenger]);
 
   React.useEffect(() => {
     if (!bodyRef.current) return;
@@ -155,12 +199,12 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [messages.length, loadingInitial]);
 
   const loadOlder = React.useCallback(async () => {
-    if (!channel || !serverId) return;
+    if (!messenger || !convId) return;
     if (loadingOlderRef.current) return;
     if (!hasMore) return;
     if (messages.length === 0) return;
     const oldestId = messages[0].id;
-    const targetChannelId = channel.id;
+    const targetId = convId;
     loadingOlderRef.current = true;
     setLoadingOlder(true);
     const body = bodyRef.current;
@@ -170,11 +214,11 @@ const ChatView: React.FC<ChatViewProps> = ({
       prevScrollTop = body.scrollTop;
     }
     try {
-      const res = await channelAPI.listMessages(serverId, channel.id, {
+      const res = await messenger.listMessages({
         before: oldestId,
         limit: PAGE_LIMIT,
       });
-      if (loadedChannelIdRef.current !== targetChannelId) return;
+      if (loadedChannelIdRef.current !== targetId) return;
       const older = [...res.messages].reverse();
       if (older.length === 0) {
         setHasMore(false);
@@ -195,7 +239,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       loadingOlderRef.current = false;
       setLoadingOlder(false);
     }
-  }, [channel?.id, serverId, hasMore, messages]);
+  }, [convId, messenger, hasMore, messages]);
 
   const handleScroll = React.useCallback(() => {
     const b = bodyRef.current;
@@ -205,16 +249,14 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [loadOlder, searchOpen, searchInput]);
 
   const sendOnce = async (content: string): Promise<ChannelMessage> => {
-    if (!channel || !serverId) throw new Error("no channel");
-    return channelAPI.sendMessage(serverId, channel.id, content);
+    if (!messenger) throw new Error("no conversation");
+    return messenger.sendMessage(content);
   };
 
   const refreshHistoryAfterJoin = async () => {
-    if (!channel || !serverId) return;
+    if (!messenger) return;
     try {
-      const res = await channelAPI.listMessages(serverId, channel.id, {
-        limit: PAGE_LIMIT,
-      });
+      const res = await messenger.listMessages({ limit: PAGE_LIMIT });
       const ordered = [...res.messages].reverse();
       setMessages(ordered);
       setHasMore(res.messages.length >= PAGE_LIMIT);
@@ -226,7 +268,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     const trimmed = searchInput.trim();
     if (!searchOpen) return;
-    if (!channel || !serverId) return;
+    if (!messenger) return;
     if (trimmed.length === 0) {
       setSearchQuery("");
       setSearchResults([]);
@@ -236,17 +278,17 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
     const timeout = window.setTimeout(() => setSearchQuery(trimmed), 250);
     return () => window.clearTimeout(timeout);
-  }, [searchInput, searchOpen, channel?.id, serverId]);
+  }, [searchInput, searchOpen, convId, messenger]);
 
   React.useEffect(() => {
-    if (!searchOpen || !channel || !serverId) return;
+    if (!searchOpen || !messenger) return;
     const q = searchQuery.trim();
     if (q.length === 0) return;
     let cancelled = false;
     setSearchLoading(true);
     setSearchError(null);
-    channelAPI
-      .searchMessages(serverId, channel.id, q, 1, 50)
+    messenger
+      .searchMessages(q, 1, 50)
       .then((res) => {
         if (cancelled) return;
         setSearchResults(res.messages);
@@ -265,11 +307,11 @@ const ChatView: React.FC<ChatViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [searchQuery, searchOpen, channel?.id, serverId]);
+  }, [searchQuery, searchOpen, convId, messenger]);
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
-    if (!channel || !serverId) return;
-    const targetChannelId = channel.id;
+    if (!messenger || !convId) return;
+    const targetId = convId;
     setSearchInput("");
     setSearchQuery("");
     setSearchResults([]);
@@ -278,20 +320,20 @@ const ChatView: React.FC<ChatViewProps> = ({
     setLoadingInitial(true);
     try {
       const [olderRes, newerRes] = await Promise.all([
-        channelAPI.listMessages(serverId, targetChannelId, {
+        messenger.listMessages({
           before: target.id,
           limit: 25,
         }),
-        channelAPI.listMessages(serverId, targetChannelId, {
+        messenger.listMessages({
           after: target.id,
           limit: 25,
         }),
       ]);
-      if (currentChannelIdRef.current !== targetChannelId) return;
+      if (currentChannelIdRef.current !== targetId) return;
       const older = [...olderRes.messages].reverse();
       const newer = [...newerRes.messages].reverse();
       const combined = [...older, target, ...newer];
-      loadedChannelIdRef.current = targetChannelId;
+      loadedChannelIdRef.current = targetId;
       skipNextAutoScrollRef.current = true;
       setMessages(combined);
       setHasMore(olderRes.messages.length >= 25);
@@ -299,7 +341,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     } catch (err) {
       console.warn("[ChatView] failed to jump to message:", err);
     } finally {
-      if (currentChannelIdRef.current === targetChannelId) {
+      if (currentChannelIdRef.current === targetId) {
         setLoadingInitial(false);
       }
     }
@@ -364,7 +406,7 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!channel || !serverId) return;
+    if (!messenger) return;
     const v = text.trim();
     if (!v) return;
     if (v.length > MAX_CONTENT) {
@@ -380,7 +422,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
-      if (code === "CHANNEL_NOT_MEMBER") {
+      if (isText && channel && serverId && code === "CHANNEL_NOT_MEMBER") {
         try {
           await channelAPI.joinText(serverId, channel.id);
           await refreshHistoryAfterJoin();
@@ -434,7 +476,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const saveEdit = async (msg: ChannelMessage) => {
-    if (!channel || !serverId) return;
+    if (!messenger) return;
     const v = editText.trim();
     if (!v) {
       cancelEdit();
@@ -446,7 +488,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
     if (v.length > MAX_CONTENT) return;
     try {
-      await channelAPI.editMessage(serverId, channel.id, msg.id, v);
+      await messenger.editMessage(msg.id, v);
       const editedAt = new Date().toISOString();
       setMessages((prev) =>
         prev.map((m) => (m.id === msg.id ? { ...m, content: v, editedAt } : m)),
@@ -454,7 +496,10 @@ const ChatView: React.FC<ChatViewProps> = ({
       cancelEdit();
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      if (apiErr?.code === "MESSAGE_CONTENT_UNCHANGED") {
+      if (
+        apiErr?.code === "MESSAGE_CONTENT_UNCHANGED" ||
+        apiErr?.code === "DM_CONTENT_UNCHANGED"
+      ) {
         cancelEdit();
         return;
       }
@@ -463,10 +508,10 @@ const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget || !channel || !serverId) return;
+    if (!deleteTarget || !messenger) return;
     const target = deleteTarget;
     try {
-      await channelAPI.deleteMessage(serverId, channel.id, target.id);
+      await messenger.deleteMessage(target.id);
       setMessages((prev) => prev.filter((m) => m.id !== target.id));
     } catch (err) {
       console.warn("[ChatView] delete failed:", err);
@@ -483,49 +528,17 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const headerName = channel ? channel.name : dm!.name;
 
-  if (dm) {
-    return (
-      <>
-        <ChannelHeader
-          channel={undefined}
-          dm={dm}
-          membersOpen={membersOpen}
-          onToggleMembers={onToggleMembers}
-          onOpenChannelSettings={onOpenChannelSettings}
-          onRemoveFriend={onRemoveFriend}
-        />
-        <div className="chat-body">
-          <div className="empty-state">
-            <div className="icon-wrap">
-              <Icon name="user" size={22} />
-            </div>
-            <h3>Welcome to {dm.name}</h3>
-            <p>Direct messages aren't available yet.</p>
-          </div>
-        </div>
-        <form
-          className="composer"
-          onSubmit={(e) => {
-            e.preventDefault();
-          }}
-        >
-          <div className="composer-wrap">
-            <input placeholder={placeholder} value="" onChange={() => {}} disabled />
-          </div>
-        </form>
-      </>
-    );
-  }
-
   return (
     <>
       <ChannelHeader
         channel={channel}
+        dm={dm}
         membersOpen={membersOpen}
         searchActive={searchOpen}
         onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
+        onRemoveFriend={onRemoveFriend}
       />
       {searchOpen && channel && (
         <div className="search-bar">

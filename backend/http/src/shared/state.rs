@@ -4,6 +4,11 @@ use application::usecases::{
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
+    dm::{
+        delete_dm_message::DeleteDmMessage, edit_dm_message::EditDmMessage,
+        list_dm_messages::ListDmMessages, search_dm_messages::SearchDmMessages,
+        send_dm_message::SendDmMessage,
+    },
     friendship::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
@@ -29,9 +34,10 @@ use application::usecases::{
 use infrastructure::{
     auth::jwt_token_issuer::JwtTokenIssuer,
     database::postgres::repositories::{
-        channel::PostgresChannelRepository, friendship::PostgresFriendshipRepository,
-        message::PostgresMessageRepository, refresh_token::PostgresRefreshTokenRepository,
-        server::PostgresServerRepository, user::PostgresUserRepository,
+        channel::PostgresChannelRepository, dm_message::PostgresDmMessageRepository,
+        friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
+        refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
+        user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
@@ -112,6 +118,15 @@ pub struct AppState {
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
 
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
+
+    pub send_dm_message_usecase:
+        SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
+    pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+    pub list_dm_messages_usecase:
+        ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub search_dm_messages_usecase:
+        SearchDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
@@ -211,6 +226,20 @@ impl AppState {
         remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
         list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
         search_users_usecase: SearchUsers<PostgresUserRepository>,
+        send_dm_message_usecase: SendDmMessage<
+            PostgresDmMessageRepository,
+            PostgresFriendshipRepository,
+        >,
+        edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
+        delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+        list_dm_messages_usecase: ListDmMessages<
+            PostgresDmMessageRepository,
+            PostgresFriendshipRepository,
+        >,
+        search_dm_messages_usecase: SearchDmMessages<
+            PostgresDmMessageRepository,
+            PostgresFriendshipRepository,
+        >,
         jwt_secret: String,
         trust_forwarded_headers: bool,
     ) -> Self {
@@ -244,6 +273,11 @@ impl AppState {
             remove_friendship_usecase,
             list_friends_usecase,
             search_users_usecase,
+            send_dm_message_usecase,
+            edit_dm_message_usecase,
+            delete_dm_message_usecase,
+            list_dm_messages_usecase,
+            search_dm_messages_usecase,
             jwt_secret,
             trust_forwarded_headers,
         }
