@@ -36,6 +36,12 @@ const STREAMS: &[StreamDef] = &[
         max_bytes: 50 * 1024 * 1024 * 1024,
     },
     StreamDef {
+        name: "RIFT_DM_MESSAGE_EVENTS",
+        subject_suffix: "dm_message.>",
+        max_age_secs: 60 * 60 * 24 * 30,
+        max_bytes: 50 * 1024 * 1024 * 1024,
+    },
+    StreamDef {
         name: "RIFT_SERVER_EVENTS",
         subject_suffix: "server.>",
         max_age_secs: 60 * 60 * 24 * 180,

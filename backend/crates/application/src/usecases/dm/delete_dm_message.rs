@@ -1,8 +1,15 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use domain::{
     dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
-    shared::repository::error::RepositoryError,
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
     user::id::UserId,
 };
 
@@ -14,6 +21,8 @@ pub enum DeleteDmMessageError {
     Repository(#[from] RepositoryError),
     #[error("DM error: {0}")]
     Dm(#[from] DmMessageError),
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
     #[error("Message not found")]
     NotFound,
 }
@@ -40,7 +49,7 @@ where
     ) -> Result<(), DeleteDmMessageError> {
         let message_id = DmMessageId::new(request.message_id);
 
-        let message = self
+        let mut message = self
             .dm_repository
             .find_by_id(&message_id)
             .await
@@ -49,8 +58,17 @@ where
                 other => DeleteDmMessageError::Repository(other),
             })?;
 
-        message.can_delete(deleter_id)?;
-        self.dm_repository.delete(&message_id).await?;
+        let now = Utc::now();
+        message.mark_deleted(deleter_id, now)?;
+        let request_id = request.ctx.request_id.clone();
+        let records: Vec<OutboxRecord> = message
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
+            .collect::<Result<_, _>>()?;
+        self.dm_repository
+            .delete_with_events(&message_id, &records)
+            .await?;
         Ok(())
     }
 }

@@ -5,7 +5,13 @@ use domain::{
     dm_message::{DmMessage, repository::DmMessageRepository},
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     message::{MessageError, content::MessageContent},
-    shared::repository::error::RepositoryError,
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
     user::id::UserId,
 };
 
@@ -20,6 +26,8 @@ pub enum SendDmMessageError {
     Repository(#[from] RepositoryError),
     #[error("Message error: {0}")]
     Domain(#[from] MessageError),
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
     #[error("Not friends with this user")]
     NotFriends,
 }
@@ -62,8 +70,16 @@ where
 
         let content = MessageContent::new(request.content)?;
         let now = Utc::now();
-        let message = DmMessage::create(sender_id, recipient_id, content, now);
-        self.dm_repository.save(&message).await?;
+        let mut message = DmMessage::create(sender_id, recipient_id, content, now);
+        let request_id = request.ctx.request_id.clone();
+        let records: Vec<OutboxRecord> = message
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
+            .collect::<Result<_, _>>()?;
+        self.dm_repository
+            .save_with_events(&message, &records)
+            .await?;
         Ok(SendDmMessageResponse::from(&message))
     }
 }

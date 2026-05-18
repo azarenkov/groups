@@ -4,7 +4,13 @@ use chrono::Utc;
 use domain::{
     dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
     message::{MessageError, content::MessageContent},
-    shared::repository::error::RepositoryError,
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
     user::id::UserId,
 };
 
@@ -18,6 +24,8 @@ pub enum EditDmMessageError {
     Dm(#[from] DmMessageError),
     #[error("Message error: {0}")]
     Message(#[from] MessageError),
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
     #[error("Message not found")]
     NotFound,
 }
@@ -56,7 +64,15 @@ where
         let new_content = MessageContent::new(request.content)?;
         let now = Utc::now();
         message.edit(new_content, editor_id, now)?;
-        self.dm_repository.update(&message).await?;
+        let request_id = request.ctx.request_id.clone();
+        let records: Vec<OutboxRecord> = message
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
+            .collect::<Result<_, _>>()?;
+        self.dm_repository
+            .update_with_events(&message, &records)
+            .await?;
         Ok(())
     }
 }

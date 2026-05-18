@@ -5,6 +5,7 @@ use domain::{
     },
     message::content::MessageContent,
     shared::{
+        outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
@@ -12,7 +13,10 @@ use domain::{
 };
 use sqlx::{Pool, Postgres};
 
-use crate::database::postgres::error::map_sqlx_error_to_domain_error;
+use crate::database::postgres::{
+    error::map_sqlx_error_to_domain_error,
+    repositories::outbox_record::save_outbox_records,
+};
 
 pub struct PostgresDmMessageRepository {
     pool: Pool<Postgres>,
@@ -59,7 +63,16 @@ struct MessageCursor {
 
 #[async_trait]
 impl DmMessageRepository for PostgresDmMessageRepository {
-    async fn save(&self, message: &DmMessage) -> Result<(), RepositoryError> {
+    async fn save_with_events(
+        &self,
+        message: &DmMessage,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
         sqlx::query!(
             r#"
             INSERT INTO dm_messages (id, sender_id, recipient_id, content, created_at, edited_at)
@@ -72,13 +85,24 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             message.created_at(),
             message.edited_at(),
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 
-    async fn update(&self, message: &DmMessage) -> Result<(), RepositoryError> {
+    async fn update_with_events(
+        &self,
+        message: &DmMessage,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
         let result = sqlx::query!(
             r#"
             UPDATE dm_messages
@@ -89,28 +113,41 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             message.content().as_str(),
             message.edited_at(),
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 
-    async fn delete(&self, id: &DmMessageId) -> Result<(), RepositoryError> {
+    async fn delete_with_events(
+        &self,
+        id: &DmMessageId,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
         let result = sqlx::query!(
             r#"
             DELETE FROM dm_messages WHERE id = $1
             "#,
             id.uuid(),
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 

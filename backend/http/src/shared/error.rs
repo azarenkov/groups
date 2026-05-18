@@ -1387,6 +1387,7 @@ impl ToHttpStatus for SendDmMessageError {
         match self {
             SendDmMessageError::Repository(e) => e.to_http_status(),
             SendDmMessageError::Domain(e) => e.to_http_status(),
+            SendDmMessageError::Outbox(e) => e.to_http_status(),
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
         }
     }
@@ -1394,6 +1395,7 @@ impl ToHttpStatus for SendDmMessageError {
         match self {
             SendDmMessageError::Repository(e) => e.to_user_message(),
             SendDmMessageError::Domain(e) => e.to_user_message(),
+            SendDmMessageError::Outbox(e) => e.to_user_message(),
             SendDmMessageError::NotFriends => {
                 "You can only DM users who are your friends".to_string()
             }
@@ -1403,6 +1405,7 @@ impl ToHttpStatus for SendDmMessageError {
         match self {
             SendDmMessageError::Repository(e) => e.to_error_code(),
             SendDmMessageError::Domain(e) => e.to_error_code(),
+            SendDmMessageError::Outbox(e) => e.to_error_code(),
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
         }
     }
@@ -1414,6 +1417,7 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Repository(e) => e.to_http_status(),
             EditDmMessageError::Dm(e) => e.to_http_status(),
             EditDmMessageError::Message(e) => e.to_http_status(),
+            EditDmMessageError::Outbox(e) => e.to_http_status(),
             EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -1422,6 +1426,7 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Repository(e) => e.to_user_message(),
             EditDmMessageError::Dm(e) => e.to_user_message(),
             EditDmMessageError::Message(e) => e.to_user_message(),
+            EditDmMessageError::Outbox(e) => e.to_user_message(),
             EditDmMessageError::NotFound => "Message not found".to_string(),
         }
     }
@@ -1430,6 +1435,7 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Repository(e) => e.to_error_code(),
             EditDmMessageError::Dm(e) => e.to_error_code(),
             EditDmMessageError::Message(e) => e.to_error_code(),
+            EditDmMessageError::Outbox(e) => e.to_error_code(),
             EditDmMessageError::NotFound => "DM_NOT_FOUND",
         }
     }
@@ -1440,6 +1446,7 @@ impl ToHttpStatus for DeleteDmMessageError {
         match self {
             DeleteDmMessageError::Repository(e) => e.to_http_status(),
             DeleteDmMessageError::Dm(e) => e.to_http_status(),
+            DeleteDmMessageError::Outbox(e) => e.to_http_status(),
             DeleteDmMessageError::NotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -1447,6 +1454,7 @@ impl ToHttpStatus for DeleteDmMessageError {
         match self {
             DeleteDmMessageError::Repository(e) => e.to_user_message(),
             DeleteDmMessageError::Dm(e) => e.to_user_message(),
+            DeleteDmMessageError::Outbox(e) => e.to_user_message(),
             DeleteDmMessageError::NotFound => "Message not found".to_string(),
         }
     }
@@ -1454,6 +1462,7 @@ impl ToHttpStatus for DeleteDmMessageError {
         match self {
             DeleteDmMessageError::Repository(e) => e.to_error_code(),
             DeleteDmMessageError::Dm(e) => e.to_error_code(),
+            DeleteDmMessageError::Outbox(e) => e.to_error_code(),
             DeleteDmMessageError::NotFound => "DM_NOT_FOUND",
         }
     }

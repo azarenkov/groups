@@ -1,3 +1,4 @@
+pub mod events;
 pub mod id;
 pub mod repository;
 pub mod view;
@@ -5,7 +6,15 @@ pub mod view;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    dm_message::id::DmMessageId, message::content::MessageContent, user::id::UserId,
+    dm_message::{
+        events::{
+            DmMessageDomainEvent,
+            lifecycle::{DmMessageDeleted, DmMessageEdited, DmMessageSent},
+        },
+        id::DmMessageId,
+    },
+    message::content::MessageContent,
+    user::id::UserId,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -16,7 +25,7 @@ pub enum DmMessageError {
     ContentUnchanged,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DmMessage {
     id: DmMessageId,
     sender_id: UserId,
@@ -24,6 +33,7 @@ pub struct DmMessage {
     content: MessageContent,
     created_at: DateTime<Utc>,
     edited_at: Option<DateTime<Utc>>,
+    events: Vec<DmMessageDomainEvent>,
 }
 
 impl DmMessage {
@@ -33,14 +43,20 @@ impl DmMessage {
         content: MessageContent,
         now: DateTime<Utc>,
     ) -> Self {
-        Self {
-            id: DmMessageId::generate(),
+        let id = DmMessageId::generate();
+        let mut message = Self {
+            id,
             sender_id,
             recipient_id,
-            content,
+            content: content.clone(),
             created_at: now,
             edited_at: None,
-        }
+            events: Vec::new(),
+        };
+        message.events.push(DmMessageDomainEvent::Sent(
+            DmMessageSent::record(id, sender_id, recipient_id, content, now),
+        ));
+        message
     }
 
     pub fn restore(
@@ -58,6 +74,7 @@ impl DmMessage {
             content,
             created_at,
             edited_at,
+            events: Vec::new(),
         }
     }
 
@@ -73,16 +90,34 @@ impl DmMessage {
         if self.content == new_content {
             return Err(DmMessageError::ContentUnchanged);
         }
-        self.content = new_content;
+        self.content = new_content.clone();
         self.edited_at = Some(now);
+        self.events.push(DmMessageDomainEvent::Edited(
+            DmMessageEdited::record(self.id, self.sender_id, new_content, now),
+        ));
         Ok(())
     }
 
-    pub fn can_delete(&self, deleter_id: UserId) -> Result<(), DmMessageError> {
+    pub fn mark_deleted(
+        &mut self,
+        deleter_id: UserId,
+        now: DateTime<Utc>,
+    ) -> Result<(), DmMessageError> {
         if self.sender_id != deleter_id {
             return Err(DmMessageError::NotSender);
         }
+        self.events
+            .push(DmMessageDomainEvent::Deleted(DmMessageDeleted::record(
+                self.id,
+                self.sender_id,
+                self.recipient_id,
+                now,
+            )));
         Ok(())
+    }
+
+    pub fn pull_events(&mut self) -> Vec<DmMessageDomainEvent> {
+        std::mem::take(&mut self.events)
     }
 
     pub fn id(&self) -> &DmMessageId {
