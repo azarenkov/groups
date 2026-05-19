@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::message::MessageError;
 
-const MAX_CONTENT_LENGTH: usize = 4000;
+pub const MAX_CONTENT_LENGTH: usize = 2000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MessageContent(String);

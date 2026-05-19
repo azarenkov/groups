@@ -13,6 +13,7 @@ import AddFriendModal from "../components/AddFriendModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { friendshipAPI } from "../api/friendship";
+import { dmAPI } from "../api/dm";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
@@ -180,6 +181,7 @@ const ServersPage: React.FC = () => {
       serverAPI.setAuthToken(tokens.accessToken);
       channelAPI.setAuthToken(tokens.accessToken);
       friendshipAPI.setAuthToken(tokens.accessToken);
+      dmAPI.setAuthToken(tokens.accessToken);
       fetchServers();
       fetchFriends();
     }
@@ -465,6 +467,7 @@ const ServersPage: React.FC = () => {
     serverAPI.removeAuthToken();
     channelAPI.removeAuthToken();
     friendshipAPI.removeAuthToken();
+    dmAPI.removeAuthToken();
     await signOut();
   };
 
@@ -546,11 +549,14 @@ const ServersPage: React.FC = () => {
             ) : selectedDm ? (
               <ChatView
                 dm={{
+                  friendId: selectedDm.id,
                   name: selectedDm.name,
                   initials: selectedDm.initials,
                   color: selectedDm.color,
                   online: selectedDm.online,
                 }}
+                currentUserId={user?.id}
+                currentUserName={userName}
                 onRemoveFriend={() =>
                   setDeleteConfirm({
                     type: "friend",

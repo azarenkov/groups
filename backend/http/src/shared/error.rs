@@ -14,7 +14,13 @@ use application::usecases::friendship::{
     accept_friend_request::AcceptFriendRequestError, list_friends::ListFriendsError,
     remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
 };
+use application::usecases::dm::{
+    delete_dm_message::DeleteDmMessageError, edit_dm_message::EditDmMessageError,
+    list_dm_messages::ListDmMessagesError, search_dm_messages::SearchDmMessagesError,
+    send_dm_message::SendDmMessageError,
+};
 use application::usecases::user::search_users::SearchUsersError;
+use domain::dm_message::DmMessageError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
@@ -1358,6 +1364,167 @@ impl ToHttpStatus for RemoveFriendshipError {
     }
 }
 
+impl ToHttpStatus for DmMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DmMessageError::NotSender => StatusCode::FORBIDDEN,
+            DmMessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        self.to_string()
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DmMessageError::NotSender => "DM_NOT_SENDER",
+            DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
+        }
+    }
+}
+
+impl ToHttpStatus for SendDmMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SendDmMessageError::Repository(e) => e.to_http_status(),
+            SendDmMessageError::Domain(e) => e.to_http_status(),
+            SendDmMessageError::Outbox(e) => e.to_http_status(),
+            SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            SendDmMessageError::Repository(e) => e.to_user_message(),
+            SendDmMessageError::Domain(e) => e.to_user_message(),
+            SendDmMessageError::Outbox(e) => e.to_user_message(),
+            SendDmMessageError::NotFriends => {
+                "You can only DM users who are your friends".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SendDmMessageError::Repository(e) => e.to_error_code(),
+            SendDmMessageError::Domain(e) => e.to_error_code(),
+            SendDmMessageError::Outbox(e) => e.to_error_code(),
+            SendDmMessageError::NotFriends => "NOT_FRIENDS",
+        }
+    }
+}
+
+impl ToHttpStatus for EditDmMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            EditDmMessageError::Repository(e) => e.to_http_status(),
+            EditDmMessageError::Dm(e) => e.to_http_status(),
+            EditDmMessageError::Message(e) => e.to_http_status(),
+            EditDmMessageError::Outbox(e) => e.to_http_status(),
+            EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            EditDmMessageError::Repository(e) => e.to_user_message(),
+            EditDmMessageError::Dm(e) => e.to_user_message(),
+            EditDmMessageError::Message(e) => e.to_user_message(),
+            EditDmMessageError::Outbox(e) => e.to_user_message(),
+            EditDmMessageError::NotFound => "Message not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            EditDmMessageError::Repository(e) => e.to_error_code(),
+            EditDmMessageError::Dm(e) => e.to_error_code(),
+            EditDmMessageError::Message(e) => e.to_error_code(),
+            EditDmMessageError::Outbox(e) => e.to_error_code(),
+            EditDmMessageError::NotFound => "DM_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for DeleteDmMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteDmMessageError::Repository(e) => e.to_http_status(),
+            DeleteDmMessageError::Dm(e) => e.to_http_status(),
+            DeleteDmMessageError::Outbox(e) => e.to_http_status(),
+            DeleteDmMessageError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteDmMessageError::Repository(e) => e.to_user_message(),
+            DeleteDmMessageError::Dm(e) => e.to_user_message(),
+            DeleteDmMessageError::Outbox(e) => e.to_user_message(),
+            DeleteDmMessageError::NotFound => "Message not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteDmMessageError::Repository(e) => e.to_error_code(),
+            DeleteDmMessageError::Dm(e) => e.to_error_code(),
+            DeleteDmMessageError::Outbox(e) => e.to_error_code(),
+            DeleteDmMessageError::NotFound => "DM_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for ListDmMessagesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListDmMessagesError::Repository(e) => e.to_http_status(),
+            ListDmMessagesError::NotFriends => StatusCode::FORBIDDEN,
+            ListDmMessagesError::InvalidCursor
+            | ListDmMessagesError::ConflictingCursors => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListDmMessagesError::Repository(e) => e.to_user_message(),
+            ListDmMessagesError::NotFriends => {
+                "You can only view DMs with friends".to_string()
+            }
+            ListDmMessagesError::InvalidCursor => "Invalid pagination cursor".to_string(),
+            ListDmMessagesError::ConflictingCursors => {
+                "Cannot specify both before and after cursors".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListDmMessagesError::Repository(e) => e.to_error_code(),
+            ListDmMessagesError::NotFriends => "NOT_FRIENDS",
+            ListDmMessagesError::InvalidCursor => "INVALID_CURSOR",
+            ListDmMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
+        }
+    }
+}
+
+impl ToHttpStatus for SearchDmMessagesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SearchDmMessagesError::Repository(e) => e.to_http_status(),
+            SearchDmMessagesError::NotFriends => StatusCode::FORBIDDEN,
+            SearchDmMessagesError::EmptyQuery => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            SearchDmMessagesError::Repository(e) => e.to_user_message(),
+            SearchDmMessagesError::NotFriends => {
+                "You can only search DMs with friends".to_string()
+            }
+            SearchDmMessagesError::EmptyQuery => "Search query cannot be empty".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SearchDmMessagesError::Repository(e) => e.to_error_code(),
+            SearchDmMessagesError::NotFriends => "NOT_FRIENDS",
+            SearchDmMessagesError::EmptyQuery => "EMPTY_QUERY",
+        }
+    }
+}
+
 impl ToHttpStatus for SearchUsersError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1532,6 +1699,11 @@ impl_from_for_api_error!(
     RemoveFriendshipError,
     ListFriendsError,
     SearchUsersError,
+    SendDmMessageError,
+    EditDmMessageError,
+    DeleteDmMessageError,
+    ListDmMessagesError,
+    SearchDmMessagesError,
 );
 
 impl From<ValidationErrors> for ApiError {

@@ -1,6 +1,8 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import { serverAPI } from "./server";
 import { channelAPI } from "./channel";
+import { friendshipAPI } from "./friendship";
+import { dmAPI } from "./dm";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
 
@@ -164,8 +166,6 @@ class AuthAPI {
       } catch (err) {
         useAuthStore.getState().logout();
         this.removeAuthToken();
-        serverAPI.removeAuthToken();
-        channelAPI.removeAuthToken();
         throw err;
       } finally {
         this.refreshInProgress = false;
@@ -180,12 +180,16 @@ class AuthAPI {
     this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     serverAPI.setAuthToken(token);
     channelAPI.setAuthToken(token);
+    friendshipAPI.setAuthToken(token);
+    dmAPI.setAuthToken(token);
   }
 
   removeAuthToken() {
     delete this.client.defaults.headers.common["Authorization"];
     serverAPI.removeAuthToken();
     channelAPI.removeAuthToken();
+    friendshipAPI.removeAuthToken();
+    dmAPI.removeAuthToken();
   }
 }
 

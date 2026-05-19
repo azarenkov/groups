@@ -24,7 +24,8 @@
                 "channel",
                 "server",
                 "user",
-                "message"
+                "message",
+                "dm_message"
               ]
             }
           }
@@ -46,7 +47,8 @@
                 "channel",
                 "server",
                 "user",
-                "message"
+                "message",
+                "dm_message"
               ]
             }
           }
