@@ -197,6 +197,10 @@ const ChatView: React.FC<ChatViewProps> = ({
             apiErr?.code === "INVALID_CHANNEL_PASSWORD")
         ) {
           setAccessError(apiErr.message || "You haven't joined this channel yet.");
+        } else if (isDm && apiErr?.code === "NOT_FRIENDS") {
+          setAccessError(
+            apiErr.message || "You are no longer friends with this user.",
+          );
         } else {
           console.warn("[ChatView] failed to load messages:", err);
         }
@@ -687,17 +691,21 @@ const ChatView: React.FC<ChatViewProps> = ({
         ) : accessError ? (
           <div className="empty-state">
             <div className="icon-wrap">
-              <Icon name="hash" size={22} />
+              <Icon name={isDm ? "user" : "hash"} size={22} />
             </div>
-            <h3>Join #{headerName}</h3>
+            <h3>
+              {isDm ? "Can't open this conversation" : `Join #${headerName}`}
+            </h3>
             <p>{accessError}</p>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={handleJoinFromAccessError}
-            >
-              Join channel
-            </button>
+            {isText && (
+              <button
+                type="button"
+                className="btn primary"
+                onClick={handleJoinFromAccessError}
+              >
+                Join channel
+              </button>
+            )}
           </div>
         ) : messages.length === 0 ? (
           <div className="empty-state">
