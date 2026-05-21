@@ -40,7 +40,14 @@ use application::usecases::{
         leave_voice_connection::LeaveVoiceConnectionError, mute_channel::MuteChannelError,
         send_channel_message::SendChannelMessageError, unmute_channel::UnmuteChannelError,
     },
-    server::{create_server::CreateServerError, delete_server::DeleteServerError},
+    server::{
+        create_server::CreateServerError,
+        create_server_invite::CreateServerInviteError,
+        delete_server::DeleteServerError,
+        list_server_invites::ListServerInvitesError,
+        redeem_server_invite::RedeemServerInviteError,
+        revoke_server_invite::RevokeServerInviteError,
+    },
     webhook::voice::HandleVoiceWebhookError,
 };
 use domain::channel::ChannelError;
@@ -881,6 +888,106 @@ impl ToHttpStatus for DeleteServerError {
     }
 }
 
+impl ToHttpStatus for CreateServerInviteError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            CreateServerInviteError::Repository(e) => e.to_http_status(),
+            CreateServerInviteError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            CreateServerInviteError::Repository(e) => e.to_user_message(),
+            CreateServerInviteError::NotMember => {
+                "You must be a member of the server to create invites.".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            CreateServerInviteError::Repository(e) => e.to_error_code(),
+            CreateServerInviteError::NotMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
+
+impl ToHttpStatus for ListServerInvitesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListServerInvitesError::Repository(e) => e.to_http_status(),
+            ListServerInvitesError::NotOwner => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListServerInvitesError::Repository(e) => e.to_user_message(),
+            ListServerInvitesError::NotOwner => {
+                "Only the server owner can view invites.".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListServerInvitesError::Repository(e) => e.to_error_code(),
+            ListServerInvitesError::NotOwner => "SERVER_NOT_OWNER",
+        }
+    }
+}
+
+impl ToHttpStatus for RevokeServerInviteError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RevokeServerInviteError::Repository(e) => e.to_http_status(),
+            RevokeServerInviteError::NotOwner => StatusCode::FORBIDDEN,
+            RevokeServerInviteError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RevokeServerInviteError::Repository(e) => e.to_user_message(),
+            RevokeServerInviteError::NotOwner => {
+                "Only the server owner can revoke invites.".to_string()
+            }
+            RevokeServerInviteError::NotFound => "Invite not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RevokeServerInviteError::Repository(e) => e.to_error_code(),
+            RevokeServerInviteError::NotOwner => "SERVER_NOT_OWNER",
+            RevokeServerInviteError::NotFound => "INVITE_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for RedeemServerInviteError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RedeemServerInviteError::Repository(e) => e.to_http_status(),
+            RedeemServerInviteError::InvalidCode => StatusCode::NOT_FOUND,
+            RedeemServerInviteError::AlreadyMember => StatusCode::CONFLICT,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RedeemServerInviteError::Repository(e) => e.to_user_message(),
+            RedeemServerInviteError::InvalidCode => {
+                "Invite code is invalid or revoked.".to_string()
+            }
+            RedeemServerInviteError::AlreadyMember => {
+                "You are already a member of this server.".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RedeemServerInviteError::Repository(e) => e.to_error_code(),
+            RedeemServerInviteError::InvalidCode => "INVITE_INVALID",
+            RedeemServerInviteError::AlreadyMember => "ALREADY_MEMBER",
+        }
+    }
+}
+
 impl ToHttpStatus for JoinVoiceChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1682,6 +1789,10 @@ impl_from_for_api_error!(
     HandleVoiceWebhookError,
     CreateServerError,
     DeleteServerError,
+    CreateServerInviteError,
+    ListServerInvitesError,
+    RevokeServerInviteError,
+    RedeemServerInviteError,
     PaginationError,
     JoinVoiceChannelError,
     ListServersByUserError,

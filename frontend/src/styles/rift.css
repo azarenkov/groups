@@ -876,6 +876,70 @@ select:focus-visible {
   color: #fff;
 }
 
+.invite-list {
+  margin-top: 14px;
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.invite-empty {
+  font-size: 13px;
+  color: var(--fg-3);
+  text-align: center;
+  padding: 12px 0;
+}
+.invite-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-canvas);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+}
+.invite-code {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: var(--fg-1);
+}
+.invite-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-raised);
+  color: var(--fg-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.invite-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
+.invite-btn.danger { padding: 0 8px; }
+.invite-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+
+.cs-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: var(--surface-canvas);
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  padding: 3px;
+}
+.cs-tab {
+  flex: 1;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-3);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+}
+.cs-tab.active {
+  background: var(--surface-raised);
+  color: var(--fg-1);
+}
+.cs-tab:not(.active):hover { color: var(--fg-1); }
+
 .cs-glyph-row {
   display: flex; align-items: center; gap: 14px;
   margin-bottom: 16px;

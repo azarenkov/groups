@@ -7,7 +7,9 @@ use domain::{
         Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
         participant_mute::ParticipantMute, session_id::SessionId,
     },
-    server::{Server, id::ServerId, repository::ServerRepository},
+    server::{
+        Server, id::ServerId, invite::ServerInvite, repository::ServerRepository,
+    },
     shared::{
         outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
@@ -108,8 +110,9 @@ impl ServerRepository for PostgresServerRepository {
         let total = sqlx::query!(
             r#"
                 SELECT COUNT(*) as "count!"
-                FROM servers
-                WHERE owner_id = $1
+                FROM servers s
+                INNER JOIN server_members sm ON sm.server_id = s.id
+                WHERE sm.user_id = $1
             "#,
             user_id.uuid()
         )
@@ -121,10 +124,12 @@ impl ServerRepository for PostgresServerRepository {
         let servers = sqlx::query_as!(
             ServerDto,
             r#"
-                SELECT id, name, owner_id, description, created_at, updated_at
-                FROM servers
-                WHERE owner_id = $1
-                ORDER BY created_at DESC
+                SELECT s.id, s.name, s.owner_id, s.description,
+                       s.created_at, s.updated_at
+                FROM servers s
+                INNER JOIN server_members sm ON sm.server_id = s.id
+                WHERE sm.user_id = $1
+                ORDER BY s.created_at DESC
                 LIMIT $2 OFFSET $3
             "#,
             user_id.uuid(),
@@ -414,5 +419,101 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(row.exists)
+    }
+
+    async fn create_invite(&self, invite: &ServerInvite) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            INSERT INTO server_invites (id, server_id, code, created_by, created_at, revoked_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+            invite.id,
+            invite.server_id.uuid(),
+            invite.code,
+            invite.created_by.uuid(),
+            invite.created_at,
+            invite.revoked_at,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn find_invite_by_code(
+        &self,
+        code: &str,
+    ) -> Result<Option<ServerInvite>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, server_id, code, created_by, created_at, revoked_at
+            FROM server_invites
+            WHERE code = $1
+            "#,
+            code,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.map(|r| ServerInvite {
+            id: r.id,
+            server_id: ServerId::new(r.server_id),
+            code: r.code,
+            created_by: UserId::new(r.created_by),
+            created_at: r.created_at,
+            revoked_at: r.revoked_at,
+        }))
+    }
+
+    async fn find_invites_by_server(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<ServerInvite>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, server_id, code, created_by, created_at, revoked_at
+            FROM server_invites
+            WHERE server_id = $1 AND revoked_at IS NULL
+            ORDER BY created_at DESC
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| ServerInvite {
+                id: r.id,
+                server_id: ServerId::new(r.server_id),
+                code: r.code,
+                created_by: UserId::new(r.created_by),
+                created_at: r.created_at,
+                revoked_at: r.revoked_at,
+            })
+            .collect())
+    }
+
+    async fn revoke_invite(
+        &self,
+        server_id: &ServerId,
+        invite_id: &Uuid,
+    ) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE server_invites
+            SET revoked_at = now()
+            WHERE id = $1 AND server_id = $2 AND revoked_at IS NULL
+            "#,
+            invite_id,
+            server_id.uuid(),
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(result.rows_affected() > 0)
     }
 }

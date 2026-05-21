@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, name, owner_id, description, created_at, updated_at\n                FROM servers\n                WHERE owner_id = $1\n                ORDER BY created_at DESC\n                LIMIT $2 OFFSET $3\n            ",
+  "query": "\n                SELECT s.id, s.name, s.owner_id, s.description,\n                       s.created_at, s.updated_at\n                FROM servers s\n                INNER JOIN server_members sm ON sm.server_id = s.id\n                WHERE sm.user_id = $1\n                ORDER BY s.created_at DESC\n                LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -50,5 +50,5 @@
       false
     ]
   },
-  "hash": "22d3951f795583ad9a914de3e6423944edb72fdf33324ebd39b76c73a4704fc1"
+  "hash": "e95ba925e7accd238647f3c5632f1aae88b113b7881be09aacb8bd3033bc419c"
 }

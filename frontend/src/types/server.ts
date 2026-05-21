@@ -12,6 +12,14 @@ export interface Member {
   name: string;
 }
 
+export interface ServerInvite {
+  id: string;
+  serverId: string;
+  code: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface PaginationMeta {
   total: number;
   page: number;

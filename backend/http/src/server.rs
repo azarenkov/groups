@@ -30,9 +30,12 @@ use application::usecases::{
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
     },
     server::{
-        create_server::CreateServer, delete_server::DeleteServer,
-        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
+        create_server::CreateServer, create_server_invite::CreateServerInvite,
+        delete_server::DeleteServer, list_server_channels::ListServerChannels,
+        list_server_invites::ListServerInvites, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser,
+        redeem_server_invite::RedeemServerInvite,
+        revoke_server_invite::RevokeServerInvite,
     },
     webhook::voice::HandleVoiceWebhook,
 };
@@ -188,6 +191,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
+    let create_server_invite_usecase =
+        CreateServerInvite::new(server_repository.clone());
+    let list_server_invites_usecase =
+        ListServerInvites::new(server_repository.clone());
+    let revoke_server_invite_usecase =
+        RevokeServerInvite::new(server_repository.clone());
+    let redeem_server_invite_usecase =
+        RedeemServerInvite::new(server_repository.clone());
 
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
@@ -243,6 +254,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_servers_by_user_usecase,
         list_server_members_usecase,
         list_server_channels_usecase,
+        create_server_invite_usecase,
+        list_server_invites_usecase,
+        revoke_server_invite_usecase,
+        redeem_server_invite_usecase,
         send_friend_request_usecase,
         accept_friend_request_usecase,
         remove_friendship_usecase,

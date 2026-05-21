@@ -4,6 +4,7 @@ import {
   ListServerMembersResponse,
   CreateServerRequest,
   CreateServerResponse,
+  ServerInvite,
 } from "../types/server";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
@@ -96,6 +97,27 @@ class ServerAPI {
       ...response.data.data,
       pagination: response.data.meta?.pagination,
     };
+  }
+
+  async createInvite(serverId: string): Promise<ServerInvite> {
+    const response = await this.client.post(
+      `/v1/servers/${serverId}/invites`,
+    );
+    return response.data.data;
+  }
+
+  async listInvites(serverId: string): Promise<ServerInvite[]> {
+    const response = await this.client.get(`/v1/servers/${serverId}/invites`);
+    return response.data.data.invites;
+  }
+
+  async revokeInvite(serverId: string, inviteId: string): Promise<void> {
+    await this.client.delete(`/v1/servers/${serverId}/invites/${inviteId}`);
+  }
+
+  async joinServer(code: string): Promise<{ serverId: string }> {
+    const response = await this.client.post("/v1/servers/join", { code });
+    return response.data.data;
   }
 }
 

@@ -1,5 +1,9 @@
 pub mod create_server;
+pub mod create_server_invite;
 pub mod delete_server;
-pub mod list_server_members;
 pub mod list_server_channels;
+pub mod list_server_invites;
+pub mod list_server_members;
 pub mod list_servers_by_user;
+pub mod redeem_server_invite;
+pub mod revoke_server_invite;

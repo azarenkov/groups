@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE server_invites\n            SET revoked_at = now()\n            WHERE id = $1 AND server_id = $2 AND revoked_at IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e3444819989440721b86f6300195c980e5a339fc1160440d8d84cf32d252d70a"
+}
