@@ -9,6 +9,8 @@ pub struct DmMessageDto {
     pub sender_name: String,
     pub recipient_id: Uuid,
     pub content: String,
+    pub invite_server_id: Option<Uuid>,
+    pub invite_server_name: Option<String>,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
 }
@@ -21,6 +23,8 @@ impl From<DmMessageView> for DmMessageDto {
             sender_name: value.sender_name,
             recipient_id: value.recipient_id.uuid(),
             content: value.content,
+            invite_server_id: value.invite_server_id.map(|id| id.uuid()),
+            invite_server_name: value.invite_server_name,
             created_at: value.created_at,
             edited_at: value.edited_at,
         }

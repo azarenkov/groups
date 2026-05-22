@@ -21,7 +21,6 @@ interface SidebarProps {
   onAddChannel: (server: Server) => void;
   onAddDm: () => void;
   onOpenPendingRequests?: () => void;
-  onInviteServer: (server: Server) => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
@@ -53,7 +52,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddChannel,
   onAddDm,
   onOpenPendingRequests,
-  onInviteServer,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
@@ -235,32 +233,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {!isCol && (
-                    <>
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        className="sb-section-add"
-                        title="Invite people"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onInviteServer(server);
-                        }}
-                      >
-                        <Icon name="user-plus" size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        className="sb-section-add"
-                        title="Create channel"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddChannel(server);
-                        }}
-                      >
-                        <Icon name="plus" size={14} />
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      className="sb-section-add"
+                      title="Create channel"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddChannel(server);
+                      }}
+                    >
+                      <Icon name="plus" size={14} />
+                    </button>
                   )}
                   <Icon name="chev" size={12} className="chev" />
                 </span>

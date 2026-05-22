@@ -65,6 +65,8 @@ export interface ChannelMessage {
   authorId: string;
   authorName?: string;
   content: string;
+  inviteServerId?: string;
+  inviteServerName?: string;
   createdAt: string;
   editedAt: string | null;
 }

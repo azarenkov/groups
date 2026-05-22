@@ -4,7 +4,10 @@ use application::dto::requests::dm::{
     list_dm_messages::ListDmMessagesRequest, search_dm_messages::SearchDmMessagesRequest,
     send_dm_message::SendDmMessageRequest,
 };
-use domain::{shared::pagination::Pagination, user::id::UserId};
+use domain::{
+    dm_message::id::DmMessageId, server::id::ServerId, shared::pagination::Pagination,
+    user::id::UserId,
+};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
@@ -15,10 +18,14 @@ use crate::shared::{
         pagination::PaginationMeta,
         requests::dm::{
             EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody,
+            SendServerInviteBody,
         },
         responses::{
             ApiResponse,
-            dm::{DmMessageResponse, ListDmMessagesResponse, SearchDmMessagesResponse},
+            dm::{
+                AcceptServerInviteResponse, DmMessageResponse, ListDmMessagesResponse,
+                SearchDmMessagesResponse,
+            },
         },
     },
     error::ApiError,
@@ -46,6 +53,43 @@ async fn send_dm_message(
         .await?;
 
     Ok(HttpResponse::Created().json(ApiResponse::success(DmMessageResponse::from(response))))
+}
+
+#[post("/me/dms/{friend_id}/server-invite")]
+async fn send_server_invite(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    body: web::Json<SendServerInviteBody>,
+) -> Result<impl Responder, ApiError> {
+    let friend_id = UserId::new(path.into_inner());
+    let server_id = ServerId::new(body.into_inner().server_id);
+    let sender_id = UserId::new(auth_token.id);
+
+    let response = app_state
+        .send_server_invite_usecase
+        .execute(server_id, friend_id, sender_id, request_context(&req))
+        .await?;
+
+    Ok(HttpResponse::Created().json(ApiResponse::success(DmMessageResponse::from(response))))
+}
+
+#[post("/me/dms/messages/{message_id}/accept-invite")]
+async fn accept_server_invite(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let message_id = DmMessageId::new(path.into_inner());
+    let requester_id = UserId::new(auth_token.id);
+
+    let server_id = app_state
+        .accept_server_invite_usecase
+        .execute(message_id, requester_id)
+        .await?;
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(AcceptServerInviteResponse::new(server_id))))
 }
 
 #[get("/me/dms/{friend_id}/messages")]

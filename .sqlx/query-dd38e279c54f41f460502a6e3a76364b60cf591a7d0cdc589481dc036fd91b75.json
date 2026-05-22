@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, server_id, code, created_by, created_at, revoked_at\n            FROM server_invites\n            WHERE server_id = $1 AND revoked_at IS NULL\n            ORDER BY created_at DESC\n            ",
+  "query": "\n                SELECT id, name, owner_id, description, created_at, updated_at\n                FROM servers\n                WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -10,18 +10,18 @@
       },
       {
         "ordinal": 1,
-        "name": "server_id",
-        "type_info": "Uuid"
-      },
-      {
-        "ordinal": 2,
-        "name": "code",
+        "name": "name",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 3,
-        "name": "created_by",
+        "ordinal": 2,
+        "name": "owner_id",
         "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
       },
       {
         "ordinal": 4,
@@ -30,7 +30,7 @@
       },
       {
         "ordinal": 5,
-        "name": "revoked_at",
+        "name": "updated_at",
         "type_info": "Timestamptz"
       }
     ],
@@ -43,10 +43,10 @@
       false,
       false,
       false,
+      true,
       false,
-      false,
-      true
+      false
     ]
   },
-  "hash": "93d48280d80467240d762bcfb06bbb838c6925d008bc51d7efb4b3613dd23542"
+  "hash": "dd38e279c54f41f460502a6e3a76364b60cf591a7d0cdc589481dc036fd91b75"
 }

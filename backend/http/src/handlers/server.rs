@@ -9,10 +9,7 @@ use crate::shared::{
     context::request_context,
     dto::{
         pagination::{PaginationMeta, PaginationQuery},
-        requests::server::{
-            create_server::CreateServerRequestBody,
-            redeem_invite::RedeemInviteRequestBody,
-        },
+        requests::server::create_server::CreateServerRequestBody,
         responses::{
             ApiResponse,
             server::{
@@ -20,10 +17,6 @@ use crate::shared::{
                 list_server_channels::ListServerChannelsResponse,
                 list_server_members::ListServerMembersResponse,
                 list_servers_by_user::ListServersByUserResponse,
-                server_invite::{
-                    ListServerInvitesResponse, RedeemServerInviteResponse,
-                    ServerInviteResponse,
-                },
             },
         },
     },
@@ -145,79 +138,4 @@ async fn delete_server(
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
-}
-
-#[post("/{server_id}/invites")]
-async fn create_server_invite(
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
-    let server_id = ServerId::new(path.into_inner());
-    let requester_id = UserId::new(auth_token.id);
-
-    let invite = app_state
-        .create_server_invite_usecase
-        .execute(server_id, requester_id)
-        .await?;
-
-    Ok(HttpResponse::Created()
-        .json(ApiResponse::success(ServerInviteResponse::from(invite))))
-}
-
-#[get("/{server_id}/invites")]
-async fn list_server_invites(
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
-    let server_id = ServerId::new(path.into_inner());
-    let requester_id = UserId::new(auth_token.id);
-
-    let invites = app_state
-        .list_server_invites_usecase
-        .execute(server_id, requester_id)
-        .await?;
-
-    let response = ListServerInvitesResponse::new(
-        invites.into_iter().map(ServerInviteResponse::from).collect(),
-    );
-    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
-}
-
-#[delete("/{server_id}/invites/{invite_id}")]
-async fn revoke_server_invite(
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<(Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
-    let (server_id, invite_id) = path.into_inner();
-    let requester_id = UserId::new(auth_token.id);
-
-    app_state
-        .revoke_server_invite_usecase
-        .execute(ServerId::new(server_id), invite_id, requester_id)
-        .await?;
-
-    Ok(HttpResponse::NoContent().finish())
-}
-
-#[post("/join")]
-async fn redeem_server_invite(
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    body: web::Json<RedeemInviteRequestBody>,
-) -> Result<impl Responder, ApiError> {
-    let body = body.into_inner();
-    body.validate()?;
-    let user_id = UserId::new(auth_token.id);
-
-    let server_id = app_state
-        .redeem_server_invite_usecase
-        .execute(&body.code, user_id)
-        .await?;
-
-    Ok(HttpResponse::Ok().json(ApiResponse::success(RedeemServerInviteResponse {
-        server_id,
-    })))
 }

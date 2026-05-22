@@ -876,70 +876,6 @@ select:focus-visible {
   color: #fff;
 }
 
-.invite-list {
-  margin-top: 14px;
-  display: flex; flex-direction: column;
-  gap: 6px;
-}
-.invite-empty {
-  font-size: 13px;
-  color: var(--fg-3);
-  text-align: center;
-  padding: 12px 0;
-}
-.invite-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px;
-  background: var(--surface-canvas);
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-}
-.invite-code {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  letter-spacing: 0.05em;
-  color: var(--fg-1);
-}
-.invite-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  height: 28px; padding: 0 10px;
-  border-radius: 6px;
-  border: 1px solid var(--hairline-strong);
-  background: var(--surface-raised);
-  color: var(--fg-2);
-  font-size: 12px;
-  cursor: pointer;
-}
-.invite-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
-.invite-btn.danger { padding: 0 8px; }
-.invite-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
-
-.cs-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-  background: var(--surface-canvas);
-  border: 1px solid var(--hairline);
-  border-radius: 9px;
-  padding: 3px;
-}
-.cs-tab {
-  flex: 1;
-  height: 30px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--fg-3);
-  font-size: 13px; font-weight: 500;
-  cursor: pointer;
-}
-.cs-tab.active {
-  background: var(--surface-raised);
-  color: var(--fg-1);
-}
-.cs-tab:not(.active):hover { color: var(--fg-1); }
-
 .cs-glyph-row {
   display: flex; align-items: center; gap: 14px;
   margin-bottom: 16px;
@@ -2671,4 +2607,105 @@ textarea.s-input {
 @keyframes liveDotPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
+}
+
+.dm-invite-picker { position: relative; display: inline-flex; }
+.dm-invite-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  z-index: 60;
+}
+.dm-invite-menu-head {
+  font-size: 11px; font-weight: 600;
+  color: var(--fg-3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 8px 10px 4px;
+}
+.dm-invite-menu-empty {
+  font-size: 12px; color: var(--fg-3);
+  padding: 6px 10px 10px;
+}
+.dm-invite-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  padding: 7px 8px;
+  border: 0; background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px; color: var(--fg-1);
+}
+.dm-invite-menu-item:hover { background: var(--surface-hover); }
+.dm-invite-menu-glyph {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.dm-invite-menu-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.dm-invite-card {
+  margin-top: 3px;
+  max-width: 380px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-canvas);
+  padding: 10px 12px;
+}
+.dm-invite-card-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--fg-3);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  margin-bottom: 8px;
+}
+.dm-invite-card-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.dm-invite-card-glyph {
+  width: 42px; height: 42px; flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.dm-invite-card-info { flex: 1; min-width: 0; }
+.dm-invite-card-name {
+  font-size: 14px; font-weight: 600; color: var(--fg-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dm-invite-card-sub {
+  font-size: 12px; color: var(--fg-3); margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dm-invite-card-btn {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.dm-invite-card-btn:hover { background: var(--accent-hover); }
+.dm-invite-card-btn.joined {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+}
+.dm-invite-card-btn.joined:hover {
+  background: var(--surface-hover);
+  filter: brightness(0.95);
 }

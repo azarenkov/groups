@@ -1,9 +1,8 @@
 use async_trait::async_trait;
-use uuid::Uuid;
 
 use crate::{
     channel::Channel,
-    server::{Server, id::ServerId, invite::ServerInvite},
+    server::{Server, id::ServerId},
     shared::{
         outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
@@ -50,24 +49,13 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError>;
+    async fn find_server_by_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Option<Server>, RepositoryError>;
     async fn is_server_member(
         &self,
         server_id: &ServerId,
         user_id: &UserId,
-    ) -> Result<bool, RepositoryError>;
-
-    async fn create_invite(&self, invite: &ServerInvite) -> Result<(), RepositoryError>;
-    async fn find_invite_by_code(
-        &self,
-        code: &str,
-    ) -> Result<Option<ServerInvite>, RepositoryError>;
-    async fn find_invites_by_server(
-        &self,
-        server_id: &ServerId,
-    ) -> Result<Vec<ServerInvite>, RepositoryError>;
-    async fn revoke_invite(
-        &self,
-        server_id: &ServerId,
-        invite_id: &Uuid,
     ) -> Result<bool, RepositoryError>;
 }

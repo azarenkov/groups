@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{dm_message::id::DmMessageId, user::id::UserId};
+use crate::{dm_message::id::DmMessageId, server::id::ServerId, user::id::UserId};
 
 #[derive(Debug, Clone)]
 pub struct DmMessageView {
@@ -9,6 +9,8 @@ pub struct DmMessageView {
     pub sender_name: String,
     pub recipient_id: UserId,
     pub content: String,
+    pub invite_server_id: Option<ServerId>,
+    pub invite_server_name: Option<String>,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
 }

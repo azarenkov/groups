@@ -4,7 +4,19 @@ import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
 import { ChannelMessage } from "../../types/channel";
+import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
+
+const serverGlyph = (name: string): string => {
+  const t = name.trim();
+  if (!t) return "?";
+  return t
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+};
 
 const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
 const PAGE_LIMIT = 50;
@@ -60,9 +72,11 @@ interface ChatViewProps {
   currentUserName?: string;
   dm?: DmMeta;
   membersOpen?: boolean;
+  servers?: Server[];
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
+  onGoToServer?: (serverId: string) => void;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -72,9 +86,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   currentUserName,
   dm,
   membersOpen,
+  servers,
   onToggleMembers,
   onOpenChannelSettings,
   onRemoveFriend,
+  onGoToServer,
 }) => {
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
   const [text, setText] = React.useState("");
@@ -524,6 +540,35 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
+  const myServerIds = React.useMemo(
+    () => new Set((servers ?? []).map((s) => s.id)),
+    [servers],
+  );
+
+  const handleSendInvite = async (inviteServerId: string) => {
+    if (!dm) return;
+    setComposerError(null);
+    try {
+      const msg = await dmAPI.sendServerInvite(dm.friendId, inviteServerId);
+      setMessages((prev) => [...prev, msg]);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setComposerError(apiErr?.message || "Couldn't send invite.");
+    }
+  };
+
+  const handleAcceptInvite = async (msg: ChannelMessage) => {
+    if (!msg.inviteServerId) return;
+    setComposerError(null);
+    try {
+      await dmAPI.acceptServerInvite(msg.id);
+      onGoToServer?.(msg.inviteServerId);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setComposerError(apiErr?.message || "Couldn't join the server.");
+    }
+  };
+
   const startEdit = (msg: ChannelMessage) => {
     setEditingId(msg.id);
     setEditText(msg.content);
@@ -594,10 +639,12 @@ const ChatView: React.FC<ChatViewProps> = ({
         dm={dm}
         membersOpen={membersOpen}
         searchActive={searchOpen}
+        servers={servers}
         onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
         onRemoveFriend={onRemoveFriend}
+        onSendInvite={handleSendInvite}
       />
       {searchOpen && (channel || dm) && (
         <div className="search-bar">
@@ -742,11 +789,18 @@ const ChatView: React.FC<ChatViewProps> = ({
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
+                  inviteIsMember={
+                    !!m.inviteServerId && myServerIds.has(m.inviteServerId)
+                  }
                   onEditTextChange={setEditText}
                   onStartEdit={() => startEdit(m)}
                   onCancelEdit={cancelEdit}
                   onSaveEdit={() => saveEdit(m)}
                   onDelete={() => setDeleteTarget(m)}
+                  onAcceptInvite={() => handleAcceptInvite(m)}
+                  onOpenInviteServer={() =>
+                    m.inviteServerId && onGoToServer?.(m.inviteServerId)
+                  }
                 />
               );
             })}
@@ -796,10 +850,12 @@ interface ChannelHeaderProps {
   dm?: DmMeta;
   membersOpen?: boolean;
   searchActive?: boolean;
+  servers?: Server[];
   onToggleSearch?: () => void;
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
+  onSendInvite?: (serverId: string) => void;
 }
 
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({
@@ -807,11 +863,34 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   dm,
   membersOpen,
   searchActive,
+  servers,
   onToggleSearch,
   onToggleMembers,
   onOpenChannelSettings,
   onRemoveFriend,
+  onSendInvite,
 }) => {
+  const [inviteOpen, setInviteOpen] = React.useState(false);
+  const inviteRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!inviteOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (inviteRef.current && !inviteRef.current.contains(e.target as Node)) {
+        setInviteOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInviteOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [inviteOpen]);
+
   const [bellOpen, setBellOpen] = React.useState(false);
   const [notifLevel, setNotifLevel] = React.useState<"all" | "mentions" | "none">("all");
   const bellRef = React.useRef<HTMLDivElement>(null);
@@ -884,6 +963,45 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           <button type="button" className="icon-btn" title="Start a voice call">
             <Icon name="mic" size={16} />
           </button>
+          {onSendInvite && (
+            <div className="dm-invite-picker" ref={inviteRef}>
+              <button
+                type="button"
+                className={"icon-btn" + (inviteOpen ? " on" : "")}
+                title="Invite to a server"
+                onClick={() => setInviteOpen((v) => !v)}
+              >
+                <Icon name="user-plus" size={16} />
+              </button>
+              {inviteOpen && (
+                <div className="dm-invite-menu">
+                  <div className="dm-invite-menu-head">Invite to server</div>
+                  {(servers ?? []).length === 0 ? (
+                    <div className="dm-invite-menu-empty">
+                      You're not in any servers yet.
+                    </div>
+                  ) : (
+                    (servers ?? []).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="dm-invite-menu-item"
+                        onClick={() => {
+                          setInviteOpen(false);
+                          onSendInvite(s.id);
+                        }}
+                      >
+                        <span className="dm-invite-menu-glyph">
+                          {serverGlyph(s.name)}
+                        </span>
+                        <span className="dm-invite-menu-name">{s.name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {onToggleSearch && (
             <button
               type="button"
@@ -1017,11 +1135,14 @@ interface MessageProps {
   editing: boolean;
   highlighted: boolean;
   editText: string;
+  inviteIsMember: boolean;
   onEditTextChange: (v: string) => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onDelete: () => void;
+  onAcceptInvite: () => void;
+  onOpenInviteServer: () => void;
 }
 
 const Message: React.FC<MessageProps> = ({
@@ -1032,11 +1153,14 @@ const Message: React.FC<MessageProps> = ({
   editing,
   highlighted,
   editText,
+  inviteIsMember,
   onEditTextChange,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  onAcceptInvite,
+  onOpenInviteServer,
 }) => {
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
@@ -1061,7 +1185,38 @@ const Message: React.FC<MessageProps> = ({
             <time>{time}</time>
           </div>
         )}
-        {editing ? (
+        {msg.inviteServerId ? (
+          <div className="dm-invite-card">
+            <div className="dm-invite-card-label">Server invite</div>
+            <div className="dm-invite-card-row">
+              <span
+                className="dm-invite-card-glyph"
+                style={{ background: colorFor(msg.inviteServerId) }}
+              >
+                {serverGlyph(msg.inviteServerName ?? "?")}
+              </span>
+              <div className="dm-invite-card-info">
+                <div className="dm-invite-card-name">
+                  {msg.inviteServerName ?? "Server"}
+                </div>
+                <div className="dm-invite-card-sub">
+                  {isMine
+                    ? "You sent a server invite"
+                    : `${displayName} invited you to join`}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={
+                  "dm-invite-card-btn" + (inviteIsMember ? " joined" : "")
+                }
+                onClick={inviteIsMember ? onOpenInviteServer : onAcceptInvite}
+              >
+                {inviteIsMember ? "Open" : "Join"}
+              </button>
+            </div>
+          </div>
+        ) : editing ? (
           <div className="msg-edit">
             <input
               autoFocus
@@ -1089,7 +1244,7 @@ const Message: React.FC<MessageProps> = ({
           </div>
         )}
       </div>
-      {isMine && !editing && (
+      {isMine && !editing && !msg.inviteServerId && (
         <div className="msg-actions">
           <button
             type="button"

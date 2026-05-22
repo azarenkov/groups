@@ -14,6 +14,7 @@ use crate::{
         id::DmMessageId,
     },
     message::content::MessageContent,
+    server::id::ServerId,
     user::id::UserId,
 };
 
@@ -23,6 +24,8 @@ pub enum DmMessageError {
     NotSender,
     #[error("Message content unchanged")]
     ContentUnchanged,
+    #[error("Server invite messages cannot be edited")]
+    NotEditable,
 }
 
 #[derive(Debug)]
@@ -31,6 +34,7 @@ pub struct DmMessage {
     sender_id: UserId,
     recipient_id: UserId,
     content: MessageContent,
+    invite_server_id: Option<ServerId>,
     created_at: DateTime<Utc>,
     edited_at: Option<DateTime<Utc>>,
     events: Vec<DmMessageDomainEvent>,
@@ -49,6 +53,31 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content: content.clone(),
+            invite_server_id: None,
+            created_at: now,
+            edited_at: None,
+            events: Vec::new(),
+        };
+        message.events.push(DmMessageDomainEvent::Sent(
+            DmMessageSent::record(id, sender_id, recipient_id, content, now),
+        ));
+        message
+    }
+
+    pub fn create_server_invite(
+        sender_id: UserId,
+        recipient_id: UserId,
+        server_id: ServerId,
+        content: MessageContent,
+        now: DateTime<Utc>,
+    ) -> Self {
+        let id = DmMessageId::generate();
+        let mut message = Self {
+            id,
+            sender_id,
+            recipient_id,
+            content: content.clone(),
+            invite_server_id: Some(server_id),
             created_at: now,
             edited_at: None,
             events: Vec::new(),
@@ -64,6 +93,7 @@ impl DmMessage {
         sender_id: UserId,
         recipient_id: UserId,
         content: MessageContent,
+        invite_server_id: Option<ServerId>,
         created_at: DateTime<Utc>,
         edited_at: Option<DateTime<Utc>>,
     ) -> Self {
@@ -72,6 +102,7 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content,
+            invite_server_id,
             created_at,
             edited_at,
             events: Vec::new(),
@@ -86,6 +117,9 @@ impl DmMessage {
     ) -> Result<(), DmMessageError> {
         if self.sender_id != editor_id {
             return Err(DmMessageError::NotSender);
+        }
+        if self.invite_server_id.is_some() {
+            return Err(DmMessageError::NotEditable);
         }
         if self.content == new_content {
             return Err(DmMessageError::ContentUnchanged);
@@ -131,6 +165,9 @@ impl DmMessage {
     }
     pub fn content(&self) -> &MessageContent {
         &self.content
+    }
+    pub fn invite_server_id(&self) -> Option<&ServerId> {
+        self.invite_server_id.as_ref()
     }
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at

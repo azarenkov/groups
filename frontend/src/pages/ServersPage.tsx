@@ -6,7 +6,6 @@ import { useThemeStore } from "../store/themeStore";
 import { serverAPI } from "../api/server";
 import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
-import ServerInviteModal from "../components/ServerInviteModal";
 import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
@@ -100,10 +99,6 @@ const ServersPage: React.FC = () => {
   }, []);
 
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  const [inviteModalServer, setInviteModalServer] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
@@ -352,6 +347,18 @@ const ServersPage: React.FC = () => {
     setSelectedChannel(null);
   };
 
+  const handleGoToServer = async (serverId: string) => {
+    await fetchServers();
+    setExpandedServerIds((prev) => {
+      const next = new Set(prev);
+      next.add(serverId);
+      return next;
+    });
+    setSelectedServer(serverId);
+    setSelectedChannel(null);
+    setSelectedDm(null);
+  };
+
   const handleCreateServer = async (name: string, description?: string) => {
     const server = await createServer(name, description);
     try {
@@ -370,19 +377,6 @@ const ServersPage: React.FC = () => {
       return next;
     });
     setSelectedServer(server.id);
-    setSelectedChannel(null);
-    setSelectedDm(null);
-  };
-
-  const handleJoinServer = async (code: string) => {
-    const { serverId } = await serverAPI.joinServer(code);
-    await fetchServers();
-    setExpandedServerIds((prev) => {
-      const next = new Set(prev);
-      next.add(serverId);
-      return next;
-    });
-    setSelectedServer(serverId);
     setSelectedChannel(null);
     setSelectedDm(null);
   };
@@ -541,9 +535,6 @@ const ServersPage: React.FC = () => {
           }}
           onAddDm={() => setIsAddFriendOpen(true)}
           onOpenPendingRequests={() => setIsPendingOpen(true)}
-          onInviteServer={(server) =>
-            setInviteModalServer({ id: server.id, name: server.name })
-          }
           onDeleteServer={(server) =>
             setDeleteConfirm({ type: "server", id: server.id, name: server.name })
           }
@@ -578,6 +569,8 @@ const ServersPage: React.FC = () => {
                 }}
                 currentUserId={user?.id}
                 currentUserName={userName}
+                servers={servers}
+                onGoToServer={handleGoToServer}
                 onRemoveFriend={() =>
                   setDeleteConfirm({
                     type: "friend",
@@ -868,14 +861,6 @@ const ServersPage: React.FC = () => {
         isOpen={isServerModalOpen}
         onClose={() => setIsServerModalOpen(false)}
         onCreate={handleCreateServer}
-        onJoin={handleJoinServer}
-      />
-
-      <ServerInviteModal
-        isOpen={!!inviteModalServer}
-        serverId={inviteModalServer?.id ?? null}
-        serverName={inviteModalServer?.name ?? ""}
-        onClose={() => setInviteModalServer(null)}
       />
 
       <CreateChannelModal

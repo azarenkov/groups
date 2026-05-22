@@ -19,6 +19,8 @@ use application::usecases::dm::{
     list_dm_messages::ListDmMessagesError, search_dm_messages::SearchDmMessagesError,
     send_dm_message::SendDmMessageError,
 };
+use application::usecases::server::accept_server_invite::AcceptServerInviteError;
+use application::usecases::server::send_server_invite::SendServerInviteError;
 use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
@@ -40,14 +42,7 @@ use application::usecases::{
         leave_voice_connection::LeaveVoiceConnectionError, mute_channel::MuteChannelError,
         send_channel_message::SendChannelMessageError, unmute_channel::UnmuteChannelError,
     },
-    server::{
-        create_server::CreateServerError,
-        create_server_invite::CreateServerInviteError,
-        delete_server::DeleteServerError,
-        list_server_invites::ListServerInvitesError,
-        redeem_server_invite::RedeemServerInviteError,
-        revoke_server_invite::RevokeServerInviteError,
-    },
+    server::{create_server::CreateServerError, delete_server::DeleteServerError},
     webhook::voice::HandleVoiceWebhookError,
 };
 use domain::channel::ChannelError;
@@ -888,106 +883,6 @@ impl ToHttpStatus for DeleteServerError {
     }
 }
 
-impl ToHttpStatus for CreateServerInviteError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            CreateServerInviteError::Repository(e) => e.to_http_status(),
-            CreateServerInviteError::NotMember => StatusCode::FORBIDDEN,
-        }
-    }
-    fn to_user_message(&self) -> String {
-        match self {
-            CreateServerInviteError::Repository(e) => e.to_user_message(),
-            CreateServerInviteError::NotMember => {
-                "You must be a member of the server to create invites.".to_string()
-            }
-        }
-    }
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            CreateServerInviteError::Repository(e) => e.to_error_code(),
-            CreateServerInviteError::NotMember => "SERVER_NOT_MEMBER",
-        }
-    }
-}
-
-impl ToHttpStatus for ListServerInvitesError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            ListServerInvitesError::Repository(e) => e.to_http_status(),
-            ListServerInvitesError::NotOwner => StatusCode::FORBIDDEN,
-        }
-    }
-    fn to_user_message(&self) -> String {
-        match self {
-            ListServerInvitesError::Repository(e) => e.to_user_message(),
-            ListServerInvitesError::NotOwner => {
-                "Only the server owner can view invites.".to_string()
-            }
-        }
-    }
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            ListServerInvitesError::Repository(e) => e.to_error_code(),
-            ListServerInvitesError::NotOwner => "SERVER_NOT_OWNER",
-        }
-    }
-}
-
-impl ToHttpStatus for RevokeServerInviteError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            RevokeServerInviteError::Repository(e) => e.to_http_status(),
-            RevokeServerInviteError::NotOwner => StatusCode::FORBIDDEN,
-            RevokeServerInviteError::NotFound => StatusCode::NOT_FOUND,
-        }
-    }
-    fn to_user_message(&self) -> String {
-        match self {
-            RevokeServerInviteError::Repository(e) => e.to_user_message(),
-            RevokeServerInviteError::NotOwner => {
-                "Only the server owner can revoke invites.".to_string()
-            }
-            RevokeServerInviteError::NotFound => "Invite not found".to_string(),
-        }
-    }
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            RevokeServerInviteError::Repository(e) => e.to_error_code(),
-            RevokeServerInviteError::NotOwner => "SERVER_NOT_OWNER",
-            RevokeServerInviteError::NotFound => "INVITE_NOT_FOUND",
-        }
-    }
-}
-
-impl ToHttpStatus for RedeemServerInviteError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            RedeemServerInviteError::Repository(e) => e.to_http_status(),
-            RedeemServerInviteError::InvalidCode => StatusCode::NOT_FOUND,
-            RedeemServerInviteError::AlreadyMember => StatusCode::CONFLICT,
-        }
-    }
-    fn to_user_message(&self) -> String {
-        match self {
-            RedeemServerInviteError::Repository(e) => e.to_user_message(),
-            RedeemServerInviteError::InvalidCode => {
-                "Invite code is invalid or revoked.".to_string()
-            }
-            RedeemServerInviteError::AlreadyMember => {
-                "You are already a member of this server.".to_string()
-            }
-        }
-    }
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            RedeemServerInviteError::Repository(e) => e.to_error_code(),
-            RedeemServerInviteError::InvalidCode => "INVITE_INVALID",
-            RedeemServerInviteError::AlreadyMember => "ALREADY_MEMBER",
-        }
-    }
-}
-
 impl ToHttpStatus for JoinVoiceChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1476,6 +1371,7 @@ impl ToHttpStatus for DmMessageError {
         match self {
             DmMessageError::NotSender => StatusCode::FORBIDDEN,
             DmMessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
+            DmMessageError::NotEditable => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1485,6 +1381,7 @@ impl ToHttpStatus for DmMessageError {
         match self {
             DmMessageError::NotSender => "DM_NOT_SENDER",
             DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
+            DmMessageError::NotEditable => "DM_NOT_EDITABLE",
         }
     }
 }
@@ -1514,6 +1411,71 @@ impl ToHttpStatus for SendDmMessageError {
             SendDmMessageError::Domain(e) => e.to_error_code(),
             SendDmMessageError::Outbox(e) => e.to_error_code(),
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
+        }
+    }
+}
+
+impl ToHttpStatus for SendServerInviteError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SendServerInviteError::Repository(e) => e.to_http_status(),
+            SendServerInviteError::Domain(e) => e.to_http_status(),
+            SendServerInviteError::Outbox(e) => e.to_http_status(),
+            SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
+            SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
+            SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            SendServerInviteError::Repository(e) => e.to_user_message(),
+            SendServerInviteError::Domain(e) => e.to_user_message(),
+            SendServerInviteError::Outbox(e) => e.to_user_message(),
+            SendServerInviteError::NotFriends => {
+                "You can only invite users who are your friends".to_string()
+            }
+            SendServerInviteError::ServerNotFound => "Server not found".to_string(),
+            SendServerInviteError::NotServerMember => {
+                "Only members of this server can invite people".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SendServerInviteError::Repository(e) => e.to_error_code(),
+            SendServerInviteError::Domain(e) => e.to_error_code(),
+            SendServerInviteError::Outbox(e) => e.to_error_code(),
+            SendServerInviteError::NotFriends => "NOT_FRIENDS",
+            SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
+            SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
+
+impl ToHttpStatus for AcceptServerInviteError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            AcceptServerInviteError::Repository(e) => e.to_http_status(),
+            AcceptServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
+            AcceptServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            AcceptServerInviteError::Repository(e) => e.to_user_message(),
+            AcceptServerInviteError::NotAnInvite => {
+                "This message is not a server invite".to_string()
+            }
+            AcceptServerInviteError::NotRecipient => {
+                "This invite was not addressed to you".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            AcceptServerInviteError::Repository(e) => e.to_error_code(),
+            AcceptServerInviteError::NotAnInvite => "INVITE_INVALID",
+            AcceptServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
         }
     }
 }
@@ -1789,10 +1751,6 @@ impl_from_for_api_error!(
     HandleVoiceWebhookError,
     CreateServerError,
     DeleteServerError,
-    CreateServerInviteError,
-    ListServerInvitesError,
-    RevokeServerInviteError,
-    RedeemServerInviteError,
     PaginationError,
     JoinVoiceChannelError,
     ListServersByUserError,
@@ -1811,6 +1769,8 @@ impl_from_for_api_error!(
     ListFriendsError,
     SearchUsersError,
     SendDmMessageError,
+    SendServerInviteError,
+    AcceptServerInviteError,
     EditDmMessageError,
     DeleteDmMessageError,
     ListDmMessagesError,
