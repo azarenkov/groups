@@ -355,13 +355,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             : `${totalConnected} connected`}
         </div>
       </div>
-      <div className="vp-avas">
-        {allParticipants.slice(0, 4).map((p) => (
-          <div key={p.id} className="ava" style={{ background: p.color }}>
-            {p.initials}
-          </div>
-        ))}
-      </div>
       <div className="vp-actions">
         <button
           className={"vp-btn" + (open ? " on" : "")}
