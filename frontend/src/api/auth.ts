@@ -37,8 +37,18 @@ class AuthAPI {
         const originalRequest = error.config as AxiosRequestConfig & {
           _retry?: boolean;
         };
+        const url = originalRequest.url ?? "";
+        const isAuthEndpoint =
+          url.endsWith("/v1/auth/refresh") ||
+          url.endsWith("/v1/auth/login") ||
+          url.endsWith("/v1/auth/register") ||
+          url.endsWith("/v1/auth/logout");
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (
+          error.response?.status === 401 &&
+          !originalRequest._retry &&
+          !isAuthEndpoint
+        ) {
           originalRequest._retry = true;
           try {
             await this.handleRefreshFlow();
@@ -47,14 +57,6 @@ class AuthAPI {
               originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers["Authorization"] =
                 `Bearer ${tokens.accessToken}`;
-            }
-            if (
-              originalRequest.url?.endsWith("/v1/auth/logout") &&
-              tokens?.refreshToken
-            ) {
-              originalRequest.data = JSON.stringify({
-                refreshToken: tokens.refreshToken,
-              });
             }
             return this.client.request(originalRequest);
           } catch (e) {
