@@ -1109,28 +1109,18 @@ select:focus-visible {
   position: relative;
   background: var(--surface-raised);
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: var(--shadow-xs);
-  padding: 10px 12px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    "dot meta leave"
-    "avas avas actions";
-  gap: 10px 8px;
+  padding: 8px 10px;
+  display: flex;
   align-items: center;
+  gap: 8px;
 }
-.voice-pill > .vp-dot { grid-area: dot; }
-.voice-pill > .vp-meta-wrap { grid-area: meta; min-width: 0; }
-.voice-pill > .vp-avas { grid-area: avas; justify-self: start; margin-left: 0; }
-.voice-pill > .vp-actions {
-  grid-area: actions;
-  justify-self: end;
-  display: inline-flex;
-  gap: 6px;
-}
-.voice-pill > .vp-btn.leave { grid-area: leave; }
+.voice-pill > .vp-dot { flex: 0 0 auto; }
+.voice-pill > .vp-meta-wrap { flex: 1 1 auto; min-width: 0; }
+.voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }
+.voice-pill > .vp-actions { flex: 0 0 auto; display: inline-flex; gap: 4px; }
+.voice-pill > .vp-btn.leave { flex: 0 0 auto; }
 .voice-pill .vp-meta-wrap > .vp-title {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -1167,19 +1157,19 @@ select:focus-visible {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
-.voice-pill .vp-title { font-size: 13px; font-weight: 600; color: var(--fg-1); }
-.voice-pill .vp-meta { font-size: 12px; color: var(--fg-3); }
+.voice-pill .vp-title { font-size: 12px; font-weight: 600; color: var(--fg-1); line-height: 1.2; }
+.voice-pill .vp-meta { font-size: 11px; color: var(--fg-3); line-height: 1.2; }
 .voice-pill .vp-avas { display: flex; margin-left: 4px; }
 .voice-pill .vp-avas .ava {
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%;
   border: 2px solid var(--surface-raised);
   display:flex; align-items:center; justify-content:center;
-  font-size: 10px; font-weight: 600; color: #fff;
+  font-size: 9px; font-weight: 600; color: #fff;
   margin-left: -6px;
 }
 .voice-pill .vp-avas .ava:first-child { margin-left: 0; }
 .voice-pill .vp-btn {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 26px; height: 26px; border-radius: 50%;
   border: 0; background: var(--surface-sunken);
   color: var(--fg-1);
   display:flex; align-items:center; justify-content:center;
