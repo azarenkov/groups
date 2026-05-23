@@ -11,6 +11,7 @@ import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
+import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
@@ -104,6 +105,7 @@ const ServersPage: React.FC = () => {
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
+  const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -533,6 +535,7 @@ const ServersPage: React.FC = () => {
             setChannelModalServerId(server.id);
             setIsChannelModalOpen(true);
           }}
+          onInviteServer={(server) => setInviteModalServer(server)}
           onAddDm={() => setIsAddFriendOpen(true)}
           onOpenPendingRequests={() => setIsPendingOpen(true)}
           onDeleteServer={(server) =>
@@ -899,6 +902,12 @@ const ServersPage: React.FC = () => {
       <PendingFriendsModal
         isOpen={isPendingOpen}
         onClose={() => setIsPendingOpen(false)}
+      />
+
+      <InviteFriendsModal
+        server={inviteModalServer}
+        friends={friends.filter((f) => f.status === "accepted")}
+        onClose={() => setInviteModalServer(null)}
       />
 
       {editingChannel && (

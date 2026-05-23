@@ -545,18 +545,6 @@ const ChatView: React.FC<ChatViewProps> = ({
     [servers],
   );
 
-  const handleSendInvite = async (inviteServerId: string) => {
-    if (!dm) return;
-    setComposerError(null);
-    try {
-      const msg = await dmAPI.sendServerInvite(dm.friendId, inviteServerId);
-      setMessages((prev) => [...prev, msg]);
-    } catch (err) {
-      const apiErr = err instanceof ApiError ? err : null;
-      setComposerError(apiErr?.message || "Couldn't send invite.");
-    }
-  };
-
   const handleAcceptInvite = async (msg: ChannelMessage) => {
     if (!msg.inviteServerId) return;
     setComposerError(null);
@@ -639,12 +627,10 @@ const ChatView: React.FC<ChatViewProps> = ({
         dm={dm}
         membersOpen={membersOpen}
         searchActive={searchOpen}
-        servers={servers}
         onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
         onOpenChannelSettings={onOpenChannelSettings}
         onRemoveFriend={onRemoveFriend}
-        onSendInvite={handleSendInvite}
       />
       {searchOpen && (channel || dm) && (
         <div className="search-bar">
@@ -850,12 +836,10 @@ interface ChannelHeaderProps {
   dm?: DmMeta;
   membersOpen?: boolean;
   searchActive?: boolean;
-  servers?: Server[];
   onToggleSearch?: () => void;
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
-  onSendInvite?: (serverId: string) => void;
 }
 
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({
@@ -863,34 +847,11 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   dm,
   membersOpen,
   searchActive,
-  servers,
   onToggleSearch,
   onToggleMembers,
   onOpenChannelSettings,
   onRemoveFriend,
-  onSendInvite,
 }) => {
-  const [inviteOpen, setInviteOpen] = React.useState(false);
-  const inviteRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!inviteOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (inviteRef.current && !inviteRef.current.contains(e.target as Node)) {
-        setInviteOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setInviteOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [inviteOpen]);
-
   const [bellOpen, setBellOpen] = React.useState(false);
   const [notifLevel, setNotifLevel] = React.useState<"all" | "mentions" | "none">("all");
   const bellRef = React.useRef<HTMLDivElement>(null);
@@ -963,45 +924,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           <button type="button" className="icon-btn" title="Start a voice call">
             <Icon name="mic" size={16} />
           </button>
-          {onSendInvite && (
-            <div className="dm-invite-picker" ref={inviteRef}>
-              <button
-                type="button"
-                className={"icon-btn" + (inviteOpen ? " on" : "")}
-                title="Invite to a server"
-                onClick={() => setInviteOpen((v) => !v)}
-              >
-                <Icon name="user-plus" size={16} />
-              </button>
-              {inviteOpen && (
-                <div className="dm-invite-menu">
-                  <div className="dm-invite-menu-head">Invite to server</div>
-                  {(servers ?? []).length === 0 ? (
-                    <div className="dm-invite-menu-empty">
-                      You're not in any servers yet.
-                    </div>
-                  ) : (
-                    (servers ?? []).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className="dm-invite-menu-item"
-                        onClick={() => {
-                          setInviteOpen(false);
-                          onSendInvite(s.id);
-                        }}
-                      >
-                        <span className="dm-invite-menu-glyph">
-                          {serverGlyph(s.name)}
-                        </span>
-                        <span className="dm-invite-menu-name">{s.name}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          )}
           {onToggleSearch && (
             <button
               type="button"

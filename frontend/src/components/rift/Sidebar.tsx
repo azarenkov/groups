@@ -19,6 +19,7 @@ interface SidebarProps {
   onSelectDm: (dm: MockDirect) => void;
   onAddServer: () => void;
   onAddChannel: (server: Server) => void;
+  onInviteServer: (server: Server) => void;
   onAddDm: () => void;
   onOpenPendingRequests?: () => void;
   onDeleteServer: (server: Server) => void;
@@ -50,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectDm,
   onAddServer,
   onAddChannel,
+  onInviteServer,
   onAddDm,
   onOpenPendingRequests,
   onDeleteServer,
@@ -233,18 +235,32 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {!isCol && (
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      className="sb-section-add"
-                      title="Create channel"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddChannel(server);
-                      }}
-                    >
-                      <Icon name="plus" size={14} />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="sb-section-add"
+                        title="Invite people"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onInviteServer(server);
+                        }}
+                      >
+                        <Icon name="user-plus" size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="sb-section-add"
+                        title="Create channel"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddChannel(server);
+                        }}
+                      >
+                        <Icon name="plus" size={14} />
+                      </button>
+                    </>
                   )}
                   <Icon name="chev" size={12} className="chev" />
                 </span>
