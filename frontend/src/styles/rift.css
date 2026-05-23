@@ -1156,7 +1156,6 @@ select:focus-visible {
 .voice-pill.connecting { --vp-tint: var(--warning, #ff9f0a); }
 .voice-pill.poor { --vp-tint: var(--warning, #ff9f0a); }
 .voice-pill.lost { --vp-tint: var(--danger, #ff3b30); }
-.voice-pill > .vp-dot { flex: 0 0 auto; }
 .voice-pill > .vp-meta-wrap { flex: 1 1 auto; min-width: 0; }
 .voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }
 .voice-pill > .vp-actions { flex: 0 0 auto; display: inline-flex; gap: 4px; }
@@ -1166,36 +1165,6 @@ select:focus-visible {
 }
 .voice-pill .vp-meta-wrap > .vp-meta {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.voice-pill .vp-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: var(--voice-live);
-  box-shadow: 0 0 0 3px var(--success-tint);
-  transition: background var(--dur-fast), box-shadow var(--dur-fast);
-}
-.voice-pill .vp-dot.excellent {
-  background: var(--voice-live, #30a46c);
-  box-shadow: 0 0 0 3px var(--success-tint);
-}
-.voice-pill .vp-dot.good {
-  background: var(--warning, #ff9f0a);
-  box-shadow: 0 0 0 3px rgba(255, 159, 10, 0.18);
-}
-.voice-pill .vp-dot.poor {
-  background: var(--danger, #ff3b30);
-  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18);
-}
-.voice-pill .vp-dot.lost {
-  background: var(--danger, #ff3b30);
-  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18);
-  animation: vpDotPulse 1s ease-in-out infinite;
-}
-.voice-pill .vp-dot.unknown {
-  background: var(--fg-3);
-  box-shadow: 0 0 0 3px var(--surface-active);
-}
-@keyframes vpDotPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
 }
 .voice-pill .vp-title { font-size: 12px; font-weight: 600; color: var(--fg-1); line-height: 1.2; }
 .voice-pill .vp-meta { font-size: 11px; color: var(--fg-3); line-height: 1.2; }
