@@ -69,7 +69,6 @@ interface ChatViewProps {
   channel?: ChannelMeta;
   serverId?: string;
   currentUserId?: string;
-  currentUserName?: string;
   dm?: DmMeta;
   membersOpen?: boolean;
   servers?: Server[];
@@ -83,7 +82,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   channel,
   serverId,
   currentUserId,
-  currentUserName,
   dm,
   membersOpen,
   servers,
@@ -694,8 +692,9 @@ const ChatView: React.FC<ChatViewProps> = ({
                 </div>
                 {searchResults.map((m) => {
                   const isMine = !!currentUserId && m.authorId === currentUserId;
-                  const displayName =
-                    m.authorName ?? (isMine ? currentUserName : undefined) ?? m.authorId;
+                  const displayName = isMine
+                    ? "You"
+                    : (m.authorName ?? m.authorId);
                   const time = new Date(m.createdAt).toLocaleString([], {
                     month: "short",
                     day: "numeric",
@@ -776,7 +775,9 @@ const ChatView: React.FC<ChatViewProps> = ({
               const within = !!prev && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
               const cont = sameAuthor && within;
               const isMine = !!currentUserId && m.authorId === currentUserId;
-              const displayName = m.authorName ?? (isMine ? currentUserName : undefined) ?? m.authorId;
+              const displayName = isMine
+                ? "You"
+                : (m.authorName ?? m.authorId);
               return (
                 <Message
                   key={m.id}

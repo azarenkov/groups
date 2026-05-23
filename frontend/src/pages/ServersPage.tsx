@@ -598,7 +598,6 @@ const ServersPage: React.FC = () => {
                   online: selectedDm.online,
                 }}
                 currentUserId={user?.id}
-                currentUserName={userName}
                 servers={servers}
                 onGoToServer={handleGoToServer}
                 onRemoveFriend={() =>
@@ -824,7 +823,6 @@ const ServersPage: React.FC = () => {
                 }
                 serverId={selectedServer?.id}
                 currentUserId={user?.id}
-                currentUserName={userName}
                 membersOpen={
                   !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }
