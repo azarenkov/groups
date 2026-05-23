@@ -711,6 +711,25 @@ const ServersPage: React.FC = () => {
                           </div>
                         ))}
                       </div>
+                      <div className="voice-room-actions">
+                        <button
+                          type="button"
+                          className="voice-room-action"
+                          onClick={() => {}}
+                          title="Share video (coming soon)"
+                        >
+                          <Icon name="camera" size={16} />
+                          <span>Share video</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="voice-room-action leave"
+                          onClick={handleVoiceLeave}
+                        >
+                          <Icon name="logout" size={16} />
+                          <span>Leave</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })()}
