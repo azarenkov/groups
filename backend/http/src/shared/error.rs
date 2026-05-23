@@ -1424,6 +1424,8 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
             SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
             SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
+            SendServerInviteError::AlreadyMember => StatusCode::CONFLICT,
+            SendServerInviteError::InviteAlreadyPending => StatusCode::CONFLICT,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1438,6 +1440,12 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::NotServerMember => {
                 "Only members of this server can invite people".to_string()
             }
+            SendServerInviteError::AlreadyMember => {
+                "This user is already a member of the server".to_string()
+            }
+            SendServerInviteError::InviteAlreadyPending => {
+                "You've already invited this user to this server".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1448,6 +1456,8 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::NotFriends => "NOT_FRIENDS",
             SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
             SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
+            SendServerInviteError::AlreadyMember => "ALREADY_MEMBER",
+            SendServerInviteError::InviteAlreadyPending => "INVITE_ALREADY_PENDING",
         }
     }
 }

@@ -32,6 +32,10 @@ pub enum SendServerInviteError {
     ServerNotFound,
     #[error("Only server members can send invites")]
     NotServerMember,
+    #[error("This user is already a member of the server")]
+    AlreadyMember,
+    #[error("You've already invited this user to this server")]
+    InviteAlreadyPending,
 }
 
 pub struct SendServerInvite<M, F, S>
@@ -90,6 +94,22 @@ where
             .await?
         {
             return Err(SendServerInviteError::NotServerMember);
+        }
+
+        if self
+            .server_repository
+            .is_server_member(&server_id, &friend_id)
+            .await?
+        {
+            return Err(SendServerInviteError::AlreadyMember);
+        }
+
+        if self
+            .dm_repository
+            .has_pending_server_invite(&sender_id, &friend_id, &server_id)
+            .await?
+        {
+            return Err(SendServerInviteError::InviteAlreadyPending);
         }
 
         let server_name = server.name().as_str().to_string();

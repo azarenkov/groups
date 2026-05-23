@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Icon from "./rift/Icon";
 import { dmAPI } from "../api/dm";
+import { serverAPI } from "../api/server";
 import { ApiError } from "../utils/apiError";
 import type { Friendship } from "../types/friendship";
 import type { Server } from "../types/server";
@@ -26,6 +27,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
 }) => {
   const [query, setQuery] = useState("");
   const [invited, setInvited] = useState<Set<string>>(new Set());
+  const [members, setMembers] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,8 +43,26 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
   useEffect(() => {
     setQuery("");
     setInvited(new Set());
+    setMembers(new Set());
     setPending(null);
     setError(null);
+  }, [server?.id]);
+
+  useEffect(() => {
+    if (!server) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await serverAPI.listMembers(server.id, 1, 200);
+        if (cancelled) return;
+        setMembers(new Set(res.members.map((m) => m.id)));
+      } catch {
+        return;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [server?.id]);
 
   if (!server) return null;
@@ -64,7 +84,22 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
       });
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setError(apiErr?.message || "Couldn't send invite.");
+      const code = apiErr?.code;
+      if (code === "ALREADY_MEMBER") {
+        setMembers((prev) => {
+          const next = new Set(prev);
+          next.add(friendId);
+          return next;
+        });
+      } else if (code === "INVITE_ALREADY_PENDING") {
+        setInvited((prev) => {
+          const next = new Set(prev);
+          next.add(friendId);
+          return next;
+        });
+      } else {
+        setError(apiErr?.message || "Couldn't send invite.");
+      }
     } finally {
       setPending(null);
     }
@@ -100,8 +135,10 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
               ) : (
                 <div className="pf-section">
                   {visible.map((f) => {
+                    const isMember = members.has(f.friendId);
                     const sent = invited.has(f.friendId);
                     const busy = pending === f.friendId;
+                    const label = isMember ? "Member" : sent ? "Sent" : busy ? "Sending…" : "Invite";
                     return (
                       <div key={f.friendId} className="pf-row">
                         <div
@@ -113,18 +150,18 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
                         <div className="pf-name">{f.friendName}</div>
                         <button
                           type="button"
-                          className={"invite-friend-btn" + (sent ? " sent" : "")}
-                          disabled={sent || busy}
+                          className={"invite-friend-btn" + (sent || isMember ? " sent" : "")}
+                          disabled={sent || isMember || busy}
                           onClick={() => handleInvite(f.friendId)}
                         >
-                          {sent ? (
+                          {isMember ? (
+                            label
+                          ) : sent ? (
                             <>
-                              <Icon name="check" size={12} /> Sent
+                              <Icon name="check" size={12} /> {label}
                             </>
-                          ) : busy ? (
-                            "Sending…"
                           ) : (
-                            "Invite"
+                            label
                           )}
                         </button>
                       </div>

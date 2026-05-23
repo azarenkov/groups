@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     dm_message::{DmMessage, id::DmMessageId, view::DmMessageView},
+    server::id::ServerId,
     shared::{
         outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
@@ -48,4 +49,11 @@ pub trait DmMessageRepository {
         query: &str,
         pagination: Pagination,
     ) -> Result<PaginatedResult<DmMessageView>, RepositoryError>;
+
+    async fn has_pending_server_invite(
+        &self,
+        sender_id: &UserId,
+        recipient_id: &UserId,
+        server_id: &ServerId,
+    ) -> Result<bool, RepositoryError>;
 }

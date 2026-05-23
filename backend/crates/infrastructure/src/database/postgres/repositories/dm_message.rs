@@ -5,6 +5,7 @@ use domain::{
     },
     message::content::MessageContent,
     server::id::ServerId,
+
     shared::{
         outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
@@ -380,5 +381,30 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             })
             .collect();
         Ok(PaginatedResult::new(items, total, pagination))
+    }
+
+    async fn has_pending_server_invite(
+        &self,
+        sender_id: &UserId,
+        recipient_id: &UserId,
+        server_id: &ServerId,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM dm_messages
+                WHERE sender_id = $1
+                  AND recipient_id = $2
+                  AND invite_server_id = $3
+            ) AS "exists!"
+            "#,
+            sender_id.uuid(),
+            recipient_id.uuid(),
+            server_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.exists)
     }
 }
