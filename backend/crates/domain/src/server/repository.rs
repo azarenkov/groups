@@ -39,6 +39,11 @@ pub trait ServerRepository {
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<(), RepositoryError>;
+    async fn remove_server_member(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
     async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,

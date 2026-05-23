@@ -135,6 +135,19 @@ async fn list_sent_server_invites(
     )))
 }
 
+#[delete("/{server_id}/members/me")]
+async fn leave_server(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let server_id = ServerId::new(path.into_inner());
+    let user_id = UserId::new(auth_token.id);
+
+    app_state.leave_server_usecase.execute(server_id, user_id).await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 #[delete("/{server_id}")]
 async fn delete_server(
     req: HttpRequest,

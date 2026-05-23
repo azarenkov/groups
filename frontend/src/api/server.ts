@@ -83,6 +83,10 @@ class ServerAPI {
     await this.client.delete(`/v1/servers/${serverId}`);
   }
 
+  async leave(serverId: string): Promise<void> {
+    await this.client.delete(`/v1/servers/${serverId}/members/me`);
+  }
+
   async listMembers(
     serverId: string,
     page: number = 1,

@@ -32,7 +32,7 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
-        list_sent_server_invites::ListSentServerInvites,
+        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
@@ -187,6 +187,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_repository.clone(),
         livekit_service.clone(),
     );
+    let leave_server_usecase = LeaveServer::new(server_repository.clone());
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
@@ -251,6 +252,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         handle_livekit_webhook_usecase,
         create_server_usecase,
         delete_server_usecase,
+        leave_server_usecase,
         list_servers_by_user_usecase,
         list_server_members_usecase,
         list_server_channels_usecase,

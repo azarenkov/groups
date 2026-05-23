@@ -110,7 +110,7 @@ const ServersPage: React.FC = () => {
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: "server" | "channel" | "friend";
+    type: "server" | "leave-server" | "channel" | "friend";
     id: string;
     serverId?: string;
     name: string;
@@ -420,6 +420,27 @@ const ServersPage: React.FC = () => {
     }
   };
 
+  const handleLeaveServer = async () => {
+    if (deleteConfirm?.type !== "leave-server") return;
+    try {
+      await serverAPI.leave(deleteConfirm.id);
+      if (selectedServerId === deleteConfirm.id) {
+        setSelectedServer(null);
+        clearChannels(deleteConfirm.id);
+      }
+      setExpandedServerIds((prev) => {
+        if (!prev.has(deleteConfirm.id)) return prev;
+        const next = new Set(prev);
+        next.delete(deleteConfirm.id);
+        return next;
+      });
+      await fetchServers();
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error("Failed to leave server:", err);
+    }
+  };
+
   const handleDeleteChannel = async () => {
     if (deleteConfirm?.type !== "channel" || !deleteConfirm.serverId) return;
     try {
@@ -538,9 +559,14 @@ const ServersPage: React.FC = () => {
           onInviteServer={(server) => setInviteModalServer(server)}
           onAddDm={() => setIsAddFriendOpen(true)}
           onOpenPendingRequests={() => setIsPendingOpen(true)}
-          onDeleteServer={(server) =>
-            setDeleteConfirm({ type: "server", id: server.id, name: server.name })
-          }
+          onDeleteServer={(server) => {
+            const isOwner = server.ownerId === user?.id;
+            setDeleteConfirm({
+              type: isOwner ? "server" : "leave-server",
+              id: server.id,
+              name: server.name,
+            });
+          }}
           onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
               type: "channel",
@@ -939,27 +965,37 @@ const ServersPage: React.FC = () => {
           title={
             deleteConfirm.type === "server"
               ? "Delete server?"
-              : deleteConfirm.type === "channel"
-                ? "Delete channel?"
-                : "Remove friend?"
+              : deleteConfirm.type === "leave-server"
+                ? "Leave server?"
+                : deleteConfirm.type === "channel"
+                  ? "Delete channel?"
+                  : "Remove friend?"
           }
           subtitle={
-            deleteConfirm.type === "friend"
-              ? "You can send a new request later."
-              : "This can't be undone."
+            deleteConfirm.type === "leave-server"
+              ? "You can rejoin if invited again."
+              : deleteConfirm.type === "friend"
+                ? "You can send a new request later."
+                : "This can't be undone."
           }
           targetName={deleteConfirm.name}
           confirmLabel={
-            deleteConfirm.type === "friend" ? "Remove" : "Delete"
+            deleteConfirm.type === "leave-server"
+              ? "Leave"
+              : deleteConfirm.type === "friend"
+                ? "Remove"
+                : "Delete"
           }
-          danger
+          danger={deleteConfirm.type !== "leave-server"}
           onCancel={() => setDeleteConfirm(null)}
           onConfirm={
             deleteConfirm.type === "server"
               ? handleDeleteServer
-              : deleteConfirm.type === "channel"
-                ? handleDeleteChannel
-                : handleRemoveFriend
+              : deleteConfirm.type === "leave-server"
+                ? handleLeaveServer
+                : deleteConfirm.type === "channel"
+                  ? handleDeleteChannel
+                  : handleRemoveFriend
           }
         />
       )}

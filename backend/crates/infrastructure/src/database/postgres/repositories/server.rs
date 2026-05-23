@@ -347,6 +347,25 @@ impl ServerRepository for PostgresServerRepository {
         Ok(())
     }
 
+    async fn remove_server_member(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                DELETE FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            "#,
+            server_id.uuid(),
+            user_id.uuid(),
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(result.rows_affected() > 0)
+    }
+
     async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,

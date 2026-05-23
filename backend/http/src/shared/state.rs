@@ -27,7 +27,7 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
-        list_sent_server_invites::ListSentServerInvites,
+        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
@@ -142,6 +142,7 @@ pub struct AppState {
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+    pub leave_server_usecase: LeaveServer<PostgresServerRepository>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
@@ -227,6 +228,7 @@ impl AppState {
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+        leave_server_usecase: LeaveServer<PostgresServerRepository>,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
@@ -288,6 +290,7 @@ impl AppState {
             handle_livekit_webhook_usecase,
             create_server_usecase,
             delete_server_usecase,
+            leave_server_usecase,
             list_servers_by_user_usecase,
             list_server_members_usecase,
             list_server_channels_usecase,

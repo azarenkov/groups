@@ -21,6 +21,7 @@ use application::usecases::dm::{
 };
 use application::usecases::server::accept_server_invite::AcceptServerInviteError;
 use application::usecases::server::decline_server_invite::DeclineServerInviteError;
+use application::usecases::server::leave_server::LeaveServerError;
 use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
 use application::usecases::user::search_users::SearchUsersError;
@@ -1464,6 +1465,34 @@ impl ToHttpStatus for SendServerInviteError {
     }
 }
 
+impl ToHttpStatus for LeaveServerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            LeaveServerError::Repository(e) => e.to_http_status(),
+            LeaveServerError::NotMember => StatusCode::NOT_FOUND,
+            LeaveServerError::OwnerCannotLeave => StatusCode::CONFLICT,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            LeaveServerError::Repository(e) => e.to_user_message(),
+            LeaveServerError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
+            LeaveServerError::OwnerCannotLeave => {
+                "Server owners cannot leave their own server; delete it instead".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            LeaveServerError::Repository(e) => e.to_error_code(),
+            LeaveServerError::NotMember => "SERVER_NOT_MEMBER",
+            LeaveServerError::OwnerCannotLeave => "SERVER_OWNER_CANNOT_LEAVE",
+        }
+    }
+}
+
 impl ToHttpStatus for ListSentServerInvitesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1830,6 +1859,7 @@ impl_from_for_api_error!(
     SendServerInviteError,
     AcceptServerInviteError,
     DeclineServerInviteError,
+    LeaveServerError,
     ListSentServerInvitesError,
     EditDmMessageError,
     DeleteDmMessageError,
