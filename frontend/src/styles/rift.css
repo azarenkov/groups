@@ -254,16 +254,18 @@ select:focus-visible {
 }
 .sb-pending-badge {
   position: absolute;
-  top: -2px; right: -2px;
-  min-width: 14px; height: 14px;
-  padding: 0 4px;
+  top: -4px; right: -6px;
+  min-width: 13px; height: 13px;
+  padding: 0 3px;
   border-radius: 7px;
   background: var(--danger);
   color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 14px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 13px;
   text-align: center;
+  box-shadow: 0 0 0 1.5px var(--surface-canvas);
+  pointer-events: none;
 }
 
 .sb-item.unread .sb-label { font-weight: 600; }
