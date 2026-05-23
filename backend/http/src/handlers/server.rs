@@ -14,6 +14,7 @@ use crate::shared::{
             ApiResponse,
             server::{
                 create_server::CreateServerResponse,
+                list_sent_server_invites::ListSentServerInvitesResponse,
                 list_server_channels::ListServerChannelsResponse,
                 list_server_members::ListServerMembersResponse,
                 list_servers_by_user::ListServersByUserResponse,
@@ -113,6 +114,25 @@ async fn list_server_channels(
     let response = ListServerChannelsResponse::new(result.items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
+}
+
+#[get("/{server_id}/sent-invites")]
+async fn list_sent_server_invites(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let server_id = ServerId::new(path.into_inner());
+    let sender_id = UserId::new(auth_token.id);
+
+    let recipient_ids = app_state
+        .list_sent_server_invites_usecase
+        .execute(server_id, sender_id)
+        .await?;
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        ListSentServerInvitesResponse::new(recipient_ids),
+    )))
 }
 
 #[delete("/{server_id}")]

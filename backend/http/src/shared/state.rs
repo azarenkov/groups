@@ -26,9 +26,10 @@ use application::usecases::{
     },
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
-        delete_server::DeleteServer, list_server_channels::ListServerChannels,
-        list_server_members::ListServerMembers, list_servers_by_user::ListServersByUser,
-        send_server_invite::SendServerInvite,
+        delete_server::DeleteServer,
+        list_sent_server_invites::ListSentServerInvites,
+        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
+        list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
     webhook::voice::HandleVoiceWebhook,
 };
@@ -135,6 +136,8 @@ pub struct AppState {
     >,
     pub accept_server_invite_usecase:
         AcceptServerInvite<PostgresDmMessageRepository, PostgresServerRepository>,
+    pub list_sent_server_invites_usecase:
+        ListSentServerInvites<PostgresDmMessageRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
@@ -257,6 +260,7 @@ impl AppState {
             PostgresDmMessageRepository,
             PostgresServerRepository,
         >,
+        list_sent_server_invites_usecase: ListSentServerInvites<PostgresDmMessageRepository>,
         jwt_secret: String,
         trust_forwarded_headers: bool,
     ) -> Self {
@@ -297,6 +301,7 @@ impl AppState {
             search_dm_messages_usecase,
             send_server_invite_usecase,
             accept_server_invite_usecase,
+            list_sent_server_invites_usecase,
             jwt_secret,
             trust_forwarded_headers,
         }

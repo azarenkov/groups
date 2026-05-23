@@ -20,6 +20,7 @@ use application::usecases::dm::{
     send_dm_message::SendDmMessageError,
 };
 use application::usecases::server::accept_server_invite::AcceptServerInviteError;
+use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
 use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
@@ -1462,6 +1463,24 @@ impl ToHttpStatus for SendServerInviteError {
     }
 }
 
+impl ToHttpStatus for ListSentServerInvitesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListSentServerInvitesError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListSentServerInvitesError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListSentServerInvitesError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for AcceptServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1781,6 +1800,7 @@ impl_from_for_api_error!(
     SendDmMessageError,
     SendServerInviteError,
     AcceptServerInviteError,
+    ListSentServerInvitesError,
     EditDmMessageError,
     DeleteDmMessageError,
     ListDmMessagesError,

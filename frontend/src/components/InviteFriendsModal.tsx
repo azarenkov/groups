@@ -53,9 +53,13 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
     let cancelled = false;
     (async () => {
       try {
-        const res = await serverAPI.listMembers(server.id, 1, 200);
+        const [membersRes, invitesRes] = await Promise.all([
+          serverAPI.listMembers(server.id, 1, 200),
+          serverAPI.listSentInvites(server.id),
+        ]);
         if (cancelled) return;
-        setMembers(new Set(res.members.map((m) => m.id)));
+        setMembers(new Set(membersRes.members.map((m) => m.id)));
+        setInvited(new Set(invitesRes.recipientIds));
       } catch {
         return;
       }
@@ -138,7 +142,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
                     const isMember = members.has(f.friendId);
                     const sent = invited.has(f.friendId);
                     const busy = pending === f.friendId;
-                    const label = isMember ? "Member" : sent ? "Sent" : busy ? "Sending…" : "Invite";
+                    const label = isMember ? "Member" : sent ? "Pending" : busy ? "Sending…" : "Invite";
                     return (
                       <div key={f.friendId} className="pf-row">
                         <div

@@ -31,9 +31,10 @@ use application::usecases::{
     },
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
-        delete_server::DeleteServer, list_server_channels::ListServerChannels,
-        list_server_members::ListServerMembers, list_servers_by_user::ListServersByUser,
-        send_server_invite::SendServerInvite,
+        delete_server::DeleteServer,
+        list_sent_server_invites::ListSentServerInvites,
+        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
+        list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
     webhook::voice::HandleVoiceWebhook,
 };
@@ -225,6 +226,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let accept_server_invite_usecase =
         AcceptServerInvite::new(dm_repository.clone(), server_repository.clone());
+    let list_sent_server_invites_usecase = ListSentServerInvites::new(dm_repository.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
@@ -263,6 +265,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         search_dm_messages_usecase,
         send_server_invite_usecase,
         accept_server_invite_usecase,
+        list_sent_server_invites_usecase,
         server_config.jwt_secret,
         server_config.trust_forwarded_headers,
     ));

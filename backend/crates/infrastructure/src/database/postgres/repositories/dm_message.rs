@@ -407,4 +407,27 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.exists)
     }
+
+    async fn find_invite_recipients(
+        &self,
+        sender_id: &UserId,
+        server_id: &ServerId,
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT DISTINCT recipient_id
+            FROM dm_messages
+            WHERE sender_id = $1 AND invite_server_id = $2
+            "#,
+            sender_id.uuid(),
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| UserId::new(r.recipient_id))
+            .collect())
+    }
 }

@@ -97,6 +97,13 @@ class ServerAPI {
       pagination: response.data.meta?.pagination,
     };
   }
+
+  async listSentInvites(serverId: string): Promise<{ recipientIds: string[] }> {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/sent-invites`,
+    );
+    return { recipientIds: response.data.data.recipientIds };
+  }
 }
 
 export const serverAPI = new ServerAPI();

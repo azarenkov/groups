@@ -56,4 +56,10 @@ pub trait DmMessageRepository {
         recipient_id: &UserId,
         server_id: &ServerId,
     ) -> Result<bool, RepositoryError>;
+
+    async fn find_invite_recipients(
+        &self,
+        sender_id: &UserId,
+        server_id: &ServerId,
+    ) -> Result<Vec<UserId>, RepositoryError>;
 }
