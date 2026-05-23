@@ -652,12 +652,14 @@ const ServersPage: React.FC = () => {
                     {
                       id: user?.id || "you",
                       label: initialFor(userName),
+                      name: userName || "You",
                       color: colorForId(user?.id || "you"),
                       speaking: localSpeaking,
                     },
                     ...voiceParticipants.map((p) => ({
                       id: p.identity,
                       label: initialFor(p.name || p.identity),
+                      name: p.name || p.identity,
                       color: colorForId(p.identity),
                       speaking: p.isSpeaking,
                     })),
@@ -671,20 +673,22 @@ const ServersPage: React.FC = () => {
                   return (
                     <div className={`voice-stage-orbs ${sizeClass}`}>
                       {orbs.map((o) => (
-                        <div
-                          key={o.id}
-                          className={
-                            "voice-stage-orb" + (o.speaking ? " speaking" : "")
-                          }
-                          style={
-                            {
-                              "--orb-color": o.color,
-                            } as React.CSSProperties
-                          }
-                        >
-                          <span className="voice-stage-orb-letter">
-                            {o.label}
-                          </span>
+                        <div key={o.id} className="voice-stage-orb-cell">
+                          <div
+                            className={
+                              "voice-stage-orb" + (o.speaking ? " speaking" : "")
+                            }
+                            style={
+                              {
+                                "--orb-color": o.color,
+                              } as React.CSSProperties
+                            }
+                          >
+                            <span className="voice-stage-orb-letter">
+                              {o.label}
+                            </span>
+                          </div>
+                          <div className="voice-stage-orb-name">{o.name}</div>
                         </div>
                       ))}
                     </div>
@@ -738,18 +742,22 @@ const ServersPage: React.FC = () => {
                       return (
                         <div className={`voice-stage-orbs ${sizeClass}`}>
                           {previewParticipants.map((p) => (
-                            <div
-                              key={p.id}
-                              className="voice-stage-orb"
-                              style={
-                                {
-                                  "--orb-color": colorForId(p.id),
-                                } as React.CSSProperties
-                              }
-                            >
-                              <span className="voice-stage-orb-letter">
-                                {initialFor(p.name)}
-                              </span>
+                            <div key={p.id} className="voice-stage-orb-cell">
+                              <div
+                                className="voice-stage-orb"
+                                style={
+                                  {
+                                    "--orb-color": colorForId(p.id),
+                                  } as React.CSSProperties
+                                }
+                              >
+                                <span className="voice-stage-orb-letter">
+                                  {initialFor(p.name)}
+                                </span>
+                              </div>
+                              <div className="voice-stage-orb-name">
+                                {p.name}
+                              </div>
                             </div>
                           ))}
                         </div>
