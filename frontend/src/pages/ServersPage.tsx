@@ -576,6 +576,7 @@ const ServersPage: React.FC = () => {
             })
           }
           onOpenSettings={() => setSettingsOpen(true)}
+          currentUserId={user?.id}
           currentUserName={userName}
           currentUserStatus={userStatus}
         />

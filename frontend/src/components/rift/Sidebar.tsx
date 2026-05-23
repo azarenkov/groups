@@ -25,6 +25,7 @@ interface SidebarProps {
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
+  currentUserId?: string;
   currentUserName: string;
   currentUserStatus: string;
 }
@@ -57,6 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
+  currentUserId,
   currentUserName,
   currentUserStatus,
 }) => {
@@ -206,10 +208,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onToggleServer(server.id);
                   onSelectServer(server.id);
                 }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  onDeleteServer(server);
-                }}
                 style={{ marginTop: 6 }}
               >
                 <span
@@ -260,6 +258,33 @@ const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Icon name="plus" size={14} />
                       </button>
+                      {currentUserId === server.ownerId ? (
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className="sb-section-add"
+                          title="Delete server"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteServer(server);
+                          }}
+                        >
+                          <Icon name="trash" size={14} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className="sb-section-add"
+                          title="Leave server"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteServer(server);
+                          }}
+                        >
+                          <Icon name="logout" size={14} />
+                        </button>
+                      )}
                     </>
                   )}
                   <Icon name="chev" size={12} className="chev" />
