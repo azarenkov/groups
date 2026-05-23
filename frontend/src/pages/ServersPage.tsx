@@ -662,13 +662,71 @@ const ServersPage: React.FC = () => {
                     </button>
                   </div>
                 </header>
-                <div className="empty-state" style={{ padding: 60 }}>
-                  <div className="icon-wrap">
-                    <Icon name="volume" size={22} />
-                  </div>
-                  <h3>You're in {joinedChannel.channel.name}</h3>
-                  <p>Participants are listed in the sidebar.</p>
-                </div>
+                {(() => {
+                  const tiles = [
+                    {
+                      id: user?.id || "you",
+                      name: userName || "You",
+                      initials: initialFor(userName),
+                      color: colorForId(user?.id || "you"),
+                    },
+                    ...voiceParticipants.map((p) => ({
+                      id: p.identity,
+                      name: p.name || p.identity,
+                      initials: initialFor(p.name || p.identity),
+                      color: colorForId(p.identity),
+                    })),
+                  ];
+                  const cols =
+                    tiles.length === 1
+                      ? 1
+                      : tiles.length === 2
+                        ? 2
+                        : tiles.length <= 4
+                          ? 2
+                          : tiles.length <= 6
+                            ? 3
+                            : tiles.length <= 9
+                              ? 3
+                              : 4;
+                  return (
+                    <div className="voice-room">
+                      <div
+                        className="voice-room-grid"
+                        style={
+                          {
+                            "--vt-cols": cols,
+                          } as React.CSSProperties
+                        }
+                      >
+                        {tiles.map((t) => (
+                          <div key={t.id} className="voice-tile">
+                            <div
+                              className="voice-tile-ava"
+                              style={{ background: t.color }}
+                            >
+                              {t.initials}
+                            </div>
+                            <div className="voice-tile-name">{t.name}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="voice-room-actions">
+                        <button
+                          type="button"
+                          className="voice-room-action"
+                          onClick={() =>
+                            selectedServer &&
+                            setInviteModalServer(selectedServer)
+                          }
+                        >
+                          <Icon name="user-plus" size={16} />
+                          <span>Invite to voice</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : !selectedServerChannelsLoaded ? (
               <div className="empty-state" style={{ padding: 60 }}>
