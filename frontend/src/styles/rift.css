@@ -2609,6 +2609,32 @@ textarea.s-input {
   50% { opacity: 0.55; }
 }
 
+.sb-server-menu-wrap { position: relative; display: inline-flex; }
+.sb-server-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+  z-index: 60;
+}
+.sb-server-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; text-align: left;
+  padding: 7px 10px;
+  border: 0; background: transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px; color: var(--fg-1);
+}
+.sb-server-menu-item:hover { background: var(--surface-hover); }
+.sb-server-menu-item.danger { color: var(--danger); }
+.sb-server-menu-item.danger:hover { background: var(--danger-tint); }
+
 .invite-friend-btn {
   margin-left: auto;
   padding: 6px 14px;

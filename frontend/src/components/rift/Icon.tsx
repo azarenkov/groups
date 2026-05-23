@@ -40,7 +40,8 @@ export type IconName =
   | "check"
   | "trash"
   | "user-check"
-  | "user-plus";
+  | "user-plus"
+  | "more";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   hash: (
@@ -304,6 +305,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <line x1="19" y1="8" x2="19" y2="14" />
       <line x1="16" y1="11" x2="22" y2="11" />
     </>
+  ),
+  more: (
+    <g fill="currentColor" stroke="none">
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
+    </g>
   ),
 };
 

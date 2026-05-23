@@ -65,6 +65,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
     setCollapsed((c) => ({ ...c, [id]: !c[id] }));
+  const [menuServerId, setMenuServerId] = React.useState<string | null>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!menuServerId) return;
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuServerId(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuServerId(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menuServerId]);
 
   const directsCollapsed = !!collapsed["__directs"];
 
@@ -258,33 +278,57 @@ const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Icon name="plus" size={14} />
                       </button>
-                      {currentUserId === server.ownerId ? (
+                      <div
+                        className="sb-server-menu-wrap"
+                        ref={menuServerId === server.id ? menuRef : undefined}
+                      >
                         <button
                           type="button"
                           tabIndex={-1}
-                          className="sb-section-add"
-                          title="Delete server"
+                          className={
+                            "sb-section-add" +
+                            (menuServerId === server.id ? " on" : "")
+                          }
+                          title="More"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onDeleteServer(server);
+                            setMenuServerId((prev) =>
+                              prev === server.id ? null : server.id,
+                            );
                           }}
                         >
-                          <Icon name="trash" size={14} />
+                          <Icon name="more" size={14} />
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          className="sb-section-add"
-                          title="Leave server"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteServer(server);
-                          }}
-                        >
-                          <Icon name="logout" size={14} />
-                        </button>
-                      )}
+                        {menuServerId === server.id && (
+                          <div
+                            className="sb-server-menu"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="sb-server-menu-item danger"
+                              onClick={() => {
+                                setMenuServerId(null);
+                                onDeleteServer(server);
+                              }}
+                            >
+                              <Icon
+                                name={
+                                  currentUserId === server.ownerId
+                                    ? "trash"
+                                    : "logout"
+                                }
+                                size={14}
+                              />
+                              <span>
+                                {currentUserId === server.ownerId
+                                  ? "Delete server"
+                                  : "Leave server"}
+                              </span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </>
                   )}
                   <Icon name="chev" size={12} className="chev" />
