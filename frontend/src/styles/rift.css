@@ -2598,11 +2598,11 @@ textarea.s-input {
 }
 .voice-tile {
   position: relative;
-  background: radial-gradient(
+  background-color: var(--surface-raised);
+  background-image: radial-gradient(
     120% 90% at 25% 20%,
-    color-mix(in srgb, var(--surface-raised) 70%, #ffffff 8%) 0%,
-    var(--surface-raised) 45%,
-    color-mix(in srgb, var(--surface-raised) 55%, #000000 25%) 100%
+    rgba(255, 255, 255, 0.05) 0%,
+    transparent 55%
   );
   border-radius: 14px;
   border: 1px solid var(--hairline);
@@ -2610,7 +2610,18 @@ textarea.s-input {
   min-height: 160px;
   overflow: hidden;
 }
+.voice-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+}
 .voice-tile-ava {
+  position: relative;
+  z-index: 1;
   width: 88px; height: 88px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 34px; font-weight: 600; color: #fff;
@@ -2618,6 +2629,7 @@ textarea.s-input {
 }
 .voice-tile-name {
   position: absolute;
+  z-index: 1;
   left: 12px; bottom: 10px;
   font-size: 13px; font-weight: 500;
   color: var(--fg-1);
