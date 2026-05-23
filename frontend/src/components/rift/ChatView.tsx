@@ -18,6 +18,24 @@ const serverGlyph = (name: string): string => {
     .toUpperCase();
 };
 
+const sameDay = (a: Date, b: Date): boolean =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+const formatDayDivider = (date: Date): string => {
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
 const PAGE_LIMIT = 50;
 const MAX_CONTENT = 2000;
@@ -771,16 +789,24 @@ const ChatView: React.FC<ChatViewProps> = ({
             )}
             {messages.map((m, i) => {
               const prev = messages[i - 1];
+              const curDate = new Date(m.createdAt);
+              const prevDate = prev ? new Date(prev.createdAt) : null;
+              const newDay = !prevDate || !sameDay(curDate, prevDate);
               const sameAuthor = !!prev && prev.authorId === m.authorId;
-              const within = !!prev && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
-              const cont = sameAuthor && within;
+              const within = !!prev && curDate.getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
+              const cont = sameAuthor && within && !newDay;
               const isMine = !!currentUserId && m.authorId === currentUserId;
               const displayName = isMine
                 ? "You"
                 : (m.authorName ?? m.authorId);
               return (
+                <React.Fragment key={m.id}>
+                  {newDay && (
+                    <div className="day-divider">
+                      <span>{formatDayDivider(curDate)}</span>
+                    </div>
+                  )}
                 <Message
-                  key={m.id}
                   msg={m}
                   displayName={displayName}
                   continued={cont}
@@ -802,6 +828,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                     m.inviteServerId && onGoToServer?.(m.inviteServerId)
                   }
                 />
+                </React.Fragment>
               );
             })}
           </div>
