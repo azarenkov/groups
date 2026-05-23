@@ -332,6 +332,7 @@ impl ServerRepository for PostgresServerRepository {
         invite_message_id: &DmMessageId,
         server_id: &ServerId,
         user_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
@@ -369,6 +370,8 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        save_outbox_records(&mut tx, events).await?;
+
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
@@ -378,6 +381,12 @@ impl ServerRepository for PostgresServerRepository {
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
         let result = sqlx::query!(
             r#"
                 DELETE FROM server_members
@@ -386,10 +395,55 @@ impl ServerRepository for PostgresServerRepository {
             server_id.uuid(),
             user_id.uuid(),
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(result.rows_affected() > 0)
+
+        if result.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        sqlx::query!(
+            r#"
+                DELETE FROM channel_text_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                DELETE FROM channel_voice_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                DELETE FROM channel_muted_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
     }
 
     async fn delete_server_by_owner_with_events(

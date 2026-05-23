@@ -77,6 +77,7 @@ async fn send_server_invite(
 
 #[post("/me/dms/messages/{message_id}/accept-invite")]
 async fn accept_server_invite(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -86,7 +87,7 @@ async fn accept_server_invite(
 
     let server_id = app_state
         .accept_server_invite_usecase
-        .execute(message_id, requester_id)
+        .execute(message_id, requester_id, request_context(&req))
         .await?;
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(AcceptServerInviteResponse::new(server_id))))

@@ -1551,6 +1551,7 @@ impl ToHttpStatus for AcceptServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AcceptServerInviteError::Repository(e) => e.to_http_status(),
+            AcceptServerInviteError::Outbox(e) => e.to_http_status(),
             AcceptServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
             AcceptServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
         }
@@ -1558,6 +1559,7 @@ impl ToHttpStatus for AcceptServerInviteError {
     fn to_user_message(&self) -> String {
         match self {
             AcceptServerInviteError::Repository(e) => e.to_user_message(),
+            AcceptServerInviteError::Outbox(e) => e.to_user_message(),
             AcceptServerInviteError::NotAnInvite => {
                 "This message is not a server invite".to_string()
             }
@@ -1569,6 +1571,7 @@ impl ToHttpStatus for AcceptServerInviteError {
     fn to_error_code(&self) -> &'static str {
         match self {
             AcceptServerInviteError::Repository(e) => e.to_error_code(),
+            AcceptServerInviteError::Outbox(e) => e.to_error_code(),
             AcceptServerInviteError::NotAnInvite => "INVITE_INVALID",
             AcceptServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
         }

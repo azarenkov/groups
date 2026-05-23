@@ -40,6 +40,7 @@ pub trait ServerRepository {
         invite_message_id: &DmMessageId,
         server_id: &ServerId,
         user_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
     async fn remove_server_member(
         &self,

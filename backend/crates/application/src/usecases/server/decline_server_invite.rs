@@ -58,7 +58,7 @@ where
             return Err(DeclineServerInviteError::NotRecipient);
         }
 
-        message.record_decline(Utc::now());
+        message.record_invite_deleted(Utc::now());
 
         let request_id = ctx.request_id.clone();
         let records: Vec<OutboxRecord> = message

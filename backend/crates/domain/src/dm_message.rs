@@ -150,7 +150,7 @@ impl DmMessage {
         Ok(())
     }
 
-    pub fn record_decline(&mut self, now: DateTime<Utc>) {
+    pub fn record_invite_deleted(&mut self, now: DateTime<Utc>) {
         self.events
             .push(DmMessageDomainEvent::Deleted(DmMessageDeleted::record(
                 self.id,
