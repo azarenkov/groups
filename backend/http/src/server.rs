@@ -228,7 +228,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let accept_server_invite_usecase =
         AcceptServerInvite::new(dm_repository.clone(), server_repository.clone());
     let decline_server_invite_usecase = DeclineServerInvite::new(dm_repository.clone());
-    let list_sent_server_invites_usecase = ListSentServerInvites::new(dm_repository.clone());
+    let list_sent_server_invites_usecase =
+        ListSentServerInvites::new(dm_repository.clone(), server_repository.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,

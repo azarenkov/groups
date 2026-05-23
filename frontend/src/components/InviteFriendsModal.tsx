@@ -53,12 +53,12 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
     let cancelled = false;
     (async () => {
       try {
-        const [membersRes, invitesRes] = await Promise.all([
-          serverAPI.listMembers(server.id, 1, 50),
+        const [allMembers, invitesRes] = await Promise.all([
+          serverAPI.listAllMembers(server.id),
           serverAPI.listSentInvites(server.id),
         ]);
         if (cancelled) return;
-        setMembers(new Set(membersRes.members.map((m) => m.id)));
+        setMembers(new Set(allMembers.map((m) => m.id)));
         setInvited(new Set(invitesRes.recipientIds));
       } catch {
         return;

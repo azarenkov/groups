@@ -1497,16 +1497,21 @@ impl ToHttpStatus for ListSentServerInvitesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListSentServerInvitesError::Repository(e) => e.to_http_status(),
+            ListSentServerInvitesError::NotMember => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             ListSentServerInvitesError::Repository(e) => e.to_user_message(),
+            ListSentServerInvitesError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             ListSentServerInvitesError::Repository(e) => e.to_error_code(),
+            ListSentServerInvitesError::NotMember => "SERVER_NOT_MEMBER",
         }
     }
 }

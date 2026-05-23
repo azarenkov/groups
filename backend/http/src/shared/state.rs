@@ -138,7 +138,7 @@ pub struct AppState {
         AcceptServerInvite<PostgresDmMessageRepository, PostgresServerRepository>,
     pub decline_server_invite_usecase: DeclineServerInvite<PostgresDmMessageRepository>,
     pub list_sent_server_invites_usecase:
-        ListSentServerInvites<PostgresDmMessageRepository>,
+        ListSentServerInvites<PostgresDmMessageRepository, PostgresServerRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
@@ -264,7 +264,10 @@ impl AppState {
             PostgresServerRepository,
         >,
         decline_server_invite_usecase: DeclineServerInvite<PostgresDmMessageRepository>,
-        list_sent_server_invites_usecase: ListSentServerInvites<PostgresDmMessageRepository>,
+        list_sent_server_invites_usecase: ListSentServerInvites<
+            PostgresDmMessageRepository,
+            PostgresServerRepository,
+        >,
         jwt_secret: String,
         trust_forwarded_headers: bool,
     ) -> Self {

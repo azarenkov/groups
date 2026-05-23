@@ -102,6 +102,20 @@ class ServerAPI {
     };
   }
 
+  async listAllMembers(serverId: string): Promise<{ id: string; name: string }[]> {
+    const perPage = 50;
+    const all: { id: string; name: string }[] = [];
+    let page = 1;
+    while (true) {
+      const res = await this.listMembers(serverId, page, perPage);
+      all.push(...res.members);
+      const total = res.pagination?.totalPages ?? 1;
+      if (page >= total) break;
+      page++;
+    }
+    return all;
+  }
+
   async listSentInvites(serverId: string): Promise<{ recipientIds: string[] }> {
     const response = await this.client.get(
       `/v1/servers/${serverId}/sent-invites`,

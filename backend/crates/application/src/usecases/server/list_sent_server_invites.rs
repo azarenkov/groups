@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use domain::{
     dm_message::repository::DmMessageRepository,
-    server::id::ServerId,
+    server::{id::ServerId, repository::ServerRepository},
     shared::repository::error::RepositoryError,
     user::id::UserId,
 };
@@ -12,21 +12,29 @@ use uuid::Uuid;
 pub enum ListSentServerInvitesError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("You are not a member of this server")]
+    NotMember,
 }
 
-pub struct ListSentServerInvites<M>
+pub struct ListSentServerInvites<M, S>
 where
     M: DmMessageRepository,
+    S: ServerRepository,
 {
     dm_repository: Arc<M>,
+    server_repository: Arc<S>,
 }
 
-impl<M> ListSentServerInvites<M>
+impl<M, S> ListSentServerInvites<M, S>
 where
     M: DmMessageRepository,
+    S: ServerRepository,
 {
-    pub fn new(dm_repository: Arc<M>) -> Self {
-        Self { dm_repository }
+    pub fn new(dm_repository: Arc<M>, server_repository: Arc<S>) -> Self {
+        Self {
+            dm_repository,
+            server_repository,
+        }
     }
 
     pub async fn execute(
@@ -34,6 +42,14 @@ where
         server_id: ServerId,
         sender_id: UserId,
     ) -> Result<Vec<Uuid>, ListSentServerInvitesError> {
+        if !self
+            .server_repository
+            .is_server_member(&server_id, &sender_id)
+            .await?
+        {
+            return Err(ListSentServerInvitesError::NotMember);
+        }
+
         let recipients = self
             .dm_repository
             .find_invite_recipients(&sender_id, &server_id)
