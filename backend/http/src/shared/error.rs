@@ -127,6 +127,7 @@ impl ToHttpStatus for VoiceServiceError {
             VoiceServiceError::TokenCreation(_) => "VOICE_TOKEN_CREATION_FAILED",
             VoiceServiceError::VoiceChannelCreation(_) => "VOICE_CHANNEL_CREATION_FAILED",
             VoiceServiceError::VoiceChannelDeletion(_) => "VOICE_CHANNEL_DELETION_FAILED",
+            VoiceServiceError::ParticipantRemoval(_) => "VOICE_PARTICIPANT_REMOVAL_FAILED",
         }
     }
 }

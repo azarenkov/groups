@@ -142,7 +142,8 @@ pub struct AppState {
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
-    pub leave_server_usecase: LeaveServer<PostgresServerRepository>,
+    pub leave_server_usecase:
+        LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
@@ -228,7 +229,11 @@ impl AppState {
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
-        leave_server_usecase: LeaveServer<PostgresServerRepository>,
+        leave_server_usecase: LeaveServer<
+            PostgresServerRepository,
+            PostgresChannelRepository,
+            LiveKitService,
+        >,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
