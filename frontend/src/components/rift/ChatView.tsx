@@ -549,10 +549,15 @@ const ChatView: React.FC<ChatViewProps> = ({
     setComposerError(null);
     try {
       await dmAPI.acceptServerInvite(msg.id);
-      await onGoToServer?.(msg.inviteServerId);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       setComposerError(apiErr?.message || "Couldn't join the server.");
+      return;
+    }
+    try {
+      await onGoToServer?.(msg.inviteServerId);
+    } catch (err) {
+      console.warn("[ChatView] post-accept navigation failed:", err);
     }
   };
 

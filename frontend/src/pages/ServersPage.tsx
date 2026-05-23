@@ -405,6 +405,10 @@ const ServersPage: React.FC = () => {
         setSelectedServer(null);
         clearChannels(deleteConfirm.id);
       }
+      if (joinedChannel?.serverId === deleteConfirm.id) {
+        setJoinedChannel(null);
+        setVoiceJoinFailed(false);
+      }
       setExpandedServerIds((prev) => {
         if (!prev.has(deleteConfirm.id)) return prev;
         const next = new Set(prev);
@@ -424,6 +428,10 @@ const ServersPage: React.FC = () => {
       if (selectedServerId === deleteConfirm.id) {
         setSelectedServer(null);
         clearChannels(deleteConfirm.id);
+      }
+      if (joinedChannel?.serverId === deleteConfirm.id) {
+        setJoinedChannel(null);
+        setVoiceJoinFailed(false);
       }
       setExpandedServerIds((prev) => {
         if (!prev.has(deleteConfirm.id)) return prev;
