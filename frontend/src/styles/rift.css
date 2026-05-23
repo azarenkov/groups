@@ -2598,7 +2598,12 @@ textarea.s-input {
 }
 .voice-tile {
   position: relative;
-  background: var(--surface-raised);
+  background: radial-gradient(
+    120% 90% at 25% 20%,
+    color-mix(in srgb, var(--surface-raised) 70%, #ffffff 8%) 0%,
+    var(--surface-raised) 45%,
+    color-mix(in srgb, var(--surface-raised) 55%, #000000 25%) 100%
+  );
   border-radius: 14px;
   border: 1px solid var(--hairline);
   display: flex; align-items: center; justify-content: center;
