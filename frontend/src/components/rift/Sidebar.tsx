@@ -318,7 +318,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     ? "trash"
                                     : "logout"
                                 }
-                                size={14}
+                                size={12}
                               />
                               <span>
                                 {currentUserId === server.ownerId
