@@ -1,5 +1,6 @@
 pub mod accept_server_invite;
 pub mod create_server;
+pub mod decline_server_invite;
 pub mod delete_server;
 pub mod list_sent_server_invites;
 pub mod list_server_members;

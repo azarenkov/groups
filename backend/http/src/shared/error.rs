@@ -20,6 +20,7 @@ use application::usecases::dm::{
     send_dm_message::SendDmMessageError,
 };
 use application::usecases::server::accept_server_invite::AcceptServerInviteError;
+use application::usecases::server::decline_server_invite::DeclineServerInviteError;
 use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
 use application::usecases::user::search_users::SearchUsersError;
@@ -1481,6 +1482,34 @@ impl ToHttpStatus for ListSentServerInvitesError {
     }
 }
 
+impl ToHttpStatus for DeclineServerInviteError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeclineServerInviteError::Repository(e) => e.to_http_status(),
+            DeclineServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
+            DeclineServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DeclineServerInviteError::Repository(e) => e.to_user_message(),
+            DeclineServerInviteError::NotAnInvite => {
+                "This message is not a server invite".to_string()
+            }
+            DeclineServerInviteError::NotRecipient => {
+                "This invite was not addressed to you".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeclineServerInviteError::Repository(e) => e.to_error_code(),
+            DeclineServerInviteError::NotAnInvite => "INVITE_INVALID",
+            DeclineServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
+        }
+    }
+}
+
 impl ToHttpStatus for AcceptServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1800,6 +1829,7 @@ impl_from_for_api_error!(
     SendDmMessageError,
     SendServerInviteError,
     AcceptServerInviteError,
+    DeclineServerInviteError,
     ListSentServerInvitesError,
     EditDmMessageError,
     DeleteDmMessageError,

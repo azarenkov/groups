@@ -26,7 +26,7 @@ use application::usecases::{
     },
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
-        delete_server::DeleteServer,
+        decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
@@ -136,6 +136,7 @@ pub struct AppState {
     >,
     pub accept_server_invite_usecase:
         AcceptServerInvite<PostgresDmMessageRepository, PostgresServerRepository>,
+    pub decline_server_invite_usecase: DeclineServerInvite<PostgresDmMessageRepository>,
     pub list_sent_server_invites_usecase:
         ListSentServerInvites<PostgresDmMessageRepository>,
 
@@ -260,6 +261,7 @@ impl AppState {
             PostgresDmMessageRepository,
             PostgresServerRepository,
         >,
+        decline_server_invite_usecase: DeclineServerInvite<PostgresDmMessageRepository>,
         list_sent_server_invites_usecase: ListSentServerInvites<PostgresDmMessageRepository>,
         jwt_secret: String,
         trust_forwarded_headers: bool,
@@ -301,6 +303,7 @@ impl AppState {
             search_dm_messages_usecase,
             send_server_invite_usecase,
             accept_server_invite_usecase,
+            decline_server_invite_usecase,
             list_sent_server_invites_usecase,
             jwt_secret,
             trust_forwarded_headers,

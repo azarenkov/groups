@@ -2680,3 +2680,15 @@ textarea.s-input {
   background: var(--surface-hover);
   filter: brightness(0.95);
 }
+.dm-invite-card-actions {
+  display: inline-flex; gap: 6px; flex-shrink: 0;
+}
+.dm-invite-card-btn.decline {
+  background: var(--surface-hover);
+  color: var(--fg-2);
+}
+.dm-invite-card-btn.decline:hover {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+  filter: brightness(0.95);
+}

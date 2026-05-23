@@ -92,6 +92,23 @@ async fn accept_server_invite(
     Ok(HttpResponse::Ok().json(ApiResponse::success(AcceptServerInviteResponse::new(server_id))))
 }
 
+#[post("/me/dms/messages/{message_id}/decline-invite")]
+async fn decline_server_invite(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let message_id = DmMessageId::new(path.into_inner());
+    let requester_id = UserId::new(auth_token.id);
+
+    app_state
+        .decline_server_invite_usecase
+        .execute(message_id, requester_id)
+        .await?;
+
+    Ok(HttpResponse::NoContent().finish())
+}
+
 #[get("/me/dms/{friend_id}/messages")]
 async fn list_dm_messages(
     req: HttpRequest,

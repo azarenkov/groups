@@ -557,6 +557,18 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
+  const handleDeclineInvite = async (msg: ChannelMessage) => {
+    if (!msg.inviteServerId) return;
+    setComposerError(null);
+    try {
+      await dmAPI.declineServerInvite(msg.id);
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setComposerError(apiErr?.message || "Couldn't decline the invite.");
+    }
+  };
+
   const startEdit = (msg: ChannelMessage) => {
     setEditingId(msg.id);
     setEditText(msg.content);
@@ -784,6 +796,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   onSaveEdit={() => saveEdit(m)}
                   onDelete={() => setDeleteTarget(m)}
                   onAcceptInvite={() => handleAcceptInvite(m)}
+                  onDeclineInvite={() => handleDeclineInvite(m)}
                   onOpenInviteServer={() =>
                     m.inviteServerId && onGoToServer?.(m.inviteServerId)
                   }
@@ -1064,6 +1077,7 @@ interface MessageProps {
   onSaveEdit: () => void;
   onDelete: () => void;
   onAcceptInvite: () => void;
+  onDeclineInvite: () => void;
   onOpenInviteServer: () => void;
 }
 
@@ -1082,6 +1096,7 @@ const Message: React.FC<MessageProps> = ({
   onSaveEdit,
   onDelete,
   onAcceptInvite,
+  onDeclineInvite,
   onOpenInviteServer,
 }) => {
   const created = new Date(msg.createdAt);
@@ -1127,15 +1142,32 @@ const Message: React.FC<MessageProps> = ({
                     : `${displayName} invited you to join`}
                 </div>
               </div>
-              <button
-                type="button"
-                className={
-                  "dm-invite-card-btn" + (inviteIsMember ? " joined" : "")
-                }
-                onClick={inviteIsMember ? onOpenInviteServer : onAcceptInvite}
-              >
-                {inviteIsMember ? "Open" : "Join"}
-              </button>
+              {inviteIsMember ? (
+                <button
+                  type="button"
+                  className="dm-invite-card-btn joined"
+                  onClick={onOpenInviteServer}
+                >
+                  Open
+                </button>
+              ) : isMine ? null : (
+                <div className="dm-invite-card-actions">
+                  <button
+                    type="button"
+                    className="dm-invite-card-btn"
+                    onClick={onAcceptInvite}
+                  >
+                    Join
+                  </button>
+                  <button
+                    type="button"
+                    className="dm-invite-card-btn decline"
+                    onClick={onDeclineInvite}
+                  >
+                    Decline
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ) : editing ? (

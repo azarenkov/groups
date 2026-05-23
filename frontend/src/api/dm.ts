@@ -119,6 +119,12 @@ class DmAPI {
     return { serverId: response.data.data.serverId };
   }
 
+  async declineServerInvite(messageId: string): Promise<void> {
+    await this.client.post(
+      `/v1/users/me/dms/messages/${messageId}/decline-invite`,
+    );
+  }
+
   async editMessage(messageId: string, content: string): Promise<void> {
     await this.client.patch(`/v1/users/me/dms/messages/${messageId}`, {
       content,
