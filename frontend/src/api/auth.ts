@@ -38,16 +38,15 @@ class AuthAPI {
           _retry?: boolean;
         };
         const url = originalRequest.url ?? "";
-        const isAuthEndpoint =
+        const skipRefresh =
           url.endsWith("/v1/auth/refresh") ||
           url.endsWith("/v1/auth/login") ||
-          url.endsWith("/v1/auth/register") ||
-          url.endsWith("/v1/auth/logout");
+          url.endsWith("/v1/auth/register");
 
         if (
           error.response?.status === 401 &&
           !originalRequest._retry &&
-          !isAuthEndpoint
+          !skipRefresh
         ) {
           originalRequest._retry = true;
           try {
@@ -57,6 +56,14 @@ class AuthAPI {
               originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers["Authorization"] =
                 `Bearer ${tokens.accessToken}`;
+            }
+            if (
+              url.endsWith("/v1/auth/logout") &&
+              tokens?.refreshToken
+            ) {
+              originalRequest.data = JSON.stringify({
+                refreshToken: tokens.refreshToken,
+              });
             }
             return this.client.request(originalRequest);
           } catch (e) {
