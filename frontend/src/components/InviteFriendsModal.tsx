@@ -54,7 +54,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
     (async () => {
       try {
         const [membersRes, invitesRes] = await Promise.all([
-          serverAPI.listMembers(server.id, 1, 200),
+          serverAPI.listMembers(server.id, 1, 50),
           serverAPI.listSentInvites(server.id),
         ]);
         if (cancelled) return;
