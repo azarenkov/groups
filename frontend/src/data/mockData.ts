@@ -33,9 +33,4 @@ export const SEED_MEMBERS: MockMember[] = [
   { id: "u-mira", name: "Mira Volkov", initials: "M", color: "#d97557", role: "Member", status: "offline" },
 ];
 
-const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
-export const colorFor = (id: string): string => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVA_COLORS[h % AVA_COLORS.length];
-};
+export { colorForId as colorFor } from "../utils/avatar";

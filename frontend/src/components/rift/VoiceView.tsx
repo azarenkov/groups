@@ -9,15 +9,9 @@ import {
   qualityClass,
   qualityLabel,
 } from "../../utils/quality";
+import { colorForId, initialFor } from "../../utils/avatar";
 
-const initials = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
-
-const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
-const colorFor = (id: string): string => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVA_COLORS[h % AVA_COLORS.length];
-};
+const initials = initialFor;
 
 const QualityBars: React.FC<{ quality: ConnectionQuality }> = ({ quality }) => {
   const active = qualityActiveBars(quality);
@@ -303,7 +297,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       id: p.identity,
       name: p.name || p.identity,
       initials: initials(p.name || p.identity),
-      color: colorFor(p.identity),
+      color: colorForId(p.identity),
     })),
   ];
 
@@ -390,7 +384,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
                 <div key={p.identity} className="vp-person">
                   <div
                     className={"ava" + (v === 0 ? " muted" : "")}
-                    style={{ background: colorFor(p.identity) }}
+                    style={{ background: colorForId(p.identity) }}
                   >
                     {initials(p.name || p.identity)}
                   </div>

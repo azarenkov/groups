@@ -3,6 +3,7 @@ import Icon from "./rift/Icon";
 import { dmAPI } from "../api/dm";
 import { serverAPI } from "../api/server";
 import { ApiError } from "../utils/apiError";
+import { colorForId, initialFor } from "../utils/avatar";
 import type { Friendship } from "../types/friendship";
 import type { Server } from "../types/server";
 
@@ -11,14 +12,6 @@ interface InviteFriendsModalProps {
   friends: Friendship[];
   onClose: () => void;
 }
-
-const PALETTE = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a", "#5e6ad2"];
-const colorFor = (id: string): string => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-};
-const initialsFor = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
 
 const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
   server,
@@ -155,9 +148,9 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
                       <div key={f.friendId} className="pf-row">
                         <div
                           className="pf-ava"
-                          style={{ background: colorFor(f.friendId) }}
+                          style={{ background: colorForId(f.friendId) }}
                         >
-                          {initialsFor(f.friendName)}
+                          {initialFor(f.friendName)}
                         </div>
                         <div className="pf-name">{f.friendName}</div>
                         <button

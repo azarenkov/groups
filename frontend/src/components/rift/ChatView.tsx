@@ -6,17 +6,7 @@ import { dmAPI } from "../../api/dm";
 import { ChannelMessage } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
-
-const serverGlyph = (name: string): string => {
-  const t = name.trim();
-  if (!t) return "?";
-  return t
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-};
+import { colorForId, glyphFor } from "../../utils/avatar";
 
 const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
@@ -36,7 +26,6 @@ const formatDayDivider = (date: Date): string => {
   });
 };
 
-const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
 const PAGE_LIMIT = 50;
 const MAX_CONTENT = 2000;
 
@@ -60,12 +49,6 @@ const splitForSend = (text: string, maxLen: number): string[] => {
   const tail = remaining.trim();
   if (tail.length > 0) chunks.push(tail);
   return chunks;
-};
-
-const colorFor = (id: string): string => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVA_COLORS[h % AVA_COLORS.length];
 };
 
 interface ChannelMeta {
@@ -729,7 +712,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                     >
                       <div
                         className="ava"
-                        style={{ background: colorFor(m.authorId) }}
+                        style={{ background: colorForId(m.authorId) }}
                       >
                         {initial}
                       </div>
@@ -1140,7 +1123,7 @@ const Message: React.FC<MessageProps> = ({
         "msg" + (continued ? " cont" : "") + (highlighted ? " highlight" : "")
       }
     >
-      <div className="ava" style={{ background: colorFor(msg.authorId) }}>
+      <div className="ava" style={{ background: colorForId(msg.authorId) }}>
         {initial}
       </div>
       <div className="body">
@@ -1156,9 +1139,9 @@ const Message: React.FC<MessageProps> = ({
             <div className="dm-invite-card-row">
               <span
                 className="dm-invite-card-glyph"
-                style={{ background: colorFor(msg.inviteServerId) }}
+                style={{ background: colorForId(msg.inviteServerId) }}
               >
-                {serverGlyph(msg.inviteServerName ?? "?")}
+                {glyphFor(msg.inviteServerName ?? "?")}
               </span>
               <div className="dm-invite-card-info">
                 <div className="dm-invite-card-name">

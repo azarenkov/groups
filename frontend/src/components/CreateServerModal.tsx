@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from "react";
 import Icon from "./rift/Icon";
 import "../styles/rift.css";
+import { AVATAR_PALETTE as PALETTE } from "../utils/avatar";
 
 interface CreateServerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (name: string, description?: string) => Promise<void>;
 }
-
-const PALETTE = ["#0071e3", "#30a46c", "#ff9f0a", "#bf5af2", "#ff6b35", "#5b6cd9", "#d97557", "#30d158"];
 const MAX_SERVER_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
 

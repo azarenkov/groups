@@ -15,6 +15,7 @@ import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
+import { colorForId, initialFor } from "../utils/avatar";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
@@ -133,14 +134,6 @@ const ServersPage: React.FC = () => {
   );
   const [directs, setDirects] = useState<MockDirect[]>([]);
 
-  const PALETTE = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a", "#5e6ad2"];
-  const colorFor = (id: string): string => {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    return PALETTE[h % PALETTE.length];
-  };
-  const initialsFor = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
-
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
       friends
@@ -148,8 +141,8 @@ const ServersPage: React.FC = () => {
         .map((f) => ({
           id: f.friendId,
           name: f.friendName,
-          initials: initialsFor(f.friendName),
-          color: colorFor(f.friendId),
+          initials: initialFor(f.friendName),
+          color: colorForId(f.friendId),
           online: false,
           unread: 0,
         })),
@@ -643,33 +636,17 @@ const ServersPage: React.FC = () => {
                 </header>
                 <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
                 {(() => {
-                  const initials = (s: string) =>
-                    s ? s.charAt(0).toUpperCase() : "?";
-                  const PALETTE = [
-                    "#0071e3",
-                    "#ff6b35",
-                    "#30a46c",
-                    "#bf5af2",
-                    "#ff9f0a",
-                    "#5e6ad2",
-                  ];
-                  const colorFor = (id: string) => {
-                    let h = 0;
-                    for (let i = 0; i < id.length; i++)
-                      h = (h * 31 + id.charCodeAt(i)) >>> 0;
-                    return PALETTE[h % PALETTE.length];
-                  };
                   const orbs = [
                     {
                       id: user?.id || "you",
-                      label: initials(userName),
-                      color: "#30a46c",
+                      label: initialFor(userName),
+                      color: colorForId(user?.id || "you"),
                       speaking: localSpeaking,
                     },
                     ...voiceParticipants.map((p) => ({
                       id: p.identity,
-                      label: initials(p.name || p.identity),
-                      color: colorFor(p.identity),
+                      label: initialFor(p.name || p.identity),
+                      color: colorForId(p.identity),
                       speaking: p.isSpeaking,
                     })),
                   ];
@@ -740,22 +717,6 @@ const ServersPage: React.FC = () => {
                     <div className="voice-preview-empty">No one is here yet.</div>
                   ) : (
                     (() => {
-                      const initials = (s: string) =>
-                        s ? s.charAt(0).toUpperCase() : "?";
-                      const PALETTE = [
-                        "#0071e3",
-                        "#ff6b35",
-                        "#30a46c",
-                        "#bf5af2",
-                        "#ff9f0a",
-                        "#5e6ad2",
-                      ];
-                      const colorFor = (id: string) => {
-                        let h = 0;
-                        for (let i = 0; i < id.length; i++)
-                          h = (h * 31 + id.charCodeAt(i)) >>> 0;
-                        return PALETTE[h % PALETTE.length];
-                      };
                       const sizeClass =
                         previewParticipants.length === 1
                           ? "solo"
@@ -770,12 +731,12 @@ const ServersPage: React.FC = () => {
                               className="voice-stage-orb"
                               style={
                                 {
-                                  "--orb-color": colorFor(p.id),
+                                  "--orb-color": colorForId(p.id),
                                 } as React.CSSProperties
                               }
                             >
                               <span className="voice-stage-orb-letter">
-                                {initials(p.name)}
+                                {initialFor(p.name)}
                               </span>
                             </div>
                           ))}

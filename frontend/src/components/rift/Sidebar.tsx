@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import type { Server } from "../../types/server";
 import type { Channel } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
+import { colorForId } from "../../utils/avatar";
 
 interface SidebarProps {
   servers: Server[];
@@ -29,13 +30,6 @@ interface SidebarProps {
   currentUserName: string;
   currentUserStatus: string;
 }
-
-const accentFor = (id: string): string => {
-  const PALETTE = ["#0071e3", "#30a46c", "#ff9f0a", "#bf5af2", "#ff6b35", "#5b6cd9", "#d97557", "#30d158"];
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-};
 
 const Sidebar: React.FC<SidebarProps> = ({
   servers,
@@ -219,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {servers.map((server) => {
           const isCol = !expandedServerIds.has(server.id);
           const channels = channelsByServer[server.id] || [];
-          const accent = accentFor(server.id);
+          const accent = colorForId(server.id);
           return (
             <div key={server.id}>
               <div

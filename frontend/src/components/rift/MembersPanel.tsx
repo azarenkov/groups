@@ -1,29 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
+import { colorForId, initialFor } from "../../utils/avatar";
 
 interface MembersPanelProps {
   serverId: string;
   channelId: string;
-}
-
-const PALETTE = [
-  "#0071e3",
-  "#ff6b35",
-  "#30a46c",
-  "#bf5af2",
-  "#ff9f0a",
-  "#5e6ad2",
-];
-
-function colorFor(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-}
-
-function initialsFor(name: string): string {
-  return name ? name.charAt(0).toUpperCase() : "?";
 }
 
 const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
@@ -88,8 +70,8 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
       )}
       {members.map((m) => (
         <div key={m.id} className="member-row">
-          <div className="ava" style={{ background: colorFor(m.id) }}>
-            {initialsFor(m.name)}
+          <div className="ava" style={{ background: colorForId(m.id) }}>
+            {initialFor(m.name)}
           </div>
           <div className="info">
             <div className="name">{m.name}</div>
