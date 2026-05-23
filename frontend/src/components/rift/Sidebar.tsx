@@ -29,7 +29,14 @@ interface SidebarProps {
   currentUserId?: string;
   currentUserName: string;
   currentUserStatus: string;
-  voiceMembers?: { id: string; name: string; initials: string; color: string }[];
+  voiceMembers?: {
+    id: string;
+    name: string;
+    initials: string;
+    color: string;
+    isMuted?: boolean;
+    isSharingScreen?: boolean;
+  }[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -386,6 +393,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <span className="sb-voice-member-name">
                                   {m.name}
                                 </span>
+                                {m.isSharingScreen && (
+                                  <span
+                                    className="sb-voice-member-badge"
+                                    title="Sharing screen"
+                                  >
+                                    <Icon name="monitor" size={11} />
+                                  </span>
+                                )}
+                                {m.isMuted && (
+                                  <span
+                                    className="sb-voice-member-badge muted"
+                                    title="Muted"
+                                  >
+                                    <Icon name="mic-off" size={11} />
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>

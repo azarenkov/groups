@@ -25,6 +25,8 @@ export interface ParticipantInfo {
   identity: string;
   name: string;
   isSpeaking: boolean;
+  isMuted: boolean;
+  isSharingScreen: boolean;
   audioTrack: AudioTrack | null;
   quality: ConnectionQuality;
 }
@@ -763,6 +765,8 @@ export class LiveKitService {
       identity: participant.identity,
       name: participant.name || participant.identity,
       isSpeaking: false,
+      isMuted: false,
+      isSharingScreen: false,
       audioTrack: null,
       quality: participant.connectionQuality ?? ConnectionQuality.Unknown,
     };
