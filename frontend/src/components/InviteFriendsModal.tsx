@@ -58,8 +58,16 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
           serverAPI.listSentInvites(server.id),
         ]);
         if (cancelled) return;
-        setMembers(new Set(allMembers.map((m) => m.id)));
-        setInvited(new Set(invitesRes.recipientIds));
+        setMembers((prev) => {
+          const next = new Set(prev);
+          for (const m of allMembers) next.add(m.id);
+          return next;
+        });
+        setInvited((prev) => {
+          const next = new Set(prev);
+          for (const id of invitesRes.recipientIds) next.add(id);
+          return next;
+        });
       } catch {
         return;
       }

@@ -93,7 +93,7 @@ interface ChatViewProps {
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
-  onGoToServer?: (serverId: string) => void;
+  onGoToServer?: (serverId: string) => void | Promise<void>;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -566,7 +566,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     setComposerError(null);
     try {
       await dmAPI.acceptServerInvite(msg.id);
-      onGoToServer?.(msg.inviteServerId);
+      await onGoToServer?.(msg.inviteServerId);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       setComposerError(apiErr?.message || "Couldn't join the server.");
