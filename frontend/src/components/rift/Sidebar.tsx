@@ -266,18 +266,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Icon name="user-plus" size={14} />
                       </button>
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        className="sb-section-add"
-                        title="Create channel"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddChannel(server);
-                        }}
-                      >
-                        <Icon name="plus" size={14} />
-                      </button>
                       <div
                         className="sb-server-menu-wrap"
                         ref={menuServerId === server.id ? menuRef : undefined}
@@ -304,6 +292,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                             className="sb-server-menu"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            <button
+                              type="button"
+                              className="sb-server-menu-item"
+                              onClick={() => {
+                                setMenuServerId(null);
+                                onAddChannel(server);
+                              }}
+                            >
+                              <Icon name="plus" size={12} />
+                              <span>Create channel</span>
+                            </button>
+                            <div className="sb-server-menu-divider" />
                             <button
                               type="button"
                               className="sb-server-menu-item danger"

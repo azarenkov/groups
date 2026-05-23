@@ -2635,6 +2635,11 @@ textarea.s-input {
 .sb-server-menu-item:hover { background: var(--surface-hover); }
 .sb-server-menu-item.danger { color: var(--danger); }
 .sb-server-menu-item.danger:hover { background: var(--danger-tint); }
+.sb-server-menu-divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 3px 4px;
+}
 
 .invite-friend-btn {
   margin-left: auto;
