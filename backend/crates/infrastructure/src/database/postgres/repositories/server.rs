@@ -68,13 +68,14 @@ impl ServerRepository for PostgresServerRepository {
 
         sqlx::query!(
             r#"
-                INSERT INTO servers (id, name, owner_id, description, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO servers (id, name, owner_id, description, accent_color, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
             server.id().uuid(),
             server.name().as_str(),
             server.owner_id().uuid(),
             server.description().map(|d| d.as_str()),
+            server.accent_color(),
             server.created_at(),
             server.updated_at()
         )
@@ -123,7 +124,8 @@ impl ServerRepository for PostgresServerRepository {
         let servers = sqlx::query_as!(
             ServerDto,
             r#"
-                SELECT s.id, s.name, s.owner_id, s.description, s.created_at, s.updated_at
+                SELECT s.id, s.name, s.owner_id, s.description, s.accent_color,
+                       s.created_at, s.updated_at
                 FROM servers s
                 INNER JOIN server_members sm ON sm.server_id = s.id
                 WHERE sm.user_id = $1
@@ -502,7 +504,8 @@ impl ServerRepository for PostgresServerRepository {
         let dto = sqlx::query_as!(
             ServerDto,
             r#"
-                SELECT id, name, owner_id, description, created_at, updated_at
+                SELECT id, name, owner_id, description, accent_color,
+                       created_at, updated_at
                 FROM servers
                 WHERE id = $1
             "#,

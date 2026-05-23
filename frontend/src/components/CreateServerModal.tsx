@@ -6,7 +6,11 @@ import { AVATAR_PALETTE as PALETTE } from "../utils/avatar";
 interface CreateServerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (name: string, description?: string) => Promise<void>;
+  onCreate: (
+    name: string,
+    description?: string,
+    accentColor?: string,
+  ) => Promise<void>;
 }
 const MAX_SERVER_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
@@ -46,7 +50,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      await onCreate(trimmed, description.trim() || undefined);
+      await onCreate(trimmed, description.trim() || undefined, accent);
       setName("");
       setDescription("");
       setAccent(PALETTE[0]);

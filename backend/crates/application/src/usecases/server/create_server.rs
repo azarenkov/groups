@@ -48,6 +48,7 @@ where
             ServerName::new(request.name),
             owner_id,
             request.description.map(ServerDescription::new),
+            request.accent_color,
         );
 
         let request_id = request.ctx.request_id.clone();

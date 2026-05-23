@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, name, owner_id, description, created_at, updated_at\n                FROM servers\n                WHERE id = $1\n            ",
+  "query": "\n                SELECT id, name, owner_id, description, accent_color,\n                       created_at, updated_at\n                FROM servers\n                WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -25,11 +25,16 @@
       },
       {
         "ordinal": 4,
+        "name": "accent_color",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -44,9 +49,10 @@
       false,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "dd38e279c54f41f460502a6e3a76364b60cf591a7d0cdc589481dc036fd91b75"
+  "hash": "6982b7f689d41046700780c8ef4a3b04a2a027fca09cff59e506ffe9f3531d33"
 }

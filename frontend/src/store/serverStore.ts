@@ -24,7 +24,11 @@ interface ServerState {
   setPagination: (pagination: ListServersResponse["pagination"]) => void;
 
   fetchServers: (page?: number, perPage?: number) => Promise<void>;
-  createServer: (name: string, description?: string) => Promise<Server>;
+  createServer: (
+    name: string,
+    description?: string,
+    accentColor?: string,
+  ) => Promise<Server>;
   deleteServer: (serverId: string) => Promise<void>;
 }
 
@@ -72,10 +76,18 @@ export const useServerStore = create<ServerState>((set, get) => ({
     }
   },
 
-  createServer: async (name: string, description?: string) => {
+  createServer: async (
+    name: string,
+    description?: string,
+    accentColor?: string,
+  ) => {
     set({ isLoading: true, error: null });
     try {
-      const server = await serverAPI.createServer({ name, description });
+      const server = await serverAPI.createServer({
+        name,
+        description,
+        accentColor,
+      });
       get().addServer(server);
       set({ isLoading: false });
       return server;

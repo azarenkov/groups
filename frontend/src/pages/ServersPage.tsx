@@ -354,8 +354,12 @@ const ServersPage: React.FC = () => {
     setSelectedDm(null);
   };
 
-  const handleCreateServer = async (name: string, description?: string) => {
-    const server = await createServer(name, description);
+  const handleCreateServer = async (
+    name: string,
+    description?: string,
+    accentColor?: string,
+  ) => {
+    const server = await createServer(name, description, accentColor);
     try {
       await createChannel(server.id, "general", "text", "public");
     } catch (err) {

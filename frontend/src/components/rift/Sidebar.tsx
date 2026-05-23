@@ -213,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {servers.map((server) => {
           const isCol = !expandedServerIds.has(server.id);
           const channels = channelsByServer[server.id] || [];
-          const accent = colorForId(server.id);
+          const accent = server.accentColor ?? colorForId(server.id);
           return (
             <div key={server.id}>
               <div

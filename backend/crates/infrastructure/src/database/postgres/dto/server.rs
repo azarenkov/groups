@@ -11,6 +11,7 @@ pub struct ServerDto {
     pub name: String,
     pub owner_id: Uuid,
     pub description: Option<String>,
+    pub accent_color: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -22,6 +23,7 @@ impl From<ServerDto> for Server {
             ServerName::new(dto.name),
             UserId::new(dto.owner_id),
             dto.description.map(ServerDescription::new),
+            dto.accent_color,
             dto.created_at,
             dto.updated_at,
         )

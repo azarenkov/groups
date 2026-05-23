@@ -3,6 +3,7 @@ export interface Server {
   name: string;
   ownerId: string;
   description: string | null;
+  accentColor: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +33,7 @@ export interface ListServerMembersResponse {
 export interface CreateServerRequest {
   name: string;
   description?: string;
+  accentColor?: string;
 }
 
 export interface CreateServerResponse {
@@ -39,6 +41,7 @@ export interface CreateServerResponse {
   name: string;
   ownerId: string;
   description: string | null;
+  accentColor: string | null;
   createdAt: string;
   updatedAt: string;
 }
