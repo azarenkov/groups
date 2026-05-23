@@ -25,7 +25,6 @@ import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
-import { useLocalSpeaking } from "../hooks/useLocalSpeaking";
 import { useParticipants } from "../hooks/useParticipants";
 import { qualityClass, qualityLabel } from "../utils/quality";
 import {
@@ -48,7 +47,6 @@ interface ChannelOverride {
 
 const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
-  const localSpeaking = useLocalSpeaking();
   const voiceParticipants = useParticipants();
   const [previewParticipants, setPreviewParticipants] = useState<
     ChannelParticipant[]
@@ -549,6 +547,28 @@ const ServersPage: React.FC = () => {
           expandedServerIds={expandedServerIds}
           selectedChannelId={selectedChannelId}
           joinedChannelId={joinedChannel?.channel.id ?? null}
+          voiceMembers={
+            joinedChannel
+              ? [
+                  {
+                    id: user?.id || "you",
+                    name: userName || "You",
+                    initials: initialFor(userName),
+                    color: colorForId(user?.id || "you"),
+                    isMuted: false,
+                    isSharingScreen: false,
+                  },
+                  ...voiceParticipants.map((p) => ({
+                    id: p.identity,
+                    name: p.name || p.identity,
+                    initials: initialFor(p.name || p.identity),
+                    color: colorForId(p.identity),
+                    isMuted: p.isMuted,
+                    isSharingScreen: p.isSharingScreen,
+                  })),
+                ]
+              : []
+          }
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
           pendingCount={pendingCount}
@@ -646,51 +666,77 @@ const ServersPage: React.FC = () => {
                     </button>
                   </div>
                 </header>
-                <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
                 {(() => {
-                  const orbs = [
+                  const tiles = [
                     {
                       id: user?.id || "you",
-                      label: initialFor(userName),
+                      name: userName || "You",
+                      initials: initialFor(userName),
                       color: colorForId(user?.id || "you"),
-                      speaking: localSpeaking,
                     },
                     ...voiceParticipants.map((p) => ({
                       id: p.identity,
-                      label: initialFor(p.name || p.identity),
+                      name: p.name || p.identity,
+                      initials: initialFor(p.name || p.identity),
                       color: colorForId(p.identity),
-                      speaking: p.isSpeaking,
                     })),
                   ];
-                  const sizeClass =
-                    orbs.length === 1
-                      ? "solo"
-                      : orbs.length <= 4
-                        ? "row"
-                        : "grid";
+                  const cols =
+                    tiles.length === 1
+                      ? 1
+                      : tiles.length === 2
+                        ? 2
+                        : tiles.length <= 4
+                          ? 2
+                          : tiles.length <= 6
+                            ? 3
+                            : tiles.length <= 9
+                              ? 3
+                              : 4;
                   return (
-                    <div className={`voice-stage-orbs ${sizeClass}`}>
-                      {orbs.map((o) => (
-                        <div
-                          key={o.id}
-                          className={
-                            "voice-stage-orb" + (o.speaking ? " speaking" : "")
-                          }
-                          style={
-                            {
-                              "--orb-color": o.color,
-                            } as React.CSSProperties
-                          }
+                    <div className="voice-room">
+                      <div
+                        className="voice-room-grid"
+                        style={
+                          {
+                            "--vt-cols": cols,
+                          } as React.CSSProperties
+                        }
+                      >
+                        {tiles.map((t) => (
+                          <div key={t.id} className="voice-tile">
+                            <div
+                              className="voice-tile-ava"
+                              style={{ background: t.color }}
+                            >
+                              {t.initials}
+                            </div>
+                            <div className="voice-tile-name">{t.name}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="voice-room-actions">
+                        <button
+                          type="button"
+                          className="voice-room-action"
+                          onClick={() => {}}
+                          title="Share screen (coming soon)"
                         >
-                          <span className="voice-stage-orb-letter">
-                            {o.label}
-                          </span>
-                        </div>
-                      ))}
+                          <Icon name="monitor" size={16} />
+                          <span>Share screen</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="voice-room-action leave"
+                          onClick={handleVoiceLeave}
+                        >
+                          <Icon name="logout" size={16} />
+                          <span>Leave</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })()}
-                </div>
               </div>
             ) : !selectedServerChannelsLoaded ? (
               <div className="empty-state" style={{ padding: 60 }}>
@@ -738,18 +784,22 @@ const ServersPage: React.FC = () => {
                       return (
                         <div className={`voice-stage-orbs ${sizeClass}`}>
                           {previewParticipants.map((p) => (
-                            <div
-                              key={p.id}
-                              className="voice-stage-orb"
-                              style={
-                                {
-                                  "--orb-color": colorForId(p.id),
-                                } as React.CSSProperties
-                              }
-                            >
-                              <span className="voice-stage-orb-letter">
-                                {initialFor(p.name)}
-                              </span>
+                            <div key={p.id} className="voice-stage-orb-cell">
+                              <div
+                                className="voice-stage-orb"
+                                style={
+                                  {
+                                    "--orb-color": colorForId(p.id),
+                                  } as React.CSSProperties
+                                }
+                              >
+                                <span className="voice-stage-orb-letter">
+                                  {initialFor(p.name)}
+                                </span>
+                              </div>
+                              <div className="voice-stage-orb-name">
+                                {p.name}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -829,7 +879,6 @@ const ServersPage: React.FC = () => {
                 serverId={joinedChannel.serverId}
                 channelName={joinedChannel.channel.name}
                 password={joinedChannel.password}
-                currentUserName={userName}
                 onLeave={handleVoiceLeave}
                 onJoinFailed={handleVoiceJoinFailed}
               />

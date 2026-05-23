@@ -29,6 +29,14 @@ interface SidebarProps {
   currentUserId?: string;
   currentUserName: string;
   currentUserStatus: string;
+  voiceMembers?: {
+    id: string;
+    name: string;
+    initials: string;
+    color: string;
+    isMuted?: boolean;
+    isSharingScreen?: boolean;
+  }[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -55,6 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentUserId,
   currentUserName,
   currentUserStatus,
+  voiceMembers,
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
@@ -331,43 +340,80 @@ const Sidebar: React.FC<SidebarProps> = ({
               {!isCol && (
                 <>
                   {channels.map((channel) => (
-                    <div
-                      key={channel.id}
-                      role="button"
-                      tabIndex={0}
-                      className={
-                        "sb-item" +
-                        (selectedChannelId === channel.id ? " active" : "") +
-                        (joinedChannelId === channel.id ? " in-voice" : "")
-                      }
-                      onClick={() => onSelectChannel(server, channel)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onSelectChannel(server, channel);
+                    <React.Fragment key={channel.id}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className={
+                          "sb-item" +
+                          (selectedChannelId === channel.id ? " active" : "") +
+                          (joinedChannelId === channel.id ? " in-voice" : "")
                         }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        onDeleteChannel(server, channel);
-                      }}
-                    >
-                      <span className="sb-icon">
-                        <Icon
-                          name={channel.kind === "voice" ? "volume" : "hash"}
-                          size={14}
-                        />
-                      </span>
-                      <span className="sb-label">{channel.name}</span>
-                      {channel.visibility === "private" && (
-                        <span className="lock">
-                          <Icon name="lock" size={11} />
+                        onClick={() => onSelectChannel(server, channel)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onSelectChannel(server, channel);
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          onDeleteChannel(server, channel);
+                        }}
+                      >
+                        <span className="sb-icon">
+                          <Icon
+                            name={channel.kind === "voice" ? "volume" : "hash"}
+                            size={14}
+                          />
                         </span>
-                      )}
-                      {joinedChannelId === channel.id && (
-                        <span className="sb-live-dot" aria-hidden="true" />
-                      )}
-                    </div>
+                        <span className="sb-label">{channel.name}</span>
+                        {channel.visibility === "private" && (
+                          <span className="lock">
+                            <Icon name="lock" size={11} />
+                          </span>
+                        )}
+                        {joinedChannelId === channel.id && (
+                          <span className="sb-live-dot" aria-hidden="true" />
+                        )}
+                      </div>
+                      {channel.kind === "voice" &&
+                        joinedChannelId === channel.id &&
+                        voiceMembers &&
+                        voiceMembers.length > 0 && (
+                          <div className="sb-voice-members">
+                            {voiceMembers.map((m) => (
+                              <div key={m.id} className="sb-voice-member">
+                                <span
+                                  className="sb-voice-member-ava"
+                                  style={{ background: m.color }}
+                                >
+                                  {m.initials}
+                                </span>
+                                <span className="sb-voice-member-name">
+                                  {m.name}
+                                </span>
+                                {m.isSharingScreen && (
+                                  <span
+                                    className="sb-voice-member-badge"
+                                    title="Sharing screen"
+                                  >
+                                    <Icon name="monitor" size={11} />
+                                  </span>
+                                )}
+                                {m.isMuted && (
+                                  <span
+                                    className="sb-voice-member-badge muted"
+                                    title="Muted"
+                                  >
+                                    <Icon name="mic-off" size={11} />
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                    </React.Fragment>
                   ))}
                 </>
               )}
@@ -382,6 +428,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span>Add server</span>
         </button>
       </div>
+
+      <div id="voice-dock-slot" className="sb-voice-dock" />
 
       <div className="sb-footer">
         <div className="user-pill">
