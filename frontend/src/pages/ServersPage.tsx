@@ -716,10 +716,10 @@ const ServersPage: React.FC = () => {
                           type="button"
                           className="voice-room-action"
                           onClick={() => {}}
-                          title="Share video (coming soon)"
+                          title="Share screen (coming soon)"
                         >
-                          <Icon name="camera" size={16} />
-                          <span>Share video</span>
+                          <Icon name="monitor" size={16} />
+                          <span>Share screen</span>
                         </button>
                         <button
                           type="button"
