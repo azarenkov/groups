@@ -1104,6 +1104,29 @@ select:focus-visible {
   padding: 6px 10px 4px;
 }
 
+.sb-voice-members {
+  display: flex; flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px;
+  padding-left: 18px;
+}
+.sb-voice-member {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.sb-voice-member-ava {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.sb-voice-member-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 .voice-pill {
   position: relative;
   background: linear-gradient(

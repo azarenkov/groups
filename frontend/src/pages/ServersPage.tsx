@@ -549,6 +549,24 @@ const ServersPage: React.FC = () => {
           expandedServerIds={expandedServerIds}
           selectedChannelId={selectedChannelId}
           joinedChannelId={joinedChannel?.channel.id ?? null}
+          voiceMembers={
+            joinedChannel
+              ? [
+                  {
+                    id: user?.id || "you",
+                    name: userName || "You",
+                    initials: initialFor(userName),
+                    color: colorForId(user?.id || "you"),
+                  },
+                  ...voiceParticipants.map((p) => ({
+                    id: p.identity,
+                    name: p.name || p.identity,
+                    initials: initialFor(p.name || p.identity),
+                    color: colorForId(p.identity),
+                  })),
+                ]
+              : []
+          }
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
           pendingCount={pendingCount}
@@ -646,54 +664,12 @@ const ServersPage: React.FC = () => {
                     </button>
                   </div>
                 </header>
-                <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
-                {(() => {
-                  const orbs = [
-                    {
-                      id: user?.id || "you",
-                      label: initialFor(userName),
-                      name: userName || "You",
-                      color: colorForId(user?.id || "you"),
-                      speaking: localSpeaking,
-                    },
-                    ...voiceParticipants.map((p) => ({
-                      id: p.identity,
-                      label: initialFor(p.name || p.identity),
-                      name: p.name || p.identity,
-                      color: colorForId(p.identity),
-                      speaking: p.isSpeaking,
-                    })),
-                  ];
-                  const sizeClass =
-                    orbs.length === 1
-                      ? "solo"
-                      : orbs.length <= 4
-                        ? "row"
-                        : "grid";
-                  return (
-                    <div className={`voice-stage-orbs ${sizeClass}`}>
-                      {orbs.map((o) => (
-                        <div key={o.id} className="voice-stage-orb-cell">
-                          <div
-                            className={
-                              "voice-stage-orb" + (o.speaking ? " speaking" : "")
-                            }
-                            style={
-                              {
-                                "--orb-color": o.color,
-                              } as React.CSSProperties
-                            }
-                          >
-                            <span className="voice-stage-orb-letter">
-                              {o.label}
-                            </span>
-                          </div>
-                          <div className="voice-stage-orb-name">{o.name}</div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                <div className="empty-state" style={{ padding: 60 }}>
+                  <div className="icon-wrap">
+                    <Icon name="volume" size={22} />
+                  </div>
+                  <h3>You're in {joinedChannel.channel.name}</h3>
+                  <p>Participants are listed in the sidebar.</p>
                 </div>
               </div>
             ) : !selectedServerChannelsLoaded ? (
