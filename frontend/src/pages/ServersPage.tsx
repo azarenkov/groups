@@ -25,7 +25,6 @@ import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
-import { useLocalSpeaking } from "../hooks/useLocalSpeaking";
 import { useParticipants } from "../hooks/useParticipants";
 import { qualityClass, qualityLabel } from "../utils/quality";
 import {
@@ -48,7 +47,6 @@ interface ChannelOverride {
 
 const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
-  const localSpeaking = useLocalSpeaking();
   const voiceParticipants = useParticipants();
   const [previewParticipants, setPreviewParticipants] = useState<
     ChannelParticipant[]
