@@ -1099,22 +1099,44 @@ select:focus-visible {
 }
 .empty-state p { margin: 0; font-size: 13px; max-width: 320px; }
 
-.voice-pill {
-  position: absolute;
-  left: 50%;
-  bottom: 84px;
-  transform: translateX(-50%);
-  background: var(--material-thick);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-radius: var(--r-pill);
-  box-shadow: var(--shadow-md);
-  padding: 6px 6px 6px 16px;
-  display: flex; align-items: center; gap: 12px;
-  animation: pillIn var(--dur-slow) var(--ease-spring);
-  z-index: 10;
+.sb-voice-dock:empty { display: none; }
+.sb-voice-dock {
+  padding: 8px 10px 4px;
+  border-top: 1px solid var(--hairline);
 }
-@keyframes pillIn { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+.voice-pill {
+  position: relative;
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "dot meta leave"
+    "avas avas actions";
+  gap: 10px 8px;
+  align-items: center;
+}
+.voice-pill > .vp-dot { grid-area: dot; }
+.voice-pill > .vp-meta-wrap { grid-area: meta; min-width: 0; }
+.voice-pill > .vp-avas { grid-area: avas; justify-self: start; margin-left: 0; }
+.voice-pill > .vp-actions {
+  grid-area: actions;
+  justify-self: end;
+  display: inline-flex;
+  gap: 6px;
+}
+.voice-pill > .vp-btn.leave { grid-area: leave; }
+.voice-pill .vp-meta-wrap > .vp-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.voice-pill .vp-meta-wrap > .vp-meta {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .voice-pill .vp-dot {
   width: 8px; height: 8px; border-radius: 50%; background: var(--voice-live);
   box-shadow: 0 0 0 3px var(--success-tint);
@@ -1171,10 +1193,11 @@ select:focus-visible {
 
 .vp-popover {
   position: absolute;
-  left: 50%;
-  bottom: calc(100% + 10px);
-  transform: translateX(-50%);
-  width: 300px;
+  left: -8px;
+  bottom: calc(100% + 8px);
+  transform: none;
+  width: calc(100% + 16px);
+  max-width: 280px;
   background: var(--material-thick);
   -webkit-backdrop-filter: blur(30px) saturate(180%);
   backdrop-filter: blur(30px) saturate(180%);
@@ -1186,8 +1209,8 @@ select:focus-visible {
   z-index: 20;
 }
 @keyframes popIn {
-  from { transform: translate(-50%, 6px) scale(0.96); opacity: 0; }
-  to   { transform: translate(-50%, 0)    scale(1);    opacity: 1; }
+  from { transform: translateY(6px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
 }
 .vp-pop-title {
   font-size: 11px; font-weight: 600;

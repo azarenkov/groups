@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { useLiveKit } from "../../hooks/useLiveKit";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
@@ -74,6 +75,11 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   const hasJoinedRef = useRef(false);
   const currentChannelRef = useRef<string | null>(null);
   const isJoiningRef = useRef(false);
+  const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMountPoint(document.getElementById("voice-dock-slot"));
+  }, []);
 
   useEffect(() => {
     const shouldJoin =
@@ -303,42 +309,46 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     })),
   ];
 
+  if (!mountPoint) return null;
+
   if (error) {
-    return (
+    return createPortal(
       <div
-        className="voice-pill"
+        className="voice-pill in-dock"
         style={{ background: "var(--danger-tint)", color: "var(--danger)" }}
       >
         <span>{error}</span>
         <button className="vp-btn leave" onClick={handleLeave} title="Leave">
           <Icon name="logout" size={15} />
         </button>
-      </div>
+      </div>,
+      mountPoint,
     );
   }
 
   if (isConnecting && !isConnected) {
-    return (
-      <div className="voice-pill">
+    return createPortal(
+      <div className="voice-pill in-dock">
         <span className="vp-dot" />
-        <div>
+        <div className="vp-meta-wrap">
           <div className="vp-title">{channelName}</div>
           <div className="vp-meta">Connecting…</div>
         </div>
         <button className="vp-btn leave" onClick={handleLeave} title="Cancel">
           <Icon name="logout" size={15} />
         </button>
-      </div>
+      </div>,
+      mountPoint,
     );
   }
 
-  return (
-    <div className="voice-pill" ref={rootRef}>
+  return createPortal(
+    <div className="voice-pill in-dock" ref={rootRef}>
       <span
         className={`vp-dot ${qualityClass(localQuality)}`}
         title={`Connection: ${qualityLabel(localQuality)}`}
       />
-      <div>
+      <div className="vp-meta-wrap">
         <div className="vp-title">{channelName}</div>
         <div className="vp-meta">
           {speakingPerson
@@ -353,20 +363,22 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           </div>
         ))}
       </div>
-      <button
-        className={"vp-btn" + (open ? " on" : "")}
-        onClick={() => setOpen((v) => !v)}
-        title="Audio settings"
-      >
-        <Icon name={volIcon} size={15} />
-      </button>
-      <button
-        className={"vp-btn" + (isMuted ? " muted" : "")}
-        onClick={toggleMute}
-        title={isMuted ? "Unmute" : "Mute"}
-      >
-        <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
-      </button>
+      <div className="vp-actions">
+        <button
+          className={"vp-btn" + (open ? " on" : "")}
+          onClick={() => setOpen((v) => !v)}
+          title="Audio settings"
+        >
+          <Icon name={volIcon} size={15} />
+        </button>
+        <button
+          className={"vp-btn" + (isMuted ? " muted" : "")}
+          onClick={toggleMute}
+          title={isMuted ? "Unmute" : "Mute"}
+        >
+          <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
+        </button>
+      </div>
       <button className="vp-btn leave" onClick={handleLeave} title="Leave">
         <Icon name="logout" size={15} />
       </button>
@@ -475,7 +487,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    mountPoint,
   );
 };
 

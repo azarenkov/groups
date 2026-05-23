@@ -383,6 +383,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
+      <div id="voice-dock-slot" className="sb-voice-dock" />
+
       <div className="sb-footer">
         <div className="user-pill">
           <div className="ava">
