@@ -150,6 +150,16 @@ impl DmMessage {
         Ok(())
     }
 
+    pub fn record_decline(&mut self, now: DateTime<Utc>) {
+        self.events
+            .push(DmMessageDomainEvent::Deleted(DmMessageDeleted::record(
+                self.id,
+                self.sender_id,
+                self.recipient_id,
+                now,
+            )));
+    }
+
     pub fn pull_events(&mut self) -> Vec<DmMessageDomainEvent> {
         std::mem::take(&mut self.events)
     }

@@ -339,6 +339,23 @@ impl ServerRepository for PostgresServerRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        let deleted = sqlx::query!(
+            r#"
+                DELETE FROM dm_messages
+                WHERE id = $1 AND recipient_id = $2 AND invite_server_id = $3
+            "#,
+            invite_message_id.uuid(),
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if deleted.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
         sqlx::query!(
             r#"
                 INSERT INTO server_members (server_id, user_id, joined_at)
@@ -347,14 +364,6 @@ impl ServerRepository for PostgresServerRepository {
             "#,
             server_id.uuid(),
             user_id.uuid(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"DELETE FROM dm_messages WHERE id = $1"#,
-            invite_message_id.uuid(),
         )
         .execute(&mut *tx)
         .await

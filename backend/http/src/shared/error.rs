@@ -1520,6 +1520,7 @@ impl ToHttpStatus for DeclineServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeclineServerInviteError::Repository(e) => e.to_http_status(),
+            DeclineServerInviteError::Outbox(e) => e.to_http_status(),
             DeclineServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
             DeclineServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
         }
@@ -1527,6 +1528,7 @@ impl ToHttpStatus for DeclineServerInviteError {
     fn to_user_message(&self) -> String {
         match self {
             DeclineServerInviteError::Repository(e) => e.to_user_message(),
+            DeclineServerInviteError::Outbox(e) => e.to_user_message(),
             DeclineServerInviteError::NotAnInvite => {
                 "This message is not a server invite".to_string()
             }
@@ -1538,6 +1540,7 @@ impl ToHttpStatus for DeclineServerInviteError {
     fn to_error_code(&self) -> &'static str {
         match self {
             DeclineServerInviteError::Repository(e) => e.to_error_code(),
+            DeclineServerInviteError::Outbox(e) => e.to_error_code(),
             DeclineServerInviteError::NotAnInvite => "INVITE_INVALID",
             DeclineServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
         }

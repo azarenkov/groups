@@ -94,6 +94,7 @@ async fn accept_server_invite(
 
 #[post("/me/dms/messages/{message_id}/decline-invite")]
 async fn decline_server_invite(
+    req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -103,7 +104,7 @@ async fn decline_server_invite(
 
     app_state
         .decline_server_invite_usecase
-        .execute(message_id, requester_id)
+        .execute(message_id, requester_id, request_context(&req))
         .await?;
 
     Ok(HttpResponse::NoContent().finish())
