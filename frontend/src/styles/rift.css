@@ -2602,21 +2602,6 @@ textarea.s-input {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-.voice-room-actions {
-  display: flex; gap: 10px; justify-content: center;
-  padding-bottom: 4px;
-}
-.voice-room-action {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 18px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface-raised);
-  color: var(--fg-1);
-  font-size: 13px; font-weight: 500;
-  cursor: pointer;
-}
-.voice-room-action:hover { background: var(--surface-hover); }
 
 .voice-stage-orb {
   position: relative;

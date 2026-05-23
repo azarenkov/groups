@@ -711,19 +711,6 @@ const ServersPage: React.FC = () => {
                           </div>
                         ))}
                       </div>
-                      <div className="voice-room-actions">
-                        <button
-                          type="button"
-                          className="voice-room-action"
-                          onClick={() =>
-                            selectedServer &&
-                            setInviteModalServer(selectedServer)
-                          }
-                        >
-                          <Icon name="user-plus" size={16} />
-                          <span>Invite to voice</span>
-                        </button>
-                      </div>
                     </div>
                   );
                 })()}
