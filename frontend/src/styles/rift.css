@@ -1151,6 +1151,7 @@ select:focus-visible {
 .voice-pill .vp-avas .ava {
   width: 22px; height: 22px; border-radius: 50%;
   border: 2px solid var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--hairline-strong);
   display:flex; align-items:center; justify-content:center;
   font-size: 10px; font-weight: 600; color: #fff;
   margin-left: -6px;
@@ -2532,17 +2533,6 @@ textarea.s-input {
     0 0 0 0 color-mix(in srgb, var(--orb-color, var(--voice-live)) 0%, transparent);
   transition: box-shadow 220ms ease-out, transform 220ms ease-out;
   flex-shrink: 0;
-}
-.voice-stage-orb.speaking {
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.12),
-    0 12px 32px -6px color-mix(in srgb, var(--orb-color, var(--voice-live)) 80%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--orb-color, var(--voice-live)) 55%, transparent);
-  animation: orbPulse 1.6s ease-in-out infinite;
-}
-@keyframes orbPulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.04); }
 }
 .voice-stage-orbs.row .voice-stage-orb { width: 96px; height: 96px; }
 .voice-stage-orbs.grid .voice-stage-orb { width: 72px; height: 72px; }

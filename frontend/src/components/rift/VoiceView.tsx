@@ -33,6 +33,7 @@ interface VoiceViewProps {
   serverId: string;
   channelName: string;
   currentUserName: string;
+  currentUserId?: string;
   password?: string;
   onLeave: () => void;
   onJoinFailed?: (message: string) => void;
@@ -43,6 +44,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   serverId,
   channelName,
   currentUserName,
+  currentUserId,
   password,
   onLeave,
   onJoinFailed,
@@ -285,7 +287,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   }, [isMuted, isConnected, trackId, localTrack]);
 
   const totalConnected = isConnected ? participants.length + 1 : 0;
-  const youColor = "#0071e3";
+  const youColor = colorForId(currentUserId || currentUserName || "you");
   const allParticipants = [
     {
       id: "you",

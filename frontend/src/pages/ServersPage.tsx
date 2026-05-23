@@ -838,6 +838,7 @@ const ServersPage: React.FC = () => {
                 channelName={joinedChannel.channel.name}
                 password={joinedChannel.password}
                 currentUserName={userName}
+                currentUserId={user?.id}
                 onLeave={handleVoiceLeave}
                 onJoinFailed={handleVoiceJoinFailed}
               />
