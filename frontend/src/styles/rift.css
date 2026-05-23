@@ -1136,22 +1136,26 @@ select:focus-visible {
 .sb-voice-member-badge.muted { color: var(--danger); }
 
 .voice-pill {
+  --vp-tint: var(--voice-live, #30a46c);
   position: relative;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--voice-live, #30a46c) 22%, transparent) 0%,
-    color-mix(in srgb, var(--voice-live, #30a46c) 6%, transparent) 100%
+    color-mix(in srgb, var(--vp-tint) 22%, transparent) 0%,
+    color-mix(in srgb, var(--vp-tint) 6%, transparent) 100%
   );
   border: 0;
   border-radius: 12px;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--voice-live, #30a46c) 22%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--vp-tint) 22%, transparent),
     0 1px 0 0 rgba(255,255,255,0.04);
   padding: 8px 10px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
+.voice-pill.connecting { --vp-tint: var(--warning, #ff9f0a); }
+.voice-pill.poor { --vp-tint: var(--warning, #ff9f0a); }
+.voice-pill.lost { --vp-tint: var(--danger, #ff3b30); }
 .voice-pill > .vp-dot { flex: 0 0 auto; }
 .voice-pill > .vp-meta-wrap { flex: 1 1 auto; min-width: 0; }
 .voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }

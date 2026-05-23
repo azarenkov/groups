@@ -328,8 +328,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
   if (isConnecting && !isConnected) {
     return createPortal(
-      <div className="voice-pill in-dock">
-        <span className="vp-dot" />
+      <div className="voice-pill in-dock connecting">
         <div className="vp-meta-wrap">
           <div className="vp-title">{channelName}</div>
           <div className="vp-meta">Connecting…</div>
@@ -343,11 +342,11 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   }
 
   return createPortal(
-    <div className="voice-pill in-dock" ref={rootRef}>
-      <span
-        className={`vp-dot ${qualityClass(localQuality)}`}
-        title={`Connection: ${qualityLabel(localQuality)}`}
-      />
+    <div
+      className={`voice-pill in-dock connected ${qualityClass(localQuality)}`}
+      ref={rootRef}
+      title={`Connection: ${qualityLabel(localQuality)}`}
+    >
       <div className="vp-meta-wrap">
         <div className="vp-title">{channelName}</div>
         <div className="vp-meta">
