@@ -7,6 +7,7 @@ use domain::{
         Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
         participant_mute::ParticipantMute, session_id::SessionId,
     },
+    dm_message::id::DmMessageId,
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
         outbox::outbox_record::OutboxRecord,
@@ -326,11 +327,18 @@ impl ServerRepository for PostgresServerRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
-    async fn save_new_member_server(
+    async fn accept_invite(
         &self,
+        invite_message_id: &DmMessageId,
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
         sqlx::query!(
             r#"
                 INSERT INTO server_members (server_id, user_id, joined_at)
@@ -338,12 +346,21 @@ impl ServerRepository for PostgresServerRepository {
                 ON CONFLICT (server_id, user_id) DO NOTHING
             "#,
             server_id.uuid(),
-            user_id.uuid()
+            user_id.uuid(),
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        sqlx::query!(
+            r#"DELETE FROM dm_messages WHERE id = $1"#,
+            invite_message_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 

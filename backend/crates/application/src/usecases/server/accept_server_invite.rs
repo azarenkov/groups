@@ -55,11 +55,7 @@ where
         }
 
         self.server_repository
-            .save_new_member_server(server_id, &requester_id)
-            .await?;
-
-        self.dm_repository
-            .delete_with_events(&message_id, &[])
+            .accept_invite(&message_id, server_id, &requester_id)
             .await?;
 
         Ok(server_id.uuid())
