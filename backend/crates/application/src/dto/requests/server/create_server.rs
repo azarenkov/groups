@@ -4,5 +4,6 @@ use crate::dto::RequestContext;
 pub struct CreateServerRequest {
     pub name: String,
     pub description: Option<String>,
+    pub accent_color: Option<String>,
     pub ctx: RequestContext,
 }

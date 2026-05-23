@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     channel::Channel,
+    dm_message::id::DmMessageId,
     server::{Server, id::ServerId},
     shared::{
         outbox::outbox_record::OutboxRecord,
@@ -34,11 +35,18 @@ pub trait ServerRepository {
         server_id: &ServerId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<Channel>, RepositoryError>;
-    async fn save_new_member_server(
+    async fn accept_invite(
+        &self,
+        invite_message_id: &DmMessageId,
+        server_id: &ServerId,
+        user_id: &UserId,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError>;
+    async fn remove_server_member(
         &self,
         server_id: &ServerId,
         user_id: &UserId,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
     async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,
@@ -49,6 +57,10 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError>;
+    async fn find_server_by_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Option<Server>, RepositoryError>;
     async fn is_server_member(
         &self,
         server_id: &ServerId,

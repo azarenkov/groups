@@ -4,6 +4,8 @@ use domain::{
         DmMessage, id::DmMessageId, repository::DmMessageRepository, view::DmMessageView,
     },
     message::content::MessageContent,
+    server::id::ServerId,
+
     shared::{
         outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
@@ -75,13 +77,14 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         sqlx::query!(
             r#"
-            INSERT INTO dm_messages (id, sender_id, recipient_id, content, created_at, edited_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_server_id, created_at, edited_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
             message.id().uuid(),
             message.sender_id().uuid(),
             message.recipient_id().uuid(),
             message.content().as_str(),
+            message.invite_server_id().map(|id| id.uuid()),
             message.created_at(),
             message.edited_at(),
         )
@@ -154,7 +157,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, sender_id, recipient_id, content, created_at, edited_at
+            SELECT id, sender_id, recipient_id, content, invite_server_id, created_at, edited_at
             FROM dm_messages
             WHERE id = $1
             "#,
@@ -173,6 +176,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             UserId::new(row.sender_id),
             UserId::new(row.recipient_id),
             content,
+            row.invite_server_id.map(ServerId::new),
             row.created_at,
             row.edited_at,
         ))
@@ -193,9 +197,12 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     r#"
                     SELECT m.id, m.sender_id, m.recipient_id,
                            u.name AS sender_name,
-                           m.content, m.created_at, m.edited_at
+                           m.content, m.invite_server_id,
+                           s.name AS "invite_server_name?",
+                           m.created_at, m.edited_at
                     FROM dm_messages m
                     INNER JOIN users u ON u.id = m.sender_id
+                    LEFT JOIN servers s ON s.id = m.invite_server_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                       AND (m.created_at, m.id) < ($3, $4)
@@ -218,6 +225,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     sender_name: r.sender_name,
                     recipient_id: UserId::new(r.recipient_id),
                     content: r.content,
+                    invite_server_id: r.invite_server_id.map(ServerId::new),
+                    invite_server_name: r.invite_server_name,
                     created_at: r.created_at,
                     edited_at: r.edited_at,
                 })
@@ -229,9 +238,12 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     r#"
                     SELECT m.id, m.sender_id, m.recipient_id,
                            u.name AS sender_name,
-                           m.content, m.created_at, m.edited_at
+                           m.content, m.invite_server_id,
+                           s.name AS "invite_server_name?",
+                           m.created_at, m.edited_at
                     FROM dm_messages m
                     INNER JOIN users u ON u.id = m.sender_id
+                    LEFT JOIN servers s ON s.id = m.invite_server_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                       AND (m.created_at, m.id) > ($3, $4)
@@ -254,6 +266,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     sender_name: r.sender_name,
                     recipient_id: UserId::new(r.recipient_id),
                     content: r.content,
+                    invite_server_id: r.invite_server_id.map(ServerId::new),
+                    invite_server_name: r.invite_server_name,
                     created_at: r.created_at,
                     edited_at: r.edited_at,
                 })
@@ -265,9 +279,12 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 r#"
                 SELECT m.id, m.sender_id, m.recipient_id,
                        u.name AS sender_name,
-                       m.content, m.created_at, m.edited_at
+                       m.content, m.invite_server_id,
+                       s.name AS "invite_server_name?",
+                       m.created_at, m.edited_at
                 FROM dm_messages m
                 INNER JOIN users u ON u.id = m.sender_id
+                LEFT JOIN servers s ON s.id = m.invite_server_id
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                 ORDER BY m.created_at DESC, m.id DESC
@@ -287,6 +304,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 sender_name: r.sender_name,
                 recipient_id: UserId::new(r.recipient_id),
                 content: r.content,
+                invite_server_id: r.invite_server_id.map(ServerId::new),
+                invite_server_name: r.invite_server_name,
                 created_at: r.created_at,
                 edited_at: r.edited_at,
             })
@@ -324,9 +343,12 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             r#"
             SELECT m.id, m.sender_id, m.recipient_id,
                    u.name AS sender_name,
-                   m.content, m.created_at, m.edited_at
+                   m.content, m.invite_server_id,
+                   s.name AS "invite_server_name?",
+                   m.created_at, m.edited_at
             FROM dm_messages m
             INNER JOIN users u ON u.id = m.sender_id
+            LEFT JOIN servers s ON s.id = m.invite_server_id
             WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
               AND m.search_tsv @@ plainto_tsquery('simple', $3)
@@ -352,10 +374,60 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 sender_name: r.sender_name,
                 recipient_id: UserId::new(r.recipient_id),
                 content: r.content,
+                invite_server_id: r.invite_server_id.map(ServerId::new),
+                invite_server_name: r.invite_server_name,
                 created_at: r.created_at,
                 edited_at: r.edited_at,
             })
             .collect();
         Ok(PaginatedResult::new(items, total, pagination))
+    }
+
+    async fn has_pending_server_invite(
+        &self,
+        sender_id: &UserId,
+        recipient_id: &UserId,
+        server_id: &ServerId,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM dm_messages
+                WHERE sender_id = $1
+                  AND recipient_id = $2
+                  AND invite_server_id = $3
+            ) AS "exists!"
+            "#,
+            sender_id.uuid(),
+            recipient_id.uuid(),
+            server_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.exists)
+    }
+
+    async fn find_invite_recipients(
+        &self,
+        sender_id: &UserId,
+        server_id: &ServerId,
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT DISTINCT recipient_id
+            FROM dm_messages
+            WHERE sender_id = $1 AND invite_server_id = $2
+            "#,
+            sender_id.uuid(),
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| UserId::new(r.recipient_id))
+            .collect())
     }
 }

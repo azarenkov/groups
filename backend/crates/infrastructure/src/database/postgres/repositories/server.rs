@@ -7,6 +7,7 @@ use domain::{
         Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
         participant_mute::ParticipantMute, session_id::SessionId,
     },
+    dm_message::id::DmMessageId,
     server::{Server, id::ServerId, repository::ServerRepository},
     shared::{
         outbox::outbox_record::OutboxRecord,
@@ -67,13 +68,14 @@ impl ServerRepository for PostgresServerRepository {
 
         sqlx::query!(
             r#"
-                INSERT INTO servers (id, name, owner_id, description, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO servers (id, name, owner_id, description, accent_color, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
             server.id().uuid(),
             server.name().as_str(),
             server.owner_id().uuid(),
             server.description().map(|d| d.as_str()),
+            server.accent_color(),
             server.created_at(),
             server.updated_at()
         )
@@ -108,8 +110,9 @@ impl ServerRepository for PostgresServerRepository {
         let total = sqlx::query!(
             r#"
                 SELECT COUNT(*) as "count!"
-                FROM servers
-                WHERE owner_id = $1
+                FROM servers s
+                INNER JOIN server_members sm ON sm.server_id = s.id
+                WHERE sm.user_id = $1
             "#,
             user_id.uuid()
         )
@@ -121,10 +124,12 @@ impl ServerRepository for PostgresServerRepository {
         let servers = sqlx::query_as!(
             ServerDto,
             r#"
-                SELECT id, name, owner_id, description, created_at, updated_at
-                FROM servers
-                WHERE owner_id = $1
-                ORDER BY created_at DESC
+                SELECT s.id, s.name, s.owner_id, s.description, s.accent_color,
+                       s.created_at, s.updated_at
+                FROM servers s
+                INNER JOIN server_members sm ON sm.server_id = s.id
+                WHERE sm.user_id = $1
+                ORDER BY s.created_at DESC
                 LIMIT $2 OFFSET $3
             "#,
             user_id.uuid(),
@@ -324,11 +329,36 @@ impl ServerRepository for PostgresServerRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
-    async fn save_new_member_server(
+    async fn accept_invite(
         &self,
+        invite_message_id: &DmMessageId,
         server_id: &ServerId,
         user_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let deleted = sqlx::query!(
+            r#"
+                DELETE FROM dm_messages
+                WHERE id = $1 AND recipient_id = $2 AND invite_server_id = $3
+            "#,
+            invite_message_id.uuid(),
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if deleted.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
         sqlx::query!(
             r#"
                 INSERT INTO server_members (server_id, user_id, joined_at)
@@ -336,13 +366,86 @@ impl ServerRepository for PostgresServerRepository {
                 ON CONFLICT (server_id, user_id) DO NOTHING
             "#,
             server_id.uuid(),
-            user_id.uuid()
+            user_id.uuid(),
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
+    }
+
+    async fn remove_server_member(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let result = sqlx::query!(
+            r#"
+                DELETE FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            "#,
+            server_id.uuid(),
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        sqlx::query!(
+            r#"
+                DELETE FROM channel_text_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                DELETE FROM channel_voice_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                DELETE FROM channel_muted_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
     }
 
     async fn delete_server_by_owner_with_events(
@@ -392,6 +495,27 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(row.map(|r| UserId::new(r.owner_id)))
+    }
+
+    async fn find_server_by_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Option<Server>, RepositoryError> {
+        let dto = sqlx::query_as!(
+            ServerDto,
+            r#"
+                SELECT id, name, owner_id, description, accent_color,
+                       created_at, updated_at
+                FROM servers
+                WHERE id = $1
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(dto.map(|dto| dto.into()))
     }
 
     async fn is_server_member(

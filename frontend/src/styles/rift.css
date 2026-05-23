@@ -2608,3 +2608,140 @@ textarea.s-input {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
+
+.day-divider {
+  display: flex;
+  align-items: center;
+  margin: 16px 0 6px;
+  color: var(--fg-3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.day-divider::before,
+.day-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+.day-divider span {
+  padding: 0 12px;
+}
+
+.sb-server-menu-wrap { position: relative; display: inline-flex; }
+.sb-server-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 132px;
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 3px;
+  z-index: 60;
+}
+.sb-server-menu-item {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; text-align: left;
+  padding: 5px 8px;
+  border: 0; background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px; color: var(--fg-1);
+  white-space: nowrap;
+}
+.sb-server-menu-item:hover { background: var(--surface-hover); }
+.sb-server-menu-item.danger { color: var(--danger); }
+.sb-server-menu-item.danger:hover { background: var(--danger-tint); }
+.sb-server-menu-divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 3px 4px;
+}
+
+.invite-friend-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.invite-friend-btn:hover:not(:disabled) { background: var(--accent-hover); }
+.invite-friend-btn:disabled { cursor: default; }
+.invite-friend-btn.sent {
+  background: var(--surface-hover);
+  color: var(--fg-2);
+}
+
+.dm-invite-card {
+  margin-top: 3px;
+  max-width: 380px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-canvas);
+  padding: 10px 12px;
+}
+.dm-invite-card-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--fg-3);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  margin-bottom: 8px;
+}
+.dm-invite-card-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.dm-invite-card-glyph {
+  width: 42px; height: 42px; flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.dm-invite-card-info { flex: 1; min-width: 0; }
+.dm-invite-card-name {
+  font-size: 14px; font-weight: 600; color: var(--fg-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dm-invite-card-sub {
+  font-size: 12px; color: var(--fg-3); margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dm-invite-card-btn {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.dm-invite-card-btn:hover { background: var(--accent-hover); }
+.dm-invite-card-btn.joined {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+}
+.dm-invite-card-btn.joined:hover {
+  background: var(--surface-hover);
+  filter: brightness(0.95);
+}
+.dm-invite-card-actions {
+  display: inline-flex; gap: 6px; flex-shrink: 0;
+}
+.dm-invite-card-btn.decline {
+  background: var(--surface-hover);
+  color: var(--fg-2);
+}
+.dm-invite-card-btn.decline:hover {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+  filter: brightness(0.95);
+}

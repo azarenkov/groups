@@ -25,6 +25,7 @@ pub struct Server {
     name: ServerName,
     owner_id: UserId,
     description: Option<ServerDescription>,
+    accent_color: Option<String>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     events: Vec<ServerEvent>,
@@ -36,6 +37,7 @@ impl Server {
         name: ServerName,
         owner_id: UserId,
         description: Option<ServerDescription>,
+        accent_color: Option<String>,
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
     ) -> Self {
@@ -44,6 +46,7 @@ impl Server {
             name,
             owner_id,
             description,
+            accent_color,
             created_at,
             updated_at,
             events: Vec::new(),
@@ -54,6 +57,7 @@ impl Server {
         name: ServerName,
         owner_id: UserId,
         description: Option<ServerDescription>,
+        accent_color: Option<String>,
     ) -> Self {
         let now = Utc::now();
         let id = ServerId::generate();
@@ -70,6 +74,7 @@ impl Server {
             name,
             owner_id,
             description,
+            accent_color,
             created_at: now,
             updated_at: now,
             events: vec![event],
@@ -106,6 +111,10 @@ impl Server {
 
     pub fn description(&self) -> Option<&ServerDescription> {
         self.description.as_ref()
+    }
+
+    pub fn accent_color(&self) -> Option<&str> {
+        self.accent_color.as_deref()
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {

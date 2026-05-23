@@ -91,6 +91,31 @@ impl VoiceService for LiveKitService {
         }
     }
 
+    async fn remove_participant(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<(), VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
+
+        match livekit_room
+            .remove_participant(
+                &channel_id.uuid().to_string(),
+                &user_id.uuid().to_string(),
+            )
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
+                if code.code == TwirpErrorCode::NOT_FOUND =>
+            {
+                Ok(())
+            }
+            Err(e) => Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
+        }
+    }
+
     fn client_url(&self) -> String {
         self.config.client_url.clone()
     }

@@ -13,6 +13,8 @@ interface DmRow {
   authorName?: string;
   recipientId: string;
   content: string;
+  inviteServerId?: string;
+  inviteServerName?: string;
   createdAt: string;
   editedAt: string | null;
 }
@@ -23,6 +25,8 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   authorId: r.authorId,
   authorName: r.authorName,
   content: r.content,
+  inviteServerId: r.inviteServerId,
+  inviteServerName: r.inviteServerName,
   createdAt: r.createdAt,
   editedAt: r.editedAt,
 });
@@ -95,6 +99,30 @@ class DmAPI {
       { content },
     );
     return toChannelMessage(response.data.data);
+  }
+
+  async sendServerInvite(
+    friendId: string,
+    serverId: string,
+  ): Promise<ChannelMessage> {
+    const response = await this.client.post(
+      `/v1/users/me/dms/${friendId}/server-invite`,
+      { serverId },
+    );
+    return toChannelMessage(response.data.data);
+  }
+
+  async acceptServerInvite(messageId: string): Promise<{ serverId: string }> {
+    const response = await this.client.post(
+      `/v1/users/me/dms/messages/${messageId}/accept-invite`,
+    );
+    return { serverId: response.data.data.serverId };
+  }
+
+  async declineServerInvite(messageId: string): Promise<void> {
+    await this.client.post(
+      `/v1/users/me/dms/messages/${messageId}/decline-invite`,
+    );
   }
 
   async editMessage(messageId: string, content: string): Promise<void> {

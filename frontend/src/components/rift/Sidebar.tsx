@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import type { Server } from "../../types/server";
 import type { Channel } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
+import { colorForId } from "../../utils/avatar";
 
 interface SidebarProps {
   servers: Server[];
@@ -19,21 +20,16 @@ interface SidebarProps {
   onSelectDm: (dm: MockDirect) => void;
   onAddServer: () => void;
   onAddChannel: (server: Server) => void;
+  onInviteServer: (server: Server) => void;
   onAddDm: () => void;
   onOpenPendingRequests?: () => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
+  currentUserId?: string;
   currentUserName: string;
   currentUserStatus: string;
 }
-
-const accentFor = (id: string): string => {
-  const PALETTE = ["#0071e3", "#30a46c", "#ff9f0a", "#bf5af2", "#ff6b35", "#5b6cd9", "#d97557", "#30d158"];
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-};
 
 const Sidebar: React.FC<SidebarProps> = ({
   servers,
@@ -50,17 +46,39 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectDm,
   onAddServer,
   onAddChannel,
+  onInviteServer,
   onAddDm,
   onOpenPendingRequests,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
+  currentUserId,
   currentUserName,
   currentUserStatus,
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
     setCollapsed((c) => ({ ...c, [id]: !c[id] }));
+  const [menuServerId, setMenuServerId] = React.useState<string | null>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!menuServerId) return;
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuServerId(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuServerId(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menuServerId]);
 
   const directsCollapsed = !!collapsed["__directs"];
 
@@ -195,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {servers.map((server) => {
           const isCol = !expandedServerIds.has(server.id);
           const channels = channelsByServer[server.id] || [];
-          const accent = accentFor(server.id);
+          const accent = server.accentColor ?? colorForId(server.id);
           return (
             <div key={server.id}>
               <div
@@ -203,10 +221,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => {
                   onToggleServer(server.id);
                   onSelectServer(server.id);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  onDeleteServer(server);
                 }}
                 style={{ marginTop: 6 }}
               >
@@ -233,18 +247,83 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {!isCol && (
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      className="sb-section-add"
-                      title="Create channel"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddChannel(server);
-                      }}
-                    >
-                      <Icon name="plus" size={14} />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="sb-section-add"
+                        title="Invite people"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onInviteServer(server);
+                        }}
+                      >
+                        <Icon name="user-plus" size={14} />
+                      </button>
+                      <div
+                        className="sb-server-menu-wrap"
+                        ref={menuServerId === server.id ? menuRef : undefined}
+                      >
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className={
+                            "sb-section-add" +
+                            (menuServerId === server.id ? " on" : "")
+                          }
+                          title="More"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuServerId((prev) =>
+                              prev === server.id ? null : server.id,
+                            );
+                          }}
+                        >
+                          <Icon name="more" size={14} />
+                        </button>
+                        {menuServerId === server.id && (
+                          <div
+                            className="sb-server-menu"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="sb-server-menu-item"
+                              onClick={() => {
+                                setMenuServerId(null);
+                                onAddChannel(server);
+                              }}
+                            >
+                              <Icon name="plus" size={12} />
+                              <span>Create channel</span>
+                            </button>
+                            <div className="sb-server-menu-divider" />
+                            <button
+                              type="button"
+                              className="sb-server-menu-item danger"
+                              onClick={() => {
+                                setMenuServerId(null);
+                                onDeleteServer(server);
+                              }}
+                            >
+                              <Icon
+                                name={
+                                  currentUserId === server.ownerId
+                                    ? "trash"
+                                    : "logout"
+                                }
+                                size={12}
+                              />
+                              <span>
+                                {currentUserId === server.ownerId
+                                  ? "Delete server"
+                                  : "Leave server"}
+                              </span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                   <Icon name="chev" size={12} className="chev" />
                 </span>

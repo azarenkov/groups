@@ -11,9 +11,11 @@ import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
+import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
+import { colorForId, initialFor } from "../utils/avatar";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
@@ -104,11 +106,12 @@ const ServersPage: React.FC = () => {
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
+  const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: "server" | "channel" | "friend";
+    type: "server" | "leave-server" | "channel" | "friend";
     id: string;
     serverId?: string;
     name: string;
@@ -131,14 +134,6 @@ const ServersPage: React.FC = () => {
   );
   const [directs, setDirects] = useState<MockDirect[]>([]);
 
-  const PALETTE = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a", "#5e6ad2"];
-  const colorFor = (id: string): string => {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    return PALETTE[h % PALETTE.length];
-  };
-  const initialsFor = (s: string) => (s ? s.charAt(0).toUpperCase() : "?");
-
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
       friends
@@ -146,8 +141,8 @@ const ServersPage: React.FC = () => {
         .map((f) => ({
           id: f.friendId,
           name: f.friendName,
-          initials: initialsFor(f.friendName),
-          color: colorFor(f.friendId),
+          initials: initialFor(f.friendName),
+          color: colorForId(f.friendId),
           online: false,
           unread: 0,
         })),
@@ -347,8 +342,24 @@ const ServersPage: React.FC = () => {
     setSelectedChannel(null);
   };
 
-  const handleCreateServer = async (name: string, description?: string) => {
-    const server = await createServer(name, description);
+  const handleGoToServer = async (serverId: string) => {
+    await fetchServers();
+    setExpandedServerIds((prev) => {
+      const next = new Set(prev);
+      next.add(serverId);
+      return next;
+    });
+    setSelectedServer(serverId);
+    setSelectedChannel(null);
+    setSelectedDm(null);
+  };
+
+  const handleCreateServer = async (
+    name: string,
+    description?: string,
+    accentColor?: string,
+  ) => {
+    const server = await createServer(name, description, accentColor);
     try {
       await createChannel(server.id, "general", "text", "public");
     } catch (err) {
@@ -394,6 +405,10 @@ const ServersPage: React.FC = () => {
         setSelectedServer(null);
         clearChannels(deleteConfirm.id);
       }
+      if (joinedChannel?.serverId === deleteConfirm.id) {
+        setJoinedChannel(null);
+        setVoiceJoinFailed(false);
+      }
       setExpandedServerIds((prev) => {
         if (!prev.has(deleteConfirm.id)) return prev;
         const next = new Set(prev);
@@ -403,6 +418,31 @@ const ServersPage: React.FC = () => {
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to delete server:", err);
+    }
+  };
+
+  const handleLeaveServer = async () => {
+    if (deleteConfirm?.type !== "leave-server") return;
+    try {
+      await serverAPI.leave(deleteConfirm.id);
+      if (selectedServerId === deleteConfirm.id) {
+        setSelectedServer(null);
+        clearChannels(deleteConfirm.id);
+      }
+      if (joinedChannel?.serverId === deleteConfirm.id) {
+        setJoinedChannel(null);
+        setVoiceJoinFailed(false);
+      }
+      setExpandedServerIds((prev) => {
+        if (!prev.has(deleteConfirm.id)) return prev;
+        const next = new Set(prev);
+        next.delete(deleteConfirm.id);
+        return next;
+      });
+      await fetchServers();
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error("Failed to leave server:", err);
     }
   };
 
@@ -521,11 +561,17 @@ const ServersPage: React.FC = () => {
             setChannelModalServerId(server.id);
             setIsChannelModalOpen(true);
           }}
+          onInviteServer={(server) => setInviteModalServer(server)}
           onAddDm={() => setIsAddFriendOpen(true)}
           onOpenPendingRequests={() => setIsPendingOpen(true)}
-          onDeleteServer={(server) =>
-            setDeleteConfirm({ type: "server", id: server.id, name: server.name })
-          }
+          onDeleteServer={(server) => {
+            const isOwner = server.ownerId === user?.id;
+            setDeleteConfirm({
+              type: isOwner ? "server" : "leave-server",
+              id: server.id,
+              name: server.name,
+            });
+          }}
           onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
               type: "channel",
@@ -535,6 +581,7 @@ const ServersPage: React.FC = () => {
             })
           }
           onOpenSettings={() => setSettingsOpen(true)}
+          currentUserId={user?.id}
           currentUserName={userName}
           currentUserStatus={userStatus}
         />
@@ -556,7 +603,8 @@ const ServersPage: React.FC = () => {
                   online: selectedDm.online,
                 }}
                 currentUserId={user?.id}
-                currentUserName={userName}
+                servers={servers}
+                onGoToServer={handleGoToServer}
                 onRemoveFriend={() =>
                   setDeleteConfirm({
                     type: "friend",
@@ -600,33 +648,17 @@ const ServersPage: React.FC = () => {
                 </header>
                 <div className={"voice-stage" + (voiceJoinFailed ? " failed" : "")}>
                 {(() => {
-                  const initials = (s: string) =>
-                    s ? s.charAt(0).toUpperCase() : "?";
-                  const PALETTE = [
-                    "#0071e3",
-                    "#ff6b35",
-                    "#30a46c",
-                    "#bf5af2",
-                    "#ff9f0a",
-                    "#5e6ad2",
-                  ];
-                  const colorFor = (id: string) => {
-                    let h = 0;
-                    for (let i = 0; i < id.length; i++)
-                      h = (h * 31 + id.charCodeAt(i)) >>> 0;
-                    return PALETTE[h % PALETTE.length];
-                  };
                   const orbs = [
                     {
                       id: user?.id || "you",
-                      label: initials(userName),
-                      color: "#30a46c",
+                      label: initialFor(userName),
+                      color: colorForId(user?.id || "you"),
                       speaking: localSpeaking,
                     },
                     ...voiceParticipants.map((p) => ({
                       id: p.identity,
-                      label: initials(p.name || p.identity),
-                      color: colorFor(p.identity),
+                      label: initialFor(p.name || p.identity),
+                      color: colorForId(p.identity),
                       speaking: p.isSpeaking,
                     })),
                   ];
@@ -697,22 +729,6 @@ const ServersPage: React.FC = () => {
                     <div className="voice-preview-empty">No one is here yet.</div>
                   ) : (
                     (() => {
-                      const initials = (s: string) =>
-                        s ? s.charAt(0).toUpperCase() : "?";
-                      const PALETTE = [
-                        "#0071e3",
-                        "#ff6b35",
-                        "#30a46c",
-                        "#bf5af2",
-                        "#ff9f0a",
-                        "#5e6ad2",
-                      ];
-                      const colorFor = (id: string) => {
-                        let h = 0;
-                        for (let i = 0; i < id.length; i++)
-                          h = (h * 31 + id.charCodeAt(i)) >>> 0;
-                        return PALETTE[h % PALETTE.length];
-                      };
                       const sizeClass =
                         previewParticipants.length === 1
                           ? "solo"
@@ -727,12 +743,12 @@ const ServersPage: React.FC = () => {
                               className="voice-stage-orb"
                               style={
                                 {
-                                  "--orb-color": colorFor(p.id),
+                                  "--orb-color": colorForId(p.id),
                                 } as React.CSSProperties
                               }
                             >
                               <span className="voice-stage-orb-letter">
-                                {initials(p.name)}
+                                {initialFor(p.name)}
                               </span>
                             </div>
                           ))}
@@ -780,7 +796,6 @@ const ServersPage: React.FC = () => {
                 }
                 serverId={selectedServer?.id}
                 currentUserId={user?.id}
-                currentUserName={userName}
                 membersOpen={
                   !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }
@@ -887,6 +902,12 @@ const ServersPage: React.FC = () => {
         onClose={() => setIsPendingOpen(false)}
       />
 
+      <InviteFriendsModal
+        server={inviteModalServer}
+        friends={friends.filter((f) => f.status === "accepted")}
+        onClose={() => setInviteModalServer(null)}
+      />
+
       {editingChannel && (
         <ChannelSettingsModal
           isOpen={!!editingChannel}
@@ -916,27 +937,37 @@ const ServersPage: React.FC = () => {
           title={
             deleteConfirm.type === "server"
               ? "Delete server?"
-              : deleteConfirm.type === "channel"
-                ? "Delete channel?"
-                : "Remove friend?"
+              : deleteConfirm.type === "leave-server"
+                ? "Leave server?"
+                : deleteConfirm.type === "channel"
+                  ? "Delete channel?"
+                  : "Remove friend?"
           }
           subtitle={
-            deleteConfirm.type === "friend"
-              ? "You can send a new request later."
-              : "This can't be undone."
+            deleteConfirm.type === "leave-server"
+              ? "You can rejoin if invited again."
+              : deleteConfirm.type === "friend"
+                ? "You can send a new request later."
+                : "This can't be undone."
           }
           targetName={deleteConfirm.name}
           confirmLabel={
-            deleteConfirm.type === "friend" ? "Remove" : "Delete"
+            deleteConfirm.type === "leave-server"
+              ? "Leave"
+              : deleteConfirm.type === "friend"
+                ? "Remove"
+                : "Delete"
           }
-          danger
+          danger={deleteConfirm.type !== "leave-server"}
           onCancel={() => setDeleteConfirm(null)}
           onConfirm={
             deleteConfirm.type === "server"
               ? handleDeleteServer
-              : deleteConfirm.type === "channel"
-                ? handleDeleteChannel
-                : handleRemoveFriend
+              : deleteConfirm.type === "leave-server"
+                ? handleLeaveServer
+                : deleteConfirm.type === "channel"
+                  ? handleDeleteChannel
+                  : handleRemoveFriend
           }
         />
       )}

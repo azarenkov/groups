@@ -4,9 +4,28 @@ import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
 import { ChannelMessage } from "../../types/channel";
+import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
+import { colorForId, glyphFor } from "../../utils/avatar";
 
-const AVA_COLORS = ["#0071e3", "#ff6b35", "#30a46c", "#bf5af2", "#ff9f0a"];
+const sameDay = (a: Date, b: Date): boolean =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+const formatDayDivider = (date: Date): string => {
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 const PAGE_LIMIT = 50;
 const MAX_CONTENT = 2000;
 
@@ -32,12 +51,6 @@ const splitForSend = (text: string, maxLen: number): string[] => {
   return chunks;
 };
 
-const colorFor = (id: string): string => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVA_COLORS[h % AVA_COLORS.length];
-};
-
 interface ChannelMeta {
   id: string;
   name: string;
@@ -57,24 +70,26 @@ interface ChatViewProps {
   channel?: ChannelMeta;
   serverId?: string;
   currentUserId?: string;
-  currentUserName?: string;
   dm?: DmMeta;
   membersOpen?: boolean;
+  servers?: Server[];
   onToggleMembers?: () => void;
   onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
+  onGoToServer?: (serverId: string) => void | Promise<void>;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
   channel,
   serverId,
   currentUserId,
-  currentUserName,
   dm,
   membersOpen,
+  servers,
   onToggleMembers,
   onOpenChannelSettings,
   onRemoveFriend,
+  onGoToServer,
 }) => {
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
   const [text, setText] = React.useState("");
@@ -524,6 +539,40 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
+  const myServerIds = React.useMemo(
+    () => new Set((servers ?? []).map((s) => s.id)),
+    [servers],
+  );
+
+  const handleAcceptInvite = async (msg: ChannelMessage) => {
+    if (!msg.inviteServerId) return;
+    setComposerError(null);
+    try {
+      await dmAPI.acceptServerInvite(msg.id);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setComposerError(apiErr?.message || "Couldn't join the server.");
+      return;
+    }
+    try {
+      await onGoToServer?.(msg.inviteServerId);
+    } catch (err) {
+      console.warn("[ChatView] post-accept navigation failed:", err);
+    }
+  };
+
+  const handleDeclineInvite = async (msg: ChannelMessage) => {
+    if (!msg.inviteServerId) return;
+    setComposerError(null);
+    try {
+      await dmAPI.declineServerInvite(msg.id);
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setComposerError(apiErr?.message || "Couldn't decline the invite.");
+    }
+  };
+
   const startEdit = (msg: ChannelMessage) => {
     setEditingId(msg.id);
     setEditText(msg.content);
@@ -649,8 +698,9 @@ const ChatView: React.FC<ChatViewProps> = ({
                 </div>
                 {searchResults.map((m) => {
                   const isMine = !!currentUserId && m.authorId === currentUserId;
-                  const displayName =
-                    m.authorName ?? (isMine ? currentUserName : undefined) ?? m.authorId;
+                  const displayName = isMine
+                    ? "You"
+                    : (m.authorName ?? m.authorId);
                   const time = new Date(m.createdAt).toLocaleString([], {
                     month: "short",
                     day: "numeric",
@@ -667,7 +717,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                     >
                       <div
                         className="ava"
-                        style={{ background: colorFor(m.authorId) }}
+                        style={{ background: colorForId(m.authorId) }}
                       >
                         {initial}
                       </div>
@@ -727,14 +777,24 @@ const ChatView: React.FC<ChatViewProps> = ({
             )}
             {messages.map((m, i) => {
               const prev = messages[i - 1];
+              const curDate = new Date(m.createdAt);
+              const prevDate = prev ? new Date(prev.createdAt) : null;
+              const newDay = !prevDate || !sameDay(curDate, prevDate);
               const sameAuthor = !!prev && prev.authorId === m.authorId;
-              const within = !!prev && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
-              const cont = sameAuthor && within;
+              const within = !!prev && curDate.getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
+              const cont = sameAuthor && within && !newDay;
               const isMine = !!currentUserId && m.authorId === currentUserId;
-              const displayName = m.authorName ?? (isMine ? currentUserName : undefined) ?? m.authorId;
+              const displayName = isMine
+                ? "You"
+                : (m.authorName ?? m.authorId);
               return (
+                <React.Fragment key={m.id}>
+                  {newDay && (
+                    <div className="day-divider">
+                      <span>{formatDayDivider(curDate)}</span>
+                    </div>
+                  )}
                 <Message
-                  key={m.id}
                   msg={m}
                   displayName={displayName}
                   continued={cont}
@@ -742,12 +802,21 @@ const ChatView: React.FC<ChatViewProps> = ({
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
+                  inviteIsMember={
+                    !!m.inviteServerId && myServerIds.has(m.inviteServerId)
+                  }
                   onEditTextChange={setEditText}
                   onStartEdit={() => startEdit(m)}
                   onCancelEdit={cancelEdit}
                   onSaveEdit={() => saveEdit(m)}
                   onDelete={() => setDeleteTarget(m)}
+                  onAcceptInvite={() => handleAcceptInvite(m)}
+                  onDeclineInvite={() => handleDeclineInvite(m)}
+                  onOpenInviteServer={() =>
+                    m.inviteServerId && onGoToServer?.(m.inviteServerId)
+                  }
                 />
+                </React.Fragment>
               );
             })}
           </div>
@@ -1017,11 +1086,15 @@ interface MessageProps {
   editing: boolean;
   highlighted: boolean;
   editText: string;
+  inviteIsMember: boolean;
   onEditTextChange: (v: string) => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onDelete: () => void;
+  onAcceptInvite: () => void;
+  onDeclineInvite: () => void;
+  onOpenInviteServer: () => void;
 }
 
 const Message: React.FC<MessageProps> = ({
@@ -1032,11 +1105,15 @@ const Message: React.FC<MessageProps> = ({
   editing,
   highlighted,
   editText,
+  inviteIsMember,
   onEditTextChange,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  onAcceptInvite,
+  onDeclineInvite,
+  onOpenInviteServer,
 }) => {
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
@@ -1051,7 +1128,7 @@ const Message: React.FC<MessageProps> = ({
         "msg" + (continued ? " cont" : "") + (highlighted ? " highlight" : "")
       }
     >
-      <div className="ava" style={{ background: colorFor(msg.authorId) }}>
+      <div className="ava" style={{ background: colorForId(msg.authorId) }}>
         {initial}
       </div>
       <div className="body">
@@ -1061,7 +1138,55 @@ const Message: React.FC<MessageProps> = ({
             <time>{time}</time>
           </div>
         )}
-        {editing ? (
+        {msg.inviteServerId ? (
+          <div className="dm-invite-card">
+            <div className="dm-invite-card-label">Server invite</div>
+            <div className="dm-invite-card-row">
+              <span
+                className="dm-invite-card-glyph"
+                style={{ background: colorForId(msg.inviteServerId) }}
+              >
+                {glyphFor(msg.inviteServerName ?? "?")}
+              </span>
+              <div className="dm-invite-card-info">
+                <div className="dm-invite-card-name">
+                  {msg.inviteServerName ?? "Server"}
+                </div>
+                <div className="dm-invite-card-sub">
+                  {isMine
+                    ? "You sent a server invite"
+                    : `${displayName} invited you to join`}
+                </div>
+              </div>
+              {inviteIsMember ? (
+                <button
+                  type="button"
+                  className="dm-invite-card-btn joined"
+                  onClick={onOpenInviteServer}
+                >
+                  Open
+                </button>
+              ) : isMine ? null : (
+                <div className="dm-invite-card-actions">
+                  <button
+                    type="button"
+                    className="dm-invite-card-btn"
+                    onClick={onAcceptInvite}
+                  >
+                    Join
+                  </button>
+                  <button
+                    type="button"
+                    className="dm-invite-card-btn decline"
+                    onClick={onDeclineInvite}
+                  >
+                    Decline
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : editing ? (
           <div className="msg-edit">
             <input
               autoFocus
@@ -1089,7 +1214,7 @@ const Message: React.FC<MessageProps> = ({
           </div>
         )}
       </div>
-      {isMine && !editing && (
+      {isMine && !editing && !msg.inviteServerId && (
         <div className="msg-actions">
           <button
             type="button"

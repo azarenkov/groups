@@ -11,6 +11,8 @@ pub struct CreateServerRequestBody {
     pub name: String,
     #[validate(length(min = 1, max = 300))]
     pub description: Option<String>,
+    #[validate(length(equal = 7))]
+    pub accent_color: Option<String>,
 }
 
 impl CreateServerRequestBody {
@@ -18,6 +20,7 @@ impl CreateServerRequestBody {
         CreateServerRequest {
             name: self.name,
             description: self.description,
+            accent_color: self.accent_color,
             ctx,
         }
     }

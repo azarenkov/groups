@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, sender_id, recipient_id, content, created_at, edited_at\n            FROM dm_messages\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT id, sender_id, recipient_id, content, invite_server_id, created_at, edited_at\n            FROM dm_messages\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -25,11 +25,16 @@
       },
       {
         "ordinal": 4,
+        "name": "invite_server_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "edited_at",
         "type_info": "Timestamptz"
       }
@@ -44,9 +49,10 @@
       false,
       false,
       false,
+      true,
       false,
       true
     ]
   },
-  "hash": "4032ca98eeaee745da8bdd0df8e42a22fe64ec0fd2fbebc1550484f8eb82d88e"
+  "hash": "f498202a1cdd45eca32b353058c3edf0e6f371bf14a3fd2669b3f86e4dca4603"
 }

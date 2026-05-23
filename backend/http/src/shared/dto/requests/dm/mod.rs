@@ -15,6 +15,12 @@ pub struct EditDmMessageBody {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendServerInviteBody {
+    pub server_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ListDmMessagesQuery {
     pub before: Option<Uuid>,
     pub after: Option<Uuid>,

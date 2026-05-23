@@ -83,6 +83,10 @@ class ServerAPI {
     await this.client.delete(`/v1/servers/${serverId}`);
   }
 
+  async leave(serverId: string): Promise<void> {
+    await this.client.delete(`/v1/servers/${serverId}/members/me`);
+  }
+
   async listMembers(
     serverId: string,
     page: number = 1,
@@ -96,6 +100,27 @@ class ServerAPI {
       ...response.data.data,
       pagination: response.data.meta?.pagination,
     };
+  }
+
+  async listAllMembers(serverId: string): Promise<{ id: string; name: string }[]> {
+    const perPage = 50;
+    const all: { id: string; name: string }[] = [];
+    let page = 1;
+    while (true) {
+      const res = await this.listMembers(serverId, page, perPage);
+      all.push(...res.members);
+      const total = res.pagination?.totalPages ?? 1;
+      if (page >= total) break;
+      page++;
+    }
+    return all;
+  }
+
+  async listSentInvites(serverId: string): Promise<{ recipientIds: string[] }> {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/sent-invites`,
+    );
+    return { recipientIds: response.data.data.recipientIds };
   }
 }
 

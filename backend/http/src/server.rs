@@ -30,9 +30,11 @@ use application::usecases::{
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
     },
     server::{
-        create_server::CreateServer, delete_server::DeleteServer,
+        accept_server_invite::AcceptServerInvite, create_server::CreateServer,
+        decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
-        list_servers_by_user::ListServersByUser,
+        list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
     webhook::voice::HandleVoiceWebhook,
 };
@@ -185,6 +187,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_repository.clone(),
         livekit_service.clone(),
     );
+    let leave_server_usecase = LeaveServer::new(
+        server_repository.clone(),
+        channel_repository.clone(),
+        livekit_service.clone(),
+    );
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
@@ -217,6 +224,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         dm_repository.clone(),
         friendship_repository.clone(),
     );
+    let send_server_invite_usecase = SendServerInvite::new(
+        dm_repository.clone(),
+        friendship_repository.clone(),
+        server_repository.clone(),
+    );
+    let accept_server_invite_usecase =
+        AcceptServerInvite::new(dm_repository.clone(), server_repository.clone());
+    let decline_server_invite_usecase = DeclineServerInvite::new(dm_repository.clone());
+    let list_sent_server_invites_usecase =
+        ListSentServerInvites::new(dm_repository.clone(), server_repository.clone());
 
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
@@ -240,6 +257,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         handle_livekit_webhook_usecase,
         create_server_usecase,
         delete_server_usecase,
+        leave_server_usecase,
         list_servers_by_user_usecase,
         list_server_members_usecase,
         list_server_channels_usecase,
@@ -253,6 +271,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         delete_dm_message_usecase,
         list_dm_messages_usecase,
         search_dm_messages_usecase,
+        send_server_invite_usecase,
+        accept_server_invite_usecase,
+        decline_server_invite_usecase,
+        list_sent_server_invites_usecase,
         server_config.jwt_secret,
         server_config.trust_forwarded_headers,
     ));

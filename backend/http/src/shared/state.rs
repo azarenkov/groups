@@ -25,9 +25,11 @@ use application::usecases::{
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
     },
     server::{
-        create_server::CreateServer, delete_server::DeleteServer,
+        accept_server_invite::AcceptServerInvite, create_server::CreateServer,
+        decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
-        list_servers_by_user::ListServersByUser,
+        list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
     webhook::voice::HandleVoiceWebhook,
 };
@@ -127,9 +129,21 @@ pub struct AppState {
         ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub search_dm_messages_usecase:
         SearchDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub send_server_invite_usecase: SendServerInvite<
+        PostgresDmMessageRepository,
+        PostgresFriendshipRepository,
+        PostgresServerRepository,
+    >,
+    pub accept_server_invite_usecase:
+        AcceptServerInvite<PostgresDmMessageRepository, PostgresServerRepository>,
+    pub decline_server_invite_usecase: DeclineServerInvite<PostgresDmMessageRepository>,
+    pub list_sent_server_invites_usecase:
+        ListSentServerInvites<PostgresDmMessageRepository, PostgresServerRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+    pub leave_server_usecase:
+        LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
@@ -215,6 +229,11 @@ impl AppState {
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+        leave_server_usecase: LeaveServer<
+            PostgresServerRepository,
+            PostgresChannelRepository,
+            LiveKitService,
+        >,
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
@@ -239,6 +258,20 @@ impl AppState {
         search_dm_messages_usecase: SearchDmMessages<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
+        >,
+        send_server_invite_usecase: SendServerInvite<
+            PostgresDmMessageRepository,
+            PostgresFriendshipRepository,
+            PostgresServerRepository,
+        >,
+        accept_server_invite_usecase: AcceptServerInvite<
+            PostgresDmMessageRepository,
+            PostgresServerRepository,
+        >,
+        decline_server_invite_usecase: DeclineServerInvite<PostgresDmMessageRepository>,
+        list_sent_server_invites_usecase: ListSentServerInvites<
+            PostgresDmMessageRepository,
+            PostgresServerRepository,
         >,
         jwt_secret: String,
         trust_forwarded_headers: bool,
@@ -265,6 +298,7 @@ impl AppState {
             handle_livekit_webhook_usecase,
             create_server_usecase,
             delete_server_usecase,
+            leave_server_usecase,
             list_servers_by_user_usecase,
             list_server_members_usecase,
             list_server_channels_usecase,
@@ -278,6 +312,10 @@ impl AppState {
             delete_dm_message_usecase,
             list_dm_messages_usecase,
             search_dm_messages_usecase,
+            send_server_invite_usecase,
+            accept_server_invite_usecase,
+            decline_server_invite_usecase,
+            list_sent_server_invites_usecase,
             jwt_secret,
             trust_forwarded_headers,
         }
