@@ -7,13 +7,13 @@ export interface ChannelMessageHandlers {
     id: string;
     channelId: string;
     authorId: string;
-    content: unknown;
+    content: string;
     occurredAt: string;
   }) => void;
   onEdited?: (m: {
     id: string;
     channelId: string;
-    newContent: unknown;
+    newContent: string;
     occurredAt: string;
   }) => void;
   onDeleted?: (m: {
@@ -54,13 +54,13 @@ export interface DmMessageHandlers {
     id: string;
     senderId: string;
     recipientId: string;
-    content: unknown;
+    content: string;
     occurredAt: string;
   }) => void;
   onEdited?: (m: {
     id: string;
     senderId: string;
-    newContent: unknown;
+    newContent: string;
     occurredAt: string;
   }) => void;
   onDeleted?: (m: {

@@ -7,6 +7,10 @@ import { ChannelMessage } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
 import { colorForId, glyphFor } from "../../utils/avatar";
+import {
+  useRealtimeChannelMessages,
+  useRealtimeDmMessages,
+} from "../../services/useRealtimeMessages";
 
 const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
@@ -92,6 +96,103 @@ const ChatView: React.FC<ChatViewProps> = ({
   onGoToServer,
 }) => {
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+
+  const channelMsgHandlers = React.useMemo(
+    () => ({
+      onSent: (m: {
+        id: string;
+        channelId: string;
+        authorId: string;
+        content: string;
+        occurredAt: string;
+      }) => {
+        if (m.authorId === currentUserId) return;
+        setMessages((prev) =>
+          prev.some((x) => x.id === m.id)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: m.id,
+                  channelId: m.channelId,
+                  authorId: m.authorId,
+                  content: m.content,
+                  createdAt: m.occurredAt,
+                  editedAt: null,
+                },
+              ],
+        );
+      },
+      onEdited: (m: {
+        id: string;
+        channelId: string;
+        newContent: string;
+        occurredAt: string;
+      }) => {
+        setMessages((prev) =>
+          prev.map((x) =>
+            x.id === m.id
+              ? { ...x, content: m.newContent, editedAt: m.occurredAt }
+              : x,
+          ),
+        );
+      },
+      onDeleted: (m: { id: string }) => {
+        setMessages((prev) => prev.filter((x) => x.id !== m.id));
+      },
+    }),
+    [currentUserId],
+  );
+  useRealtimeChannelMessages(channel?.id ?? null, channelMsgHandlers);
+
+  const dmMsgHandlers = React.useMemo(
+    () => ({
+      onSent: (m: {
+        id: string;
+        senderId: string;
+        recipientId: string;
+        content: string;
+        occurredAt: string;
+      }) => {
+        if (m.senderId === currentUserId) return;
+        setMessages((prev) =>
+          prev.some((x) => x.id === m.id)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: m.id,
+                  channelId: m.senderId,
+                  authorId: m.senderId,
+                  content: m.content,
+                  createdAt: m.occurredAt,
+                  editedAt: null,
+                },
+              ],
+        );
+      },
+      onEdited: (m: {
+        id: string;
+        senderId: string;
+        newContent: string;
+        occurredAt: string;
+      }) => {
+        setMessages((prev) =>
+          prev.map((x) =>
+            x.id === m.id
+              ? { ...x, content: m.newContent, editedAt: m.occurredAt }
+              : x,
+          ),
+        );
+      },
+      onDeleted: (m: { id: string }) => {
+        setMessages((prev) => prev.filter((x) => x.id !== m.id));
+      },
+    }),
+    [currentUserId],
+  );
+  useRealtimeDmMessages(dm?.friendId ?? null, currentUserId, dmMsgHandlers);
+
   const [text, setText] = React.useState("");
   const [loadingInitial, setLoadingInitial] = React.useState(false);
   const [loadingOlder, setLoadingOlder] = React.useState(false);
