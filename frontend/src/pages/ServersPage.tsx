@@ -131,6 +131,7 @@ const ServersPage: React.FC = () => {
     () => new Set<string>(),
   );
   const [directs, setDirects] = useState<MockDirect[]>([]);
+  const [sidebarQuery, setSidebarQuery] = useState("");
 
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
@@ -188,6 +189,14 @@ const ServersPage: React.FC = () => {
       if (!channelsByServer[id]) fetchChannels(id);
     });
   }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
+
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    if (!sidebarQuery.trim()) return;
+    servers.forEach((s) => {
+      if (!channelsByServer[s.id]) fetchChannels(s.id);
+    });
+  }, [sidebarQuery, tokens, servers, channelsByServer, fetchChannels]);
 
   const didInitialExpandRef = useRef(false);
   useEffect(() => {
@@ -604,6 +613,8 @@ const ServersPage: React.FC = () => {
           currentUserId={user?.id}
           currentUserName={userName}
           currentUserStatus={userStatus}
+          searchQuery={sidebarQuery}
+          onSearchQueryChange={setSidebarQuery}
         />
 
         <main className="main">

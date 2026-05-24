@@ -37,6 +37,8 @@ interface SidebarProps {
     isMuted?: boolean;
     isSharingScreen?: boolean;
   }[];
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -64,6 +66,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentUserName,
   currentUserStatus,
   voiceMembers,
+  searchQuery,
+  onSearchQueryChange,
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
@@ -104,7 +108,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const [query, setQuery] = React.useState("");
+  const query = searchQuery;
+  const setQuery = onSearchQueryChange;
   const q = query.trim().toLowerCase();
   const match = (s: string) => s.toLowerCase().includes(q);
   const isFiltering = q.length > 0;
