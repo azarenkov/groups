@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct DispatcherConfig {
     #[serde(default = "default_health_port")]
-    pub health_port: u16,
+    pub dispatcher_health_port: u16,
     #[serde(default = "default_user_stream")]
     pub dispatcher_user_stream: String,
     #[serde(default = "default_channel_stream")]

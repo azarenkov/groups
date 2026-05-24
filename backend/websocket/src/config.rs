@@ -5,7 +5,7 @@ pub struct WebsocketConfig {
     #[serde(default = "default_bind_address")]
     pub bind_address: String,
     #[serde(default = "default_health_port")]
-    pub health_port: u16,
+    pub websocket_health_port: u16,
     pub jwt_secret: String,
     #[serde(default = "default_outbound_buffer")]
     pub websocket_outbound_buffer: usize,

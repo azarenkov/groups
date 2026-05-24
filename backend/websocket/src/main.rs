@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .build()
     };
 
-    let health_server = health::bind(cfg.health_port, readiness.clone())?;
+    let health_server = health::bind(cfg.websocket_health_port, readiness.clone())?;
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
