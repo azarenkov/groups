@@ -2,26 +2,19 @@ use std::error::Error;
 
 use actix_web::{App, HttpServer, web};
 use infrastructure::{
-    config::{nats::NatsConfig, postgres::PostgresConfig},
-    database::postgres::connection::{create_postgres_pool, ping_pool},
+    config::nats::NatsConfig,
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
 use shared::health::{self, Readiness};
-use tokio::{signal, sync::watch};
+use tokio::signal;
 
 mod config;
 mod connections;
-mod consumer;
-mod dispatch;
-mod envelope;
-mod recipients;
 mod ws;
 
 use crate::{
     config::WebsocketConfig,
-    connections::{ConnectionManager, Publisher},
-    consumer::{ConsumerSpec, run_consumer},
-    recipients::RecipientResolver,
+    connections::ConnectionManager,
     ws::{WsState, ws_handler},
 };
 
@@ -31,31 +24,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let cfg = WebsocketConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
-    let pg_cfg = PostgresConfig::from_env()?;
 
     let jetstream = create_jetstream(&nats_cfg).await?;
-    let pool = create_postgres_pool(pg_cfg).await?;
 
     let core = jetstream.client().clone();
     let user_subject_prefix = format!(
         "{}.realtime.user",
         nats_cfg.subject_prefix.trim_end_matches('.'),
     );
-    let manager = ConnectionManager::new(core.clone(), user_subject_prefix.clone());
-    let publisher = Publisher::new(core, user_subject_prefix);
-    let resolver = RecipientResolver::new(pool.clone());
+    let manager = ConnectionManager::new(core, user_subject_prefix);
 
     let readiness = {
         let jetstream = jetstream.clone();
-        let pool = pool.clone();
         Readiness::builder()
             .add_probe(move || {
                 let jetstream = jetstream.clone();
                 async move { is_nats_connected(&jetstream) }
-            })
-            .add_probe(move || {
-                let pool = pool.clone();
-                async move { ping_pool(&pool).await }
             })
             .build()
     };
@@ -66,20 +50,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tracing::error!(error = %e, "Health server stopped");
         }
     });
-
-    let (shutdown_tx, shutdown_rx) = watch::channel(false);
-
-    let consumer_specs = build_consumer_specs(&cfg, &nats_cfg.subject_prefix);
-    let mut consumer_handles = Vec::new();
-    for spec in consumer_specs {
-        let jetstream = jetstream.clone();
-        let resolver = resolver.clone();
-        let publisher = publisher.clone();
-        let rx = shutdown_rx.clone();
-        consumer_handles.push(actix_web::rt::spawn(async move {
-            run_consumer(jetstream, spec, resolver, publisher, rx).await;
-        }));
-    }
 
     let ws_state = web::Data::new(WsState {
         manager: manager.clone(),
@@ -102,59 +72,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     readiness.mark_ready();
 
     signal::ctrl_c().await?;
-    tracing::info!("Shutdown signal received, stopping consumers and HTTP server");
+    tracing::info!("Shutdown signal received, stopping HTTP server");
 
-    let _ = shutdown_tx.send(true);
     server_handle.stop(true).await;
     let _ = server_task.await;
-    for h in consumer_handles {
-        let _ = h.await;
-    }
     health_handle.abort();
 
     Ok(())
-}
-
-fn build_consumer_specs(cfg: &WebsocketConfig, prefix: &str) -> Vec<ConsumerSpec> {
-    let prefix = prefix.trim_end_matches('.');
-    let consumer_prefix = &cfg.websocket_consumer_prefix;
-    let max_deliver = cfg.websocket_max_deliver;
-    let dlq = |kind: &str| format!("{prefix}.dlq.realtime.{kind}");
-    vec![
-        ConsumerSpec {
-            stream: cfg.websocket_user_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-user"),
-            filter_subject: format!("{prefix}.user.>"),
-            dlq_subject: dlq("user"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.websocket_channel_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-channel"),
-            filter_subject: format!("{prefix}.channel.>"),
-            dlq_subject: dlq("channel"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.websocket_message_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-message"),
-            filter_subject: format!("{prefix}.message.>"),
-            dlq_subject: dlq("message"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.websocket_dm_message_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-dm-message"),
-            filter_subject: format!("{prefix}.dm_message.>"),
-            dlq_subject: dlq("dm_message"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.websocket_server_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-server"),
-            filter_subject: format!("{prefix}.server.>"),
-            dlq_subject: dlq("server"),
-            max_deliver,
-        },
-    ]
 }

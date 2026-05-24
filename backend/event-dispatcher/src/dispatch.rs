@@ -6,8 +6,8 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::{
-    connections::{PublishError, Publisher},
     envelope::Envelope,
+    publisher::{PublishError, Publisher},
     recipients::RecipientResolver,
 };
 

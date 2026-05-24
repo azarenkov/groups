@@ -942,6 +942,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "event-dispatcher"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "anyhow",
+ "application",
+ "async-nats",
+ "chrono",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "infrastructure",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "event-listener"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4029,24 +4053,17 @@ dependencies = [
 name = "websocket"
 version = "0.1.0"
 dependencies = [
- "actix-cors",
  "actix-web",
  "actix-ws",
- "anyhow",
- "application",
  "async-nats",
- "chrono",
  "dashmap",
- "domain",
  "dotenv",
  "envy",
  "futures",
  "infrastructure",
  "jsonwebtoken 10.3.0",
  "serde",
- "serde_json",
  "shared",
- "sqlx",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

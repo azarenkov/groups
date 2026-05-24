@@ -187,13 +187,37 @@ services:
     networks:
       - rift-network
     env_file:
-      - path: env/postgres.env
-        required: false
       - path: env/nats.env
         required: false
       - path: env/http.env
         required: false
       - path: env/websocket.env
+        required: false
+    depends_on:
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  event-dispatcher:
+    build:
+      context: .
+      dockerfile: docker/event-dispatcher/Dockerfile
+    container_name: rift-event-dispatcher
+    restart: unless-stopped
+    networks:
+      - rift-network
+    env_file:
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/event-dispatcher.env
         required: false
     depends_on:
       postgres:
@@ -202,7 +226,7 @@ services:
         condition: service_healthy
     healthcheck:
       test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz || exit 1"]
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8085/readyz || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3

@@ -7,7 +7,7 @@ use futures::StreamExt;
 use infrastructure::messaging::nats::consumer::NatsEventConsumer;
 
 use crate::{
-    connections::Publisher, dispatch::dispatch, recipients::RecipientResolver,
+    dispatch::dispatch, publisher::Publisher, recipients::RecipientResolver,
 };
 
 #[derive(Clone)]
