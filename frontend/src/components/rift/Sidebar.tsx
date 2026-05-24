@@ -143,6 +143,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           placeholder="Search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setQuery("");
+              searchInputRef.current?.blur();
+            }
+          }}
         />
         {query ? (
           <button
