@@ -60,7 +60,6 @@ class WsClient {
   private reconnectTimer: number | null = null;
   private heartbeatTimer: number | null = null;
   private refreshInProgress = false;
-  private handshakeRefreshTried = false;
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
@@ -114,7 +113,6 @@ class WsClient {
     socket.onopen = () => {
       openedOnce = true;
       this.reconnectAttempts = 0;
-      this.handshakeRefreshTried = false;
       this.startHeartbeat();
     };
 
@@ -145,8 +143,7 @@ class WsClient {
 
       const handshakeFailed = !openedOnce;
       const explicitAuthCode = this.isAuthFailure(ev.code);
-      if ((handshakeFailed && !this.handshakeRefreshTried) || explicitAuthCode) {
-        this.handshakeRefreshTried = true;
+      if (handshakeFailed || explicitAuthCode) {
         if (await this.tryRefresh()) {
           this.openSocket();
           return;
