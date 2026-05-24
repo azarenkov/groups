@@ -24,6 +24,7 @@ use application::usecases::server::decline_server_invite::DeclineServerInviteErr
 use application::usecases::server::leave_server::LeaveServerError;
 use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
+use application::usecases::user::get_me::GetMeError;
 use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
@@ -1693,6 +1694,29 @@ impl ToHttpStatus for SearchDmMessagesError {
     }
 }
 
+impl ToHttpStatus for GetMeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetMeError::Repository(e) => e.to_http_status(),
+            GetMeError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            GetMeError::Repository(e) => e.to_user_message(),
+            GetMeError::NotFound => "User not found".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetMeError::Repository(e) => e.to_error_code(),
+            GetMeError::NotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
 impl ToHttpStatus for SearchUsersError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1867,6 +1891,7 @@ impl_from_for_api_error!(
     RemoveFriendshipError,
     ListFriendsError,
     SearchUsersError,
+    GetMeError,
     SendDmMessageError,
     SendServerInviteError,
     AcceptServerInviteError,

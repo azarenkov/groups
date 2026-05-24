@@ -17,7 +17,7 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
-    user::search_users::SearchUsers,
+    user::{get_me::GetMe, search_users::SearchUsers},
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
         delete_channel::DeleteChannel, delete_channel_message::DeleteChannelMessage,
@@ -208,6 +208,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_friends_usecase = ListFriends::new(friendship_repository.clone());
 
     let search_users_usecase = SearchUsers::new(user_repository.clone());
+    let get_me_usecase = GetMe::new(user_repository.clone());
 
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
     let send_dm_message_usecase = SendDmMessage::new(
@@ -266,6 +267,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         remove_friendship_usecase,
         list_friends_usecase,
         search_users_usecase,
+        get_me_usecase,
         send_dm_message_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,

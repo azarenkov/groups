@@ -222,6 +222,11 @@ const SignInUp: React.FC<SignInUpProps> = ({
         goVerify();
       } else {
         login(tokens, user);
+        try {
+          await useAuthStore.getState().fetchMe();
+        } catch (meErr) {
+          console.warn("[Auth] fetchMe failed:", meErr);
+        }
         onSignedIn();
       }
     } catch (err: any) {
@@ -716,6 +721,11 @@ const VerifyEmail: React.FC<{
         const { user } = useAuthStore.getState();
         if (user) {
           useAuthStore.getState().login(fresh, user);
+        }
+        try {
+          await useAuthStore.getState().fetchMe();
+        } catch (meErr) {
+          console.warn("[Auth] fetchMe failed:", meErr);
         }
         onVerified();
       } catch (err: any) {

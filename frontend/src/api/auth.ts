@@ -3,6 +3,7 @@ import { serverAPI } from "./server";
 import { channelAPI } from "./channel";
 import { friendshipAPI } from "./friendship";
 import { dmAPI } from "./dm";
+import { userAPI } from "./user";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
 
@@ -191,6 +192,7 @@ class AuthAPI {
     channelAPI.setAuthToken(token);
     friendshipAPI.setAuthToken(token);
     dmAPI.setAuthToken(token);
+    userAPI.setAuthToken(token);
   }
 
   removeAuthToken() {
@@ -199,6 +201,7 @@ class AuthAPI {
     channelAPI.removeAuthToken();
     friendshipAPI.removeAuthToken();
     dmAPI.removeAuthToken();
+    userAPI.removeAuthToken();
   }
 }
 

@@ -27,6 +27,7 @@ interface AuthState {
   login: (tokens: TokenPair, user: User) => void;
   logout: () => void;
   signOut: () => Promise<void>;
+  fetchMe: () => Promise<void>;
   setHydrating: (v: boolean) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -64,6 +65,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       await authAPI.logout();
     } catch {}
     get().logout();
+  },
+
+  fetchMe: async () => {
+    const { userAPI } = await import("../api/user");
+    const me = await userAPI.getMe();
+    set({ user: { id: me.id, name: me.name, email: me.email } });
   },
 
   setHydrating: (v) => set({ isHydrating: v }),
