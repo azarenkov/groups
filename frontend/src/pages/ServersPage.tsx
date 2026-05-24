@@ -718,15 +718,6 @@ const ServersPage: React.FC = () => {
                       <div className="voice-room-actions">
                         <button
                           type="button"
-                          className="voice-room-action"
-                          onClick={() => {}}
-                          title="Share screen (coming soon)"
-                        >
-                          <Icon name="monitor" size={16} />
-                          <span>Share screen</span>
-                        </button>
-                        <button
-                          type="button"
                           className="voice-room-action leave"
                           onClick={handleVoiceLeave}
                         >
