@@ -18,6 +18,7 @@ use crate::{
 pub mod lifecycle;
 
 #[derive(Debug, Serialize)]
+#[serde(untagged)]
 pub enum UserEvent {
     Registered(UserRegistered),
     EmailVerified(UserEmailVerified),
