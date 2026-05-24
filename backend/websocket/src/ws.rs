@@ -30,10 +30,10 @@ fn extract_bearer_token(req: &HttpRequest) -> Option<(String, String)> {
         .ok()?;
     for value in raw.split(',') {
         let trimmed = value.trim();
-        if let Some(token) = trimmed.strip_prefix(AUTH_PROTOCOL_PREFIX) {
-            if !token.is_empty() {
-                return Some((trimmed.to_string(), token.to_string()));
-            }
+        if let Some(token) = trimmed.strip_prefix(AUTH_PROTOCOL_PREFIX)
+            && !token.is_empty()
+        {
+            return Some((trimmed.to_string(), token.to_string()));
         }
     }
     None
