@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::{
-    connections::ConnectionManager, envelope::Envelope, recipients::RecipientResolver,
+    connections::Publisher, envelope::Envelope, recipients::RecipientResolver,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -21,7 +21,7 @@ pub async fn dispatch(
     subject: &str,
     payload: &[u8],
     resolver: &RecipientResolver,
-    manager: &ConnectionManager,
+    publisher: &Publisher,
 ) -> Result<(), DispatchError> {
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
@@ -35,8 +35,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.sender_id, evt.recipient_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.sender_id, evt.recipient_id]), &envelope)
             .await;
         return Ok(());
     }
@@ -56,7 +56,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -71,8 +71,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.sender_id, evt.recipient_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.sender_id, evt.recipient_id]), &envelope)
             .await;
         return Ok(());
     }
@@ -90,7 +90,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -106,7 +106,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -122,7 +122,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -141,7 +141,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -158,7 +158,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -174,7 +174,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -190,7 +190,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -207,7 +207,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -224,7 +224,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -241,7 +241,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -258,7 +258,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -274,7 +274,7 @@ pub async fn dispatch(
                 "joinedAt": evt.joined_at,
             }),
         );
-        manager.send_to_users(unique(recipients), &envelope).await;
+        publisher.publish_to_users(unique(recipients), &envelope).await;
         return Ok(());
     }
 
@@ -290,8 +290,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.owner_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.owner_id]), &envelope)
             .await;
         return Ok(());
     }
@@ -306,8 +306,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.owner_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.owner_id]), &envelope)
             .await;
         return Ok(());
     }
@@ -322,8 +322,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.sender_id, evt.receiver_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.sender_id, evt.receiver_id]), &envelope)
             .await;
         return Ok(());
     }
@@ -338,8 +338,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.accepter_id, evt.sender_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.accepter_id, evt.sender_id]), &envelope)
             .await;
         return Ok(());
     }
@@ -354,8 +354,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.user_id, evt.other_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.user_id, evt.other_id]), &envelope)
             .await;
         return Ok(());
     }
@@ -382,8 +382,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        manager
-            .send_to_users(unique([evt.user_id]), &envelope)
+        publisher
+            .publish_to_users(unique([evt.user_id]), &envelope)
             .await;
         return Ok(());
     }

@@ -19,7 +19,7 @@ mod ws;
 
 use crate::{
     config::RealtimeConfig,
-    connections::ConnectionManager,
+    connections::{ConnectionManager, Publisher},
     consumer::{ConsumerSpec, run_consumer},
     recipients::RecipientResolver,
     ws::{WsState, ws_handler},
@@ -36,7 +36,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let jetstream = create_jetstream(&nats_cfg).await?;
     let pool = create_postgres_pool(pg_cfg).await?;
 
-    let manager = ConnectionManager::new();
+    let core = jetstream.client().clone();
+    let user_subject_prefix = format!(
+        "{}.realtime.user",
+        nats_cfg.subject_prefix.trim_end_matches('.'),
+    );
+    let manager = ConnectionManager::new(core.clone(), user_subject_prefix.clone());
+    let publisher = Publisher::new(core, user_subject_prefix);
     let resolver = RecipientResolver::new(pool.clone());
 
     let readiness = {
@@ -68,10 +74,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for spec in consumer_specs {
         let jetstream = jetstream.clone();
         let resolver = resolver.clone();
-        let manager = manager.clone();
+        let publisher = publisher.clone();
         let rx = shutdown_rx.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
-            run_consumer(jetstream, spec, resolver, manager, rx).await;
+            run_consumer(jetstream, spec, resolver, publisher, rx).await;
         }));
     }
 
@@ -82,11 +88,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let bind_address = cfg.bind_address.clone();
-    let manager_metrics = manager.clone();
     let server = HttpServer::new(move || {
         App::new()
             .app_data(ws_state.clone())
-            .app_data(web::Data::new(manager_metrics.clone()))
             .service(ws_handler)
     })
     .bind(&bind_address)?

@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
+use async_nats::Client;
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
+use futures::StreamExt;
 use serde::Serialize;
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, task::JoinHandle};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -26,86 +29,129 @@ impl Connection {
     }
 }
 
+struct UserSlot {
+    conns: Vec<Connection>,
+    sub_task: JoinHandle<()>,
+}
+
 #[derive(Clone)]
 pub struct ConnectionManager {
-    by_user: Arc<DashMap<Uuid, Vec<Connection>>>,
+    by_user: Arc<DashMap<Uuid, UserSlot>>,
+    core: Client,
+    user_subject_prefix: String,
 }
 
 impl ConnectionManager {
-    pub fn new() -> Self {
+    pub fn new(core: Client, user_subject_prefix: String) -> Self {
         Self {
             by_user: Arc::new(DashMap::new()),
+            core,
+            user_subject_prefix,
         }
     }
 
-    pub fn register(&self, conn: Connection) {
-        self.by_user
-            .entry(conn.user_id)
-            .or_default()
-            .push(conn);
-    }
+    pub async fn register(&self, conn: Connection) {
+        let user_id = conn.user_id;
 
-    pub fn unregister(&self, user_id: Uuid, conn_id: Uuid) {
         if let Some(mut entry) = self.by_user.get_mut(&user_id) {
-            entry.retain(|c| c.id != conn_id);
-            if entry.is_empty() {
-                drop(entry);
-                self.by_user.remove(&user_id);
+            entry.conns.push(conn);
+            return;
+        }
+
+        let subject = format!("{}.{}", self.user_subject_prefix, user_id);
+        let subscription = match self.core.subscribe(subject.clone()).await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!(error = %e, %user_id, %subject, "Failed to subscribe to user subject");
+                return;
+            }
+        };
+
+        match self.by_user.entry(user_id) {
+            Entry::Vacant(v) => {
+                let by_user = self.by_user.clone();
+                let handle =
+                    tokio::spawn(fanout_loop(user_id, by_user, subscription));
+                v.insert(UserSlot {
+                    conns: vec![conn],
+                    sub_task: handle,
+                });
+            }
+            Entry::Occupied(mut o) => {
+                o.get_mut().conns.push(conn);
             }
         }
     }
 
-    pub async fn send_to_users<I, E>(&self, recipients: I, envelope: &E)
+    pub async fn unregister(&self, user_id: Uuid, conn_id: Uuid) {
+        let Entry::Occupied(mut o) = self.by_user.entry(user_id) else {
+            return;
+        };
+        o.get_mut().conns.retain(|c| c.id != conn_id);
+        if o.get().conns.is_empty() {
+            let slot = o.remove();
+            slot.sub_task.abort();
+        }
+    }
+}
+
+async fn fanout_loop(
+    user_id: Uuid,
+    by_user: Arc<DashMap<Uuid, UserSlot>>,
+    mut sub: async_nats::Subscriber,
+) {
+    while let Some(msg) = sub.next().await {
+        let payload = match std::str::from_utf8(&msg.payload) {
+            Ok(s) => s.to_string(),
+            Err(_) => continue,
+        };
+        let Some(slot) = by_user.get(&user_id) else {
+            break;
+        };
+        let snapshot: Vec<Connection> = slot.conns.clone();
+        drop(slot);
+        for c in &snapshot {
+            let _ = c.try_send(&payload).await;
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Publisher {
+    core: Client,
+    user_subject_prefix: String,
+}
+
+impl Publisher {
+    pub fn new(core: Client, user_subject_prefix: String) -> Self {
+        Self {
+            core,
+            user_subject_prefix,
+        }
+    }
+
+    pub async fn publish_to_users<I, E>(&self, recipients: I, envelope: &E)
     where
         I: IntoIterator<Item = Uuid>,
         E: Serialize,
     {
-        let payload = match serde_json::to_string(envelope) {
-            Ok(s) => s,
+        let payload = match serde_json::to_vec(envelope) {
+            Ok(b) => b,
             Err(e) => {
                 tracing::error!(error = %e, "Failed to serialize envelope");
                 return;
             }
         };
 
-        let mut delivered_to_users = 0usize;
-        let mut total_conns = 0usize;
-        let mut dropped = 0usize;
-
         for user_id in recipients {
-            let Some(entry) = self.by_user.get(&user_id) else {
-                continue;
-            };
-            let snapshot: Vec<Connection> = entry.clone();
-            drop(entry);
-
-            let mut delivered_here = false;
-            for conn in &snapshot {
-                total_conns += 1;
-                if conn.try_send(&payload).await {
-                    delivered_here = true;
-                } else {
-                    dropped += 1;
-                }
-            }
-            if delivered_here {
-                delivered_to_users += 1;
+            let subject = format!("{}.{}", self.user_subject_prefix, user_id);
+            if let Err(e) = self
+                .core
+                .publish(subject.clone(), payload.clone().into())
+                .await
+            {
+                tracing::warn!(error = %e, %subject, "Failed to publish to user subject");
             }
         }
-
-        if dropped > 0 {
-            tracing::warn!(
-                dropped,
-                total_conns,
-                users = delivered_to_users,
-                "Some realtime sends were dropped (slow client)",
-            );
-        }
-    }
-}
-
-impl Default for ConnectionManager {
-    fn default() -> Self {
-        Self::new()
     }
 }

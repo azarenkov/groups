@@ -7,7 +7,7 @@ use async_nats::jetstream::{
 use futures::StreamExt;
 
 use crate::{
-    connections::ConnectionManager, dispatch::dispatch, recipients::RecipientResolver,
+    connections::Publisher, dispatch::dispatch, recipients::RecipientResolver,
 };
 
 #[derive(Clone)]
@@ -21,7 +21,7 @@ pub async fn run_consumer(
     jetstream: Context,
     spec: ConsumerSpec,
     resolver: RecipientResolver,
-    manager: ConnectionManager,
+    publisher: Publisher,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) {
     loop {
@@ -45,7 +45,7 @@ pub async fn run_consumer(
                                 Some(Ok(m)) => {
                                     let subject = m.subject.to_string();
                                     let payload = m.payload.clone();
-                                    match dispatch(&subject, &payload, &resolver, &manager).await {
+                                    match dispatch(&subject, &payload, &resolver, &publisher).await {
                                         Ok(_) => {
                                             if let Err(e) = m.ack().await {
                                                 tracing::warn!(error = %e, %subject, "Failed to ack message");

@@ -82,7 +82,7 @@ async fn connection_task(
     let (tx, mut rx) = mpsc::channel::<String>(outbound_buffer);
     let conn = Connection::new(user_id, tx);
     let conn_id = conn.id;
-    manager.register(conn);
+    manager.register(conn).await;
 
     tracing::info!(%user_id, %conn_id, "WS connection opened");
 
@@ -143,7 +143,7 @@ async fn connection_task(
         }
     };
 
-    manager.unregister(user_id, conn_id);
+    manager.unregister(user_id, conn_id).await;
     if let Some(r) = close_reason {
         let _ = session
             .close(Some(actix_ws::CloseReason {
