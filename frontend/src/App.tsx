@@ -34,8 +34,9 @@ const App: React.FC = () => {
     installWsBootstrap();
   }, []);
 
+  const hasAccessToken = !!tokens?.accessToken;
   useEffect(() => {
-    const ready = isAuthenticated && !hasUnverifiedSession && !!tokens?.accessToken;
+    const ready = isAuthenticated && !hasUnverifiedSession && hasAccessToken;
     if (ready) {
       ws.connect();
       return () => {
@@ -43,7 +44,7 @@ const App: React.FC = () => {
       };
     }
     ws.disconnect();
-  }, [isAuthenticated, hasUnverifiedSession, tokens?.accessToken]);
+  }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {
     let cancelled = false;
