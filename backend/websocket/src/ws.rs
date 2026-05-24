@@ -120,8 +120,6 @@ async fn connection_task(
 
     let close_reason = loop {
         tokio::select! {
-            biased;
-
             _ = hb_interval.tick() => {
                 if last_seen.elapsed() >= CLIENT_TIMEOUT {
                     tracing::info!(%user_id, %conn_id, "WS client timed out");

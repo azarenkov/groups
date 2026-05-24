@@ -106,7 +106,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         content: string;
         occurredAt: string;
       }) => {
-        if (m.authorId === currentUserId) return;
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
             ? prev
@@ -156,7 +155,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         inviteServerId?: string;
         inviteServerName?: string;
       }) => {
-        if (m.senderId === currentUserId) return;
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
             ? prev
