@@ -1,10 +1,9 @@
 use std::time::{Duration, Instant};
 
-use actix_web::{HttpRequest, HttpResponse, get, web};
+use actix_web::{HttpRequest, HttpResponse, get, http::header, web};
 use actix_ws::AggregatedMessage;
 use futures::StreamExt;
 use jsonwebtoken::{DecodingKey, Validation, decode};
-use serde::Deserialize;
 use shared::middleware::jwt::claims::{AccessTokenClaims, TokenType};
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -14,12 +13,7 @@ use crate::connections::{Connection, ConnectionManager};
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(20);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_FRAME_BYTES: usize = 64 * 1024;
-
-#[derive(Debug, Deserialize)]
-struct WsQuery {
-    #[serde(rename = "token", alias = "access_token")]
-    token: Option<String>,
-}
+const AUTH_PROTOCOL_PREFIX: &str = "bearer.";
 
 #[derive(Clone)]
 pub struct WsState {
@@ -28,20 +22,35 @@ pub struct WsState {
     pub outbound_buffer: usize,
 }
 
+fn extract_bearer_token(req: &HttpRequest) -> Option<(String, String)> {
+    let raw = req
+        .headers()
+        .get(header::SEC_WEBSOCKET_PROTOCOL)?
+        .to_str()
+        .ok()?;
+    for value in raw.split(',') {
+        let trimmed = value.trim();
+        if let Some(token) = trimmed.strip_prefix(AUTH_PROTOCOL_PREFIX) {
+            if !token.is_empty() {
+                return Some((trimmed.to_string(), token.to_string()));
+            }
+        }
+    }
+    None
+}
+
 #[get("/ws")]
 pub async fn ws_handler(
     req: HttpRequest,
     body: web::Payload,
-    query: web::Query<WsQuery>,
     state: web::Data<WsState>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let token = match query.token.as_deref() {
-        Some(t) if !t.is_empty() => t,
-        _ => return Ok(HttpResponse::Unauthorized().body("missing token")),
+    let Some((selected_protocol, token)) = extract_bearer_token(&req) else {
+        return Ok(HttpResponse::Unauthorized().body("missing token"));
     };
 
     let user_id = match decode::<AccessTokenClaims>(
-        token,
+        &token,
         &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
         &Validation::new(jsonwebtoken::Algorithm::HS256),
     ) {
@@ -57,7 +66,12 @@ pub async fn ws_handler(
         Err(_) => return Ok(HttpResponse::Unauthorized().body("invalid token")),
     };
 
-    let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
+    let (mut response, session, msg_stream) = actix_ws::handle(&req, body)?;
+    if let Ok(value) = header::HeaderValue::from_str(&selected_protocol) {
+        response
+            .headers_mut()
+            .insert(header::SEC_WEBSOCKET_PROTOCOL, value);
+    }
     let manager = state.manager.clone();
     let outbound_buffer = state.outbound_buffer;
 

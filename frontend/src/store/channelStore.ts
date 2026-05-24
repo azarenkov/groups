@@ -45,12 +45,16 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
   setSelectedChannel: (channelId) => set({ selectedChannelId: channelId }),
 
   addChannel: (serverId, channel) =>
-    set((state) => ({
-      channelsByServer: {
-        ...state.channelsByServer,
-        [serverId]: [...(state.channelsByServer[serverId] || []), channel],
-      },
-    })),
+    set((state) => {
+      const existing = state.channelsByServer[serverId] || [];
+      if (existing.some((c) => c.id === channel.id)) return state;
+      return {
+        channelsByServer: {
+          ...state.channelsByServer,
+          [serverId]: [...existing, channel],
+        },
+      };
+    }),
 
   removeChannel: (serverId, channelId) =>
     set((state) => ({

@@ -100,10 +100,9 @@ class WsClient {
       this.scheduleReconnect();
       return;
     }
-    const url = `${this.endpoint}?token=${encodeURIComponent(token)}`;
     let socket: WebSocket;
     try {
-      socket = new WebSocket(url);
+      socket = new WebSocket(this.endpoint, [`bearer.${token}`]);
     } catch (err) {
       console.warn("[ws] WebSocket construct failed:", err);
       this.scheduleReconnect();
