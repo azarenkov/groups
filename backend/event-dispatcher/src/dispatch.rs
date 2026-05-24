@@ -29,6 +29,7 @@ pub async fn dispatch(
 ) -> Result<(), DispatchError> {
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
+        let invite = resolver.dm_invite_for(evt.message_id).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
             json!({
@@ -37,6 +38,8 @@ pub async fn dispatch(
                 "recipientId": evt.recipient_id,
                 "content": evt.content,
                 "occurredAt": evt.occurred_at,
+                "inviteServerId": invite.as_ref().map(|i| i.0),
+                "inviteServerName": invite.as_ref().map(|i| i.1.clone()),
             }),
         );
         publisher

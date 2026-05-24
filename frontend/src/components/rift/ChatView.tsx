@@ -153,6 +153,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         recipientId: string;
         content: string;
         occurredAt: string;
+        inviteServerId?: string;
+        inviteServerName?: string;
       }) => {
         if (m.senderId === currentUserId) return;
         setMessages((prev) =>
@@ -165,6 +167,8 @@ const ChatView: React.FC<ChatViewProps> = ({
                   channelId: m.senderId,
                   authorId: m.senderId,
                   content: m.content,
+                  inviteServerId: m.inviteServerId,
+                  inviteServerName: m.inviteServerName,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },

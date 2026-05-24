@@ -56,6 +56,8 @@ export interface DmMessageHandlers {
     recipientId: string;
     content: string;
     occurredAt: string;
+    inviteServerId?: string;
+    inviteServerName?: string;
   }) => void;
   onEdited?: (m: {
     id: string;

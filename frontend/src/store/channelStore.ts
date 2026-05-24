@@ -12,6 +12,7 @@ interface ChannelState {
   setSelectedChannel: (channelId: string | null) => void;
   addChannel: (serverId: string, channel: Channel) => void;
   removeChannel: (serverId: string, channelId: string) => void;
+  renameChannel: (serverId: string, channelId: string, name: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
@@ -62,6 +63,16 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
         ...state.channelsByServer,
         [serverId]: (state.channelsByServer[serverId] || []).filter(
           (c) => c.id !== channelId,
+        ),
+      },
+    })),
+
+  renameChannel: (serverId, channelId, name) =>
+    set((state) => ({
+      channelsByServer: {
+        ...state.channelsByServer,
+        [serverId]: (state.channelsByServer[serverId] || []).map((c) =>
+          c.id === channelId ? { ...c, name } : c,
         ),
       },
     })),

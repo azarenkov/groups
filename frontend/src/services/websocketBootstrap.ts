@@ -70,6 +70,15 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "channel.renamed": {
+      const id = asString(d.id);
+      const serverId = asString(d.serverId);
+      const newName = asString(d.newName);
+      if (!id || !serverId || !newName) return;
+      useChannelStore.getState().renameChannel(serverId, id, newName);
+      return;
+    }
+
     case "friendship.requestSent":
     case "friendship.requestAccepted":
     case "friendship.removed": {

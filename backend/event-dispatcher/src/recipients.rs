@@ -32,6 +32,32 @@ impl RecipientResolver {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
+    pub async fn dm_invite_for(
+        &self,
+        message_id: Uuid,
+    ) -> Result<Option<(Uuid, String)>, sqlx::Error> {
+        let row = sqlx::query(
+            r#"
+            SELECT m.invite_server_id, s.name
+            FROM dm_messages m
+            LEFT JOIN servers s ON s.id = m.invite_server_id
+            WHERE m.id = $1
+            "#,
+        )
+        .bind(message_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let server_id: Option<Uuid> = row.get(0);
+        let server_name: Option<String> = row.get(1);
+        Ok(match (server_id, server_name) {
+            (Some(id), Some(name)) => Some((id, name)),
+            _ => None,
+        })
+    }
+
     pub async fn dm_recipient_for(
         &self,
         message_id: Uuid,
