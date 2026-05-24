@@ -580,7 +580,9 @@ const ChatView: React.FC<ChatViewProps> = ({
 
     const sendChunk = async (chunk: string) => {
       const msg = await sendOnce(chunk);
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) =>
+        prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
+      );
     };
 
     try {

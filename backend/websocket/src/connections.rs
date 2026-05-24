@@ -70,8 +70,15 @@ impl ConnectionManager {
         match self.by_user.entry(user_id) {
             Entry::Vacant(v) => {
                 let by_user = self.by_user.clone();
-                let handle =
-                    tokio::spawn(fanout_loop(user_id, by_user, subscription));
+                let core = self.core.clone();
+                let subject_for_task = subject.clone();
+                let handle = tokio::spawn(fanout_loop(
+                    user_id,
+                    by_user,
+                    core,
+                    subject_for_task,
+                    subscription,
+                ));
                 v.insert(UserSlot {
                     conns: vec![conn],
                     sub_task: handle,
@@ -99,20 +106,42 @@ impl ConnectionManager {
 async fn fanout_loop(
     user_id: Uuid,
     by_user: Arc<DashMap<Uuid, UserSlot>>,
-    mut sub: async_nats::Subscriber,
+    core: async_nats::Client,
+    subject: String,
+    initial_sub: async_nats::Subscriber,
 ) {
-    while let Some(msg) = sub.next().await {
-        let payload = match std::str::from_utf8(&msg.payload) {
-            Ok(s) => s.to_string(),
-            Err(_) => continue,
-        };
-        let Some(slot) = by_user.get(&user_id) else {
-            break;
-        };
-        let snapshot: Vec<Connection> = slot.conns.clone();
-        drop(slot);
-        for c in &snapshot {
-            let _ = c.try_send(&payload).await;
+    let mut sub = initial_sub;
+    loop {
+        while let Some(msg) = sub.next().await {
+            let payload = match std::str::from_utf8(&msg.payload) {
+                Ok(s) => s.to_string(),
+                Err(_) => continue,
+            };
+            let Some(slot) = by_user.get(&user_id) else {
+                return;
+            };
+            let snapshot: Vec<Connection> = slot.conns.clone();
+            drop(slot);
+            for c in &snapshot {
+                let _ = c.try_send(&payload).await;
+            }
+        }
+
+        tracing::warn!(%user_id, %subject, "User subject subscription ended; re-subscribing");
+        loop {
+            if by_user.get(&user_id).is_none() {
+                return;
+            }
+            match core.subscribe(subject.clone()).await {
+                Ok(new_sub) => {
+                    sub = new_sub;
+                    break;
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, %user_id, %subject, "Re-subscribe failed; retrying");
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                }
+            }
         }
     }
 }
