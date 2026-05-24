@@ -15,6 +15,8 @@ import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
 import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
 import { authAPI } from "./api/auth";
 import { ApiError } from "./utils/apiError";
+import { realtime } from "./services/realtime";
+import { installRealtimeBootstrap } from "./services/realtimeBootstrap";
 import "./styles/App.css";
 
 const App: React.FC = () => {
@@ -27,6 +29,21 @@ const App: React.FC = () => {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    installRealtimeBootstrap();
+  }, []);
+
+  useEffect(() => {
+    const ready = isAuthenticated && !hasUnverifiedSession && !!tokens?.accessToken;
+    if (ready) {
+      realtime.connect();
+      return () => {
+        realtime.disconnect();
+      };
+    }
+    realtime.disconnect();
+  }, [isAuthenticated, hasUnverifiedSession, tokens?.accessToken]);
 
   useEffect(() => {
     let cancelled = false;
