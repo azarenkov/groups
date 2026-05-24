@@ -83,7 +83,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.sent") {
         let evt: ChannelMsgSent = serde_json::from_slice(payload)?;
-        let recipients = resolver.channel_members(evt.channel_id).await?;
+        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
         let envelope = Envelope::new(
             "message.sent",
             json!({
@@ -100,7 +100,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.edited") {
         let evt: ChannelMsgEdited = serde_json::from_slice(payload)?;
-        let recipients = resolver.channel_members(evt.channel_id).await?;
+        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
         let envelope = Envelope::new(
             "message.edited",
             json!({
@@ -116,7 +116,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.deleted") {
         let evt: ChannelMsgDeleted = serde_json::from_slice(payload)?;
-        let recipients = resolver.channel_members(evt.channel_id).await?;
+        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
         let envelope = Envelope::new(
             "message.deleted",
             json!({
@@ -268,7 +268,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".channel.text.joined") {
         let evt: TextJoinedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
         let envelope = Envelope::new(
             "channel.text.joined",
             json!({

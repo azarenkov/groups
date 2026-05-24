@@ -19,19 +19,17 @@ impl RecipientResolver {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    pub async fn channel_server(&self, channel_id: Uuid) -> Result<Option<Uuid>, sqlx::Error> {
-        let row = sqlx::query("SELECT server_id FROM channels WHERE id = $1")
-            .bind(channel_id)
-            .fetch_optional(&self.pool)
-            .await?;
-        Ok(row.map(|r| r.get::<Uuid, _>(0)))
-    }
-
-    pub async fn channel_members(&self, channel_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        let Some(server_id) = self.channel_server(channel_id).await? else {
-            return Ok(Vec::new());
-        };
-        self.server_members(server_id).await
+    pub async fn text_channel_recipients(
+        &self,
+        channel_id: Uuid,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
+        let rows = sqlx::query(
+            "SELECT user_id FROM channel_text_participants WHERE channel_id = $1",
+        )
+        .bind(channel_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
     pub async fn dm_recipient_for(
