@@ -44,11 +44,12 @@ const App: React.FC = () => {
           email: "",
         });
         authAPI.setAuthToken(fresh.accessToken);
-        try {
-          await useAuthStore.getState().fetchMe();
-        } catch (err) {
-          console.warn("[App] fetchMe failed:", err);
-        }
+        void useAuthStore
+          .getState()
+          .fetchMe()
+          .catch((err) => {
+            console.warn("[App] fetchMe failed:", err);
+          });
       } catch (err) {
         console.error("[App] hydrate failed:", err);
         const apiErr = err instanceof ApiError ? err : null;
