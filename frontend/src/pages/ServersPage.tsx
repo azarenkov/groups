@@ -194,15 +194,18 @@ const ServersPage: React.FC = () => {
   useEffect(() => {
     if (!tokens?.accessToken) return;
     if (!sidebarQuery.trim()) return;
-    const inflight = prefetchInflightRef.current;
-    servers.forEach((s) => {
-      if (channelsByServer[s.id]) return;
-      if (inflight.has(s.id)) return;
-      inflight.add(s.id);
-      Promise.resolve(fetchChannels(s.id)).finally(() => {
-        inflight.delete(s.id);
+    const handle = window.setTimeout(() => {
+      const inflight = prefetchInflightRef.current;
+      servers.forEach((s) => {
+        if (channelsByServer[s.id]) return;
+        if (inflight.has(s.id)) return;
+        inflight.add(s.id);
+        Promise.resolve(fetchChannels(s.id)).finally(() => {
+          inflight.delete(s.id);
+        });
       });
-    });
+    }, 250);
+    return () => window.clearTimeout(handle);
   }, [sidebarQuery, tokens, servers, channelsByServer, fetchChannels]);
 
   const didInitialExpandRef = useRef(false);
