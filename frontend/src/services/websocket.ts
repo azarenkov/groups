@@ -1,6 +1,6 @@
 import { useAuthStore } from "../store/authStore";
 
-export type RealtimeEventType =
+export type WsEventType =
   | "dm_message.sent"
   | "dm_message.edited"
   | "dm_message.deleted"
@@ -27,12 +27,12 @@ export type RealtimeEventType =
   | "user.loggedIn"
   | "user.loggedOut";
 
-export interface RealtimeEnvelope<T = unknown> {
-  type: RealtimeEventType;
+export interface WsEnvelope<T = unknown> {
+  type: WsEventType;
   data: T;
 }
 
-type Listener = (env: RealtimeEnvelope) => void;
+type Listener = (env: WsEnvelope) => void;
 
 const RECONNECT_MIN_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
@@ -51,7 +51,7 @@ function defaultEndpoint(): string {
   }
 }
 
-class RealtimeClient {
+class WsClient {
   private endpoint: string;
   private socket: WebSocket | null = null;
   private listeners = new Set<Listener>();
@@ -104,7 +104,7 @@ class RealtimeClient {
     try {
       socket = new WebSocket(url);
     } catch (err) {
-      console.warn("[realtime] WebSocket construct failed:", err);
+      console.warn("[ws] WebSocket construct failed:", err);
       this.scheduleReconnect();
       return;
     }
@@ -116,7 +116,7 @@ class RealtimeClient {
     };
 
     socket.onmessage = (ev) => {
-      let env: RealtimeEnvelope;
+      let env: WsEnvelope;
       try {
         env = JSON.parse(ev.data);
       } catch {
@@ -127,7 +127,7 @@ class RealtimeClient {
         try {
           l(env);
         } catch (err) {
-          console.warn("[realtime] listener threw:", err);
+          console.warn("[ws] listener threw:", err);
         }
       }
     };
@@ -162,7 +162,7 @@ class RealtimeClient {
       await authAPI.handleRefreshFlow();
       return !!useAuthStore.getState().tokens?.accessToken;
     } catch (err) {
-      console.warn("[realtime] refresh on auth failure failed:", err);
+      console.warn("[ws] refresh on auth failure failed:", err);
       return false;
     } finally {
       this.refreshInProgress = false;
@@ -212,4 +212,4 @@ class RealtimeClient {
   }
 }
 
-export const realtime = new RealtimeClient();
+export const ws = new WsClient();

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { realtime, RealtimeEnvelope } from "./realtime";
+import { ws, WsEnvelope } from "./websocket";
 
 export interface ChannelMessageHandlers {
   onSent?: (m: {
@@ -24,13 +24,13 @@ export interface ChannelMessageHandlers {
   }) => void;
 }
 
-export function useRealtimeChannelMessages(
+export function useWsChannelMessages(
   channelId: string | null,
   handlers: ChannelMessageHandlers,
 ) {
   useEffect(() => {
     if (!channelId) return;
-    const off = realtime.on((env: RealtimeEnvelope) => {
+    const off = ws.on((env: WsEnvelope) => {
       const d = env.data as Record<string, unknown>;
       if (typeof d.channelId !== "string" || d.channelId !== channelId) return;
       if (env.type === "message.sent" && handlers.onSent) {
@@ -71,14 +71,14 @@ export interface DmMessageHandlers {
   }) => void;
 }
 
-export function useRealtimeDmMessages(
+export function useWsDmMessages(
   otherUserId: string | null,
   selfUserId: string | undefined,
   handlers: DmMessageHandlers,
 ) {
   useEffect(() => {
     if (!otherUserId || !selfUserId) return;
-    const off = realtime.on((env: RealtimeEnvelope) => {
+    const off = ws.on((env: WsEnvelope) => {
       const d = env.data as Record<string, unknown>;
       const sender = typeof d.senderId === "string" ? d.senderId : null;
       const recipient = typeof d.recipientId === "string" ? d.recipientId : null;

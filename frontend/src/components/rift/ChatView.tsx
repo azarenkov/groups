@@ -8,9 +8,9 @@ import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
 import { colorForId, glyphFor } from "../../utils/avatar";
 import {
-  useRealtimeChannelMessages,
-  useRealtimeDmMessages,
-} from "../../services/useRealtimeMessages";
+  useWsChannelMessages,
+  useWsDmMessages,
+} from "../../services/useWebSocketMessages";
 
 const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
@@ -143,7 +143,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     }),
     [currentUserId],
   );
-  useRealtimeChannelMessages(channel?.id ?? null, channelMsgHandlers);
+  useWsChannelMessages(channel?.id ?? null, channelMsgHandlers);
 
   const dmMsgHandlers = React.useMemo(
     () => ({
@@ -191,7 +191,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     }),
     [currentUserId],
   );
-  useRealtimeDmMessages(dm?.friendId ?? null, currentUserId, dmMsgHandlers);
+  useWsDmMessages(dm?.friendId ?? null, currentUserId, dmMsgHandlers);
 
   const [text, setText] = React.useState("");
   const [loadingInitial, setLoadingInitial] = React.useState(false);

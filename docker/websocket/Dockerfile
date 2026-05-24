@@ -35,10 +35,10 @@ ENV CC=clang
 ENV CXX=clang++
 ENV SQLX_OFFLINE=true
 
-RUN cargo chef cook --release --bin realtime-service
+RUN cargo chef cook --release --bin websocket
 
 COPY . .
-RUN cargo build --release --bin realtime-service
+RUN cargo build --release --bin websocket
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
@@ -51,5 +51,5 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /rift/target/release/realtime-service /usr/local/bin/realtime-service
-ENTRYPOINT ["realtime-service"]
+COPY --from=builder /rift/target/release/websocket /usr/local/bin/websocket
+ENTRYPOINT ["websocket"]

@@ -1,4 +1,4 @@
-import { realtime, RealtimeEnvelope } from "./realtime";
+import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
@@ -11,7 +11,7 @@ function asString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
-function dispatch(env: RealtimeEnvelope) {
+function dispatch(env: WsEnvelope) {
   const d = env.data as Record<string, unknown>;
   switch (env.type) {
     case "server.created": {
@@ -82,8 +82,8 @@ function dispatch(env: RealtimeEnvelope) {
   }
 }
 
-export function installRealtimeBootstrap() {
+export function installWsBootstrap() {
   if (installed) return;
   installed = true;
-  realtime.on(dispatch);
+  ws.on(dispatch);
 }

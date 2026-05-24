@@ -18,7 +18,7 @@ mod recipients;
 mod ws;
 
 use crate::{
-    config::RealtimeConfig,
+    config::WebsocketConfig,
     connections::{ConnectionManager, Publisher},
     consumer::{ConsumerSpec, run_consumer},
     recipients::RecipientResolver,
@@ -27,9 +27,9 @@ use crate::{
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("realtime-service");
+    shared::observability::init("websocket");
 
-    let cfg = RealtimeConfig::from_env()?;
+    let cfg = WebsocketConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
     let pg_cfg = PostgresConfig::from_env()?;
 
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let ws_state = web::Data::new(WsState {
         manager: manager.clone(),
         jwt_secret: cfg.jwt_secret.clone(),
-        outbound_buffer: cfg.realtime_outbound_buffer,
+        outbound_buffer: cfg.websocket_outbound_buffer,
     });
 
     let bind_address = cfg.bind_address.clone();
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let server_handle = server.handle();
     let server_task = actix_web::rt::spawn(server);
 
-    tracing::info!(%bind_address, "Realtime service started");
+    tracing::info!(%bind_address, "Websocket service started");
     readiness.mark_ready();
 
     signal::ctrl_c().await?;
@@ -115,32 +115,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn build_consumer_specs(cfg: &RealtimeConfig, prefix: &str) -> Vec<ConsumerSpec> {
+fn build_consumer_specs(cfg: &WebsocketConfig, prefix: &str) -> Vec<ConsumerSpec> {
     let prefix = prefix.trim_end_matches('.');
-    let consumer_prefix = &cfg.realtime_consumer_prefix;
+    let consumer_prefix = &cfg.websocket_consumer_prefix;
     vec![
         ConsumerSpec {
-            stream: cfg.realtime_user_stream.clone(),
+            stream: cfg.websocket_user_stream.clone(),
             consumer_name: format!("{consumer_prefix}-user"),
             filter_subject: format!("{prefix}.user.>"),
         },
         ConsumerSpec {
-            stream: cfg.realtime_channel_stream.clone(),
+            stream: cfg.websocket_channel_stream.clone(),
             consumer_name: format!("{consumer_prefix}-channel"),
             filter_subject: format!("{prefix}.channel.>"),
         },
         ConsumerSpec {
-            stream: cfg.realtime_message_stream.clone(),
+            stream: cfg.websocket_message_stream.clone(),
             consumer_name: format!("{consumer_prefix}-message"),
             filter_subject: format!("{prefix}.message.>"),
         },
         ConsumerSpec {
-            stream: cfg.realtime_dm_message_stream.clone(),
+            stream: cfg.websocket_dm_message_stream.clone(),
             consumer_name: format!("{consumer_prefix}-dm-message"),
             filter_subject: format!("{prefix}.dm_message.>"),
         },
         ConsumerSpec {
-            stream: cfg.realtime_server_stream.clone(),
+            stream: cfg.websocket_server_stream.clone(),
             consumer_name: format!("{consumer_prefix}-server"),
             filter_subject: format!("{prefix}.server.>"),
         },

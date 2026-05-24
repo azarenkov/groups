@@ -15,8 +15,8 @@ import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
 import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
 import { authAPI } from "./api/auth";
 import { ApiError } from "./utils/apiError";
-import { realtime } from "./services/realtime";
-import { installRealtimeBootstrap } from "./services/realtimeBootstrap";
+import { ws } from "./services/websocket";
+import { installWsBootstrap } from "./services/websocketBootstrap";
 import "./styles/App.css";
 
 const App: React.FC = () => {
@@ -31,18 +31,18 @@ const App: React.FC = () => {
   }, [theme]);
 
   useEffect(() => {
-    installRealtimeBootstrap();
+    installWsBootstrap();
   }, []);
 
   useEffect(() => {
     const ready = isAuthenticated && !hasUnverifiedSession && !!tokens?.accessToken;
     if (ready) {
-      realtime.connect();
+      ws.connect();
       return () => {
-        realtime.disconnect();
+        ws.disconnect();
       };
     }
-    realtime.disconnect();
+    ws.disconnect();
   }, [isAuthenticated, hasUnverifiedSession, tokens?.accessToken]);
 
   useEffect(() => {

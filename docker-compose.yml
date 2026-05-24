@@ -176,11 +176,11 @@ services:
       retries: 3
       start_period: 30s
 
-  realtime-service:
+  websocket:
     build:
       context: .
-      dockerfile: docker/realtime-service/Dockerfile
-    container_name: rift-realtime-service
+      dockerfile: docker/websocket/Dockerfile
+    container_name: rift-websocket
     restart: unless-stopped
     expose:
       - "8083"
@@ -193,7 +193,7 @@ services:
         required: false
       - path: env/http.env
         required: false
-      - path: env/realtime.env
+      - path: env/websocket.env
         required: false
     depends_on:
       postgres:
