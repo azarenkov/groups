@@ -26,6 +26,29 @@ pub struct UserSearchResponse {
     pub users: Vec<UserSearchItem>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+}
+
+#[get("/me")]
+async fn get_me(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let profile = app_state.get_me_usecase.execute(user_id).await?;
+    let response = MeResponse {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+    };
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
 #[get("/search")]
 async fn search_users(
     auth_token: RateLimitedAuthToken,

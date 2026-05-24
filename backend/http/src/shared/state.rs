@@ -13,7 +13,7 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
-    user::search_users::SearchUsers,
+    user::{get_me::GetMe, search_users::SearchUsers},
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         delete_channel_message::DeleteChannelMessage,
@@ -120,6 +120,7 @@ pub struct AppState {
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
 
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
+    pub get_me_usecase: GetMe<PostgresUserRepository>,
 
     pub send_dm_message_usecase:
         SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
@@ -245,6 +246,7 @@ impl AppState {
         remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
         list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
         search_users_usecase: SearchUsers<PostgresUserRepository>,
+        get_me_usecase: GetMe<PostgresUserRepository>,
         send_dm_message_usecase: SendDmMessage<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
@@ -307,6 +309,7 @@ impl AppState {
             remove_friendship_usecase,
             list_friends_usecase,
             search_users_usecase,
+            get_me_usecase,
             send_dm_message_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,
