@@ -30,6 +30,10 @@ pub trait ServerRepository {
         server_id: &ServerId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<User>, RepositoryError>;
+    async fn find_member_ids_by_server_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<UserId>, RepositoryError>;
     async fn find_channels_by_server_id(
         &self,
         server_id: &ServerId,

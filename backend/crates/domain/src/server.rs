@@ -81,10 +81,11 @@ impl Server {
         }
     }
 
-    pub fn delete(&mut self, now: DateTime<Utc>) {
+    pub fn delete(&mut self, member_ids: Vec<UserId>, now: DateTime<Utc>) {
         self.record(ServerEvent::Deleted(ServerDeleted::record(
             self.id,
             self.owner_id,
+            member_ids,
             now,
         )));
     }

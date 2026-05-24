@@ -313,8 +313,10 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
+        let mut recipients: Vec<Uuid> = evt.member_ids.unwrap_or_default();
+        recipients.push(evt.owner_id);
         publisher
-            .publish_to_users(unique([evt.owner_id]), &envelope)
+            .publish_to_users(unique(recipients), &envelope)
             .await?;
         return Ok(());
     }
@@ -556,6 +558,8 @@ struct ServerCreatedDto {
 struct ServerDeletedDto {
     server_id: Uuid,
     owner_id: Uuid,
+    #[serde(default)]
+    member_ids: Option<Vec<Uuid>>,
     occurred_at: DateTime<Utc>,
 }
 

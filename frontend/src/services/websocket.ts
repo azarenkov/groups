@@ -1,5 +1,4 @@
 import { useAuthStore } from "../store/authStore";
-import { decodeAccessToken } from "../utils/jwt";
 
 export type WsEventType =
   | "dm_message.sent"
@@ -144,8 +143,7 @@ class WsClient {
 
       const handshakeFailed = !openedOnce;
       const explicitAuthCode = this.isAuthFailure(ev.code);
-      const tokenLooksExpired = this.isAccessTokenExpiringSoon();
-      if (explicitAuthCode || (handshakeFailed && tokenLooksExpired)) {
+      if (handshakeFailed || explicitAuthCode) {
         if (await this.tryRefresh()) {
           this.openSocket();
           return;
@@ -159,21 +157,12 @@ class WsClient {
     return code === 1008 || code === 4001 || code === 4003;
   }
 
-  private isAccessTokenExpiringSoon(): boolean {
-    const token = useAuthStore.getState().tokens?.accessToken;
-    if (!token) return true;
-    const claims = decodeAccessToken(token);
-    if (!claims || typeof claims.exp !== "number") return false;
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    return claims.exp - nowSeconds <= 30;
-  }
-
   private async tryRefresh(): Promise<boolean> {
     if (this.refreshInProgress) return false;
     this.refreshInProgress = true;
     try {
       const { authAPI } = await import("../api/auth");
-      await authAPI.handleRefreshFlow();
+      await authAPI.handleRefreshFlow({ logoutOnFailure: false });
       return !!useAuthStore.getState().tokens?.accessToken;
     } catch (err) {
       console.warn("[ws] refresh on auth failure failed:", err);
