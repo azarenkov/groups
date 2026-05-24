@@ -52,7 +52,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     participants,
     isConnected,
     isMuted,
-    isConnecting,
     error,
     localQuality,
     joinChannel,
