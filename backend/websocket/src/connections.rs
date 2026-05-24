@@ -50,22 +50,23 @@ impl ConnectionManager {
         }
     }
 
-    pub async fn register(&self, conn: Connection) {
+    pub async fn register(&self, conn: Connection) -> Result<(), RegisterError> {
         let user_id = conn.user_id;
 
         if let Some(mut entry) = self.by_user.get_mut(&user_id) {
             entry.conns.push(conn);
-            return;
+            return Ok(());
         }
 
         let subject = format!("{}.{}", self.user_subject_prefix, user_id);
-        let subscription = match self.core.subscribe(subject.clone()).await {
-            Ok(s) => s,
-            Err(e) => {
+        let subscription = self
+            .core
+            .subscribe(subject.clone())
+            .await
+            .map_err(|e| {
                 tracing::error!(error = %e, %user_id, %subject, "Failed to subscribe to user subject");
-                return;
-            }
-        };
+                RegisterError::Subscribe(e)
+            })?;
 
         match self.by_user.entry(user_id) {
             Entry::Vacant(v) => {
@@ -81,6 +82,7 @@ impl ConnectionManager {
                 o.get_mut().conns.push(conn);
             }
         }
+        Ok(())
     }
 
     pub async fn unregister(&self, user_id: Uuid, conn_id: Uuid) {
@@ -158,6 +160,12 @@ impl Publisher {
             Some(e) => Err(PublishError::Nats(e)),
         }
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RegisterError {
+    #[error("nats subscribe: {0}")]
+    Subscribe(async_nats::SubscribeError),
 }
 
 #[derive(Debug, thiserror::Error)]

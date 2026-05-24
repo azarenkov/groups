@@ -82,7 +82,16 @@ async fn connection_task(
     let (tx, mut rx) = mpsc::channel::<String>(outbound_buffer);
     let conn = Connection::new(user_id, tx);
     let conn_id = conn.id;
-    manager.register(conn).await;
+    if let Err(e) = manager.register(conn).await {
+        tracing::error!(error = %e, %user_id, %conn_id, "Failed to register connection; closing socket");
+        let _ = session
+            .close(Some(actix_ws::CloseReason {
+                code: actix_ws::CloseCode::Error,
+                description: Some("realtime backend unavailable".to_string()),
+            }))
+            .await;
+        return;
+    }
 
     tracing::info!(%user_id, %conn_id, "WS connection opened");
 
@@ -99,8 +108,8 @@ async fn connection_task(
         tokio::select! {
             biased;
 
-            tick = hb_interval.tick() => {
-                if tick.into_std().duration_since(last_seen) > CLIENT_TIMEOUT {
+            _ = hb_interval.tick() => {
+                if last_seen.elapsed() >= CLIENT_TIMEOUT {
                     tracing::info!(%user_id, %conn_id, "WS client timed out");
                     break Some("client timeout");
                 }
