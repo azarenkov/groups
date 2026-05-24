@@ -190,11 +190,18 @@ const ServersPage: React.FC = () => {
     });
   }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
 
+  const prefetchInflightRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!tokens?.accessToken) return;
     if (!sidebarQuery.trim()) return;
+    const inflight = prefetchInflightRef.current;
     servers.forEach((s) => {
-      if (!channelsByServer[s.id]) fetchChannels(s.id);
+      if (channelsByServer[s.id]) return;
+      if (inflight.has(s.id)) return;
+      inflight.add(s.id);
+      Promise.resolve(fetchChannels(s.id)).finally(() => {
+        inflight.delete(s.id);
+      });
     });
   }, [sidebarQuery, tokens, servers, channelsByServer, fetchChannels]);
 
