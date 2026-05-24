@@ -37,6 +37,8 @@ interface SidebarProps {
     isMuted?: boolean;
     isSharingScreen?: boolean;
   }[];
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -64,6 +66,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentUserName,
   currentUserStatus,
   voiceMembers,
+  searchQuery,
+  onSearchQueryChange,
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
@@ -104,12 +108,65 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const query = searchQuery;
+  const setQuery = onSearchQueryChange;
+  const q = query.trim().toLowerCase();
+  const match = (s: string) => s.toLowerCase().includes(q);
+  const isFiltering = q.length > 0;
+
+  const visibleDirects = isFiltering
+    ? directs.filter((d) => match(d.name))
+    : directs;
+
+  const filteredServers = isFiltering
+    ? servers.filter((server) => {
+        if (match(server.name)) return true;
+        const channels = channelsByServer[server.id] || [];
+        return channels.some((c) => match(c.name));
+      })
+    : servers;
+
+  const visibleChannelsFor = (serverId: string) => {
+    const channels = channelsByServer[serverId] || [];
+    if (!isFiltering) return channels;
+    const server = servers.find((s) => s.id === serverId);
+    if (server && match(server.name)) return channels;
+    return channels.filter((c) => match(c.name));
+  };
+
   return (
     <div className="sb">
       <div className="sb-search">
         <Icon name="search" size={14} />
-        <input ref={searchInputRef} placeholder="Search" />
-        <kbd>⌘K</kbd>
+        <input
+          ref={searchInputRef}
+          placeholder="Search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setQuery("");
+              searchInputRef.current?.blur();
+            }
+          }}
+        />
+        {query ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            className="sb-search-clear"
+            title="Clear"
+            onClick={() => {
+              setQuery("");
+              searchInputRef.current?.focus();
+            }}
+          >
+            <Icon name="x" size={11} />
+          </button>
+        ) : (
+          <kbd>⌘K</kbd>
+        )}
       </div>
 
       <div className="sb-scroll">
@@ -151,13 +208,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Icon name="chev" size={12} className="chev" />
           </span>
         </div>
-        {!directsCollapsed && directs.length === 0 && (
+        {!directsCollapsed && visibleDirects.length === 0 && (
           <div className="sb-item" style={{ color: "var(--fg-3)", cursor: "default" }}>
-            <span className="sb-label">No direct messages yet</span>
+            <span className="sb-label">
+              {isFiltering ? "No matches" : "No direct messages yet"}
+            </span>
           </div>
         )}
         {!directsCollapsed &&
-          directs.map((d) => (
+          visibleDirects.map((d) => (
             <div
               key={d.id}
               role="button"
@@ -213,15 +272,17 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ))}
 
-        {servers.length === 0 && (
+        {filteredServers.length === 0 && (
           <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--fg-3)" }}>
-            No servers yet. Create one to get started.
+            {isFiltering
+              ? "No matching servers or channels."
+              : "No servers yet. Create one to get started."}
           </div>
         )}
 
-        {servers.map((server) => {
-          const isCol = !expandedServerIds.has(server.id);
-          const channels = channelsByServer[server.id] || [];
+        {filteredServers.map((server) => {
+          const isCol = isFiltering ? false : !expandedServerIds.has(server.id);
+          const channels = visibleChannelsFor(server.id);
           const accent = server.accentColor ?? colorForId(server.id);
           return (
             <div key={server.id}>

@@ -131,6 +131,7 @@ const ServersPage: React.FC = () => {
     () => new Set<string>(),
   );
   const [directs, setDirects] = useState<MockDirect[]>([]);
+  const [sidebarQuery, setSidebarQuery] = useState("");
 
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
@@ -188,6 +189,24 @@ const ServersPage: React.FC = () => {
       if (!channelsByServer[id]) fetchChannels(id);
     });
   }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
+
+  const prefetchInflightRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    if (!sidebarQuery.trim()) return;
+    const handle = window.setTimeout(() => {
+      const inflight = prefetchInflightRef.current;
+      servers.forEach((s) => {
+        if (channelsByServer[s.id]) return;
+        if (inflight.has(s.id)) return;
+        inflight.add(s.id);
+        Promise.resolve(fetchChannels(s.id)).finally(() => {
+          inflight.delete(s.id);
+        });
+      });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [sidebarQuery, tokens, servers, channelsByServer, fetchChannels]);
 
   const didInitialExpandRef = useRef(false);
   useEffect(() => {
@@ -604,6 +623,8 @@ const ServersPage: React.FC = () => {
           currentUserId={user?.id}
           currentUserName={userName}
           currentUserStatus={userStatus}
+          searchQuery={sidebarQuery}
+          onSearchQueryChange={setSidebarQuery}
         />
 
         <main className="main">
@@ -716,15 +737,6 @@ const ServersPage: React.FC = () => {
                         ))}
                       </div>
                       <div className="voice-room-actions">
-                        <button
-                          type="button"
-                          className="voice-room-action"
-                          onClick={() => {}}
-                          title="Share screen (coming soon)"
-                        >
-                          <Icon name="monitor" size={16} />
-                          <span>Share screen</span>
-                        </button>
                         <button
                           type="button"
                           className="voice-room-action leave"

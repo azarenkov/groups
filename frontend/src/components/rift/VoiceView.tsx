@@ -52,7 +52,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     participants,
     isConnected,
     isMuted,
-    isConnecting,
     error,
     localQuality,
     joinChannel,
@@ -307,7 +306,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     );
   }
 
-  if (isConnecting && !isConnected) {
+  if (!isConnected) {
     return createPortal(
       <div className="voice-pill in-dock connecting">
         <div className="vp-meta-wrap">

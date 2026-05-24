@@ -950,8 +950,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         <span className="sep" />
         <span className="topic">{dm.online ? "Active now" : "Offline"}</span>
         <div className="right">
-          <button type="button" className="icon-btn" title="Start a voice call">
-            <Icon name="mic" size={16} />
+          <button type="button" className="icon-btn" title="Start a call">
+            <Icon name="phone" size={16} />
           </button>
           {onToggleSearch && (
             <button
