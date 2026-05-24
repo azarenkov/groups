@@ -21,6 +21,8 @@ pub struct WebsocketConfig {
     pub websocket_consumer_prefix: String,
     #[serde(default = "default_outbound_buffer")]
     pub websocket_outbound_buffer: usize,
+    #[serde(default = "default_max_deliver")]
+    pub websocket_max_deliver: u32,
 }
 
 impl WebsocketConfig {
@@ -64,4 +66,8 @@ fn default_consumer_prefix() -> String {
 
 fn default_outbound_buffer() -> usize {
     64
+}
+
+fn default_max_deliver() -> u32 {
+    10
 }

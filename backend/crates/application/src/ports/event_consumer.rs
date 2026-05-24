@@ -29,6 +29,7 @@ pub enum StartPosition {
 pub struct ConsumedMessage {
     pub payload: Vec<u8>,
     pub request_id: Option<String>,
+    pub subject: String,
     ack_fn: Box<dyn FnOnce() -> BoxFuture<'static, Result<(), EventConsumerError>> + Send>,
 }
 
@@ -36,11 +37,13 @@ impl ConsumedMessage {
     pub fn new(
         payload: Vec<u8>,
         request_id: Option<String>,
+        subject: String,
         ack_fn: Box<dyn FnOnce() -> BoxFuture<'static, Result<(), EventConsumerError>> + Send>,
     ) -> Self {
         Self {
             payload,
             request_id,
+            subject,
             ack_fn,
         }
     }

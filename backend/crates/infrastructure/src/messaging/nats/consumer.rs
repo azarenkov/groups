@@ -114,6 +114,7 @@ impl EventConsumer for NatsEventConsumer {
                                 .as_ref()
                                 .and_then(|h| h.get("X-Request-Id"))
                                 .map(|v| v.as_str().to_string());
+                            let subject = msg.subject.to_string();
                             let ack_fn: Box<
                                 dyn FnOnce() -> BoxFuture<
                                         'static,
@@ -127,7 +128,9 @@ impl EventConsumer for NatsEventConsumer {
                                 }
                                 .boxed()
                             });
-                            Some(Ok(ConsumedMessage::new(payload, request_id, ack_fn)))
+                            Some(Ok(ConsumedMessage::new(
+                                payload, request_id, subject, ack_fn,
+                            )))
                         }
                         Err(e) => Some(Err(EventConsumerError::Stream(e.to_string()))),
                     }

@@ -118,31 +118,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
 fn build_consumer_specs(cfg: &WebsocketConfig, prefix: &str) -> Vec<ConsumerSpec> {
     let prefix = prefix.trim_end_matches('.');
     let consumer_prefix = &cfg.websocket_consumer_prefix;
+    let max_deliver = cfg.websocket_max_deliver;
+    let dlq = |kind: &str| format!("{prefix}.dlq.realtime.{kind}");
     vec![
         ConsumerSpec {
             stream: cfg.websocket_user_stream.clone(),
             consumer_name: format!("{consumer_prefix}-user"),
             filter_subject: format!("{prefix}.user.>"),
+            dlq_subject: dlq("user"),
+            max_deliver,
         },
         ConsumerSpec {
             stream: cfg.websocket_channel_stream.clone(),
             consumer_name: format!("{consumer_prefix}-channel"),
             filter_subject: format!("{prefix}.channel.>"),
+            dlq_subject: dlq("channel"),
+            max_deliver,
         },
         ConsumerSpec {
             stream: cfg.websocket_message_stream.clone(),
             consumer_name: format!("{consumer_prefix}-message"),
             filter_subject: format!("{prefix}.message.>"),
+            dlq_subject: dlq("message"),
+            max_deliver,
         },
         ConsumerSpec {
             stream: cfg.websocket_dm_message_stream.clone(),
             consumer_name: format!("{consumer_prefix}-dm-message"),
             filter_subject: format!("{prefix}.dm_message.>"),
+            dlq_subject: dlq("dm_message"),
+            max_deliver,
         },
         ConsumerSpec {
             stream: cfg.websocket_server_stream.clone(),
             consumer_name: format!("{consumer_prefix}-server"),
             filter_subject: format!("{prefix}.server.>"),
+            dlq_subject: dlq("server"),
+            max_deliver,
         },
     ]
 }
