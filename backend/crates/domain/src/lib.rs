@@ -2,6 +2,7 @@ pub mod channel;
 pub mod dm_message;
 pub mod friendship;
 pub mod message;
+pub mod read_state;
 pub mod refresh_token;
 pub mod server;
 pub mod shared;

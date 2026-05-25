@@ -17,6 +17,10 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    read_state::{
+        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
+        mark_dm_read::MarkDmRead,
+    },
     user::{get_me::GetMe, search_users::SearchUsers},
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
@@ -49,6 +53,7 @@ use infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository,
             message::PostgresMessageRepository,
+            read_state::PostgresReadStateRepository,
             refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
             user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
@@ -212,6 +217,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let search_users_usecase = SearchUsers::new(user_repository.clone());
     let get_me_usecase = GetMe::new(user_repository.clone());
+    let read_state_repository = Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
+    let mark_channel_read_usecase = MarkChannelRead::new(read_state_repository.clone());
+    let mark_dm_read_usecase = MarkDmRead::new(read_state_repository.clone());
+    let get_unread_counts_usecase = GetUnreadCounts::new(read_state_repository.clone());
 
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
     let send_dm_message_usecase = SendDmMessage::new(
@@ -272,6 +281,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_friends_usecase,
         search_users_usecase,
         get_me_usecase,
+        mark_channel_read_usecase,
+        mark_dm_read_usecase,
+        get_unread_counts_usecase,
         send_dm_message_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,

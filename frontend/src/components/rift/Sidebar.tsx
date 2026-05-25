@@ -50,6 +50,8 @@ interface SidebarProps {
   >;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
+  unreadByChannel?: Record<string, number>;
+  unreadByDm?: Record<string, number>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -80,6 +82,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   voiceMembersByChannel,
   searchQuery,
   onSearchQueryChange,
+  unreadByChannel = {},
+  unreadByDm = {},
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
@@ -236,7 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               className={
                 "sb-item" +
                 (selectedDmId === d.id ? " active" : "") +
-                (d.unread ? " unread" : "")
+                ((unreadByDm[d.id] ?? 0) > 0 ? " unread" : "")
               }
               onClick={() => onSelectDm(d)}
               onKeyDown={(e) => {
@@ -280,7 +284,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               </span>
               <span className="sb-label">{d.name}</span>
-              {d.unread > 0 && <span className="meta">{d.unread}</span>}
+              {(unreadByDm[d.id] ?? 0) > 0 && (
+                <span className="meta">{unreadByDm[d.id]}</span>
+              )}
             </div>
           ))}
 
@@ -420,7 +426,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                         className={
                           "sb-item" +
                           (selectedChannelId === channel.id ? " active" : "") +
-                          (joinedChannelId === channel.id ? " in-voice" : "")
+                          (joinedChannelId === channel.id ? " in-voice" : "") +
+                          ((unreadByChannel[channel.id] ?? 0) > 0
+                            ? " unread"
+                            : "")
                         }
                         onClick={() => onSelectChannel(server, channel)}
                         onKeyDown={(e) => {
@@ -441,6 +450,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                           />
                         </span>
                         <span className="sb-label">{channel.name}</span>
+                        {(unreadByChannel[channel.id] ?? 0) > 0 && (
+                          <span className="meta">
+                            {unreadByChannel[channel.id]}
+                          </span>
+                        )}
                         {channel.visibility === "private" && (
                           <span className="lock">
                             <Icon name="lock" size={11} />

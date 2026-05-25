@@ -13,6 +13,10 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    read_state::{
+        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
+        mark_dm_read::MarkDmRead,
+    },
     user::{get_me::GetMe, search_users::SearchUsers},
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
@@ -39,8 +43,8 @@ use infrastructure::{
     database::postgres::repositories::{
         channel::PostgresChannelRepository, dm_message::PostgresDmMessageRepository,
         friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
-        refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
-        user::PostgresUserRepository,
+        read_state::PostgresReadStateRepository, refresh_token::PostgresRefreshTokenRepository,
+        server::PostgresServerRepository, user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
@@ -122,6 +126,9 @@ pub struct AppState {
 
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
+    pub mark_channel_read_usecase: MarkChannelRead<PostgresReadStateRepository>,
+    pub mark_dm_read_usecase: MarkDmRead<PostgresReadStateRepository>,
+    pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
 
     pub send_dm_message_usecase:
         SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
@@ -254,6 +261,9 @@ impl AppState {
         list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
         search_users_usecase: SearchUsers<PostgresUserRepository>,
         get_me_usecase: GetMe<PostgresUserRepository>,
+        mark_channel_read_usecase: MarkChannelRead<PostgresReadStateRepository>,
+        mark_dm_read_usecase: MarkDmRead<PostgresReadStateRepository>,
+        get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
         send_dm_message_usecase: SendDmMessage<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
@@ -318,6 +328,9 @@ impl AppState {
             list_friends_usecase,
             search_users_usecase,
             get_me_usecase,
+            mark_channel_read_usecase,
+            mark_dm_read_usecase,
+            get_unread_counts_usecase,
             send_dm_message_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,

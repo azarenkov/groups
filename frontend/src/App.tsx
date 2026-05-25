@@ -39,11 +39,28 @@ const App: React.FC = () => {
     const ready = isAuthenticated && !hasUnverifiedSession && hasAccessToken;
     if (ready) {
       ws.connect();
+      void (async () => {
+        try {
+          const { userAPI } = await import("./api/user");
+          const { useUnreadStore } = await import("./store/unreadStore");
+          const u = await userAPI.getUnread();
+          const channels: Record<string, number> = {};
+          for (const c of u.channels) channels[c.channelId] = c.count;
+          const dms: Record<string, number> = {};
+          for (const d of u.dms) dms[d.friendId] = d.count;
+          useUnreadStore.getState().setAll(channels, dms);
+        } catch (err) {
+          console.warn("[App] failed to load unread counts:", err);
+        }
+      })();
       return () => {
         ws.disconnect();
       };
     }
     ws.disconnect();
+    void import("./store/unreadStore").then(({ useUnreadStore }) =>
+      useUnreadStore.getState().clearAll(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

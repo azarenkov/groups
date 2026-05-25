@@ -64,6 +64,22 @@ class UserAPI {
     const response = await this.client.get("/v1/users/me");
     return response.data.data;
   }
+
+  async getUnread(): Promise<{
+    channels: { channelId: string; count: number }[];
+    dms: { friendId: string; count: number }[];
+  }> {
+    const response = await this.client.get("/v1/me/unread");
+    return response.data.data;
+  }
+
+  async markChannelRead(channelId: string): Promise<void> {
+    await this.client.post(`/v1/channels/${channelId}/read`);
+  }
+
+  async markDmRead(friendId: string): Promise<void> {
+    await this.client.post(`/v1/dms/${friendId}/read`);
+  }
 }
 
 export const userAPI = new UserAPI();

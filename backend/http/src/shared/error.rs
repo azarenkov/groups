@@ -24,6 +24,9 @@ use application::usecases::server::decline_server_invite::DeclineServerInviteErr
 use application::usecases::server::leave_server::LeaveServerError;
 use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
+use application::usecases::read_state::get_unread_counts::GetUnreadCountsError;
+use application::usecases::read_state::mark_channel_read::MarkChannelReadError;
+use application::usecases::read_state::mark_dm_read::MarkDmReadError;
 use application::usecases::user::get_me::GetMeError;
 use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
@@ -1720,6 +1723,60 @@ impl ToHttpStatus for SearchDmMessagesError {
     }
 }
 
+impl ToHttpStatus for MarkChannelReadError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            MarkChannelReadError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            MarkChannelReadError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            MarkChannelReadError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for MarkDmReadError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            MarkDmReadError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            MarkDmReadError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            MarkDmReadError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for GetUnreadCountsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetUnreadCountsError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetUnreadCountsError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetUnreadCountsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for GetMeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1919,6 +1976,9 @@ impl_from_for_api_error!(
     ListFriendsError,
     SearchUsersError,
     GetMeError,
+    MarkChannelReadError,
+    MarkDmReadError,
+    GetUnreadCountsError,
     SendDmMessageError,
     SendServerInviteError,
     AcceptServerInviteError,

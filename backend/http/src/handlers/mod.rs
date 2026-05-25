@@ -3,6 +3,7 @@ pub mod channel;
 pub mod dm;
 pub mod friendship;
 pub mod health;
+pub mod read_state;
 pub mod server;
 pub mod user;
 pub mod webhook;

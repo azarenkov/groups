@@ -3,6 +3,19 @@ import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import { useUnreadStore } from "../store/unreadStore";
+import { useAuthStore } from "../store/authStore";
+
+let activeChannelView: string | null = null;
+let activeDmView: string | null = null;
+
+export function setActiveChatView(view:
+  | { kind: "channel"; id: string }
+  | { kind: "dm"; id: string }
+  | null) {
+  activeChannelView = view?.kind === "channel" ? view.id : null;
+  activeDmView = view?.kind === "dm" ? view.id : null;
+}
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
 
@@ -105,6 +118,27 @@ function dispatch(env: WsEnvelope) {
       const userId = asString(d.userId);
       if (!channelId || !userId) return;
       useVoicePresenceStore.getState().removeMember(channelId, userId);
+      return;
+    }
+
+    case "message.sent": {
+      const channelId = asString(d.channelId);
+      const authorId = asString(d.authorId);
+      const selfId = useAuthStore.getState().user?.id;
+      if (!channelId || !authorId || authorId === selfId) return;
+      if (activeChannelView === channelId) return;
+      useUnreadStore.getState().bumpChannel(channelId);
+      return;
+    }
+
+    case "dm_message.sent": {
+      const senderId = asString(d.senderId);
+      const recipientId = asString(d.recipientId);
+      const selfId = useAuthStore.getState().user?.id;
+      if (!senderId || !recipientId || !selfId) return;
+      if (recipientId !== selfId) return;
+      if (activeDmView === senderId) return;
+      useUnreadStore.getState().bumpDm(senderId);
       return;
     }
 

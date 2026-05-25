@@ -16,6 +16,9 @@ import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { getLiveKitService } from "../services/livekit";
 import { ws } from "../services/websocket";
+import { setActiveChatView } from "../services/websocketBootstrap";
+import { useUnreadStore } from "../store/unreadStore";
+import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
@@ -52,7 +55,19 @@ const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
+  const unreadByChannel = useUnreadStore((s) => s.byChannel);
+  const unreadByDm = useUnreadStore((s) => s.byDm);
   const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (selectedDm) {
+      setActiveChatView({ kind: "dm", id: selectedDm.id });
+    } else if (selectedChannelId) {
+      setActiveChatView({ kind: "channel", id: selectedChannelId });
+    } else {
+      setActiveChatView(null);
+    }
+    return () => setActiveChatView(null);
+  }, [selectedChannelId, selectedDm]);
   const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -394,6 +409,10 @@ const ServersPage: React.FC = () => {
       setSelectedServer(server.id);
       setSelectedChannel(channel.id);
       setSelectedDm(null);
+      useUnreadStore.getState().resetChannel(channel.id);
+      userAPI.markChannelRead(channel.id).catch((err) => {
+        console.warn("[read-state] mark channel read failed:", err);
+      });
       return;
     }
     if (
@@ -416,6 +435,10 @@ const ServersPage: React.FC = () => {
   const handleSelectDm = (dm: MockDirect) => {
     setSelectedDm(dm);
     setSelectedChannel(null);
+    useUnreadStore.getState().resetDm(dm.id);
+    userAPI.markDmRead(dm.id).catch((err) => {
+      console.warn("[read-state] mark dm read failed:", err);
+    });
   };
 
   const handleGoToServer = async (serverId: string) => {
@@ -716,6 +739,8 @@ const ServersPage: React.FC = () => {
           currentUserStatus={userStatus}
           searchQuery={sidebarQuery}
           onSearchQueryChange={setSidebarQuery}
+          unreadByChannel={unreadByChannel}
+          unreadByDm={unreadByDm}
         />
 
         <main className="main">
