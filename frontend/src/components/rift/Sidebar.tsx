@@ -475,10 +475,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                               {membersForChannel.map((m) => (
                               <div key={m.id} className="sb-voice-member">
                                 <span
-                                  className="sb-voice-member-ava"
+                                  className={
+                                    "sb-voice-member-ava" +
+                                    (m.isMuted ? " muted" : "")
+                                  }
                                   style={{ background: m.color }}
                                 >
                                   {m.initials}
+                                  {m.isMuted && (
+                                    <span
+                                      className="sb-voice-member-mute"
+                                      title="Muted"
+                                      aria-label="Muted"
+                                    >
+                                      <Icon name="mic-off" size={8} />
+                                    </span>
+                                  )}
                                 </span>
                                 <span className="sb-voice-member-name">
                                   {m.name}
@@ -489,14 +501,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     title="Sharing screen"
                                   >
                                     <Icon name="monitor" size={11} />
-                                  </span>
-                                )}
-                                {m.isMuted && (
-                                  <span
-                                    className="sb-voice-member-badge muted"
-                                    title="Muted"
-                                  >
-                                    <Icon name="mic-off" size={11} />
                                   </span>
                                 )}
                               </div>
