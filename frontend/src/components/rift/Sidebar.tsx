@@ -446,18 +446,30 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <Icon name="lock" size={11} />
                           </span>
                         )}
-                        {joinedChannelId === channel.id && (
+                        {(joinedChannelId === channel.id ||
+                          (channel.kind === "voice" &&
+                            (voiceMembersByChannel?.[channel.id]?.length ?? 0) >
+                              0)) && (
                           <span className="sb-live-dot" aria-hidden="true" />
                         )}
                       </div>
                       {channel.kind === "voice" &&
                         (() => {
-                          const membersForChannel =
-                            joinedChannelId === channel.id && voiceMembers
-                              ? voiceMembers
-                              : voiceMembersByChannel?.[channel.id];
-                          if (!membersForChannel || membersForChannel.length === 0)
-                            return null;
+                          const base = voiceMembersByChannel?.[channel.id] ?? [];
+                          const isJoined = joinedChannelId === channel.id;
+                          let membersForChannel = base;
+                          if (isJoined && voiceMembers && voiceMembers.length > 0) {
+                            const merged = new Map(base.map((m) => [m.id, m]));
+                            for (const live of voiceMembers) {
+                              const existing = merged.get(live.id);
+                              merged.set(
+                                live.id,
+                                existing ? { ...existing, ...live } : live,
+                              );
+                            }
+                            membersForChannel = Array.from(merged.values());
+                          }
+                          if (membersForChannel.length === 0) return null;
                           return (
                             <div className="sb-voice-members">
                               {membersForChannel.map((m) => (
