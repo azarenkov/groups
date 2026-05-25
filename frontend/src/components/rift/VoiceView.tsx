@@ -4,31 +4,8 @@ import Icon from "./Icon";
 import { useLiveKit } from "../../hooks/useLiveKit";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
 import { getLiveKitService } from "../../services/livekit";
-import { ConnectionQuality } from "../../services/livekit";
-import {
-  qualityActiveBars,
-  qualityClass,
-  qualityLabel,
-} from "../../utils/quality";
-import { colorForId, initialFor } from "../../utils/avatar";
+import { qualityClass, qualityLabel } from "../../utils/quality";
 import { useVoicePresenceStore } from "../../store/voicePresenceStore";
-
-const initials = initialFor;
-
-const QualityBars: React.FC<{ quality: ConnectionQuality }> = ({ quality }) => {
-  const active = qualityActiveBars(quality);
-  return (
-    <span
-      className={`vp-quality ${qualityClass(quality)}`}
-      title={`Connection: ${qualityLabel(quality)}`}
-      aria-label={`Connection ${qualityLabel(quality)}`}
-    >
-      {[0, 1, 2].map((i) => (
-        <i key={i} className={i < active ? "on" : ""} />
-      ))}
-    </span>
-  );
-};
 
 interface VoiceViewProps {
   channelId: string;
