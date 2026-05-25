@@ -61,6 +61,9 @@ const App: React.FC = () => {
     void import("./store/unreadStore").then(({ useUnreadStore }) =>
       useUnreadStore.getState().clearAll(),
     );
+    void import("./store/presenceStore").then(({ usePresenceStore }) =>
+      usePresenceStore.getState().clearAll(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useUnreadStore } from "../store/unreadStore";
+import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
@@ -139,6 +140,18 @@ function dispatch(env: WsEnvelope) {
       if (recipientId !== selfId) return;
       if (activeDmView === senderId) return;
       useUnreadStore.getState().bumpDm(senderId);
+      return;
+    }
+
+    case "user.online": {
+      const userId = asString(d.userId);
+      if (userId) usePresenceStore.getState().setOnline(userId);
+      return;
+    }
+
+    case "user.offline": {
+      const userId = asString(d.userId);
+      if (userId) usePresenceStore.getState().setOffline(userId);
       return;
     }
 

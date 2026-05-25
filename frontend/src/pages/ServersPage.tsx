@@ -18,6 +18,7 @@ import { getLiveKitService } from "../services/livekit";
 import { ws } from "../services/websocket";
 import { setActiveChatView } from "../services/websocketBootstrap";
 import { useUnreadStore } from "../store/unreadStore";
+import { usePresenceStore } from "../store/presenceStore";
 import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
@@ -172,6 +173,7 @@ const ServersPage: React.FC = () => {
   const [directs, setDirects] = useState<MockDirect[]>([]);
   const [sidebarQuery, setSidebarQuery] = useState("");
 
+  const onlineUsers = usePresenceStore((s) => s.online);
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
       friends
@@ -181,10 +183,10 @@ const ServersPage: React.FC = () => {
           name: f.friendName,
           initials: initialFor(f.friendName),
           color: colorForId(f.friendId),
-          online: false,
+          online: !!onlineUsers[f.friendId],
           unread: 0,
         })),
-    [friends],
+    [friends, onlineUsers],
   );
 
   const pendingCount = React.useMemo(

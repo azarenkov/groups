@@ -46,7 +46,9 @@ export type WsEventType =
   | "user.emailVerified"
   | "user.phoneVerified"
   | "user.loggedIn"
-  | "user.loggedOut";
+  | "user.loggedOut"
+  | "user.online"
+  | "user.offline";
 
 export interface WsEnvelope<T = unknown> {
   type: WsEventType;

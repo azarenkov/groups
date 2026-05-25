@@ -28,11 +28,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let jetstream = create_jetstream(&nats_cfg).await?;
 
     let core = jetstream.client().clone();
-    let user_subject_prefix = format!(
-        "{}.realtime.user",
-        nats_cfg.subject_prefix.trim_end_matches('.'),
-    );
-    let manager = ConnectionManager::new(core, user_subject_prefix);
+    let prefix = nats_cfg.subject_prefix.trim_end_matches('.');
+    let user_subject_prefix = format!("{}.realtime.user", prefix);
+    let presence_subject = format!("{}.realtime.presence", prefix);
+    let manager = ConnectionManager::new(core, user_subject_prefix, presence_subject);
+    if let Err(e) = manager.start_presence_subscription().await {
+        tracing::error!(error = %e, "Failed to subscribe to presence subject");
+    }
 
     let readiness = {
         let jetstream = jetstream.clone();

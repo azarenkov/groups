@@ -4063,6 +4063,7 @@ dependencies = [
  "infrastructure",
  "jsonwebtoken 10.3.0",
  "serde",
+ "serde_json",
  "shared",
  "thiserror 2.0.18",
  "tokio",
