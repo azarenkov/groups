@@ -116,6 +116,20 @@ class ServerAPI {
     return all;
   }
 
+  async listVoicePresence(serverId: string): Promise<
+    {
+      channelId: string;
+      userId: string;
+      userName: string;
+      isMuted: boolean;
+    }[]
+  > {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/voice-presence`,
+    );
+    return response.data.data.items;
+  }
+
   async listSentInvites(serverId: string): Promise<{ recipientIds: string[] }> {
     const response = await this.client.get(
       `/v1/servers/${serverId}/sent-invites`,

@@ -33,7 +33,8 @@ use application::usecases::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
-        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
+        get_voice_presence::GetVoicePresence, list_server_channels::ListServerChannels,
+        list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
     webhook::voice::HandleVoiceWebhook,
@@ -195,6 +196,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
+    let get_voice_presence_usecase =
+        GetVoicePresence::new(server_repository.clone(), channel_repository.clone());
 
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
@@ -262,6 +265,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_servers_by_user_usecase,
         list_server_members_usecase,
         list_server_channels_usecase,
+        get_voice_presence_usecase,
         send_friend_request_usecase,
         accept_friend_request_usecase,
         remove_friendship_usecase,

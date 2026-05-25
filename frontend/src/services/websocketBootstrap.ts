@@ -95,7 +95,7 @@ function dispatch(env: WsEnvelope) {
       const userName = asString(d.userName) ?? userId;
       useVoicePresenceStore
         .getState()
-        .addMember(channelId, { id: userId, name: userName });
+        .addMember(channelId, { id: userId, name: userName, isMuted: false });
       return;
     }
 
@@ -105,6 +105,18 @@ function dispatch(env: WsEnvelope) {
       const userId = asString(d.userId);
       if (!channelId || !userId) return;
       useVoicePresenceStore.getState().removeMember(channelId, userId);
+      return;
+    }
+
+    case "channel.participant.muted":
+    case "channel.participant.unmuted": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const isMuted = env.type === "channel.participant.muted";
+      useVoicePresenceStore
+        .getState()
+        .setChannelMute(channelId, userId, isMuted);
       return;
     }
 

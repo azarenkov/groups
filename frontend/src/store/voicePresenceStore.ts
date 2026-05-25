@@ -3,6 +3,7 @@ import { create } from "zustand";
 export interface VoicePresenceMember {
   id: string;
   name: string;
+  isMuted: boolean;
 }
 
 interface VoicePresenceState {
@@ -10,6 +11,11 @@ interface VoicePresenceState {
   addMember: (channelId: string, member: VoicePresenceMember) => void;
   removeMember: (channelId: string, userId: string) => void;
   setMembers: (channelId: string, members: VoicePresenceMember[]) => void;
+  setChannelMute: (
+    channelId: string,
+    userId: string,
+    isMuted: boolean,
+  ) => void;
   clearChannel: (channelId: string) => void;
 }
 
@@ -21,7 +27,9 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       const existing = state.byChannel[channelId] || [];
       if (existing.some((m) => m.id === member.id)) {
         const replaced = existing.map((m) =>
-          m.id === member.id ? { ...m, name: member.name } : m,
+          m.id === member.id
+            ? { ...m, name: member.name, isMuted: member.isMuted }
+            : m,
         );
         return {
           byChannel: { ...state.byChannel, [channelId]: replaced },
@@ -48,6 +56,16 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
     set((state) => ({
       byChannel: { ...state.byChannel, [channelId]: members },
     })),
+
+  setChannelMute: (channelId, userId, isMuted) =>
+    set((state) => {
+      const existing = state.byChannel[channelId];
+      if (!existing) return state;
+      const next = existing.map((m) =>
+        m.id === userId ? { ...m, isMuted } : m,
+      );
+      return { byChannel: { ...state.byChannel, [channelId]: next } };
+    }),
 
   clearChannel: (channelId) =>
     set((state) => {

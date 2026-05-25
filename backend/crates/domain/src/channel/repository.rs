@@ -123,4 +123,17 @@ pub trait ChannelRepository {
         channel_id: &ChannelId,
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
+
+    async fn list_voice_presence_for_server(
+        &self,
+        server_id: &crate::server::id::ServerId,
+    ) -> Result<Vec<VoicePresenceRow>, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct VoicePresenceRow {
+    pub channel_id: ChannelId,
+    pub user_id: UserId,
+    pub user_name: String,
+    pub is_muted: bool,
 }

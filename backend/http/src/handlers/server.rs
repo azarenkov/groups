@@ -116,6 +116,47 @@ async fn list_server_channels(
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
+#[get("/{server_id}/voice-presence")]
+async fn list_voice_presence(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let server_id = ServerId::new(path.into_inner());
+    let requester_id = UserId::new(auth_token.id);
+
+    let rows = app_state
+        .get_voice_presence_usecase
+        .execute(server_id, requester_id)
+        .await?;
+
+    let items: Vec<VoicePresenceItem> = rows
+        .into_iter()
+        .map(|r| VoicePresenceItem {
+            channel_id: r.channel_id.uuid(),
+            user_id: r.user_id.uuid(),
+            user_name: r.user_name,
+            is_muted: r.is_muted,
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(VoicePresenceResponse { items })))
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoicePresenceItem {
+    channel_id: Uuid,
+    user_id: Uuid,
+    user_name: String,
+    is_muted: bool,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct VoicePresenceResponse {
+    items: Vec<VoicePresenceItem>,
+}
+
 #[get("/{server_id}/sent-invites")]
 async fn list_sent_server_invites(
     auth_token: RateLimitedAuthToken,

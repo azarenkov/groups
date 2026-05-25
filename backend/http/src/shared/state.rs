@@ -27,7 +27,8 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
-        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
+        get_voice_presence::GetVoicePresence, leave_server::LeaveServer,
+        list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
@@ -148,6 +149,8 @@ pub struct AppState {
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
+    pub get_voice_presence_usecase:
+        GetVoicePresence<PostgresServerRepository, PostgresChannelRepository>,
 
     pub jwt_secret: String,
     pub trust_forwarded_headers: bool,
@@ -238,6 +241,10 @@ impl AppState {
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
+        get_voice_presence_usecase: GetVoicePresence<
+            PostgresServerRepository,
+            PostgresChannelRepository,
+        >,
         send_friend_request_usecase: SendFriendRequest<
             PostgresFriendshipRepository,
             PostgresUserRepository,
@@ -304,6 +311,7 @@ impl AppState {
             list_servers_by_user_usecase,
             list_server_members_usecase,
             list_server_channels_usecase,
+            get_voice_presence_usecase,
             send_friend_request_usecase,
             accept_friend_request_usecase,
             remove_friendship_usecase,

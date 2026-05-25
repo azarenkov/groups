@@ -192,6 +192,42 @@ const ServersPage: React.FC = () => {
     });
   }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
 
+  const presenceSyncedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    const synced = presenceSyncedRef.current;
+    servers.forEach((s) => {
+      if (synced.has(s.id)) return;
+      synced.add(s.id);
+      serverAPI
+        .listVoicePresence(s.id)
+        .then((items) => {
+          const groups: Record<
+            string,
+            { id: string; name: string; isMuted: boolean }[]
+          > = {};
+          for (const item of items) {
+            (groups[item.channelId] ||= []).push({
+              id: item.userId,
+              name: item.userName,
+              isMuted: item.isMuted,
+            });
+          }
+          for (const [channelId, members] of Object.entries(groups)) {
+            useVoicePresenceStore.getState().setMembers(channelId, members);
+          }
+        })
+        .catch((err) => {
+          synced.delete(s.id);
+          console.warn(
+            "[voice-presence] initial sync failed for server",
+            s.id,
+            err,
+          );
+        });
+    });
+  }, [servers, tokens]);
+
   const prefetchInflightRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!tokens?.accessToken) return;
@@ -567,6 +603,7 @@ const ServersPage: React.FC = () => {
         name: m.name,
         initials: initialFor(m.name),
         color: colorForId(m.id),
+        isMuted: m.isMuted,
       }));
     }
     return out;
