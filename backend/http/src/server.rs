@@ -221,8 +221,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let search_users_usecase = SearchUsers::new(user_repository.clone());
     let get_me_usecase = GetMe::new(user_repository.clone());
     let read_state_repository = Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
-    let mark_channel_read_usecase = MarkChannelRead::new(read_state_repository.clone());
-    let mark_dm_read_usecase = MarkDmRead::new(read_state_repository.clone());
+    let mark_channel_read_usecase =
+        MarkChannelRead::new(read_state_repository.clone(), channel_repository.clone());
+    let mark_dm_read_usecase =
+        MarkDmRead::new(read_state_repository.clone(), friendship_repository.clone());
     let get_unread_counts_usecase = GetUnreadCounts::new(read_state_repository.clone());
 
     let nats_core = nats_jetstream.client().clone();

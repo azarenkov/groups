@@ -126,8 +126,10 @@ pub struct AppState {
 
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
-    pub mark_channel_read_usecase: MarkChannelRead<PostgresReadStateRepository>,
-    pub mark_dm_read_usecase: MarkDmRead<PostgresReadStateRepository>,
+    pub mark_channel_read_usecase:
+        MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
+    pub mark_dm_read_usecase:
+        MarkDmRead<PostgresReadStateRepository, PostgresFriendshipRepository>,
     pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
@@ -263,8 +265,14 @@ impl AppState {
         list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
         search_users_usecase: SearchUsers<PostgresUserRepository>,
         get_me_usecase: GetMe<PostgresUserRepository>,
-        mark_channel_read_usecase: MarkChannelRead<PostgresReadStateRepository>,
-        mark_dm_read_usecase: MarkDmRead<PostgresReadStateRepository>,
+        mark_channel_read_usecase: MarkChannelRead<
+            PostgresReadStateRepository,
+            PostgresChannelRepository,
+        >,
+        mark_dm_read_usecase: MarkDmRead<
+            PostgresReadStateRepository,
+            PostgresFriendshipRepository,
+        >,
         get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
         nats_core: async_nats::Client,
         presence_preference_subject: String,

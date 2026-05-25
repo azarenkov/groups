@@ -345,9 +345,10 @@ async fn fanout_loop(
                         false
                     };
                     if became_empty {
-                        if let Some((_, slot)) = by_user.remove(&user_id) {
-                            slot.sub_task.abort();
-                        }
+                        // Drop the slot but do NOT abort sub_task —
+                        // we ARE that task; aborting would cancel us before
+                        // the offline publish below completes.
+                        let _ = by_user.remove(&user_id);
                         if !appear_offline.contains_key(&user_id) {
                             let payload = serde_json::to_string(&PresencePayload {
                                 user_id,

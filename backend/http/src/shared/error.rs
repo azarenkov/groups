@@ -1727,16 +1727,21 @@ impl ToHttpStatus for MarkChannelReadError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MarkChannelReadError::Repository(e) => e.to_http_status(),
+            MarkChannelReadError::NotMember => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             MarkChannelReadError::Repository(e) => e.to_user_message(),
+            MarkChannelReadError::NotMember => {
+                "You are not a member of this channel".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             MarkChannelReadError::Repository(e) => e.to_error_code(),
+            MarkChannelReadError::NotMember => "CHANNEL_NOT_MEMBER",
         }
     }
 }
@@ -1745,16 +1750,21 @@ impl ToHttpStatus for MarkDmReadError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MarkDmReadError::Repository(e) => e.to_http_status(),
+            MarkDmReadError::NotFriends => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             MarkDmReadError::Repository(e) => e.to_user_message(),
+            MarkDmReadError::NotFriends => {
+                "You are not friends with this user".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             MarkDmReadError::Repository(e) => e.to_error_code(),
+            MarkDmReadError::NotFriends => "NOT_FRIENDS",
         }
     }
 }
