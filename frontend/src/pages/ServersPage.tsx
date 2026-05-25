@@ -242,6 +242,14 @@ const ServersPage: React.FC = () => {
               isMuted: item.isMuted,
             });
           }
+          const snapshotChannels = new Set(Object.keys(groups));
+          const knownChannels =
+            useChannelStore.getState().channelsByServer[s.id] || [];
+          for (const c of knownChannels) {
+            if (c.kind !== "voice") continue;
+            if (snapshotChannels.has(c.id)) continue;
+            useVoicePresenceStore.getState().clearChannel(c.id);
+          }
           for (const [channelId, members] of Object.entries(groups)) {
             useVoicePresenceStore.getState().setMembers(channelId, members);
           }
