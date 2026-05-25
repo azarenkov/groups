@@ -40,12 +40,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         presence_subject,
         presence_preference_subject,
     );
-    if let Err(e) = manager.start_presence_subscription().await {
+    manager.start_presence_subscription().await.map_err(|e| {
         tracing::error!(error = %e, "Failed to subscribe to presence subject");
-    }
-    if let Err(e) = manager.start_presence_preference_subscription().await {
-        tracing::error!(error = %e, "Failed to subscribe to presence preference subject");
-    }
+        Box::<dyn Error>::from(format!("presence subscribe failed: {e}"))
+    })?;
+    manager
+        .start_presence_preference_subscription()
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to subscribe to presence preference subject");
+            Box::<dyn Error>::from(format!("presence preference subscribe failed: {e}"))
+        })?;
 
     let readiness = {
         let jetstream = jetstream.clone();

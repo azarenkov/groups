@@ -23,16 +23,21 @@ async fn set_presence(
     }))
     .unwrap_or_default();
 
-    if let Err(e) = app_state
+    app_state
         .nats_core
         .publish(
             app_state.presence_preference_subject.clone(),
             payload.into(),
         )
         .await
-    {
-        tracing::warn!(error = %e, %user_id, "Failed to publish presence preference");
-    }
+        .map_err(|e| {
+            tracing::error!(error = %e, %user_id, "Failed to publish presence preference");
+            ApiError::new(
+                "Failed to publish presence preference".to_string(),
+                actix_web::http::StatusCode::BAD_GATEWAY,
+                "PRESENCE_PUBLISH_FAILED",
+            )
+        })?;
 
     Ok(HttpResponse::NoContent().finish())
 }

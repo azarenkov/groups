@@ -224,12 +224,16 @@ impl ConnectionManager {
                     let by_user = self.by_user.clone();
                     let core = self.core.clone();
                     let subject_for_task = subject.clone();
+                    let appear_offline = self.appear_offline.clone();
+                    let presence_subject = self.presence_subject.clone();
                     let handle = tokio::spawn(fanout_loop(
                         user_id,
                         by_user,
                         core,
                         subject_for_task,
                         subscription,
+                        appear_offline,
+                        presence_subject,
                     ));
                     v.insert(UserSlot {
                         conns: vec![conn],
@@ -303,12 +307,15 @@ impl ConnectionManager {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn fanout_loop(
     user_id: Uuid,
     by_user: Arc<DashMap<Uuid, UserSlot>>,
     core: async_nats::Client,
     subject: String,
     initial_sub: async_nats::Subscriber,
+    appear_offline: Arc<DashMap<Uuid, ()>>,
+    presence_subject: String,
 ) {
     let mut sub = initial_sub;
     loop {
@@ -329,8 +336,32 @@ async fn fanout_loop(
                         conn_id = %c.id,
                         "Slow consumer outbound buffer full; dropping connection",
                     );
-                    if let Some(mut entry) = by_user.get_mut(&user_id) {
+                    let became_empty = if let Some(mut entry) =
+                        by_user.get_mut(&user_id)
+                    {
                         entry.conns.retain(|x| x.id != c.id);
+                        entry.conns.is_empty()
+                    } else {
+                        false
+                    };
+                    if became_empty {
+                        if let Some((_, slot)) = by_user.remove(&user_id) {
+                            slot.sub_task.abort();
+                        }
+                        if !appear_offline.contains_key(&user_id) {
+                            let payload = serde_json::to_string(&PresencePayload {
+                                user_id,
+                                online: false,
+                            })
+                            .unwrap_or_default();
+                            if let Err(e) = core
+                                .publish(presence_subject.clone(), payload.into())
+                                .await
+                            {
+                                tracing::warn!(error = %e, %user_id, "Failed to publish presence offline after slow-consumer drop");
+                            }
+                        }
+                        return;
                     }
                 }
             }
