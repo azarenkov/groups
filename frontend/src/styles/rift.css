@@ -296,51 +296,56 @@ select:focus-visible {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column;
   align-items: flex-start; justify-content: center;
-  padding: 4px 8px;
+  padding: 0;
   margin: 0;
   border: 0;
-  border-radius: 6px;
   background: transparent;
   cursor: pointer;
   text-align: left;
   font: inherit;
   color: inherit;
-  transition: background 0.15s ease;
 }
-.user-pill-info-btn:hover,
-.user-pill-info-btn.open {
-  background: var(--surface-hover);
+.user-pill-info-btn .n {
+  font-size: 13px; font-weight: 500; color: var(--fg-1);
+  line-height: 1.2;
 }
-.user-pill-info-btn .n { font-size: 13px; font-weight: 500; color: var(--fg-1); }
 .user-pill-info-btn .s {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 3px;
   font-size: 11px; color: var(--fg-3);
+  line-height: 1.3;
+  margin-top: 1px;
+  opacity: 0.85;
+  transition: color 0.12s ease, opacity 0.12s ease;
+}
+.user-pill-info-btn:hover .s,
+.user-pill-info-btn.open .s {
+  color: var(--fg-1);
+  opacity: 1;
 }
 .user-pill-chev {
   transition: transform 0.15s ease;
-  opacity: 0.7;
-  margin-left: 2px;
+  margin-left: 1px;
 }
 .user-pill-chev.up { transform: rotate(180deg); }
 
 .sb-status-menu {
   position: absolute;
-  left: 0; bottom: calc(100% + 6px);
+  left: -8px; bottom: calc(100% + 8px);
   z-index: 10;
-  min-width: 140px;
+  min-width: 130px;
   padding: 4px;
   background: var(--surface-panel);
   border: 1px solid var(--hairline);
   border-radius: 8px;
-  box-shadow: 0 12px 32px -10px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 28px -10px rgba(0,0,0,0.55);
   display: flex; flex-direction: column;
 }
 .sb-status-menu-item {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 10px;
+  padding: 5px 8px;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   color: var(--fg-1);
   font-size: 12px;
   text-align: left;
@@ -349,7 +354,7 @@ select:focus-visible {
 .sb-status-menu-item:hover { background: var(--surface-hover); }
 .sb-status-dot {
   display: inline-block;
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
   flex-shrink: 0;
 }
 .sb-status-dot.online  { background: var(--voice-live, #30d158); }

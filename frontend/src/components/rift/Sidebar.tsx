@@ -612,16 +612,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="n">{currentUserName}</div>
             <div className="s">
-              <span
-                className={
-                  "sb-status-dot " +
-                  (currentUserStatus === "Offline" ? "offline" : "online")
-                }
-              />
               <span>{currentUserStatus}</span>
               <Icon
                 name="chev"
-                size={10}
+                size={9}
                 className={"user-pill-chev" + (statusMenuOpen ? " up" : "")}
               />
             </div>
