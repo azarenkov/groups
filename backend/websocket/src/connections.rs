@@ -169,6 +169,9 @@ impl ConnectionManager {
         let mut sub = self.core.subscribe(self.presence_subject.clone()).await?;
         let by_user = self.by_user.clone();
         let online = self.online_snapshot.clone();
+        let appear_offline = self.appear_offline.clone();
+        let core = self.core.clone();
+        let presence_subject = self.presence_subject.clone();
         tokio::spawn(async move {
             while let Some(msg) = sub.next().await {
                 let payload: PresencePayload = match serde_json::from_slice(&msg.payload) {
@@ -178,6 +181,34 @@ impl ConnectionManager {
                         continue;
                     }
                 };
+                // Multi-replica guard: another replica may have published `offline`
+                // because its last local connection for this user dropped, but THIS
+                // replica still has active connections. Counter-publish online and
+                // skip propagating the stale offline to local clients.
+                if !payload.online
+                    && by_user
+                        .get(&payload.user_id)
+                        .map(|s| !s.conns.is_empty())
+                        .unwrap_or(false)
+                    && !appear_offline.contains_key(&payload.user_id)
+                {
+                    let counter = serde_json::to_string(&PresencePayload {
+                        user_id: payload.user_id,
+                        online: true,
+                    })
+                    .unwrap_or_default();
+                    if let Err(e) =
+                        core.publish(presence_subject.clone(), counter.into()).await
+                    {
+                        tracing::warn!(
+                            error = %e,
+                            user_id = %payload.user_id,
+                            "Failed to counter-publish presence online",
+                        );
+                    }
+                    continue;
+                }
+
                 if payload.online {
                     online.insert(payload.user_id, ());
                 } else {
