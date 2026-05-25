@@ -14,6 +14,7 @@ import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import { getLiveKitService } from "../services/livekit";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
@@ -50,6 +51,7 @@ const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
+  const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -798,17 +800,64 @@ const ServersPage: React.FC = () => {
                           } as React.CSSProperties
                         }
                       >
-                        {tiles.map((t) => (
-                          <div key={t.id} className="voice-tile">
-                            <div
-                              className="voice-tile-ava"
-                              style={{ background: t.color }}
-                            >
-                              {t.initials}
+                        {tiles.map((t) => {
+                          const isSelf = t.id === (user?.id || "you");
+                          const vol = tileVolumes[t.id] ?? 100;
+                          return (
+                            <div key={t.id} className="voice-tile">
+                              <div
+                                className="voice-tile-ava"
+                                style={{ background: t.color }}
+                              >
+                                {t.initials}
+                              </div>
+                              <div className="voice-tile-name">{t.name}</div>
+                              {!isSelf && (
+                                <div
+                                  className="voice-tile-volume"
+                                  title={`Volume ${vol}%`}
+                                >
+                                  <Icon
+                                    name={
+                                      vol === 0
+                                        ? "speaker-off"
+                                        : vol < 40
+                                          ? "speaker-lo"
+                                          : "speaker-hi"
+                                    }
+                                    size={14}
+                                  />
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={200}
+                                    step={1}
+                                    value={vol}
+                                    onChange={(e) => {
+                                      const v = Number(e.target.value);
+                                      setTileVolumes((prev) => ({
+                                        ...prev,
+                                        [t.id]: v,
+                                      }));
+                                      getLiveKitService().setRemoteVolume(
+                                        t.id,
+                                        v / 100,
+                                      );
+                                    }}
+                                    style={
+                                      {
+                                        ["--pct" as unknown as string]: `${vol / 2}%`,
+                                      } as React.CSSProperties
+                                    }
+                                  />
+                                  <span className="voice-tile-volume-pct">
+                                    {vol}%
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                            <div className="voice-tile-name">{t.name}</div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <div className="voice-room-actions">
                         <button

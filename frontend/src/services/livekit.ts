@@ -44,6 +44,8 @@ export class LiveKitService {
   private dfnRawTrack: MediaStreamTrack | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
   private desiredMicMuted: boolean = false;
+  private remoteVolumes: Map<string, number> = new Map();
+  private remoteAudioElements: Map<string, HTMLMediaElement[]> = new Map();
   private noiseStrength: number = 1.0;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
@@ -238,6 +240,8 @@ export class LiveKitService {
       this.participants.clear();
       this.isConnecting = false;
       this.desiredMicMuted = false;
+      this.remoteVolumes.clear();
+      this.remoteAudioElements.clear();
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.emitLocalTrack();
       this.setLocalSpeaking(false);
@@ -818,13 +822,36 @@ export class LiveKitService {
     this.updateParticipant(participant.identity, { audioTrack: track });
 
     const audioElement = track.attach();
-    audioElement.volume = 1.0;
+    const desired = this.remoteVolumes.get(participant.identity) ?? 1.0;
+    audioElement.volume = desired;
     document.body.appendChild(audioElement);
+    const list = this.remoteAudioElements.get(participant.identity) ?? [];
+    list.push(audioElement);
+    this.remoteAudioElements.set(participant.identity, list);
 
     track.on(TrackEvent.Ended, () => {
       audioElement.remove();
+      const remaining = (
+        this.remoteAudioElements.get(participant.identity) ?? []
+      ).filter((el) => el !== audioElement);
+      if (remaining.length === 0) {
+        this.remoteAudioElements.delete(participant.identity);
+      } else {
+        this.remoteAudioElements.set(participant.identity, remaining);
+      }
       this.updateParticipant(participant.identity, { audioTrack: null });
     });
+  }
+
+  setRemoteVolume(identity: string, volume: number): void {
+    const v = Math.max(0, Math.min(1, volume));
+    this.remoteVolumes.set(identity, v);
+    const els = this.remoteAudioElements.get(identity);
+    if (els) for (const el of els) el.volume = v;
+  }
+
+  getRemoteVolume(identity: string): number {
+    return this.remoteVolumes.get(identity) ?? 1.0;
   }
 
   private notifyParticipantsChange(): void {
