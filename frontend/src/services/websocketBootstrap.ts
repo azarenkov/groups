@@ -20,6 +20,32 @@ export function setActiveChatView(view:
   activeDmView = view?.kind === "dm" ? view.id : null;
 }
 
+const READ_MARK_THROTTLE_MS = 1500;
+const lastChannelReadAt: Record<string, number> = {};
+const lastDmReadAt: Record<string, number> = {};
+
+function throttleMarkChannelRead(channelId: string) {
+  const now = Date.now();
+  if (now - (lastChannelReadAt[channelId] ?? 0) < READ_MARK_THROTTLE_MS) return;
+  lastChannelReadAt[channelId] = now;
+  void import("../api/user").then(({ userAPI }) =>
+    userAPI.markChannelRead(channelId).catch(() => {
+      lastChannelReadAt[channelId] = 0;
+    }),
+  );
+}
+
+function throttleMarkDmRead(friendId: string) {
+  const now = Date.now();
+  if (now - (lastDmReadAt[friendId] ?? 0) < READ_MARK_THROTTLE_MS) return;
+  lastDmReadAt[friendId] = now;
+  void import("../api/user").then(({ userAPI }) =>
+    userAPI.markDmRead(friendId).catch(() => {
+      lastDmReadAt[friendId] = 0;
+    }),
+  );
+}
+
 let installed = false;
 
 function asString(v: unknown): string | undefined {
@@ -127,7 +153,10 @@ function dispatch(env: WsEnvelope) {
       const authorId = asString(d.authorId);
       const selfId = useAuthStore.getState().user?.id;
       if (!channelId || !authorId || authorId === selfId) return;
-      if (activeChannelView === channelId) return;
+      if (activeChannelView === channelId) {
+        throttleMarkChannelRead(channelId);
+        return;
+      }
       useUnreadStore.getState().bumpChannel(channelId);
       return;
     }
@@ -138,7 +167,10 @@ function dispatch(env: WsEnvelope) {
       const selfId = useAuthStore.getState().user?.id;
       if (!senderId || !recipientId || !selfId) return;
       if (recipientId !== selfId) return;
-      if (activeDmView === senderId) return;
+      if (activeDmView === senderId) {
+        throttleMarkDmRead(senderId);
+        return;
+      }
       useUnreadStore.getState().bumpDm(senderId);
       return;
     }
