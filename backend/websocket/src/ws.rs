@@ -49,7 +49,7 @@ pub async fn ws_handler(
         return Ok(HttpResponse::Unauthorized().body("missing token"));
     };
 
-    let user_id = match decode::<AccessTokenClaims>(
+    let (user_id, token_exp) = match decode::<AccessTokenClaims>(
         &token,
         &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
         &Validation::new(jsonwebtoken::Algorithm::HS256),
@@ -61,7 +61,7 @@ pub async fn ws_handler(
             if !decoded.claims.verified {
                 return Ok(HttpResponse::Forbidden().body("email not verified"));
             }
-            decoded.claims.sub
+            (decoded.claims.sub, decoded.claims.exp)
         }
         Err(_) => return Ok(HttpResponse::Unauthorized().body("invalid token")),
     };
@@ -75,12 +75,20 @@ pub async fn ws_handler(
     let manager = state.manager.clone();
     let outbound_buffer = state.outbound_buffer;
 
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let ttl_secs = (token_exp - now_secs).max(0) as u64;
+    let token_ttl = Duration::from_secs(ttl_secs);
+
     actix_web::rt::spawn(connection_task(
         manager,
         user_id,
         session,
         msg_stream,
         outbound_buffer,
+        token_ttl,
     ));
 
     Ok(response)
@@ -92,6 +100,7 @@ async fn connection_task(
     mut session: actix_ws::Session,
     msg_stream: actix_ws::MessageStream,
     outbound_buffer: usize,
+    token_ttl: Duration,
 ) {
     let (tx, mut rx) = mpsc::channel::<String>(outbound_buffer);
     let conn = Connection::new(user_id, tx);
@@ -117,25 +126,32 @@ async fn connection_task(
     let mut hb_interval = tokio::time::interval(HEARTBEAT_INTERVAL);
     hb_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let mut last_seen = Instant::now();
+    let token_expiry = tokio::time::sleep(token_ttl);
+    tokio::pin!(token_expiry);
 
-    let close_reason = loop {
+    let close_reason: Option<(actix_ws::CloseCode, &'static str)> = loop {
         tokio::select! {
+            _ = &mut token_expiry => {
+                tracing::info!(%user_id, %conn_id, "WS access token expired; closing");
+                break Some((actix_ws::CloseCode::Other(4001), "token expired"));
+            }
+
             _ = hb_interval.tick() => {
                 if last_seen.elapsed() >= CLIENT_TIMEOUT {
                     tracing::info!(%user_id, %conn_id, "WS client timed out");
-                    break Some("client timeout");
+                    break Some((actix_ws::CloseCode::Away, "client timeout"));
                 }
                 if session.ping(b"").await.is_err() {
-                    break Some("ping failed");
+                    break Some((actix_ws::CloseCode::Away, "ping failed"));
                 }
             }
 
             out = rx.recv() => {
                 let Some(payload) = out else {
-                    break Some("backend channel closed");
+                    break Some((actix_ws::CloseCode::Away, "backend channel closed"));
                 };
                 if session.text(payload).await.is_err() {
-                    break Some("send failed");
+                    break Some((actix_ws::CloseCode::Away, "send failed"));
                 }
             }
 
@@ -144,7 +160,7 @@ async fn connection_task(
                     Some(Ok(AggregatedMessage::Ping(bytes))) => {
                         last_seen = Instant::now();
                         if session.pong(&bytes).await.is_err() {
-                            break Some("pong failed");
+                            break Some((actix_ws::CloseCode::Away, "pong failed"));
                         }
                     }
                     Some(Ok(AggregatedMessage::Pong(_))) => {
@@ -159,7 +175,7 @@ async fn connection_task(
                     }
                     Some(Err(e)) => {
                         tracing::warn!(error = %e, %user_id, %conn_id, "WS protocol error");
-                        break Some("protocol error");
+                        break Some((actix_ws::CloseCode::Away, "protocol error"));
                     }
                     None => break None,
                 }
@@ -168,11 +184,11 @@ async fn connection_task(
     };
 
     manager.unregister(user_id, conn_id).await;
-    if let Some(r) = close_reason {
+    if let Some((code, description)) = close_reason {
         let _ = session
             .close(Some(actix_ws::CloseReason {
-                code: actix_ws::CloseCode::Away,
-                description: Some(r.to_string()),
+                code,
+                description: Some(description.to_string()),
             }))
             .await;
     } else {
