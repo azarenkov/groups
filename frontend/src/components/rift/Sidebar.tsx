@@ -306,6 +306,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           const serverUnread = allServerChannels
             .filter((c) => c.kind === "text")
             .reduce((sum, c) => sum + (unreadByChannel[c.id] ?? 0), 0);
+          const hasVoiceActivity = allServerChannels.some(
+            (c) =>
+              c.kind === "voice" &&
+              (voiceMembersByChannel?.[c.id]?.length ?? 0) > 0,
+          );
           return (
             <div key={server.id}>
               <div
@@ -336,6 +341,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                   >
                     {server.name}
                   </span>
+                  {hasVoiceActivity && (
+                    <span
+                      style={{
+                        color: "var(--voice-live)",
+                        fontSize: 10,
+                        flexShrink: 0,
+                      }}
+                      title="Someone is in voice"
+                      aria-label="Voice activity"
+                    >
+                      ●
+                    </span>
+                  )}
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {serverUnread > 0 && (
@@ -475,9 +493,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <span className="lock">
                             <Icon name="lock" size={11} />
                           </span>
-                        )}
-                        {joinedChannelId === channel.id && (
-                          <span className="sb-live-dot" aria-hidden="true" />
                         )}
                       </div>
                       {channel.kind === "voice" &&
