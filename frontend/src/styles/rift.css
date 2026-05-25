@@ -278,6 +278,19 @@ select:focus-visible {
   pointer-events: none;
 }
 
+.sb-server-voice-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--voice-live, #30a46c);
+  flex-shrink: 0;
+  animation: sb-voice-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sb-voice-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50%      { opacity: 1;    transform: scale(1.1); }
+}
+
 .sb-server-unread {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 20px; height: 18px;

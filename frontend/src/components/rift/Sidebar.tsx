@@ -343,16 +343,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                   {hasVoiceActivity && (
                     <span
-                      style={{
-                        color: "var(--voice-live)",
-                        fontSize: 10,
-                        flexShrink: 0,
-                      }}
+                      className="sb-server-voice-dot"
                       title="Someone is in voice"
                       aria-label="Voice activity"
-                    >
-                      ●
-                    </span>
+                    />
                   )}
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
