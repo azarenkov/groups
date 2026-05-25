@@ -17,6 +17,7 @@ interface VoicePresenceState {
     isMuted: boolean,
   ) => void;
   clearChannel: (channelId: string) => void;
+  clearAll: () => void;
 }
 
 export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
@@ -73,4 +74,6 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       const { [channelId]: _gone, ...rest } = state.byChannel;
       return { byChannel: rest };
     }),
+
+  clearAll: () => set({ byChannel: {} }),
 }));
