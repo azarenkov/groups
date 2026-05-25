@@ -129,6 +129,8 @@ pub struct AppState {
     pub mark_channel_read_usecase: MarkChannelRead<PostgresReadStateRepository>,
     pub mark_dm_read_usecase: MarkDmRead<PostgresReadStateRepository>,
     pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+    pub nats_core: async_nats::Client,
+    pub presence_preference_subject: String,
 
     pub send_dm_message_usecase:
         SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
@@ -264,6 +266,8 @@ impl AppState {
         mark_channel_read_usecase: MarkChannelRead<PostgresReadStateRepository>,
         mark_dm_read_usecase: MarkDmRead<PostgresReadStateRepository>,
         get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+        nats_core: async_nats::Client,
+        presence_preference_subject: String,
         send_dm_message_usecase: SendDmMessage<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
@@ -331,6 +335,8 @@ impl AppState {
             mark_channel_read_usecase,
             mark_dm_read_usecase,
             get_unread_counts_usecase,
+            nats_core,
+            presence_preference_subject,
             send_dm_message_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,

@@ -1367,6 +1367,7 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "application",
+ "async-nats",
  "chrono",
  "domain",
  "dotenv",

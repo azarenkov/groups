@@ -18,4 +18,5 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 actix-web = { workspace = true }
 actix-cors = { workspace = true }
+async-nats = { workspace = true }
 validator = { workspace = true }

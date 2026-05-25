@@ -32,6 +32,11 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                     web::scope("/v1").configure(
                         crate::handlers::read_state::read_state_routes,
                     ),
+                )
+                .service(
+                    web::scope("/v1").configure(
+                        crate::handlers::presence::presence_routes,
+                    ),
                 ),
         );
 }

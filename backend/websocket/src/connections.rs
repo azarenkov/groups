@@ -41,6 +41,7 @@ pub struct ConnectionManager {
     core: Client,
     user_subject_prefix: String,
     presence_subject: String,
+    presence_preference_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
     appear_offline: Arc<DashMap<Uuid, ()>>,
 }
@@ -51,20 +52,81 @@ struct PresencePayload {
     online: bool,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PresencePreferenceMessage {
+    user_id: Uuid,
+    appear_offline: bool,
+}
+
 impl ConnectionManager {
     pub fn new(
         core: Client,
         user_subject_prefix: String,
         presence_subject: String,
+        presence_preference_subject: String,
     ) -> Self {
         Self {
             by_user: Arc::new(DashMap::new()),
             core,
             user_subject_prefix,
             presence_subject,
+            presence_preference_subject,
             online_snapshot: Arc::new(DashMap::new()),
             appear_offline: Arc::new(DashMap::new()),
         }
+    }
+
+    pub async fn start_presence_preference_subscription(
+        &self,
+    ) -> Result<(), async_nats::SubscribeError> {
+        let mut sub = self
+            .core
+            .subscribe(self.presence_preference_subject.clone())
+            .await?;
+        let appear_offline = self.appear_offline.clone();
+        let by_user = self.by_user.clone();
+        let core = self.core.clone();
+        let presence_subject = self.presence_subject.clone();
+        tokio::spawn(async move {
+            while let Some(msg) = sub.next().await {
+                let body: PresencePreferenceMessage =
+                    match serde_json::from_slice(&msg.payload) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            tracing::warn!(error = %e, "Bad presence preference payload");
+                            continue;
+                        }
+                    };
+                let was_offline = appear_offline.contains_key(&body.user_id);
+                if body.appear_offline {
+                    appear_offline.insert(body.user_id, ());
+                } else {
+                    appear_offline.remove(&body.user_id);
+                }
+                if was_offline == body.appear_offline {
+                    continue;
+                }
+                let has_active = by_user
+                    .get(&body.user_id)
+                    .map(|s| !s.conns.is_empty())
+                    .unwrap_or(false);
+                if !has_active {
+                    continue;
+                }
+                let payload = serde_json::to_string(&PresencePayload {
+                    user_id: body.user_id,
+                    online: !body.appear_offline,
+                })
+                .unwrap_or_default();
+                if let Err(e) =
+                    core.publish(presence_subject.clone(), payload.into()).await
+                {
+                    tracing::warn!(error = %e, user_id = %body.user_id, "Failed to publish presence after preference change");
+                }
+            }
+        });
+        Ok(())
     }
 
     pub fn has_active_conns(&self, user_id: Uuid) -> bool {

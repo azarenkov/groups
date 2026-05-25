@@ -81,8 +81,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
+    let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let nats_jetstream =
+        infrastructure::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
@@ -222,6 +225,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let mark_dm_read_usecase = MarkDmRead::new(read_state_repository.clone());
     let get_unread_counts_usecase = GetUnreadCounts::new(read_state_repository.clone());
 
+    let nats_core = nats_jetstream.client().clone();
+    let presence_preference_subject = format!(
+        "{}.realtime.presence.preference",
+        nats_config.subject_prefix.trim_end_matches('.'),
+    );
+
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
     let send_dm_message_usecase = SendDmMessage::new(
         dm_repository.clone(),
@@ -284,6 +293,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mark_channel_read_usecase,
         mark_dm_read_usecase,
         get_unread_counts_usecase,
+        nats_core,
+        presence_preference_subject,
         send_dm_message_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,

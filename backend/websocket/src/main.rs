@@ -32,9 +32,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let prefix = nats_cfg.subject_prefix.trim_end_matches('.');
     let user_subject_prefix = format!("{}.realtime.user", prefix);
     let presence_subject = format!("{}.realtime.presence", prefix);
-    let manager = ConnectionManager::new(core, user_subject_prefix, presence_subject);
+    let presence_preference_subject =
+        format!("{}.realtime.presence.preference", prefix);
+    let manager = ConnectionManager::new(
+        core,
+        user_subject_prefix,
+        presence_subject,
+        presence_preference_subject,
+    );
     if let Err(e) = manager.start_presence_subscription().await {
         tracing::error!(error = %e, "Failed to subscribe to presence subject");
+    }
+    if let Err(e) = manager.start_presence_preference_subscription().await {
+        tracing::error!(error = %e, "Failed to subscribe to presence preference subject");
     }
 
     let readiness = {
