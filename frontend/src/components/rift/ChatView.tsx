@@ -18,7 +18,10 @@ const mergeWithLive = (
 ): ChannelMessage[] => {
   const ids = new Set(history.map((m) => m.id));
   const extras = prev.filter((m) => !ids.has(m.id));
-  return extras.length === 0 ? history : [...history, ...extras];
+  if (extras.length === 0) return history;
+  return [...history, ...extras].sort((a, b) =>
+    a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
+  );
 };
 
 const sameDay = (a: Date, b: Date): boolean =>

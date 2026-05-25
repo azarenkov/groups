@@ -1,5 +1,6 @@
 import { useAuthStore } from "../store/authStore";
 import { ApiError } from "../utils/apiError";
+import { decodeAccessToken } from "../utils/jwt";
 
 const SESSION_DEAD_CODES = new Set([
   "REFRESH_TOKEN_REVOKED",
@@ -164,7 +165,8 @@ class WsClient {
 
       const handshakeFailed = !openedOnce;
       const explicitAuthCode = this.isAuthFailure(ev.code);
-      if (handshakeFailed || explicitAuthCode) {
+      const tokenLooksExpired = this.isAccessTokenExpiringSoon();
+      if (explicitAuthCode || (handshakeFailed && tokenLooksExpired)) {
         if (await this.tryRefresh()) {
           this.openSocket();
           return;
@@ -176,6 +178,15 @@ class WsClient {
 
   private isAuthFailure(code: number): boolean {
     return code === 1008 || code === 4001 || code === 4003;
+  }
+
+  private isAccessTokenExpiringSoon(): boolean {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    if (!token) return true;
+    const claims = decodeAccessToken(token);
+    if (!claims || typeof claims.exp !== "number") return false;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    return claims.exp - nowSeconds <= 30;
   }
 
   private async tryRefresh(): Promise<boolean> {
