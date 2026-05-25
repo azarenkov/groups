@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use infrastructure::{
     config::nats::NatsConfig,
@@ -61,9 +62,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let bind_address = cfg.bind_address.clone();
     let server = HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .max_age(3600);
         App::new()
-            .service(presence_preference)
+            .wrap(cors)
             .app_data(ws_state.clone())
+            .service(presence_preference)
             .service(ws_handler)
     })
     .bind(&bind_address)?

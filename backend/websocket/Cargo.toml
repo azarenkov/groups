@@ -18,6 +18,7 @@ futures = { workspace = true }
 
 tokio = { workspace = true, features = ["macros", "signal", "time", "rt-multi-thread", "sync"] }
 actix-web = { workspace = true }
+actix-cors = { workspace = true }
 actix-ws = "0.3"
 async-nats = { workspace = true }
 jsonwebtoken = { workspace = true }
