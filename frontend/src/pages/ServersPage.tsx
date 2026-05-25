@@ -15,6 +15,7 @@ import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { getLiveKitService } from "../services/livekit";
+import { ws } from "../services/websocket";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
@@ -214,6 +215,13 @@ const ServersPage: React.FC = () => {
   }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
 
   const presenceSyncedRef = useRef<Set<string>>(new Set());
+  const [presenceSyncTick, setPresenceSyncTick] = useState(0);
+  useEffect(() => {
+    return ws.onOpen(() => {
+      presenceSyncedRef.current.clear();
+      setPresenceSyncTick((n) => n + 1);
+    });
+  }, []);
   useEffect(() => {
     if (!tokens?.accessToken) return;
     const synced = presenceSyncedRef.current;
@@ -247,7 +255,7 @@ const ServersPage: React.FC = () => {
           );
         });
     });
-  }, [servers, tokens]);
+  }, [servers, tokens, presenceSyncTick]);
 
   const prefetchInflightRef = useRef<Set<string>>(new Set());
   useEffect(() => {

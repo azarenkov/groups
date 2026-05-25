@@ -82,6 +82,7 @@ class WsClient {
   private reconnectTimer: number | null = null;
   private heartbeatTimer: number | null = null;
   private refreshInProgress = false;
+  private openListeners = new Set<() => void>();
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
@@ -111,6 +112,13 @@ class WsClient {
     };
   }
 
+  onOpen(handler: () => void): () => void {
+    this.openListeners.add(handler);
+    return () => {
+      this.openListeners.delete(handler);
+    };
+  }
+
   isOpen(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
   }
@@ -136,6 +144,13 @@ class WsClient {
       openedOnce = true;
       this.reconnectAttempts = 0;
       this.startHeartbeat();
+      for (const l of this.openListeners) {
+        try {
+          l();
+        } catch (err) {
+          console.warn("[ws] open listener threw:", err);
+        }
+      }
     };
 
     socket.onmessage = (ev) => {

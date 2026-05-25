@@ -867,8 +867,15 @@ export class LiveKitService {
         const source = ctx.createMediaElementSource(audioElement);
         const gain = ctx.createGain();
         gain.gain.value = this.uiVolumeToGain(desiredUiVolume);
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.value = -18;
+        compressor.knee.value = 24;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.25;
         source.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(compressor);
+        compressor.connect(ctx.destination);
         this.remoteSourceNodes.set(audioElement, {
           source,
           gain,
