@@ -43,6 +43,7 @@ export class LiveKitService {
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
+  private desiredMicMuted: boolean = false;
   private noiseStrength: number = 1.0;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
@@ -236,6 +237,7 @@ export class LiveKitService {
       this.room = null;
       this.participants.clear();
       this.isConnecting = false;
+      this.desiredMicMuted = false;
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.emitLocalTrack();
       this.setLocalSpeaking(false);
@@ -321,6 +323,7 @@ export class LiveKitService {
   }
 
   setMicrophoneMuted(muted: boolean): void {
+    this.desiredMicMuted = muted;
     if (!this.room) return;
 
     const audioTracks = Array.from(
@@ -732,6 +735,16 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
       if (publication.kind !== Track.Kind.Audio) return;
+      if (this.desiredMicMuted && publication.track) {
+        try {
+          publication.track.mute();
+        } catch (e) {
+          console.warn(
+            "[LiveKitService] failed to apply pending mute to new track:",
+            e,
+          );
+        }
+      }
       this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) => {
         console.warn(
           "[LiveKitService] reapply noise mode after publish failed:",
