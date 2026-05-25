@@ -269,6 +269,14 @@ impl ConnectionManager {
                     tracing::error!(error = %e, %user_id, %subject, "Failed to subscribe to user subject");
                     RegisterError::Subscribe(e)
                 })?;
+            if let Err(e) = self.core.flush().await {
+                tracing::warn!(
+                    error = %e,
+                    %user_id,
+                    %subject,
+                    "Failed to flush after subscribe; first messages may be dropped",
+                );
+            }
 
             match self.by_user.entry(user_id) {
                 Entry::Vacant(v) => {

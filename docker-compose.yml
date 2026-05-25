@@ -187,6 +187,8 @@ services:
     networks:
       - rift-network
     env_file:
+      - path: env/postgres.env
+        required: false
       - path: env/nats.env
         required: false
       - path: env/http.env
@@ -194,6 +196,8 @@ services:
       - path: env/websocket.env
         required: false
     depends_on:
+      postgres:
+        condition: service_healthy
       nats:
         condition: service_healthy
     healthcheck:
