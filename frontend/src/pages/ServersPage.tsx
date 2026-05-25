@@ -626,8 +626,6 @@ const ServersPage: React.FC = () => {
                     name: userName || "You",
                     initials: initialFor(userName),
                     color: colorForId(user?.id || "you"),
-                    isMuted: false,
-                    isSharingScreen: false,
                   },
                   ...voiceParticipants.map((p) => ({
                     id: p.identity,

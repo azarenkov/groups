@@ -1128,21 +1128,10 @@ select:focus-visible {
   color: var(--fg-2);
 }
 .sb-voice-member-ava {
-  position: relative;
   width: 18px; height: 18px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 9px; font-weight: 700; color: #fff;
   flex-shrink: 0;
-}
-.sb-voice-member-mute {
-  position: absolute;
-  right: -3px; bottom: -3px;
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: var(--danger);
-  color: #fff;
-  display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 1.5px var(--surface-canvas);
 }
 .sb-voice-member-name {
   flex: 1;
