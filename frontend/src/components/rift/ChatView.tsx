@@ -115,6 +115,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         id: string;
         channelId: string;
         authorId: string;
+        authorName?: string;
         content: string;
         occurredAt: string;
       }) => {
@@ -127,6 +128,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   id: m.id,
                   channelId: m.channelId,
                   authorId: m.authorId,
+                  authorName: m.authorName,
                   content: m.content,
                   createdAt: m.occurredAt,
                   editedAt: null,
@@ -161,6 +163,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       onSent: (m: {
         id: string;
         senderId: string;
+        senderName?: string;
         recipientId: string;
         content: string;
         occurredAt: string;
@@ -176,6 +179,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   id: m.id,
                   channelId: m.senderId,
                   authorId: m.senderId,
+                  authorName: m.senderName,
                   content: m.content,
                   inviteServerId: m.inviteServerId,
                   inviteServerName: m.inviteServerName,

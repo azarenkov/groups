@@ -7,6 +7,7 @@ export interface ChannelMessageHandlers {
     id: string;
     channelId: string;
     authorId: string;
+    authorName?: string;
     content: string;
     occurredAt: string;
   }) => void;
@@ -53,6 +54,7 @@ export interface DmMessageHandlers {
   onSent?: (m: {
     id: string;
     senderId: string;
+    senderName?: string;
     recipientId: string;
     content: string;
     occurredAt: string;

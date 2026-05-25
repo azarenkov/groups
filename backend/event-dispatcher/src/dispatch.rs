@@ -30,11 +30,13 @@ pub async fn dispatch(
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
         let invite = resolver.dm_invite_for(evt.message_id).await?;
+        let sender_name = resolver.user_name(evt.sender_id).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
             json!({
                 "id": evt.message_id,
                 "senderId": evt.sender_id,
+                "senderName": sender_name,
                 "recipientId": evt.recipient_id,
                 "content": evt.content,
                 "occurredAt": evt.occurred_at,
@@ -87,12 +89,14 @@ pub async fn dispatch(
     if ends_with(subject, ".message.sent") {
         let evt: ChannelMsgSent = serde_json::from_slice(payload)?;
         let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
+        let author_name = resolver.user_name(evt.author_id).await?;
         let envelope = Envelope::new(
             "message.sent",
             json!({
                 "id": evt.message_id,
                 "channelId": evt.channel_id,
                 "authorId": evt.author_id,
+                "authorName": author_name,
                 "content": evt.content,
                 "occurredAt": evt.occurred_at,
             }),
