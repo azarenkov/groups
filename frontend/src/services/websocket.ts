@@ -1,4 +1,25 @@
 import { useAuthStore } from "../store/authStore";
+import { ApiError } from "../utils/apiError";
+
+const SESSION_DEAD_CODES = new Set([
+  "REFRESH_TOKEN_REVOKED",
+  "REFRESH_TOKEN_EXPIRED",
+  "REFRESH_TOKEN_NOT_FOUND",
+  "REFRESH_TOKEN_USER_MISMATCH",
+  "SESSION_EXPIRED",
+  "INVALID_CREDENTIALS",
+  "TOKEN_INVALID_TYPE",
+  "TOKEN_DECODING_FAILED",
+  "USER_NOT_FOUND",
+  "VALIDATION_FAILED",
+]);
+
+function isSessionDead(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false;
+  if (err.code && SESSION_DEAD_CODES.has(err.code)) return true;
+  const s = err.status;
+  return s === 400 || s === 401 || s === 403 || s === 422;
+}
 
 export type WsEventType =
   | "dm_message.sent"
@@ -165,7 +186,13 @@ class WsClient {
       await authAPI.handleRefreshFlow({ logoutOnFailure: false });
       return !!useAuthStore.getState().tokens?.accessToken;
     } catch (err) {
-      console.warn("[ws] refresh on auth failure failed:", err);
+      if (isSessionDead(err)) {
+        console.warn("[ws] refresh definitively failed; signing out:", err);
+        this.wantOpen = false;
+        useAuthStore.getState().logout();
+      } else {
+        console.warn("[ws] refresh on auth failure failed (transient):", err);
+      }
       return false;
     } finally {
       this.refreshInProgress = false;

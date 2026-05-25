@@ -123,7 +123,16 @@ async fn fanout_loop(
             let snapshot: Vec<Connection> = slot.conns.clone();
             drop(slot);
             for c in &snapshot {
-                let _ = c.try_send(&payload).await;
+                if !c.try_send(&payload).await {
+                    tracing::warn!(
+                        %user_id,
+                        conn_id = %c.id,
+                        "Slow consumer outbound buffer full; dropping connection",
+                    );
+                    if let Some(mut entry) = by_user.get_mut(&user_id) {
+                        entry.conns.retain(|x| x.id != c.id);
+                    }
+                }
             }
         }
 

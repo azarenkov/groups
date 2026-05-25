@@ -130,8 +130,11 @@ async fn connection_task(
                 }
             }
 
-            Some(out) = rx.recv() => {
-                if session.text(out).await.is_err() {
+            out = rx.recv() => {
+                let Some(payload) = out else {
+                    break Some("backend channel closed");
+                };
+                if session.text(payload).await.is_err() {
                     break Some("send failed");
                 }
             }
