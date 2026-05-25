@@ -13,6 +13,7 @@ import AddFriendModal from "../components/AddFriendModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
@@ -48,6 +49,7 @@ interface ChannelOverride {
 const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
+  const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
   const [previewParticipants, setPreviewParticipants] = useState<
     ChannelParticipant[]
   >([]);
@@ -537,6 +539,39 @@ const ServersPage: React.FC = () => {
   const userName = user?.name || "You";
   const userStatus = "Online";
 
+  const voiceMembersByChannel: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      initials: string;
+      color: string;
+      isMuted?: boolean;
+      isSharingScreen?: boolean;
+    }[]
+  > = React.useMemo(() => {
+    const out: Record<
+      string,
+      {
+        id: string;
+        name: string;
+        initials: string;
+        color: string;
+        isMuted?: boolean;
+        isSharingScreen?: boolean;
+      }[]
+    > = {};
+    for (const [channelId, members] of Object.entries(voicePresenceByChannel)) {
+      out[channelId] = members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        initials: initialFor(m.name),
+        color: colorForId(m.id),
+      }));
+    }
+    return out;
+  }, [voicePresenceByChannel]);
+
   const winTitle = selectedDm
     ? selectedDm.name
     : joinedChannel
@@ -588,6 +623,7 @@ const ServersPage: React.FC = () => {
                 ]
               : []
           }
+          voiceMembersByChannel={voiceMembersByChannel}
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
           pendingCount={pendingCount}

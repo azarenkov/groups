@@ -37,6 +37,17 @@ interface SidebarProps {
     isMuted?: boolean;
     isSharingScreen?: boolean;
   }[];
+  voiceMembersByChannel?: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      initials: string;
+      color: string;
+      isMuted?: boolean;
+      isSharingScreen?: boolean;
+    }[]
+  >;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
 }
@@ -66,6 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentUserName,
   currentUserStatus,
   voiceMembers,
+  voiceMembersByChannel,
   searchQuery,
   onSearchQueryChange,
 }) => {
@@ -439,11 +451,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </div>
                       {channel.kind === "voice" &&
-                        joinedChannelId === channel.id &&
-                        voiceMembers &&
-                        voiceMembers.length > 0 && (
-                          <div className="sb-voice-members">
-                            {voiceMembers.map((m) => (
+                        (() => {
+                          const membersForChannel =
+                            joinedChannelId === channel.id && voiceMembers
+                              ? voiceMembers
+                              : voiceMembersByChannel?.[channel.id];
+                          if (!membersForChannel || membersForChannel.length === 0)
+                            return null;
+                          return (
+                            <div className="sb-voice-members">
+                              {membersForChannel.map((m) => (
                               <div key={m.id} className="sb-voice-member">
                                 <span
                                   className="sb-voice-member-ava"
@@ -472,8 +489,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                               </div>
                             ))}
-                          </div>
-                        )}
+                            </div>
+                          );
+                        })()}
                     </React.Fragment>
                   ))}
                 </>

@@ -188,12 +188,14 @@ pub async fn dispatch(
     if ends_with(subject, ".channel.participant.joined") {
         let evt: ParticipantSimple = serde_json::from_slice(payload)?;
         let recipients = resolver.server_members(evt.server_id).await?;
+        let user_name = resolver.user_name(evt.user_id).await?;
         let envelope = Envelope::new(
             "channel.participant.joined",
             json!({
                 "channelId": evt.channel_id,
                 "serverId": evt.server_id,
                 "userId": evt.user_id,
+                "userName": user_name,
                 "occurredAt": evt.occurred_at,
             }),
         );

@@ -2,6 +2,7 @@ import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
 
@@ -67,6 +68,7 @@ function dispatch(env: WsEnvelope) {
       const serverId = asString(d.serverId);
       if (!id || !serverId) return;
       useChannelStore.getState().removeChannel(serverId, id);
+      useVoicePresenceStore.getState().clearChannel(id);
       return;
     }
 
@@ -83,6 +85,26 @@ function dispatch(env: WsEnvelope) {
     case "friendship.requestAccepted":
     case "friendship.removed": {
       void useFriendshipStore.getState().fetchFriends();
+      return;
+    }
+
+    case "channel.participant.joined": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const userName = asString(d.userName) ?? userId;
+      useVoicePresenceStore
+        .getState()
+        .addMember(channelId, { id: userId, name: userName });
+      return;
+    }
+
+    case "channel.participant.left":
+    case "channel.participant.connectionAborted": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      useVoicePresenceStore.getState().removeMember(channelId, userId);
       return;
     }
 
