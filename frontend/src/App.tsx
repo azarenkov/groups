@@ -39,21 +39,24 @@ const App: React.FC = () => {
     const ready = isAuthenticated && !hasUnverifiedSession && hasAccessToken;
     if (ready) {
       ws.connect();
+      let cancelled = false;
       void (async () => {
         try {
           const { userAPI } = await import("./api/user");
           const { useUnreadStore } = await import("./store/unreadStore");
           const u = await userAPI.getUnread();
+          if (cancelled) return;
           const channels: Record<string, number> = {};
           for (const c of u.channels) channels[c.channelId] = c.count;
           const dms: Record<string, number> = {};
           for (const d of u.dms) dms[d.friendId] = d.count;
           useUnreadStore.getState().setAll(channels, dms);
         } catch (err) {
-          console.warn("[App] failed to load unread counts:", err);
+          if (!cancelled) console.warn("[App] failed to load unread counts:", err);
         }
       })();
       return () => {
+        cancelled = true;
         ws.disconnect();
       };
     }

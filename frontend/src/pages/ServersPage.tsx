@@ -237,6 +237,7 @@ const ServersPage: React.FC = () => {
     return ws.onOpen(() => {
       presenceSyncedRef.current.clear();
       useVoicePresenceStore.getState().clearAll();
+      usePresenceStore.getState().clearAll();
       setPresenceSyncTick((n) => n + 1);
     });
   }, []);
