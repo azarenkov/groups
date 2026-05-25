@@ -52,7 +52,7 @@ export class LiveKitService {
     HTMLMediaElement,
     { source: MediaElementAudioSourceNode; gain: GainNode; identity: string }
   > = new WeakMap();
-  private static readonly REMOTE_GAIN_MAX = 3.0;
+  private static readonly REMOTE_GAIN_MAX = 6.0;
   private noiseStrength: number = 1.0;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
