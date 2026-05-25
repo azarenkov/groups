@@ -278,6 +278,17 @@ select:focus-visible {
   pointer-events: none;
 }
 
+.sb-server-unread {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .sb-item.unread .sb-label { font-weight: 600; }
 .sb-item.unread:not(.active) .sb-label::before {
   content: "";

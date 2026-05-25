@@ -302,6 +302,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           const isCol = isFiltering ? false : !expandedServerIds.has(server.id);
           const channels = visibleChannelsFor(server.id);
           const accent = server.accentColor ?? colorForId(server.id);
+          const allServerChannels = channelsByServer[server.id] || [];
+          const serverUnread = allServerChannels
+            .filter((c) => c.kind === "text")
+            .reduce((sum, c) => sum + (unreadByChannel[c.id] ?? 0), 0);
           return (
             <div key={server.id}>
               <div
@@ -334,6 +338,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  {serverUnread > 0 && (
+                    <span className="sb-server-unread">{serverUnread}</span>
+                  )}
                   {!isCol && (
                     <>
                       <button
@@ -427,7 +434,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                           "sb-item" +
                           (selectedChannelId === channel.id ? " active" : "") +
                           (joinedChannelId === channel.id ? " in-voice" : "") +
-                          ((unreadByChannel[channel.id] ?? 0) > 0
+                          (channel.kind === "text" &&
+                          (unreadByChannel[channel.id] ?? 0) > 0
                             ? " unread"
                             : "")
                         }
@@ -450,20 +458,25 @@ const Sidebar: React.FC<SidebarProps> = ({
                           />
                         </span>
                         <span className="sb-label">{channel.name}</span>
-                        {(unreadByChannel[channel.id] ?? 0) > 0 && (
-                          <span className="meta">
-                            {unreadByChannel[channel.id]}
-                          </span>
-                        )}
+                        {channel.kind === "text" &&
+                          (unreadByChannel[channel.id] ?? 0) > 0 && (
+                            <span className="meta">
+                              {unreadByChannel[channel.id]}
+                            </span>
+                          )}
+                        {channel.kind === "voice" &&
+                          (voiceMembersByChannel?.[channel.id]?.length ?? 0) >
+                            0 && (
+                            <span className="meta">
+                              {voiceMembersByChannel?.[channel.id]?.length}
+                            </span>
+                          )}
                         {channel.visibility === "private" && (
                           <span className="lock">
                             <Icon name="lock" size={11} />
                           </span>
                         )}
-                        {(joinedChannelId === channel.id ||
-                          (channel.kind === "voice" &&
-                            (voiceMembersByChannel?.[channel.id]?.length ?? 0) >
-                              0)) && (
+                        {joinedChannelId === channel.id && (
                           <span className="sb-live-dot" aria-hidden="true" />
                         )}
                       </div>
