@@ -58,6 +58,7 @@ type Listener = (env: WsEnvelope) => void;
 const RECONNECT_MIN_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
 const HEARTBEAT_MS = 25_000;
+const REFRESH_MIN_INTERVAL_MS = 60_000;
 
 function defaultEndpoint(): string {
   const envUrl = process.env.REACT_APP_WS_URL;
@@ -81,6 +82,7 @@ class WsClient {
   private reconnectTimer: number | null = null;
   private heartbeatTimer: number | null = null;
   private refreshInProgress = false;
+  private lastRefreshAttemptAt = 0;
   private openListeners = new Set<() => void>();
 
   constructor(endpoint: string = defaultEndpoint()) {
@@ -179,11 +181,19 @@ class WsClient {
 
       const handshakeFailed = !openedOnce;
       const explicitAuthCode = this.isAuthFailure(ev.code);
-      if (handshakeFailed || explicitAuthCode) {
+      const now = Date.now();
+      const refreshThrottled =
+        now - this.lastRefreshAttemptAt < REFRESH_MIN_INTERVAL_MS;
+      const shouldRefresh =
+        explicitAuthCode || (handshakeFailed && !refreshThrottled);
+      if (shouldRefresh) {
+        this.lastRefreshAttemptAt = now;
         if (await this.tryRefresh()) {
+          if (!this.wantOpen) return;
           this.openSocket();
           return;
         }
+        if (!this.wantOpen) return;
       }
       this.scheduleReconnect();
     };
