@@ -80,6 +80,24 @@ class UserAPI {
   async markDmRead(friendId: string): Promise<void> {
     await this.client.post(`/v1/dms/${friendId}/read`);
   }
+
+  async setAppearOffline(appearOffline: boolean): Promise<void> {
+    const base =
+      process.env.REACT_APP_WS_PRESENCE_URL ||
+      (process.env.REACT_APP_API_URL || "http://localhost:8080/api").replace(
+        /\/api$/,
+        "",
+      );
+    const token = useAuthStore.getState().tokens?.accessToken;
+    await fetch(`${base}/presence`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ appearOffline }),
+    });
+  }
 }
 
 export const userAPI = new UserAPI();

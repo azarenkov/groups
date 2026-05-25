@@ -619,7 +619,27 @@ const ServersPage: React.FC = () => {
   };
 
   const userName = user?.name || "You";
-  const userStatus = "Online";
+  const [appearOffline, setAppearOfflineState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("rift:appearOffline") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const userStatus = appearOffline ? "Offline" : "Online";
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    userAPI.setAppearOffline(appearOffline).catch((err) => {
+      console.warn("[presence] setAppearOffline failed:", err);
+    });
+  }, [appearOffline, tokens?.accessToken]);
+  const handleSetStatus = useCallback((status: "online" | "offline") => {
+    const next = status === "offline";
+    setAppearOfflineState(next);
+    try {
+      localStorage.setItem("rift:appearOffline", next ? "1" : "0");
+    } catch {}
+  }, []);
 
   const voiceMembersByChannel: Record<
     string,
@@ -743,6 +763,7 @@ const ServersPage: React.FC = () => {
           onSearchQueryChange={setSidebarQuery}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
+          onSetStatus={handleSetStatus}
         />
 
         <main className="main">

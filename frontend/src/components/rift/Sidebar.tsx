@@ -52,6 +52,7 @@ interface SidebarProps {
   onSearchQueryChange: (value: string) => void;
   unreadByChannel?: Record<string, number>;
   unreadByDm?: Record<string, number>;
+  onSetStatus?: (status: "online" | "offline") => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -84,6 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearchQueryChange,
   unreadByChannel = {},
   unreadByDm = {},
+  onSetStatus,
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
@@ -110,6 +112,29 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [menuServerId]);
 
   const directsCollapsed = !!collapsed["__directs"];
+
+  const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
+  const statusMenuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!statusMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        statusMenuRef.current &&
+        !statusMenuRef.current.contains(e.target as Node)
+      ) {
+        setStatusMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setStatusMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [statusMenuOpen]);
 
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
@@ -560,13 +585,55 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="sb-footer">
         <div className="user-pill">
-          <div className="ava">
+          <div
+            className="ava"
+            style={
+              currentUserId
+                ? { background: colorForId(currentUserId) }
+                : undefined
+            }
+          >
             {currentUserName.charAt(0).toUpperCase()}
-            <span className="dot" />
+            <span
+              className={
+                "dot" + (currentUserStatus === "Offline" ? " offline" : "")
+              }
+            />
           </div>
-          <div className="info">
+          <div
+            className="info"
+            ref={statusMenuRef}
+            style={{ position: "relative", cursor: "pointer" }}
+            onClick={() => setStatusMenuOpen((v) => !v)}
+          >
             <div className="n">{currentUserName}</div>
             <div className="s">{currentUserStatus}</div>
+            {statusMenuOpen && onSetStatus && (
+              <div className="sb-status-menu" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="sb-status-menu-item"
+                  onClick={() => {
+                    onSetStatus("online");
+                    setStatusMenuOpen(false);
+                  }}
+                >
+                  <span className="sb-status-dot online" />
+                  <span>Online</span>
+                </button>
+                <button
+                  type="button"
+                  className="sb-status-menu-item"
+                  onClick={() => {
+                    onSetStatus("offline");
+                    setStatusMenuOpen(false);
+                  }}
+                >
+                  <span className="sb-status-dot offline" />
+                  <span>Offline</span>
+                </button>
+              </div>
+            )}
           </div>
           <button type="button" className="icon-btn" title="Settings" onClick={onOpenSettings}>
             <Icon name="settings" size={14} />

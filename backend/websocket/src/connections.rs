@@ -42,6 +42,7 @@ pub struct ConnectionManager {
     user_subject_prefix: String,
     presence_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
+    appear_offline: Arc<DashMap<Uuid, ()>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -62,6 +63,43 @@ impl ConnectionManager {
             user_subject_prefix,
             presence_subject,
             online_snapshot: Arc::new(DashMap::new()),
+            appear_offline: Arc::new(DashMap::new()),
+        }
+    }
+
+    pub fn has_active_conns(&self, user_id: Uuid) -> bool {
+        self.by_user
+            .get(&user_id)
+            .map(|s| !s.conns.is_empty())
+            .unwrap_or(false)
+    }
+
+    pub async fn set_appear_offline(&self, user_id: Uuid, appear_offline: bool) {
+        let was_offline = self.appear_offline.contains_key(&user_id);
+        if appear_offline {
+            self.appear_offline.insert(user_id, ());
+        } else {
+            self.appear_offline.remove(&user_id);
+        }
+        let state_changed = was_offline != appear_offline;
+        if !state_changed {
+            return;
+        }
+        if !self.has_active_conns(user_id) {
+            return;
+        }
+        let online_now = !appear_offline;
+        let payload = serde_json::to_string(&PresencePayload {
+            user_id,
+            online: online_now,
+        })
+        .unwrap_or_default();
+        if let Err(e) = self
+            .core
+            .publish(self.presence_subject.clone(), payload.into())
+            .await
+        {
+            tracing::warn!(error = %e, %user_id, "Failed to publish presence preference change");
         }
     }
 
@@ -154,7 +192,7 @@ impl ConnectionManager {
             let _ = snapshot_conn.try_send(&env).await;
         }
 
-        if was_first_for_user {
+        if was_first_for_user && !self.appear_offline.contains_key(&user_id) {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: true,
@@ -186,7 +224,7 @@ impl ConnectionManager {
                 false
             }
         };
-        if removed_last {
+        if removed_last && !self.appear_offline.contains_key(&user_id) {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: false,

@@ -15,7 +15,7 @@ mod ws;
 use crate::{
     config::WebsocketConfig,
     connections::ConnectionManager,
-    ws::{WsState, ws_handler},
+    ws::{WsState, presence_preference, ws_handler},
 };
 
 #[actix_web::main]
@@ -62,6 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let bind_address = cfg.bind_address.clone();
     let server = HttpServer::new(move || {
         App::new()
+            .service(presence_preference)
             .app_data(ws_state.clone())
             .service(ws_handler)
     })
