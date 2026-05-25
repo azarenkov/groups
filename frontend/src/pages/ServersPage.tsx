@@ -58,16 +58,6 @@ const ServersPage: React.FC = () => {
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
   const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
-  useEffect(() => {
-    if (selectedDm) {
-      setActiveChatView({ kind: "dm", id: selectedDm.id });
-    } else if (selectedChannelId) {
-      setActiveChatView({ kind: "channel", id: selectedChannelId });
-    } else {
-      setActiveChatView(null);
-    }
-    return () => setActiveChatView(null);
-  }, [selectedChannelId, selectedDm]);
   const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -166,6 +156,16 @@ const ServersPage: React.FC = () => {
     channel: Channel;
   } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
+  useEffect(() => {
+    if (selectedDm) {
+      setActiveChatView({ kind: "dm", id: selectedDm.id });
+    } else if (selectedChannelId) {
+      setActiveChatView({ kind: "channel", id: selectedChannelId });
+    } else {
+      setActiveChatView(null);
+    }
+    return () => setActiveChatView(null);
+  }, [selectedChannelId, selectedDm]);
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
   );

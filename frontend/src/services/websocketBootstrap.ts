@@ -5,6 +5,8 @@ import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { useAuthStore } from "../store/authStore";
+import type { Server } from "../types/server";
+import type { Channel } from "../types/channel";
 
 let activeChannelView: string | null = null;
 let activeDmView: string | null = null;
@@ -16,8 +18,6 @@ export function setActiveChatView(view:
   activeChannelView = view?.kind === "channel" ? view.id : null;
   activeDmView = view?.kind === "dm" ? view.id : null;
 }
-import type { Server } from "../types/server";
-import type { Channel } from "../types/channel";
 
 let installed = false;
 
