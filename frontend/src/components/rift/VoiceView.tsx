@@ -11,6 +11,7 @@ import {
   qualityLabel,
 } from "../../utils/quality";
 import { colorForId, initialFor } from "../../utils/avatar";
+import { useVoicePresenceStore } from "../../store/voicePresenceStore";
 
 const initials = initialFor;
 
@@ -287,7 +288,14 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     };
   }, [isMuted, isConnected, trackId, localTrack]);
 
-  const totalConnected = isConnected ? participants.length + 1 : 0;
+  const presenceForChannel = useVoicePresenceStore(
+    (s) => s.byChannel[channelId],
+  );
+  const livekitCount = participants.length + 1;
+  const presenceCount = presenceForChannel?.length ?? 0;
+  const totalConnected = isConnected
+    ? Math.max(livekitCount, presenceCount)
+    : 0;
 
   if (!mountPoint) return null;
 

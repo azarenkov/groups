@@ -741,20 +741,44 @@ const ServersPage: React.FC = () => {
                   </div>
                 </header>
                 {(() => {
-                  const tiles = [
+                  const tilesById = new Map<
+                    string,
                     {
-                      id: user?.id || "you",
-                      name: userName || "You",
-                      initials: initialFor(userName),
-                      color: colorForId(user?.id || "you"),
-                    },
-                    ...voiceParticipants.map((p) => ({
+                      id: string;
+                      name: string;
+                      initials: string;
+                      color: string;
+                    }
+                  >();
+                  const selfId = user?.id || "you";
+                  tilesById.set(selfId, {
+                    id: selfId,
+                    name: userName || "You",
+                    initials: initialFor(userName),
+                    color: colorForId(selfId),
+                  });
+                  const presenceMembers = joinedChannel
+                    ? voicePresenceByChannel[joinedChannel.channel.id] || []
+                    : [];
+                  for (const m of presenceMembers) {
+                    if (tilesById.has(m.id)) continue;
+                    tilesById.set(m.id, {
+                      id: m.id,
+                      name: m.name,
+                      initials: initialFor(m.name),
+                      color: colorForId(m.id),
+                    });
+                  }
+                  for (const p of voiceParticipants) {
+                    if (tilesById.has(p.identity)) continue;
+                    tilesById.set(p.identity, {
                       id: p.identity,
                       name: p.name || p.identity,
                       initials: initialFor(p.name || p.identity),
                       color: colorForId(p.identity),
-                    })),
-                  ];
+                    });
+                  }
+                  const tiles = Array.from(tilesById.values());
                   const cols =
                     tiles.length === 1
                       ? 1
