@@ -9,6 +9,8 @@ use serde_json::json;
 use tokio::{sync::mpsc, task::JoinHandle};
 use uuid::Uuid;
 
+use crate::presence_recipients::PresenceRecipientResolver;
+
 #[derive(Clone)]
 pub struct Connection {
     pub id: Uuid,
@@ -44,6 +46,7 @@ pub struct ConnectionManager {
     presence_preference_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
     appear_offline: Arc<DashMap<Uuid, ()>>,
+    presence_resolver: PresenceRecipientResolver,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -65,6 +68,7 @@ impl ConnectionManager {
         user_subject_prefix: String,
         presence_subject: String,
         presence_preference_subject: String,
+        presence_resolver: PresenceRecipientResolver,
     ) -> Self {
         Self {
             by_user: Arc::new(DashMap::new()),
@@ -74,6 +78,7 @@ impl ConnectionManager {
             presence_preference_subject,
             online_snapshot: Arc::new(DashMap::new()),
             appear_offline: Arc::new(DashMap::new()),
+            presence_resolver,
         }
     }
 
@@ -172,6 +177,7 @@ impl ConnectionManager {
         let appear_offline = self.appear_offline.clone();
         let core = self.core.clone();
         let presence_subject = self.presence_subject.clone();
+        let resolver = self.presence_resolver.clone();
         tokio::spawn(async move {
             while let Some(msg) = sub.next().await {
                 let payload: PresencePayload = match serde_json::from_slice(&msg.payload) {
@@ -221,10 +227,24 @@ impl ConnectionManager {
                 let Ok(text) = envelope else {
                     continue;
                 };
-                for entry in by_user.iter() {
-                    let snapshot: Vec<Connection> = entry.conns.clone();
-                    for c in &snapshot {
-                        let _ = c.try_send(&text).await;
+                let interested = match resolver.interested_in(payload.user_id).await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        tracing::warn!(
+                            error = %e,
+                            user_id = %payload.user_id,
+                            "Failed to resolve presence recipients; skipping fanout",
+                        );
+                        continue;
+                    }
+                };
+                for recipient in interested {
+                    if let Some(slot) = by_user.get(&recipient) {
+                        let snapshot: Vec<Connection> = slot.conns.clone();
+                        drop(slot);
+                        for c in &snapshot {
+                            let _ = c.try_send(&text).await;
+                        }
                     }
                 }
             }
@@ -279,14 +299,22 @@ impl ConnectionManager {
             }
         };
 
-        for entry in self.online_snapshot.iter() {
-            let other_id = *entry.key();
-            let env = serde_json::to_string(&json!({
-                "type": "user.online",
-                "data": { "userId": other_id },
-            }))
-            .unwrap_or_default();
-            let _ = snapshot_conn.try_send(&env).await;
+        let interested = match self.presence_resolver.interested_in(user_id).await {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, "Failed to resolve presence snapshot recipients");
+                Vec::new()
+            }
+        };
+        for other_id in interested {
+            if self.online_snapshot.contains_key(&other_id) {
+                let env = serde_json::to_string(&json!({
+                    "type": "user.online",
+                    "data": { "userId": other_id },
+                }))
+                .unwrap_or_default();
+                let _ = snapshot_conn.try_send(&env).await;
+            }
         }
 
         if was_first_for_user && !self.appear_offline.contains_key(&user_id) {

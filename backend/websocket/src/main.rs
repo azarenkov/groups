@@ -3,7 +3,8 @@ use std::error::Error;
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use infrastructure::{
-    config::nats::NatsConfig,
+    config::{nats::NatsConfig, postgres::PostgresConfig},
+    database::postgres::connection::create_postgres_pool,
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
 use shared::health::{self, Readiness};
@@ -11,11 +12,13 @@ use tokio::signal;
 
 mod config;
 mod connections;
+mod presence_recipients;
 mod ws;
 
 use crate::{
     config::WebsocketConfig,
     connections::ConnectionManager,
+    presence_recipients::PresenceRecipientResolver,
     ws::{WsState, presence_preference, ws_handler},
 };
 
@@ -25,8 +28,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let cfg = WebsocketConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
+    let pg_cfg = PostgresConfig::from_env()?;
 
     let jetstream = create_jetstream(&nats_cfg).await?;
+    let pg_pool = create_postgres_pool(pg_cfg).await?;
+    let presence_resolver = PresenceRecipientResolver::new(pg_pool);
 
     let core = jetstream.client().clone();
     let prefix = nats_cfg.subject_prefix.trim_end_matches('.');
@@ -39,6 +45,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         user_subject_prefix,
         presence_subject,
         presence_preference_subject,
+        presence_resolver,
     );
     manager.start_presence_subscription().await.map_err(|e| {
         tracing::error!(error = %e, "Failed to subscribe to presence subject");
