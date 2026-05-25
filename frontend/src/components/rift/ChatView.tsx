@@ -12,6 +12,15 @@ import {
   useWsDmMessages,
 } from "../../services/useWebSocketMessages";
 
+const mergeWithLive = (
+  history: ChannelMessage[],
+  prev: ChannelMessage[],
+): ChannelMessage[] => {
+  const ids = new Set(history.map((m) => m.id));
+  const extras = prev.filter((m) => !ids.has(m.id));
+  return extras.length === 0 ? history : [...history, ...extras];
+};
+
 const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
@@ -302,7 +311,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       .then((res) => {
         if (cancelled) return;
         const ordered = [...res.messages].reverse();
-        setMessages(ordered);
+        setMessages((prev) => mergeWithLive(ordered, prev));
         setHasMore(res.messages.length >= PAGE_LIMIT);
       })
       .catch((err) => {
@@ -404,7 +413,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     try {
       const res = await messenger.listMessages({ limit: PAGE_LIMIT });
       const ordered = [...res.messages].reverse();
-      setMessages(ordered);
+      setMessages((prev) => mergeWithLive(ordered, prev));
       setHasMore(res.messages.length >= PAGE_LIMIT);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
@@ -483,7 +492,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       const combined = [...older, target, ...newer];
       loadedChannelIdRef.current = targetId;
       skipNextAutoScrollRef.current = true;
-      setMessages(combined);
+      setMessages((prev) => mergeWithLive(combined, prev));
       setHasMore(olderRes.messages.length >= 25);
       setHighlightedMessageId(target.id);
     } catch (err) {
