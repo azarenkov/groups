@@ -291,6 +291,38 @@ select:focus-visible {
   50%      { opacity: 1;    transform: scale(1.1); }
 }
 
+.user-pill-info-btn {
+  position: relative;
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: center;
+  padding: 4px 8px;
+  margin: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background 0.15s ease;
+}
+.user-pill-info-btn:hover,
+.user-pill-info-btn.open {
+  background: var(--surface-hover);
+}
+.user-pill-info-btn .n { font-size: 13px; font-weight: 500; color: var(--fg-1); }
+.user-pill-info-btn .s {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--fg-3);
+}
+.user-pill-chev {
+  transition: transform 0.15s ease;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+.user-pill-chev.up { transform: rotate(180deg); }
+
 .sb-status-menu {
   position: absolute;
   left: 0; bottom: calc(100% + 6px);

@@ -114,7 +114,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const directsCollapsed = !!collapsed["__directs"];
 
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
-  const statusMenuRef = React.useRef<HTMLDivElement>(null);
+  const statusMenuRef = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
     if (!statusMenuOpen) return;
     const onDoc = (e: MouseEvent) => {
@@ -600,14 +600,31 @@ const Sidebar: React.FC<SidebarProps> = ({
               }
             />
           </div>
-          <div
-            className="info"
+          <button
+            type="button"
+            className={
+              "info user-pill-info-btn" +
+              (statusMenuOpen ? " open" : "")
+            }
             ref={statusMenuRef}
-            style={{ position: "relative", cursor: "pointer" }}
+            title="Change status"
             onClick={() => setStatusMenuOpen((v) => !v)}
           >
             <div className="n">{currentUserName}</div>
-            <div className="s">{currentUserStatus}</div>
+            <div className="s">
+              <span
+                className={
+                  "sb-status-dot " +
+                  (currentUserStatus === "Offline" ? "offline" : "online")
+                }
+              />
+              <span>{currentUserStatus}</span>
+              <Icon
+                name="chev"
+                size={10}
+                className={"user-pill-chev" + (statusMenuOpen ? " up" : "")}
+              />
+            </div>
             {statusMenuOpen && onSetStatus && (
               <div className="sb-status-menu" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -634,7 +651,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               </div>
             )}
-          </div>
+          </button>
           <button type="button" className="icon-btn" title="Settings" onClick={onOpenSettings}>
             <Icon name="settings" size={14} />
           </button>
