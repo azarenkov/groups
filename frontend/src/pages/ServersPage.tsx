@@ -632,7 +632,6 @@ const ServersPage: React.FC = () => {
                     name: p.name || p.identity,
                     initials: initialFor(p.name || p.identity),
                     color: colorForId(p.identity),
-                    isMuted: p.isMuted,
                     isSharingScreen: p.isSharingScreen,
                   })),
                 ]
