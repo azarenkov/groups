@@ -52,6 +52,28 @@ const ServersPage: React.FC = () => {
   const voiceParticipants = useParticipants();
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
   const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
+  const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
+  const volumePopoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openVolumeFor) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        volumePopoverRef.current &&
+        !volumePopoverRef.current.contains(e.target as Node)
+      ) {
+        setOpenVolumeFor(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenVolumeFor(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [openVolumeFor]);
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -813,46 +835,66 @@ const ServersPage: React.FC = () => {
                               </div>
                               <div className="voice-tile-name">{t.name}</div>
                               {!isSelf && (
-                                <div
-                                  className="voice-tile-volume"
-                                  title={`Volume ${vol}%`}
-                                >
-                                  <Icon
-                                    name={
-                                      vol === 0
-                                        ? "speaker-off"
-                                        : vol < 40
-                                          ? "speaker-lo"
-                                          : "speaker-hi"
+                                <div className="voice-tile-volume-wrap">
+                                  <button
+                                    type="button"
+                                    className={
+                                      "voice-tile-volume-btn" +
+                                      (openVolumeFor === t.id ? " on" : "")
                                     }
-                                    size={14}
-                                  />
-                                  <input
-                                    type="range"
-                                    min={0}
-                                    max={200}
-                                    step={1}
-                                    value={vol}
-                                    onChange={(e) => {
-                                      const v = Number(e.target.value);
-                                      setTileVolumes((prev) => ({
-                                        ...prev,
-                                        [t.id]: v,
-                                      }));
-                                      getLiveKitService().setRemoteVolume(
-                                        t.id,
-                                        v / 100,
+                                    title={`Volume ${vol}%`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenVolumeFor((prev) =>
+                                        prev === t.id ? null : t.id,
                                       );
                                     }}
-                                    style={
-                                      {
-                                        ["--pct" as unknown as string]: `${vol / 2}%`,
-                                      } as React.CSSProperties
-                                    }
-                                  />
-                                  <span className="voice-tile-volume-pct">
-                                    {vol}%
-                                  </span>
+                                  >
+                                    <Icon
+                                      name={
+                                        vol === 0
+                                          ? "speaker-off"
+                                          : vol < 40
+                                            ? "speaker-lo"
+                                            : "speaker-hi"
+                                      }
+                                      size={14}
+                                    />
+                                  </button>
+                                  {openVolumeFor === t.id && (
+                                    <div
+                                      className="voice-tile-volume-pop"
+                                      ref={volumePopoverRef}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                      <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        value={vol}
+                                        onChange={(e) => {
+                                          const v = Number(e.target.value);
+                                          setTileVolumes((prev) => ({
+                                            ...prev,
+                                            [t.id]: v,
+                                          }));
+                                          getLiveKitService().setRemoteVolume(
+                                            t.id,
+                                            v / 100,
+                                          );
+                                        }}
+                                        style={
+                                          {
+                                            ["--pct" as unknown as string]: `${vol}%`,
+                                          } as React.CSSProperties
+                                        }
+                                      />
+                                      <span className="voice-tile-volume-pct">
+                                        {vol}%
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
