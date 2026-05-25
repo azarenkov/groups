@@ -50,9 +50,6 @@ const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
-  const [previewParticipants, setPreviewParticipants] = useState<
-    ChannelParticipant[]
-  >([]);
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -304,29 +301,12 @@ const ServersPage: React.FC = () => {
         ) ?? null
       : null;
 
-  useEffect(() => {
-    if (!selectedVoiceChannelNotJoined || !selectedServer) {
-      setPreviewParticipants([]);
-      return;
-    }
-    const serverId = selectedServer.id;
-    const channelId = selectedVoiceChannelNotJoined.id;
-    let cancelled = false;
-    channelAPI
-      .listParticipants(serverId, channelId)
-      .then((res) => {
-        if (!cancelled) setPreviewParticipants(res.participants);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.warn("[ServersPage] failed to load participants:", err);
-          setPreviewParticipants([]);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedVoiceChannelNotJoined, selectedServer]);
+  const previewParticipants: ChannelParticipant[] = React.useMemo(() => {
+    if (!selectedVoiceChannelNotJoined) return [];
+    const members =
+      voicePresenceByChannel[selectedVoiceChannelNotJoined.id] || [];
+    return members.map((m) => ({ id: m.id, name: m.name }));
+  }, [selectedVoiceChannelNotJoined, voicePresenceByChannel]);
 
   const selectedServerChannels = selectedServer
     ? channelsByServer[selectedServer.id]
