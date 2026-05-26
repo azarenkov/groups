@@ -321,7 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         <div
           className="sb-section-head static"
-          style={{ padding: "4px 8px 0", cursor: "default" }}
+          style={{ padding: "10px 8px 0", cursor: "default" }}
         >
           <span>{t("servers")}</span>
         </div>
