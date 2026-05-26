@@ -55,7 +55,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Duration::from_secs(pooler_config.livekit_pooler_grace_secs),
         Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs),
         pooler_config.livekit_pooler_max_aborts_per_pass,
-        pooler_config.livekit_pooler_offline_threshold_passes,
     ));
 
     let interval = Duration::from_secs(pooler_config.livekit_pooler_interval_secs);
@@ -65,7 +64,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         grace_secs = pooler_config.livekit_pooler_grace_secs,
         request_timeout_secs = pooler_config.livekit_pooler_request_timeout_secs,
         max_aborts_per_pass = pooler_config.livekit_pooler_max_aborts_per_pass,
-        offline_threshold_passes = pooler_config.livekit_pooler_offline_threshold_passes,
         "LiveKit pooler started",
     );
 

@@ -26,9 +26,9 @@ impl NatsConfig {
 }
 
 fn default_hot_max_bytes() -> i64 {
-    1024 * 1024 * 1024
+    50 * 1024 * 1024 * 1024
 }
 
 fn default_cold_max_bytes() -> i64 {
-    256 * 1024 * 1024
+    10 * 1024 * 1024 * 1024
 }
