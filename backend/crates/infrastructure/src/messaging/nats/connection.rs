@@ -2,18 +2,26 @@ use std::{error::Error, time::Duration};
 
 use async_nats::{
     connection::State,
-    jetstream::{self, Context},
+    jetstream::{self, Context, ErrorCode, context::GetStreamErrorKind},
 };
+
+const STREAM_NOT_FOUND_CODE: ErrorCode = ErrorCode(10059);
 
 use crate::config::nats::NatsConfig;
 
 const DUPLICATE_WINDOW_SECS: u64 = 60 * 10;
 
+#[derive(Clone, Copy)]
+enum StreamTier {
+    Hot,
+    Cold,
+}
+
 struct StreamDef {
     name: &'static str,
     subject_suffix: &'static str,
     max_age_secs: u64,
-    max_bytes: i64,
+    tier: StreamTier,
 }
 
 const STREAMS: &[StreamDef] = &[
@@ -21,37 +29,37 @@ const STREAMS: &[StreamDef] = &[
         name: "RIFT_USER_EVENTS",
         subject_suffix: "user.>",
         max_age_secs: 60 * 60 * 24 * 365,
-        max_bytes: 50 * 1024 * 1024 * 1024,
+        tier: StreamTier::Hot,
     },
     StreamDef {
         name: "RIFT_CHANNEL_EVENTS",
         subject_suffix: "channel.>",
         max_age_secs: 60 * 60 * 24 * 30,
-        max_bytes: 50 * 1024 * 1024 * 1024,
+        tier: StreamTier::Hot,
     },
     StreamDef {
         name: "RIFT_MESSAGE_EVENTS",
         subject_suffix: "message.>",
         max_age_secs: 60 * 60 * 24 * 30,
-        max_bytes: 50 * 1024 * 1024 * 1024,
+        tier: StreamTier::Hot,
     },
     StreamDef {
         name: "RIFT_DM_MESSAGE_EVENTS",
         subject_suffix: "dm_message.>",
         max_age_secs: 60 * 60 * 24 * 30,
-        max_bytes: 50 * 1024 * 1024 * 1024,
+        tier: StreamTier::Hot,
     },
     StreamDef {
         name: "RIFT_SERVER_EVENTS",
         subject_suffix: "server.>",
         max_age_secs: 60 * 60 * 24 * 180,
-        max_bytes: 10 * 1024 * 1024 * 1024,
+        tier: StreamTier::Cold,
     },
     StreamDef {
         name: "RIFT_DLQ",
         subject_suffix: "dlq.>",
         max_age_secs: 60 * 60 * 24 * 90,
-        max_bytes: 10 * 1024 * 1024 * 1024,
+        tier: StreamTier::Cold,
     },
 ];
 
@@ -70,24 +78,52 @@ async fn initialize_streams(
 ) -> Result<(), Box<dyn Error>> {
     for def in STREAMS {
         let subject_pattern = format!("{}.{}", config.subject_prefix, def.subject_suffix);
+        let max_bytes = match def.tier {
+            StreamTier::Hot => config.stream_hot_max_bytes,
+            StreamTier::Cold => config.stream_cold_max_bytes,
+        };
+        let stream_config = jetstream::stream::Config {
+            name: def.name.to_string(),
+            subjects: vec![subject_pattern],
+            storage: jetstream::stream::StorageType::File,
+            max_age: Duration::from_secs(def.max_age_secs),
+            max_bytes,
+            duplicate_window: Duration::from_secs(DUPLICATE_WINDOW_SECS),
+            discard: jetstream::stream::DiscardPolicy::Old,
+            compression: Some(jetstream::stream::Compression::S2),
+            num_replicas: config.replicas,
+            ..Default::default()
+        };
 
-        jetstream
-            .get_or_create_stream(jetstream::stream::Config {
-                name: def.name.to_string(),
-                subjects: vec![subject_pattern],
-                storage: jetstream::stream::StorageType::File,
-                max_age: Duration::from_secs(def.max_age_secs),
-                max_bytes: def.max_bytes,
-                duplicate_window: Duration::from_secs(DUPLICATE_WINDOW_SECS),
-                discard: jetstream::stream::DiscardPolicy::Old,
-                compression: Some(jetstream::stream::Compression::S2),
-                num_replicas: config.replicas,
-                ..Default::default()
-            })
-            .await?;
+        match jetstream.get_stream(def.name).await {
+            Ok(_) => {
+                jetstream.update_stream(&stream_config).await?;
+                tracing::debug!(
+                    name = def.name,
+                    max_bytes,
+                    "JetStream stream configuration updated",
+                );
+            }
+            Err(e) if is_stream_not_found(&e) => {
+                jetstream.create_stream(stream_config).await?;
+                tracing::info!(
+                    name = def.name,
+                    max_bytes,
+                    "JetStream stream created",
+                );
+            }
+            Err(e) => return Err(Box::new(e)),
+        }
     }
 
     Ok(())
+}
+
+fn is_stream_not_found(err: &async_nats::jetstream::context::GetStreamError) -> bool {
+    matches!(
+        err.kind(),
+        GetStreamErrorKind::JetStream(ref e) if e.error_code() == STREAM_NOT_FOUND_CODE,
+    )
 }
 
 pub fn is_nats_connected(jetstream: &Context) -> bool {
