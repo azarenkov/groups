@@ -628,7 +628,7 @@ const ServersPage: React.FC = () => {
       return false;
     }
   });
-  const userStatus = appearOffline ? "Offline" : "Online";
+  const userStatus = appearOffline ? "offline" : "online";
   useEffect(() => {
     if (!tokens?.accessToken) return;
     userAPI.setAppearOffline(appearOffline).catch((err) => {

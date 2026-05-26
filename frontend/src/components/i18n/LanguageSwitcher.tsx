@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useI18nStore } from "../../store/i18nStore";
-import { SUPPORTED_LOCALES, type Locale } from "../../i18n/strings";
+import { useTranslation } from "react-i18next";
+import { SUPPORTED_LOCALES, type Locale, setLocale, currentLocale } from "../../i18n";
 import Icon from "../rift/Icon";
 
 interface Props {
@@ -8,8 +8,8 @@ interface Props {
 }
 
 export const LanguageSwitcher: React.FC<Props> = ({ onChange }) => {
-  const locale = useI18nStore((s) => s.locale);
-  const setLocale = useI18nStore((s) => s.setLocale);
+  const { i18n } = useTranslation();
+  const active = currentLocale();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -22,6 +22,8 @@ export const LanguageSwitcher: React.FC<Props> = ({ onChange }) => {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  void i18n.language;
+
   return (
     <div className="auth-lang" ref={ref}>
       <button
@@ -32,7 +34,7 @@ export const LanguageSwitcher: React.FC<Props> = ({ onChange }) => {
         aria-expanded={open}
       >
         <Icon name="globe" size={14} />
-        <span>{locale.toUpperCase()}</span>
+        <span>{active.toUpperCase()}</span>
         <Icon name="chev" size={10} className={"auth-lang-chev" + (open ? " up" : "")} />
       </button>
       {open && (
@@ -42,8 +44,8 @@ export const LanguageSwitcher: React.FC<Props> = ({ onChange }) => {
               key={l}
               type="button"
               role="option"
-              aria-selected={locale === l}
-              className={"auth-lang-item" + (locale === l ? " on" : "")}
+              aria-selected={active === l}
+              className={"auth-lang-item" + (active === l ? " on" : "")}
               onClick={() => {
                 setLocale(l);
                 setOpen(false);
@@ -51,7 +53,7 @@ export const LanguageSwitcher: React.FC<Props> = ({ onChange }) => {
               }}
             >
               <span>{l.toUpperCase()}</span>
-              {locale === l && <Icon name="check" size={12} />}
+              {active === l && <Icon name="check" size={12} />}
             </button>
           ))}
         </div>

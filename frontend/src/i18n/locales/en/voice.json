@@ -1,0 +1,18 @@
+{
+  "connect": "Connect",
+  "disconnect": "Disconnect",
+  "connecting": "Connecting…",
+  "disconnected": "Disconnected",
+  "connected": "Connected",
+  "members": "Members",
+  "noOneHere": "No one is in this voice channel yet.",
+  "muteSelf": "Mute",
+  "unmuteSelf": "Unmute",
+  "deafen": "Deafen",
+  "undeafen": "Undeafen",
+  "leave": "Leave call",
+  "settings": "Voice settings",
+  "speaking": "Speaking",
+  "muted": "Muted",
+  "you": "You"
+}

@@ -1,0 +1,102 @@
+{
+  "title": "Settings",
+  "userSettings": "User Settings",
+  "appSettings": "App Settings",
+  "logOut": "Log Out",
+  "esc": "ESC",
+  "sections": {
+    "account": "My Account",
+    "profile": "Profile",
+    "privacy": "Privacy & Safety",
+    "connections": "Connections",
+    "subscription": "Subscription",
+    "appearance": "Appearance",
+    "voice": "Voice & Video",
+    "notifications": "Notifications",
+    "shortcuts": "Keyboard Shortcuts",
+    "language": "Language"
+  },
+  "account": {
+    "title": "My Account",
+    "lead": "Update your sign-in details and account preferences.",
+    "displayName": "Display name",
+    "username": "Username",
+    "email": "Email",
+    "twoFactor": "Two-factor authentication",
+    "twoFactorHint": "Add an extra layer of security to your account.",
+    "enable": "Enable",
+    "deleteAccount": "Delete account",
+    "deleteAccountHint": "Permanently delete your account and all data.",
+    "delete": "Delete"
+  },
+  "profile": {
+    "title": "Profile",
+    "lead": "How you appear in Rift.",
+    "avatar": "Avatar",
+    "uploadImage": "Upload image",
+    "remove": "Remove",
+    "displayName": "Display name",
+    "pronouns": "Pronouns",
+    "about": "About me",
+    "aboutPlaceholder": "Tell others a bit about yourself…"
+  },
+  "privacy": {
+    "title": "Privacy & Safety",
+    "lead": "Control who can contact you and how your data is used.",
+    "directMessages": "Direct messages",
+    "directMessagesHint": "Allow messages from server members.",
+    "friendRequests": "Friend requests",
+    "friendRequestsHint": "Allow anyone to send you a friend request.",
+    "showActivity": "Show activity",
+    "showActivityHint": "Let friends see what you're doing."
+  },
+  "connections": {
+    "title": "Connections",
+    "lead": "Link external accounts to your Rift profile.",
+    "noConnections": "No connections yet."
+  },
+  "subscription": {
+    "title": "Subscription",
+    "lead": "Manage your Rift plan and billing.",
+    "currentPlan": "Current plan",
+    "free": "Free",
+    "premium": "Premium",
+    "upgradeNotice": "Upgrade to unlock unlimited uploads, HD voice, and more."
+  },
+  "appearance": {
+    "title": "Appearance",
+    "lead": "Theme, color, and how dense the UI feels.",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "accent": "Accent color"
+  },
+  "voice": {
+    "title": "Voice & Video",
+    "lead": "Choose your audio devices and call defaults.",
+    "input": "Input device",
+    "output": "Output device",
+    "inputVolume": "Input volume",
+    "outputVolume": "Output volume",
+    "echoCancellation": "Echo cancellation",
+    "noiseSuppression": "Noise suppression"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "lead": "How and when Rift notifies you.",
+    "enableDesktop": "Desktop notifications",
+    "enableDesktopHint": "Show a notification when you receive a message.",
+    "enableSounds": "Sounds",
+    "enableSoundsHint": "Play a sound for messages and events."
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "lead": "Move faster with shortcuts."
+  },
+  "language": {
+    "title": "Language",
+    "lead": "Pick the language Rift uses for menus and system messages.",
+    "displayLanguage": "Display Language"
+  }
+}

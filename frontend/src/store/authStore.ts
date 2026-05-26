@@ -72,10 +72,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     const me = await userAPI.getMe();
     set({ user: { id: me.id, name: me.name, email: me.email } });
     if (me.locale === "ru" || me.locale === "en") {
-      const { useI18nStore } = await import("./i18nStore");
-      const currentLocale = useI18nStore.getState().locale;
-      if (currentLocale !== me.locale) {
-        useI18nStore.getState().setLocale(me.locale);
+      const { setLocale, currentLocale } = await import("../i18n");
+      if (currentLocale() !== me.locale) {
+        setLocale(me.locale);
       }
     }
   },

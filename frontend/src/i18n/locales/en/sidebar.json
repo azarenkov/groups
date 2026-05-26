@@ -1,0 +1,19 @@
+{
+  "searchPlaceholder": "Search",
+  "directMessages": "Direct Messages",
+  "servers": "Servers",
+  "addServer": "Add server",
+  "addChannel": "Add channel",
+  "noServers": "No servers yet. Create one to get started.",
+  "noMatches": "No matching servers or channels.",
+  "addDm": "Add direct message",
+  "pendingRequests": "Friend requests",
+  "settings": "Settings",
+  "statusOnline": "Online",
+  "statusOffline": "Offline",
+  "changeStatus": "Change status",
+  "inviteFriends": "Invite friends",
+  "deleteServer": "Delete server",
+  "leaveServer": "Leave server",
+  "deleteChannel": "Delete channel"
+}

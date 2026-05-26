@@ -1,0 +1,75 @@
+{
+  "createServer": {
+    "title": "Create a server",
+    "subtitle": "Give your community a home. You can change this later.",
+    "nameLabel": "Server name",
+    "namePlaceholder": "My server",
+    "create": "Create server",
+    "creating": "Creating…"
+  },
+  "createChannel": {
+    "title": "Create a channel",
+    "subtitle": "Channels organize conversations within a server.",
+    "nameLabel": "Channel name",
+    "namePlaceholder": "general",
+    "kindLabel": "Channel kind",
+    "text": "Text",
+    "voice": "Voice",
+    "visibilityLabel": "Who can see this channel",
+    "public": "Public",
+    "private": "Private",
+    "create": "Create channel",
+    "creating": "Creating…"
+  },
+  "channelSettings": {
+    "title": "Channel settings",
+    "rename": "Rename channel",
+    "delete": "Delete channel",
+    "deleteConfirm": "Delete the #{{name}} channel? This cannot be undone."
+  },
+  "addFriend": {
+    "title": "Add a friend",
+    "subtitle": "Send a request by username.",
+    "placeholder": "Username",
+    "send": "Send request",
+    "sending": "Sending…",
+    "sent": "Friend request sent.",
+    "selfError": "You can't send a friend request to yourself.",
+    "alreadyFriends": "You're already friends with this user.",
+    "userNotFound": "User not found."
+  },
+  "inviteFriends": {
+    "title": "Invite friends to {{server}}",
+    "subtitle": "Pick friends to send a join invite.",
+    "search": "Find a friend",
+    "invite": "Invite",
+    "invited": "Invited",
+    "noFriends": "You have no friends to invite yet."
+  },
+  "pendingFriends": {
+    "title": "Friend requests",
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
+    "accept": "Accept",
+    "decline": "Decline",
+    "cancel": "Cancel",
+    "empty": "No pending requests."
+  },
+  "newDm": {
+    "title": "Start a direct message",
+    "subtitle": "Pick a friend to message.",
+    "search": "Search friends",
+    "noFriends": "Add some friends to start a DM."
+  },
+  "passwordPrompt": {
+    "title": "Confirm your password",
+    "subtitle": "Re-enter your password to continue.",
+    "placeholder": "Password",
+    "confirm": "Confirm",
+    "wrongPassword": "Wrong password."
+  },
+  "confirm": {
+    "title": "Are you sure?",
+    "confirm": "Confirm"
+  }
+}

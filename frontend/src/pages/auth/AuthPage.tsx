@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
-import { useI18nStore } from "../../store/i18nStore";
+import { currentLocale } from "../../i18n";
 import { authAPI } from "../../api/auth";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
@@ -122,12 +123,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
         </div>
       </div>
 
-      <div className="auth-legal">
-        <span>© 2026 Rift</span>
-        <button type="button" className="auth-link" onClick={() => {}}>Privacy</button>
-        <button type="button" className="auth-link" onClick={() => {}}>Terms</button>
-        <button type="button" className="auth-link" onClick={() => {}}>Status</button>
-      </div>
+      <AuthLegal />
+    </div>
+  );
+};
+
+const AuthLegal: React.FC = () => {
+  const { t } = useTranslation("auth");
+  return (
+    <div className="auth-legal">
+      <span>© 2026 Rift</span>
+      <button type="button" className="auth-link" onClick={() => {}}>{t("privacy")}</button>
+      <button type="button" className="auth-link" onClick={() => {}}>{t("terms")}</button>
+      <button type="button" className="auth-link" onClick={() => {}}>{t("status")}</button>
     </div>
   );
 };
@@ -158,7 +166,7 @@ const AuthTabs: React.FC<{
   mode: "signin" | "signup";
   onSwitch: (m: "signin" | "signup") => void;
 }> = ({ mode, onSwitch }) => {
-  const t = useI18nStore((s) => s.t);
+  const { t } = useTranslation("auth");
   return (
     <div className="auth-tabs" role="tablist">
       <button
@@ -167,7 +175,7 @@ const AuthTabs: React.FC<{
         className={mode === "signin" ? "on" : ""}
         onClick={() => onSwitch("signin")}
       >
-        {t.auth.signIn}
+        {t("signIn")}
       </button>
       <button
         role="tab"
@@ -175,7 +183,7 @@ const AuthTabs: React.FC<{
         className={mode === "signup" ? "on" : ""}
         onClick={() => onSwitch("signup")}
       >
-        {t.auth.createAccount}
+        {t("createAccount")}
       </button>
     </div>
   );
@@ -192,8 +200,8 @@ const SignInUp: React.FC<SignInUpProps> = ({
 }) => {
   const isSignup = mode === "signup";
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
-  const t = useI18nStore((s) => s.t);
-  const locale = useI18nStore((s) => s.locale);
+  const { t } = useTranslation("auth");
+  const locale = currentLocale();
 
   const signInForm = useForm<SignInData>({
     defaultValues: { email, password: "" },
@@ -243,7 +251,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
         onSignedIn();
       }
     } catch (err: any) {
-      setError(err.message || "Could not sign you in.");
+      setError(err.message || t("couldNotSignIn"));
     } finally {
       setLoading(false);
     }
@@ -278,7 +286,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
       }
       goVerify();
     } catch (err: any) {
-      setError(err.message || "Could not create your account.");
+      setError(err.message || t("couldNotRegister"));
     } finally {
       setLoading(false);
     }
@@ -300,26 +308,23 @@ const SignInUp: React.FC<SignInUpProps> = ({
 
   return (
     <>
-      <h1>{isSignup ? t.auth.createAccount : t.auth.welcomeBack}</h1>
-      <p className="sub">{isSignup ? t.auth.createSubtitle : t.auth.signInSubtitle}</p>
+      <h1>{isSignup ? t("createTitle") : t("welcomeBack")}</h1>
+      <p className="sub">{isSignup ? t("createSubtitle") : t("signInSubtitle")}</p>
 
       <form onSubmit={submit} autoComplete="off">
         {isSignup && (
           <div className="field">
-            <label>Display name</label>
+            <label>{t("displayName")}</label>
             <div className="field-input">
               <span className="lead"><Icon name="user" size={15} /></span>
               <input
                 type="text"
-                placeholder="How should we call you?"
+                placeholder={t("displayNamePlaceholder")}
                 {...signUpForm.register("name", {
-                  required: "Display name is required",
-                  minLength: { value: 3, message: "At least 3 characters" },
-                  maxLength: { value: 15, message: "At most 15 characters" },
-                  pattern: {
-                    value: /^[a-zA-Z0-9_]+$/,
-                    message: "Letters, numbers, and underscores only",
-                  },
+                  required: t("displayNameRequired"),
+                  minLength: { value: 3, message: t("displayNameMin") },
+                  maxLength: { value: 15, message: t("displayNameMax") },
+                  pattern: { value: /^[a-zA-Z0-9_]+$/, message: t("displayNameInvalid") },
                 })}
               />
             </div>
@@ -332,17 +337,17 @@ const SignInUp: React.FC<SignInUpProps> = ({
         )}
 
         <div className="field">
-          <label>Email</label>
+          <label>{t("email")}</label>
           <div className="field-input">
             <span className="lead"><Icon name="mail" size={15} /></span>
             <input
               type="email"
-              placeholder="you@rift.app"
+              placeholder={t("emailPlaceholder")}
               {...registerEmail("email", {
-                required: "Email is required",
+                required: t("emailRequired"),
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: "Enter a valid email address",
+                  message: t("emailInvalid"),
                 },
                 onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
                   onEmailChange(e.target.value),
@@ -357,22 +362,22 @@ const SignInUp: React.FC<SignInUpProps> = ({
         </div>
 
         <div className="field has-trail">
-          <label>Password</label>
+          <label>{t("password")}</label>
           <div className="field-input">
             <span className="lead"><Icon name="lock2" size={15} /></span>
             <input
               type={showPw ? "text" : "password"}
-              placeholder={isSignup ? "At least 8 characters" : "Your password"}
+              placeholder={isSignup ? t("passwordPlaceholderSignup") : t("passwordPlaceholder")}
               {...registerPassword("password", {
-                required: "Password is required",
-                minLength: { value: 4, message: "At least 4 characters" },
+                required: t("passwordRequired"),
+                minLength: { value: 4, message: t("passwordMin") },
               })}
             />
             <button
               type="button"
               className="trail"
               onClick={() => setShowPw((v) => !v)}
-              title={showPw ? "Hide password" : "Show password"}
+              title={showPw ? t("hidePassword") : t("showPassword")}
             >
               <Icon name={showPw ? "eye-off" : "eye"} size={15} />
             </button>
@@ -389,14 +394,14 @@ const SignInUp: React.FC<SignInUpProps> = ({
             <label className="auth-check">
               <input type="checkbox" defaultChecked />
               <span className="box" />
-              <span>Send me product updates</span>
+              <span>{t("sendUpdates")}</span>
             </label>
           ) : (
             <span />
           )}
           {!isSignup && (
             <button type="button" className="auth-link" onClick={goForgot}>
-              Forgot password?
+              {t("forgotPassword")}
             </button>
           )}
         </div>
@@ -421,27 +426,27 @@ const SignInUp: React.FC<SignInUpProps> = ({
           {isLoading ? (
             <span className="loading-spinner" />
           ) : isSignup ? (
-            t.auth.createAccount
+            t("createAccount")
           ) : (
-            t.auth.signIn
+            t("signIn")
           )}
         </button>
       </form>
 
-      <div className="auth-divider">or continue with</div>
+      <div className="auth-divider">{t("orContinueWith")}</div>
 
       <div className="auth-social">
         <button type="button" className="btn social" onClick={onSignedIn} disabled>
           <GoogleGlyph />
-          Continue with Google
+          {t("continueWithGoogle")}
         </button>
         <button type="button" className="btn social" onClick={onSignedIn} disabled>
           <AppleGlyph />
-          Continue with Apple
+          {t("continueWithApple")}
         </button>
         <button type="button" className="btn social" onClick={onSignedIn} disabled>
           <Icon name="lock2" size={14} />
-          Continue with SSO
+          {t("continueWithSso")}
         </button>
       </div>
 
@@ -452,7 +457,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
             className="auth-link"
             onClick={() => onSwitchMode("signin")}
           >
-            {t.auth.haveAccount}
+            {t("haveAccount")}
           </button>
         ) : (
           <button
@@ -460,7 +465,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
             className="auth-link"
             onClick={() => onSwitchMode("signup")}
           >
-            {t.auth.needAccount}
+            {t("needAccount")}
           </button>
         )}
       </div>
@@ -474,48 +479,47 @@ const Forgot: React.FC<{
   onEmailChange: (e: string) => void;
   onSubmit: () => void;
   onBack: () => void;
-}> = ({ email, onEmailChange, onSubmit, onBack }) => (
-  <>
-    <button type="button" className="auth-back" onClick={onBack}>
-      <ArrowLeft /> Back to sign in
-    </button>
-    <h1>Forgot your password?</h1>
-    <p className="sub">
-      No worries — enter the email tied to your account and we'll send a reset
-      link.
-    </p>
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit();
-      }}
-      autoComplete="off"
-    >
-      <div className="field">
-        <label>Email</label>
-        <div className="field-input">
-          <span className="lead"><Icon name="mail" size={15} /></span>
-          <input
-            type="email"
-            autoFocus
-            placeholder="you@rift.app"
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-          />
+}> = ({ email, onEmailChange, onSubmit, onBack }) => {
+  const { t } = useTranslation("auth");
+  return (
+    <>
+      <button type="button" className="auth-back" onClick={onBack}>
+        <ArrowLeft /> {t("backToSignIn")}
+      </button>
+      <h1>{t("forgotTitle")}</h1>
+      <p className="sub">{t("forgotSubtitle")}</p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit();
+        }}
+        autoComplete="off"
+      >
+        <div className="field">
+          <label>{t("email")}</label>
+          <div className="field-input">
+            <span className="lead"><Icon name="mail" size={15} /></span>
+            <input
+              type="email"
+              autoFocus
+              placeholder={t("emailPlaceholder")}
+              value={email}
+              onChange={(e) => onEmailChange(e.target.value)}
+            />
+          </div>
         </div>
+        <button type="submit" className="btn primary" style={{ marginTop: 14 }}>
+          {t("sendResetLink")}
+        </button>
+      </form>
+      <div className="auth-foot">
+        <button type="button" className="auth-link" onClick={onBack}>
+          {t("rememberItNow")}
+        </button>
       </div>
-      <button type="submit" className="btn primary" style={{ marginTop: 14 }}>
-        Send reset link
-      </button>
-    </form>
-    <div className="auth-foot">
-      Remember it now?{" "}
-      <button type="button" className="auth-link" onClick={onBack}>
-        Sign in
-      </button>
-    </div>
-  </>
-);
+    </>
+  );
+};
 
 
 const ResetSent: React.FC<{
@@ -524,39 +528,39 @@ const ResetSent: React.FC<{
   onOpenLink: () => void;
   onBack: () => void;
 }> = ({ email, onResend, onOpenLink, onBack }) => {
+  const { t } = useTranslation("auth");
   const [secondsLeft, setSecondsLeft] = useState(30);
   useEffect(() => {
     if (secondsLeft <= 0) return;
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
   }, [secondsLeft]);
 
   return (
     <>
       <button type="button" className="auth-back" onClick={onBack}>
-        <ArrowLeft /> Back to sign in
+        <ArrowLeft /> {t("backToSignIn")}
       </button>
       <div className="auth-hero">
         <Icon name="mail" size={26} />
       </div>
-      <h1>Check your inbox</h1>
+      <h1>{t("checkInbox")}</h1>
       <p className="sub">
-        We sent a reset link to <b style={{ color: "var(--fg-1)" }}>{email}</b>.
-        It will expire in 15 minutes.
+        <Trans i18nKey="checkInboxBody" t={t} values={{ email }} components={[<b key="e" style={{ color: "var(--fg-1)" }} />]} />
       </p>
       <div className="auth-note">
         <span className="auth-note-ico">
           <Icon name="bell" size={14} />
         </span>
-        <span>Didn't get it? Check your spam folder, or try a different email address.</span>
+        <span>{t("checkInboxHint")}</span>
       </div>
       <button type="button" className="btn primary" onClick={onOpenLink}>
-        I clicked the link
+        {t("clickedLink")}
       </button>
       <div className="auth-resend">
         {secondsLeft > 0 ? (
           <>
-            Resend available in <span className="countdown">{secondsLeft}s</span>
+            {t("resendIn")} <span className="countdown">{secondsLeft}s</span>
           </>
         ) : (
           <button
@@ -567,7 +571,7 @@ const ResetSent: React.FC<{
               onResend();
             }}
           >
-            Resend the email
+            {t("resendEmail")}
           </button>
         )}
       </div>
@@ -580,6 +584,7 @@ const ResetPassword: React.FC<{
   onSubmit: () => void;
   onBack: () => void;
 }> = ({ onSubmit, onBack }) => {
+  const { t } = useTranslation("auth");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -592,13 +597,10 @@ const ResetPassword: React.FC<{
   return (
     <>
       <button type="button" className="auth-back" onClick={onBack}>
-        <ArrowLeft /> Back to sign in
+        <ArrowLeft /> {t("backToSignIn")}
       </button>
-      <h1>Set a new password</h1>
-      <p className="sub">
-        Pick something strong — at least 8 characters, with a mix of letters and
-        numbers.
-      </p>
+      <h1>{t("setNewPassword")}</h1>
+      <p className="sub">{t("setNewPasswordHint")}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -607,13 +609,13 @@ const ResetPassword: React.FC<{
         autoComplete="off"
       >
         <div className="field has-trail">
-          <label>New password</label>
+          <label>{t("newPassword")}</label>
           <div className="field-input">
             <span className="lead"><Icon name="lock2" size={15} /></span>
             <input
               autoFocus
               type={showPw ? "text" : "password"}
-              placeholder="At least 8 characters"
+              placeholder={t("passwordPlaceholderSignup")}
               value={pw}
               onChange={(e) => setPw(e.target.value)}
             />
@@ -632,19 +634,19 @@ const ResetPassword: React.FC<{
               </div>
               <div className="pw-strength-label">
                 <span>{label}</span>
-                {tooShort && <span style={{ color: "#ff453a" }}>Too short</span>}
+                {tooShort && <span style={{ color: "#ff453a" }}>{t("tooShort")}</span>}
               </div>
             </>
           )}
         </div>
 
         <div className="field has-trail">
-          <label>Confirm new password</label>
+          <label>{t("confirmNewPassword")}</label>
           <div className="field-input">
             <span className="lead"><Icon name="lock2" size={15} /></span>
             <input
               type={showPw ? "text" : "password"}
-              placeholder="Repeat your password"
+              placeholder={t("repeatPassword")}
               value={pw2}
               onChange={(e) => setPw2(e.target.value)}
               style={
@@ -658,11 +660,8 @@ const ResetPassword: React.FC<{
             />
           </div>
           {mismatch && (
-            <div
-              className="pw-strength-label"
-              style={{ color: "#ff453a" }}
-            >
-              Passwords don't match
+            <div className="pw-strength-label" style={{ color: "#ff453a" }}>
+              {t("passwordsDontMatch")}
             </div>
           )}
         </div>
@@ -677,7 +676,7 @@ const ResetPassword: React.FC<{
             cursor: canSubmit ? "pointer" : "not-allowed",
           }}
         >
-          Update password
+          {t("updatePassword")}
         </button>
       </form>
     </>
@@ -685,18 +684,21 @@ const ResetPassword: React.FC<{
 };
 
 
-const ResetSuccess: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
-  <>
-    <div className="auth-hero success">
-      <Icon name="check" size={28} />
-    </div>
-    <h1>Password updated</h1>
-    <p className="sub">All done. You can now sign in with your new password.</p>
-    <button type="button" className="btn primary" onClick={onContinue}>
-      Continue to sign in
-    </button>
-  </>
-);
+const ResetSuccess: React.FC<{ onContinue: () => void }> = ({ onContinue }) => {
+  const { t } = useTranslation("auth");
+  return (
+    <>
+      <div className="auth-hero success">
+        <Icon name="check" size={28} />
+      </div>
+      <h1>{t("passwordUpdated")}</h1>
+      <p className="sub">{t("passwordUpdatedHint")}</p>
+      <button type="button" className="btn primary" onClick={onContinue}>
+        {t("continueToSignIn")}
+      </button>
+    </>
+  );
+};
 
 
 const VerifyEmail: React.FC<{
@@ -704,6 +706,7 @@ const VerifyEmail: React.FC<{
   onVerified: () => void;
   onBack: () => void;
 }> = ({ email, onVerified, onBack }) => {
+  const { t } = useTranslation("auth");
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [error, setError] = useState("");
@@ -711,8 +714,8 @@ const VerifyEmail: React.FC<{
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
   }, [secondsLeft]);
 
   const submitCode = useCallback(
@@ -724,7 +727,7 @@ const VerifyEmail: React.FC<{
         await authAPI.confirmRegistration(value);
         const fresh = await authAPI.refresh();
         if (!isAccessTokenVerified(fresh.accessToken)) {
-          throw new Error("Verification didn't take effect. Please try again.");
+          throw new Error(t("verifyTookNoEffect"));
         }
         useAuthStore.getState().setTokens(fresh);
         authAPI.setAuthToken(fresh.accessToken);
@@ -739,12 +742,12 @@ const VerifyEmail: React.FC<{
         }
         onVerified();
       } catch (err: any) {
-        setError(err?.message || "Invalid or expired code");
+        setError(err?.message || t("invalidOrExpiredCode"));
       } finally {
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, onVerified],
+    [isSubmitting, onVerified, t],
   );
 
   useEffect(() => {
@@ -756,15 +759,18 @@ const VerifyEmail: React.FC<{
   return (
     <>
       <button type="button" className="auth-back" onClick={onBack}>
-        <ArrowLeft /> Back
+        <ArrowLeft /> {t("backToSignIn")}
       </button>
       <div className="auth-hero">
         <Icon name="mail" size={26} />
       </div>
-      <h1>Verify your email</h1>
+      <h1>{t("verifyTitle")}</h1>
       <p className="sub">
-        Enter the 6-digit code we sent to{" "}
-        <b style={{ color: "var(--fg-1)" }}>{email || "your email"}</b> to finish creating your account.
+        {email ? (
+          <Trans i18nKey="verifyBody" t={t} values={{ email }} components={[<b key="e" style={{ color: "var(--fg-1)" }} />]} />
+        ) : (
+          <Trans i18nKey="verifyBodyNoEmail" t={t} components={[<b key="e" style={{ color: "var(--fg-1)" }} />]} />
+        )}
       </p>
 
       <form
@@ -803,18 +809,14 @@ const VerifyEmail: React.FC<{
               code.length === 6 && !isSubmitting ? "pointer" : "not-allowed",
           }}
         >
-          {isSubmitting ? (
-            <span className="loading-spinner" />
-          ) : (
-            "Verify and continue"
-          )}
+          {isSubmitting ? <span className="loading-spinner" /> : t("verifyAndContinue")}
         </button>
       </form>
 
       <div className="auth-resend">
         {secondsLeft > 0 ? (
           <>
-            Didn't get a code? Resend in{" "}
+            {t("didntGetCode")}{" "}
             <span className="countdown">{secondsLeft}s</span>
           </>
         ) : (
@@ -830,7 +832,7 @@ const VerifyEmail: React.FC<{
               }
             }}
           >
-            Resend the code
+            {t("resendCode")}
           </button>
         )}
       </div>
@@ -843,27 +845,26 @@ const TwoFa: React.FC<{ onVerified: () => void; onBack: () => void }> = ({
   onVerified,
   onBack,
 }) => {
+  const { t } = useTranslation("auth");
   const [code, setCode] = useState("");
 
   useEffect(() => {
     if (code.length === 6) {
-      const t = setTimeout(() => onVerified(), 250);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => onVerified(), 250);
+      return () => clearTimeout(timer);
     }
   }, [code, onVerified]);
 
   return (
     <>
       <button type="button" className="auth-back" onClick={onBack}>
-        <ArrowLeft /> Back to sign in
+        <ArrowLeft /> {t("backToSignIn")}
       </button>
       <div className="auth-hero">
         <Icon name="shield" size={26} />
       </div>
-      <h1>Two-factor authentication</h1>
-      <p className="sub">
-        Open your authenticator app and enter the 6-digit code for Rift.
-      </p>
+      <h1>{t("twoFaTitle")}</h1>
+      <p className="sub">{t("twoFaBody")}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -880,13 +881,13 @@ const TwoFa: React.FC<{ onVerified: () => void; onBack: () => void }> = ({
             cursor: code.length === 6 ? "pointer" : "not-allowed",
           }}
         >
-          Verify
+          {t("verify")}
         </button>
       </form>
       <div className="auth-resend">
-        Lost access?{" "}
+        {t("lostAccess")}{" "}
         <button type="button" className="auth-link muted" onClick={() => {}}>
-          Use a recovery code
+          {t("useRecoveryCode")}
         </button>
       </div>
     </>
