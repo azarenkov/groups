@@ -110,45 +110,45 @@ function AccountSection() {
           <span className="edit-badge"><Icon name="camera" size={12}/></span>
         </div>
         <div className="pc-info">
-          <div className="pc-name">You</div>
-          <div className="pc-handle">@you · Rift since Mar 2024</div>
+          <div className="pc-name">{t("account.displayName")}</div>
+          <div className="pc-handle">@you · {t("account.userSince", { date: "Mar 2024" })}</div>
         </div>
-        <button className="s-btn secondary">Edit profile</button>
+        <button className="s-btn secondary">{t("actions.editProfile")}</button>
       </div>
 
       <div className="s-section">
-        <h2>Account Information</h2>
-        <SettingsRow label="Display Name" hint="This is how everyone sees you in chat.">
-          <button className="s-btn secondary">Edit</button>
+        <h2>{t("account.accountInformation")}</h2>
+        <SettingsRow label={t("account.displayName")} hint={t("account.displayNameHint")}>
+          <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>
-        <SettingsRow label="Username" hint="Your unique handle. You.">
-          <button className="s-btn secondary">Edit</button>
+        <SettingsRow label={t("account.username")} hint={t("account.usernameHint")}>
+          <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>
-        <SettingsRow label="Email" hint="you@example.com (verified)">
-          <button className="s-btn secondary">Edit</button>
+        <SettingsRow label={t("account.email")} hint={t("account.emailVerified", { email: "you@example.com" })}>
+          <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>
-        <SettingsRow label="Phone Number" hint="Add for account recovery and 2FA.">
-          <button className="s-btn secondary">Add</button>
-        </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Password & Authentication</h2>
-        <SettingsRow label="Password" hint="Last changed 3 months ago.">
-          <button className="s-btn secondary">Change</button>
-        </SettingsRow>
-        <SettingsRow label="Two-Factor Authentication" hint="Add an extra layer of protection.">
-          <button className="s-btn primary">Enable</button>
+        <SettingsRow label={t("account.phoneNumber")} hint={t("account.phoneNumberHint")}>
+          <button className="s-btn secondary">{t("actions.add")}</button>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>Account Removal</h2>
-        <SettingsRow label="Disable Account" hint="Hide your profile and stop notifications. You can reactivate anytime.">
-          <button className="s-btn danger">Disable</button>
+        <h2>{t("account.passwordAuth")}</h2>
+        <SettingsRow label={t("account.password")} hint={t("account.passwordHint")}>
+          <button className="s-btn secondary">{t("actions.change")}</button>
         </SettingsRow>
-        <SettingsRow label="Delete Account" hint="Permanently remove your data. This cannot be undone.">
-          <button className="s-btn danger">Delete</button>
+        <SettingsRow label={t("account.twoFactor")} hint={t("account.twoFactorHint")}>
+          <button className="s-btn primary">{t("actions.enable")}</button>
+        </SettingsRow>
+      </div>
+
+      <div className="s-section">
+        <h2>{t("account.accountRemoval")}</h2>
+        <SettingsRow label={t("account.disableAccount")} hint={t("account.disableAccountHint")}>
+          <button className="s-btn danger">{t("actions.disable")}</button>
+        </SettingsRow>
+        <SettingsRow label={t("account.deleteAccount")} hint={t("account.deleteAccountHint")}>
+          <button className="s-btn danger">{t("actions.delete")}</button>
         </SettingsRow>
       </div>
     </>
@@ -164,28 +164,28 @@ function ProfileSection() {
       <p className="lead">{t("profile.lead")}</p>
 
       <div className="s-section">
-        <h2>Display</h2>
+        <h2>{t("profile.display")}</h2>
         <div className="s-field-row">
-          <div className="field-lbl">Display Name</div>
-          <input className="s-input" defaultValue="You"/>
+          <div className="field-lbl">{t("profile.displayName")}</div>
+          <input className="s-input" defaultValue=""/>
         </div>
         <div className="s-field-row">
-          <div className="field-lbl">Pronouns</div>
-          <input className="s-input" placeholder="they/them" defaultValue=""/>
+          <div className="field-lbl">{t("profile.pronouns")}</div>
+          <input className="s-input" placeholder={t("profile.pronounsPlaceholder")} defaultValue=""/>
         </div>
         <div className="s-field-row">
-          <div className="field-lbl">About me</div>
-          <textarea className="s-input" value={bio} onChange={e => setBio(e.target.value)}/>
+          <div className="field-lbl">{t("profile.about")}</div>
+          <textarea className="s-input" placeholder={t("profile.aboutPlaceholder")} value={bio} onChange={e => setBio(e.target.value)}/>
           <div style={{ fontSize: 11, color: 'var(--fg-4)', textAlign: 'right' }}>{bio.length}/190</div>
         </div>
       </div>
 
       <div className="s-section">
-        <h2>Status</h2>
-        <SettingsRow label="Custom Status" hint="Show a short message next to your name.">
-          <input className="s-input" style={{ width: 200 }} placeholder="e.g. Heads down ✦" />
+        <h2>{t("profile.status")}</h2>
+        <SettingsRow label={t("profile.customStatus")} hint={t("profile.customStatusHint")}>
+          <input className="s-input" style={{ width: 200 }} placeholder={t("profile.customStatusPlaceholder")} />
         </SettingsRow>
-        <SettingsRow label="Show activity" hint="Let others see what app or game you're using.">
+        <SettingsRow label={t("profile.showActivity")} hint={t("profile.showActivityHint")}>
           <Switch on={true} onClick={() => {}}/>
         </SettingsRow>
       </div>
@@ -204,38 +204,20 @@ function PrivacySection() {
       <p className="lead">{t("privacy.lead")}</p>
 
       <div className="s-section">
-        <h2>Direct Messages</h2>
-        <SettingsRow label="Who can DM me" hint="Limit unsolicited messages.">
+        <h2>{t("privacy.directMessages")}</h2>
+        <SettingsRow label={t("privacy.whoCanDm")} hint={t("privacy.whoCanDmHint")}>
           <div className="s-seg">
-            <button className={dms === 'everyone' ? 'on' : ''} onClick={() => setDms('everyone')}>Everyone</button>
-            <button className={dms === 'friends'  ? 'on' : ''} onClick={() => setDms('friends')}>Friends</button>
-            <button className={dms === 'nobody'   ? 'on' : ''} onClick={() => setDms('nobody')}>Nobody</button>
+            <button className={dms === 'everyone' ? 'on' : ''} onClick={() => setDms('everyone')}>{t("privacy.everyone")}</button>
+            <button className={dms === 'friends'  ? 'on' : ''} onClick={() => setDms('friends')}>{t("privacy.friends")}</button>
+            <button className={dms === 'nobody'   ? 'on' : ''} onClick={() => setDms('nobody')}>{t("privacy.noOne")}</button>
           </div>
         </SettingsRow>
-        <SettingsRow label="Friend requests" hint="Accept new connections from anyone, or only friends-of-friends.">
+        <SettingsRow label={t("privacy.allowRequests")} hint={t("privacy.allowRequestsHint")}>
           <Switch on={requests} onClick={() => setRequests(v => !v)}/>
         </SettingsRow>
-        <SettingsRow label="Scan media in DMs" hint="Auto-blur potentially sensitive images you receive.">
+        <SettingsRow label={t("privacy.scanMessages")} hint={t("privacy.scanMessagesHint")}>
           <Switch on={scan} onClick={() => setScan(v => !v)}/>
         </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Data</h2>
-        <SettingsRow label="Use data to improve Rift" hint="Anonymous telemetry. We never read message contents.">
-          <Switch on={false} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Personalized suggestions" hint="Show servers and people you might know.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Request my data" hint="Get a downloadable archive of everything you've sent.">
-          <button className="s-btn secondary"><Icon name="download" size={13}/> Request</button>
-        </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Blocked</h2>
-        <div className="hint" style={{ fontSize: 13, color: 'var(--fg-3)' }}>You haven't blocked anyone.</div>
       </div>
     </>
   );
@@ -255,7 +237,7 @@ function ConnectionsSection() {
       <h1>{t("connections.title")}</h1>
       <p className="lead">{t("connections.lead")}</p>
       <div className="s-section">
-        <h2>Available</h2>
+        <h2>{t("connections.available")}</h2>
         {conns.map(c => (
           <div className="conn-row" key={c.id}>
             <div className="conn-ico"><Icon name={c.icon} size={18}/></div>
@@ -264,7 +246,7 @@ function ConnectionsSection() {
               <div className="conn-meta">{c.meta}</div>
             </div>
             <button className={'conn-action' + (c.connected ? '' : ' connect')}>
-              {c.connected ? 'Disconnect' : 'Connect'}
+              {c.connected ? t("connections.disconnect") : t("connections.connect")}
             </button>
           </div>
         ))}
@@ -281,20 +263,20 @@ function SubscriptionSection() {
       <p className="lead">{t("subscription.lead")}</p>
 
       <div className="s-section">
-        <h2>Current Plan</h2>
+        <h2>{t("subscription.currentPlan")}</h2>
         <div className="plan-card current">
           <div className="plan-info">
-            <div className="plan-name">Rift Free</div>
-            <div className="plan-price">No payment method on file.</div>
+            <div className="plan-name">{t("subscription.free")}</div>
+            <div className="plan-price">{t("subscription.noPaymentMethod")}</div>
           </div>
-          <span className="plan-badge">Current</span>
+          <span className="plan-badge">{t("subscription.current")}</span>
         </div>
         <div className="plan-card">
           <div className="plan-info">
-            <div className="plan-name">Rift Pro</div>
-            <div className="plan-price">$8/month · Unlimited file uploads, HD voice, custom themes</div>
+            <div className="plan-name">{t("subscription.premium")}</div>
+            <div className="plan-price">$8/month</div>
           </div>
-          <button className="s-btn primary">Upgrade</button>
+          <button className="s-btn primary">{t("subscription.upgrade")}</button>
         </div>
         <div className="plan-card">
           <div className="plan-info">
@@ -328,26 +310,26 @@ function AppearanceSection({ theme, onTheme, accent, onAccent }: AppearanceSecti
       <p className="lead">{t("appearance.lead")}</p>
 
       <div className="s-section">
-        <h2>Theme</h2>
+        <h2>{t("appearance.theme")}</h2>
         <div className="theme-grid">
           <button className={'theme-card' + (theme === 'light' ? ' on' : '')} onClick={() => onTheme('light')}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
-            Light
+            {t("appearance.light")}
           </button>
           <button className={'theme-card dark-pv' + (theme === 'dark' ? ' on' : '')} onClick={() => onTheme('dark')}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
-            Dark
+            {t("appearance.dark")}
           </button>
           <button className={'theme-card system-pv'} onClick={() => onTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
-            System
+            {t("appearance.system")}
           </button>
         </div>
       </div>
 
       <div className="s-section">
-        <h2>Accent Color</h2>
-        <SettingsRow label="Highlight color" hint="Used for active items, mentions, and links.">
+        <h2>{t("appearance.accent")}</h2>
+        <SettingsRow label={t("appearance.accent")} hint="">
           <div className="accent-row">
             {ACCENT_OPTIONS.map(a => (
               <button key={a.value}
@@ -392,53 +374,33 @@ function VoiceSection() {
       <p className="lead">{t("voice.lead")}</p>
 
       <div className="s-section">
-        <h2>Input Device</h2>
+        <h2>{t("voice.inputDevice")}</h2>
         <div className="s-field-row">
-          <div className="field-lbl">Microphone</div>
+          <div className="field-lbl">{t("voice.microphone")}</div>
           <input className="s-input" value={input} onChange={e => setInput(e.target.value)}/>
         </div>
-        <SettingsRow label="Input volume" hint={`${inVol}%`}>
+        <SettingsRow label={t("voice.inputVolume")} hint={`${inVol}%`}>
           <input type="range" min="0" max="100" value={inVol} onChange={e => setInVol(Number(e.target.value))}/>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>Output Device</h2>
+        <h2>{t("voice.outputDevice")}</h2>
         <div className="s-field-row">
-          <div className="field-lbl">Speaker</div>
+          <div className="field-lbl">{t("voice.speakers")}</div>
           <input className="s-input" value={output} onChange={e => setOutput(e.target.value)}/>
         </div>
-        <SettingsRow label="Output volume" hint={`${outVol}%`}>
+        <SettingsRow label={t("voice.outputVolume")} hint={`${outVol}%`}>
           <input type="range" min="0" max="100" value={outVol} onChange={e => setOutVol(Number(e.target.value))}/>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>Voice Activity</h2>
-        <SettingsRow label="Voice mode" hint="Push-to-talk uses a hotkey instead of detecting your voice.">
-          <div className="s-seg">
-            <button className={!push ? 'on' : ''} onClick={() => setPush(false)}>Voice activity</button>
-            <button className={push ? 'on' : ''} onClick={() => setPush(true)}>Push-to-talk</button>
-          </div>
+        <h2>{t("voice.pushToTalk")}</h2>
+        <SettingsRow label={t("voice.pushToTalk")} hint={t("voice.pushToTalkHint")}>
+          <Switch on={push} onClick={() => setPush(v => !v)}/>
         </SettingsRow>
-        <SettingsRow label="Noise suppression" hint="Filter typing, fans, and street sounds in real time.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Echo cancellation" hint="Recommended when not using headphones.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Auto gain control" hint="Keep your voice at a steady level.">
-          <Switch on={false} onClick={() => {}}/>
-        </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Video</h2>
-        <div className="s-field-row">
-          <div className="field-lbl">Camera</div>
-          <input className="s-input" defaultValue="FaceTime HD Camera"/>
-        </div>
-        <SettingsRow label="Mirror my video" hint="Flip your preview horizontally so it matches a mirror.">
+        <SettingsRow label={t("voice.noiseSuppression")} hint="">
           <Switch on={true} onClick={() => {}}/>
         </SettingsRow>
       </div>
@@ -457,32 +419,23 @@ function NotificationsSection() {
       <p className="lead">{t("notifications.lead")}</p>
 
       <div className="s-section">
-        <h2>Desktop</h2>
-        <SettingsRow label="Enable desktop notifications" hint="System banners for new messages.">
+        <h2>{t("notifications.desktop")}</h2>
+        <SettingsRow label={t("notifications.enableDesktop")} hint={t("notifications.enableDesktopHint")}>
           <Switch on={desk} onClick={() => setDesk(v => !v)}/>
         </SettingsRow>
-        <SettingsRow label="Notification sound" hint="Subtle chime on new messages and mentions.">
+        <SettingsRow label={t("notifications.enableSounds")} hint={t("notifications.enableSoundsHint")}>
           <Switch on={sound} onClick={() => setSound(v => !v)}/>
-        </SettingsRow>
-        <SettingsRow label="Show badge on app icon" hint="Unread count in the dock.">
-          <Switch on={true} onClick={() => {}}/>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>What to notify on</h2>
-        <SettingsRow label="Mentions" hint="When someone @you's or replies in a thread.">
+        <h2>{t("notifications.mentions")}</h2>
+        <SettingsRow label={t("notifications.mentions")} hint="">
           <div className="s-seg">
-            <button className={mentions === 'all' ? 'on' : ''} onClick={() => setMentions('all')}>All</button>
-            <button className={mentions === 'direct' ? 'on' : ''} onClick={() => setMentions('direct')}>Direct only</button>
-            <button className={mentions === 'none' ? 'on' : ''} onClick={() => setMentions('none')}>None</button>
+            <button className={mentions === 'all' ? 'on' : ''} onClick={() => setMentions('all')}>{t("notifications.mentionsAll")}</button>
+            <button className={mentions === 'direct' ? 'on' : ''} onClick={() => setMentions('direct')}>{t("notifications.mentionsMentions")}</button>
+            <button className={mentions === 'none' ? 'on' : ''} onClick={() => setMentions('none')}>{t("notifications.mentionsNothing")}</button>
           </div>
-        </SettingsRow>
-        <SettingsRow label="Direct messages" hint="Always notify me of new DMs.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Voice channel joins" hint="When someone joins a voice channel I'm in.">
-          <Switch on={false} onClick={() => {}}/>
         </SettingsRow>
       </div>
 

@@ -124,7 +124,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           </div>
 
           <div className="m-field">
-            <label>Accent</label>
+            <label>{t("accent")}</label>
             <div className="cs-accent-swatches">
               {PALETTE.map((c) => (
                 <button

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import Icon from "./Icon";
 
 interface ConfirmModalProps {
@@ -73,8 +73,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           )}
           {targetName && (
             <p style={{ fontSize: 13, color: "var(--fg-2)", margin: 0 }}>
-              You're about to delete{" "}
-              <strong style={{ color: "var(--fg-1)", fontWeight: 600 }}>{targetName}</strong>.
+              <Trans
+                i18nKey="confirm.aboutToDelete"
+                ns="modals"
+                values={{ name: targetName }}
+                components={[
+                  <strong key="n" style={{ color: "var(--fg-1)", fontWeight: 600 }} />,
+                ]}
+              />
             </p>
           )}
         </div>

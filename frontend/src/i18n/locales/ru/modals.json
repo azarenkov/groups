@@ -70,6 +70,18 @@
   },
   "confirm": {
     "title": "Вы уверены?",
-    "confirm": "Подтвердить"
-  }
+    "confirm": "Подтвердить",
+    "thisCantBeUndone": "Действие нельзя отменить.",
+    "aboutToDelete": "Сейчас будет удалён <0>{{name}}</0>.",
+    "deleteServerTitle": "Удалить сервер?",
+    "leaveServerTitle": "Покинуть сервер?",
+    "leaveServerSubtitle": "Вы сможете вернуться, если вас снова пригласят.",
+    "deleteChannelTitle": "Удалить канал?",
+    "removeFriendTitle": "Удалить из друзей?",
+    "removeFriendSubtitle": "Вы сможете отправить заявку позже.",
+    "leave": "Покинуть",
+    "remove": "Удалить",
+    "delete": "Удалить"
+  },
+  "accent": "Акцент"
 }

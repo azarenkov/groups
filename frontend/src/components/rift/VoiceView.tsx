@@ -332,27 +332,27 @@ const VoiceView: React.FC<VoiceViewProps> = ({
         <div className="vp-popover" onMouseDown={(e) => e.stopPropagation()}>
           <div className="vp-pop-row">
             <div className="vp-pop-label">
-              <span className="k">Noise suppression</span>
+              <span className="k">{t("noiseSuppression")}</span>
             </div>
             <div className="vp-seg">
               <button
                 className={noise === "off" ? "on" : ""}
                 onClick={() => handleNoiseChange("off")}
               >
-                Off
+                {t("noiseOff")}
               </button>
               <button
                 className={noise === "standard" ? "on" : ""}
                 onClick={() => handleNoiseChange("standard")}
               >
-                Standard
+                {t("noiseStandard")}
               </button>
               <button
                 className={noise === "high" ? "on" : ""}
                 onClick={() => handleNoiseChange("high")}
               >
                 <Icon name="sparkles" size={11} />
-                High
+                {t("noiseHigh")}
               </button>
             </div>
           </div>
@@ -360,7 +360,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           {noise === "high" && (
             <div className="vp-pop-row">
               <div className="vp-pop-label">
-                <span className="k">Suppression strength</span>
+                <span className="k">{t("noiseSuppression")}</span>
                 <span className="v">{noiseStrengthPct}%</span>
               </div>
               <div className="vp-slider accent">
@@ -380,8 +380,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
           <div className="vp-pop-row">
             <div className="vp-pop-label">
-              <span className="k">Your microphone</span>
-              <span className="v">{isMuted ? "Muted" : "Live"}</span>
+              <span className="k">{t("yourMicrophone")}</span>
+              <span className="v">{isMuted ? t("muted") : t("live")}</span>
             </div>
             <div className="vp-meter" aria-hidden="true">
               {meter.map((v, i) => (

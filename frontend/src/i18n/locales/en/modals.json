@@ -70,6 +70,18 @@
   },
   "confirm": {
     "title": "Are you sure?",
-    "confirm": "Confirm"
-  }
+    "confirm": "Confirm",
+    "thisCantBeUndone": "This can't be undone.",
+    "aboutToDelete": "You're about to delete <0>{{name}}</0>.",
+    "deleteServerTitle": "Delete server?",
+    "leaveServerTitle": "Leave server?",
+    "leaveServerSubtitle": "You can rejoin if invited again.",
+    "deleteChannelTitle": "Delete channel?",
+    "removeFriendTitle": "Remove friend?",
+    "removeFriendSubtitle": "You can send a new request later.",
+    "leave": "Leave",
+    "remove": "Remove",
+    "delete": "Delete"
+  },
+  "accent": "Accent"
 }

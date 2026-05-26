@@ -16,52 +16,88 @@
     "shortcuts": "Keyboard Shortcuts",
     "language": "Language"
   },
+  "actions": {
+    "edit": "Edit",
+    "add": "Add",
+    "change": "Change",
+    "enable": "Enable",
+    "disable": "Disable",
+    "delete": "Delete",
+    "editProfile": "Edit profile"
+  },
   "account": {
     "title": "My Account",
-    "lead": "Update your sign-in details and account preferences.",
-    "displayName": "Display name",
+    "lead": "How you appear to others on Rift.",
+    "userSince": "Rift since {{date}}",
+    "accountInformation": "Account Information",
+    "passwordAuth": "Password & Authentication",
+    "accountRemoval": "Account Removal",
+    "displayName": "Display Name",
+    "displayNameHint": "This is how everyone sees you in chat.",
     "username": "Username",
+    "usernameHint": "Your unique handle. You.",
     "email": "Email",
-    "twoFactor": "Two-factor authentication",
-    "twoFactorHint": "Add an extra layer of security to your account.",
-    "enable": "Enable",
-    "deleteAccount": "Delete account",
-    "deleteAccountHint": "Permanently delete your account and all data.",
-    "delete": "Delete"
+    "emailVerified": "{{email}} (verified)",
+    "phoneNumber": "Phone Number",
+    "phoneNumberHint": "Add for account recovery and 2FA.",
+    "password": "Password",
+    "passwordHint": "Last changed 3 months ago.",
+    "twoFactor": "Two-Factor Authentication",
+    "twoFactorHint": "Add an extra layer of protection.",
+    "disableAccount": "Disable Account",
+    "disableAccountHint": "Hide your profile and stop notifications. You can reactivate anytime.",
+    "deleteAccount": "Delete Account",
+    "deleteAccountHint": "Permanently remove your data. This cannot be undone."
   },
   "profile": {
     "title": "Profile",
-    "lead": "How you appear in Rift.",
-    "avatar": "Avatar",
-    "uploadImage": "Upload image",
-    "remove": "Remove",
-    "displayName": "Display name",
+    "lead": "Customize how others see your identity card.",
+    "display": "Display",
+    "displayName": "Display Name",
     "pronouns": "Pronouns",
+    "pronounsPlaceholder": "they/them",
     "about": "About me",
-    "aboutPlaceholder": "Tell others a bit about yourself…"
+    "aboutPlaceholder": "Tell others a bit about yourself…",
+    "status": "Status",
+    "customStatus": "Custom Status",
+    "customStatusHint": "Show a short message next to your name.",
+    "customStatusPlaceholder": "e.g. Heads down ✦",
+    "showActivity": "Show activity",
+    "showActivityHint": "Let others see what app or game you're using."
   },
   "privacy": {
     "title": "Privacy & Safety",
-    "lead": "Control who can contact you and how your data is used.",
-    "directMessages": "Direct messages",
-    "directMessagesHint": "Allow messages from server members.",
-    "friendRequests": "Friend requests",
-    "friendRequestsHint": "Allow anyone to send you a friend request.",
-    "showActivity": "Show activity",
-    "showActivityHint": "Let friends see what you're doing."
+    "lead": "Control who can reach you and how your data is used.",
+    "directMessages": "Direct Messages",
+    "whoCanDm": "Who can DM me",
+    "whoCanDmHint": "Limit unsolicited messages.",
+    "everyone": "Everyone",
+    "friends": "Friends",
+    "noOne": "No one",
+    "requests": "Requests",
+    "allowRequests": "Allow friend requests",
+    "allowRequestsHint": "Anyone can send you a friend request.",
+    "safety": "Safety",
+    "scanMessages": "Scan direct messages",
+    "scanMessagesHint": "Filter explicit content from people you don't know."
   },
   "connections": {
     "title": "Connections",
-    "lead": "Link external accounts to your Rift profile.",
+    "lead": "Link other accounts to enrich your messages and presence.",
+    "available": "Available",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
     "noConnections": "No connections yet."
   },
   "subscription": {
     "title": "Subscription",
-    "lead": "Manage your Rift plan and billing.",
-    "currentPlan": "Current plan",
-    "free": "Free",
-    "premium": "Premium",
-    "upgradeNotice": "Upgrade to unlock unlimited uploads, HD voice, and more."
+    "lead": "Your plan, billing, and usage.",
+    "currentPlan": "Current Plan",
+    "current": "Current",
+    "free": "Rift Free",
+    "premium": "Rift Premium",
+    "noPaymentMethod": "No payment method on file.",
+    "upgrade": "Upgrade"
   },
   "appearance": {
     "title": "Appearance",
@@ -70,29 +106,54 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System",
-    "accent": "Accent color"
+    "accent": "Accent",
+    "density": "Density",
+    "compact": "Compact",
+    "cozy": "Cozy",
+    "comfortable": "Comfortable",
+    "fontSize": "Font size"
   },
   "voice": {
     "title": "Voice & Video",
-    "lead": "Choose your audio devices and call defaults.",
-    "input": "Input device",
-    "output": "Output device",
-    "inputVolume": "Input volume",
-    "outputVolume": "Output volume",
-    "echoCancellation": "Echo cancellation",
-    "noiseSuppression": "Noise suppression"
+    "lead": "Set up the devices and behavior for voice channels.",
+    "inputDevice": "Input Device",
+    "microphone": "Microphone",
+    "inputVolume": "Input Volume",
+    "outputDevice": "Output Device",
+    "speakers": "Speakers",
+    "outputVolume": "Output Volume",
+    "pushToTalk": "Push-to-talk",
+    "pushToTalkHint": "Hold a key to transmit.",
+    "noiseSuppression": "Noise suppression",
+    "noiseSuppressionLevels": {
+      "off": "Off",
+      "standard": "Standard",
+      "high": "High"
+    },
+    "yourMicrophone": "Your microphone",
+    "live": "Live"
   },
   "notifications": {
     "title": "Notifications",
-    "lead": "How and when Rift notifies you.",
+    "lead": "Choose what reaches you, and when it stays quiet.",
+    "desktop": "Desktop",
     "enableDesktop": "Desktop notifications",
     "enableDesktopHint": "Show a notification when you receive a message.",
     "enableSounds": "Sounds",
-    "enableSoundsHint": "Play a sound for messages and events."
+    "enableSoundsHint": "Play a sound for messages and events.",
+    "mentions": "Mentions",
+    "mentionsAll": "All messages",
+    "mentionsMentions": "Only @mentions",
+    "mentionsNothing": "Nothing"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
-    "lead": "Move faster with shortcuts."
+    "lead": "Get around faster. Most actions have a key.",
+    "groups": {
+      "navigation": "Navigation",
+      "messaging": "Messaging",
+      "voice": "Voice"
+    }
   },
   "language": {
     "title": "Language",

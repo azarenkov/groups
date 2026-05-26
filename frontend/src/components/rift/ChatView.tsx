@@ -573,10 +573,10 @@ const ChatView: React.FC<ChatViewProps> = ({
           await refreshHistoryAfterJoin();
         } catch (retryErr) {
           const r = retryErr instanceof ApiError ? retryErr : null;
-          setAccessError(r?.message || "Couldn't join channel.");
+          setAccessError(r?.message || i18n.t("couldNotJoin", { ns: "chat" }));
         }
       } else {
-        setAccessError(apiErr?.message || "Couldn't join channel.");
+        setAccessError(apiErr?.message || i18n.t("couldNotJoin", { ns: "chat" }));
       }
     }
   };
@@ -632,7 +632,7 @@ const ChatView: React.FC<ChatViewProps> = ({
               remaining.shift();
               updateComposer();
             } else {
-              setComposerError(joinApi?.message || "Couldn't join channel.");
+              setComposerError(joinApi?.message || i18n.t("couldNotJoin", { ns: "chat" }));
               return;
             }
           }
@@ -649,12 +649,12 @@ const ChatView: React.FC<ChatViewProps> = ({
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
       if (code === "MESSAGE_CONTENT_EMPTY") {
-        setComposerError("Message can't be empty.");
+        setComposerError(i18n.t("messageCantBeEmpty", { ns: "chat" }));
       } else if (code === "MESSAGE_CONTENT_TOO_LONG") {
-        setComposerError("One of the chunks was too long.");
+        setComposerError(i18n.t("chunkTooLong", { ns: "chat" }));
       } else {
         console.warn("[ChatView] send failed:", err);
-        setComposerError(apiErr?.message || "Couldn't send message.");
+        setComposerError(apiErr?.message || i18n.t("couldNotSend", { ns: "chat" }));
       }
     } finally {
       setSending(false);
@@ -673,7 +673,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       await dmAPI.acceptServerInvite(msg.id);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setComposerError(apiErr?.message || "Couldn't join the server.");
+      setComposerError(apiErr?.message || i18n.t("couldNotJoinServer", { ns: "chat" }));
       return;
     }
     try {
@@ -778,8 +778,8 @@ const ChatView: React.FC<ChatViewProps> = ({
             type="text"
             placeholder={
               channel
-                ? `Search in #${channel.name}`
-                : `Search with ${dm!.name}`
+                ? i18n.t("searchInChannel", { ns: "chat", channel: channel.name })
+                : i18n.t("searchWithUser", { ns: "chat", user: dm!.name })
             }
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -788,7 +788,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             type="button"
             className="search-clear"
             onClick={toggleSearch}
-            title="Close search"
+            title={i18n.t("closeSearch", { ns: "chat" })}
           >
             <Icon name="x" size={12} />
           </button>
@@ -810,18 +810,22 @@ const ChatView: React.FC<ChatViewProps> = ({
                 <div className="icon-wrap">
                   <Icon name="search" size={22} />
                 </div>
-                <h3>No results</h3>
-                <p>Nothing matched "{searchQuery}".</p>
+                <h3>{i18n.t("noResults", { ns: "chat" })}</h3>
+                <p>{i18n.t("noResultsBody", { ns: "chat", query: searchQuery })}</p>
               </div>
             ) : (
               <>
                 <div className="search-meta">
-                  {searchTotal} {searchTotal === 1 ? "result" : "results"} for "{searchQuery}"
+                  {i18n.t(searchTotal === 1 ? "resultsFor" : "resultsForPlural", {
+                    ns: "chat",
+                    count: searchTotal,
+                    query: searchQuery,
+                  })}
                 </div>
                 {searchResults.map((m) => {
                   const isMine = !!currentUserId && m.authorId === currentUserId;
                   const displayName = isMine
-                    ? "You"
+                    ? i18n.t("you", { ns: "chat" })
                     : (m.authorName ?? m.authorId);
                   const time = new Date(m.createdAt).toLocaleString([], {
                     month: "short",
@@ -1070,16 +1074,16 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         </span>
         <span className="ch-name">{dm.name}</span>
         <span className="sep" />
-        <span className="topic">{dm.online ? "Active now" : "Offline"}</span>
+        <span className="topic">{dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}</span>
         <div className="right">
-          <button type="button" className="icon-btn" title="Start a call">
+          <button type="button" className="icon-btn" title={i18n.t("voiceCallInvite", { ns: "chat" })}>
             <Icon name="phone" size={16} />
           </button>
           {onToggleSearch && (
             <button
               type="button"
               className={"icon-btn" + (searchActive ? " on" : "")}
-              title={searchActive ? "Close search" : "Search messages"}
+              title={searchActive ? i18n.t("closeSearch", { ns: "chat" }) : i18n.t("searchWithUser", { ns: "chat", user: dm.name })}
               onClick={onToggleSearch}
             >
               <Icon name="search" size={15} />
@@ -1089,13 +1093,13 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             <button
               type="button"
               className="icon-btn"
-              title="Remove friend"
+              title={i18n.t("removeFriend", { ns: "chat" })}
               onClick={onRemoveFriend}
             >
               <Icon name="user-check" size={16} />
             </button>
           )}
-          <button type="button" className="icon-btn" title="Conversation settings">
+          <button type="button" className="icon-btn" title={i18n.t("settings", { ns: "sidebar" })}>
             <Icon name="settings" size={16} />
           </button>
         </div>
@@ -1123,7 +1127,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             ref={bellButtonRef}
             type="button"
             className={"icon-btn" + (bellOpen ? " on" : "")}
-            title="Notification settings"
+            title={i18n.t("settings", { ns: "sidebar" })}
             onClick={() => setBellOpen((o) => !o)}
           >
             <Icon name="bell" size={15} />
@@ -1136,12 +1140,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           </button>
           {bellOpen && (
             <div className="popover" onMouseDown={(e) => e.stopPropagation()}>
-              <div className="pop-head">Notifications for #{channel.name}</div>
+              <div className="pop-head">{i18n.t("notifications.title", { ns: "chat", channel: channel.name })}</div>
               {(
                 [
-                  { k: "all", ttl: "All messages", sub: "Notify on every message" },
-                  { k: "mentions", ttl: "@mentions only", sub: "Only when someone @mentions you" },
-                  { k: "none", ttl: "Nothing", sub: "Channel is muted" },
+                  { k: "all", ttl: i18n.t("notifications.all", { ns: "chat" }), sub: i18n.t("notifications.allHint", { ns: "chat" }) },
+                  { k: "mentions", ttl: i18n.t("notifications.mentions", { ns: "chat" }), sub: i18n.t("notifications.mentionsHint", { ns: "chat" }) },
+                  { k: "none", ttl: i18n.t("notifications.nothing", { ns: "chat" }), sub: i18n.t("notifications.nothingHint", { ns: "chat" }) },
                 ] as const
               ).map((opt) => (
                 <button
@@ -1179,7 +1183,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           <button
             type="button"
             className={"icon-btn" + (searchActive ? " on" : "")}
-            title={searchActive ? "Close search" : "Search messages"}
+            title={searchActive ? i18n.t("closeSearch", { ns: "chat" }) : i18n.t("search", { ns: "common" })}
             onClick={onToggleSearch}
           >
             <Icon name="search" size={15} />
@@ -1189,7 +1193,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           <button
             type="button"
             className="icon-btn"
-            title="Channel settings"
+            title={i18n.t("channelSettings.title", { ns: "modals" })}
             onClick={onOpenChannelSettings}
           >
             <Icon name="settings" size={15} />

@@ -54,6 +54,8 @@ interface ChannelOverride {
 }
 
 const ServersPage: React.FC = () => {
+  const { t: tModals } = useTranslation("modals");
+  const { t: tVoice } = useTranslation("voice");
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
@@ -810,14 +812,14 @@ const ServersPage: React.FC = () => {
                       className={`voice-stage-dot ${qualityClass(localQuality)}`}
                       title={`Connection: ${qualityLabel(localQuality)}`}
                     />
-                    {voiceJoinFailed ? "Couldn't connect" : "Connected"}
+                    {voiceJoinFailed ? tVoice("disconnected") : tVoice("connected")}
                     {selectedServer ? ` · ${selectedServer.name}` : ""}
                   </span>
                   <div className="right">
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Channel settings"
+                      title={tModals("channelSettings.title")}
                       onClick={() =>
                         setEditingChannel({
                           id: joinedChannel.channel.id,
@@ -977,7 +979,7 @@ const ServersPage: React.FC = () => {
                           onClick={handleVoiceLeave}
                         >
                           <Icon name="logout" size={16} />
-                          <span>Leave</span>
+                          <span>{tVoice("leave")}</span>
                         </button>
                       </div>
                     </div>
@@ -998,12 +1000,12 @@ const ServersPage: React.FC = () => {
                     {selectedVoiceChannelNotJoined.name}
                   </span>
                   <span className="sep" />
-                  <span className="topic">Disconnected</span>
+                  <span className="topic">{tVoice("disconnected")}</span>
                   <div className="right">
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Channel settings"
+                      title={tModals("channelSettings.title")}
                       onClick={() =>
                         setEditingChannel({
                           id: selectedVoiceChannelNotJoined.id,
@@ -1018,7 +1020,7 @@ const ServersPage: React.FC = () => {
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
-                    <div className="voice-preview-empty">No one is here yet.</div>
+                    <div className="voice-preview-empty">{tVoice("noOneHere")}</div>
                   ) : (
                     (() => {
                       const sizeClass =
@@ -1066,7 +1068,7 @@ const ServersPage: React.FC = () => {
                       finalizeJoin(selectedServer, selectedVoiceChannelNotJoined);
                     }}
                   >
-                    Connect
+                    {tVoice("connect")}
                   </button>
                 </div>
               </div>
@@ -1231,27 +1233,27 @@ const ServersPage: React.FC = () => {
         <ConfirmModal
           title={
             deleteConfirm.type === "server"
-              ? "Delete server?"
+              ? tModals("confirm.deleteServerTitle")
               : deleteConfirm.type === "leave-server"
-                ? "Leave server?"
+                ? tModals("confirm.leaveServerTitle")
                 : deleteConfirm.type === "channel"
-                  ? "Delete channel?"
-                  : "Remove friend?"
+                  ? tModals("confirm.deleteChannelTitle")
+                  : tModals("confirm.removeFriendTitle")
           }
           subtitle={
             deleteConfirm.type === "leave-server"
-              ? "You can rejoin if invited again."
+              ? tModals("confirm.leaveServerSubtitle")
               : deleteConfirm.type === "friend"
-                ? "You can send a new request later."
-                : "This can't be undone."
+                ? tModals("confirm.removeFriendSubtitle")
+                : tModals("confirm.thisCantBeUndone")
           }
           targetName={deleteConfirm.name}
           confirmLabel={
             deleteConfirm.type === "leave-server"
-              ? "Leave"
+              ? tModals("confirm.leave")
               : deleteConfirm.type === "friend"
-                ? "Remove"
-                : "Delete"
+                ? tModals("confirm.remove")
+                : tModals("confirm.delete")
           }
           danger={deleteConfirm.type !== "leave-server"}
           onCancel={() => setDeleteConfirm(null)}
