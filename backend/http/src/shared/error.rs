@@ -24,10 +24,14 @@ use application::usecases::server::decline_server_invite::DeclineServerInviteErr
 use application::usecases::server::leave_server::LeaveServerError;
 use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
+use application::usecases::read_state::get_unread_counts::GetUnreadCountsError;
+use application::usecases::read_state::mark_channel_read::MarkChannelReadError;
+use application::usecases::read_state::mark_dm_read::MarkDmReadError;
 use application::usecases::user::get_me::GetMeError;
 use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
+use application::usecases::server::get_voice_presence::GetVoicePresenceError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
@@ -988,6 +992,31 @@ impl ToHttpStatus for ListServerMembersError {
     }
 }
 
+impl ToHttpStatus for GetVoicePresenceError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetVoicePresenceError::Repository(e) => e.to_http_status(),
+            GetVoicePresenceError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            GetVoicePresenceError::Repository(e) => e.to_user_message(),
+            GetVoicePresenceError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetVoicePresenceError::Repository(e) => e.to_error_code(),
+            GetVoicePresenceError::NotMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
+
 impl ToHttpStatus for ListServerChannelsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1694,6 +1723,70 @@ impl ToHttpStatus for SearchDmMessagesError {
     }
 }
 
+impl ToHttpStatus for MarkChannelReadError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            MarkChannelReadError::Repository(e) => e.to_http_status(),
+            MarkChannelReadError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            MarkChannelReadError::Repository(e) => e.to_user_message(),
+            MarkChannelReadError::NotMember => {
+                "You are not a member of this channel".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            MarkChannelReadError::Repository(e) => e.to_error_code(),
+            MarkChannelReadError::NotMember => "CHANNEL_NOT_MEMBER",
+        }
+    }
+}
+
+impl ToHttpStatus for MarkDmReadError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            MarkDmReadError::Repository(e) => e.to_http_status(),
+            MarkDmReadError::NotFriends => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            MarkDmReadError::Repository(e) => e.to_user_message(),
+            MarkDmReadError::NotFriends => {
+                "You are not friends with this user".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            MarkDmReadError::Repository(e) => e.to_error_code(),
+            MarkDmReadError::NotFriends => "NOT_FRIENDS",
+        }
+    }
+}
+
+impl ToHttpStatus for GetUnreadCountsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetUnreadCountsError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetUnreadCountsError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetUnreadCountsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for GetMeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1879,6 +1972,7 @@ impl_from_for_api_error!(
     ListServersByUserError,
     ListServerMembersError,
     ListServerChannelsError,
+    GetVoicePresenceError,
     ListChannelParticipantsError,
     ListChannelMessagesError,
     SearchChannelMessagesError,
@@ -1892,6 +1986,9 @@ impl_from_for_api_error!(
     ListFriendsError,
     SearchUsersError,
     GetMeError,
+    MarkChannelReadError,
+    MarkDmReadError,
+    GetUnreadCountsError,
     SendDmMessageError,
     SendServerInviteError,
     AcceptServerInviteError,

@@ -481,6 +481,43 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(())
     }
 
+    async fn list_voice_presence_for_server(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<domain::channel::repository::VoicePresenceRow>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT DISTINCT
+                cvp.channel_id,
+                cvp.user_id,
+                u.name AS user_name,
+                EXISTS (
+                    SELECT 1 FROM channel_muted_participants cmp
+                    WHERE cmp.channel_id = cvp.channel_id
+                      AND cmp.user_id = cvp.user_id
+                ) AS "is_muted!"
+            FROM channel_voice_participants cvp
+            INNER JOIN channels c ON c.id = cvp.channel_id
+            INNER JOIN users u ON u.id = cvp.user_id
+            WHERE c.server_id = $1
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| domain::channel::repository::VoicePresenceRow {
+                channel_id: ChannelId::new(r.channel_id),
+                user_id: UserId::new(r.user_id),
+                user_name: r.user_name,
+                is_muted: r.is_muted,
+            })
+            .collect())
+    }
+
     async fn is_text_channel_member(
         &self,
         channel_id: &ChannelId,
@@ -501,6 +538,25 @@ impl ChannelRepository for PostgresChannelRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(row.exists)
+    }
+
+    async fn list_text_channel_member_ids(
+        &self,
+        channel_id: &ChannelId,
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT user_id
+            FROM channel_text_participants
+            WHERE channel_id = $1
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows.into_iter().map(|r| UserId::new(r.user_id)).collect())
     }
 
     async fn find_channel_by_id(&self, id: &ChannelId) -> Result<Channel, RepositoryError> {

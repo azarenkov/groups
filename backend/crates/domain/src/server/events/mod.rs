@@ -16,6 +16,7 @@ use crate::{
 pub mod lifecycle;
 
 #[derive(Debug, Serialize)]
+#[serde(untagged)]
 pub enum ServerEvent {
     Created(ServerCreated),
     Deleted(ServerDeleted),

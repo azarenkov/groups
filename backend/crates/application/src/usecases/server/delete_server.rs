@@ -86,7 +86,17 @@ where
             .list_voice_channel_ids_by_server(&server_id)
             .await?;
 
-        let event = ServerEvent::Deleted(ServerDeleted::record(server_id, owner_id, Utc::now()));
+        let member_ids = self
+            .server_repository
+            .find_member_ids_by_server_id(&server_id)
+            .await?;
+
+        let event = ServerEvent::Deleted(ServerDeleted::record(
+            server_id,
+            owner_id,
+            member_ids,
+            Utc::now(),
+        ));
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 

@@ -201,6 +201,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-ws"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12d4f2fbee3ef7a22fa6cb0e416b962237a167ed0419f22d4e451da2d7f082f8"
+dependencies = [
+ "actix-codec",
+ "actix-http",
+ "actix-web",
+ "bytestring",
+ "futures-core",
+ "tokio",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -259,6 +273,7 @@ dependencies = [
  "chrono",
  "domain",
  "futures",
+ "serde_json",
  "thiserror 2.0.18",
  "tracing",
  "uuid",
@@ -928,6 +943,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "event-dispatcher"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "anyhow",
+ "application",
+ "async-nats",
+ "chrono",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "infrastructure",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "event-listener"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1329,6 +1368,7 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "application",
+ "async-nats",
  "chrono",
  "domain",
  "dotenv",
@@ -4009,6 +4049,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22cfaf3c063993ff62e73cb4311efde4db1efb31ab78a3e5c457939ad5cc0bed"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "websocket"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "actix-ws",
+ "async-nats",
+ "dashmap",
+ "dotenv",
+ "envy",
+ "futures",
+ "infrastructure",
+ "jsonwebtoken 10.3.0",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

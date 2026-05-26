@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
 import { colorForId, initialFor } from "../../utils/avatar";
+import { usePresenceStore } from "../../store/presenceStore";
 
 interface MembersPanelProps {
   serverId: string;
@@ -10,6 +11,7 @@ interface MembersPanelProps {
 
 const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
+  const onlineUsers = usePresenceStore((s) => s.online);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,16 +70,28 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
       {!loading && !error && members.length === 0 && (
         <div className="mp-empty">No one has joined yet.</div>
       )}
-      {members.map((m) => (
-        <div key={m.id} className="member-row">
-          <div className="ava" style={{ background: colorForId(m.id) }}>
-            {initialFor(m.name)}
+      {members.map((m) => {
+        const isOnline = !!onlineUsers[m.id];
+        return (
+          <div key={m.id} className="member-row">
+            <div
+              className="ava"
+              style={{ background: colorForId(m.id), position: "relative" }}
+            >
+              {initialFor(m.name)}
+              <span
+                className={"presence " + (isOnline ? "online" : "offline")}
+                title={isOnline ? "Online" : "Offline"}
+                aria-label={isOnline ? "Online" : "Offline"}
+              />
+            </div>
+            <div className="info">
+              <div className="name">{m.name}</div>
+              <div className="role">{isOnline ? "Online" : "Offline"}</div>
+            </div>
           </div>
-          <div className="info">
-            <div className="name">{m.name}</div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </aside>
   );
 };

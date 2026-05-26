@@ -92,6 +92,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
         setIsConnecting(true);
         setError(null);
+        activeChannelRef.current = { serverId, channelId };
 
         console.log(
           `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
@@ -105,10 +106,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
         await service.connect(response.token, response.url);
 
-        activeChannelRef.current = { serverId, channelId };
         setIsConnecting(false);
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
+        activeChannelRef.current = null;
         setError(err instanceof Error ? err.message : "Failed to join channel");
         setIsConnecting(false);
         throw err;

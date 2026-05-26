@@ -109,12 +109,18 @@ where
         let now = Utc::now();
         message.edit(new_content, editor_id, now)?;
 
+        let recipient_ids = self
+            .channel_repository
+            .list_text_channel_member_ids(&channel_id)
+            .await?;
+
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = message
+        let mut records: Vec<OutboxRecord> = message
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
         self.message_repository
             .update_message_with_events(&message, &records)

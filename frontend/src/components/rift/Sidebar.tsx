@@ -37,8 +37,23 @@ interface SidebarProps {
     isMuted?: boolean;
     isSharingScreen?: boolean;
   }[];
+  voiceMembersByChannel?: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      initials: string;
+      color: string;
+      isMuted?: boolean;
+      isSharingScreen?: boolean;
+    }[]
+  >;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
+  unreadByChannel?: Record<string, number>;
+  unreadByDm?: Record<string, number>;
+  channelToServer?: Record<string, string>;
+  onSetStatus?: (status: "online" | "offline") => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -66,8 +81,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentUserName,
   currentUserStatus,
   voiceMembers,
+  voiceMembersByChannel,
   searchQuery,
   onSearchQueryChange,
+  unreadByChannel = {},
+  unreadByDm = {},
+  channelToServer = {},
+  onSetStatus,
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
@@ -94,6 +114,29 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [menuServerId]);
 
   const directsCollapsed = !!collapsed["__directs"];
+
+  const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
+  const statusMenuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!statusMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        statusMenuRef.current &&
+        !statusMenuRef.current.contains(e.target as Node)
+      ) {
+        setStatusMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setStatusMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [statusMenuOpen]);
 
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
@@ -224,7 +267,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               className={
                 "sb-item" +
                 (selectedDmId === d.id ? " active" : "") +
-                (d.unread ? " unread" : "")
+                ((unreadByDm[d.id] ?? 0) > 0 ? " unread" : "")
               }
               onClick={() => onSelectDm(d)}
               onKeyDown={(e) => {
@@ -268,7 +311,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               </span>
               <span className="sb-label">{d.name}</span>
-              {d.unread > 0 && <span className="meta">{d.unread}</span>}
+              {(unreadByDm[d.id] ?? 0) > 0 && (
+                <span className="meta">{unreadByDm[d.id]}</span>
+              )}
             </div>
           ))}
 
@@ -284,6 +329,20 @@ const Sidebar: React.FC<SidebarProps> = ({
           const isCol = isFiltering ? false : !expandedServerIds.has(server.id);
           const channels = visibleChannelsFor(server.id);
           const accent = server.accentColor ?? colorForId(server.id);
+          const allServerChannels = channelsByServer[server.id] || [];
+          const localSum = allServerChannels
+            .filter((c) => c.kind === "text")
+            .reduce((sum, c) => sum + (unreadByChannel[c.id] ?? 0), 0);
+          let fallbackSum = 0;
+          for (const [cid, count] of Object.entries(unreadByChannel)) {
+            if (channelToServer[cid] === server.id) fallbackSum += count;
+          }
+          const serverUnread = Math.max(localSum, fallbackSum);
+          const hasVoiceActivity = allServerChannels.some(
+            (c) =>
+              c.kind === "voice" &&
+              (voiceMembersByChannel?.[c.id]?.length ?? 0) > 0,
+          );
           return (
             <div key={server.id}>
               <div
@@ -314,8 +373,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                   >
                     {server.name}
                   </span>
+                  {hasVoiceActivity && (
+                    <span
+                      className="sb-server-voice-dot"
+                      title="Someone is in voice"
+                      aria-label="Voice activity"
+                    />
+                  )}
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  {serverUnread > 0 && (
+                    <span className="sb-server-unread">{serverUnread}</span>
+                  )}
                   {!isCol && (
                     <>
                       <button
@@ -408,7 +477,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         className={
                           "sb-item" +
                           (selectedChannelId === channel.id ? " active" : "") +
-                          (joinedChannelId === channel.id ? " in-voice" : "")
+                          (joinedChannelId === channel.id ? " in-voice" : "") +
+                          (channel.kind === "text" &&
+                          (unreadByChannel[channel.id] ?? 0) > 0
+                            ? " unread"
+                            : "")
                         }
                         onClick={() => onSelectChannel(server, channel)}
                         onKeyDown={(e) => {
@@ -429,21 +502,45 @@ const Sidebar: React.FC<SidebarProps> = ({
                           />
                         </span>
                         <span className="sb-label">{channel.name}</span>
+                        {channel.kind === "text" &&
+                          (unreadByChannel[channel.id] ?? 0) > 0 && (
+                            <span className="meta">
+                              {unreadByChannel[channel.id]}
+                            </span>
+                          )}
+                        {channel.kind === "voice" &&
+                          (voiceMembersByChannel?.[channel.id]?.length ?? 0) >
+                            0 && (
+                            <span className="meta">
+                              {voiceMembersByChannel?.[channel.id]?.length}
+                            </span>
+                          )}
                         {channel.visibility === "private" && (
                           <span className="lock">
                             <Icon name="lock" size={11} />
                           </span>
                         )}
-                        {joinedChannelId === channel.id && (
-                          <span className="sb-live-dot" aria-hidden="true" />
-                        )}
                       </div>
                       {channel.kind === "voice" &&
-                        joinedChannelId === channel.id &&
-                        voiceMembers &&
-                        voiceMembers.length > 0 && (
-                          <div className="sb-voice-members">
-                            {voiceMembers.map((m) => (
+                        (() => {
+                          const base = voiceMembersByChannel?.[channel.id] ?? [];
+                          const isJoined = joinedChannelId === channel.id;
+                          let membersForChannel = base;
+                          if (isJoined && voiceMembers && voiceMembers.length > 0) {
+                            const merged = new Map(base.map((m) => [m.id, m]));
+                            for (const live of voiceMembers) {
+                              const existing = merged.get(live.id);
+                              merged.set(
+                                live.id,
+                                existing ? { ...existing, ...live } : live,
+                              );
+                            }
+                            membersForChannel = Array.from(merged.values());
+                          }
+                          if (membersForChannel.length === 0) return null;
+                          return (
+                            <div className="sb-voice-members">
+                              {membersForChannel.map((m) => (
                               <div key={m.id} className="sb-voice-member">
                                 <span
                                   className="sb-voice-member-ava"
@@ -472,8 +569,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                               </div>
                             ))}
-                          </div>
-                        )}
+                            </div>
+                          );
+                        })()}
                     </React.Fragment>
                   ))}
                 </>
@@ -494,13 +592,73 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="sb-footer">
         <div className="user-pill">
-          <div className="ava">
+          <div
+            className="ava"
+            style={
+              currentUserId
+                ? { background: colorForId(currentUserId) }
+                : undefined
+            }
+          >
             {currentUserName.charAt(0).toUpperCase()}
-            <span className="dot" />
+            <span
+              className={
+                "dot" + (currentUserStatus === "Offline" ? " offline" : "")
+              }
+            />
           </div>
-          <div className="info">
+          <div
+            className={
+              "info user-pill-info-btn" +
+              (statusMenuOpen ? " open" : "")
+            }
+            ref={statusMenuRef}
+            role="button"
+            tabIndex={0}
+            title="Change status"
+            onClick={() => setStatusMenuOpen((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setStatusMenuOpen((v) => !v);
+              }
+            }}
+          >
             <div className="n">{currentUserName}</div>
-            <div className="s">{currentUserStatus}</div>
+            <div className="s">
+              <span>{currentUserStatus}</span>
+              <Icon
+                name="chev"
+                size={9}
+                className={"user-pill-chev" + (statusMenuOpen ? " up" : "")}
+              />
+            </div>
+            {statusMenuOpen && onSetStatus && (
+              <div className="sb-status-menu" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="sb-status-menu-item"
+                  onClick={() => {
+                    onSetStatus("online");
+                    setStatusMenuOpen(false);
+                  }}
+                >
+                  <span className="sb-status-dot online" />
+                  <span>Online</span>
+                </button>
+                <button
+                  type="button"
+                  className="sb-status-menu-item"
+                  onClick={() => {
+                    onSetStatus("offline");
+                    setStatusMenuOpen(false);
+                  }}
+                >
+                  <span className="sb-status-dot offline" />
+                  <span>Offline</span>
+                </button>
+              </div>
+            )}
           </div>
           <button type="button" className="icon-btn" title="Settings" onClick={onOpenSettings}>
             <Icon name="settings" size={14} />

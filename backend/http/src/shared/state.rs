@@ -13,6 +13,10 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    read_state::{
+        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
+        mark_dm_read::MarkDmRead,
+    },
     user::{get_me::GetMe, search_users::SearchUsers},
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
@@ -27,7 +31,8 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
-        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
+        get_voice_presence::GetVoicePresence, leave_server::LeaveServer,
+        list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
@@ -38,8 +43,8 @@ use infrastructure::{
     database::postgres::repositories::{
         channel::PostgresChannelRepository, dm_message::PostgresDmMessageRepository,
         friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
-        refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
-        user::PostgresUserRepository,
+        read_state::PostgresReadStateRepository, refresh_token::PostgresRefreshTokenRepository,
+        server::PostgresServerRepository, user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
@@ -121,6 +126,13 @@ pub struct AppState {
 
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
+    pub mark_channel_read_usecase:
+        MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
+    pub mark_dm_read_usecase:
+        MarkDmRead<PostgresReadStateRepository, PostgresFriendshipRepository>,
+    pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+    pub nats_core: async_nats::Client,
+    pub presence_preference_subject: String,
 
     pub send_dm_message_usecase:
         SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
@@ -148,6 +160,8 @@ pub struct AppState {
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
+    pub get_voice_presence_usecase:
+        GetVoicePresence<PostgresServerRepository, PostgresChannelRepository>,
 
     pub jwt_secret: String,
     pub trust_forwarded_headers: bool,
@@ -238,6 +252,10 @@ impl AppState {
         list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
         list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
         list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
+        get_voice_presence_usecase: GetVoicePresence<
+            PostgresServerRepository,
+            PostgresChannelRepository,
+        >,
         send_friend_request_usecase: SendFriendRequest<
             PostgresFriendshipRepository,
             PostgresUserRepository,
@@ -247,6 +265,17 @@ impl AppState {
         list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
         search_users_usecase: SearchUsers<PostgresUserRepository>,
         get_me_usecase: GetMe<PostgresUserRepository>,
+        mark_channel_read_usecase: MarkChannelRead<
+            PostgresReadStateRepository,
+            PostgresChannelRepository,
+        >,
+        mark_dm_read_usecase: MarkDmRead<
+            PostgresReadStateRepository,
+            PostgresFriendshipRepository,
+        >,
+        get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+        nats_core: async_nats::Client,
+        presence_preference_subject: String,
         send_dm_message_usecase: SendDmMessage<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
@@ -304,12 +333,18 @@ impl AppState {
             list_servers_by_user_usecase,
             list_server_members_usecase,
             list_server_channels_usecase,
+            get_voice_presence_usecase,
             send_friend_request_usecase,
             accept_friend_request_usecase,
             remove_friendship_usecase,
             list_friends_usecase,
             search_users_usecase,
             get_me_usecase,
+            mark_channel_read_usecase,
+            mark_dm_read_usecase,
+            get_unread_counts_usecase,
+            nats_core,
+            presence_preference_subject,
             send_dm_message_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,

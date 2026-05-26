@@ -43,6 +43,16 @@ export class LiveKitService {
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
+  private desiredMicMuted: boolean = false;
+  private remoteVolumes: Map<string, number> = new Map();
+  private remoteAudioElements: Map<string, HTMLMediaElement[]> = new Map();
+  private remoteAudioCtx: AudioContext | null = null;
+  private remoteGainNodes: Map<string, GainNode[]> = new Map();
+  private remoteSourceNodes: WeakMap<
+    HTMLMediaElement,
+    { source: MediaElementAudioSourceNode; gain: GainNode; identity: string }
+  > = new WeakMap();
+  private static readonly REMOTE_GAIN_MAX = 6.0;
   private noiseStrength: number = 1.0;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
@@ -236,6 +246,11 @@ export class LiveKitService {
       this.room = null;
       this.participants.clear();
       this.isConnecting = false;
+      this.desiredMicMuted = false;
+      this.remoteVolumes.clear();
+      this.remoteAudioElements.clear();
+      this.remoteGainNodes.clear();
+      this.remoteSourceNodes = new WeakMap();
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.emitLocalTrack();
       this.setLocalSpeaking(false);
@@ -321,6 +336,7 @@ export class LiveKitService {
   }
 
   setMicrophoneMuted(muted: boolean): void {
+    this.desiredMicMuted = muted;
     if (!this.room) return;
 
     const audioTracks = Array.from(
@@ -732,6 +748,16 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
       if (publication.kind !== Track.Kind.Audio) return;
+      if (this.desiredMicMuted && publication.track) {
+        try {
+          publication.track.mute();
+        } catch (e) {
+          console.warn(
+            "[LiveKitService] failed to apply pending mute to new track:",
+            e,
+          );
+        }
+      }
       this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) => {
         console.warn(
           "[LiveKitService] reapply noise mode after publish failed:",
@@ -798,6 +824,26 @@ export class LiveKitService {
     }
   }
 
+  private ensureRemoteAudioCtx(): AudioContext | null {
+    if (this.remoteAudioCtx) return this.remoteAudioCtx;
+    try {
+      const Ctor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctor) return null;
+      this.remoteAudioCtx = new Ctor();
+      return this.remoteAudioCtx;
+    } catch (e) {
+      console.warn("[LiveKitService] AudioContext init failed:", e);
+      return null;
+    }
+  }
+
+  private uiVolumeToGain(uiVolume: number): number {
+    return Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, uiVolume));
+  }
+
   private handleAudioTrack(
     track: AudioTrack,
     participant: RemoteParticipant,
@@ -807,11 +853,94 @@ export class LiveKitService {
     const audioElement = track.attach();
     audioElement.volume = 1.0;
     document.body.appendChild(audioElement);
+    const list = this.remoteAudioElements.get(participant.identity) ?? [];
+    list.push(audioElement);
+    this.remoteAudioElements.set(participant.identity, list);
+
+    const desiredUiVolume = this.remoteVolumes.get(participant.identity) ?? 1.0;
+    const ctx = this.ensureRemoteAudioCtx();
+    if (ctx) {
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+      try {
+        const source = ctx.createMediaElementSource(audioElement);
+        const gain = ctx.createGain();
+        gain.gain.value = this.uiVolumeToGain(desiredUiVolume);
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.value = -18;
+        compressor.knee.value = 24;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.25;
+        source.connect(gain);
+        gain.connect(compressor);
+        compressor.connect(ctx.destination);
+        this.remoteSourceNodes.set(audioElement, {
+          source,
+          gain,
+          identity: participant.identity,
+        });
+        const gains =
+          this.remoteGainNodes.get(participant.identity) ?? [];
+        gains.push(gain);
+        this.remoteGainNodes.set(participant.identity, gains);
+      } catch (e) {
+        console.warn(
+          "[LiveKitService] failed to wire remote gain node, falling back to element volume:",
+          e,
+        );
+        audioElement.volume = desiredUiVolume;
+      }
+    } else {
+      audioElement.volume = desiredUiVolume;
+    }
 
     track.on(TrackEvent.Ended, () => {
+      const nodes = this.remoteSourceNodes.get(audioElement);
+      if (nodes) {
+        try {
+          nodes.gain.disconnect();
+          nodes.source.disconnect();
+        } catch {}
+        const gains =
+          this.remoteGainNodes.get(participant.identity) ?? [];
+        const remainingGains = gains.filter((g) => g !== nodes.gain);
+        if (remainingGains.length === 0) {
+          this.remoteGainNodes.delete(participant.identity);
+        } else {
+          this.remoteGainNodes.set(participant.identity, remainingGains);
+        }
+        this.remoteSourceNodes.delete(audioElement);
+      }
       audioElement.remove();
+      const remaining = (
+        this.remoteAudioElements.get(participant.identity) ?? []
+      ).filter((el) => el !== audioElement);
+      if (remaining.length === 0) {
+        this.remoteAudioElements.delete(participant.identity);
+      } else {
+        this.remoteAudioElements.set(participant.identity, remaining);
+      }
       this.updateParticipant(participant.identity, { audioTrack: null });
     });
+  }
+
+  setRemoteVolume(identity: string, volume: number): void {
+    const v = Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, volume));
+    this.remoteVolumes.set(identity, v);
+    const gain = this.uiVolumeToGain(v);
+    const gains = this.remoteGainNodes.get(identity);
+    if (gains && gains.length > 0) {
+      for (const g of gains) g.gain.value = gain;
+    } else {
+      const els = this.remoteAudioElements.get(identity);
+      if (els) for (const el of els) el.volume = Math.min(1, v);
+    }
+  }
+
+  getRemoteVolume(identity: string): number {
+    return this.remoteVolumes.get(identity) ?? 1.0;
   }
 
   private notifyParticipantsChange(): void {

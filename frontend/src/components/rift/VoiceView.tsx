@@ -4,30 +4,8 @@ import Icon from "./Icon";
 import { useLiveKit } from "../../hooks/useLiveKit";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
 import { getLiveKitService } from "../../services/livekit";
-import { ConnectionQuality } from "../../services/livekit";
-import {
-  qualityActiveBars,
-  qualityClass,
-  qualityLabel,
-} from "../../utils/quality";
-import { colorForId, initialFor } from "../../utils/avatar";
-
-const initials = initialFor;
-
-const QualityBars: React.FC<{ quality: ConnectionQuality }> = ({ quality }) => {
-  const active = qualityActiveBars(quality);
-  return (
-    <span
-      className={`vp-quality ${qualityClass(quality)}`}
-      title={`Connection: ${qualityLabel(quality)}`}
-      aria-label={`Connection ${qualityLabel(quality)}`}
-    >
-      {[0, 1, 2].map((i) => (
-        <i key={i} className={i < active ? "on" : ""} />
-      ))}
-    </span>
-  );
-};
+import { qualityClass, qualityLabel } from "../../utils/quality";
+import { useVoicePresenceStore } from "../../store/voicePresenceStore";
 
 interface VoiceViewProps {
   channelId: string;
@@ -113,7 +91,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   };
 
   const [open, setOpen] = React.useState(false);
-  const [volumes, setVolumes] = React.useState<Record<string, number>>({});
   const [noise, setNoise] = React.useState<"off" | "standard" | "high">(() =>
     getNoiseSuppressionMode(),
   );
@@ -146,20 +123,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
   const speakingPerson = participants.find((p) => p.isSpeaking);
 
-  const getVol = (id: string) => volumes[id] ?? 100;
-  const setVol = (id: string, v: number) =>
-    setVolumes((prev) => ({ ...prev, [id]: v }));
-
-  const avgVol =
-    participants.length > 0
-      ? Math.round(
-          participants.reduce((s, p) => s + getVol(p.identity), 0) /
-            participants.length,
-        )
-      : 100;
-
-  const volIcon =
-    avgVol === 0 ? "speaker-off" : avgVol < 40 ? "speaker-lo" : "speaker-hi";
+  const volIcon = "speaker-hi";
 
   React.useEffect(() => {
     if (!open) return;
@@ -287,7 +251,14 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     };
   }, [isMuted, isConnected, trackId, localTrack]);
 
-  const totalConnected = isConnected ? participants.length + 1 : 0;
+  const presenceForChannel = useVoicePresenceStore(
+    (s) => s.byChannel[channelId],
+  );
+  const livekitCount = participants.length + 1;
+  const presenceCount = presenceForChannel?.length ?? 0;
+  const totalConnected = isConnected
+    ? Math.max(livekitCount, presenceCount)
+    : 0;
 
   if (!mountPoint) return null;
 
@@ -357,43 +328,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
       {open && (
         <div className="vp-popover" onMouseDown={(e) => e.stopPropagation()}>
-          <div className="vp-pop-title">Listening to</div>
-          <div className="vp-people">
-            {participants.length === 0 && (
-              <div style={{ padding: "10px 8px", fontSize: 12, color: "var(--fg-3)" }}>
-                No one else is here yet.
-              </div>
-            )}
-            {participants.map((p) => {
-              const v = getVol(p.identity);
-              return (
-                <div key={p.identity} className="vp-person">
-                  <div
-                    className={"ava" + (v === 0 ? " muted" : "")}
-                    style={{ background: colorForId(p.identity) }}
-                  >
-                    {initials(p.name || p.identity)}
-                  </div>
-                  <div className="name">{p.name || p.identity}</div>
-                  <QualityBars quality={p.quality} />
-                  <div className="vp-slider">
-                    <input
-                      type="range"
-                      min={0}
-                      max={200}
-                      step={1}
-                      value={v}
-                      onChange={(e) => setVol(p.identity, Number(e.target.value))}
-                      style={{ ["--pct" as unknown as string]: `${v / 2}%` } as React.CSSProperties}
-                      title={`${v}%`}
-                    />
-                  </div>
-                  <div className="pct">{v}%</div>
-                </div>
-              );
-            })}
-          </div>
-
           <div className="vp-pop-row">
             <div className="vp-pop-label">
               <span className="k">Noise suppression</span>

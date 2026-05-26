@@ -13,6 +13,13 @@ import AddFriendModal from "../components/AddFriendModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import { getLiveKitService } from "../services/livekit";
+import { ws } from "../services/websocket";
+import { setActiveChatView } from "../services/websocketBootstrap";
+import { useUnreadStore } from "../store/unreadStore";
+import { usePresenceStore } from "../store/presenceStore";
+import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
@@ -48,9 +55,33 @@ interface ChannelOverride {
 const ServersPage: React.FC = () => {
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
-  const [previewParticipants, setPreviewParticipants] = useState<
-    ChannelParticipant[]
-  >([]);
+  const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
+  const unreadByChannel = useUnreadStore((s) => s.byChannel);
+  const unreadByDm = useUnreadStore((s) => s.byDm);
+  const channelToServer = useUnreadStore((s) => s.channelToServer);
+  const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
+  const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
+  const volumePopoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openVolumeFor) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        volumePopoverRef.current &&
+        !volumePopoverRef.current.contains(e.target as Node)
+      ) {
+        setOpenVolumeFor(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenVolumeFor(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [openVolumeFor]);
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -127,12 +158,23 @@ const ServersPage: React.FC = () => {
     channel: Channel;
   } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
+  useEffect(() => {
+    if (selectedDm) {
+      setActiveChatView({ kind: "dm", id: selectedDm.id });
+    } else if (selectedChannelId) {
+      setActiveChatView({ kind: "channel", id: selectedChannelId });
+    } else {
+      setActiveChatView(null);
+    }
+    return () => setActiveChatView(null);
+  }, [selectedChannelId, selectedDm]);
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
   const [directs, setDirects] = useState<MockDirect[]>([]);
   const [sidebarQuery, setSidebarQuery] = useState("");
 
+  const onlineUsers = usePresenceStore((s) => s.online);
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
       friends
@@ -142,10 +184,10 @@ const ServersPage: React.FC = () => {
           name: f.friendName,
           initials: initialFor(f.friendName),
           color: colorForId(f.friendId),
-          online: false,
+          online: !!onlineUsers[f.friendId],
           unread: 0,
         })),
-    [friends],
+    [friends, onlineUsers],
   );
 
   const pendingCount = React.useMemo(
@@ -189,6 +231,59 @@ const ServersPage: React.FC = () => {
       if (!channelsByServer[id]) fetchChannels(id);
     });
   }, [expandedServerIds, tokens, fetchChannels, channelsByServer, servers]);
+
+  const presenceSyncedRef = useRef<Set<string>>(new Set());
+  const [presenceSyncTick, setPresenceSyncTick] = useState(0);
+  useEffect(() => {
+    return ws.onOpen(() => {
+      presenceSyncedRef.current.clear();
+      useVoicePresenceStore.getState().clearAll();
+      usePresenceStore.getState().clearAll();
+      setPresenceSyncTick((n) => n + 1);
+    });
+  }, []);
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    const synced = presenceSyncedRef.current;
+    servers.forEach((s) => {
+      if (synced.has(s.id)) return;
+      synced.add(s.id);
+      serverAPI
+        .listVoicePresence(s.id)
+        .then((items) => {
+          const groups: Record<
+            string,
+            { id: string; name: string; isMuted: boolean }[]
+          > = {};
+          for (const item of items) {
+            (groups[item.channelId] ||= []).push({
+              id: item.userId,
+              name: item.userName,
+              isMuted: item.isMuted,
+            });
+          }
+          const snapshotChannels = new Set(Object.keys(groups));
+          const knownChannels =
+            useChannelStore.getState().channelsByServer[s.id] || [];
+          for (const c of knownChannels) {
+            if (c.kind !== "voice") continue;
+            if (snapshotChannels.has(c.id)) continue;
+            useVoicePresenceStore.getState().clearChannel(c.id);
+          }
+          for (const [channelId, members] of Object.entries(groups)) {
+            useVoicePresenceStore.getState().setMembers(channelId, members);
+          }
+        })
+        .catch((err) => {
+          synced.delete(s.id);
+          console.warn(
+            "[voice-presence] initial sync failed for server",
+            s.id,
+            err,
+          );
+        });
+    });
+  }, [servers, tokens, presenceSyncTick]);
 
   const prefetchInflightRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -266,29 +361,12 @@ const ServersPage: React.FC = () => {
         ) ?? null
       : null;
 
-  useEffect(() => {
-    if (!selectedVoiceChannelNotJoined || !selectedServer) {
-      setPreviewParticipants([]);
-      return;
-    }
-    const serverId = selectedServer.id;
-    const channelId = selectedVoiceChannelNotJoined.id;
-    let cancelled = false;
-    channelAPI
-      .listParticipants(serverId, channelId)
-      .then((res) => {
-        if (!cancelled) setPreviewParticipants(res.participants);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.warn("[ServersPage] failed to load participants:", err);
-          setPreviewParticipants([]);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedVoiceChannelNotJoined, selectedServer]);
+  const previewParticipants: ChannelParticipant[] = React.useMemo(() => {
+    if (!selectedVoiceChannelNotJoined) return [];
+    const members =
+      voicePresenceByChannel[selectedVoiceChannelNotJoined.id] || [];
+    return members.map((m) => ({ id: m.id, name: m.name }));
+  }, [selectedVoiceChannelNotJoined, voicePresenceByChannel]);
 
   const selectedServerChannels = selectedServer
     ? channelsByServer[selectedServer.id]
@@ -335,6 +413,10 @@ const ServersPage: React.FC = () => {
       setSelectedServer(server.id);
       setSelectedChannel(channel.id);
       setSelectedDm(null);
+      useUnreadStore.getState().resetChannel(channel.id);
+      userAPI.markChannelRead(channel.id).catch((err) => {
+        console.warn("[read-state] mark channel read failed:", err);
+      });
       return;
     }
     if (
@@ -357,6 +439,10 @@ const ServersPage: React.FC = () => {
   const handleSelectDm = (dm: MockDirect) => {
     setSelectedDm(dm);
     setSelectedChannel(null);
+    useUnreadStore.getState().resetDm(dm.id);
+    userAPI.markDmRead(dm.id).catch((err) => {
+      console.warn("[read-state] mark dm read failed:", err);
+    });
   };
 
   const handleGoToServer = async (serverId: string) => {
@@ -535,7 +621,61 @@ const ServersPage: React.FC = () => {
   };
 
   const userName = user?.name || "You";
-  const userStatus = "Online";
+  const [appearOffline, setAppearOfflineState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("rift:appearOffline") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const userStatus = appearOffline ? "Offline" : "Online";
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    userAPI.setAppearOffline(appearOffline).catch((err) => {
+      console.warn("[presence] setAppearOffline failed:", err);
+    });
+  }, [appearOffline, tokens?.accessToken]);
+  const handleSetStatus = useCallback((status: "online" | "offline") => {
+    const next = status === "offline";
+    setAppearOfflineState(next);
+    try {
+      localStorage.setItem("rift:appearOffline", next ? "1" : "0");
+    } catch {}
+  }, []);
+
+  const voiceMembersByChannel: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      initials: string;
+      color: string;
+      isMuted?: boolean;
+      isSharingScreen?: boolean;
+    }[]
+  > = React.useMemo(() => {
+    const out: Record<
+      string,
+      {
+        id: string;
+        name: string;
+        initials: string;
+        color: string;
+        isMuted?: boolean;
+        isSharingScreen?: boolean;
+      }[]
+    > = {};
+    for (const [channelId, members] of Object.entries(voicePresenceByChannel)) {
+      out[channelId] = members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        initials: initialFor(m.name),
+        color: colorForId(m.id),
+        isMuted: m.isMuted,
+      }));
+    }
+    return out;
+  }, [voicePresenceByChannel]);
 
   const winTitle = selectedDm
     ? selectedDm.name
@@ -574,20 +714,18 @@ const ServersPage: React.FC = () => {
                     name: userName || "You",
                     initials: initialFor(userName),
                     color: colorForId(user?.id || "you"),
-                    isMuted: false,
-                    isSharingScreen: false,
                   },
                   ...voiceParticipants.map((p) => ({
                     id: p.identity,
                     name: p.name || p.identity,
                     initials: initialFor(p.name || p.identity),
                     color: colorForId(p.identity),
-                    isMuted: p.isMuted,
                     isSharingScreen: p.isSharingScreen,
                   })),
                 ]
               : []
           }
+          voiceMembersByChannel={voiceMembersByChannel}
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
           pendingCount={pendingCount}
@@ -625,6 +763,10 @@ const ServersPage: React.FC = () => {
           currentUserStatus={userStatus}
           searchQuery={sidebarQuery}
           onSearchQueryChange={setSidebarQuery}
+          unreadByChannel={unreadByChannel}
+          unreadByDm={unreadByDm}
+          channelToServer={channelToServer}
+          onSetStatus={handleSetStatus}
         />
 
         <main className="main">
@@ -688,20 +830,44 @@ const ServersPage: React.FC = () => {
                   </div>
                 </header>
                 {(() => {
-                  const tiles = [
+                  const tilesById = new Map<
+                    string,
                     {
-                      id: user?.id || "you",
-                      name: userName || "You",
-                      initials: initialFor(userName),
-                      color: colorForId(user?.id || "you"),
-                    },
-                    ...voiceParticipants.map((p) => ({
+                      id: string;
+                      name: string;
+                      initials: string;
+                      color: string;
+                    }
+                  >();
+                  const selfId = user?.id || "you";
+                  tilesById.set(selfId, {
+                    id: selfId,
+                    name: userName || "You",
+                    initials: initialFor(userName),
+                    color: colorForId(selfId),
+                  });
+                  const presenceMembers = joinedChannel
+                    ? voicePresenceByChannel[joinedChannel.channel.id] || []
+                    : [];
+                  for (const m of presenceMembers) {
+                    if (tilesById.has(m.id)) continue;
+                    tilesById.set(m.id, {
+                      id: m.id,
+                      name: m.name,
+                      initials: initialFor(m.name),
+                      color: colorForId(m.id),
+                    });
+                  }
+                  for (const p of voiceParticipants) {
+                    if (tilesById.has(p.identity)) continue;
+                    tilesById.set(p.identity, {
                       id: p.identity,
                       name: p.name || p.identity,
                       initials: initialFor(p.name || p.identity),
                       color: colorForId(p.identity),
-                    })),
-                  ];
+                    });
+                  }
+                  const tiles = Array.from(tilesById.values());
                   const cols =
                     tiles.length === 1
                       ? 1
@@ -724,17 +890,84 @@ const ServersPage: React.FC = () => {
                           } as React.CSSProperties
                         }
                       >
-                        {tiles.map((t) => (
-                          <div key={t.id} className="voice-tile">
-                            <div
-                              className="voice-tile-ava"
-                              style={{ background: t.color }}
-                            >
-                              {t.initials}
+                        {tiles.map((t) => {
+                          const isSelf = t.id === (user?.id || "you");
+                          const vol = tileVolumes[t.id] ?? 100;
+                          return (
+                            <div key={t.id} className="voice-tile">
+                              <div
+                                className="voice-tile-ava"
+                                style={{ background: t.color }}
+                              >
+                                {t.initials}
+                              </div>
+                              <div className="voice-tile-name">{t.name}</div>
+                              {!isSelf && (
+                                <div className="voice-tile-volume-wrap">
+                                  <button
+                                    type="button"
+                                    className={
+                                      "voice-tile-volume-btn" +
+                                      (openVolumeFor === t.id ? " on" : "")
+                                    }
+                                    title={`Volume ${vol}%`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenVolumeFor((prev) =>
+                                        prev === t.id ? null : t.id,
+                                      );
+                                    }}
+                                  >
+                                    <Icon
+                                      name={
+                                        vol === 0
+                                          ? "speaker-off"
+                                          : vol < 40
+                                            ? "speaker-lo"
+                                            : "speaker-hi"
+                                      }
+                                      size={14}
+                                    />
+                                  </button>
+                                  {openVolumeFor === t.id && (
+                                    <div
+                                      className="voice-tile-volume-pop"
+                                      ref={volumePopoverRef}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                      <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        value={vol}
+                                        onChange={(e) => {
+                                          const v = Number(e.target.value);
+                                          setTileVolumes((prev) => ({
+                                            ...prev,
+                                            [t.id]: v,
+                                          }));
+                                          getLiveKitService().setRemoteVolume(
+                                            t.id,
+                                            v / 100,
+                                          );
+                                        }}
+                                        style={
+                                          {
+                                            ["--pct" as unknown as string]: `${vol}%`,
+                                          } as React.CSSProperties
+                                        }
+                                      />
+                                      <span className="voice-tile-volume-pct">
+                                        {vol}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            <div className="voice-tile-name">{t.name}</div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <div className="voice-room-actions">
                         <button

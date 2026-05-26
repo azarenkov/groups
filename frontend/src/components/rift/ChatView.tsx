@@ -7,6 +7,22 @@ import { ChannelMessage } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
 import { colorForId, glyphFor } from "../../utils/avatar";
+import {
+  useWsChannelMessages,
+  useWsDmMessages,
+} from "../../services/useWebSocketMessages";
+
+const mergeWithLive = (
+  history: ChannelMessage[],
+  prev: ChannelMessage[],
+): ChannelMessage[] => {
+  const ids = new Set(history.map((m) => m.id));
+  const extras = prev.filter((m) => !ids.has(m.id));
+  if (extras.length === 0) return history;
+  return [...history, ...extras].sort((a, b) =>
+    a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
+  );
+};
 
 const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
@@ -92,6 +108,109 @@ const ChatView: React.FC<ChatViewProps> = ({
   onGoToServer,
 }) => {
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+
+  const channelMsgHandlers = React.useMemo(
+    () => ({
+      onSent: (m: {
+        id: string;
+        channelId: string;
+        authorId: string;
+        authorName?: string;
+        content: string;
+        occurredAt: string;
+      }) => {
+        setMessages((prev) =>
+          prev.some((x) => x.id === m.id)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: m.id,
+                  channelId: m.channelId,
+                  authorId: m.authorId,
+                  authorName: m.authorName,
+                  content: m.content,
+                  createdAt: m.occurredAt,
+                  editedAt: null,
+                },
+              ],
+        );
+      },
+      onEdited: (m: {
+        id: string;
+        channelId: string;
+        newContent: string;
+        occurredAt: string;
+      }) => {
+        setMessages((prev) =>
+          prev.map((x) =>
+            x.id === m.id
+              ? { ...x, content: m.newContent, editedAt: m.occurredAt }
+              : x,
+          ),
+        );
+      },
+      onDeleted: (m: { id: string }) => {
+        setMessages((prev) => prev.filter((x) => x.id !== m.id));
+      },
+    }),
+    [currentUserId],
+  );
+  useWsChannelMessages(channel?.id ?? null, channelMsgHandlers);
+
+  const dmMsgHandlers = React.useMemo(
+    () => ({
+      onSent: (m: {
+        id: string;
+        senderId: string;
+        senderName?: string;
+        recipientId: string;
+        content: string;
+        occurredAt: string;
+        inviteServerId?: string;
+        inviteServerName?: string;
+      }) => {
+        setMessages((prev) =>
+          prev.some((x) => x.id === m.id)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: m.id,
+                  channelId: m.senderId,
+                  authorId: m.senderId,
+                  authorName: m.senderName,
+                  content: m.content,
+                  inviteServerId: m.inviteServerId,
+                  inviteServerName: m.inviteServerName,
+                  createdAt: m.occurredAt,
+                  editedAt: null,
+                },
+              ],
+        );
+      },
+      onEdited: (m: {
+        id: string;
+        senderId: string;
+        newContent: string;
+        occurredAt: string;
+      }) => {
+        setMessages((prev) =>
+          prev.map((x) =>
+            x.id === m.id
+              ? { ...x, content: m.newContent, editedAt: m.occurredAt }
+              : x,
+          ),
+        );
+      },
+      onDeleted: (m: { id: string }) => {
+        setMessages((prev) => prev.filter((x) => x.id !== m.id));
+      },
+    }),
+    [currentUserId],
+  );
+  useWsDmMessages(dm?.friendId ?? null, currentUserId, dmMsgHandlers);
+
   const [text, setText] = React.useState("");
   const [loadingInitial, setLoadingInitial] = React.useState(false);
   const [loadingOlder, setLoadingOlder] = React.useState(false);
@@ -199,7 +318,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       .then((res) => {
         if (cancelled) return;
         const ordered = [...res.messages].reverse();
-        setMessages(ordered);
+        setMessages((prev) => mergeWithLive(ordered, prev));
         setHasMore(res.messages.length >= PAGE_LIMIT);
       })
       .catch((err) => {
@@ -301,7 +420,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     try {
       const res = await messenger.listMessages({ limit: PAGE_LIMIT });
       const ordered = [...res.messages].reverse();
-      setMessages(ordered);
+      setMessages((prev) => mergeWithLive(ordered, prev));
       setHasMore(res.messages.length >= PAGE_LIMIT);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
@@ -380,7 +499,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       const combined = [...older, target, ...newer];
       loadedChannelIdRef.current = targetId;
       skipNextAutoScrollRef.current = true;
-      setMessages(combined);
+      setMessages((prev) => mergeWithLive(combined, prev));
       setHasMore(olderRes.messages.length >= 25);
       setHighlightedMessageId(target.id);
     } catch (err) {
@@ -477,7 +596,9 @@ const ChatView: React.FC<ChatViewProps> = ({
 
     const sendChunk = async (chunk: string) => {
       const msg = await sendOnce(chunk);
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) =>
+        prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
+      );
     };
 
     try {

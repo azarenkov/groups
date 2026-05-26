@@ -27,6 +27,11 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .configure(user::user_routes)
                         .configure(dm::dm_routes)
                         .configure(friendship::friendship_routes),
+                )
+                .service(
+                    web::scope("/v1")
+                        .configure(crate::handlers::read_state::read_state_routes)
+                        .configure(crate::handlers::presence::presence_routes),
                 ),
         );
 }

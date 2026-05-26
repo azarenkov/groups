@@ -17,6 +17,10 @@ use application::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    read_state::{
+        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
+        mark_dm_read::MarkDmRead,
+    },
     user::{get_me::GetMe, search_users::SearchUsers},
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
@@ -33,7 +37,8 @@ use application::usecases::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
-        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
+        get_voice_presence::GetVoicePresence, list_server_channels::ListServerChannels,
+        list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
     },
     webhook::voice::HandleVoiceWebhook,
@@ -48,6 +53,7 @@ use infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository,
             message::PostgresMessageRepository,
+            read_state::PostgresReadStateRepository,
             refresh_token::PostgresRefreshTokenRepository, server::PostgresServerRepository,
             user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
@@ -75,8 +81,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
+    let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let nats_jetstream =
+        infrastructure::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
@@ -195,6 +204,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_servers_by_user_usecase = ListServersByUser::new(server_repository.clone());
     let list_server_members_usecase = ListServerMembers::new(server_repository.clone());
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
+    let get_voice_presence_usecase =
+        GetVoicePresence::new(server_repository.clone(), channel_repository.clone());
 
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
@@ -209,6 +220,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let search_users_usecase = SearchUsers::new(user_repository.clone());
     let get_me_usecase = GetMe::new(user_repository.clone());
+    let read_state_repository = Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
+    let mark_channel_read_usecase =
+        MarkChannelRead::new(read_state_repository.clone(), channel_repository.clone());
+    let mark_dm_read_usecase =
+        MarkDmRead::new(read_state_repository.clone(), friendship_repository.clone());
+    let get_unread_counts_usecase = GetUnreadCounts::new(read_state_repository.clone());
+
+    let nats_core = nats_jetstream.client().clone();
+    let presence_preference_subject = format!(
+        "{}.realtime.presence.preference",
+        nats_config.subject_prefix.trim_end_matches('.'),
+    );
 
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
     let send_dm_message_usecase = SendDmMessage::new(
@@ -262,12 +285,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_servers_by_user_usecase,
         list_server_members_usecase,
         list_server_channels_usecase,
+        get_voice_presence_usecase,
         send_friend_request_usecase,
         accept_friend_request_usecase,
         remove_friendship_usecase,
         list_friends_usecase,
         search_users_usecase,
         get_me_usecase,
+        mark_channel_read_usecase,
+        mark_dm_read_usecase,
+        get_unread_counts_usecase,
+        nats_core,
+        presence_preference_subject,
         send_dm_message_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,

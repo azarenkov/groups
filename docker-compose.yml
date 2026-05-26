@@ -176,6 +176,66 @@ services:
       retries: 3
       start_period: 30s
 
+  websocket:
+    build:
+      context: .
+      dockerfile: docker/websocket/Dockerfile
+    container_name: rift-websocket
+    restart: unless-stopped
+    expose:
+      - "8083"
+    networks:
+      - rift-network
+    env_file:
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/http.env
+        required: false
+      - path: env/websocket.env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  event-dispatcher:
+    build:
+      context: .
+      dockerfile: docker/event-dispatcher/Dockerfile
+    container_name: rift-event-dispatcher
+    restart: unless-stopped
+    networks:
+      - rift-network
+    env_file:
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/event-dispatcher.env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8085/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
   nginx:
     image: nginx:1.27-alpine
     container_name: rift-nginx

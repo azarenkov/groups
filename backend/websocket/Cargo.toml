@@ -1,0 +1,26 @@
+[package]
+name = "websocket"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+infrastructure = { workspace = true }
+shared = { workspace = true }
+
+tracing = { workspace = true }
+dotenv = { workspace = true }
+envy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+futures = { workspace = true }
+
+tokio = { workspace = true, features = ["macros", "signal", "time", "rt-multi-thread", "sync"] }
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+actix-ws = "0.3"
+async-nats = { workspace = true }
+jsonwebtoken = { workspace = true }
+dashmap = "6.1"
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "uuid"] }

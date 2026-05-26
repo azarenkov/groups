@@ -15,6 +15,8 @@ import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
 import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
 import { authAPI } from "./api/auth";
 import { ApiError } from "./utils/apiError";
+import { ws } from "./services/websocket";
+import { installWsBootstrap } from "./services/websocketBootstrap";
 import "./styles/App.css";
 
 const App: React.FC = () => {
@@ -27,6 +29,49 @@ const App: React.FC = () => {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    installWsBootstrap();
+  }, []);
+
+  const hasAccessToken = !!tokens?.accessToken;
+  useEffect(() => {
+    const ready = isAuthenticated && !hasUnverifiedSession && hasAccessToken;
+    if (ready) {
+      ws.connect();
+      let cancelled = false;
+      void (async () => {
+        try {
+          const { userAPI } = await import("./api/user");
+          const { useUnreadStore } = await import("./store/unreadStore");
+          const u = await userAPI.getUnread();
+          if (cancelled) return;
+          const channels: Record<string, number> = {};
+          const channelToServer: Record<string, string> = {};
+          for (const c of u.channels) {
+            channels[c.channelId] = c.count;
+            channelToServer[c.channelId] = c.serverId;
+          }
+          const dms: Record<string, number> = {};
+          for (const d of u.dms) dms[d.friendId] = d.count;
+          useUnreadStore.getState().setAll(channels, dms, channelToServer);
+        } catch (err) {
+          if (!cancelled) console.warn("[App] failed to load unread counts:", err);
+        }
+      })();
+      return () => {
+        cancelled = true;
+        ws.disconnect();
+      };
+    }
+    ws.disconnect();
+    void import("./store/unreadStore").then(({ useUnreadStore }) =>
+      useUnreadStore.getState().clearAll(),
+    );
+    void import("./store/presenceStore").then(({ usePresenceStore }) =>
+      usePresenceStore.getState().clearAll(),
+    );
+  }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {
     let cancelled = false;

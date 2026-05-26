@@ -160,7 +160,11 @@ class AuthAPI {
     }
   }
 
-  public async handleRefreshFlow(): Promise<void> {
+  public async handleRefreshFlow(
+    opts: { logoutOnFailure?: boolean } = {},
+  ): Promise<void> {
+    const logoutOnFailure = opts.logoutOnFailure ?? true;
+
     if (this.refreshInProgress) {
       if (!this.refreshPromise) return;
       return this.refreshPromise;
@@ -174,8 +178,10 @@ class AuthAPI {
         useAuthStore.getState().setTokens(newTokens);
         this.setAuthToken(newTokens.accessToken);
       } catch (err) {
-        useAuthStore.getState().logout();
-        this.removeAuthToken();
+        if (logoutOnFailure) {
+          useAuthStore.getState().logout();
+          this.removeAuthToken();
+        }
         throw err;
       } finally {
         this.refreshInProgress = false;

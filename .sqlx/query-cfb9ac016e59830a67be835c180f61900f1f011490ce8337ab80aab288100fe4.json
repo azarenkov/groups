@@ -16,7 +16,8 @@
                 "server",
                 "user",
                 "message",
-                "dm_message"
+                "dm_message",
+                "broadcast"
               ]
             }
           }
@@ -31,7 +32,8 @@
                 "server",
                 "user",
                 "message",
-                "dm_message"
+                "dm_message",
+                "broadcast"
               ]
             }
           }

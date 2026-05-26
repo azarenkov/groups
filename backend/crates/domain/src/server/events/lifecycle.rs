@@ -41,15 +41,22 @@ pub struct ServerDeleted {
     pub id: EventId,
     pub server_id: ServerId,
     pub owner_id: UserId,
+    pub member_ids: Vec<UserId>,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl ServerDeleted {
-    pub fn record(server_id: ServerId, owner_id: UserId, now: DateTime<Utc>) -> Self {
+    pub fn record(
+        server_id: ServerId,
+        owner_id: UserId,
+        member_ids: Vec<UserId>,
+        now: DateTime<Utc>,
+    ) -> Self {
         Self {
             id: EventId::generate(),
             server_id,
             owner_id,
+            member_ids,
             occurred_at: now,
         }
     }

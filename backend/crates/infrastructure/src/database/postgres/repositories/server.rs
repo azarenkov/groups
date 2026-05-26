@@ -184,6 +184,23 @@ impl ServerRepository for PostgresServerRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
+    async fn find_member_ids_by_server_id(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT user_id FROM server_members WHERE server_id = $1
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows.into_iter().map(|r| UserId::new(r.user_id)).collect())
+    }
+
     async fn find_channels_by_server_id(
         &self,
         server_id: &ServerId,

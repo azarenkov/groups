@@ -24,6 +24,7 @@ pub mod lifecycle;
 pub mod participant;
 
 #[derive(Debug, Serialize)]
+#[serde(untagged)]
 pub enum ChannelEvent {
     Created(ChannelCreated),
     Renamed(ChannelRenamed),
