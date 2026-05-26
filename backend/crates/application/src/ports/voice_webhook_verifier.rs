@@ -5,12 +5,14 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy)]
 pub enum WebhookSource {
     LiveKit,
+    LiveKitPooler,
 }
 
 impl WebhookSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::LiveKit => "livekit",
+            Self::LiveKitPooler => "livekit_pooler",
         }
     }
 }
