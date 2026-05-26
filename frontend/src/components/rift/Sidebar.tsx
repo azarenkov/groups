@@ -321,7 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         <div
           className="sb-section-head static"
-          style={{ padding: "10px 8px 0", marginBottom: -6, cursor: "default" }}
+          style={{ padding: "10px 8px 0", cursor: "default" }}
         >
           <span>{t("servers")}</span>
         </div>
@@ -332,10 +332,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {filteredServers.map((server) => {
+        {filteredServers.map((server, serverIdx) => {
           const isCol = isFiltering ? false : !expandedServerIds.has(server.id);
           const channels = visibleChannelsFor(server.id);
           const accent = server.accentColor ?? colorForId(server.id);
+          const isFirstServer = serverIdx === 0;
           const allServerChannels = channelsByServer[server.id] || [];
           const localSum = allServerChannels
             .filter((c) => c.kind === "text")
@@ -358,7 +359,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onToggleServer(server.id);
                   onSelectServer(server.id);
                 }}
-                style={{ marginTop: 6 }}
+                style={isFirstServer ? { marginTop: 0 } : { marginTop: 6 }}
               >
                 <span
                   style={{
