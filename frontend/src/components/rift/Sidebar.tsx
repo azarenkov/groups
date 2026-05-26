@@ -319,6 +319,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ))}
 
+        <div
+          className="sb-section-head static"
+          style={{ marginTop: 10, cursor: "default" }}
+        >
+          <span>{t("servers")}</span>
+        </div>
+
         {filteredServers.length === 0 && (
           <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--fg-3)" }}>
             {isFiltering ? t("noMatches") : t("noServers")}

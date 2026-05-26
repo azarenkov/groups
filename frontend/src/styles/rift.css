@@ -218,6 +218,7 @@ select:focus-visible {
   color: var(--fg-4);
 }
 .sb-section-head.collapsed .chev { transform: rotate(-90deg); }
+.sb-section-head.static:hover { background: transparent; }
 
 .sb-section-add {
   width: 20px; height: 20px;
