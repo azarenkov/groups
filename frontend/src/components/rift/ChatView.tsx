@@ -1,5 +1,4 @@
 import React from "react";
-import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
