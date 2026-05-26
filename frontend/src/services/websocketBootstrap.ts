@@ -76,7 +76,26 @@ function dispatch(env: WsEnvelope) {
     case "server.deleted": {
       const id = asString(d.id);
       if (!id) return;
-      useServerStore.getState().removeServer(id);
+      const serverState = useServerStore.getState();
+      const channelState = useChannelStore.getState();
+      const voiceState = useVoicePresenceStore.getState();
+      const unreadState = useUnreadStore.getState();
+      const channelIds = (channelState.channelsByServer[id] ?? []).map((c) => c.id);
+      for (const cid of channelIds) {
+        voiceState.clearChannel(cid);
+        unreadState.resetChannel(cid);
+      }
+      if (
+        channelState.selectedChannelId &&
+        channelIds.includes(channelState.selectedChannelId)
+      ) {
+        channelState.setSelectedChannel(null);
+      }
+      channelState.clearChannels(id);
+      if (serverState.selectedServerId === id) {
+        serverState.setSelectedServer(null);
+      }
+      serverState.removeServer(id);
       return;
     }
 
