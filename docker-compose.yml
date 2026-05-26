@@ -236,6 +236,32 @@ services:
       retries: 3
       start_period: 30s
 
+  livekit-pooler:
+    build:
+      context: .
+      dockerfile: docker/livekit-pooler/Dockerfile
+    container_name: rift-livekit-pooler
+    restart: unless-stopped
+    networks:
+      - rift-network
+    env_file:
+      - path: env/postgres.env
+        required: false
+      - path: env/livekit-pooler.env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8086/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
   nginx:
     image: nginx:1.27-alpine
     container_name: rift-nginx

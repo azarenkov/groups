@@ -8,6 +8,10 @@ pub struct NatsConfig {
     pub subject_prefix: String,
     #[serde(rename = "nats_replicas")]
     pub replicas: usize,
+    #[serde(rename = "nats_stream_hot_max_bytes", default = "default_hot_max_bytes")]
+    pub stream_hot_max_bytes: i64,
+    #[serde(rename = "nats_stream_cold_max_bytes", default = "default_cold_max_bytes")]
+    pub stream_cold_max_bytes: i64,
 }
 
 impl NatsConfig {
@@ -19,4 +23,12 @@ impl NatsConfig {
     pub fn url(&self) -> &str {
         &self.url
     }
+}
+
+fn default_hot_max_bytes() -> i64 {
+    50 * 1024 * 1024 * 1024
+}
+
+fn default_cold_max_bytes() -> i64 {
+    10 * 1024 * 1024 * 1024
 }

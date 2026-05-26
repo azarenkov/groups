@@ -4,7 +4,7 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use infrastructure::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
-    database::postgres::connection::create_postgres_pool,
+    database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
 use shared::health::{self, Readiness};
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let jetstream = create_jetstream(&nats_cfg).await?;
     let pg_pool = create_postgres_pool(pg_cfg).await?;
-    let presence_resolver = PresenceRecipientResolver::new(pg_pool);
+    let presence_resolver = PresenceRecipientResolver::new(pg_pool.clone());
 
     let core = jetstream.client().clone();
     let prefix = nats_cfg.subject_prefix.trim_end_matches('.');
@@ -61,10 +61,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let readiness = {
         let jetstream = jetstream.clone();
+        let pool = pg_pool.clone();
         Readiness::builder()
             .add_probe(move || {
                 let jetstream = jetstream.clone();
                 async move { is_nats_connected(&jetstream) }
+            })
+            .add_probe(move || {
+                let pool = pool.clone();
+                async move { ping_pool(&pool).await }
             })
             .build()
     };

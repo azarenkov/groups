@@ -1881,6 +1881,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "livekit-pooler"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "application",
+ "chrono",
+ "domain",
+ "dotenv",
+ "envy",
+ "infrastructure",
+ "livekit-api",
+ "serde",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "livekit-protocol"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
