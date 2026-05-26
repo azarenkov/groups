@@ -1,5 +1,6 @@
 import React from "react";
 import Icon, { type IconName } from "../rift/Icon";
+import { useI18nStore } from "../../store/i18nStore";
 
 type Theme = "light" | "dark";
 
@@ -524,35 +525,68 @@ function ShortcutsSection() {
 }
 
 function LanguageSection() {
-  const [lang, setLang] = React.useState('en-US');
-  const langs = [
-    { v: 'en-US', n: 'English (United States)' },
-    { v: 'en-GB', n: 'English (United Kingdom)' },
-    { v: 'fr-FR', n: 'Français' },
-    { v: 'de-DE', n: 'Deutsch' },
-    { v: 'es-ES', n: 'Español' },
-    { v: 'ja-JP', n: '日本語' },
-    { v: 'ru-RU', n: 'Русский' },
-    { v: 'zh-CN', n: '简体中文' },
+  const t = useI18nStore((s) => s.t);
+  const locale = useI18nStore((s) => s.locale);
+  const setLocale = useI18nStore((s) => s.setLocale);
+  const [status, setStatus] = React.useState<"" | "saving" | "saved" | "failed">("");
+  const langs: { v: "en" | "ru"; n: string; flag: string }[] = [
+    { v: "en", n: "English", flag: "🇺🇸" },
+    { v: "ru", n: "Русский", flag: "🇷🇺" },
   ];
+
+  const apply = async (next: "en" | "ru") => {
+    setLocale(next);
+    setStatus("saving");
+    try {
+      const { authAPI } = await import("../../api/auth");
+      await authAPI.updateLocale(next);
+      setStatus("saved");
+      window.setTimeout(() => setStatus(""), 1500);
+    } catch (err) {
+      console.error("[Settings] updateLocale failed:", err);
+      setStatus("failed");
+    }
+  };
+
   return (
     <>
-      <h1>Language</h1>
-      <p className="lead">Pick the language Rift uses for menus and system messages.</p>
+      <h1>{t.settings.language}</h1>
+      <p className="lead">{t.settings.languageDescription}</p>
       <div className="s-section">
-        <h2>Display Language</h2>
-        {langs.map(l => (
-          <button key={l.v} className="s-row" onClick={() => setLang(l.v)}
-            style={{ width: '100%', border: 0, background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
+        {langs.map((l) => (
+          <button
+            key={l.v}
+            className="s-row"
+            onClick={() => apply(l.v)}
+            style={{
+              width: "100%",
+              border: 0,
+              background: "transparent",
+              cursor: "pointer",
+              textAlign: "left",
+            }}
+          >
             <div className="s-row-text">
-              <div className="lbl">{l.n}</div>
-              <div className="hint">{l.v}</div>
+              <div className="lbl">
+                <span style={{ marginRight: 8 }}>{l.flag}</span>
+                {l.n}
+              </div>
+              <div className="hint">{l.v.toUpperCase()}</div>
             </div>
             <div className="s-row-control">
-              {lang === l.v && <Icon name="check" size={18} style={{ color: 'var(--accent)' }}/>}
+              {locale === l.v && (
+                <Icon name="check" size={18} style={{ color: "var(--accent)" }} />
+              )}
             </div>
           </button>
         ))}
+        {status && (
+          <div className="hint" style={{ marginTop: 10 }}>
+            {status === "saving" && t.settings.saving}
+            {status === "saved" && t.settings.saved}
+            {status === "failed" && t.settings.failed}
+          </div>
+        )}
       </div>
     </>
   );

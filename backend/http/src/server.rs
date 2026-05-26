@@ -21,7 +21,9 @@ use application::usecases::{
         get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
         mark_dm_read::MarkDmRead,
     },
-    user::{get_me::GetMe, search_users::SearchUsers},
+    user::{
+        get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
+    },
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
         delete_channel::DeleteChannel, delete_channel_message::DeleteChannelMessage,
@@ -220,6 +222,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let search_users_usecase = SearchUsers::new(user_repository.clone());
     let get_me_usecase = GetMe::new(user_repository.clone());
+    let update_user_locale_usecase = UpdateUserLocale::new(user_repository.clone());
     let read_state_repository = Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
     let mark_channel_read_usecase =
         MarkChannelRead::new(read_state_repository.clone(), channel_repository.clone());
@@ -292,6 +295,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_friends_usecase,
         search_users_usecase,
         get_me_usecase,
+        update_user_locale_usecase,
         mark_channel_read_usecase,
         mark_dm_read_usecase,
         get_unread_counts_usecase,

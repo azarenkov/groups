@@ -92,6 +92,7 @@ where
             request.channel,
             code_hash,
             request.purpose,
+            user.locale(),
         );
 
         let request_id = request.ctx.request_id.clone();

@@ -1,6 +1,7 @@
 pub mod email;
 pub mod events;
 pub mod id;
+pub mod locale;
 pub mod name;
 pub mod repository;
 
@@ -16,6 +17,7 @@ use crate::{
             lifecycle::{UserEmailVerified, UserPhoneVerified, UserRegistered},
         },
         id::UserId,
+        locale::Locale,
         name::UserName,
     },
 };
@@ -30,6 +32,7 @@ pub struct User {
     updated_at: DateTime<Utc>,
     email_verified_at: Option<DateTime<Utc>>,
     phone_verified_at: Option<DateTime<Utc>>,
+    locale: Locale,
     #[serde(skip)]
     events: Vec<UserEvent>,
 }
@@ -45,6 +48,7 @@ impl User {
         updated_at: DateTime<Utc>,
         email_verified_at: Option<DateTime<Utc>>,
         phone_verified_at: Option<DateTime<Utc>>,
+        locale: Locale,
     ) -> Self {
         Self {
             id,
@@ -55,6 +59,7 @@ impl User {
             updated_at,
             email_verified_at,
             phone_verified_at,
+            locale,
             events: Vec::new(),
         }
     }
@@ -65,6 +70,7 @@ impl User {
         password_hash: PasswordHash,
         ip: Option<String>,
         user_agent: Option<String>,
+        locale: Locale,
     ) -> Self {
         let now = Utc::now();
         let id = UserId::generate();
@@ -86,6 +92,7 @@ impl User {
             updated_at: now,
             email_verified_at: None,
             phone_verified_at: None,
+            locale,
             events: vec![event],
         }
     }
@@ -104,6 +111,13 @@ impl User {
         self.record(UserEvent::PhoneVerified(UserPhoneVerified::record(
             self.id, now,
         )));
+    }
+
+    pub fn set_locale(&mut self, locale: Locale, now: DateTime<Utc>) {
+        if self.locale != locale {
+            self.locale = locale;
+            self.updated_at = now;
+        }
     }
 
     fn record(&mut self, event: UserEvent) {
@@ -160,5 +174,9 @@ impl User {
 
     pub fn phone_verified_at(&self) -> Option<DateTime<Utc>> {
         self.phone_verified_at
+    }
+
+    pub fn locale(&self) -> Locale {
+        self.locale
     }
 }

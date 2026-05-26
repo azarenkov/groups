@@ -77,6 +77,7 @@ where
             password_hash,
             request.client.ip.clone(),
             request.client.user_agent.clone(),
+            request.locale,
         );
 
         let tokens = self.token_issuer.issue(user.id(), false).await?;

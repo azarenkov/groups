@@ -384,7 +384,7 @@ impl ChannelRepository for PostgresChannelRepository {
             let users = sqlx::query_as!(
                 UserDto,
                 r#"
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at
+                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale
                 FROM users u
                 INNER JOIN (
                     SELECT user_id, MIN(joined_at) AS first_joined_at
@@ -424,7 +424,7 @@ impl ChannelRepository for PostgresChannelRepository {
             let users = sqlx::query_as!(
                 UserDto,
                 r#"
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at
+                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale
                 FROM users u
                 INNER JOIN channel_text_participants p ON p.user_id = u.id
                 WHERE p.channel_id = $1

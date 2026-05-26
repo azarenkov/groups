@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at\n                FROM users u\n                INNER JOIN channel_text_participants p ON p.user_id = u.id\n                WHERE p.channel_id = $1\n                ORDER BY p.joined_at ASC\n                LIMIT $2 OFFSET $3\n                ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale\n            FROM users\n            WHERE name = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -42,13 +42,16 @@
         "ordinal": 7,
         "name": "phone_verified_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "locale",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int8",
-        "Int8"
+        "Text"
       ]
     },
     "nullable": [
@@ -59,8 +62,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "2dc8456c3bf33ec0ad1be4df6f260a70c4af6333f818a53147d30c0f2a7ad2c1"
+  "hash": "9f4ecf4065d17818692ccb14db8751be13bdacdadeec09a7be663645856ae64c"
 }

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use domain::{
     shared::value_objects::password_hash::PasswordHash,
-    user::{User, email::Email, id::UserId, name::UserName},
+    user::{User, email::Email, id::UserId, locale::Locale, name::UserName},
 };
 use sqlx::{FromRow, types::Uuid};
 
@@ -15,10 +15,12 @@ pub struct UserDto {
     pub updated_at: DateTime<Utc>,
     pub email_verified_at: Option<DateTime<Utc>>,
     pub phone_verified_at: Option<DateTime<Utc>>,
+    pub locale: String,
 }
 
 impl From<UserDto> for User {
     fn from(dto: UserDto) -> Self {
+        let locale = dto.locale.parse::<Locale>().unwrap_or_default();
         User::restore(
             UserId::new(dto.id),
             UserName::new(dto.name),
@@ -28,6 +30,7 @@ impl From<UserDto> for User {
             dto.updated_at,
             dto.email_verified_at,
             dto.phone_verified_at,
+            locale,
         )
     }
 }

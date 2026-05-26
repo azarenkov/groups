@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at\n                FROM users u\n                INNER JOIN (\n                    SELECT user_id, MIN(joined_at) AS first_joined_at\n                    FROM channel_voice_participants\n                    WHERE channel_id = $1\n                    GROUP BY user_id\n                ) p ON p.user_id = u.id\n                ORDER BY p.first_joined_at ASC\n                LIMIT $2 OFFSET $3\n                ",
+  "query": "\n                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale\n                FROM users u\n                INNER JOIN (\n                    SELECT user_id, MIN(joined_at) AS first_joined_at\n                    FROM channel_voice_participants\n                    WHERE channel_id = $1\n                    GROUP BY user_id\n                ) p ON p.user_id = u.id\n                ORDER BY p.first_joined_at ASC\n                LIMIT $2 OFFSET $3\n                ",
   "describe": {
     "columns": [
       {
@@ -42,6 +42,11 @@
         "ordinal": 7,
         "name": "phone_verified_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "locale",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -59,8 +64,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "c568fd4fce616faa8eadcbb2a42679efa2d32466c2a3f692f1766f19738f5336"
+  "hash": "6aa1dfb54a390316dabeb01448baefa186e0bee301180606ca8be485c133ffab"
 }

@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "../../store/authStore";
+import { useI18nStore } from "../../store/i18nStore";
 import { authAPI } from "../../api/auth";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
+import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
 import {
   ArrowLeft,
   OtpInput,
@@ -58,35 +60,20 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
 
   return (
     <div className="auth-page">
-      <div className="auth-topbar">
+      <div
+        className="auth-topbar"
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+      >
         <span className="auth-brand">
           <Mark size={22} />
           <span>Rift</span>
         </span>
+        <LanguageSwitcher />
       </div>
 
       <div className="auth-form-wrap">
         <div className="auth-card">
-          {showTabs && (
-            <div className="auth-tabs" role="tablist">
-              <button
-                role="tab"
-                type="button"
-                className={mode === "signin" ? "on" : ""}
-                onClick={() => switchTab("signin")}
-              >
-                Sign in
-              </button>
-              <button
-                role="tab"
-                type="button"
-                className={mode === "signup" ? "on" : ""}
-                onClick={() => switchTab("signup")}
-              >
-                Create account
-              </button>
-            </div>
-          )}
+          {showTabs && <AuthTabs mode={mode} onSwitch={switchTab} />}
 
           {(mode === "signin" || mode === "signup") && (
             <SignInUp
@@ -170,6 +157,33 @@ interface SignInUpProps {
   goForgot: () => void;
 }
 
+const AuthTabs: React.FC<{
+  mode: "signin" | "signup";
+  onSwitch: (m: "signin" | "signup") => void;
+}> = ({ mode, onSwitch }) => {
+  const t = useI18nStore((s) => s.t);
+  return (
+    <div className="auth-tabs" role="tablist">
+      <button
+        role="tab"
+        type="button"
+        className={mode === "signin" ? "on" : ""}
+        onClick={() => onSwitch("signin")}
+      >
+        {t.auth.signIn}
+      </button>
+      <button
+        role="tab"
+        type="button"
+        className={mode === "signup" ? "on" : ""}
+        onClick={() => onSwitch("signup")}
+      >
+        {t.auth.createAccount}
+      </button>
+    </div>
+  );
+};
+
 const SignInUp: React.FC<SignInUpProps> = ({
   mode,
   email,
@@ -181,6 +195,8 @@ const SignInUp: React.FC<SignInUpProps> = ({
 }) => {
   const isSignup = mode === "signup";
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
+  const t = useI18nStore((s) => s.t);
+  const locale = useI18nStore((s) => s.locale);
 
   const signInForm = useForm<SignInData>({
     defaultValues: { email, password: "" },
@@ -244,6 +260,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
         data.name,
         data.email,
         data.password,
+        locale,
       );
       authAPI.setAuthToken(response.accessToken);
       useAuthStore.getState().setTokens({
@@ -286,12 +303,8 @@ const SignInUp: React.FC<SignInUpProps> = ({
 
   return (
     <>
-      <h1>{isSignup ? "Create your account" : "Welcome back"}</h1>
-      <p className="sub">
-        {isSignup
-          ? "A free account. No invites or waitlists."
-          : "Sign in to rejoin your rooms and people."}
-      </p>
+      <h1>{isSignup ? t.auth.createAccount : t.auth.welcomeBack}</h1>
+      <p className="sub">{isSignup ? t.auth.createSubtitle : t.auth.signInSubtitle}</p>
 
       <form onSubmit={submit} autoComplete="off">
         {isSignup && (
@@ -408,7 +421,13 @@ const SignInUp: React.FC<SignInUpProps> = ({
         )}
 
         <button type="submit" className="btn primary" disabled={isLoading}>
-          {isLoading ? <span className="loading-spinner" /> : isSignup ? "Create account" : "Sign in"}
+          {isLoading ? (
+            <span className="loading-spinner" />
+          ) : isSignup ? (
+            t.auth.createAccount
+          ) : (
+            t.auth.signIn
+          )}
         </button>
       </form>
 
@@ -431,27 +450,21 @@ const SignInUp: React.FC<SignInUpProps> = ({
 
       <div className="auth-foot">
         {isSignup ? (
-          <>
-            Already have an account?{" "}
-            <button
-              type="button"
-              className="auth-link"
-              onClick={() => onSwitchMode("signin")}
-            >
-              Sign in
-            </button>
-          </>
+          <button
+            type="button"
+            className="auth-link"
+            onClick={() => onSwitchMode("signin")}
+          >
+            {t.auth.haveAccount}
+          </button>
         ) : (
-          <>
-            New to Rift?{" "}
-            <button
-              type="button"
-              className="auth-link"
-              onClick={() => onSwitchMode("signup")}
-            >
-              Create an account
-            </button>
-          </>
+          <button
+            type="button"
+            className="auth-link"
+            onClick={() => onSwitchMode("signup")}
+          >
+            {t.auth.needAccount}
+          </button>
         )}
       </div>
     </>

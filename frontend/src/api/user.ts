@@ -10,6 +10,7 @@ export interface MeProfile {
   id: string;
   name: string;
   email: string;
+  locale: string;
 }
 
 class UserAPI {

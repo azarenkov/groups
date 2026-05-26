@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use rand::RngExt;
 
 use crate::{
-    user::{email::Email, id::UserId},
+    user::{email::Email, id::UserId, locale::Locale},
     verification::{
         channel::VerificationChannel,
         code_hash::CodeHash,
@@ -29,6 +29,7 @@ pub struct VerificationCode {
 }
 
 impl VerificationCode {
+    #[allow(clippy::too_many_arguments)]
     pub fn issue(
         user_id: UserId,
         email: Email,
@@ -36,6 +37,7 @@ impl VerificationCode {
         channel: VerificationChannel,
         code_hash: CodeHash,
         purpose: VerificationPurpose,
+        locale: Locale,
     ) -> Self {
         let now = Utc::now();
         let id = VerificationCodeId::generate();
@@ -47,6 +49,7 @@ impl VerificationCode {
             email,
             plain_code,
             now,
+            locale,
         ));
 
         Self {

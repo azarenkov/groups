@@ -1,5 +1,5 @@
-use actix_web::{HttpResponse, Responder, get, web};
-use domain::user::id::UserId;
+use actix_web::{HttpResponse, Responder, get, patch, web};
+use domain::user::{id::UserId, locale::Locale};
 use serde::{Deserialize, Serialize};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
@@ -32,6 +32,7 @@ pub struct MeResponse {
     pub id: Uuid,
     pub name: String,
     pub email: String,
+    pub locale: String,
 }
 
 #[get("/me")]
@@ -45,6 +46,7 @@ async fn get_me(
         id: profile.id,
         name: profile.name,
         email: profile.email,
+        locale: profile.locale.as_str().to_string(),
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -73,4 +75,31 @@ async fn search_users(
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateLocaleBody {
+    pub locale: String,
+}
+
+#[patch("/me/locale")]
+async fn update_me_locale(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<UpdateLocaleBody>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let locale: Locale = body.locale.parse().map_err(|_| {
+        ApiError::new(
+            format!("invalid locale: {}", body.locale),
+            actix_web::http::StatusCode::BAD_REQUEST,
+            "INVALID_LOCALE",
+        )
+    })?;
+    app_state
+        .update_user_locale_usecase
+        .execute(user_id, locale)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
 }

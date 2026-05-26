@@ -2,6 +2,7 @@ use application::dto::{
     RequestContext,
     requests::{auth::register_user::RegisterUserRequest, client_context::ClientContext},
 };
+use domain::user::locale::Locale;
 use serde::Deserialize;
 use validator::Validate;
 
@@ -14,14 +15,22 @@ pub struct RegisterUserRequestBody {
     pub email: String,
     #[validate(length(min = 4, max = 30))]
     pub password: String,
+    #[serde(default)]
+    pub locale: Option<String>,
 }
 
 impl RegisterUserRequestBody {
     pub fn into_request(self, client: ClientContext, ctx: RequestContext) -> RegisterUserRequest {
+        let locale = self
+            .locale
+            .as_deref()
+            .map(Locale::from_str_lenient)
+            .unwrap_or_default();
         RegisterUserRequest {
             name: self.name,
             email: self.email,
             password: self.password,
+            locale,
             client,
             ctx,
         }

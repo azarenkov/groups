@@ -17,7 +17,9 @@ use application::usecases::{
         get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
         mark_dm_read::MarkDmRead,
     },
-    user::{get_me::GetMe, search_users::SearchUsers},
+    user::{
+        get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
+    },
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         delete_channel_message::DeleteChannelMessage,
@@ -126,6 +128,7 @@ pub struct AppState {
 
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
+    pub update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:
@@ -265,6 +268,7 @@ impl AppState {
         list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
         search_users_usecase: SearchUsers<PostgresUserRepository>,
         get_me_usecase: GetMe<PostgresUserRepository>,
+        update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
         mark_channel_read_usecase: MarkChannelRead<
             PostgresReadStateRepository,
             PostgresChannelRepository,
@@ -340,6 +344,7 @@ impl AppState {
             list_friends_usecase,
             search_users_usecase,
             get_me_usecase,
+            update_user_locale_usecase,
             mark_channel_read_usecase,
             mark_dm_read_usecase,
             get_unread_counts_usecase,
