@@ -321,7 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         <div
           className="sb-section-head static"
-          style={{ padding: "10px 8px 4px", cursor: "default" }}
+          style={{ padding: "10px 8px 0", cursor: "default" }}
         >
           <span>{t("servers")}</span>
         </div>
@@ -359,7 +359,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onToggleServer(server.id);
                   onSelectServer(server.id);
                 }}
-                style={{ marginTop: 0, paddingTop: isFirstServer ? 0 : 10 }}
+                style={isFirstServer ? { marginTop: 0 } : { marginTop: 6 }}
               >
                 <span
                   style={{
