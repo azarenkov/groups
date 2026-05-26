@@ -52,6 +52,7 @@ interface SidebarProps {
   onSearchQueryChange: (value: string) => void;
   unreadByChannel?: Record<string, number>;
   unreadByDm?: Record<string, number>;
+  channelToServer?: Record<string, string>;
   onSetStatus?: (status: "online" | "offline") => void;
 }
 
@@ -85,6 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearchQueryChange,
   unreadByChannel = {},
   unreadByDm = {},
+  channelToServer = {},
   onSetStatus,
 }) => {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
@@ -328,9 +330,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           const channels = visibleChannelsFor(server.id);
           const accent = server.accentColor ?? colorForId(server.id);
           const allServerChannels = channelsByServer[server.id] || [];
-          const serverUnread = allServerChannels
+          const localSum = allServerChannels
             .filter((c) => c.kind === "text")
             .reduce((sum, c) => sum + (unreadByChannel[c.id] ?? 0), 0);
+          let fallbackSum = 0;
+          for (const [cid, count] of Object.entries(unreadByChannel)) {
+            if (channelToServer[cid] === server.id) fallbackSum += count;
+          }
+          const serverUnread = Math.max(localSum, fallbackSum);
           const hasVoiceActivity = allServerChannels.some(
             (c) =>
               c.kind === "voice" &&

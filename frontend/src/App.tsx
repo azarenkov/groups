@@ -47,10 +47,14 @@ const App: React.FC = () => {
           const u = await userAPI.getUnread();
           if (cancelled) return;
           const channels: Record<string, number> = {};
-          for (const c of u.channels) channels[c.channelId] = c.count;
+          const channelToServer: Record<string, string> = {};
+          for (const c of u.channels) {
+            channels[c.channelId] = c.count;
+            channelToServer[c.channelId] = c.serverId;
+          }
           const dms: Record<string, number> = {};
           for (const d of u.dms) dms[d.friendId] = d.count;
-          useUnreadStore.getState().setAll(channels, dms);
+          useUnreadStore.getState().setAll(channels, dms, channelToServer);
         } catch (err) {
           if (!cancelled) console.warn("[App] failed to load unread counts:", err);
         }

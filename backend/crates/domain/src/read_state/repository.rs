@@ -8,6 +8,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct ChannelUnread {
     pub channel_id: Uuid,
+    pub server_id: Uuid,
     pub count: i64,
 }
 

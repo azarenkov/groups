@@ -58,6 +58,7 @@ const ServersPage: React.FC = () => {
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
+  const channelToServer = useUnreadStore((s) => s.channelToServer);
   const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
   const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
@@ -764,6 +765,7 @@ const ServersPage: React.FC = () => {
           onSearchQueryChange={setSidebarQuery}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
+          channelToServer={channelToServer}
           onSetStatus={handleSetStatus}
         />
 

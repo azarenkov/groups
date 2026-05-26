@@ -3,29 +3,41 @@ import { create } from "zustand";
 interface UnreadState {
   byChannel: Record<string, number>;
   byDm: Record<string, number>;
+  channelToServer: Record<string, string>;
   setAll: (
     channels: Record<string, number>,
     dms: Record<string, number>,
+    channelToServer?: Record<string, string>,
   ) => void;
-  bumpChannel: (channelId: string) => void;
+  bumpChannel: (channelId: string, serverId?: string) => void;
   bumpDm: (friendId: string) => void;
   resetChannel: (channelId: string) => void;
   resetDm: (friendId: string) => void;
   clearAll: () => void;
+  serverUnread: (serverId: string) => number;
 }
 
-export const useUnreadStore = create<UnreadState>()((set) => ({
+export const useUnreadStore = create<UnreadState>()((set, get) => ({
   byChannel: {},
   byDm: {},
+  channelToServer: {},
 
-  setAll: (channels, dms) => set({ byChannel: channels, byDm: dms }),
+  setAll: (channels, dms, channelToServer) =>
+    set({
+      byChannel: channels,
+      byDm: dms,
+      channelToServer: channelToServer ?? {},
+    }),
 
-  bumpChannel: (channelId) =>
+  bumpChannel: (channelId, serverId) =>
     set((state) => ({
       byChannel: {
         ...state.byChannel,
         [channelId]: (state.byChannel[channelId] ?? 0) + 1,
       },
+      channelToServer: serverId
+        ? { ...state.channelToServer, [channelId]: serverId }
+        : state.channelToServer,
     })),
 
   bumpDm: (friendId) =>
@@ -47,5 +59,14 @@ export const useUnreadStore = create<UnreadState>()((set) => ({
       return { byDm: rest };
     }),
 
-  clearAll: () => set({ byChannel: {}, byDm: {} }),
+  clearAll: () => set({ byChannel: {}, byDm: {}, channelToServer: {} }),
+
+  serverUnread: (serverId) => {
+    const { byChannel, channelToServer } = get();
+    let total = 0;
+    for (const [channelId, count] of Object.entries(byChannel)) {
+      if (channelToServer[channelId] === serverId) total += count;
+    }
+    return total;
+  },
 }));

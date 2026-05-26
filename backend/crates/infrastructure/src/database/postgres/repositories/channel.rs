@@ -540,6 +540,25 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(row.exists)
     }
 
+    async fn list_text_channel_member_ids(
+        &self,
+        channel_id: &ChannelId,
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT user_id
+            FROM channel_text_participants
+            WHERE channel_id = $1
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows.into_iter().map(|r| UserId::new(r.user_id)).collect())
+    }
+
     async fn find_channel_by_id(&self, id: &ChannelId) -> Result<Channel, RepositoryError> {
         let dto = sqlx::query_as!(
             ChannelDto,

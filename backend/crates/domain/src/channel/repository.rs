@@ -124,6 +124,11 @@ pub trait ChannelRepository {
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
 
+    async fn list_text_channel_member_ids(
+        &self,
+        channel_id: &ChannelId,
+    ) -> Result<Vec<UserId>, RepositoryError>;
+
     async fn list_voice_presence_for_server(
         &self,
         server_id: &crate::server::id::ServerId,

@@ -88,7 +88,11 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.sent") {
         let evt: ChannelMsgSent = serde_json::from_slice(payload)?;
-        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
+        let recipients = if !evt.recipient_ids.is_empty() {
+            evt.recipient_ids.clone()
+        } else {
+            resolver.text_channel_recipients(evt.channel_id).await?
+        };
         let author_name = resolver.user_name(evt.author_id).await?;
         let envelope = Envelope::new(
             "message.sent",
@@ -107,7 +111,11 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.edited") {
         let evt: ChannelMsgEdited = serde_json::from_slice(payload)?;
-        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
+        let recipients = if !evt.recipient_ids.is_empty() {
+            evt.recipient_ids.clone()
+        } else {
+            resolver.text_channel_recipients(evt.channel_id).await?
+        };
         let envelope = Envelope::new(
             "message.edited",
             json!({
@@ -123,7 +131,11 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.deleted") {
         let evt: ChannelMsgDeleted = serde_json::from_slice(payload)?;
-        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
+        let recipients = if !evt.recipient_ids.is_empty() {
+            evt.recipient_ids.clone()
+        } else {
+            resolver.text_channel_recipients(evt.channel_id).await?
+        };
         let envelope = Envelope::new(
             "message.deleted",
             json!({
@@ -453,6 +465,8 @@ struct ChannelMsgSent {
     author_id: Uuid,
     content: Value,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    recipient_ids: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -461,6 +475,8 @@ struct ChannelMsgEdited {
     channel_id: Uuid,
     new_content: Value,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    recipient_ids: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -469,6 +485,8 @@ struct ChannelMsgDeleted {
     channel_id: Uuid,
     deleted_by: Uuid,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    recipient_ids: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]

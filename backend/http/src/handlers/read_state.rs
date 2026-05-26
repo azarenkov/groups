@@ -42,6 +42,7 @@ async fn mark_dm_read(
 #[serde(rename_all = "camelCase")]
 struct UnreadChannelItem {
     channel_id: Uuid,
+    server_id: Uuid,
     count: i64,
 }
 
@@ -71,6 +72,7 @@ async fn get_unread(
             .into_iter()
             .map(|c| UnreadChannelItem {
                 channel_id: c.channel_id,
+                server_id: c.server_id,
                 count: c.count,
             })
             .collect(),

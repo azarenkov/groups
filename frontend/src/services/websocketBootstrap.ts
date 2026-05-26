@@ -176,7 +176,15 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
-      useUnreadStore.getState().bumpChannel(channelId);
+      const byServer = useChannelStore.getState().channelsByServer;
+      let serverId: string | undefined;
+      for (const [sid, chans] of Object.entries(byServer)) {
+        if (chans.some((c) => c.id === channelId)) {
+          serverId = sid;
+          break;
+        }
+      }
+      useUnreadStore.getState().bumpChannel(channelId, serverId);
       return;
     }
 
