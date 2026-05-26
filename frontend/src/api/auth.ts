@@ -95,7 +95,7 @@ class AuthAPI {
   async updateLocale(locale: string): Promise<void> {
     const tokens = useAuthStore.getState().tokens;
     await this.client.patch(
-      "/v1/me/locale",
+      "/v1/users/me/locale",
       { locale },
       {
         headers: tokens?.accessToken

@@ -60,10 +60,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
 
   return (
     <div className="auth-page">
-      <div
-        className="auth-topbar"
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
-      >
+      <div className="auth-topbar">
         <span className="auth-brand">
           <Mark size={22} />
           <span>Rift</span>

@@ -525,34 +525,31 @@ function ShortcutsSection() {
 }
 
 function LanguageSection() {
-  const t = useI18nStore((s) => s.t);
   const locale = useI18nStore((s) => s.locale);
   const setLocale = useI18nStore((s) => s.setLocale);
-  const [status, setStatus] = React.useState<"" | "saving" | "saved" | "failed">("");
-  const langs: { v: "en" | "ru"; n: string; flag: string }[] = [
-    { v: "en", n: "English", flag: "🇺🇸" },
-    { v: "ru", n: "Русский", flag: "🇷🇺" },
+  const langs: { v: "en" | "ru"; n: string }[] = [
+    { v: "en", n: "English" },
+    { v: "ru", n: "Русский" },
   ];
 
-  const apply = async (next: "en" | "ru") => {
+  const apply = (next: "en" | "ru") => {
     setLocale(next);
-    setStatus("saving");
-    try {
-      const { authAPI } = await import("../../api/auth");
-      await authAPI.updateLocale(next);
-      setStatus("saved");
-      window.setTimeout(() => setStatus(""), 1500);
-    } catch (err) {
-      console.error("[Settings] updateLocale failed:", err);
-      setStatus("failed");
-    }
+    void (async () => {
+      try {
+        const { authAPI } = await import("../../api/auth");
+        await authAPI.updateLocale(next);
+      } catch (err) {
+        console.error("[Settings] updateLocale failed:", err);
+      }
+    })();
   };
 
   return (
     <>
-      <h1>{t.settings.language}</h1>
-      <p className="lead">{t.settings.languageDescription}</p>
+      <h1>Language</h1>
+      <p className="lead">Pick the language Rift uses for menus and system messages.</p>
       <div className="s-section">
+        <h2>Display Language</h2>
         {langs.map((l) => (
           <button
             key={l.v}
@@ -567,11 +564,8 @@ function LanguageSection() {
             }}
           >
             <div className="s-row-text">
-              <div className="lbl">
-                <span style={{ marginRight: 8 }}>{l.flag}</span>
-                {l.n}
-              </div>
-              <div className="hint">{l.v.toUpperCase()}</div>
+              <div className="lbl">{l.n}</div>
+              <div className="hint">{l.v}</div>
             </div>
             <div className="s-row-control">
               {locale === l.v && (
@@ -580,13 +574,6 @@ function LanguageSection() {
             </div>
           </button>
         ))}
-        {status && (
-          <div className="hint" style={{ marginTop: 10 }}>
-            {status === "saving" && t.settings.saving}
-            {status === "saved" && t.settings.saved}
-            {status === "failed" && t.settings.failed}
-          </div>
-        )}
       </div>
     </>
   );
