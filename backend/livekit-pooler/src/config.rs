@@ -10,6 +10,8 @@ pub struct PoolerConfig {
     pub livekit_pooler_request_timeout_secs: u64,
     #[serde(default = "default_max_aborts_per_pass")]
     pub livekit_pooler_max_aborts_per_pass: usize,
+    #[serde(default = "default_offline_threshold_passes")]
+    pub livekit_pooler_offline_threshold_passes: u32,
     #[serde(default = "default_health_port")]
     pub livekit_pooler_health_port: u16,
 }
@@ -35,6 +37,10 @@ fn default_request_timeout_secs() -> u64 {
 
 fn default_max_aborts_per_pass() -> usize {
     500
+}
+
+fn default_offline_threshold_passes() -> u32 {
+    2
 }
 
 fn default_health_port() -> u16 {
