@@ -219,7 +219,6 @@ select:focus-visible {
 }
 .sb-section-head.collapsed .chev { transform: rotate(-90deg); }
 .sb-section-head.static:hover { background: transparent; }
-.sb-section-head.static + div .sb-section-head { margin-top: 0 !important; padding-top: 4px; }
 
 .sb-section-add {
   width: 20px; height: 20px;
