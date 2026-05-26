@@ -47,9 +47,12 @@ export const useUnreadStore = create<UnreadState>()((set, get) => ({
 
   resetChannel: (channelId) =>
     set((state) => {
-      if (!(channelId in state.byChannel)) return state;
+      const hasUnread = channelId in state.byChannel;
+      const hasMapping = channelId in state.channelToServer;
+      if (!hasUnread && !hasMapping) return state;
       const { [channelId]: _gone, ...rest } = state.byChannel;
-      return { byChannel: rest };
+      const { [channelId]: _g2, ...restMap } = state.channelToServer;
+      return { byChannel: rest, channelToServer: restMap };
     }),
 
   resetDm: (friendId) =>

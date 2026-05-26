@@ -841,7 +841,7 @@ export class LiveKitService {
   }
 
   private uiVolumeToGain(uiVolume: number): number {
-    return Math.max(0, Math.min(1, uiVolume)) * LiveKitService.REMOTE_GAIN_MAX;
+    return Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, uiVolume));
   }
 
   private handleAudioTrack(
@@ -927,7 +927,7 @@ export class LiveKitService {
   }
 
   setRemoteVolume(identity: string, volume: number): void {
-    const v = Math.max(0, Math.min(1, volume));
+    const v = Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, volume));
     this.remoteVolumes.set(identity, v);
     const gain = this.uiVolumeToGain(v);
     const gains = this.remoteGainNodes.get(identity);
@@ -935,7 +935,7 @@ export class LiveKitService {
       for (const g of gains) g.gain.value = gain;
     } else {
       const els = this.remoteAudioElements.get(identity);
-      if (els) for (const el of els) el.volume = v;
+      if (els) for (const el of els) el.volume = Math.min(1, v);
     }
   }
 

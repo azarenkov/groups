@@ -128,6 +128,7 @@ function dispatch(env: WsEnvelope) {
       if (!id || !serverId) return;
       useChannelStore.getState().removeChannel(serverId, id);
       useVoicePresenceStore.getState().clearChannel(id);
+      useUnreadStore.getState().resetChannel(id);
       return;
     }
 
