@@ -15,5 +15,12 @@
   "inviteFriends": "Invite friends",
   "deleteServer": "Delete server",
   "leaveServer": "Leave server",
-  "deleteChannel": "Delete channel"
+  "deleteChannel": "Delete channel",
+  "welcomeTitle": "Welcome to Rift",
+  "welcomeSubtitle": "Pick a server on the left or create one to start talking.",
+  "createServerCta": "Create a server",
+  "noTextChannelsTitle": "No text channels yet",
+  "noTextChannelsBody": "{{server}} doesn't have any text channels. Create one to start chatting.",
+  "noTextChannelsBodyGeneric": "Create a text channel to start chatting.",
+  "createChannelCta": "Create channel"
 }

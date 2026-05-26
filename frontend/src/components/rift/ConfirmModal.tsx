@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 
 interface ConfirmModalProps {
@@ -20,6 +21,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onCancel,
   onConfirm,
 }) => {
+  const { t } = useTranslation("common");
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
 
@@ -60,7 +62,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             tabIndex={-1}
             className="close"
             onClick={onCancel}
-            title="Close"
+            title={t("close")}
           >
             <Icon name="x" size={14} />
           </button>
@@ -78,7 +80,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
         <div className="m-foot">
           <button ref={cancelRef} type="button" onClick={onCancel}>
-            Cancel
+            {t("cancel")}
           </button>
           <button
             ref={confirmRef}

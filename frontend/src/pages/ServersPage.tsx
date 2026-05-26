@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
@@ -1317,17 +1318,53 @@ interface WelcomeProps {
   onCreate: () => void;
 }
 
-const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => (
-  <div className="empty-state" style={{ padding: 60 }}>
-    <div className="icon-wrap" style={{ width: 64, height: 64 }}>
-      <Icon name="hash" size={26} />
+const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => {
+  const { t } = useTranslation("sidebar");
+  return (
+    <div className="empty-state" style={{ padding: 60 }}>
+      <div className="icon-wrap" style={{ width: 64, height: 64 }}>
+        <Icon name="hash" size={26} />
+      </div>
+      <h3>{t("welcomeTitle")}</h3>
+      <p>{t("welcomeSubtitle")}</p>
+      <div style={{ marginTop: 20 }}>
+        {loading ? (
+          <span className="loading-spinner" />
+        ) : (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={onCreate}
+            style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
+          >
+            <Icon name="plus" size={14} />
+            {t("createServerCta")}
+          </button>
+        )}
+      </div>
     </div>
-    <h3>Welcome to Rift</h3>
-    <p>Pick a server on the left or create one to start talking.</p>
-    <div style={{ marginTop: 20 }}>
-      {loading ? (
-        <span className="loading-spinner" />
-      ) : (
+  );
+};
+
+interface NoTextChannelProps {
+  serverName: string;
+  onCreate: () => void;
+}
+
+const NoTextChannel: React.FC<NoTextChannelProps> = ({ serverName, onCreate }) => {
+  const { t } = useTranslation("sidebar");
+  return (
+    <div className="empty-state" style={{ padding: 60 }}>
+      <div className="icon-wrap" style={{ width: 64, height: 64 }}>
+        <Icon name="hash" size={26} />
+      </div>
+      <h3>{t("noTextChannelsTitle")}</h3>
+      <p>
+        {serverName
+          ? t("noTextChannelsBody", { server: serverName })
+          : t("noTextChannelsBodyGeneric")}
+      </p>
+      <div style={{ marginTop: 20 }}>
         <button
           type="button"
           className="btn primary"
@@ -1335,41 +1372,11 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => (
           style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
         >
           <Icon name="plus" size={14} />
-          Create a server
+          {t("createChannelCta")}
         </button>
-      )}
+      </div>
     </div>
-  </div>
-);
-
-interface NoTextChannelProps {
-  serverName: string;
-  onCreate: () => void;
-}
-
-const NoTextChannel: React.FC<NoTextChannelProps> = ({ serverName, onCreate }) => (
-  <div className="empty-state" style={{ padding: 60 }}>
-    <div className="icon-wrap" style={{ width: 64, height: 64 }}>
-      <Icon name="hash" size={26} />
-    </div>
-    <h3>No text channels yet</h3>
-    <p>
-      {serverName
-        ? `${serverName} doesn't have any text channels. Create one to start chatting.`
-        : "Create a text channel to start chatting."}
-    </p>
-    <div style={{ marginTop: 20 }}>
-      <button
-        type="button"
-        className="btn primary"
-        onClick={onCreate}
-        style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
-      >
-        <Icon name="plus" size={14} />
-        Create channel
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 export default ServersPage;

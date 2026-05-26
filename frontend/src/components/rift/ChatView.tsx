@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
@@ -11,6 +12,7 @@ import {
   useWsChannelMessages,
   useWsDmMessages,
 } from "../../services/useWebSocketMessages";
+import i18n from "../../i18n";
 
 const mergeWithLive = (
   history: ChannelMessage[],
@@ -33,9 +35,9 @@ const formatDayDivider = (date: Date): string => {
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
-  if (sameDay(date, today)) return "Today";
-  if (sameDay(date, yesterday)) return "Yesterday";
-  return date.toLocaleDateString(undefined, {
+  if (sameDay(date, today)) return i18n.t("today", { ns: "chat", defaultValue: "Today" });
+  if (sameDay(date, yesterday)) return i18n.t("yesterday", { ns: "chat", defaultValue: "Yesterday" });
+  return date.toLocaleDateString(i18n.language, {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -752,8 +754,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   if (!channel && !dm) return null;
 
   const placeholder = dm
-    ? `Message ${dm.name}`
-    : `Message #${channel?.name ?? ""}`;
+    ? i18n.t("messagePlaceholderDm", { ns: "chat", user: dm.name })
+    : i18n.t("messagePlaceholder", { ns: "chat", channel: channel?.name ?? "" });
 
   const headerName = channel ? channel.name : dm!.name;
 
@@ -959,7 +961,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           <button
             type="submit"
             className={"send-btn" + (text.trim() ? " enabled" : "")}
-            aria-label="Send"
+            aria-label={i18n.t("send", { ns: "chat" })}
             disabled={sending}
           >
             <Icon name="send" size={14} />
@@ -969,9 +971,9 @@ const ChatView: React.FC<ChatViewProps> = ({
       </form>
       {deleteTarget && (
         <ConfirmModal
-          title="Delete message?"
-          subtitle="This can't be undone."
-          confirmLabel="Delete"
+          title={i18n.t("deleteMessage", { ns: "chat" })}
+          subtitle={i18n.t("deleteMessageConfirm", { ns: "chat" })}
+          confirmLabel={i18n.t("delete", { ns: "common" })}
           danger
           onCancel={() => setDeleteTarget(null)}
           onConfirm={confirmDelete}
@@ -1331,7 +1333,7 @@ const Message: React.FC<MessageProps> = ({
         ) : (
           <div className="txt">
             {msg.content}
-            {msg.editedAt && <span className="msg-edited"> (edited)</span>}
+            {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
           </div>
         )}
       </div>

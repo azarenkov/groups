@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { ChannelKind, ChannelVisibility } from "../types/channel";
 import Icon from "./rift/Icon";
 import "../styles/rift.css";
@@ -21,6 +22,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
   onClose,
   onCreate,
 }) => {
+  const { t } = useTranslation(["modals", "common"]);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<ChannelKind>("voice");
   const [visibility, setVisibility] = useState<ChannelVisibility>("public");
@@ -91,19 +93,19 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
         onSubmit={handleSubmit}
       >
         <div className="m-head">
-          <h3>Create a channel</h3>
-          <button type="button" className="close" onClick={handleClose} title="Close">
+          <h3>{t("createChannel.title")}</h3>
+          <button type="button" className="close" onClick={handleClose} title={t("close", { ns: "common" })}>
             <Icon name="x" size={14} />
           </button>
         </div>
         <div className="m-body">
           <div className="m-field">
-            <label>Channel name</label>
+            <label>{t("createChannel.nameLabel")}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Lounge"
+              placeholder={t("createChannel.namePlaceholder")}
               disabled={isLoading}
               maxLength={MAX_CHANNEL_NAME_LENGTH}
               autoFocus
@@ -111,12 +113,12 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
           </div>
 
           <div className="m-field">
-            <label>Type</label>
+            <label>{t("createChannel.kindLabel")}</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {(
                 [
-                  { value: "voice" as const, icon: "headphones" as const, ttl: "Voice", sub: "Talk in real time" },
-                  { value: "text" as const, icon: "hash" as const, ttl: "Text", sub: "Chat with messages" },
+                  { value: "voice" as const, icon: "headphones" as const, ttl: t("createChannel.voice"), sub: "" },
+                  { value: "text" as const, icon: "hash" as const, ttl: t("createChannel.text"), sub: "" },
                 ]
               ).map((opt) => {
                 const active = kind === opt.value;
@@ -160,12 +162,12 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
 
           {kind === "voice" && (
           <div className="m-field">
-            <label>Privacy</label>
+            <label>{t("createChannel.visibilityLabel")}</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {(
                 [
-                  { value: "public" as const, icon: "globe" as const, ttl: "Public", sub: "Anyone with the link" },
-                  { value: "private" as const, icon: "lock" as const, ttl: "Private", sub: "Password required" },
+                  { value: "public" as const, icon: "globe" as const, ttl: t("createChannel.public"), sub: "" },
+                  { value: "private" as const, icon: "lock" as const, ttl: t("createChannel.private"), sub: "" },
                 ]
               ).map((opt) => {
                 const active = visibility === opt.value;
@@ -232,14 +234,14 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
         </div>
         <div className="m-foot">
           <button type="button" onClick={handleClose} disabled={isLoading}>
-            Cancel
+            {t("common:cancel")}
           </button>
           <button
             type="submit"
             className="primary"
             disabled={isLoading || !name.trim()}
           >
-            {isLoading ? <span className="loading-spinner" /> : "Create channel"}
+            {isLoading ? <span className="loading-spinner" /> : t("createChannel.create")}
           </button>
         </div>
       </form>

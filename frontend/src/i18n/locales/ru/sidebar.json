@@ -15,5 +15,12 @@
   "inviteFriends": "Пригласить друзей",
   "deleteServer": "Удалить сервер",
   "leaveServer": "Покинуть сервер",
-  "deleteChannel": "Удалить канал"
+  "deleteChannel": "Удалить канал",
+  "welcomeTitle": "Добро пожаловать в Rift",
+  "welcomeSubtitle": "Выберите сервер слева или создайте новый, чтобы начать общение.",
+  "createServerCta": "Создать сервер",
+  "noTextChannelsTitle": "Пока нет текстовых каналов",
+  "noTextChannelsBody": "На сервере {{server}} нет текстовых каналов. Создайте, чтобы начать переписку.",
+  "noTextChannelsBodyGeneric": "Создайте текстовый канал, чтобы начать переписку.",
+  "createChannelCta": "Создать канал"
 }
