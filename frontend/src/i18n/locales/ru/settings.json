@@ -7,7 +7,7 @@
   "sections": {
     "account": "Мой аккаунт",
     "profile": "Профиль",
-    "privacy": "Приватность и безопасность",
+    "privacy": "Приватность",
     "connections": "Подключения",
     "subscription": "Подписка",
     "appearance": "Внешний вид",
@@ -16,52 +16,88 @@
     "shortcuts": "Горячие клавиши",
     "language": "Язык"
   },
+  "actions": {
+    "edit": "Изменить",
+    "add": "Добавить",
+    "change": "Сменить",
+    "enable": "Включить",
+    "disable": "Отключить",
+    "delete": "Удалить",
+    "editProfile": "Изменить профиль"
+  },
   "account": {
     "title": "Мой аккаунт",
-    "lead": "Данные для входа и параметры аккаунта.",
+    "lead": "Как вас видят другие в Rift.",
+    "userSince": "В Rift с {{date}}",
+    "accountInformation": "Информация об аккаунте",
+    "passwordAuth": "Пароль и вход",
+    "accountRemoval": "Удаление аккаунта",
     "displayName": "Имя",
+    "displayNameHint": "Так вас видят в чатах.",
     "username": "Логин",
+    "usernameHint": "Ваш уникальный идентификатор.",
     "email": "Почта",
+    "emailVerified": "{{email}} (подтверждена)",
+    "phoneNumber": "Телефон",
+    "phoneNumberHint": "Для восстановления аккаунта и 2FA.",
+    "password": "Пароль",
+    "passwordHint": "Изменён 3 месяца назад.",
     "twoFactor": "Двухфакторная аутентификация",
-    "twoFactorHint": "Дополнительный уровень безопасности аккаунта.",
-    "enable": "Включить",
-    "deleteAccount": "Удаление аккаунта",
-    "deleteAccountHint": "Безвозвратно удалить аккаунт и все данные.",
-    "delete": "Удалить"
+    "twoFactorHint": "Дополнительный уровень защиты.",
+    "disableAccount": "Отключить аккаунт",
+    "disableAccountHint": "Скрыть профиль и отключить уведомления. Можно вернуть в любой момент.",
+    "deleteAccount": "Удалить аккаунт",
+    "deleteAccountHint": "Безвозвратно удалить данные. Действие нельзя отменить."
   },
   "profile": {
     "title": "Профиль",
-    "lead": "Как вы выглядите в Rift.",
-    "avatar": "Аватар",
-    "uploadImage": "Загрузить",
-    "remove": "Убрать",
+    "lead": "Настройте, как выглядит ваша карточка.",
+    "display": "Внешний вид",
     "displayName": "Имя",
     "pronouns": "Местоимения",
+    "pronounsPlaceholder": "они/их",
     "about": "О себе",
-    "aboutPlaceholder": "Расскажите немного о себе…"
+    "aboutPlaceholder": "Расскажите немного о себе…",
+    "status": "Статус",
+    "customStatus": "Свой статус",
+    "customStatusHint": "Короткое сообщение рядом с именем.",
+    "customStatusPlaceholder": "напр. На созвоне ✦",
+    "showActivity": "Показывать активность",
+    "showActivityHint": "Другие видят, какое приложение или игру вы используете."
   },
   "privacy": {
-    "title": "Приватность и безопасность",
-    "lead": "Кто может писать вам и как используются ваши данные.",
+    "title": "Приватность",
+    "lead": "Кто может с вами связаться и как используются ваши данные.",
     "directMessages": "Личные сообщения",
-    "directMessagesHint": "Разрешить сообщения от участников серверов.",
-    "friendRequests": "Заявки в друзья",
-    "friendRequestsHint": "Разрешить всем отправлять заявки.",
-    "showActivity": "Показывать активность",
-    "showActivityHint": "Друзья видят, чем вы заняты."
+    "whoCanDm": "Кто может писать в ЛС",
+    "whoCanDmHint": "Ограничьте незваные сообщения.",
+    "everyone": "Все",
+    "friends": "Друзья",
+    "noOne": "Никто",
+    "requests": "Заявки",
+    "allowRequests": "Принимать заявки в друзья",
+    "allowRequestsHint": "Любой может отправить заявку.",
+    "safety": "Безопасность",
+    "scanMessages": "Сканировать ЛС",
+    "scanMessagesHint": "Фильтровать откровенный контент от незнакомых людей."
   },
   "connections": {
     "title": "Подключения",
-    "lead": "Привяжите внешние аккаунты к профилю Rift.",
+    "lead": "Привяжите другие аккаунты, чтобы расширить возможности.",
+    "available": "Доступные",
+    "connect": "Подключить",
+    "disconnect": "Отключить",
     "noConnections": "Подключений пока нет."
   },
   "subscription": {
     "title": "Подписка",
-    "lead": "Управляйте тарифом и платежами Rift.",
+    "lead": "Ваш тариф, оплата и использование.",
     "currentPlan": "Текущий тариф",
-    "free": "Бесплатный",
-    "premium": "Премиум",
-    "upgradeNotice": "Перейдите на Премиум — безлимитные загрузки, HD-голос и больше."
+    "current": "Текущий",
+    "free": "Rift Free",
+    "premium": "Rift Premium",
+    "noPaymentMethod": "Способ оплаты не привязан.",
+    "upgrade": "Перейти на премиум"
   },
   "appearance": {
     "title": "Внешний вид",
@@ -70,29 +106,54 @@
     "light": "Светлая",
     "dark": "Тёмная",
     "system": "Системная",
-    "accent": "Акцентный цвет"
+    "accent": "Акцент",
+    "density": "Плотность",
+    "compact": "Плотная",
+    "cozy": "Уютная",
+    "comfortable": "Свободная",
+    "fontSize": "Размер шрифта"
   },
   "voice": {
     "title": "Голос и видео",
-    "lead": "Выберите аудиоустройства и параметры по умолчанию.",
-    "input": "Микрофон",
-    "output": "Динамик",
+    "lead": "Настройте устройства и поведение в голосовых каналах.",
+    "inputDevice": "Микрофон",
+    "microphone": "Микрофон",
     "inputVolume": "Громкость микрофона",
+    "outputDevice": "Динамики",
+    "speakers": "Динамики",
     "outputVolume": "Громкость звука",
-    "echoCancellation": "Эхоподавление",
-    "noiseSuppression": "Шумоподавление"
+    "pushToTalk": "Push-to-talk",
+    "pushToTalkHint": "Удерживайте клавишу, чтобы говорить.",
+    "noiseSuppression": "Шумоподавление",
+    "noiseSuppressionLevels": {
+      "off": "Выкл",
+      "standard": "Стандарт",
+      "high": "Высокое"
+    },
+    "yourMicrophone": "Ваш микрофон",
+    "live": "Идёт запись"
   },
   "notifications": {
     "title": "Уведомления",
-    "lead": "Когда и как Rift уведомляет вас.",
+    "lead": "Что и когда вас уведомляет.",
+    "desktop": "Рабочий стол",
     "enableDesktop": "Уведомления на рабочем столе",
     "enableDesktopHint": "Показывать уведомление при получении сообщения.",
     "enableSounds": "Звуки",
-    "enableSoundsHint": "Звуковые сигналы для сообщений и событий."
+    "enableSoundsHint": "Звук для сообщений и событий.",
+    "mentions": "Упоминания",
+    "mentionsAll": "Все сообщения",
+    "mentionsMentions": "Только @упоминания",
+    "mentionsNothing": "Ничего"
   },
   "shortcuts": {
     "title": "Горячие клавиши",
-    "lead": "Работайте быстрее с помощью сочетаний клавиш."
+    "lead": "Перемещайтесь быстрее. У большинства действий есть клавиша.",
+    "groups": {
+      "navigation": "Навигация",
+      "messaging": "Сообщения",
+      "voice": "Голос"
+    }
   },
   "language": {
     "title": "Язык",
