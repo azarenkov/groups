@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use application::ports::oauth_verifier::{
-    GoogleIdentity, GoogleTokenVerifier, OAuthVerifyError,
+    OAuthIdentity, OAuthIdentityVerifier, OAuthProvider, OAuthVerifyError,
 };
 use async_trait::async_trait;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
@@ -107,9 +107,17 @@ impl GoogleIdTokenVerifier {
 }
 
 #[async_trait]
-impl GoogleTokenVerifier for GoogleIdTokenVerifier {
-    async fn verify(&self, id_token: &str) -> Result<GoogleIdentity, OAuthVerifyError> {
-        let header = decode_header(id_token)
+impl OAuthIdentityVerifier for GoogleIdTokenVerifier {
+    async fn verify(
+        &self,
+        provider: OAuthProvider,
+        token: &str,
+    ) -> Result<OAuthIdentity, OAuthVerifyError> {
+        if provider != OAuthProvider::Google {
+            return Err(OAuthVerifyError::UnsupportedProvider(provider.as_str()));
+        }
+
+        let header = decode_header(token)
             .map_err(|e| OAuthVerifyError::InvalidToken(e.to_string()))?;
         let kid = header
             .kid
@@ -123,10 +131,11 @@ impl GoogleTokenVerifier for GoogleIdTokenVerifier {
         validation.set_audience(&[self.client_id.as_str()]);
         validation.set_issuer(&GOOGLE_ISSUERS);
 
-        let data = decode::<GoogleClaims>(id_token, &decoding_key, &validation)
+        let data = decode::<GoogleClaims>(token, &decoding_key, &validation)
             .map_err(|e| OAuthVerifyError::InvalidToken(e.to_string()))?;
 
-        Ok(GoogleIdentity {
+        Ok(OAuthIdentity {
+            provider: OAuthProvider::Google,
             subject: data.claims.sub,
             email: data.claims.email,
             email_verified: data.claims.email_verified,

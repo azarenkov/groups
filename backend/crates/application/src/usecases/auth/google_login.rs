@@ -24,7 +24,7 @@ use crate::{
     dto::requests::auth::google_login::GoogleLoginRequest,
     ports::{
         hasher::{HashError, Hasher},
-        oauth_verifier::{GoogleTokenVerifier, OAuthVerifyError},
+        oauth_verifier::{OAuthIdentityVerifier, OAuthProvider, OAuthVerifyError},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
 };
@@ -50,7 +50,7 @@ where
     U: UserRepository,
     R: RefreshTokenRepository,
     I: TokenIssuer,
-    V: GoogleTokenVerifier,
+    V: OAuthIdentityVerifier,
     H: Hasher,
 {
     user_repository: Arc<U>,
@@ -65,7 +65,7 @@ where
     U: UserRepository,
     R: RefreshTokenRepository,
     I: TokenIssuer,
-    V: GoogleTokenVerifier,
+    V: OAuthIdentityVerifier,
     H: Hasher,
 {
     pub fn new(
@@ -88,7 +88,10 @@ where
         &self,
         request: GoogleLoginRequest,
     ) -> Result<IssuedTokens, GoogleLoginError> {
-        let identity = self.verifier.verify(&request.id_token).await?;
+        let identity = self
+            .verifier
+            .verify(OAuthProvider::Google, &request.id_token)
+            .await?;
         if !identity.email_verified {
             return Err(GoogleLoginError::EmailNotVerified);
         }

@@ -1,7 +1,21 @@
 use async_trait::async_trait;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OAuthProvider {
+    Google,
+}
+
+impl OAuthProvider {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Google => "google",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct GoogleIdentity {
+pub struct OAuthIdentity {
+    pub provider: OAuthProvider,
     pub subject: String,
     pub email: String,
     pub email_verified: bool,
@@ -10,6 +24,8 @@ pub struct GoogleIdentity {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OAuthVerifyError {
+    #[error("Unsupported provider: {0}")]
+    UnsupportedProvider(&'static str),
     #[error("Invalid token: {0}")]
     InvalidToken(String),
     #[error("Verifier transport error: {0}")]
@@ -17,6 +33,10 @@ pub enum OAuthVerifyError {
 }
 
 #[async_trait]
-pub trait GoogleTokenVerifier: Send + Sync {
-    async fn verify(&self, id_token: &str) -> Result<GoogleIdentity, OAuthVerifyError>;
+pub trait OAuthIdentityVerifier: Send + Sync {
+    async fn verify(
+        &self,
+        provider: OAuthProvider,
+        token: &str,
+    ) -> Result<OAuthIdentity, OAuthVerifyError>;
 }
