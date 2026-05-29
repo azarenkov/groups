@@ -218,6 +218,7 @@ select:focus-visible {
   color: var(--fg-4);
 }
 .sb-section-head.collapsed .chev { transform: rotate(-90deg); }
+.sb-section-head.static:hover { background: transparent; }
 
 .sb-section-add {
   width: 20px; height: 20px;
@@ -1667,7 +1668,7 @@ select:focus-visible {
 
 .auth-topbar {
   height: 52px;
-  display: flex; align-items: center;
+  display: flex; align-items: center; justify-content: space-between;
   padding: 0 24px 0 80px;
   flex-shrink: 0;
   -webkit-app-region: drag;
@@ -1678,6 +1679,67 @@ select:focus-visible {
   letter-spacing: -0.005em;
   color: var(--fg-1);
   -webkit-app-region: no-drag;
+}
+
+.auth-lang {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+.auth-lang-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--surface-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  color: var(--fg-1);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.auth-lang-btn:hover {
+  background: var(--surface-3, rgba(255,255,255,0.08));
+  border-color: var(--border-strong, rgba(255,255,255,0.14));
+}
+.auth-lang-btn.open {
+  background: var(--surface-3, rgba(255,255,255,0.08));
+}
+.auth-lang-chev {
+  opacity: 0.6;
+  transition: transform 120ms ease;
+}
+.auth-lang-chev.up { transform: rotate(180deg); }
+.auth-lang-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 96px;
+  padding: 4px;
+  background: var(--surface-1, #1c1c1e);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+  z-index: 50;
+}
+.auth-lang-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--fg-1);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.auth-lang-item:hover {
+  background: var(--surface-2, rgba(255,255,255,0.06));
+}
+.auth-lang-item.on {
+  color: var(--accent);
 }
 
 .auth-form-wrap {

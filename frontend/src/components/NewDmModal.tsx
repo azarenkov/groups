@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import { SEED_MEMBERS, type MockMember, type MockDirect } from "../data/mockData";
 
@@ -15,6 +16,7 @@ const NewDmModal: React.FC<NewDmModalProps> = ({
   onClose,
   onPick,
 }) => {
+  const { t } = useTranslation(["modals", "common"]);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -66,8 +68,8 @@ const NewDmModal: React.FC<NewDmModalProps> = ({
     <div className="modal-overlay" onMouseDown={onClose}>
       <div className="modal newdm-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="m-head">
-          <h3>New direct message</h3>
-          <button type="button" className="close" onClick={onClose} title="Close">
+          <h3>{t("newDm.title")}</h3>
+          <button type="button" className="close" onClick={onClose} title={t("close", { ns: "common" })}>
             <Icon name="x" size={14} />
           </button>
         </div>
@@ -75,7 +77,7 @@ const NewDmModal: React.FC<NewDmModalProps> = ({
           <Icon name="search" size={14} />
           <input
             autoFocus
-            placeholder="Search by name, or type someone new…"
+            placeholder={t("newDm.search")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {

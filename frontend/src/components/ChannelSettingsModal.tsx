@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 
 interface ChannelSettingsModalProps {
@@ -16,6 +17,7 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
   onSave,
   onDelete,
 }) => {
+  const { t } = useTranslation(["modals", "common"]);
   const [name, setName] = useState(channel.name);
   const [topic, setTopic] = useState(channel.topic || "");
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -73,20 +75,20 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
     <div className="modal-overlay" onMouseDown={onClose}>
       <div ref={modalRef} className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="m-head">
-          <h3>#{channel.name} · settings</h3>
+          <h3>#{channel.name} · {t("channelSettings.title").toLowerCase()}</h3>
           <button
             type="button"
             tabIndex={-1}
             className="close"
             onClick={onClose}
-            title="Close"
+            title={t("common:close")}
           >
             <Icon name="x" size={14} />
           </button>
         </div>
         <div className="m-body">
           <div className="m-field">
-            <label>Channel name</label>
+            <label>{t("createChannel.nameLabel")}</label>
             <input
               ref={nameInputRef}
               value={name}
@@ -99,7 +101,7 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
             <label>Topic</label>
             <textarea
               rows={3}
-              placeholder="What is this channel about?"
+              placeholder=""
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
@@ -107,10 +109,10 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
         </div>
         <div className="m-foot">
           <button type="button" className="danger" onClick={onDelete}>
-            Delete channel
+            {t("channelSettings.delete")}
           </button>
           <button type="button" onClick={onClose}>
-            Cancel
+            {t("common:cancel")}
           </button>
           <button
             type="button"
@@ -119,7 +121,7 @@ const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
               onSave({ name: name.trim() || channel.name, topic: topic.trim() })
             }
           >
-            Save changes
+            {t("common:save")}
           </button>
         </div>
       </div>

@@ -6,7 +6,7 @@ use crate::{
         outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, email::Email, id::UserId, name::UserName},
+    user::{User, email::Email, id::UserId, locale::Locale, name::UserName},
     verification::code::VerificationCode,
 };
 
@@ -40,4 +40,9 @@ pub trait UserRepository {
         verification_code: &VerificationCode,
         events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
+    async fn update_locale(
+        &self,
+        user_id: &UserId,
+        locale: Locale,
+    ) -> Result<(), RepositoryError>;
 }

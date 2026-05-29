@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "../utils/apiError";
 import { friendshipAPI } from "../api/friendship";
 import { useFriendshipStore } from "../store/friendshipStore";
@@ -14,6 +15,7 @@ interface Suggestion {
 }
 
 const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation(["modals", "common"]);
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -85,7 +87,7 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
       onClose();
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setError(apiErr?.message || "Failed to send friend request");
+      setError(apiErr?.message || t("addFriend.userNotFound"));
     } finally {
       setSubmitting(false);
     }
@@ -134,17 +136,17 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="m-head">
-          <h3>Add friend</h3>
+          <h3>{t("addFriend.title")}</h3>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="m-body">
             <div className="m-field" style={{ position: "relative" }}>
-              <label>Username</label>
+              <label>{t("addFriend.placeholder")}</label>
               <input
                 ref={inputRef}
                 autoFocus
                 type="text"
-                placeholder="Start typing a username"
+                placeholder={t("addFriend.placeholder")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={onKeyDown}
@@ -179,14 +181,14 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
           </div>
           <div className="m-foot">
             <button type="button" onClick={onClose} disabled={submitting}>
-              Cancel
+              {t("common:cancel")}
             </button>
             <button
               type="submit"
               className="primary"
               disabled={submitting || username.trim().length === 0}
             >
-              {submitting ? "Sending…" : "Send request"}
+              {submitting ? t("addFriend.sending") : t("addFriend.send")}
             </button>
           </div>
         </form>

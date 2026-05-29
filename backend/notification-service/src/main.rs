@@ -137,7 +137,7 @@ async fn handle_verification_message<M: Mailer>(mailer: &M, msg: ConsumedMessage
     let email_str = issued.email.as_str().to_string();
 
     match mailer
-        .send_verification_code(&issued.email, &issued.code)
+        .send_verification_code(&issued.email, &issued.code, issued.locale)
         .await
     {
         Ok(()) => {

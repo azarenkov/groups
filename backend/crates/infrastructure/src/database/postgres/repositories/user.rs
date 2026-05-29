@@ -6,7 +6,7 @@ use domain::{
         outbox::outbox_record::OutboxRecord, repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, email::Email, id::UserId, name::UserName, repository::UserRepository},
+    user::{User, email::Email, id::UserId, locale::Locale, name::UserName, repository::UserRepository},
     verification::code::VerificationCode,
 };
 use sqlx::{Pool, Postgres};
@@ -32,15 +32,16 @@ impl UserRepository for PostgresUserRepository {
     async fn save_user(&self, user: &User) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-                INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO users (id, name, email, password_hash, created_at, updated_at, locale)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
             user.id().uuid(),
             user.name().as_str(),
             user.email().as_str(),
             user.password_hash().as_str(),
             user.created_at(),
-            user.updated_at()
+            user.updated_at(),
+            user.locale().as_str(),
         )
         .execute(&self.pool)
         .await
@@ -63,8 +64,8 @@ impl UserRepository for PostgresUserRepository {
 
         sqlx::query!(
             r#"
-                INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO users (id, name, email, password_hash, created_at, updated_at, locale)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
             user.id().uuid(),
             user.name().as_str(),
@@ -72,6 +73,7 @@ impl UserRepository for PostgresUserRepository {
             user.password_hash().as_str(),
             user.created_at(),
             user.updated_at(),
+            user.locale().as_str(),
         )
         .execute(&mut *tx)
         .await
@@ -117,7 +119,8 @@ impl UserRepository for PostgresUserRepository {
                 created_at,
                 updated_at,
                 email_verified_at,
-                phone_verified_at
+                phone_verified_at,
+                locale
             FROM users
             WHERE id = $1
             "#,
@@ -142,7 +145,8 @@ impl UserRepository for PostgresUserRepository {
                 created_at,
                 updated_at,
                 email_verified_at,
-                phone_verified_at
+                phone_verified_at,
+                locale
             FROM users
             WHERE email = $1
             "#,
@@ -197,7 +201,8 @@ impl UserRepository for PostgresUserRepository {
                 created_at,
                 updated_at,
                 email_verified_at,
-                phone_verified_at
+                phone_verified_at,
+                locale
             FROM users
             WHERE name = $1
             "#,
@@ -323,5 +328,29 @@ impl UserRepository for PostgresUserRepository {
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(true)
+    }
+
+    async fn update_locale(
+        &self,
+        user_id: &UserId,
+        locale: Locale,
+    ) -> Result<(), RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                UPDATE users
+                SET locale = $2, updated_at = now()
+                WHERE id = $1
+            "#,
+            user_id.uuid(),
+            locale.as_str(),
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(())
     }
 }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use domain::{
     shared::repository::error::RepositoryError,
-    user::{id::UserId, repository::UserRepository},
+    user::{id::UserId, locale::Locale, repository::UserRepository},
 };
 use uuid::Uuid;
 
@@ -19,6 +19,7 @@ pub struct MeProfile {
     pub id: Uuid,
     pub name: String,
     pub email: String,
+    pub locale: Locale,
 }
 
 pub struct GetMe<U>
@@ -47,6 +48,7 @@ where
             id: user.id().uuid(),
             name: user.name().as_str().to_string(),
             email: user.email().as_str().to_string(),
+            locale: user.locale(),
         })
     }
 }

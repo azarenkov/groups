@@ -1,5 +1,7 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Icon, { type IconName } from "../rift/Icon";
+import { currentLocale, setLocale } from "../../i18n";
 
 type Theme = "light" | "dark";
 
@@ -25,21 +27,39 @@ interface AppearanceSectionProps {
   onAccent: (a: string) => void;
 }
 
-const SETTINGS_SECTIONS: { group: string; items: { id: string; label: string; icon: IconName }[] }[] = [
-  { group: 'User Settings', items: [
-    { id: 'account',       label: 'My Account',       icon: 'user' },
-    { id: 'profile',       label: 'Profile',          icon: 'edit' },
-    { id: 'privacy',       label: 'Privacy & Safety', icon: 'shield' },
-    { id: 'connections',   label: 'Connections',      icon: 'link' },
-    { id: 'subscription',  label: 'Subscription',     icon: 'credit-card' },
-  ]},
-  { group: 'App Settings', items: [
-    { id: 'appearance',    label: 'Appearance',       icon: 'palette' },
-    { id: 'voice',         label: 'Voice & Video',    icon: 'mic' },
-    { id: 'notifications', label: 'Notifications',    icon: 'bell' },
-    { id: 'shortcuts',     label: 'Keyboard Shortcuts', icon: 'keyboard' },
-    { id: 'language',      label: 'Language',         icon: 'globe' },
-  ]},
+type SectionId =
+  | "account"
+  | "profile"
+  | "privacy"
+  | "connections"
+  | "subscription"
+  | "appearance"
+  | "voice"
+  | "notifications"
+  | "shortcuts"
+  | "language";
+
+const SETTINGS_GROUPS: { groupKey: "userSettings" | "appSettings"; items: { id: SectionId; icon: IconName }[] }[] = [
+  {
+    groupKey: "userSettings",
+    items: [
+      { id: "account", icon: "user" },
+      { id: "profile", icon: "edit" },
+      { id: "privacy", icon: "shield" },
+      { id: "connections", icon: "link" },
+      { id: "subscription", icon: "credit-card" },
+    ],
+  },
+  {
+    groupKey: "appSettings",
+    items: [
+      { id: "appearance", icon: "palette" },
+      { id: "voice", icon: "mic" },
+      { id: "notifications", icon: "bell" },
+      { id: "shortcuts", icon: "keyboard" },
+      { id: "language", icon: "globe" },
+    ],
+  },
 ];
 
 const ACCENT_OPTIONS = [
@@ -78,10 +98,11 @@ function SettingsRow({ label, hint, children }: SettingsRowProps) {
 
 
 function AccountSection() {
+  const { t } = useTranslation("settings");
   return (
     <>
-      <h1>My Account</h1>
-      <p className="lead">How you appear to others on Rift.</p>
+      <h1>{t("account.title")}</h1>
+      <p className="lead">{t("account.lead")}</p>
 
       <div className="profile-card">
         <div className="ava-lg">
@@ -89,45 +110,45 @@ function AccountSection() {
           <span className="edit-badge"><Icon name="camera" size={12}/></span>
         </div>
         <div className="pc-info">
-          <div className="pc-name">You</div>
-          <div className="pc-handle">@you · Rift since Mar 2024</div>
+          <div className="pc-name">{t("account.displayName")}</div>
+          <div className="pc-handle">@you · {t("account.userSince", { date: "Mar 2024" })}</div>
         </div>
-        <button className="s-btn secondary">Edit profile</button>
+        <button className="s-btn secondary">{t("actions.editProfile")}</button>
       </div>
 
       <div className="s-section">
-        <h2>Account Information</h2>
-        <SettingsRow label="Display Name" hint="This is how everyone sees you in chat.">
-          <button className="s-btn secondary">Edit</button>
+        <h2>{t("account.accountInformation")}</h2>
+        <SettingsRow label={t("account.displayName")} hint={t("account.displayNameHint")}>
+          <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>
-        <SettingsRow label="Username" hint="Your unique handle. You.">
-          <button className="s-btn secondary">Edit</button>
+        <SettingsRow label={t("account.username")} hint={t("account.usernameHint")}>
+          <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>
-        <SettingsRow label="Email" hint="you@example.com (verified)">
-          <button className="s-btn secondary">Edit</button>
+        <SettingsRow label={t("account.email")} hint={t("account.emailVerified", { email: "you@example.com" })}>
+          <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>
-        <SettingsRow label="Phone Number" hint="Add for account recovery and 2FA.">
-          <button className="s-btn secondary">Add</button>
-        </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Password & Authentication</h2>
-        <SettingsRow label="Password" hint="Last changed 3 months ago.">
-          <button className="s-btn secondary">Change</button>
-        </SettingsRow>
-        <SettingsRow label="Two-Factor Authentication" hint="Add an extra layer of protection.">
-          <button className="s-btn primary">Enable</button>
+        <SettingsRow label={t("account.phoneNumber")} hint={t("account.phoneNumberHint")}>
+          <button className="s-btn secondary">{t("actions.add")}</button>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>Account Removal</h2>
-        <SettingsRow label="Disable Account" hint="Hide your profile and stop notifications. You can reactivate anytime.">
-          <button className="s-btn danger">Disable</button>
+        <h2>{t("account.passwordAuth")}</h2>
+        <SettingsRow label={t("account.password")} hint={t("account.passwordHint")}>
+          <button className="s-btn secondary">{t("actions.change")}</button>
         </SettingsRow>
-        <SettingsRow label="Delete Account" hint="Permanently remove your data. This cannot be undone.">
-          <button className="s-btn danger">Delete</button>
+        <SettingsRow label={t("account.twoFactor")} hint={t("account.twoFactorHint")}>
+          <button className="s-btn primary">{t("actions.enable")}</button>
+        </SettingsRow>
+      </div>
+
+      <div className="s-section">
+        <h2>{t("account.accountRemoval")}</h2>
+        <SettingsRow label={t("account.disableAccount")} hint={t("account.disableAccountHint")}>
+          <button className="s-btn danger">{t("actions.disable")}</button>
+        </SettingsRow>
+        <SettingsRow label={t("account.deleteAccount")} hint={t("account.deleteAccountHint")}>
+          <button className="s-btn danger">{t("actions.delete")}</button>
         </SettingsRow>
       </div>
     </>
@@ -135,35 +156,36 @@ function AccountSection() {
 }
 
 function ProfileSection() {
+  const { t } = useTranslation("settings");
   const [bio, setBio] = React.useState("Building things at the intersection of design and language.");
   return (
     <>
-      <h1>Profile</h1>
-      <p className="lead">Customize how others see your identity card.</p>
+      <h1>{t("profile.title")}</h1>
+      <p className="lead">{t("profile.lead")}</p>
 
       <div className="s-section">
-        <h2>Display</h2>
+        <h2>{t("profile.display")}</h2>
         <div className="s-field-row">
-          <div className="field-lbl">Display Name</div>
-          <input className="s-input" defaultValue="You"/>
+          <div className="field-lbl">{t("profile.displayName")}</div>
+          <input className="s-input" defaultValue=""/>
         </div>
         <div className="s-field-row">
-          <div className="field-lbl">Pronouns</div>
-          <input className="s-input" placeholder="they/them" defaultValue=""/>
+          <div className="field-lbl">{t("profile.pronouns")}</div>
+          <input className="s-input" placeholder={t("profile.pronounsPlaceholder")} defaultValue=""/>
         </div>
         <div className="s-field-row">
-          <div className="field-lbl">About me</div>
-          <textarea className="s-input" value={bio} onChange={e => setBio(e.target.value)}/>
+          <div className="field-lbl">{t("profile.about")}</div>
+          <textarea className="s-input" placeholder={t("profile.aboutPlaceholder")} value={bio} onChange={e => setBio(e.target.value)}/>
           <div style={{ fontSize: 11, color: 'var(--fg-4)', textAlign: 'right' }}>{bio.length}/190</div>
         </div>
       </div>
 
       <div className="s-section">
-        <h2>Status</h2>
-        <SettingsRow label="Custom Status" hint="Show a short message next to your name.">
-          <input className="s-input" style={{ width: 200 }} placeholder="e.g. Heads down ✦" />
+        <h2>{t("profile.status")}</h2>
+        <SettingsRow label={t("profile.customStatus")} hint={t("profile.customStatusHint")}>
+          <input className="s-input" style={{ width: 200 }} placeholder={t("profile.customStatusPlaceholder")} />
         </SettingsRow>
-        <SettingsRow label="Show activity" hint="Let others see what app or game you're using.">
+        <SettingsRow label={t("profile.showActivity")} hint={t("profile.showActivityHint")}>
           <Switch on={true} onClick={() => {}}/>
         </SettingsRow>
       </div>
@@ -172,47 +194,30 @@ function ProfileSection() {
 }
 
 function PrivacySection() {
+  const { t } = useTranslation("settings");
   const [dms, setDms] = React.useState('friends');
   const [requests, setRequests] = React.useState(true);
   const [scan, setScan] = React.useState(true);
   return (
     <>
-      <h1>Privacy & Safety</h1>
-      <p className="lead">Control who can reach you and how your data is used.</p>
+      <h1>{t("privacy.title")}</h1>
+      <p className="lead">{t("privacy.lead")}</p>
 
       <div className="s-section">
-        <h2>Direct Messages</h2>
-        <SettingsRow label="Who can DM me" hint="Limit unsolicited messages.">
+        <h2>{t("privacy.directMessages")}</h2>
+        <SettingsRow label={t("privacy.whoCanDm")} hint={t("privacy.whoCanDmHint")}>
           <div className="s-seg">
-            <button className={dms === 'everyone' ? 'on' : ''} onClick={() => setDms('everyone')}>Everyone</button>
-            <button className={dms === 'friends'  ? 'on' : ''} onClick={() => setDms('friends')}>Friends</button>
-            <button className={dms === 'nobody'   ? 'on' : ''} onClick={() => setDms('nobody')}>Nobody</button>
+            <button className={dms === 'everyone' ? 'on' : ''} onClick={() => setDms('everyone')}>{t("privacy.everyone")}</button>
+            <button className={dms === 'friends'  ? 'on' : ''} onClick={() => setDms('friends')}>{t("privacy.friends")}</button>
+            <button className={dms === 'nobody'   ? 'on' : ''} onClick={() => setDms('nobody')}>{t("privacy.noOne")}</button>
           </div>
         </SettingsRow>
-        <SettingsRow label="Friend requests" hint="Accept new connections from anyone, or only friends-of-friends.">
+        <SettingsRow label={t("privacy.allowRequests")} hint={t("privacy.allowRequestsHint")}>
           <Switch on={requests} onClick={() => setRequests(v => !v)}/>
         </SettingsRow>
-        <SettingsRow label="Scan media in DMs" hint="Auto-blur potentially sensitive images you receive.">
+        <SettingsRow label={t("privacy.scanMessages")} hint={t("privacy.scanMessagesHint")}>
           <Switch on={scan} onClick={() => setScan(v => !v)}/>
         </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Data</h2>
-        <SettingsRow label="Use data to improve Rift" hint="Anonymous telemetry. We never read message contents.">
-          <Switch on={false} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Personalized suggestions" hint="Show servers and people you might know.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Request my data" hint="Get a downloadable archive of everything you've sent.">
-          <button className="s-btn secondary"><Icon name="download" size={13}/> Request</button>
-        </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Blocked</h2>
-        <div className="hint" style={{ fontSize: 13, color: 'var(--fg-3)' }}>You haven't blocked anyone.</div>
       </div>
     </>
   );
@@ -226,12 +231,13 @@ function ConnectionsSection() {
     { id: 'cal',     name: 'Calendar', meta: 'Sync busy/free for status', icon: 'bell', connected: false },
     { id: 'gh-iss',  name: 'Linear',  meta: 'Convert messages to issues', icon: 'check', connected: false },
   ];
+  const { t } = useTranslation("settings");
   return (
     <>
-      <h1>Connections</h1>
-      <p className="lead">Link other accounts to enrich your messages and presence.</p>
+      <h1>{t("connections.title")}</h1>
+      <p className="lead">{t("connections.lead")}</p>
       <div className="s-section">
-        <h2>Available</h2>
+        <h2>{t("connections.available")}</h2>
         {conns.map(c => (
           <div className="conn-row" key={c.id}>
             <div className="conn-ico"><Icon name={c.icon} size={18}/></div>
@@ -240,7 +246,7 @@ function ConnectionsSection() {
               <div className="conn-meta">{c.meta}</div>
             </div>
             <button className={'conn-action' + (c.connected ? '' : ' connect')}>
-              {c.connected ? 'Disconnect' : 'Connect'}
+              {c.connected ? t("connections.disconnect") : t("connections.connect")}
             </button>
           </div>
         ))}
@@ -250,26 +256,27 @@ function ConnectionsSection() {
 }
 
 function SubscriptionSection() {
+  const { t } = useTranslation("settings");
   return (
     <>
-      <h1>Subscription</h1>
-      <p className="lead">Your plan, billing, and usage.</p>
+      <h1>{t("subscription.title")}</h1>
+      <p className="lead">{t("subscription.lead")}</p>
 
       <div className="s-section">
-        <h2>Current Plan</h2>
+        <h2>{t("subscription.currentPlan")}</h2>
         <div className="plan-card current">
           <div className="plan-info">
-            <div className="plan-name">Rift Free</div>
-            <div className="plan-price">No payment method on file.</div>
+            <div className="plan-name">{t("subscription.free")}</div>
+            <div className="plan-price">{t("subscription.noPaymentMethod")}</div>
           </div>
-          <span className="plan-badge">Current</span>
+          <span className="plan-badge">{t("subscription.current")}</span>
         </div>
         <div className="plan-card">
           <div className="plan-info">
-            <div className="plan-name">Rift Pro</div>
-            <div className="plan-price">$8/month · Unlimited file uploads, HD voice, custom themes</div>
+            <div className="plan-name">{t("subscription.premium")}</div>
+            <div className="plan-price">$8/month</div>
           </div>
-          <button className="s-btn primary">Upgrade</button>
+          <button className="s-btn primary">{t("subscription.upgrade")}</button>
         </div>
         <div className="plan-card">
           <div className="plan-info">
@@ -294,34 +301,35 @@ function SubscriptionSection() {
 }
 
 function AppearanceSection({ theme, onTheme, accent, onAccent }: AppearanceSectionProps) {
+  const { t } = useTranslation("settings");
   const [density, setDensity] = React.useState('cozy');
   const [size, setSize] = React.useState(14);
   return (
     <>
-      <h1>Appearance</h1>
-      <p className="lead">Theme, color, and how dense the UI feels.</p>
+      <h1>{t("appearance.title")}</h1>
+      <p className="lead">{t("appearance.lead")}</p>
 
       <div className="s-section">
-        <h2>Theme</h2>
+        <h2>{t("appearance.theme")}</h2>
         <div className="theme-grid">
           <button className={'theme-card' + (theme === 'light' ? ' on' : '')} onClick={() => onTheme('light')}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
-            Light
+            {t("appearance.light")}
           </button>
           <button className={'theme-card dark-pv' + (theme === 'dark' ? ' on' : '')} onClick={() => onTheme('dark')}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
-            Dark
+            {t("appearance.dark")}
           </button>
           <button className={'theme-card system-pv'} onClick={() => onTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
-            System
+            {t("appearance.system")}
           </button>
         </div>
       </div>
 
       <div className="s-section">
-        <h2>Accent Color</h2>
-        <SettingsRow label="Highlight color" hint="Used for active items, mentions, and links.">
+        <h2>{t("appearance.accent")}</h2>
+        <SettingsRow label={t("appearance.accent")} hint="">
           <div className="accent-row">
             {ACCENT_OPTIONS.map(a => (
               <button key={a.value}
@@ -359,59 +367,40 @@ function VoiceSection() {
   const [inVol, setInVol] = React.useState(70);
   const [outVol, setOutVol] = React.useState(85);
   const [push, setPush] = React.useState(false);
+  const { t } = useTranslation("settings");
   return (
     <>
-      <h1>Voice & Video</h1>
-      <p className="lead">Set up the devices and behavior for voice channels.</p>
+      <h1>{t("voice.title")}</h1>
+      <p className="lead">{t("voice.lead")}</p>
 
       <div className="s-section">
-        <h2>Input Device</h2>
+        <h2>{t("voice.inputDevice")}</h2>
         <div className="s-field-row">
-          <div className="field-lbl">Microphone</div>
+          <div className="field-lbl">{t("voice.microphone")}</div>
           <input className="s-input" value={input} onChange={e => setInput(e.target.value)}/>
         </div>
-        <SettingsRow label="Input volume" hint={`${inVol}%`}>
+        <SettingsRow label={t("voice.inputVolume")} hint={`${inVol}%`}>
           <input type="range" min="0" max="100" value={inVol} onChange={e => setInVol(Number(e.target.value))}/>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>Output Device</h2>
+        <h2>{t("voice.outputDevice")}</h2>
         <div className="s-field-row">
-          <div className="field-lbl">Speaker</div>
+          <div className="field-lbl">{t("voice.speakers")}</div>
           <input className="s-input" value={output} onChange={e => setOutput(e.target.value)}/>
         </div>
-        <SettingsRow label="Output volume" hint={`${outVol}%`}>
+        <SettingsRow label={t("voice.outputVolume")} hint={`${outVol}%`}>
           <input type="range" min="0" max="100" value={outVol} onChange={e => setOutVol(Number(e.target.value))}/>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>Voice Activity</h2>
-        <SettingsRow label="Voice mode" hint="Push-to-talk uses a hotkey instead of detecting your voice.">
-          <div className="s-seg">
-            <button className={!push ? 'on' : ''} onClick={() => setPush(false)}>Voice activity</button>
-            <button className={push ? 'on' : ''} onClick={() => setPush(true)}>Push-to-talk</button>
-          </div>
+        <h2>{t("voice.pushToTalk")}</h2>
+        <SettingsRow label={t("voice.pushToTalk")} hint={t("voice.pushToTalkHint")}>
+          <Switch on={push} onClick={() => setPush(v => !v)}/>
         </SettingsRow>
-        <SettingsRow label="Noise suppression" hint="Filter typing, fans, and street sounds in real time.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Echo cancellation" hint="Recommended when not using headphones.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Auto gain control" hint="Keep your voice at a steady level.">
-          <Switch on={false} onClick={() => {}}/>
-        </SettingsRow>
-      </div>
-
-      <div className="s-section">
-        <h2>Video</h2>
-        <div className="s-field-row">
-          <div className="field-lbl">Camera</div>
-          <input className="s-input" defaultValue="FaceTime HD Camera"/>
-        </div>
-        <SettingsRow label="Mirror my video" hint="Flip your preview horizontally so it matches a mirror.">
+        <SettingsRow label={t("voice.noiseSuppression")} hint="">
           <Switch on={true} onClick={() => {}}/>
         </SettingsRow>
       </div>
@@ -420,41 +409,33 @@ function VoiceSection() {
 }
 
 function NotificationsSection() {
+  const { t } = useTranslation("settings");
   const [desk, setDesk] = React.useState(true);
   const [sound, setSound] = React.useState(true);
   const [mentions, setMentions] = React.useState('all');
   return (
     <>
-      <h1>Notifications</h1>
-      <p className="lead">Choose what reaches you, and when it stays quiet.</p>
+      <h1>{t("notifications.title")}</h1>
+      <p className="lead">{t("notifications.lead")}</p>
 
       <div className="s-section">
-        <h2>Desktop</h2>
-        <SettingsRow label="Enable desktop notifications" hint="System banners for new messages.">
+        <h2>{t("notifications.desktop")}</h2>
+        <SettingsRow label={t("notifications.enableDesktop")} hint={t("notifications.enableDesktopHint")}>
           <Switch on={desk} onClick={() => setDesk(v => !v)}/>
         </SettingsRow>
-        <SettingsRow label="Notification sound" hint="Subtle chime on new messages and mentions.">
+        <SettingsRow label={t("notifications.enableSounds")} hint={t("notifications.enableSoundsHint")}>
           <Switch on={sound} onClick={() => setSound(v => !v)}/>
-        </SettingsRow>
-        <SettingsRow label="Show badge on app icon" hint="Unread count in the dock.">
-          <Switch on={true} onClick={() => {}}/>
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>What to notify on</h2>
-        <SettingsRow label="Mentions" hint="When someone @you's or replies in a thread.">
+        <h2>{t("notifications.mentions")}</h2>
+        <SettingsRow label={t("notifications.mentions")} hint="">
           <div className="s-seg">
-            <button className={mentions === 'all' ? 'on' : ''} onClick={() => setMentions('all')}>All</button>
-            <button className={mentions === 'direct' ? 'on' : ''} onClick={() => setMentions('direct')}>Direct only</button>
-            <button className={mentions === 'none' ? 'on' : ''} onClick={() => setMentions('none')}>None</button>
+            <button className={mentions === 'all' ? 'on' : ''} onClick={() => setMentions('all')}>{t("notifications.mentionsAll")}</button>
+            <button className={mentions === 'direct' ? 'on' : ''} onClick={() => setMentions('direct')}>{t("notifications.mentionsMentions")}</button>
+            <button className={mentions === 'none' ? 'on' : ''} onClick={() => setMentions('none')}>{t("notifications.mentionsNothing")}</button>
           </div>
-        </SettingsRow>
-        <SettingsRow label="Direct messages" hint="Always notify me of new DMs.">
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-        <SettingsRow label="Voice channel joins" hint="When someone joins a voice channel I'm in.">
-          <Switch on={false} onClick={() => {}}/>
         </SettingsRow>
       </div>
 
@@ -502,10 +483,11 @@ function ShortcutsSection() {
       { name: 'Leave voice',        keys: ['⌘', '⇧', 'L'] },
     ]},
   ];
+  const { t } = useTranslation("settings");
   return (
     <>
-      <h1>Keyboard Shortcuts</h1>
-      <p className="lead">Get around faster. Most actions have a key.</p>
+      <h1>{t("shortcuts.title")}</h1>
+      <p className="lead">{t("shortcuts.lead")}</p>
       {groups.map(g => (
         <div className="s-section" key={g.title}>
           <h2>{g.title}</h2>
@@ -524,32 +506,53 @@ function ShortcutsSection() {
 }
 
 function LanguageSection() {
-  const [lang, setLang] = React.useState('en-US');
-  const langs = [
-    { v: 'en-US', n: 'English (United States)' },
-    { v: 'en-GB', n: 'English (United Kingdom)' },
-    { v: 'fr-FR', n: 'Français' },
-    { v: 'de-DE', n: 'Deutsch' },
-    { v: 'es-ES', n: 'Español' },
-    { v: 'ja-JP', n: '日本語' },
-    { v: 'ru-RU', n: 'Русский' },
-    { v: 'zh-CN', n: '简体中文' },
+  const { t, i18n } = useTranslation("settings");
+  void i18n.language;
+  const active = currentLocale();
+  const langs: { v: "en" | "ru"; n: string }[] = [
+    { v: "en", n: "English" },
+    { v: "ru", n: "Русский" },
   ];
+
+  const apply = (next: "en" | "ru") => {
+    setLocale(next);
+    void (async () => {
+      try {
+        const { authAPI } = await import("../../api/auth");
+        await authAPI.updateLocale(next);
+      } catch (err) {
+        console.error("[Settings] updateLocale failed:", err);
+      }
+    })();
+  };
+
   return (
     <>
-      <h1>Language</h1>
-      <p className="lead">Pick the language Rift uses for menus and system messages.</p>
+      <h1>{t("language.title")}</h1>
+      <p className="lead">{t("language.lead")}</p>
       <div className="s-section">
-        <h2>Display Language</h2>
-        {langs.map(l => (
-          <button key={l.v} className="s-row" onClick={() => setLang(l.v)}
-            style={{ width: '100%', border: 0, background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
+        <h2>{t("language.displayLanguage")}</h2>
+        {langs.map((l) => (
+          <button
+            key={l.v}
+            className="s-row"
+            onClick={() => apply(l.v)}
+            style={{
+              width: "100%",
+              border: 0,
+              background: "transparent",
+              cursor: "pointer",
+              textAlign: "left",
+            }}
+          >
             <div className="s-row-text">
               <div className="lbl">{l.n}</div>
-              <div className="hint">{l.v}</div>
+              <div className="hint">{l.v.toUpperCase()}</div>
             </div>
             <div className="s-row-control">
-              {lang === l.v && <Icon name="check" size={18} style={{ color: 'var(--accent)' }}/>}
+              {active === l.v && (
+                <Icon name="check" size={18} style={{ color: "var(--accent)" }} />
+              )}
             </div>
           </button>
         ))}
@@ -558,10 +561,11 @@ function LanguageSection() {
   );
 }
 
-const ALL_RAIL_IDS = SETTINGS_SECTIONS.flatMap(g => g.items.map(i => i.id));
+const ALL_RAIL_IDS: SectionId[] = SETTINGS_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
 function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignOut }: SettingsViewProps) {
-  const [activeId, setActiveId] = React.useState('account');
+  const { t } = useTranslation("settings");
+  const [activeId, setActiveId] = React.useState<SectionId>("account");
   const overlayRef = React.useRef<HTMLDivElement>(null);
   const railButtonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -631,33 +635,35 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
   return (
     <div ref={overlayRef} className="settings-overlay">
       <nav className="settings-rail" role="tablist" aria-orientation="vertical" onKeyDown={onRailKeyDown}>
-        {SETTINGS_SECTIONS.map(group => (
-          <React.Fragment key={group.group}>
-            <div className="rail-section">{group.group}</div>
-            {group.items.map(item => (
-              <button key={item.id}
+        {SETTINGS_GROUPS.map((group) => (
+          <React.Fragment key={group.groupKey}>
+            <div className="rail-section">{t(group.groupKey)}</div>
+            {group.items.map((item) => (
+              <button
+                key={item.id}
                 ref={(el) => { railButtonRefs.current[item.id] = el; }}
                 role="tab"
                 aria-selected={activeId === item.id}
-                className={'rail-item' + (activeId === item.id ? ' active' : '')}
-                onClick={() => setActiveId(item.id)}>
-                <span className="ic"><Icon name={item.icon} size={15}/></span>
-                {item.label}
+                className={"rail-item" + (activeId === item.id ? " active" : "")}
+                onClick={() => setActiveId(item.id)}
+              >
+                <span className="ic"><Icon name={item.icon} size={15} /></span>
+                {t(`sections.${item.id}` as const)}
               </button>
             ))}
           </React.Fragment>
         ))}
-        <div style={{ height: 1, background: 'var(--hairline)', margin: '12px 8px' }}/>
+        <div style={{ height: 1, background: "var(--hairline)", margin: "12px 8px" }} />
         <button className="rail-item danger" onClick={onSignOut}>
-          <span className="ic"><Icon name="logout" size={15}/></span>
-          Log Out
+          <span className="ic"><Icon name="logout" size={15} /></span>
+          {t("logOut")}
         </button>
       </nav>
 
       <div className="settings-pane">
         <button className="settings-close" onClick={onClose} title="Close (Esc)">
-          <Icon name="x" size={16}/>
-          <span className="esc">ESC</span>
+          <Icon name="x" size={16} />
+          <span className="esc">{t("esc")}</span>
         </button>
         <div className="settings-content">
           {body}

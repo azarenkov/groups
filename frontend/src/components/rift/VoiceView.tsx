@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useLiveKit } from "../../hooks/useLiveKit";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
@@ -24,6 +25,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   onLeave,
   onJoinFailed,
 }) => {
+  const { t } = useTranslation(["voice", "common"]);
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
   const {
@@ -269,7 +271,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
         style={{ background: "var(--danger-tint)", color: "var(--danger)" }}
       >
         <span>{error}</span>
-        <button className="vp-btn leave" onClick={handleLeave} title="Leave">
+        <button className="vp-btn leave" onClick={handleLeave} title={t("leave")}>
           <Icon name="logout" size={15} />
         </button>
       </div>,
@@ -282,9 +284,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       <div className="voice-pill in-dock connecting">
         <div className="vp-meta-wrap">
           <div className="vp-title">{channelName}</div>
-          <div className="vp-meta">Connecting…</div>
+          <div className="vp-meta">{t("connecting")}</div>
         </div>
-        <button className="vp-btn leave" onClick={handleLeave} title="Cancel">
+        <button className="vp-btn leave" onClick={handleLeave} title={t("common:cancel")}>
           <Icon name="logout" size={15} />
         </button>
       </div>,
@@ -296,33 +298,33 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     <div
       className={`voice-pill in-dock connected ${qualityClass(localQuality)}`}
       ref={rootRef}
-      title={`Connection: ${qualityLabel(localQuality)}`}
+      title={`${t("connected")}: ${qualityLabel(localQuality)}`}
     >
       <div className="vp-meta-wrap">
         <div className="vp-title">{channelName}</div>
         <div className="vp-meta">
           {speakingPerson
-            ? `${speakingPerson.name || speakingPerson.identity} is speaking`
-            : `${totalConnected} connected`}
+            ? `${speakingPerson.name || speakingPerson.identity} — ${t("speaking")}`
+            : `${totalConnected} ${t("connected").toLowerCase()}`}
         </div>
       </div>
       <div className="vp-actions">
         <button
           className={"vp-btn" + (open ? " on" : "")}
           onClick={() => setOpen((v) => !v)}
-          title="Audio settings"
+          title={t("settings")}
         >
           <Icon name={volIcon} size={15} />
         </button>
         <button
           className={"vp-btn" + (isMuted ? " muted" : "")}
           onClick={toggleMute}
-          title={isMuted ? "Unmute" : "Mute"}
+          title={isMuted ? t("unmuteSelf") : t("muteSelf")}
         >
           <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
         </button>
       </div>
-      <button className="vp-btn leave" onClick={handleLeave} title="Leave">
+      <button className="vp-btn leave" onClick={handleLeave} title={t("leave")}>
         <Icon name="logout" size={15} />
       </button>
 
@@ -330,27 +332,27 @@ const VoiceView: React.FC<VoiceViewProps> = ({
         <div className="vp-popover" onMouseDown={(e) => e.stopPropagation()}>
           <div className="vp-pop-row">
             <div className="vp-pop-label">
-              <span className="k">Noise suppression</span>
+              <span className="k">{t("noiseSuppression")}</span>
             </div>
             <div className="vp-seg">
               <button
                 className={noise === "off" ? "on" : ""}
                 onClick={() => handleNoiseChange("off")}
               >
-                Off
+                {t("noiseOff")}
               </button>
               <button
                 className={noise === "standard" ? "on" : ""}
                 onClick={() => handleNoiseChange("standard")}
               >
-                Standard
+                {t("noiseStandard")}
               </button>
               <button
                 className={noise === "high" ? "on" : ""}
                 onClick={() => handleNoiseChange("high")}
               >
                 <Icon name="sparkles" size={11} />
-                High
+                {t("noiseHigh")}
               </button>
             </div>
           </div>
@@ -358,7 +360,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           {noise === "high" && (
             <div className="vp-pop-row">
               <div className="vp-pop-label">
-                <span className="k">Suppression strength</span>
+                <span className="k">{t("noiseSuppression")}</span>
                 <span className="v">{noiseStrengthPct}%</span>
               </div>
               <div className="vp-slider accent">
@@ -378,8 +380,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
           <div className="vp-pop-row">
             <div className="vp-pop-label">
-              <span className="k">Your microphone</span>
-              <span className="v">{isMuted ? "Muted" : "Live"}</span>
+              <span className="k">{t("yourMicrophone")}</span>
+              <span className="v">{isMuted ? t("muted") : t("live")}</span>
             </div>
             <div className="vp-meter" aria-hidden="true">
               {meter.map((v, i) => (

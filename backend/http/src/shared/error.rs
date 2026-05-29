@@ -27,7 +27,9 @@ use application::usecases::server::send_server_invite::SendServerInviteError;
 use application::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use application::usecases::read_state::mark_channel_read::MarkChannelReadError;
 use application::usecases::read_state::mark_dm_read::MarkDmReadError;
-use application::usecases::user::get_me::GetMeError;
+use application::usecases::user::{
+    get_me::GetMeError, update_locale::UpdateLocaleError,
+};
 use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
@@ -1810,6 +1812,26 @@ impl ToHttpStatus for GetMeError {
     }
 }
 
+impl ToHttpStatus for UpdateLocaleError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateLocaleError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateLocaleError::Repository(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateLocaleError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for SearchUsersError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1986,6 +2008,7 @@ impl_from_for_api_error!(
     ListFriendsError,
     SearchUsersError,
     GetMeError,
+    UpdateLocaleError,
     MarkChannelReadError,
     MarkDmReadError,
     GetUnreadCountsError,

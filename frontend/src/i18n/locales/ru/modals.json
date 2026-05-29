@@ -1,0 +1,87 @@
+{
+  "createServer": {
+    "title": "Создание сервера",
+    "subtitle": "Дайте дом своему сообществу. Это можно изменить позже.",
+    "nameLabel": "Название сервера",
+    "namePlaceholder": "Мой сервер",
+    "create": "Создать сервер",
+    "creating": "Создаём…"
+  },
+  "createChannel": {
+    "title": "Создание канала",
+    "subtitle": "Каналы организуют беседы внутри сервера.",
+    "nameLabel": "Название канала",
+    "namePlaceholder": "общий",
+    "kindLabel": "Тип канала",
+    "text": "Текстовый",
+    "voice": "Голосовой",
+    "visibilityLabel": "Кто видит канал",
+    "public": "Публичный",
+    "private": "Приватный",
+    "create": "Создать канал",
+    "creating": "Создаём…"
+  },
+  "channelSettings": {
+    "title": "Настройки канала",
+    "rename": "Переименовать канал",
+    "delete": "Удалить канал",
+    "deleteConfirm": "Удалить канал #{{name}}? Это действие нельзя отменить."
+  },
+  "addFriend": {
+    "title": "Добавить в друзья",
+    "subtitle": "Отправьте заявку по логину.",
+    "placeholder": "Логин",
+    "send": "Отправить заявку",
+    "sending": "Отправляем…",
+    "sent": "Заявка отправлена.",
+    "selfError": "Нельзя добавить в друзья себя.",
+    "alreadyFriends": "Этот пользователь уже у вас в друзьях.",
+    "userNotFound": "Пользователь не найден."
+  },
+  "inviteFriends": {
+    "title": "Пригласить друзей на {{server}}",
+    "subtitle": "Выберите друзей, которым отправить приглашение.",
+    "search": "Найти друга",
+    "invite": "Пригласить",
+    "invited": "Приглашён",
+    "noFriends": "Пока некого приглашать."
+  },
+  "pendingFriends": {
+    "title": "Заявки в друзья",
+    "incoming": "Входящие",
+    "outgoing": "Исходящие",
+    "accept": "Принять",
+    "decline": "Отклонить",
+    "cancel": "Отменить",
+    "empty": "Заявок нет."
+  },
+  "newDm": {
+    "title": "Личное сообщение",
+    "subtitle": "Выберите друга для переписки.",
+    "search": "Поиск друзей",
+    "noFriends": "Добавьте друзей, чтобы начать переписку."
+  },
+  "passwordPrompt": {
+    "title": "Приватный канал",
+    "subtitle": "Введите пароль, чтобы войти в <0>{{name}}</0>.",
+    "placeholder": "Пароль",
+    "confirm": "Войти",
+    "wrongPassword": "Неверный пароль."
+  },
+  "confirm": {
+    "title": "Вы уверены?",
+    "confirm": "Подтвердить",
+    "thisCantBeUndone": "Действие нельзя отменить.",
+    "aboutToDelete": "Сейчас будет удалён <0>{{name}}</0>.",
+    "deleteServerTitle": "Удалить сервер?",
+    "leaveServerTitle": "Покинуть сервер?",
+    "leaveServerSubtitle": "Вы сможете вернуться, если вас снова пригласят.",
+    "deleteChannelTitle": "Удалить канал?",
+    "removeFriendTitle": "Удалить из друзей?",
+    "removeFriendSubtitle": "Вы сможете отправить заявку позже.",
+    "leave": "Покинуть",
+    "remove": "Удалить",
+    "delete": "Удалить"
+  },
+  "accent": "Акцент"
+}

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
@@ -53,6 +54,8 @@ interface ChannelOverride {
 }
 
 const ServersPage: React.FC = () => {
+  const { t: tModals } = useTranslation("modals");
+  const { t: tVoice } = useTranslation("voice");
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
@@ -628,7 +631,7 @@ const ServersPage: React.FC = () => {
       return false;
     }
   });
-  const userStatus = appearOffline ? "Offline" : "Online";
+  const userStatus = appearOffline ? "offline" : "online";
   useEffect(() => {
     if (!tokens?.accessToken) return;
     userAPI.setAppearOffline(appearOffline).catch((err) => {
@@ -809,14 +812,14 @@ const ServersPage: React.FC = () => {
                       className={`voice-stage-dot ${qualityClass(localQuality)}`}
                       title={`Connection: ${qualityLabel(localQuality)}`}
                     />
-                    {voiceJoinFailed ? "Couldn't connect" : "Connected"}
+                    {voiceJoinFailed ? tVoice("disconnected") : tVoice("connected")}
                     {selectedServer ? ` · ${selectedServer.name}` : ""}
                   </span>
                   <div className="right">
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Channel settings"
+                      title={tModals("channelSettings.title")}
                       onClick={() =>
                         setEditingChannel({
                           id: joinedChannel.channel.id,
@@ -976,7 +979,7 @@ const ServersPage: React.FC = () => {
                           onClick={handleVoiceLeave}
                         >
                           <Icon name="logout" size={16} />
-                          <span>Leave</span>
+                          <span>{tVoice("leave")}</span>
                         </button>
                       </div>
                     </div>
@@ -997,12 +1000,12 @@ const ServersPage: React.FC = () => {
                     {selectedVoiceChannelNotJoined.name}
                   </span>
                   <span className="sep" />
-                  <span className="topic">Disconnected</span>
+                  <span className="topic">{tVoice("disconnected")}</span>
                   <div className="right">
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Channel settings"
+                      title={tModals("channelSettings.title")}
                       onClick={() =>
                         setEditingChannel({
                           id: selectedVoiceChannelNotJoined.id,
@@ -1017,7 +1020,7 @@ const ServersPage: React.FC = () => {
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
-                    <div className="voice-preview-empty">No one is here yet.</div>
+                    <div className="voice-preview-empty">{tVoice("noOneHere")}</div>
                   ) : (
                     (() => {
                       const sizeClass =
@@ -1065,7 +1068,7 @@ const ServersPage: React.FC = () => {
                       finalizeJoin(selectedServer, selectedVoiceChannelNotJoined);
                     }}
                   >
-                    Connect
+                    {tVoice("connect")}
                   </button>
                 </div>
               </div>
@@ -1230,27 +1233,27 @@ const ServersPage: React.FC = () => {
         <ConfirmModal
           title={
             deleteConfirm.type === "server"
-              ? "Delete server?"
+              ? tModals("confirm.deleteServerTitle")
               : deleteConfirm.type === "leave-server"
-                ? "Leave server?"
+                ? tModals("confirm.leaveServerTitle")
                 : deleteConfirm.type === "channel"
-                  ? "Delete channel?"
-                  : "Remove friend?"
+                  ? tModals("confirm.deleteChannelTitle")
+                  : tModals("confirm.removeFriendTitle")
           }
           subtitle={
             deleteConfirm.type === "leave-server"
-              ? "You can rejoin if invited again."
+              ? tModals("confirm.leaveServerSubtitle")
               : deleteConfirm.type === "friend"
-                ? "You can send a new request later."
-                : "This can't be undone."
+                ? tModals("confirm.removeFriendSubtitle")
+                : tModals("confirm.thisCantBeUndone")
           }
           targetName={deleteConfirm.name}
           confirmLabel={
             deleteConfirm.type === "leave-server"
-              ? "Leave"
+              ? tModals("confirm.leave")
               : deleteConfirm.type === "friend"
-                ? "Remove"
-                : "Delete"
+                ? tModals("confirm.remove")
+                : tModals("confirm.delete")
           }
           danger={deleteConfirm.type !== "leave-server"}
           onCancel={() => setDeleteConfirm(null)}
@@ -1317,17 +1320,53 @@ interface WelcomeProps {
   onCreate: () => void;
 }
 
-const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => (
-  <div className="empty-state" style={{ padding: 60 }}>
-    <div className="icon-wrap" style={{ width: 64, height: 64 }}>
-      <Icon name="hash" size={26} />
+const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => {
+  const { t } = useTranslation("sidebar");
+  return (
+    <div className="empty-state" style={{ padding: 60 }}>
+      <div className="icon-wrap" style={{ width: 64, height: 64 }}>
+        <Icon name="hash" size={26} />
+      </div>
+      <h3>{t("welcomeTitle")}</h3>
+      <p>{t("welcomeSubtitle")}</p>
+      <div style={{ marginTop: 20 }}>
+        {loading ? (
+          <span className="loading-spinner" />
+        ) : (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={onCreate}
+            style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
+          >
+            <Icon name="plus" size={14} />
+            {t("createServerCta")}
+          </button>
+        )}
+      </div>
     </div>
-    <h3>Welcome to Rift</h3>
-    <p>Pick a server on the left or create one to start talking.</p>
-    <div style={{ marginTop: 20 }}>
-      {loading ? (
-        <span className="loading-spinner" />
-      ) : (
+  );
+};
+
+interface NoTextChannelProps {
+  serverName: string;
+  onCreate: () => void;
+}
+
+const NoTextChannel: React.FC<NoTextChannelProps> = ({ serverName, onCreate }) => {
+  const { t } = useTranslation("sidebar");
+  return (
+    <div className="empty-state" style={{ padding: 60 }}>
+      <div className="icon-wrap" style={{ width: 64, height: 64 }}>
+        <Icon name="hash" size={26} />
+      </div>
+      <h3>{t("noTextChannelsTitle")}</h3>
+      <p>
+        {serverName
+          ? t("noTextChannelsBody", { server: serverName })
+          : t("noTextChannelsBodyGeneric")}
+      </p>
+      <div style={{ marginTop: 20 }}>
         <button
           type="button"
           className="btn primary"
@@ -1335,41 +1374,11 @@ const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => (
           style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
         >
           <Icon name="plus" size={14} />
-          Create a server
+          {t("createChannelCta")}
         </button>
-      )}
+      </div>
     </div>
-  </div>
-);
-
-interface NoTextChannelProps {
-  serverName: string;
-  onCreate: () => void;
-}
-
-const NoTextChannel: React.FC<NoTextChannelProps> = ({ serverName, onCreate }) => (
-  <div className="empty-state" style={{ padding: 60 }}>
-    <div className="icon-wrap" style={{ width: 64, height: 64 }}>
-      <Icon name="hash" size={26} />
-    </div>
-    <h3>No text channels yet</h3>
-    <p>
-      {serverName
-        ? `${serverName} doesn't have any text channels. Create one to start chatting.`
-        : "Create a text channel to start chatting."}
-    </p>
-    <div style={{ marginTop: 20 }}>
-      <button
-        type="button"
-        className="btn primary"
-        onClick={onCreate}
-        style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
-      >
-        <Icon name="plus" size={14} />
-        Create channel
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 export default ServersPage;

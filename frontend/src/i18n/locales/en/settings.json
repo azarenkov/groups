@@ -1,0 +1,163 @@
+{
+  "title": "Settings",
+  "userSettings": "User Settings",
+  "appSettings": "App Settings",
+  "logOut": "Log Out",
+  "esc": "ESC",
+  "sections": {
+    "account": "My Account",
+    "profile": "Profile",
+    "privacy": "Privacy & Safety",
+    "connections": "Connections",
+    "subscription": "Subscription",
+    "appearance": "Appearance",
+    "voice": "Voice & Video",
+    "notifications": "Notifications",
+    "shortcuts": "Keyboard Shortcuts",
+    "language": "Language"
+  },
+  "actions": {
+    "edit": "Edit",
+    "add": "Add",
+    "change": "Change",
+    "enable": "Enable",
+    "disable": "Disable",
+    "delete": "Delete",
+    "editProfile": "Edit profile"
+  },
+  "account": {
+    "title": "My Account",
+    "lead": "How you appear to others on Rift.",
+    "userSince": "Rift since {{date}}",
+    "accountInformation": "Account Information",
+    "passwordAuth": "Password & Authentication",
+    "accountRemoval": "Account Removal",
+    "displayName": "Display Name",
+    "displayNameHint": "This is how everyone sees you in chat.",
+    "username": "Username",
+    "usernameHint": "Your unique handle. You.",
+    "email": "Email",
+    "emailVerified": "{{email}} (verified)",
+    "phoneNumber": "Phone Number",
+    "phoneNumberHint": "Add for account recovery and 2FA.",
+    "password": "Password",
+    "passwordHint": "Last changed 3 months ago.",
+    "twoFactor": "Two-Factor Authentication",
+    "twoFactorHint": "Add an extra layer of protection.",
+    "disableAccount": "Disable Account",
+    "disableAccountHint": "Hide your profile and stop notifications. You can reactivate anytime.",
+    "deleteAccount": "Delete Account",
+    "deleteAccountHint": "Permanently remove your data. This cannot be undone."
+  },
+  "profile": {
+    "title": "Profile",
+    "lead": "Customize how others see your identity card.",
+    "display": "Display",
+    "displayName": "Display Name",
+    "pronouns": "Pronouns",
+    "pronounsPlaceholder": "they/them",
+    "about": "About me",
+    "aboutPlaceholder": "Tell others a bit about yourself…",
+    "status": "Status",
+    "customStatus": "Custom Status",
+    "customStatusHint": "Show a short message next to your name.",
+    "customStatusPlaceholder": "e.g. Heads down ✦",
+    "showActivity": "Show activity",
+    "showActivityHint": "Let others see what app or game you're using."
+  },
+  "privacy": {
+    "title": "Privacy & Safety",
+    "lead": "Control who can reach you and how your data is used.",
+    "directMessages": "Direct Messages",
+    "whoCanDm": "Who can DM me",
+    "whoCanDmHint": "Limit unsolicited messages.",
+    "everyone": "Everyone",
+    "friends": "Friends",
+    "noOne": "No one",
+    "requests": "Requests",
+    "allowRequests": "Allow friend requests",
+    "allowRequestsHint": "Anyone can send you a friend request.",
+    "safety": "Safety",
+    "scanMessages": "Scan direct messages",
+    "scanMessagesHint": "Filter explicit content from people you don't know."
+  },
+  "connections": {
+    "title": "Connections",
+    "lead": "Link other accounts to enrich your messages and presence.",
+    "available": "Available",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "noConnections": "No connections yet."
+  },
+  "subscription": {
+    "title": "Subscription",
+    "lead": "Your plan, billing, and usage.",
+    "currentPlan": "Current Plan",
+    "current": "Current",
+    "free": "Rift Free",
+    "premium": "Rift Premium",
+    "noPaymentMethod": "No payment method on file.",
+    "upgrade": "Upgrade"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "lead": "Theme, color, and how dense the UI feels.",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "accent": "Accent",
+    "density": "Density",
+    "compact": "Compact",
+    "cozy": "Cozy",
+    "comfortable": "Comfortable",
+    "fontSize": "Font size"
+  },
+  "voice": {
+    "title": "Voice & Video",
+    "lead": "Set up the devices and behavior for voice channels.",
+    "inputDevice": "Input Device",
+    "microphone": "Microphone",
+    "inputVolume": "Input Volume",
+    "outputDevice": "Output Device",
+    "speakers": "Speakers",
+    "outputVolume": "Output Volume",
+    "pushToTalk": "Push-to-talk",
+    "pushToTalkHint": "Hold a key to transmit.",
+    "noiseSuppression": "Noise suppression",
+    "noiseSuppressionLevels": {
+      "off": "Off",
+      "standard": "Standard",
+      "high": "High"
+    },
+    "yourMicrophone": "Your microphone",
+    "live": "Live"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "lead": "Choose what reaches you, and when it stays quiet.",
+    "desktop": "Desktop",
+    "enableDesktop": "Desktop notifications",
+    "enableDesktopHint": "Show a notification when you receive a message.",
+    "enableSounds": "Sounds",
+    "enableSoundsHint": "Play a sound for messages and events.",
+    "mentions": "Mentions",
+    "mentionsAll": "All messages",
+    "mentionsMentions": "Only @mentions",
+    "mentionsNothing": "Nothing"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "lead": "Get around faster. Most actions have a key.",
+    "groups": {
+      "navigation": "Navigation",
+      "messaging": "Messaging",
+      "voice": "Voice"
+    }
+  },
+  "language": {
+    "title": "Language",
+    "lead": "Pick the language Rift uses for menus and system messages.",
+    "displayLanguage": "Display Language"
+  }
+}

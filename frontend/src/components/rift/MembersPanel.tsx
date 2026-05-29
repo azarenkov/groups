@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
 import { colorForId, initialFor } from "../../utils/avatar";
@@ -10,6 +11,7 @@ interface MembersPanelProps {
 }
 
 const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
+  const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
   const onlineUsers = usePresenceStore((s) => s.online);
   const [loading, setLoading] = useState(false);
@@ -60,18 +62,21 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   return (
     <aside className="members-panel">
       <div className="mp-section">
-        Members
+        {t("title")}
         <span className="count">— {members.length}</span>
       </div>
       {loading && members.length === 0 && (
-        <div className="mp-empty">Loading…</div>
+        <div className="mp-empty">{t("common:loading")}</div>
       )}
       {error && <div className="mp-empty">{error}</div>}
       {!loading && !error && members.length === 0 && (
-        <div className="mp-empty">No one has joined yet.</div>
+        <div className="mp-empty">{t("noMembers")}</div>
       )}
       {members.map((m) => {
         const isOnline = !!onlineUsers[m.id];
+        const statusLabel = isOnline
+          ? t("common:online")
+          : t("common:offline");
         return (
           <div key={m.id} className="member-row">
             <div
@@ -81,13 +86,13 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
               {initialFor(m.name)}
               <span
                 className={"presence " + (isOnline ? "online" : "offline")}
-                title={isOnline ? "Online" : "Offline"}
-                aria-label={isOnline ? "Online" : "Offline"}
+                title={statusLabel}
+                aria-label={statusLabel}
               />
             </div>
             <div className="info">
               <div className="name">{m.name}</div>
-              <div className="role">{isOnline ? "Online" : "Offline"}</div>
+              <div className="role">{statusLabel}</div>
             </div>
           </div>
         );

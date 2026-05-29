@@ -81,13 +81,28 @@ class AuthAPI {
     name: string,
     email: string,
     password: string,
+    locale?: string,
   ): Promise<TokenPair> {
     const response = await this.client.post("/v1/auth/register", {
       name,
       email,
       password,
+      ...(locale ? { locale } : {}),
     });
     return response.data.data;
+  }
+
+  async updateLocale(locale: string): Promise<void> {
+    const tokens = useAuthStore.getState().tokens;
+    await this.client.patch(
+      "/v1/users/me/locale",
+      { locale },
+      {
+        headers: tokens?.accessToken
+          ? { Authorization: `Bearer ${tokens.accessToken}` }
+          : undefined,
+      },
+    );
   }
 
   async requestVerificationCode(

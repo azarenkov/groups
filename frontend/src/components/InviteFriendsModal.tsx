@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import { dmAPI } from "../api/dm";
 import { serverAPI } from "../api/server";
@@ -18,6 +19,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
   friends,
   onClose,
 }) => {
+  const { t } = useTranslation(["modals", "common"]);
   const [query, setQuery] = useState("");
   const [invited, setInvited] = useState<Set<string>>(new Set());
   const [members, setMembers] = useState<Set<string>>(new Set());
@@ -103,7 +105,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
           return next;
         });
       } else {
-        setError(apiErr?.message || "Couldn't send invite.");
+        setError(apiErr?.message || t("common:error"));
       }
     } finally {
       setPending(null);
@@ -114,15 +116,15 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
     <div className="modal-overlay" onMouseDown={onClose}>
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="m-head">
-          <h3>Invite to {server.name}</h3>
-          <button type="button" className="close" onClick={onClose} title="Close">
+          <h3>{t("inviteFriends.title", { server: server.name })}</h3>
+          <button type="button" className="close" onClick={onClose} title={t("common:close")}>
             <Icon name="x" size={14} />
           </button>
         </div>
         <div className="m-body">
           {friends.length === 0 ? (
             <div className="pf-empty">
-              You don't have any friends yet. Add some first.
+              {t("inviteFriends.noFriends")}
             </div>
           ) : (
             <>
@@ -130,20 +132,26 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
                 <input
                   type="text"
                   autoFocus
-                  placeholder="Search friends"
+                  placeholder={t("inviteFriends.search")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </div>
               {visible.length === 0 ? (
-                <div className="pf-empty">No friends match "{query}".</div>
+                <div className="pf-empty">{t("inviteFriends.noFriends")}</div>
               ) : (
                 <div className="pf-section">
                   {visible.map((f) => {
                     const isMember = members.has(f.friendId);
                     const sent = invited.has(f.friendId);
                     const busy = pending === f.friendId;
-                    const label = isMember ? "Member" : sent ? "Pending" : busy ? "Sending…" : "Invite";
+                    const label = isMember
+                      ? t("common:active")
+                      : sent
+                      ? t("inviteFriends.invited")
+                      : busy
+                      ? t("addFriend.sending")
+                      : t("inviteFriends.invite");
                     return (
                       <div key={f.friendId} className="pf-row">
                         <div

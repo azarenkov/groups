@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at\n            FROM users\n            WHERE id = $1\n            ",
+  "query": "\n                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale\n                FROM users u\n                INNER JOIN server_members sm ON sm.user_id = u.id\n                WHERE sm.server_id = $1\n                ORDER BY sm.joined_at ASC\n                LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -42,11 +42,18 @@
         "ordinal": 7,
         "name": "phone_verified_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "locale",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -57,8 +64,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "dd93b1c9d27f023224f4657294ab4c22026a15e6c82178a2155485fc75720e41"
+  "hash": "1be4182499aa96b58488b1a86da4a2fd06e0298a9a0dfe440716a73a154c6674"
 }

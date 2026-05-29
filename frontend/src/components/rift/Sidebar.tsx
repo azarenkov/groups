@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import type { Server } from "../../types/server";
 import type { Channel } from "../../types/channel";
@@ -89,6 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   channelToServer = {},
   onSetStatus,
 }) => {
+  const { t } = useTranslation(["sidebar", "common"]);
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggleSection = (id: string) =>
     setCollapsed((c) => ({ ...c, [id]: !c[id] }));
@@ -183,7 +185,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Icon name="search" size={14} />
         <input
           ref={searchInputRef}
-          placeholder="Search"
+          placeholder={t("searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -199,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             tabIndex={-1}
             className="sb-search-clear"
-            title="Clear"
+            title={t("close", { ns: "common" })}
             onClick={() => {
               setQuery("");
               searchInputRef.current?.focus();
@@ -217,14 +219,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           className={"sb-section-head" + (directsCollapsed ? " collapsed" : "")}
           onClick={() => toggleSection("__directs")}
         >
-          <span>Direct Messages</span>
+          <span>{t("directMessages")}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             {onOpenPendingRequests && (
               <button
                 type="button"
                 tabIndex={-1}
                 className="sb-section-add sb-pending-toggle"
-                title="Friend requests"
+                title={t("pendingRequests")}
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenPendingRequests();
@@ -240,7 +242,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               type="button"
               tabIndex={-1}
               className="sb-section-add"
-              title="Add friend"
+              title={t("addDm")}
               onClick={(e) => {
                 e.stopPropagation();
                 onAddDm();
@@ -317,18 +319,24 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ))}
 
+        <div
+          className="sb-section-head static"
+          style={{ padding: "10px 8px 0", cursor: "default" }}
+        >
+          <span>{t("servers")}</span>
+        </div>
+
         {filteredServers.length === 0 && (
           <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--fg-3)" }}>
-            {isFiltering
-              ? "No matching servers or channels."
-              : "No servers yet. Create one to get started."}
+            {isFiltering ? t("noMatches") : t("noServers")}
           </div>
         )}
 
-        {filteredServers.map((server) => {
+        {filteredServers.map((server, serverIdx) => {
           const isCol = isFiltering ? false : !expandedServerIds.has(server.id);
           const channels = visibleChannelsFor(server.id);
           const accent = server.accentColor ?? colorForId(server.id);
+          const isFirstServer = serverIdx === 0;
           const allServerChannels = channelsByServer[server.id] || [];
           const localSum = allServerChannels
             .filter((c) => c.kind === "text")
@@ -351,7 +359,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onToggleServer(server.id);
                   onSelectServer(server.id);
                 }}
-                style={{ marginTop: 6 }}
+                style={isFirstServer ? { marginTop: 0 } : { marginTop: 6 }}
               >
                 <span
                   style={{
@@ -391,7 +399,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         type="button"
                         tabIndex={-1}
                         className="sb-section-add"
-                        title="Invite people"
+                        title={t("inviteFriends")}
                         onClick={(e) => {
                           e.stopPropagation();
                           onInviteServer(server);
@@ -434,7 +442,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                               }}
                             >
                               <Icon name="plus" size={12} />
-                              <span>Create channel</span>
+                              <span>{t("addChannel")}</span>
                             </button>
                             <div className="sb-server-menu-divider" />
                             <button
@@ -455,8 +463,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                               />
                               <span>
                                 {currentUserId === server.ownerId
-                                  ? "Delete server"
-                                  : "Leave server"}
+                                  ? t("deleteServer")
+                                  : t("leaveServer")}
                               </span>
                             </button>
                           </div>
@@ -584,7 +592,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span className="plus">
             <Icon name="plus" size={12} />
           </span>
-          <span>Add server</span>
+          <span>{t("addServer")}</span>
         </button>
       </div>
 
@@ -603,7 +611,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {currentUserName.charAt(0).toUpperCase()}
             <span
               className={
-                "dot" + (currentUserStatus === "Offline" ? " offline" : "")
+                "dot" + (currentUserStatus === "offline" ? " offline" : "")
               }
             />
           </div>
@@ -615,7 +623,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             ref={statusMenuRef}
             role="button"
             tabIndex={0}
-            title="Change status"
+            title={t("changeStatus")}
             onClick={() => setStatusMenuOpen((v) => !v)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -626,7 +634,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="n">{currentUserName}</div>
             <div className="s">
-              <span>{currentUserStatus}</span>
+              <span>
+                {currentUserStatus === "offline"
+                  ? t("statusOffline")
+                  : t("statusOnline")}
+              </span>
               <Icon
                 name="chev"
                 size={9}
@@ -644,7 +656,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   }}
                 >
                   <span className="sb-status-dot online" />
-                  <span>Online</span>
+                  <span>{t("statusOnline")}</span>
                 </button>
                 <button
                   type="button"
@@ -655,12 +667,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   }}
                 >
                   <span className="sb-status-dot offline" />
-                  <span>Offline</span>
+                  <span>{t("statusOffline")}</span>
                 </button>
               </div>
             )}
           </div>
-          <button type="button" className="icon-btn" title="Settings" onClick={onOpenSettings}>
+          <button type="button" className="icon-btn" title={t("settings")} onClick={onOpenSettings}>
             <Icon name="settings" size={14} />
           </button>
         </div>

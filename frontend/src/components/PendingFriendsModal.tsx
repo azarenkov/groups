@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { colorForId, initialFor } from "../utils/avatar";
@@ -12,6 +13,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useTranslation(["modals", "common"]);
   const friends = useFriendshipStore((s) => s.friends);
   const accept = useFriendshipStore((s) => s.accept);
   const remove = useFriendshipStore((s) => s.remove);
@@ -35,12 +37,12 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="m-head">
-          <h3>Friend requests</h3>
+          <h3>{t("pendingFriends.title")}</h3>
           <button
             type="button"
             className="close"
             onClick={onClose}
-            title="Close"
+            title={t("common:close")}
           >
             <Icon name="x" size={14} />
           </button>
@@ -49,13 +51,13 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
           {incoming.length === 0 &&
             outgoing.length === 0 &&
             declined.length === 0 && (
-              <div className="pf-empty">No pending friend requests.</div>
+              <div className="pf-empty">{t("pendingFriends.empty")}</div>
             )}
 
           {incoming.length > 0 && (
             <div className="pf-section">
               <div className="pf-section-title">
-                Incoming · {incoming.length}
+                {t("pendingFriends.incoming")} · {incoming.length}
               </div>
               {incoming.map((f) => (
                 <div key={f.friendId} className="pf-row">
@@ -69,7 +71,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                   <button
                     type="button"
                     className="pf-btn accept"
-                    title="Accept"
+                    title={t("pendingFriends.accept")}
                     onClick={() => accept(f.friendId)}
                   >
                     <Icon name="check" size={14} />
@@ -77,7 +79,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                   <button
                     type="button"
                     className="pf-btn decline"
-                    title="Decline"
+                    title={t("pendingFriends.decline")}
                     onClick={() => remove(f.friendId)}
                   >
                     <Icon name="x" size={14} />
@@ -90,7 +92,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
           {outgoing.length > 0 && (
             <div className="pf-section">
               <div className="pf-section-title">
-                Outgoing · {outgoing.length}
+                {t("pendingFriends.outgoing")} · {outgoing.length}
               </div>
               {outgoing.map((f) => (
                 <div key={f.friendId} className="pf-row">
@@ -105,7 +107,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                   <button
                     type="button"
                     className="pf-btn decline"
-                    title="Cancel"
+                    title={t("pendingFriends.cancel")}
                     onClick={() => remove(f.friendId)}
                   >
                     <Icon name="x" size={14} />

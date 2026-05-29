@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import "../styles/rift.css";
 import { AVATAR_PALETTE as PALETTE } from "../utils/avatar";
@@ -20,6 +21,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   onClose,
   onCreate,
 }) => {
+  const { t } = useTranslation(["modals", "common"]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [accent, setAccent] = useState(PALETTE[0]);
@@ -44,7 +46,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trimmed) {
-      setError("Server name is required");
+      setError(t("createServer.nameLabel"));
       return;
     }
     setIsLoading(true);
@@ -56,7 +58,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
       setAccent(PALETTE[0]);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create server");
+      setError(err instanceof Error ? err.message : t("common:error", { defaultValue: "Error" }));
     } finally {
       setIsLoading(false);
     }
@@ -81,8 +83,8 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
         onSubmit={handleSubmit}
       >
         <div className="m-head">
-          <h3>Create a server</h3>
-          <button type="button" className="close" onClick={handleClose} title="Close">
+          <h3>{t("createServer.title")}</h3>
+          <button type="button" className="close" onClick={handleClose} title={t("close", { ns: "common" })}>
             <Icon name="x" size={14} />
           </button>
         </div>
@@ -92,17 +94,16 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
               {glyph}
             </div>
             <div className="cs-glyph-hint">
-              Servers are where teammates hang out. Pick a name and a color —
-              channels and members come next.
+              {t("createServer.subtitle")}
             </div>
           </div>
 
           <div className="m-field">
-            <label>Server name</label>
+            <label>{t("createServer.nameLabel")}</label>
             <input
               type="text"
               autoFocus
-              placeholder="The Studio, Garden, Signal…"
+              placeholder={t("createServer.namePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isLoading}
@@ -111,9 +112,9 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           </div>
 
           <div className="m-field">
-            <label>Description (optional)</label>
+            <label>{t("common:edit", { defaultValue: "Description" })}</label>
             <textarea
-              placeholder="What is this server about?"
+              placeholder=""
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={isLoading}
@@ -123,7 +124,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           </div>
 
           <div className="m-field">
-            <label>Accent</label>
+            <label>{t("accent")}</label>
             <div className="cs-accent-swatches">
               {PALETTE.map((c) => (
                 <button
@@ -154,14 +155,14 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
         </div>
         <div className="m-foot">
           <button type="button" onClick={handleClose} disabled={isLoading}>
-            Cancel
+            {t("common:cancel")}
           </button>
           <button
             type="submit"
             className="primary"
             disabled={isLoading || !trimmed}
           >
-            {isLoading ? <span className="loading-spinner" /> : "Create server"}
+            {isLoading ? <span className="loading-spinner" /> : t("createServer.create")}
           </button>
         </div>
       </form>
