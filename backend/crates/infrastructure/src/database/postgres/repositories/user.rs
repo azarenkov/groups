@@ -64,8 +64,11 @@ impl UserRepository for PostgresUserRepository {
 
         sqlx::query!(
             r#"
-                INSERT INTO users (id, name, email, password_hash, created_at, updated_at, locale)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO users (
+                    id, name, email, password_hash, created_at, updated_at,
+                    locale, email_verified_at, phone_verified_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
             user.id().uuid(),
             user.name().as_str(),
@@ -74,6 +77,8 @@ impl UserRepository for PostgresUserRepository {
             user.created_at(),
             user.updated_at(),
             user.locale().as_str(),
+            user.email_verified_at(),
+            user.phone_verified_at(),
         )
         .execute(&mut *tx)
         .await
