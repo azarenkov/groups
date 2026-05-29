@@ -1921,6 +1921,7 @@ select:focus-visible {
 }
 
 .auth-social { display: flex; flex-direction: column; gap: 8px; }
+.google-signin-btn { display: flex; justify-content: center; min-height: 40px; color-scheme: light; }
 
 .auth-foot {
   margin-top: 28px;

@@ -27,3 +27,4 @@ urlencoding = "2.1.3"
 jsonwebtoken = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

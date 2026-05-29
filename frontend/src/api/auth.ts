@@ -42,7 +42,8 @@ class AuthAPI {
         const skipRefresh =
           url.endsWith("/v1/auth/refresh") ||
           url.endsWith("/v1/auth/login") ||
-          url.endsWith("/v1/auth/register");
+          url.endsWith("/v1/auth/register") ||
+          url.endsWith("/v1/auth/google");
 
         if (
           error.response?.status === 401 &&
@@ -87,6 +88,14 @@ class AuthAPI {
       name,
       email,
       password,
+      ...(locale ? { locale } : {}),
+    });
+    return response.data.data;
+  }
+
+  async googleLogin(idToken: string, locale?: string): Promise<TokenPair> {
+    const response = await this.client.post("/v1/auth/google", {
+      idToken,
       ...(locale ? { locale } : {}),
     });
     return response.data.data;

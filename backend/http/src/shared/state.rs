@@ -1,6 +1,6 @@
 use application::usecases::{
     auth::{
-        confirm_registration::ConfirmRegistration,
+        confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
@@ -41,7 +41,7 @@ use application::usecases::{
     webhook::voice::HandleVoiceWebhook,
 };
 use infrastructure::{
-    auth::jwt_token_issuer::JwtTokenIssuer,
+    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::repositories::{
         channel::PostgresChannelRepository, dm_message::PostgresDmMessageRepository,
         friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
@@ -108,6 +108,13 @@ pub struct AppState {
         BcryptHasher,
         PostgresRefreshTokenRepository,
         JwtTokenIssuer,
+    >,
+    pub google_login_usecase: GoogleLogin<
+        PostgresUserRepository,
+        PostgresRefreshTokenRepository,
+        JwtTokenIssuer,
+        GoogleIdTokenVerifier,
+        BcryptHasher,
     >,
     pub confirm_registration_usecase: ConfirmRegistration<
         PostgresUserRepository,
@@ -234,6 +241,13 @@ impl AppState {
             PostgresRefreshTokenRepository,
             JwtTokenIssuer,
         >,
+        google_login_usecase: GoogleLogin<
+            PostgresUserRepository,
+            PostgresRefreshTokenRepository,
+            JwtTokenIssuer,
+            GoogleIdTokenVerifier,
+            BcryptHasher,
+        >,
         confirm_registration_usecase: ConfirmRegistration<
             PostgresUserRepository,
             BcryptHasher,
@@ -327,6 +341,7 @@ impl AppState {
             register_user_usecase,
             issue_verification_code_usecase,
             login_user_usecase,
+            google_login_usecase,
             confirm_registration_usecase,
             refresh_tokens_usecase,
             logout_usecase,

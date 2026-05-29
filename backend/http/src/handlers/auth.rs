@@ -9,7 +9,8 @@ use crate::shared::{
     context::request_context,
     dto::{
         requests::auth::{
-            confirm_registration::ConfirmRegistrationRequestBody, login::LoginUserRequestBody,
+            confirm_registration::ConfirmRegistrationRequestBody,
+            google_login::GoogleLoginRequestBody, login::LoginUserRequestBody,
             logout::LogoutRequestBody, refresh_token::RefreshTokenRequestBody,
             registration::RegisterUserRequestBody,
             request_verification_code::RequestVerificationCodeRequestBody,
@@ -100,6 +101,27 @@ async fn login_user(
     let ctx = request_context(&req);
     let tokens = app_state
         .login_user_usecase
+        .execute(request.into_request(client, ctx))
+        .await?;
+
+    let response: TokenPairResponse = tokens.into();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[post("/google")]
+async fn google_login(
+    req: HttpRequest,
+    app_state: web::Data<AppState>,
+    request: web::Json<GoogleLoginRequestBody>,
+) -> Result<impl Responder, ApiError> {
+    let request: GoogleLoginRequestBody = request.into_inner();
+    request.validate()?;
+
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let ctx = request_context(&req);
+    let tokens = app_state
+        .google_login_usecase
         .execute(request.into_request(client, ctx))
         .await?;
 

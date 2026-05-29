@@ -8,12 +8,14 @@ import { authAPI } from "../../api/auth";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
+import GoogleSignInButton from "../../components/auth/GoogleSignInButton";
 import {
   ArrowLeft,
   OtpInput,
   passwordStrength,
-  GoogleGlyph,
 } from "../../components/auth/authHelpers";
+
+const GOOGLE_ENABLED = !!process.env.REACT_APP_GOOGLE_CLIENT_ID;
 import "../../styles/rift.css";
 
 type Mode =
@@ -291,6 +293,38 @@ const SignInUp: React.FC<SignInUpProps> = ({
     }
   };
 
+  const handleGoogleToken = async (idToken: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await authAPI.googleLogin(idToken, locale);
+      authAPI.setAuthToken(response.accessToken);
+      const tokens = {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        tokenType: response.tokenType,
+        expiresIn: response.expiresIn,
+      };
+      const claims = decodeAccessToken(response.accessToken);
+      const user = {
+        id: claims?.sub ?? "",
+        name: "",
+        email: "",
+      };
+      login(tokens, user);
+      try {
+        await useAuthStore.getState().fetchMe();
+      } catch (meErr) {
+        console.warn("[Auth] fetchMe failed:", meErr);
+      }
+      onSignedIn();
+    } catch (err: any) {
+      setError(err.message || t("couldNotSignIn"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = isSignup
     ? signUpForm.handleSubmit(handleSignUp)
     : signInForm.handleSubmit(handleSignIn);
@@ -432,14 +466,17 @@ const SignInUp: React.FC<SignInUpProps> = ({
         </button>
       </form>
 
-      <div className="auth-divider">{t("orContinueWith")}</div>
-
-      <div className="auth-social">
-        <button type="button" className="btn social" onClick={onSignedIn} disabled>
-          <GoogleGlyph />
-          {t("continueWithGoogle")}
-        </button>
-      </div>
+      {GOOGLE_ENABLED && (
+        <>
+          <div className="auth-divider">{t("orContinueWith")}</div>
+          <div className="auth-social">
+            <GoogleSignInButton
+              onToken={handleGoogleToken}
+              text={isSignup ? "signup_with" : "signin_with"}
+            />
+          </div>
+        </>
+      )}
 
       <div className="auth-foot">
         {isSignup ? (

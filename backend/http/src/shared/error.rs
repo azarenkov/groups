@@ -39,7 +39,7 @@ use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
 use application::usecases::{
     auth::{
-        confirm_registration::ConfirmRegistrationError,
+        confirm_registration::ConfirmRegistrationError, google_login::GoogleLoginError,
         issue_verification_code::IssueVerificationCodeError, login::LoginError,
         logout::LogoutError, refresh_tokens::RefreshTokensError, register::RegistrationError,
     },
@@ -644,6 +644,43 @@ impl ToHttpStatus for LoginError {
             LoginError::Outbox(e) => e.to_error_code(),
             LoginError::TokenIssuer(e) => e.to_error_code(),
             LoginError::InvalidCredentials => "INVALID_CREDENTIALS",
+        }
+    }
+}
+
+impl ToHttpStatus for GoogleLoginError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GoogleLoginError::Repository(e) => e.to_http_status(),
+            GoogleLoginError::Hash(e) => e.to_http_status(),
+            GoogleLoginError::Outbox(e) => e.to_http_status(),
+            GoogleLoginError::TokenIssuer(e) => e.to_http_status(),
+            GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
+            GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            GoogleLoginError::Repository(e) => e.to_user_message(),
+            GoogleLoginError::Hash(e) => e.to_user_message(),
+            GoogleLoginError::Outbox(e) => e.to_user_message(),
+            GoogleLoginError::TokenIssuer(e) => e.to_user_message(),
+            GoogleLoginError::Verify(_) => "Invalid Google token".to_string(),
+            GoogleLoginError::EmailNotVerified => {
+                "Google account email is not verified".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GoogleLoginError::Repository(e) => e.to_error_code(),
+            GoogleLoginError::Hash(e) => e.to_error_code(),
+            GoogleLoginError::Outbox(e) => e.to_error_code(),
+            GoogleLoginError::TokenIssuer(e) => e.to_error_code(),
+            GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
+            GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
         }
     }
 }
@@ -1981,6 +2018,7 @@ impl_from_for_api_error!(
     MuteChannelError,
     UnmuteChannelError,
     LoginError,
+    GoogleLoginError,
     RegistrationError,
     IssueVerificationCodeError,
     ConfirmRegistrationError,

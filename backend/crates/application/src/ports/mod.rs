@@ -1,6 +1,7 @@
 pub mod event_consumer;
 pub mod hasher;
 pub mod mailer;
+pub mod oauth_verifier;
 pub mod outbox_publisher;
 pub mod token_issuer;
 pub mod voice_service;
