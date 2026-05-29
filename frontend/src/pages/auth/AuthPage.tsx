@@ -13,7 +13,6 @@ import {
   OtpInput,
   passwordStrength,
   GoogleGlyph,
-  AppleGlyph,
 } from "../../components/auth/authHelpers";
 import "../../styles/rift.css";
 
@@ -439,14 +438,6 @@ const SignInUp: React.FC<SignInUpProps> = ({
         <button type="button" className="btn social" onClick={onSignedIn} disabled>
           <GoogleGlyph />
           {t("continueWithGoogle")}
-        </button>
-        <button type="button" className="btn social" onClick={onSignedIn} disabled>
-          <AppleGlyph />
-          {t("continueWithApple")}
-        </button>
-        <button type="button" className="btn social" onClick={onSignedIn} disabled>
-          <Icon name="lock2" size={14} />
-          {t("continueWithSso")}
         </button>
       </div>
 
