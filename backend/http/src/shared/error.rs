@@ -662,6 +662,7 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::Verify(OAuthVerifyError::Transport(_)) => StatusCode::BAD_GATEWAY,
             GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
             GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
+            GoogleLoginError::AccountConflict => StatusCode::CONFLICT,
         }
     }
 
@@ -681,6 +682,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::EmailNotVerified => {
                 "Google account email is not verified".to_string()
             }
+            GoogleLoginError::AccountConflict => {
+                "This email is already linked to a different Google account".to_string()
+            }
         }
     }
 
@@ -698,6 +702,7 @@ impl ToHttpStatus for GoogleLoginError {
             }
             GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
+            GoogleLoginError::AccountConflict => "GOOGLE_ACCOUNT_CONFLICT",
         }
     }
 }

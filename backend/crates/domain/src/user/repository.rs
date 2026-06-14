@@ -51,4 +51,21 @@ pub trait UserRepository {
         user_id: &UserId,
         verified_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
+    async fn find_user_id_by_oauth(
+        &self,
+        provider: &str,
+        subject: &str,
+    ) -> Result<Option<UserId>, RepositoryError>;
+    async fn find_oauth_subject_for_user(
+        &self,
+        provider: &str,
+        user_id: &UserId,
+    ) -> Result<Option<String>, RepositoryError>;
+    async fn link_oauth_identity(
+        &self,
+        provider: &str,
+        subject: &str,
+        user_id: &UserId,
+        email: &Email,
+    ) -> Result<(), RepositoryError>;
 }

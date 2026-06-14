@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 const GOOGLE_JWKS_URL: &str = "https://www.googleapis.com/oauth2/v3/certs";
 const GOOGLE_ISSUERS: [&str; 2] = ["accounts.google.com", "https://accounts.google.com"];
 const JWKS_TTL: Duration = Duration::from_secs(60 * 60);
+const JWKS_MIN_REFETCH_INTERVAL: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Clone, Deserialize)]
 struct Jwk {
@@ -88,14 +89,15 @@ impl GoogleIdTokenVerifier {
             if let Some(cached) = cache.as_ref()
                 && cached.fetched_at.elapsed() < JWKS_TTL
             {
-                return cached
-                    .keys
-                    .iter()
-                    .find(|k| k.kid == kid)
-                    .cloned()
-                    .ok_or_else(|| {
-                        OAuthVerifyError::InvalidToken("unknown key id".to_string())
-                    });
+                if let Some(found) = cached.keys.iter().find(|k| k.kid == kid) {
+                    return Ok(found.clone());
+                }
+                // Unknown kid in a fresh cache. Refetch once to pick up a key
+                // rotation, but rate-limit it so unauthenticated requests with
+                // random kids cannot force an outbound fetch per attempt.
+                if cached.fetched_at.elapsed() < JWKS_MIN_REFETCH_INTERVAL {
+                    return Err(OAuthVerifyError::InvalidToken("unknown key id".to_string()));
+                }
             }
         }
 

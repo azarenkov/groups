@@ -383,4 +383,63 @@ impl UserRepository for PostgresUserRepository {
         }
         Ok(())
     }
+
+    async fn find_user_id_by_oauth(
+        &self,
+        provider: &str,
+        subject: &str,
+    ) -> Result<Option<UserId>, RepositoryError> {
+        let row: Option<(uuid::Uuid,)> = sqlx::query_as(
+            "SELECT user_id FROM oauth_identities WHERE provider = $1 AND subject = $2",
+        )
+        .bind(provider)
+        .bind(subject)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.map(|(id,)| UserId::new(id)))
+    }
+
+    async fn find_oauth_subject_for_user(
+        &self,
+        provider: &str,
+        user_id: &UserId,
+    ) -> Result<Option<String>, RepositoryError> {
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT subject FROM oauth_identities WHERE provider = $1 AND user_id = $2",
+        )
+        .bind(provider)
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.map(|(subject,)| subject))
+    }
+
+    async fn link_oauth_identity(
+        &self,
+        provider: &str,
+        subject: &str,
+        user_id: &UserId,
+        email: &Email,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            r#"
+                INSERT INTO oauth_identities (provider, subject, user_id, email)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (provider, subject) DO NOTHING
+            "#,
+        )
+        .bind(provider)
+        .bind(subject)
+        .bind(user_id.uuid())
+        .bind(email.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(())
+    }
 }

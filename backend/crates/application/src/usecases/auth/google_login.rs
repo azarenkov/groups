@@ -15,6 +15,7 @@ use domain::{
         User,
         email::Email,
         events::{UserEvent, lifecycle::UserLoggedIn},
+        id::UserId,
         name::UserName,
         repository::UserRepository,
     },
@@ -43,6 +44,8 @@ pub enum GoogleLoginError {
     Verify(#[from] OAuthVerifyError),
     #[error("Google account email is not verified")]
     EmailNotVerified,
+    #[error("This email is already linked to a different Google account")]
+    AccountConflict,
 }
 
 pub struct GoogleLogin<U, R, I, V, H>
@@ -96,12 +99,34 @@ where
             return Err(GoogleLoginError::EmailNotVerified);
         }
 
+        let provider = identity.provider;
+        let provider_str = provider.as_str();
         let email = Email::new(identity.email.clone());
-        let request_id = request.ctx.request_id.clone();
 
+        // 1) Authenticate by the stable provider subject when already linked.
+        if let Some(user_id) = self
+            .user_repository
+            .find_user_id_by_oauth(provider_str, &identity.subject)
+            .await?
+        {
+            return self.issue_session(user_id, request).await;
+        }
+
+        // 2) No linked identity yet — resolve by verified email.
         match self.user_repository.find_by_email(&email).await? {
             Some(user) => {
                 let user_id = user.id_ownned();
+
+                // A different subject already linked for this provider means a
+                // distinct principal is trying to take over the account.
+                if self
+                    .user_repository
+                    .find_oauth_subject_for_user(provider_str, &user_id)
+                    .await?
+                    .is_some()
+                {
+                    return Err(GoogleLoginError::AccountConflict);
+                }
 
                 if !user.is_verified() {
                     self.user_repository
@@ -109,33 +134,14 @@ where
                         .await?;
                 }
 
-                let tokens = self.token_issuer.issue(&user_id, true).await?;
-
-                let refresh_token = RefreshToken::issue(
-                    tokens.refresh_token_id,
-                    user_id,
-                    tokens.refresh_token_expires_at,
-                    request.client.ip.clone(),
-                    request.client.user_agent.clone(),
-                );
-
-                let event = UserEvent::LoggedIn(UserLoggedIn::record(
-                    user_id,
-                    tokens.refresh_token_id,
-                    request.client.ip,
-                    request.client.user_agent,
-                    Utc::now(),
-                ));
-                let records: Vec<OutboxRecord> =
-                    vec![event.to_outbox_record_with_request_id(request_id)?];
-
-                self.refresh_token_repository
-                    .save_refresh_token_with_events(&refresh_token, &records)
+                self.user_repository
+                    .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
                     .await?;
 
-                Ok(tokens)
+                self.issue_session(user_id, request).await
             }
             None => {
+                let request_id = request.ctx.request_id.clone();
                 let username = self
                     .allocate_username(&identity.name, &identity.email)
                     .await?;
@@ -144,7 +150,7 @@ where
 
                 let mut user = User::create(
                     UserName::new(username),
-                    email,
+                    email.clone(),
                     password_hash,
                     request.client.ip.clone(),
                     request.client.user_agent.clone(),
@@ -173,9 +179,45 @@ where
                     .register_user(&user, &refresh_token, &records)
                     .await?;
 
+                self.user_repository
+                    .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
+                    .await?;
+
                 Ok(tokens)
             }
         }
+    }
+
+    async fn issue_session(
+        &self,
+        user_id: UserId,
+        request: GoogleLoginRequest,
+    ) -> Result<IssuedTokens, GoogleLoginError> {
+        let tokens = self.token_issuer.issue(&user_id, true).await?;
+
+        let refresh_token = RefreshToken::issue(
+            tokens.refresh_token_id,
+            user_id,
+            tokens.refresh_token_expires_at,
+            request.client.ip.clone(),
+            request.client.user_agent.clone(),
+        );
+
+        let event = UserEvent::LoggedIn(UserLoggedIn::record(
+            user_id,
+            tokens.refresh_token_id,
+            request.client.ip,
+            request.client.user_agent,
+            Utc::now(),
+        ));
+        let records: Vec<OutboxRecord> =
+            vec![event.to_outbox_record_with_request_id(request.ctx.request_id)?];
+
+        self.refresh_token_repository
+            .save_refresh_token_with_events(&refresh_token, &records)
+            .await?;
+
+        Ok(tokens)
     }
 
     async fn allocate_username(
