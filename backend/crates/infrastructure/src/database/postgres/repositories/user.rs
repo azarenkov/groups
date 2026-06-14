@@ -359,21 +359,24 @@ impl UserRepository for PostgresUserRepository {
         Ok(())
     }
 
-    async fn mark_email_verified(
+    async fn reset_password_and_verify(
         &self,
         user_id: &UserId,
+        password_hash: &PasswordHash,
         verified_at: chrono::DateTime<chrono::Utc>,
     ) -> Result<(), RepositoryError> {
-        let result = sqlx::query!(
+        let result = sqlx::query(
             r#"
                 UPDATE users
-                SET email_verified_at = COALESCE(email_verified_at, $2),
+                SET password_hash = $2,
+                    email_verified_at = $3,
                     updated_at = now()
                 WHERE id = $1
             "#,
-            user_id.uuid(),
-            verified_at,
         )
+        .bind(user_id.uuid())
+        .bind(password_hash.as_str())
+        .bind(verified_at)
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;

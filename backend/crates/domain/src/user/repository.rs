@@ -46,9 +46,10 @@ pub trait UserRepository {
         user_id: &UserId,
         locale: Locale,
     ) -> Result<(), RepositoryError>;
-    async fn mark_email_verified(
+    async fn reset_password_and_verify(
         &self,
         user_id: &UserId,
+        password_hash: &PasswordHash,
         verified_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
     async fn find_user_id_by_oauth(

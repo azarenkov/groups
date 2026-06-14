@@ -128,15 +128,28 @@ where
                     return Err(GoogleLoginError::AccountConflict);
                 }
 
-                if !user.is_verified() {
+                if user.is_verified() {
+                    // Email ownership already proven for this account; safe to link.
                     self.user_repository
-                        .mark_email_verified(&user_id, Utc::now())
+                        .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
+                        .await?;
+                } else {
+                    // The existing password account never proved email ownership,
+                    // so it may be an attacker-created squatter. Claim it for the
+                    // Google-verified owner: neutralize the password credential,
+                    // revoke any existing sessions, then link.
+                    let random_secret = uuid::Uuid::new_v4().to_string();
+                    let password_hash = PasswordHash::new(self.hasher.hash(&random_secret)?);
+                    self.refresh_token_repository
+                        .revoke_all_for_user(&user_id)
+                        .await?;
+                    self.user_repository
+                        .reset_password_and_verify(&user_id, &password_hash, Utc::now())
+                        .await?;
+                    self.user_repository
+                        .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
                         .await?;
                 }
-
-                self.user_repository
-                    .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
-                    .await?;
 
                 self.issue_session(user_id, request).await
             }
