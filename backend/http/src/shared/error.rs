@@ -4,8 +4,9 @@ use actix_web::{
 };
 use shared::middleware::request_id::{self, REQUEST_ID_HEADER};
 use application::ports::{
-    hasher::HashError, mailer::MailerError, token_issuer::TokenIssuerError,
-    voice_service::VoiceServiceError, voice_webhook_verifier::VoiceWebhookVerifierError,
+    hasher::HashError, mailer::MailerError, oauth_verifier::OAuthVerifyError,
+    token_issuer::TokenIssuerError, voice_service::VoiceServiceError,
+    voice_webhook_verifier::VoiceWebhookVerifierError,
 };
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
@@ -655,6 +656,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::Hash(e) => e.to_http_status(),
             GoogleLoginError::Outbox(e) => e.to_http_status(),
             GoogleLoginError::TokenIssuer(e) => e.to_http_status(),
+            GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
+                StatusCode::SERVICE_UNAVAILABLE
+            }
             GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
             GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
         }
@@ -666,6 +670,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::Hash(e) => e.to_user_message(),
             GoogleLoginError::Outbox(e) => e.to_user_message(),
             GoogleLoginError::TokenIssuer(e) => e.to_user_message(),
+            GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
+                "Google login is not configured".to_string()
+            }
             GoogleLoginError::Verify(_) => "Invalid Google token".to_string(),
             GoogleLoginError::EmailNotVerified => {
                 "Google account email is not verified".to_string()
@@ -679,6 +686,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::Hash(e) => e.to_error_code(),
             GoogleLoginError::Outbox(e) => e.to_error_code(),
             GoogleLoginError::TokenIssuer(e) => e.to_error_code(),
+            GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
+                "GOOGLE_NOT_CONFIGURED"
+            }
             GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
         }

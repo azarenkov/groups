@@ -102,6 +102,13 @@ where
         match self.user_repository.find_by_email(&email).await? {
             Some(user) => {
                 let user_id = user.id_ownned();
+
+                if !user.is_verified() {
+                    self.user_repository
+                        .mark_email_verified(&user_id, Utc::now())
+                        .await?;
+                }
+
                 let tokens = self.token_issuer.issue(&user_id, true).await?;
 
                 let refresh_token = RefreshToken::issue(

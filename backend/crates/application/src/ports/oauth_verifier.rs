@@ -24,6 +24,8 @@ pub struct OAuthIdentity {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OAuthVerifyError {
+    #[error("Provider {0} is not configured")]
+    NotConfigured(&'static str),
     #[error("Unsupported provider: {0}")]
     UnsupportedProvider(&'static str),
     #[error("Invalid token: {0}")]

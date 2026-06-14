@@ -116,6 +116,9 @@ impl OAuthIdentityVerifier for GoogleIdTokenVerifier {
         if provider != OAuthProvider::Google {
             return Err(OAuthVerifyError::UnsupportedProvider(provider.as_str()));
         }
+        if self.client_id.is_empty() {
+            return Err(OAuthVerifyError::NotConfigured(OAuthProvider::Google.as_str()));
+        }
 
         let header = decode_header(token)
             .map_err(|e| OAuthVerifyError::InvalidToken(e.to_string()))?;

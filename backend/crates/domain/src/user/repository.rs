@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use crate::{
     refresh_token::RefreshToken,
@@ -44,5 +45,10 @@ pub trait UserRepository {
         &self,
         user_id: &UserId,
         locale: Locale,
+    ) -> Result<(), RepositoryError>;
+    async fn mark_email_verified(
+        &self,
+        user_id: &UserId,
+        verified_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
 }

@@ -358,4 +358,29 @@ impl UserRepository for PostgresUserRepository {
         }
         Ok(())
     }
+
+    async fn mark_email_verified(
+        &self,
+        user_id: &UserId,
+        verified_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                UPDATE users
+                SET email_verified_at = COALESCE(email_verified_at, $2),
+                    updated_at = now()
+                WHERE id = $1
+            "#,
+            user_id.uuid(),
+            verified_at,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(())
+    }
 }
