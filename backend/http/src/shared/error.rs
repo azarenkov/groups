@@ -659,6 +659,7 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
                 StatusCode::SERVICE_UNAVAILABLE
             }
+            GoogleLoginError::Verify(OAuthVerifyError::Transport(_)) => StatusCode::BAD_GATEWAY,
             GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
             GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
         }
@@ -672,6 +673,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::TokenIssuer(e) => e.to_user_message(),
             GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
                 "Google login is not configured".to_string()
+            }
+            GoogleLoginError::Verify(OAuthVerifyError::Transport(_)) => {
+                "Could not reach Google to verify the token".to_string()
             }
             GoogleLoginError::Verify(_) => "Invalid Google token".to_string(),
             GoogleLoginError::EmailNotVerified => {
@@ -688,6 +692,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::TokenIssuer(e) => e.to_error_code(),
             GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
                 "GOOGLE_NOT_CONFIGURED"
+            }
+            GoogleLoginError::Verify(OAuthVerifyError::Transport(_)) => {
+                "GOOGLE_VERIFY_UNAVAILABLE"
             }
             GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",

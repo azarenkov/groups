@@ -87,9 +87,15 @@ impl GoogleIdTokenVerifier {
             let cache = self.cache.read().await;
             if let Some(cached) = cache.as_ref()
                 && cached.fetched_at.elapsed() < JWKS_TTL
-                && let Some(found) = cached.keys.iter().find(|k| k.kid == kid)
             {
-                return Ok(found.clone());
+                return cached
+                    .keys
+                    .iter()
+                    .find(|k| k.kid == kid)
+                    .cloned()
+                    .ok_or_else(|| {
+                        OAuthVerifyError::InvalidToken("unknown key id".to_string())
+                    });
             }
         }
 
