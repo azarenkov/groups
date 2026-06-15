@@ -8,14 +8,14 @@ import { authAPI } from "../../api/auth";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
-import GoogleSignInButton from "../../components/auth/GoogleSignInButton";
+import GoogleSignInButton, {
+  GIS_AVAILABLE,
+} from "../../components/auth/GoogleSignInButton";
 import {
   ArrowLeft,
   OtpInput,
   passwordStrength,
 } from "../../components/auth/authHelpers";
-
-const GOOGLE_ENABLED = !!process.env.REACT_APP_GOOGLE_CLIENT_ID;
 import "../../styles/rift.css";
 
 type Mode =
@@ -466,7 +466,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
         </button>
       </form>
 
-      {GOOGLE_ENABLED && (
+      {GIS_AVAILABLE && (
         <>
           <div className="auth-divider">{t("orContinueWith")}</div>
           <div className="auth-social">

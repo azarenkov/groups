@@ -38,13 +38,20 @@ function loadGis(): Promise<void> {
 
 const CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID ?? "";
 
+function originSupportsGis(): boolean {
+  if (typeof window === "undefined") return false;
+  return /^https?:$/.test(window.location.protocol);
+}
+
+export const GIS_AVAILABLE = !!CLIENT_ID && originSupportsGis();
+
 export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_with" }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
 
   useEffect(() => {
-    if (!CLIENT_ID) return;
+    if (!GIS_AVAILABLE) return;
     let cancelled = false;
 
     loadGis()
@@ -80,7 +87,7 @@ export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_
     };
   }, [text]);
 
-  if (!CLIENT_ID) return null;
+  if (!GIS_AVAILABLE) return null;
 
   return <div ref={containerRef} className="google-signin-btn" />;
 };
