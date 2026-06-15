@@ -103,7 +103,6 @@ where
         let provider_str = provider.as_str();
         let email = Email::new(identity.email.clone());
 
-        // 1) Authenticate by the stable provider subject when already linked.
         if let Some(user_id) = self
             .user_repository
             .find_user_id_by_oauth(provider_str, &identity.subject)
@@ -112,13 +111,10 @@ where
             return self.issue_session(user_id, request).await;
         }
 
-        // 2) No linked identity yet — resolve by verified email.
         match self.user_repository.find_by_email(&email).await? {
             Some(user) => {
                 let user_id = user.id_ownned();
 
-                // A different subject already linked for this provider means a
-                // distinct principal is trying to take over the account.
                 if self
                     .user_repository
                     .find_oauth_subject_for_user(provider_str, &user_id)
@@ -128,16 +124,11 @@ where
                     return Err(GoogleLoginError::AccountConflict);
                 }
 
-                if user.is_verified() {
-                    // Email ownership already proven for this account; safe to link.
+                if user.is_email_verified() {
                     self.user_repository
                         .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
                         .await?;
                 } else {
-                    // The existing password account never proved email ownership,
-                    // so it may be an attacker-created squatter. Claim it for the
-                    // Google-verified owner: neutralize the password credential,
-                    // revoke any existing sessions, then link.
                     let random_secret = uuid::Uuid::new_v4().to_string();
                     let password_hash = PasswordHash::new(self.hasher.hash(&random_secret)?);
                     self.refresh_token_repository

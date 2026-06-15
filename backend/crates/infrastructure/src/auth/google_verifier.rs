@@ -6,12 +6,12 @@ use application::ports::oauth_verifier::{
 use async_trait::async_trait;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use serde::Deserialize;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 const GOOGLE_JWKS_URL: &str = "https://www.googleapis.com/oauth2/v3/certs";
 const GOOGLE_ISSUERS: [&str; 2] = ["accounts.google.com", "https://accounts.google.com"];
 const JWKS_TTL: Duration = Duration::from_secs(60 * 60);
-const JWKS_MIN_REFETCH_INTERVAL: Duration = Duration::from_secs(5 * 60);
+const JWKS_REFETCH_COOLDOWN: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Clone, Deserialize)]
 struct Jwk {
@@ -57,6 +57,7 @@ pub struct GoogleIdTokenVerifier {
     client_id: String,
     http: reqwest::Client,
     cache: RwLock<Option<CachedJwks>>,
+    last_unknown_refetch: Mutex<Option<Instant>>,
 }
 
 impl GoogleIdTokenVerifier {
@@ -65,6 +66,7 @@ impl GoogleIdTokenVerifier {
             client_id,
             http: reqwest::Client::new(),
             cache: RwLock::new(None),
+            last_unknown_refetch: Mutex::new(None),
         }
     }
 
@@ -84,21 +86,26 @@ impl GoogleIdTokenVerifier {
     }
 
     async fn key_for(&self, kid: &str) -> Result<Jwk, OAuthVerifyError> {
+        let mut cache_is_fresh = false;
         {
             let cache = self.cache.read().await;
-            if let Some(cached) = cache.as_ref()
-                && cached.fetched_at.elapsed() < JWKS_TTL
-            {
-                if let Some(found) = cached.keys.iter().find(|k| k.kid == kid) {
+            if let Some(cached) = cache.as_ref() {
+                let fresh = cached.fetched_at.elapsed() < JWKS_TTL;
+                if fresh && let Some(found) = cached.keys.iter().find(|k| k.kid == kid) {
                     return Ok(found.clone());
                 }
-                // Unknown kid in a fresh cache. Refetch once to pick up a key
-                // rotation, but rate-limit it so unauthenticated requests with
-                // random kids cannot force an outbound fetch per attempt.
-                if cached.fetched_at.elapsed() < JWKS_MIN_REFETCH_INTERVAL {
-                    return Err(OAuthVerifyError::InvalidToken("unknown key id".to_string()));
-                }
+                cache_is_fresh = fresh;
             }
+        }
+
+        if cache_is_fresh {
+            let mut last = self.last_unknown_refetch.lock().await;
+            if let Some(at) = *last
+                && at.elapsed() < JWKS_REFETCH_COOLDOWN
+            {
+                return Err(OAuthVerifyError::InvalidToken("unknown key id".to_string()));
+            }
+            *last = Some(Instant::now());
         }
 
         let keys = self.fetch_jwks().await?;
