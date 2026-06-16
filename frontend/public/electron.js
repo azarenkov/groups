@@ -17,6 +17,41 @@ function base64Url(buffer) {
     .replace(/=+$/, '');
 }
 
+function loadDotEnv() {
+  const candidates = [
+    path.join(process.cwd(), '.env'),
+    path.join(__dirname, '..', '.env'),
+    path.join(__dirname, '..', '..', '.env'),
+  ];
+  for (const file of candidates) {
+    let content;
+    try {
+      if (!fs.existsSync(file)) continue;
+      content = fs.readFileSync(file, 'utf8');
+    } catch (_e) {
+      continue;
+    }
+    for (const rawLine of content.split('\n')) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq === -1) continue;
+      const key = line.slice(0, eq).trim();
+      if (!key || process.env[key] !== undefined) continue;
+      let value = line.slice(eq + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      process.env[key] = value;
+    }
+  }
+}
+
+loadDotEnv();
+
 if (isDev) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 }
@@ -306,6 +341,10 @@ ipcMain.handle('secure:set', (_event, value) => {
     console.error('[secure:set] failed:', e);
     return false;
   }
+});
+
+ipcMain.handle('oauth:google-available', () => {
+  return !!process.env.GOOGLE_DESKTOP_CLIENT_ID;
 });
 
 ipcMain.handle('oauth:google', async () => {

@@ -8,9 +8,7 @@ import { authAPI } from "../../api/auth";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
-import GoogleSignInButton, {
-  GIS_AVAILABLE,
-} from "../../components/auth/GoogleSignInButton";
+import GoogleSignInButton from "../../components/auth/GoogleSignInButton";
 import {
   ArrowLeft,
   OtpInput,
@@ -466,17 +464,10 @@ const SignInUp: React.FC<SignInUpProps> = ({
         </button>
       </form>
 
-      {GIS_AVAILABLE && (
-        <>
-          <div className="auth-divider">{t("orContinueWith")}</div>
-          <div className="auth-social">
-            <GoogleSignInButton
-              onToken={handleGoogleToken}
-              text={isSignup ? "signup_with" : "signin_with"}
-            />
-          </div>
-        </>
-      )}
+      <GoogleSignInButton
+        onToken={handleGoogleToken}
+        text={isSignup ? "signup_with" : "signin_with"}
+      />
 
       <div className="auth-foot">
         {isSignup ? (

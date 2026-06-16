@@ -13,11 +13,6 @@ interface Props {
   text?: "signin_with" | "signup_with" | "continue_with";
 }
 
-function desktopOAuth(): (() => Promise<string>) | undefined {
-  if (typeof window === "undefined") return undefined;
-  return window.electron?.googleOAuth;
-}
-
 let scriptPromise: Promise<void> | null = null;
 
 function loadGis(): Promise<void> {
@@ -50,19 +45,40 @@ function originSupportsGis(): boolean {
   return /^https?:$/.test(window.location.protocol);
 }
 
-export const GIS_AVAILABLE =
-  (!!CLIENT_ID && originSupportsGis()) || !!desktopOAuth();
+function desktopFlow(): (() => Promise<string>) | undefined {
+  if (typeof window === "undefined") return undefined;
+  return window.electron?.googleOAuth;
+}
+
+const WEB_GIS_READY = !desktopFlow() && !!CLIENT_ID && originSupportsGis();
 
 export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_with" }) => {
+  const { t } = useTranslation("auth");
   const containerRef = useRef<HTMLDivElement>(null);
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
-  const desktopFlow = desktopOAuth();
+
+  const desktop = desktopFlow();
   const [busy, setBusy] = useState(false);
-  const { t } = useTranslation("auth");
+  const [desktopReady, setDesktopReady] = useState(false);
 
   useEffect(() => {
-    if (!CLIENT_ID || !originSupportsGis() || desktopFlow) return;
+    if (!desktop) return;
+    let cancelled = false;
+    const check = window.electron?.googleOAuthAvailable;
+    if (!check) return;
+    check()
+      .then((ok) => {
+        if (!cancelled) setDesktopReady(!!ok);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [desktop]);
+
+  useEffect(() => {
+    if (!WEB_GIS_READY) return;
     let cancelled = false;
 
     loadGis()
@@ -96,14 +112,15 @@ export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_
     return () => {
       cancelled = true;
     };
-  }, [text, desktopFlow]);
+  }, [text]);
 
-  if (desktopFlow) {
+  if (desktop) {
+    if (!desktopReady) return null;
     const onClick = async () => {
       if (busy) return;
       setBusy(true);
       try {
-        const idToken = await desktopFlow();
+        const idToken = await desktop();
         if (idToken) onTokenRef.current(idToken);
       } catch (err) {
         console.warn("[GoogleSignInButton] desktop oauth failed:", err);
@@ -112,21 +129,33 @@ export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_
       }
     };
     return (
-      <button
-        type="button"
-        className="btn social google-desktop-btn"
-        onClick={onClick}
-        disabled={busy}
-      >
-        <GoogleGlyph />
-        {t("continueWithGoogle")}
-      </button>
+      <>
+        <div className="auth-divider">{t("orContinueWith")}</div>
+        <div className="auth-social">
+          <button
+            type="button"
+            className="btn social"
+            onClick={onClick}
+            disabled={busy}
+          >
+            <GoogleGlyph />
+            {t("continueWithGoogle")}
+          </button>
+        </div>
+      </>
     );
   }
 
-  if (!CLIENT_ID || !originSupportsGis()) return null;
+  if (!WEB_GIS_READY) return null;
 
-  return <div ref={containerRef} className="google-signin-btn" />;
+  return (
+    <>
+      <div className="auth-divider">{t("orContinueWith")}</div>
+      <div className="auth-social">
+        <div ref={containerRef} className="google-signin-btn" />
+      </div>
+    </>
+  );
 };
 
 export default GoogleSignInButton;

@@ -131,14 +131,15 @@ where
                 } else {
                     let random_secret = uuid::Uuid::new_v4().to_string();
                     let password_hash = PasswordHash::new(self.hasher.hash(&random_secret)?);
-                    self.refresh_token_repository
-                        .revoke_all_for_user(&user_id)
-                        .await?;
                     self.user_repository
-                        .reset_password_and_verify(&user_id, &password_hash, Utc::now())
-                        .await?;
-                    self.user_repository
-                        .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
+                        .claim_with_oauth(
+                            &user_id,
+                            &password_hash,
+                            Utc::now(),
+                            provider_str,
+                            &identity.subject,
+                            &email,
+                        )
                         .await?;
                 }
 

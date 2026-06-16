@@ -15,6 +15,7 @@ declare global {
       secureClear: () => Promise<boolean>;
 
       googleOAuth?: () => Promise<string>;
+      googleOAuthAvailable?: () => Promise<boolean>;
     };
   }
 }

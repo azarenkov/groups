@@ -359,13 +359,41 @@ impl UserRepository for PostgresUserRepository {
         Ok(())
     }
 
-    async fn reset_password_and_verify(
+    async fn claim_with_oauth(
         &self,
         user_id: &UserId,
         password_hash: &PasswordHash,
         verified_at: chrono::DateTime<chrono::Utc>,
+        provider: &str,
+        subject: &str,
+        email: &Email,
     ) -> Result<(), RepositoryError> {
-        let result = sqlx::query(
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let linked = sqlx::query(
+            r#"
+                INSERT INTO oauth_identities (provider, subject, user_id, email)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (provider, subject) DO NOTHING
+            "#,
+        )
+        .bind(provider)
+        .bind(subject)
+        .bind(user_id.uuid())
+        .bind(email.as_str())
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if linked.rows_affected() == 0 {
+            return Err(RepositoryError::AlreadyExists);
+        }
+
+        let updated = sqlx::query(
             r#"
                 UPDATE users
                 SET password_hash = $2,
@@ -377,13 +405,27 @@ impl UserRepository for PostgresUserRepository {
         .bind(user_id.uuid())
         .bind(password_hash.as_str())
         .bind(verified_at)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        if result.rows_affected() == 0 {
+        if updated.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
+
+        sqlx::query(
+            r#"
+                UPDATE refresh_tokens
+                SET revoked_at = now()
+                WHERE user_id = $1 AND revoked_at IS NULL
+            "#,
+        )
+        .bind(user_id.uuid())
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 
