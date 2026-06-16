@@ -1921,7 +1921,21 @@ select:focus-visible {
 }
 
 .auth-social { display: flex; flex-direction: column; gap: 8px; }
-.google-signin-btn { display: flex; justify-content: center; min-height: 40px; color-scheme: light; }
+.google-gis-wrap { position: relative; }
+.google-gis-wrap .btn.social { width: 100%; pointer-events: none; }
+.google-gis-overlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  overflow: hidden;
+  cursor: pointer;
+  color-scheme: light;
+}
+.google-gis-overlay > div,
+.google-gis-overlay iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
 
 .auth-foot {
   margin-top: 28px;

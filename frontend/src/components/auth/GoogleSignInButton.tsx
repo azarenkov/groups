@@ -152,7 +152,13 @@ export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_
     <>
       <div className="auth-divider">{t("orContinueWith")}</div>
       <div className="auth-social">
-        <div ref={containerRef} className="google-signin-btn" />
+        <div className="google-gis-wrap">
+          <button type="button" className="btn social" tabIndex={-1} aria-hidden="true">
+            <GoogleGlyph />
+            {t("continueWithGoogle")}
+          </button>
+          <div ref={containerRef} className="google-gis-overlay" />
+        </div>
       </div>
     </>
   );
