@@ -14,6 +14,8 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
   const onlineUsers = usePresenceStore((s) => s.online);
+  const selfUserId = usePresenceStore((s) => s.selfUserId);
+  const selfOnline = usePresenceStore((s) => s.selfOnline);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +75,8 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
         <div className="mp-empty">{t("noMembers")}</div>
       )}
       {members.map((m) => {
-        const isOnline = !!onlineUsers[m.id];
+        const isOnline =
+          m.id === selfUserId ? selfOnline : !!onlineUsers[m.id];
         const statusLabel = isOnline
           ? t("common:online")
           : t("common:offline");

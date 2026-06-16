@@ -638,6 +638,10 @@ const ServersPage: React.FC = () => {
       console.warn("[presence] setAppearOffline failed:", err);
     });
   }, [appearOffline, tokens?.accessToken]);
+  useEffect(() => {
+    if (!user?.id) return;
+    usePresenceStore.getState().setSelf(user.id, !appearOffline);
+  }, [user?.id, appearOffline]);
   const handleSetStatus = useCallback((status: "online" | "offline") => {
     const next = status === "offline";
     setAppearOfflineState(next);
