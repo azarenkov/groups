@@ -52,6 +52,36 @@ function loadDotEnv() {
 
 loadDotEnv();
 
+let desktopGoogleConfigCache;
+
+function desktopGoogleConfig() {
+  if (desktopGoogleConfigCache !== undefined) return desktopGoogleConfigCache;
+
+  let clientId = process.env.GOOGLE_DESKTOP_CLIENT_ID || '';
+  let clientSecret = process.env.GOOGLE_DESKTOP_CLIENT_SECRET || '';
+
+  if (!clientId) {
+    const candidates = [
+      path.join(__dirname, '..', 'build', 'desktop-config.json'),
+      path.join(__dirname, 'desktop-config.json'),
+    ];
+    for (const file of candidates) {
+      try {
+        if (!fs.existsSync(file)) continue;
+        const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+        clientId = clientId || json.googleDesktopClientId || '';
+        clientSecret = clientSecret || json.googleDesktopClientSecret || '';
+        if (clientId) break;
+      } catch (_e) {
+        void _e;
+      }
+    }
+  }
+
+  desktopGoogleConfigCache = { clientId, clientSecret };
+  return desktopGoogleConfigCache;
+}
+
 if (isDev) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 }
@@ -344,12 +374,11 @@ ipcMain.handle('secure:set', (_event, value) => {
 });
 
 ipcMain.handle('oauth:google-available', () => {
-  return !!process.env.GOOGLE_DESKTOP_CLIENT_ID;
+  return !!desktopGoogleConfig().clientId;
 });
 
 ipcMain.handle('oauth:google', async () => {
-  const clientId = process.env.GOOGLE_DESKTOP_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_DESKTOP_CLIENT_SECRET;
+  const { clientId, clientSecret } = desktopGoogleConfig();
   if (!clientId) {
     throw new Error('GOOGLE_DESKTOP_CLIENT_ID is not configured');
   }
