@@ -99,16 +99,20 @@ impl GoogleIdTokenVerifier {
         }
 
         if cache_is_fresh {
-            let mut last = self.last_unknown_refetch.lock().await;
+            let last = self.last_unknown_refetch.lock().await;
             if let Some(at) = *last
                 && at.elapsed() < JWKS_REFETCH_COOLDOWN
             {
                 return Err(OAuthVerifyError::InvalidToken("unknown key id".to_string()));
             }
-            *last = Some(Instant::now());
         }
 
         let keys = self.fetch_jwks().await?;
+
+        if cache_is_fresh {
+            *self.last_unknown_refetch.lock().await = Some(Instant::now());
+        }
+
         let found = keys.iter().find(|k| k.kid == kid).cloned();
         {
             let mut cache = self.cache.write().await;
