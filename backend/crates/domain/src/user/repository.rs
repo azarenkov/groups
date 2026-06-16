@@ -55,6 +55,10 @@ pub trait UserRepository {
         subject: &str,
         email: &Email,
     ) -> Result<(), RepositoryError>;
+    async fn has_inheritable_state(
+        &self,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
     async fn find_user_id_by_oauth(
         &self,
         provider: &str,

@@ -129,6 +129,9 @@ where
                         .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
                         .await?;
                 } else {
+                    if self.user_repository.has_inheritable_state(&user_id).await? {
+                        return Err(GoogleLoginError::AccountConflict);
+                    }
                     let random_secret = uuid::Uuid::new_v4().to_string();
                     let password_hash = PasswordHash::new(self.hasher.hash(&random_secret)?);
                     self.user_repository
