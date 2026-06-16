@@ -11,4 +11,12 @@ impl GoogleOAuthConfig {
         dotenv::dotenv().ok();
         envy::from_env::<GoogleOAuthConfig>()
     }
+
+    pub fn audiences(&self) -> Vec<String> {
+        self.client_id
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    }
 }

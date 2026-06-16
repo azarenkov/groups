@@ -54,16 +54,16 @@ struct CachedJwks {
 }
 
 pub struct GoogleIdTokenVerifier {
-    client_id: String,
+    audiences: Vec<String>,
     http: reqwest::Client,
     cache: RwLock<Option<CachedJwks>>,
     last_unknown_refetch: Mutex<Option<Instant>>,
 }
 
 impl GoogleIdTokenVerifier {
-    pub fn new(client_id: String) -> Self {
+    pub fn new(audiences: Vec<String>) -> Self {
         Self {
-            client_id,
+            audiences,
             http: reqwest::Client::new(),
             cache: RwLock::new(None),
             last_unknown_refetch: Mutex::new(None),
@@ -135,7 +135,7 @@ impl OAuthIdentityVerifier for GoogleIdTokenVerifier {
         if provider != OAuthProvider::Google {
             return Err(OAuthVerifyError::UnsupportedProvider(provider.as_str()));
         }
-        if self.client_id.is_empty() {
+        if self.audiences.is_empty() {
             return Err(OAuthVerifyError::NotConfigured(OAuthProvider::Google.as_str()));
         }
 
@@ -150,7 +150,7 @@ impl OAuthIdentityVerifier for GoogleIdTokenVerifier {
             .map_err(|e| OAuthVerifyError::InvalidToken(e.to_string()))?;
 
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.set_audience(&[self.client_id.as_str()]);
+        validation.set_audience(&self.audiences);
         validation.set_issuer(&GOOGLE_ISSUERS);
 
         let data = decode::<GoogleClaims>(token, &decoding_key, &validation)

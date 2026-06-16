@@ -1,7 +1,21 @@
-const { app, BrowserWindow, Menu, ipcMain, nativeImage, safeStorage, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, nativeImage, safeStorage, session, shell } = require('electron');
 const fs = require('fs');
+const http = require('http');
+const crypto = require('crypto');
 const path = require('path');
 const isDev = require('electron-is-dev');
+
+const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
+const GOOGLE_OAUTH_TIMEOUT_MS = 5 * 60 * 1000;
+
+function base64Url(buffer) {
+  return buffer
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
 
 if (isDev) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
@@ -292,6 +306,118 @@ ipcMain.handle('secure:set', (_event, value) => {
     console.error('[secure:set] failed:', e);
     return false;
   }
+});
+
+ipcMain.handle('oauth:google', async () => {
+  const clientId = process.env.GOOGLE_DESKTOP_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_DESKTOP_CLIENT_SECRET;
+  if (!clientId) {
+    throw new Error('GOOGLE_DESKTOP_CLIENT_ID is not configured');
+  }
+
+  const codeVerifier = base64Url(crypto.randomBytes(32));
+  const codeChallenge = base64Url(
+    crypto.createHash('sha256').update(codeVerifier).digest(),
+  );
+  const state = base64Url(crypto.randomBytes(16));
+
+  return await new Promise((resolve, reject) => {
+    let settled = false;
+    let timer = null;
+
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      try {
+        server.close();
+      } catch (_e) {
+        void _e;
+      }
+      fn(value);
+    };
+
+    const server = http.createServer(async (req, res) => {
+      let reqUrl;
+      try {
+        reqUrl = new URL(req.url, 'http://127.0.0.1');
+      } catch (_e) {
+        res.statusCode = 400;
+        res.end();
+        return;
+      }
+      if (reqUrl.pathname !== '/') {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+
+      res.setHeader('Content-Type', 'text/html');
+      res.end(
+        '<!doctype html><html><body style="font-family:sans-serif;background:#0d0d0f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><p>You can close this window and return to Rift.</p></body></html>',
+      );
+
+      const error = reqUrl.searchParams.get('error');
+      const code = reqUrl.searchParams.get('code');
+      const returnedState = reqUrl.searchParams.get('state');
+
+      if (error) {
+        finish(reject, new Error(error));
+        return;
+      }
+      if (!code || returnedState !== state) {
+        finish(reject, new Error('invalid oauth response'));
+        return;
+      }
+
+      try {
+        const redirectUri = `http://127.0.0.1:${server.address().port}`;
+        const body = new URLSearchParams({
+          code,
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+          code_verifier: codeVerifier,
+        });
+        if (clientSecret) body.set('client_secret', clientSecret);
+
+        const tokenResponse = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        });
+        if (!tokenResponse.ok) {
+          finish(reject, new Error('token exchange failed'));
+          return;
+        }
+        const json = await tokenResponse.json();
+        if (!json.id_token) {
+          finish(reject, new Error('no id_token in token response'));
+          return;
+        }
+        finish(resolve, json.id_token);
+      } catch (e) {
+        finish(reject, e);
+      }
+    });
+
+    server.on('error', (e) => finish(reject, e));
+
+    server.listen(0, '127.0.0.1', () => {
+      const redirectUri = `http://127.0.0.1:${server.address().port}`;
+      const authUrl = new URL(GOOGLE_AUTH_ENDPOINT);
+      authUrl.searchParams.set('client_id', clientId);
+      authUrl.searchParams.set('redirect_uri', redirectUri);
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('scope', 'openid email profile');
+      authUrl.searchParams.set('code_challenge', codeChallenge);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+      authUrl.searchParams.set('state', state);
+      shell.openExternal(authUrl.toString());
+    });
+
+    timer = setTimeout(() => finish(reject, new Error('oauth timed out')), GOOGLE_OAUTH_TIMEOUT_MS);
+  });
 });
 
 ipcMain.handle('secure:clear', () => {

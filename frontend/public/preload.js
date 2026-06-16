@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld('electron', {
   secureGet: () => ipcRenderer.invoke('secure:get'),
   secureSet: (value) => ipcRenderer.invoke('secure:set', value),
   secureClear: () => ipcRenderer.invoke('secure:clear'),
+
+  googleOAuth: () => ipcRenderer.invoke('oauth:google'),
 });

@@ -1,4 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { GoogleGlyph } from "./authHelpers";
 
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 
@@ -9,6 +11,11 @@ interface GoogleCredentialResponse {
 interface Props {
   onToken: (idToken: string) => void;
   text?: "signin_with" | "signup_with" | "continue_with";
+}
+
+function desktopOAuth(): (() => Promise<string>) | undefined {
+  if (typeof window === "undefined") return undefined;
+  return window.electron?.googleOAuth;
 }
 
 let scriptPromise: Promise<void> | null = null;
@@ -43,15 +50,19 @@ function originSupportsGis(): boolean {
   return /^https?:$/.test(window.location.protocol);
 }
 
-export const GIS_AVAILABLE = !!CLIENT_ID && originSupportsGis();
+export const GIS_AVAILABLE =
+  (!!CLIENT_ID && originSupportsGis()) || !!desktopOAuth();
 
 export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_with" }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
+  const desktopFlow = desktopOAuth();
+  const [busy, setBusy] = useState(false);
+  const { t } = useTranslation("auth");
 
   useEffect(() => {
-    if (!GIS_AVAILABLE) return;
+    if (!CLIENT_ID || !originSupportsGis() || desktopFlow) return;
     let cancelled = false;
 
     loadGis()
@@ -85,9 +96,35 @@ export const GoogleSignInButton: React.FC<Props> = ({ onToken, text = "continue_
     return () => {
       cancelled = true;
     };
-  }, [text]);
+  }, [text, desktopFlow]);
 
-  if (!GIS_AVAILABLE) return null;
+  if (desktopFlow) {
+    const onClick = async () => {
+      if (busy) return;
+      setBusy(true);
+      try {
+        const idToken = await desktopFlow();
+        if (idToken) onTokenRef.current(idToken);
+      } catch (err) {
+        console.warn("[GoogleSignInButton] desktop oauth failed:", err);
+      } finally {
+        setBusy(false);
+      }
+    };
+    return (
+      <button
+        type="button"
+        className="btn social google-desktop-btn"
+        onClick={onClick}
+        disabled={busy}
+      >
+        <GoogleGlyph />
+        {t("continueWithGoogle")}
+      </button>
+    );
+  }
+
+  if (!CLIENT_ID || !originSupportsGis()) return null;
 
   return <div ref={containerRef} className="google-signin-btn" />;
 };

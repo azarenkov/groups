@@ -171,13 +171,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         refresh_token_repository.clone(),
         token_issuer.clone(),
     );
-    if google_config.client_id.is_empty() {
+    let google_audiences = google_config.audiences();
+    if google_audiences.is_empty() {
         tracing::warn!(
             "GOOGLE_CLIENT_ID is not set; /v1/auth/google will reject requests with GOOGLE_NOT_CONFIGURED"
         );
     }
-    let google_token_verifier =
-        Arc::new(GoogleIdTokenVerifier::new(google_config.client_id.clone()));
+    let google_token_verifier = Arc::new(GoogleIdTokenVerifier::new(google_audiences));
     let google_login_usecase = GoogleLogin::new(
         user_repository.clone(),
         refresh_token_repository.clone(),
