@@ -2,5 +2,6 @@
   "title": "Members",
   "online": "Online — {{count}}",
   "offline": "Offline — {{count}}",
-  "noMembers": "No members yet."
+  "noMembers": "No members yet.",
+  "you": "You"
 }
