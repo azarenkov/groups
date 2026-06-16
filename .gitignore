@@ -4,3 +4,6 @@ env/
 
 target
 .claude
+
+# local docker compose overrides (dev-only)
+docker-compose.override.yml
