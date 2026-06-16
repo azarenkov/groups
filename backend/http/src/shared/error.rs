@@ -663,6 +663,7 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
             GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
             GoogleLoginError::AccountConflict => StatusCode::CONFLICT,
+            GoogleLoginError::UsernameTaken => StatusCode::CONFLICT,
         }
     }
 
@@ -685,6 +686,7 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::AccountConflict => {
                 "This email is already linked to a different Google account".to_string()
             }
+            GoogleLoginError::UsernameTaken => "This username is already taken".to_string(),
         }
     }
 
@@ -703,6 +705,7 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
             GoogleLoginError::AccountConflict => "GOOGLE_ACCOUNT_CONFLICT",
+            GoogleLoginError::UsernameTaken => "GOOGLE_USERNAME_TAKEN",
         }
     }
 }

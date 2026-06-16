@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
 import { currentLocale } from "../../i18n";
-import { authAPI } from "../../api/auth";
+import { authAPI, TokenPair } from "../../api/auth";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
@@ -210,6 +210,28 @@ const SignInUp: React.FC<SignInUpProps> = ({
   });
 
   const [showPw, setShowPw] = useState(false);
+  const [pendingGoogleToken, setPendingGoogleToken] = useState<string | null>(
+    null,
+  );
+  const [googleUsername, setGoogleUsername] = useState("");
+
+  const finishGoogleSession = async (response: TokenPair) => {
+    authAPI.setAuthToken(response.accessToken);
+    const tokens = {
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      tokenType: response.tokenType,
+      expiresIn: response.expiresIn,
+    };
+    const claims = decodeAccessToken(response.accessToken);
+    login(tokens, { id: claims?.sub ?? "", name: "", email: "" });
+    try {
+      await useAuthStore.getState().fetchMe();
+    } catch (meErr) {
+      console.warn("[Auth] fetchMe failed:", meErr);
+    }
+    onSignedIn();
+  };
 
   const handleSignIn = async (data: SignInData) => {
     try {
@@ -296,28 +318,43 @@ const SignInUp: React.FC<SignInUpProps> = ({
       setLoading(true);
       setError(null);
       const response = await authAPI.googleLogin(idToken, locale);
-      authAPI.setAuthToken(response.accessToken);
-      const tokens = {
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-        tokenType: response.tokenType,
-        expiresIn: response.expiresIn,
-      };
-      const claims = decodeAccessToken(response.accessToken);
-      const user = {
-        id: claims?.sub ?? "",
-        name: "",
-        email: "",
-      };
-      login(tokens, user);
-      try {
-        await useAuthStore.getState().fetchMe();
-      } catch (meErr) {
-        console.warn("[Auth] fetchMe failed:", meErr);
+      if (response.needsUsername) {
+        setGoogleUsername("");
+        setPendingGoogleToken(idToken);
+        return;
       }
-      onSignedIn();
+      await finishGoogleSession(response);
     } catch (err: any) {
       setError(err.message || t("couldNotSignIn"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleComplete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingGoogleToken) return;
+    const name = googleUsername.trim();
+    if (name.length < 3 || name.length > 15 || !/^[a-zA-Z0-9_]+$/.test(name)) {
+      setError(t("usernameInvalid"));
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await authAPI.googleComplete(
+        pendingGoogleToken,
+        name,
+        locale,
+      );
+      setPendingGoogleToken(null);
+      await finishGoogleSession(response);
+    } catch (err: any) {
+      if (err.code === "GOOGLE_USERNAME_TAKEN") {
+        setError(t("usernameTaken"));
+      } else {
+        setError(err.message || t("couldNotSignIn"));
+      }
     } finally {
       setLoading(false);
     }
@@ -336,6 +373,64 @@ const SignInUp: React.FC<SignInUpProps> = ({
     ? (signUpForm.register as unknown as AnyRegister)
     : (signInForm.register as unknown as AnyRegister);
   const registerPassword: AnyRegister = registerEmail;
+
+  if (pendingGoogleToken) {
+    return (
+      <>
+        <h1>{t("chooseUsernameTitle")}</h1>
+        <p className="sub">{t("chooseUsernameSubtitle")}</p>
+
+        <form onSubmit={handleGoogleComplete} autoComplete="off">
+          <div className="field">
+            <label>{t("displayName")}</label>
+            <div className="field-input">
+              <span className="lead"><Icon name="user" size={15} /></span>
+              <input
+                type="text"
+                autoFocus
+                placeholder={t("displayNamePlaceholder")}
+                value={googleUsername}
+                onChange={(e) => setGoogleUsername(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--danger)",
+                background: "var(--danger-tint)",
+                padding: "8px 12px",
+                borderRadius: 8,
+                marginBottom: 10,
+                textAlign: "center",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button type="submit" className="btn primary" disabled={isLoading}>
+            {isLoading ? <span className="loading-spinner" /> : t("continue")}
+          </button>
+        </form>
+
+        <div className="auth-foot">
+          <button
+            type="button"
+            className="auth-link"
+            onClick={() => {
+              setPendingGoogleToken(null);
+              setError(null);
+            }}
+          >
+            {t("backToSignIn")}
+          </button>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

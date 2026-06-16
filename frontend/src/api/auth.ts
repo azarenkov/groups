@@ -18,6 +18,10 @@ export interface TokenPair {
   requiresVerification?: boolean;
 }
 
+export type GoogleAuthResult =
+  | ({ needsUsername: false } & TokenPair)
+  | { needsUsername: true };
+
 class AuthAPI {
   private client: AxiosInstance;
   private refreshInProgress: boolean = false;
@@ -43,7 +47,8 @@ class AuthAPI {
           url.endsWith("/v1/auth/refresh") ||
           url.endsWith("/v1/auth/login") ||
           url.endsWith("/v1/auth/register") ||
-          url.endsWith("/v1/auth/google");
+          url.endsWith("/v1/auth/google") ||
+          url.endsWith("/v1/auth/google/complete");
 
         if (
           error.response?.status === 401 &&
@@ -93,9 +98,25 @@ class AuthAPI {
     return response.data.data;
   }
 
-  async googleLogin(idToken: string, locale?: string): Promise<TokenPair> {
+  async googleLogin(
+    idToken: string,
+    locale?: string,
+  ): Promise<GoogleAuthResult> {
     const response = await this.client.post("/v1/auth/google", {
       idToken,
+      ...(locale ? { locale } : {}),
+    });
+    return response.data.data;
+  }
+
+  async googleComplete(
+    idToken: string,
+    username: string,
+    locale?: string,
+  ): Promise<TokenPair> {
+    const response = await this.client.post("/v1/auth/google/complete", {
+      idToken,
+      username,
       ...(locale ? { locale } : {}),
     });
     return response.data.data;
