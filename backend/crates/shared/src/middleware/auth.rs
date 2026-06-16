@@ -3,7 +3,9 @@ use std::sync::{Arc, LazyLock};
 
 use actix_web::{
     Error as ActixWebError, FromRequest, HttpRequest, dev::Payload,
-    error::{ErrorInternalServerError, ErrorTooManyRequests, ErrorUnauthorized},
+    error::{
+        ErrorForbidden, ErrorInternalServerError, ErrorTooManyRequests, ErrorUnauthorized,
+    },
     http, web,
 };
 use serde::{Deserialize, Serialize};
@@ -29,7 +31,7 @@ impl FromRequest for AuthToken {
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        ready(authenticate(req).map(|id| AuthToken { id }))
+        ready(authenticate(req).map(|(id, _verified)| AuthToken { id }))
     }
 }
 
@@ -38,10 +40,13 @@ impl FromRequest for RateLimitedAuthToken {
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let id = match authenticate(req) {
-            Ok(id) => id,
+        let (id, verified) = match authenticate(req) {
+            Ok(v) => v,
             Err(e) => return ready(Err(e)),
         };
+        if !verified {
+            return ready(Err(ErrorForbidden("Email not verified")));
+        }
         let limiter = match req.app_data::<web::Data<Arc<UserRateLimiter>>>() {
             Some(l) => l,
             None => {
@@ -57,7 +62,7 @@ impl FromRequest for RateLimitedAuthToken {
     }
 }
 
-fn authenticate(req: &HttpRequest) -> Result<Uuid, ActixWebError> {
+fn authenticate(req: &HttpRequest) -> Result<(Uuid, bool), ActixWebError> {
     let auth_header = req
         .headers()
         .get(http::header::AUTHORIZATION)
