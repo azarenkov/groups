@@ -6,12 +6,14 @@ use domain::user::locale::Locale;
 use serde::Deserialize;
 use validator::Validate;
 
+use crate::shared::dto::requests::auth::username::validate_username;
+
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct GoogleCompleteRequestBody {
     #[validate(length(min = 1))]
     pub id_token: String,
-    #[validate(length(min = 3, max = 15))]
+    #[validate(length(min = 3, max = 15), custom(function = "validate_username"))]
     pub username: String,
     #[serde(default)]
     pub locale: Option<String>,
