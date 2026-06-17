@@ -441,6 +441,7 @@ impl UserRepository for PostgresUserRepository {
                 OR EXISTS(SELECT 1 FROM friendships WHERE user_id = $1)
                 OR EXISTS(SELECT 1 FROM messages WHERE author_id = $1)
                 OR EXISTS(SELECT 1 FROM dm_messages WHERE sender_id = $1)
+                OR EXISTS(SELECT 1 FROM dm_messages WHERE recipient_id = $1)
             "#,
         )
         .bind(user_id.uuid())
