@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::middleware::jwt::claims::{AccessTokenClaims, TokenType};
 
-pub fn validate_access_token(token: &str, secret: &str) -> anyhow::Result<Uuid> {
+pub fn validate_access_token(token: &str, secret: &str) -> anyhow::Result<(Uuid, bool)> {
     let decoded = decode::<AccessTokenClaims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
@@ -14,5 +14,5 @@ pub fn validate_access_token(token: &str, secret: &str) -> anyhow::Result<Uuid> 
         return Err(anyhow::anyhow!("Invalid token type"));
     }
 
-    Ok(decoded.claims.sub)
+    Ok((decoded.claims.sub, decoded.claims.verified))
 }

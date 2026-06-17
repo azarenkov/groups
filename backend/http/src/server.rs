@@ -4,7 +4,7 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     auth::{
-        confirm_registration::ConfirmRegistration,
+        confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
@@ -46,8 +46,8 @@ use application::usecases::{
     webhook::voice::HandleVoiceWebhook,
 };
 use infrastructure::{
-    auth::jwt_token_issuer::JwtTokenIssuer,
-    config::{livekit::LiveKitConfig, postgres::PostgresConfig},
+    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
+    config::{google::GoogleOAuthConfig, livekit::LiveKitConfig, postgres::PostgresConfig},
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -82,6 +82,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
+    let google_config = GoogleOAuthConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
 
@@ -169,6 +170,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         hasher.clone(),
         refresh_token_repository.clone(),
         token_issuer.clone(),
+    );
+    let google_audiences = google_config.audiences();
+    if google_audiences.is_empty() {
+        tracing::warn!(
+            "GOOGLE_CLIENT_ID is not set; /v1/auth/google will reject requests with GOOGLE_NOT_CONFIGURED"
+        );
+    }
+    let google_token_verifier = Arc::new(GoogleIdTokenVerifier::new(google_audiences));
+    let google_login_usecase = GoogleLogin::new(
+        user_repository.clone(),
+        refresh_token_repository.clone(),
+        token_issuer.clone(),
+        google_token_verifier.clone(),
+        hasher.clone(),
     );
     let confirm_registration_usecase = ConfirmRegistration::new(
         user_repository.clone(),
@@ -278,6 +293,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         register_user_usecase,
         issue_verification_code_usecase,
         login_user_usecase,
+        google_login_usecase,
         confirm_registration_usecase,
         refresh_tokens_usecase,
         logout_usecase,

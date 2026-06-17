@@ -13,6 +13,9 @@ declare global {
       secureGet: () => Promise<string | null>;
       secureSet: (value: string) => Promise<boolean>;
       secureClear: () => Promise<boolean>;
+
+      googleOAuth?: () => Promise<string>;
+      googleOAuthAvailable?: () => Promise<boolean>;
     };
   }
 }

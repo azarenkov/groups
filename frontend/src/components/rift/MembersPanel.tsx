@@ -14,6 +14,8 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
   const onlineUsers = usePresenceStore((s) => s.online);
+  const selfUserId = usePresenceStore((s) => s.selfUserId);
+  const selfOnline = usePresenceStore((s) => s.selfOnline);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,14 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
     };
   }, [serverId, channelId]);
 
+  const orderedMembers = selfUserId
+    ? [...members].sort((a, b) => {
+        if (a.id === selfUserId) return -1;
+        if (b.id === selfUserId) return 1;
+        return 0;
+      })
+    : members;
+
   return (
     <aside className="members-panel">
       <div className="mp-section">
@@ -72,8 +82,9 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
       {!loading && !error && members.length === 0 && (
         <div className="mp-empty">{t("noMembers")}</div>
       )}
-      {members.map((m) => {
-        const isOnline = !!onlineUsers[m.id];
+      {orderedMembers.map((m) => {
+        const isSelf = m.id === selfUserId;
+        const isOnline = isSelf ? selfOnline : !!onlineUsers[m.id];
         const statusLabel = isOnline
           ? t("common:online")
           : t("common:offline");
@@ -91,7 +102,10 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
               />
             </div>
             <div className="info">
-              <div className="name">{m.name}</div>
+              <div className="name">
+                {m.name}
+                {isSelf && <span className="member-you">{t("you")}</span>}
+              </div>
               <div className="role">{statusLabel}</div>
             </div>
           </div>

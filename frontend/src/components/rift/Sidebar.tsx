@@ -256,7 +256,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {!directsCollapsed && visibleDirects.length === 0 && (
           <div className="sb-item" style={{ color: "var(--fg-3)", cursor: "default" }}>
             <span className="sb-label">
-              {isFiltering ? "No matches" : "No direct messages yet"}
+              {isFiltering ? t("noDirectMatches") : t("noDirects")}
             </span>
           </div>
         )}

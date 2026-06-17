@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use crate::{
     refresh_token::RefreshToken,
@@ -44,5 +45,35 @@ pub trait UserRepository {
         &self,
         user_id: &UserId,
         locale: Locale,
+    ) -> Result<(), RepositoryError>;
+    async fn claim_with_oauth(
+        &self,
+        user_id: &UserId,
+        password_hash: &PasswordHash,
+        verified_at: DateTime<Utc>,
+        provider: &str,
+        subject: &str,
+        email: &Email,
+    ) -> Result<(), RepositoryError>;
+    async fn has_inheritable_state(
+        &self,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
+    async fn find_user_id_by_oauth(
+        &self,
+        provider: &str,
+        subject: &str,
+    ) -> Result<Option<UserId>, RepositoryError>;
+    async fn find_oauth_subject_for_user(
+        &self,
+        provider: &str,
+        user_id: &UserId,
+    ) -> Result<Option<String>, RepositoryError>;
+    async fn link_oauth_identity(
+        &self,
+        provider: &str,
+        subject: &str,
+        user_id: &UserId,
+        email: &Email,
     ) -> Result<(), RepositoryError>;
 }

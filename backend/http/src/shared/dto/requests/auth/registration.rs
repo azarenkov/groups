@@ -6,10 +6,12 @@ use domain::user::locale::Locale;
 use serde::Deserialize;
 use validator::Validate;
 
+use crate::shared::dto::requests::auth::username::validate_username;
+
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterUserRequestBody {
-    #[validate(length(min = 3, max = 15))]
+    #[validate(length(min = 3, max = 15), custom(function = "validate_username"))]
     pub name: String,
     #[validate(email)]
     pub email: String,

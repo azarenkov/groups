@@ -1,5 +1,6 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use application::dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest;
+use application::usecases::auth::google_login::GoogleLoginOutcome;
 use domain::{user::id::UserId, verification::purpose::VerificationPurpose};
 use shared::middleware::auth::AuthToken;
 use validator::Validate;
@@ -9,12 +10,16 @@ use crate::shared::{
     context::request_context,
     dto::{
         requests::auth::{
-            confirm_registration::ConfirmRegistrationRequestBody, login::LoginUserRequestBody,
-            logout::LogoutRequestBody, refresh_token::RefreshTokenRequestBody,
-            registration::RegisterUserRequestBody,
+            confirm_registration::ConfirmRegistrationRequestBody,
+            google_complete::GoogleCompleteRequestBody, google_login::GoogleLoginRequestBody,
+            login::LoginUserRequestBody, logout::LogoutRequestBody,
+            refresh_token::RefreshTokenRequestBody, registration::RegisterUserRequestBody,
             request_verification_code::RequestVerificationCodeRequestBody,
         },
-        responses::{ApiResponse, auth::token_pair::TokenPairResponse},
+        responses::{
+            ApiResponse,
+            auth::{google::GoogleAuthResponse, token_pair::TokenPairResponse},
+        },
     },
     error::ApiError,
     state::AppState,
@@ -101,6 +106,53 @@ async fn login_user(
     let tokens = app_state
         .login_user_usecase
         .execute(request.into_request(client, ctx))
+        .await?;
+
+    let response: TokenPairResponse = tokens.into();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[post("/google")]
+async fn google_login(
+    req: HttpRequest,
+    app_state: web::Data<AppState>,
+    request: web::Json<GoogleLoginRequestBody>,
+) -> Result<impl Responder, ApiError> {
+    let request: GoogleLoginRequestBody = request.into_inner();
+    request.validate()?;
+
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let ctx = request_context(&req);
+    let outcome = app_state
+        .google_login_usecase
+        .execute(request.into_request(client, ctx))
+        .await?;
+
+    let response = match outcome {
+        GoogleLoginOutcome::Authenticated(tokens) => {
+            GoogleAuthResponse::authenticated(tokens.into())
+        }
+        GoogleLoginOutcome::NeedsUsername => GoogleAuthResponse::needs_username(),
+    };
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[post("/google/complete")]
+async fn google_complete(
+    req: HttpRequest,
+    app_state: web::Data<AppState>,
+    request: web::Json<GoogleCompleteRequestBody>,
+) -> Result<impl Responder, ApiError> {
+    let request: GoogleCompleteRequestBody = request.into_inner();
+    request.validate()?;
+
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let ctx = request_context(&req);
+    let tokens = app_state
+        .google_login_usecase
+        .complete(request.into_request(client, ctx))
         .await?;
 
     let response: TokenPairResponse = tokens.into();

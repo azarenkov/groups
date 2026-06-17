@@ -6,6 +6,8 @@
   "addChannel": "Add channel",
   "noServers": "No servers yet. Create one to get started.",
   "noMatches": "No matching servers or channels.",
+  "noDirects": "No direct messages yet",
+  "noDirectMatches": "No matches",
   "addDm": "Add direct message",
   "pendingRequests": "Friend requests",
   "settings": "Settings",
