@@ -661,7 +661,7 @@ export class LiveKitService {
       const localName = local.name || local.identity;
       local.videoTrackPublications.forEach((pub) => {
         const track = pub.track as VideoTrack | undefined;
-        if (!track) return;
+        if (!track || pub.isMuted) return;
         const source =
           track.source === Track.Source.ScreenShare ? "screen" : "camera";
         tiles.push({
@@ -703,7 +703,17 @@ export class LiveKitService {
 
   async setCameraEnabled(enabled: boolean): Promise<void> {
     if (!this.room) return;
-    await this.room.localParticipant.setCameraEnabled(enabled);
+    const local = this.room.localParticipant;
+    if (enabled) {
+      await local.setCameraEnabled(true);
+    } else {
+      const publication = local.getTrackPublication(Track.Source.Camera);
+      if (publication?.track) {
+        await local.unpublishTrack(publication.track, true);
+      } else {
+        await local.setCameraEnabled(false);
+      }
+    }
     this.notifyParticipantsChange();
   }
 
