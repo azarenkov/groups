@@ -30,6 +30,7 @@
   "stopCamera": "Turn off camera",
   "startScreenShare": "Share screen",
   "stopScreenShare": "Stop sharing",
+  "fullscreen": "Fullscreen",
   "membersConnected_one": "{{count}} connected",
   "membersConnected_other": "{{count}} connected"
 }

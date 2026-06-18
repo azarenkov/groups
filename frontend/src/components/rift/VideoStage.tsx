@@ -3,7 +3,10 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { VideoTile } from "../../services/livekit";
 
-const VideoTileView: React.FC<{ tile: VideoTile }> = ({ tile }) => {
+export const VideoTileCell: React.FC<{ tile: VideoTile; label: string }> = ({
+  tile,
+  label,
+}) => {
   const ref = useRef<HTMLVideoElement>(null);
   const { t } = useTranslation("voice");
 
@@ -16,8 +19,15 @@ const VideoTileView: React.FC<{ tile: VideoTile }> = ({ tile }) => {
     };
   }, [tile.track]);
 
+  const goFullscreen = () => {
+    const el = ref.current;
+    if (el?.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    }
+  };
+
   return (
-    <div className="video-tile">
+    <div className="voice-tile video">
       <video
         ref={ref}
         autoPlay
@@ -25,33 +35,18 @@ const VideoTileView: React.FC<{ tile: VideoTile }> = ({ tile }) => {
         muted={tile.isLocal}
         className={tile.source === "camera" ? "mirror" : ""}
       />
-      <div className="video-tile-label">
-        <Icon name={tile.source === "screen" ? "monitor" : "camera"} size={12} />
-        <span>
-          {tile.name}
-          {tile.isLocal ? ` (${t("you")})` : ""}
-          {tile.source === "screen" ? ` · ${t("screen")}` : ""}
-        </span>
+      <button
+        type="button"
+        className="voice-tile-fs"
+        onClick={goFullscreen}
+        title={t("fullscreen")}
+      >
+        <Icon name="expand" size={14} />
+      </button>
+      <div className="voice-tile-name">
+        {label}
+        {tile.source === "screen" ? ` · ${t("screen")}` : ""}
       </div>
     </div>
   );
 };
-
-const VideoStage: React.FC<{ tiles: VideoTile[] }> = ({ tiles }) => {
-  if (tiles.length === 0) return null;
-
-  const cols = tiles.length === 1 ? 1 : tiles.length <= 4 ? 2 : 3;
-
-  return (
-    <div
-      className="video-stage"
-      style={{ ["--vs-cols" as unknown as string]: cols } as React.CSSProperties}
-    >
-      {tiles.map((tile) => (
-        <VideoTileView key={tile.id} tile={tile} />
-      ))}
-    </div>
-  );
-};
-
-export default VideoStage;

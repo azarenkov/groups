@@ -30,6 +30,7 @@
   "stopCamera": "Выключить камеру",
   "startScreenShare": "Показать экран",
   "stopScreenShare": "Остановить показ",
+  "fullscreen": "На весь экран",
   "membersConnected_one": "{{count}} участник",
   "membersConnected_few": "{{count}} участника",
   "membersConnected_many": "{{count}} участников",

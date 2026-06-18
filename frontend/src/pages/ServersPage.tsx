@@ -29,7 +29,7 @@ import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
-import VideoStage from "../components/rift/VideoStage";
+import { VideoTileCell } from "../components/rift/VideoStage";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
@@ -857,6 +857,21 @@ const ServersPage: React.FC = () => {
                   </div>
                 </header>
                 {(() => {
+                  const selfId = user?.id || "you";
+                  const nameById = new Map<string, string>();
+                  nameById.set(selfId, userName || "You");
+                  const presenceMembers = joinedChannel
+                    ? voicePresenceByChannel[joinedChannel.channel.id] || []
+                    : [];
+                  for (const m of presenceMembers) nameById.set(m.id, m.name);
+                  for (const p of voiceParticipants) {
+                    if (!nameById.has(p.identity)) {
+                      nameById.set(p.identity, p.name || p.identity);
+                    }
+                  }
+
+                  const withVideo = new Set(videoTiles.map((v) => v.identity));
+
                   const tilesById = new Map<
                     string,
                     {
@@ -866,50 +881,28 @@ const ServersPage: React.FC = () => {
                       color: string;
                     }
                   >();
-                  const selfId = user?.id || "you";
-                  tilesById.set(selfId, {
-                    id: selfId,
-                    name: userName || "You",
-                    initials: initialFor(userName),
-                    color: colorForId(selfId),
-                  });
-                  const presenceMembers = joinedChannel
-                    ? voicePresenceByChannel[joinedChannel.channel.id] || []
-                    : [];
-                  for (const m of presenceMembers) {
-                    if (tilesById.has(m.id)) continue;
-                    tilesById.set(m.id, {
-                      id: m.id,
-                      name: m.name,
-                      initials: initialFor(m.name),
-                      color: colorForId(m.id),
+                  for (const [id, name] of nameById) {
+                    if (withVideo.has(id)) continue;
+                    tilesById.set(id, {
+                      id,
+                      name,
+                      initials: initialFor(name),
+                      color: colorForId(id),
                     });
                   }
-                  for (const p of voiceParticipants) {
-                    if (tilesById.has(p.identity)) continue;
-                    tilesById.set(p.identity, {
-                      id: p.identity,
-                      name: p.name || p.identity,
-                      initials: initialFor(p.name || p.identity),
-                      color: colorForId(p.identity),
-                    });
-                  }
-                  const tiles = Array.from(tilesById.values());
+                  const avatarTiles = Array.from(tilesById.values());
+
+                  const cellCount = videoTiles.length + avatarTiles.length;
                   const cols =
-                    tiles.length === 1
+                    cellCount <= 1
                       ? 1
-                      : tiles.length === 2
+                      : cellCount <= 4
                         ? 2
-                        : tiles.length <= 4
-                          ? 2
-                          : tiles.length <= 6
-                            ? 3
-                            : tiles.length <= 9
-                              ? 3
-                              : 4;
+                        : cellCount <= 9
+                          ? 3
+                          : 4;
                   return (
                     <div className="voice-room">
-                      <VideoStage tiles={videoTiles} />
                       <div
                         className="voice-room-grid"
                         style={
@@ -918,7 +911,18 @@ const ServersPage: React.FC = () => {
                           } as React.CSSProperties
                         }
                       >
-                        {tiles.map((t) => {
+                        {videoTiles.map((vt) => (
+                          <VideoTileCell
+                            key={vt.id}
+                            tile={vt}
+                            label={
+                              vt.isLocal
+                                ? userName || "You"
+                                : nameById.get(vt.identity) || vt.name
+                            }
+                          />
+                        ))}
+                        {avatarTiles.map((t) => {
                           const isSelf = t.id === (user?.id || "you");
                           const vol = tileVolumes[t.id] ?? 100;
                           return (
