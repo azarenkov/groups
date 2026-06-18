@@ -32,6 +32,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     participants,
     isConnected,
     isMuted,
+    isCameraEnabled,
+    isScreenShareEnabled,
+    toggleCamera,
+    toggleScreenShare,
     error,
     localQuality,
     joinChannel,
@@ -322,6 +326,24 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           title={isMuted ? t("unmuteSelf") : t("muteSelf")}
         >
           <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
+        </button>
+        <button
+          className={"vp-btn" + (isCameraEnabled ? " on" : "")}
+          onClick={() => {
+            void toggleCamera();
+          }}
+          title={isCameraEnabled ? t("stopCamera") : t("startCamera")}
+        >
+          <Icon name="camera" size={15} />
+        </button>
+        <button
+          className={"vp-btn" + (isScreenShareEnabled ? " on" : "")}
+          onClick={() => {
+            void toggleScreenShare();
+          }}
+          title={isScreenShareEnabled ? t("stopScreenShare") : t("startScreenShare")}
+        >
+          <Icon name="monitor" size={15} />
         </button>
       </div>
       <button className="vp-btn leave" onClick={handleLeave} title={t("leave")}>
