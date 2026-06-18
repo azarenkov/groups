@@ -2752,6 +2752,11 @@ textarea.s-input {
   transition: background var(--dur-fast);
 }
 .voice-room-action:hover { background: var(--surface-hover); }
+.voice-room-action.on {
+  background: var(--accent, #5865f2);
+  border-color: var(--accent, #5865f2);
+  color: #fff;
+}
 .voice-room-action.leave {
   background: var(--danger);
   border-color: var(--danger);
@@ -2768,6 +2773,48 @@ textarea.s-input {
   gap: 12px;
   align-content: stretch;
   min-height: 0;
+}
+.video-stage {
+  display: grid;
+  grid-template-columns: repeat(var(--vs-cols, 2), 1fr);
+  gap: 12px;
+}
+.video-tile {
+  position: relative;
+  background: #000;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+.video-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.video-tile video.mirror {
+  transform: scaleX(-1);
+}
+.video-tile-label {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+.video-tile-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .voice-tile {
   position: relative;

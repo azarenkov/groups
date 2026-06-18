@@ -29,11 +29,13 @@ import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
+import VideoStage from "../components/rift/VideoStage";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
+import { useVideoTiles } from "../hooks/useVideoTiles";
 import { qualityClass, qualityLabel } from "../utils/quality";
 import {
   Channel,
@@ -58,6 +60,13 @@ const ServersPage: React.FC = () => {
   const { t: tVoice } = useTranslation("voice");
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
+  const videoTiles = useVideoTiles();
+  const localCameraOn = videoTiles.some(
+    (t) => t.isLocal && t.source === "camera",
+  );
+  const localScreenOn = videoTiles.some(
+    (t) => t.isLocal && t.source === "screen",
+  );
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
@@ -256,13 +265,21 @@ const ServersPage: React.FC = () => {
         .then((items) => {
           const groups: Record<
             string,
-            { id: string; name: string; isMuted: boolean }[]
+            {
+              id: string;
+              name: string;
+              isMuted: boolean;
+              cameraOn: boolean;
+              screenOn: boolean;
+            }[]
           > = {};
           for (const item of items) {
             (groups[item.channelId] ||= []).push({
               id: item.userId,
               name: item.userName,
               isMuted: item.isMuted,
+              cameraOn: item.cameraOn,
+              screenOn: item.screenOn,
             });
           }
           const snapshotChannels = new Set(Object.keys(groups));
@@ -659,6 +676,7 @@ const ServersPage: React.FC = () => {
       color: string;
       isMuted?: boolean;
       isSharingScreen?: boolean;
+      isCameraOn?: boolean;
     }[]
   > = React.useMemo(() => {
     const out: Record<
@@ -670,6 +688,7 @@ const ServersPage: React.FC = () => {
         color: string;
         isMuted?: boolean;
         isSharingScreen?: boolean;
+        isCameraOn?: boolean;
       }[]
     > = {};
     for (const [channelId, members] of Object.entries(voicePresenceByChannel)) {
@@ -679,6 +698,8 @@ const ServersPage: React.FC = () => {
         initials: initialFor(m.name),
         color: colorForId(m.id),
         isMuted: m.isMuted,
+        isSharingScreen: m.screenOn,
+        isCameraOn: m.cameraOn,
       }));
     }
     return out;
@@ -727,7 +748,6 @@ const ServersPage: React.FC = () => {
                     name: p.name || p.identity,
                     initials: initialFor(p.name || p.identity),
                     color: colorForId(p.identity),
-                    isSharingScreen: p.isSharingScreen,
                   })),
                 ]
               : []
@@ -889,6 +909,7 @@ const ServersPage: React.FC = () => {
                               : 4;
                   return (
                     <div className="voice-room">
+                      <VideoStage tiles={videoTiles} />
                       <div
                         className="voice-room-grid"
                         style={
@@ -977,6 +998,46 @@ const ServersPage: React.FC = () => {
                         })}
                       </div>
                       <div className="voice-room-actions">
+                        <button
+                          type="button"
+                          className={
+                            "voice-room-action" + (localCameraOn ? " on" : "")
+                          }
+                          onClick={() => {
+                            getLiveKitService()
+                              .setCameraEnabled(!localCameraOn)
+                              .catch((e) =>
+                                console.error("[voice] camera toggle failed:", e),
+                              );
+                          }}
+                        >
+                          <Icon name="camera" size={16} />
+                          <span>
+                            {localCameraOn
+                              ? tVoice("stopCamera")
+                              : tVoice("startCamera")}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            "voice-room-action" + (localScreenOn ? " on" : "")
+                          }
+                          onClick={() => {
+                            getLiveKitService()
+                              .setScreenShareEnabled(!localScreenOn)
+                              .catch((e) =>
+                                console.error("[voice] screen toggle failed:", e),
+                              );
+                          }}
+                        >
+                          <Icon name="monitor" size={16} />
+                          <span>
+                            {localScreenOn
+                              ? tVoice("stopScreenShare")
+                              : tVoice("startScreenShare")}
+                          </span>
+                        </button>
                         <button
                           type="button"
                           className="voice-room-action leave"

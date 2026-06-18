@@ -6,6 +6,7 @@ import {
   LiveKitService,
   NoiseSuppressionMode,
   ParticipantInfo,
+  VideoTile,
 } from "../services/livekit";
 import { channelAPI } from "../api/channel";
 import { useAuthStore } from "../store/authStore";
@@ -14,6 +15,11 @@ import { useLocalQuality } from "./useLocalQuality";
 
 interface UseLiveKitResult {
   participants: ParticipantInfo[];
+  videoTiles: VideoTile[];
+  isCameraEnabled: boolean;
+  isScreenShareEnabled: boolean;
+  toggleCamera: () => Promise<void>;
+  toggleScreenShare: () => Promise<void>;
   isConnected: boolean;
   isMuted: boolean;
   isConnecting: boolean;
@@ -39,6 +45,9 @@ interface UseLiveKitOptions {
 
 export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const [participants, setParticipants] = useState<ParticipantInfo[]>([]);
+  const [videoTiles, setVideoTiles] = useState<VideoTile[]>([]);
+  const [isCameraEnabled, setIsCameraEnabled] = useState(false);
+  const [isScreenShareEnabled, setIsScreenShareEnabled] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -58,6 +67,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   serviceRef.current = getLiveKitService(
     (updatedParticipants) => {
       setParticipants(updatedParticipants);
+      const service = serviceRef.current;
+      if (service) {
+        setVideoTiles(service.getVideoTiles());
+        setIsCameraEnabled(service.isCameraEnabled());
+        setIsScreenShareEnabled(service.isScreenShareEnabled());
+      }
     },
     (connected) => {
       setIsConnected(connected);
@@ -126,11 +141,34 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       await service.disconnect();
       activeChannelRef.current = null;
       setParticipants([]);
+      setVideoTiles([]);
+      setIsCameraEnabled(false);
+      setIsScreenShareEnabled(false);
       setIsConnected(false);
       setIsMuted(false);
       setError(null);
     } catch (err) {
       console.error("[useLiveKit] Failed to leave channel:", err);
+    }
+  }, []);
+
+  const toggleCamera = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service) return;
+    try {
+      await service.setCameraEnabled(!service.isCameraEnabled());
+    } catch (err) {
+      console.error("[useLiveKit] Failed to toggle camera:", err);
+    }
+  }, []);
+
+  const toggleScreenShare = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service) return;
+    try {
+      await service.setScreenShareEnabled(!service.isScreenShareEnabled());
+    } catch (err) {
+      console.error("[useLiveKit] Failed to toggle screen share:", err);
     }
   }, []);
 
@@ -194,6 +232,11 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
   return {
     participants,
+    videoTiles,
+    isCameraEnabled,
+    isScreenShareEnabled,
+    toggleCamera,
+    toggleScreenShare,
     isConnected,
     isMuted,
     isConnecting,

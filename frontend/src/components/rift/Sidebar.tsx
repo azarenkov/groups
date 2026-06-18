@@ -37,6 +37,7 @@ interface SidebarProps {
     color: string;
     isMuted?: boolean;
     isSharingScreen?: boolean;
+    isCameraOn?: boolean;
   }[];
   voiceMembersByChannel?: Record<
     string,
@@ -47,6 +48,7 @@ interface SidebarProps {
       color: string;
       isMuted?: boolean;
       isSharingScreen?: boolean;
+      isCameraOn?: boolean;
     }[]
   >;
   searchQuery: string;
@@ -559,6 +561,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <span className="sb-voice-member-name">
                                   {m.name}
                                 </span>
+                                {m.isCameraOn && (
+                                  <span
+                                    className="sb-voice-member-badge"
+                                    title="Camera on"
+                                  >
+                                    <Icon name="camera" size={11} />
+                                  </span>
+                                )}
                                 {m.isSharingScreen && (
                                   <span
                                     className="sb-voice-member-badge"

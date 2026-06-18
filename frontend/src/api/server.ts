@@ -122,6 +122,8 @@ class ServerAPI {
       userId: string;
       userName: string;
       isMuted: boolean;
+      cameraOn: boolean;
+      screenOn: boolean;
     }[]
   > {
     const response = await this.client.get(

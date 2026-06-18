@@ -153,9 +153,13 @@ function dispatch(env: WsEnvelope) {
       const userId = asString(d.userId);
       if (!channelId || !userId) return;
       const userName = asString(d.userName) ?? userId;
-      useVoicePresenceStore
-        .getState()
-        .addMember(channelId, { id: userId, name: userName, isMuted: false });
+      useVoicePresenceStore.getState().addMember(channelId, {
+        id: userId,
+        name: userName,
+        isMuted: false,
+        cameraOn: false,
+        screenOn: false,
+      });
       return;
     }
 
@@ -224,6 +228,21 @@ function dispatch(env: WsEnvelope) {
       useVoicePresenceStore
         .getState()
         .setChannelMute(channelId, userId, isMuted);
+      return;
+    }
+
+    case "channel.participant.camera.on":
+    case "channel.participant.camera.off":
+    case "channel.participant.screen.on":
+    case "channel.participant.screen.off": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const source = env.type.includes("camera") ? "camera" : "screen";
+      const enabled = env.type.endsWith(".on");
+      useVoicePresenceStore
+        .getState()
+        .setChannelMedia(channelId, userId, source, enabled);
       return;
     }
 

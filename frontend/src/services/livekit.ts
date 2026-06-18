@@ -13,6 +13,7 @@ import {
   createLocalAudioTrack,
   RoomConnectOptions,
   TrackEvent,
+  VideoTrack,
 } from "livekit-client";
 
 import type { DfnPipeline } from "./dfn";
@@ -28,7 +29,18 @@ export interface ParticipantInfo {
   isMuted: boolean;
   isSharingScreen: boolean;
   audioTrack: AudioTrack | null;
+  cameraTrack: VideoTrack | null;
+  screenTrack: VideoTrack | null;
   quality: ConnectionQuality;
+}
+
+export interface VideoTile {
+  id: string;
+  identity: string;
+  name: string;
+  isLocal: boolean;
+  source: "camera" | "screen";
+  track: VideoTrack;
 }
 
 export class LiveKitService {
@@ -641,6 +653,74 @@ export class LiveKitService {
     return Array.from(this.participants.values());
   }
 
+  getVideoTiles(): VideoTile[] {
+    const tiles: VideoTile[] = [];
+
+    const local = this.room?.localParticipant;
+    if (local) {
+      const localName = local.name || local.identity;
+      local.videoTrackPublications.forEach((pub) => {
+        const track = pub.track as VideoTrack | undefined;
+        if (!track) return;
+        const source =
+          track.source === Track.Source.ScreenShare ? "screen" : "camera";
+        tiles.push({
+          id: `${local.identity}:${source}`,
+          identity: local.identity,
+          name: localName,
+          isLocal: true,
+          source,
+          track,
+        });
+      });
+    }
+
+    this.participants.forEach((info) => {
+      if (info.cameraTrack) {
+        tiles.push({
+          id: `${info.identity}:camera`,
+          identity: info.identity,
+          name: info.name,
+          isLocal: false,
+          source: "camera",
+          track: info.cameraTrack,
+        });
+      }
+      if (info.screenTrack) {
+        tiles.push({
+          id: `${info.identity}:screen`,
+          identity: info.identity,
+          name: info.name,
+          isLocal: false,
+          source: "screen",
+          track: info.screenTrack,
+        });
+      }
+    });
+
+    return tiles;
+  }
+
+  async setCameraEnabled(enabled: boolean): Promise<void> {
+    if (!this.room) return;
+    await this.room.localParticipant.setCameraEnabled(enabled);
+    this.notifyParticipantsChange();
+  }
+
+  async setScreenShareEnabled(enabled: boolean): Promise<void> {
+    if (!this.room) return;
+    await this.room.localParticipant.setScreenShareEnabled(enabled);
+    this.notifyParticipantsChange();
+  }
+
+  isCameraEnabled(): boolean {
+    return this.room?.localParticipant.isCameraEnabled ?? false;
+  }
+
+  isScreenShareEnabled(): boolean {
+    return this.room?.localParticipant.isScreenShareEnabled ?? false;
+  }
+
   isConnected(): boolean {
     return this.room?.state === "connected";
   }
@@ -663,6 +743,14 @@ export class LiveKitService {
 
     this.room.on(RoomEvent.Reconnected, () => {
       console.log("Channel reconnected");
+    });
+
+    this.room.on(RoomEvent.LocalTrackPublished, () => {
+      this.notifyParticipantsChange();
+    });
+
+    this.room.on(RoomEvent.LocalTrackUnpublished, () => {
+      this.notifyParticipantsChange();
     });
 
     this.room.on(
@@ -691,6 +779,8 @@ export class LiveKitService {
         console.log("Track subscribed:", track.kind, participant.identity);
         if (track.kind === Track.Kind.Audio) {
           this.handleAudioTrack(track as AudioTrack, participant);
+        } else if (track.kind === Track.Kind.Video) {
+          this.handleVideoTrack(track as VideoTrack, participant.identity);
         }
       },
     );
@@ -705,6 +795,12 @@ export class LiveKitService {
         console.log("Track unsubscribed:", track.kind, participant.identity);
         if (track.kind === Track.Kind.Audio) {
           this.updateParticipant(participant.identity, { audioTrack: null });
+        } else if (track.kind === Track.Kind.Video) {
+          if ((track as VideoTrack).source === Track.Source.ScreenShare) {
+            this.updateParticipant(participant.identity, { screenTrack: null });
+          } else {
+            this.updateParticipant(participant.identity, { cameraTrack: null });
+          }
         }
       },
     );
@@ -794,6 +890,8 @@ export class LiveKitService {
       isMuted: false,
       isSharingScreen: false,
       audioTrack: null,
+      cameraTrack: null,
+      screenTrack: null,
       quality: participant.connectionQuality ?? ConnectionQuality.Unknown,
     };
 
@@ -802,6 +900,15 @@ export class LiveKitService {
     participant.audioTrackPublications.forEach((publication) => {
       if (publication.track) {
         this.handleAudioTrack(publication.track as AudioTrack, participant);
+      }
+    });
+
+    participant.videoTrackPublications.forEach((publication) => {
+      if (publication.track) {
+        this.handleVideoTrack(
+          publication.track as VideoTrack,
+          participant.identity,
+        );
       }
     });
 
@@ -842,6 +949,14 @@ export class LiveKitService {
 
   private uiVolumeToGain(uiVolume: number): number {
     return Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, uiVolume));
+  }
+
+  private handleVideoTrack(track: VideoTrack, identity: string): void {
+    const isScreen = track.source === Track.Source.ScreenShare;
+    this.updateParticipant(
+      identity,
+      isScreen ? { screenTrack: track } : { cameraTrack: track },
+    );
   }
 
   private handleAudioTrack(
