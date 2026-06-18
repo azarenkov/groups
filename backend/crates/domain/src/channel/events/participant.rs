@@ -17,6 +17,13 @@ pub enum LeaveReason {
     Unknown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaSource {
+    Camera,
+    Screen,
+}
+
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionAbortReason {
@@ -137,6 +144,38 @@ impl ParticipantUnmuted {
             server_id,
             user_id,
             unmuted_by,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParticipantMediaChanged {
+    pub id: EventId,
+    pub channel_id: ChannelId,
+    pub server_id: ServerId,
+    pub user_id: UserId,
+    pub source: MediaSource,
+    pub enabled: bool,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ParticipantMediaChanged {
+    pub fn record(
+        channel_id: ChannelId,
+        server_id: ServerId,
+        user_id: UserId,
+        source: MediaSource,
+        enabled: bool,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            channel_id,
+            server_id,
+            user_id,
+            source,
+            enabled,
             occurred_at: now,
         }
     }

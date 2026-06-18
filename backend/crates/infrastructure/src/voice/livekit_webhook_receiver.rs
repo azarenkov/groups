@@ -3,9 +3,9 @@ use application::ports::voice_webhook_verifier::{
     WebhookSource,
 };
 use chrono::{DateTime, Utc};
-use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason};
+use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason, MediaSource};
 use livekit_api::{access_token::TokenVerifier, webhooks::WebhookReceiver};
-use livekit_protocol::{DisconnectReason, ParticipantInfo, Room};
+use livekit_protocol::{DisconnectReason, ParticipantInfo, Room, TrackInfo, TrackSource};
 use uuid::Uuid;
 
 use crate::config::livekit::LiveKitConfig;
@@ -13,6 +13,8 @@ use crate::config::livekit::LiveKitConfig;
 const EVENT_PARTICIPANT_CONNECTION_ABORTED: &str = "participant_connection_aborted";
 const EVENT_PARTICIPANT_LEFT: &str = "participant_left";
 const EVENT_PARTICIPANT_JOINED: &str = "participant_joined";
+const EVENT_TRACK_PUBLISHED: &str = "track_published";
+const EVENT_TRACK_UNPUBLISHED: &str = "track_unpublished";
 
 pub struct LiveKitWebhookReceiver {
     receiver: WebhookReceiver,
@@ -93,6 +95,34 @@ impl VoiceWebhookVerifier for LiveKitWebhookReceiver {
                     None => VoiceWebhookEvent::Other,
                 }
             }
+            EVENT_TRACK_PUBLISHED | EVENT_TRACK_UNPUBLISHED => {
+                let participant = event
+                    .participant
+                    .as_ref()
+                    .ok_or(VoiceWebhookVerifierError::MissingField("participant"))?;
+                let source = event.track.as_ref().and_then(media_source_from);
+                match (extract_ids(event.room.as_ref(), Some(participant))?, source) {
+                    (Some((channel_id, user_id)), Some(source)) => {
+                        let session_id = require_sid(participant)?;
+                        if event.event.as_str() == EVENT_TRACK_PUBLISHED {
+                            VoiceWebhookEvent::TrackPublished {
+                                channel_id,
+                                user_id,
+                                session_id,
+                                source,
+                            }
+                        } else {
+                            VoiceWebhookEvent::TrackUnpublished {
+                                channel_id,
+                                user_id,
+                                session_id,
+                                source,
+                            }
+                        }
+                    }
+                    _ => VoiceWebhookEvent::Other,
+                }
+            }
             _ => VoiceWebhookEvent::Other,
         };
 
@@ -163,6 +193,14 @@ fn map_leave_reason(
             session_id,
             reason: leave_reason_from(reason),
         },
+    }
+}
+
+fn media_source_from(track: &TrackInfo) -> Option<MediaSource> {
+    match TrackSource::try_from(track.source).ok()? {
+        TrackSource::Camera => Some(MediaSource::Camera),
+        TrackSource::ScreenShare => Some(MediaSource::Screen),
+        _ => None,
     }
 }
 

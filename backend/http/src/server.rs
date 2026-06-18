@@ -33,7 +33,8 @@ use application::usecases::{
         list_channel_messages::ListChannelMessages,
         list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
         search_channel_messages::SearchChannelMessages,
-        send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
+        send_channel_message::SendChannelMessage,
+        track_media_connection::TrackMediaConnection, unmute_channel::UnmuteChannel,
     },
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
@@ -200,11 +201,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let join_voice_connection_usecase = JoinVoiceConnection::new(channel_repository.clone());
     let abort_voice_connection_usecase = AbortVoiceConnection::new(channel_repository.clone());
     let leave_voice_connection_usecase = LeaveVoiceConnection::new(channel_repository.clone());
+    let track_media_connection_usecase = TrackMediaConnection::new(channel_repository.clone());
     let handle_livekit_webhook_usecase = HandleVoiceWebhook::new(
         livekit_webhook_receiver.clone(),
         join_voice_connection_usecase,
         abort_voice_connection_usecase,
         leave_voice_connection_usecase,
+        track_media_connection_usecase,
     );
 
     let create_server_usecase = CreateServer::new(server_repository.clone());

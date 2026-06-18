@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT channel_id, user_id, session_id\n            FROM channel_voice_participants\n            WHERE channel_id = ANY($1)\n            ",
+  "query": "\n            SELECT channel_id, user_id, session_id, camera_on, screen_on\n            FROM channel_voice_participants\n            WHERE channel_id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,16 @@
         "ordinal": 2,
         "name": "session_id",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "camera_on",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "screen_on",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -27,8 +37,10 @@
     "nullable": [
       false,
       false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "b5de63ae26be637e51e0fa66828a8029387cff090f72a029472b3bfa96a76bf9"
+  "hash": "23ae1f6c58aa8a18556a542212a2729e8349ee29cdc6f0f4d8b22347ace20227"
 }

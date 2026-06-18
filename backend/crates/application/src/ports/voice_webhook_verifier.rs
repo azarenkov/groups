@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason};
+use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason, MediaSource};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
@@ -43,6 +43,18 @@ pub enum VoiceWebhookEvent {
         user_id: Uuid,
         session_id: String,
         reason: ConnectionAbortReason,
+    },
+    TrackPublished {
+        channel_id: Uuid,
+        user_id: Uuid,
+        session_id: String,
+        source: MediaSource,
+    },
+    TrackUnpublished {
+        channel_id: Uuid,
+        user_id: Uuid,
+        session_id: String,
+        source: MediaSource,
     },
     Other,
 }

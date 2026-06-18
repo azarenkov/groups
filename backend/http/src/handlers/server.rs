@@ -137,6 +137,8 @@ async fn list_voice_presence(
             user_id: r.user_id.uuid(),
             user_name: r.user_name,
             is_muted: r.is_muted,
+            camera_on: r.camera_on,
+            screen_on: r.screen_on,
         })
         .collect();
 
@@ -150,6 +152,8 @@ struct VoicePresenceItem {
     user_id: Uuid,
     user_name: String,
     is_muted: bool,
+    camera_on: bool,
+    screen_on: bool,
 }
 
 #[derive(Debug, serde::Serialize)]

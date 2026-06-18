@@ -18,9 +18,9 @@ use crate::{
             ChannelEvent,
             lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
             participant::{
-                ConnectionAbortReason, LeaveReason, ParticipantConnectionAborted,
-                ParticipantJoined, ParticipantLeft, ParticipantMuted, ParticipantUnmuted,
-                TextChannelJoined,
+                ConnectionAbortReason, LeaveReason, MediaSource, ParticipantConnectionAborted,
+                ParticipantJoined, ParticipantLeft, ParticipantMediaChanged, ParticipantMuted,
+                ParticipantUnmuted, TextChannelJoined,
             },
         },
         id::ChannelId,
@@ -67,6 +67,14 @@ pub enum VoiceChange {
     },
 }
 
+#[derive(Debug, Clone)]
+pub struct MediaChange {
+    pub user_id: UserId,
+    pub session_id: SessionId,
+    pub source: MediaSource,
+    pub enabled: bool,
+}
+
 #[derive(Debug)]
 pub struct Channel {
     id: ChannelId,
@@ -81,9 +89,12 @@ pub struct Channel {
     last_join: DateTime<Utc>,
     muted_participants: Option<HashMap<UserId, ParticipantMute>>,
     voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
+    camera_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
+    screen_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
     text_participants: Option<HashSet<UserId>>,
     events: Vec<ChannelEvent>,
     voice_changes: Vec<VoiceChange>,
+    media_changes: Vec<MediaChange>,
 }
 
 impl Channel {
@@ -105,11 +116,17 @@ impl Channel {
 
         let id = ChannelId::generate();
 
-        let (muted_participants, voice_participants) = if kind.supports_voice() {
-            (Some(HashMap::new()), Some(HashMap::new()))
-        } else {
-            (None, None)
-        };
+        let (muted_participants, voice_participants, camera_participants, screen_participants) =
+            if kind.supports_voice() {
+                (
+                    Some(HashMap::new()),
+                    Some(HashMap::new()),
+                    Some(HashMap::new()),
+                    Some(HashMap::new()),
+                )
+            } else {
+                (None, None, None, None)
+            };
 
         let text_participants = if kind.supports_text() {
             let mut set = HashSet::new();
@@ -132,9 +149,12 @@ impl Channel {
             last_join: now,
             muted_participants,
             voice_participants,
+            camera_participants,
+            screen_participants,
             text_participants,
             events: Vec::new(),
             voice_changes: Vec::new(),
+            media_changes: Vec::new(),
         };
 
         channel.record(ChannelEvent::Created(ChannelCreated::record(
@@ -157,6 +177,8 @@ impl Channel {
         updated_at: DateTime<Utc>,
         muted_participants: Option<HashMap<UserId, ParticipantMute>>,
         voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
+        camera_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
+        screen_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
         text_participants: Option<HashSet<UserId>>,
         last_join: DateTime<Utc>,
     ) -> Self {
@@ -173,9 +195,12 @@ impl Channel {
             last_join,
             muted_participants,
             voice_participants,
+            camera_participants,
+            screen_participants,
             text_participants,
             events: Vec::new(),
             voice_changes: Vec::new(),
+            media_changes: Vec::new(),
         }
     }
 
@@ -242,6 +267,10 @@ impl Channel {
         std::mem::take(&mut self.voice_changes)
     }
 
+    pub fn pull_media_changes(&mut self) -> Vec<MediaChange> {
+        std::mem::take(&mut self.media_changes)
+    }
+
     pub fn join(
         &mut self,
         user_id: UserId,
@@ -305,8 +334,10 @@ impl Channel {
 
         self.voice_changes.push(VoiceChange::Removed {
             user_id,
-            session_id,
+            session_id: session_id.clone(),
         });
+
+        self.clear_session_media(user_id, &session_id, now);
 
         if now_empty {
             self.record(ChannelEvent::ParticipantLeft(ParticipantLeft::record(
@@ -348,8 +379,10 @@ impl Channel {
 
         self.voice_changes.push(VoiceChange::Removed {
             user_id,
-            session_id,
+            session_id: session_id.clone(),
         });
+
+        self.clear_session_media(user_id, &session_id, now);
 
         if now_empty {
             self.record(ChannelEvent::ParticipantConnectionAborted(
@@ -358,6 +391,141 @@ impl Channel {
         }
 
         Ok(())
+    }
+
+    pub fn publish_track(
+        &mut self,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        self.set_track(user_id, session_id, source, true, now)
+    }
+
+    pub fn unpublish_track(
+        &mut self,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        self.set_track(user_id, session_id, source, false, now)
+    }
+
+    fn set_track(
+        &mut self,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        enabled: bool,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        let is_participant = self
+            .voice_participants
+            .as_ref()
+            .ok_or(ChannelError::VoiceNotSupported)?
+            .get(&user_id)
+            .map(|sessions| sessions.contains(&session_id))
+            .unwrap_or(false);
+        if !is_participant {
+            return Ok(());
+        }
+
+        let transition = {
+            let map = self
+                .media_map_mut(source)
+                .ok_or(ChannelError::VoiceNotSupported)?;
+            let sessions = map.entry(user_id).or_default();
+            let was_active = !sessions.is_empty();
+
+            let changed = if enabled {
+                sessions.insert(session_id.clone())
+            } else {
+                sessions.remove(&session_id)
+            };
+            if !changed {
+                return Ok(());
+            }
+
+            let is_active = !sessions.is_empty();
+            if !is_active {
+                map.remove(&user_id);
+            }
+            (was_active, is_active)
+        };
+
+        self.media_changes.push(MediaChange {
+            user_id,
+            session_id,
+            source,
+            enabled,
+        });
+
+        let (was_active, is_active) = transition;
+        if was_active != is_active {
+            self.record(ChannelEvent::ParticipantMediaChanged(
+                ParticipantMediaChanged::record(
+                    self.id,
+                    self.server_id,
+                    user_id,
+                    source,
+                    is_active,
+                    now,
+                ),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn media_map_mut(
+        &mut self,
+        source: MediaSource,
+    ) -> Option<&mut HashMap<UserId, HashSet<SessionId>>> {
+        match source {
+            MediaSource::Camera => self.camera_participants.as_mut(),
+            MediaSource::Screen => self.screen_participants.as_mut(),
+        }
+    }
+
+    fn clear_session_media(
+        &mut self,
+        user_id: UserId,
+        session_id: &SessionId,
+        now: DateTime<Utc>,
+    ) {
+        for source in [MediaSource::Camera, MediaSource::Screen] {
+            let became_inactive = {
+                let Some(map) = self.media_map_mut(source) else {
+                    continue;
+                };
+                let Some(sessions) = map.get_mut(&user_id) else {
+                    continue;
+                };
+                if !sessions.remove(session_id) {
+                    continue;
+                }
+                let empty = sessions.is_empty();
+                if empty {
+                    map.remove(&user_id);
+                }
+                empty
+            };
+
+            if became_inactive {
+                self.record(ChannelEvent::ParticipantMediaChanged(
+                    ParticipantMediaChanged::record(
+                        self.id,
+                        self.server_id,
+                        user_id,
+                        source,
+                        false,
+                        now,
+                    ),
+                ));
+            }
+        }
     }
 
     pub fn mute(

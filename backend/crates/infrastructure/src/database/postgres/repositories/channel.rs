@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::{
     channel::{
-        Channel, VoiceChange,
-        events::participant::{ConnectionAbortReason, LeaveReason},
+        Channel, MediaChange, VoiceChange,
+        events::participant::{ConnectionAbortReason, LeaveReason, MediaSource},
         id::ChannelId,
         kind::ChannelKind,
         name::ChannelName,
@@ -222,6 +222,50 @@ impl ChannelRepository for PostgresChannelRepository {
             inbox_external_id,
             request_id,
             |channel| channel.connection_aborted(user_id, session_id, reason, occurred_at),
+        )
+        .await
+    }
+
+    async fn apply_track_published(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        request_id: Option<String>,
+    ) -> Result<bool, ChannelOperationError> {
+        apply_voice_operation(
+            &self.pool,
+            channel_id,
+            inbox_source,
+            inbox_external_id,
+            request_id,
+            |channel| channel.publish_track(user_id, session_id, source, occurred_at),
+        )
+        .await
+    }
+
+    async fn apply_track_unpublished(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        request_id: Option<String>,
+    ) -> Result<bool, ChannelOperationError> {
+        apply_voice_operation(
+            &self.pool,
+            channel_id,
+            inbox_source,
+            inbox_external_id,
+            request_id,
+            |channel| channel.unpublish_track(user_id, session_id, source, occurred_at),
         )
         .await
     }
@@ -487,10 +531,12 @@ impl ChannelRepository for PostgresChannelRepository {
     ) -> Result<Vec<domain::channel::repository::VoicePresenceRow>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
-            SELECT DISTINCT
+            SELECT
                 cvp.channel_id,
                 cvp.user_id,
                 u.name AS user_name,
+                bool_or(cvp.camera_on) AS "camera_on!",
+                bool_or(cvp.screen_on) AS "screen_on!",
                 EXISTS (
                     SELECT 1 FROM channel_muted_participants cmp
                     WHERE cmp.channel_id = cvp.channel_id
@@ -500,6 +546,7 @@ impl ChannelRepository for PostgresChannelRepository {
             INNER JOIN channels c ON c.id = cvp.channel_id
             INNER JOIN users u ON u.id = cvp.user_id
             WHERE c.server_id = $1
+            GROUP BY cvp.channel_id, cvp.user_id, u.name
             "#,
             server_id.uuid(),
         )
@@ -514,6 +561,8 @@ impl ChannelRepository for PostgresChannelRepository {
                 user_id: UserId::new(r.user_id),
                 user_name: r.user_name,
                 is_muted: r.is_muted,
+                camera_on: r.camera_on,
+                screen_on: r.screen_on,
             })
             .collect())
     }
@@ -591,7 +640,8 @@ impl ChannelRepository for PostgresChannelRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         let kind: ChannelKind = dto.kind.into();
-        let (muted_participants, voice_participants) = if kind.supports_voice() {
+        let (muted_participants, voice_participants, camera_participants, screen_participants) =
+            if kind.supports_voice() {
             let map: HashMap<UserId, ParticipantMute> = muted_dtos
                 .into_iter()
                 .map(|dto| {
@@ -602,7 +652,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let voice_rows = sqlx::query!(
                 r#"
-                SELECT user_id, session_id
+                SELECT user_id, session_id, camera_on, screen_on
                 FROM channel_voice_participants
                 WHERE channel_id = $1
                 "#,
@@ -613,16 +663,23 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
             let mut voice: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+            let mut camera: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+            let mut screen: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
             for r in voice_rows {
-                voice
-                    .entry(UserId::new(r.user_id))
-                    .or_default()
-                    .insert(SessionId::new(r.session_id));
+                let user_id = UserId::new(r.user_id);
+                let session_id = SessionId::new(r.session_id);
+                if r.camera_on {
+                    camera.entry(user_id).or_default().insert(session_id.clone());
+                }
+                if r.screen_on {
+                    screen.entry(user_id).or_default().insert(session_id.clone());
+                }
+                voice.entry(user_id).or_default().insert(session_id);
             }
 
-            (Some(map), Some(voice))
+            (Some(map), Some(voice), Some(camera), Some(screen))
         } else {
-            (None, None)
+            (None, None, None, None)
         };
 
         let text_participants = if kind.supports_text() {
@@ -643,6 +700,8 @@ impl ChannelRepository for PostgresChannelRepository {
             dto.updated_at,
             muted_participants,
             voice_participants,
+            camera_participants,
+            screen_participants,
             text_participants,
             dto.last_join,
         );
@@ -698,6 +757,50 @@ async fn apply_voice_changes(
     Ok(())
 }
 
+async fn apply_media_changes(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: &ChannelId,
+    changes: &[MediaChange],
+) -> Result<(), RepositoryError> {
+    for change in changes {
+        match change.source {
+            MediaSource::Camera => {
+                sqlx::query!(
+                    r#"
+                    UPDATE channel_voice_participants
+                    SET camera_on = $4
+                    WHERE channel_id = $1 AND user_id = $2 AND session_id = $3
+                    "#,
+                    channel_id.uuid(),
+                    change.user_id.uuid(),
+                    change.session_id.as_str(),
+                    change.enabled,
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+            MediaSource::Screen => {
+                sqlx::query!(
+                    r#"
+                    UPDATE channel_voice_participants
+                    SET screen_on = $4
+                    WHERE channel_id = $1 AND user_id = $2 AND session_id = $3
+                    "#,
+                    channel_id.uuid(),
+                    change.user_id.uuid(),
+                    change.session_id.as_str(),
+                    change.enabled,
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 async fn apply_voice_operation<F>(
     pool: &Pool<Postgres>,
     channel_id: &ChannelId,
@@ -739,6 +842,7 @@ where
         .collect::<Result<_, _>>()
         .map_err(|e| RepositoryError::Internal(format!("outbox error: {e}")))?;
     let voice_changes = channel.pull_voice_changes();
+    let media_changes = channel.pull_media_changes();
 
     sqlx::query!(
         r#"
@@ -754,6 +858,7 @@ where
     .map_err(map_sqlx_error_to_domain_error)?;
 
     apply_voice_changes(&mut tx, channel.id(), &voice_changes).await?;
+    apply_media_changes(&mut tx, channel.id(), &media_changes).await?;
 
     save_outbox_records(&mut tx, &events).await?;
 
@@ -798,7 +903,8 @@ async fn load_channel_for_update(
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
-    let (muted_participants, voice_participants) = if kind.supports_voice() {
+    let (muted_participants, voice_participants, camera_participants, screen_participants) =
+        if kind.supports_voice() {
         let map: HashMap<UserId, ParticipantMute> = muted_dtos
             .into_iter()
             .map(|d| {
@@ -809,7 +915,7 @@ async fn load_channel_for_update(
 
         let voice_rows = sqlx::query!(
             r#"
-            SELECT user_id, session_id
+            SELECT user_id, session_id, camera_on, screen_on
             FROM channel_voice_participants
             WHERE channel_id = $1
             "#,
@@ -820,16 +926,23 @@ async fn load_channel_for_update(
         .map_err(map_sqlx_error_to_domain_error)?;
 
         let mut voice: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+        let mut camera: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+        let mut screen: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
         for r in voice_rows {
-            voice
-                .entry(UserId::new(r.user_id))
-                .or_default()
-                .insert(SessionId::new(r.session_id));
+            let user_id = UserId::new(r.user_id);
+            let session_id = SessionId::new(r.session_id);
+            if r.camera_on {
+                camera.entry(user_id).or_default().insert(session_id.clone());
+            }
+            if r.screen_on {
+                screen.entry(user_id).or_default().insert(session_id.clone());
+            }
+            voice.entry(user_id).or_default().insert(session_id);
         }
 
-        (Some(map), Some(voice))
+        (Some(map), Some(voice), Some(camera), Some(screen))
     } else {
-        (None, None)
+        (None, None, None, None)
     };
 
     let text_participants = if kind.supports_text() {
@@ -850,6 +963,8 @@ async fn load_channel_for_update(
         dto.updated_at,
         muted_participants,
         voice_participants,
+        camera_participants,
+        screen_participants,
         text_participants,
         dto.last_join,
     ))

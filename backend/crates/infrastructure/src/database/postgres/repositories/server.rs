@@ -267,7 +267,7 @@ impl ServerRepository for PostgresServerRepository {
 
         let voice_rows = sqlx::query!(
             r#"
-            SELECT channel_id, user_id, session_id
+            SELECT channel_id, user_id, session_id, camera_on, screen_on
             FROM channel_voice_participants
             WHERE channel_id = ANY($1)
             "#,
@@ -279,13 +279,35 @@ impl ServerRepository for PostgresServerRepository {
 
         let mut voice_by_channel: HashMap<Uuid, HashMap<UserId, HashSet<SessionId>>> =
             HashMap::new();
+        let mut camera_by_channel: HashMap<Uuid, HashMap<UserId, HashSet<SessionId>>> =
+            HashMap::new();
+        let mut screen_by_channel: HashMap<Uuid, HashMap<UserId, HashSet<SessionId>>> =
+            HashMap::new();
         for row in voice_rows {
+            let user_id = UserId::new(row.user_id);
+            let session_id = SessionId::new(row.session_id);
+            if row.camera_on {
+                camera_by_channel
+                    .entry(row.channel_id)
+                    .or_default()
+                    .entry(user_id)
+                    .or_default()
+                    .insert(session_id.clone());
+            }
+            if row.screen_on {
+                screen_by_channel
+                    .entry(row.channel_id)
+                    .or_default()
+                    .entry(user_id)
+                    .or_default()
+                    .insert(session_id.clone());
+            }
             voice_by_channel
                 .entry(row.channel_id)
                 .or_default()
-                .entry(UserId::new(row.user_id))
+                .entry(user_id)
                 .or_default()
-                .insert(SessionId::new(row.session_id));
+                .insert(session_id);
         }
 
         let text_rows = sqlx::query!(
@@ -312,13 +334,15 @@ impl ServerRepository for PostgresServerRepository {
             .into_iter()
             .map(|dto| {
                 let kind: ChannelKind = dto.kind.into();
-                let (muted, voice) = if kind.supports_voice() {
+                let (muted, voice, camera, screen) = if kind.supports_voice() {
                     (
                         Some(muted_by_channel.remove(&dto.id).unwrap_or_default()),
                         Some(voice_by_channel.remove(&dto.id).unwrap_or_default()),
+                        Some(camera_by_channel.remove(&dto.id).unwrap_or_default()),
+                        Some(screen_by_channel.remove(&dto.id).unwrap_or_default()),
                     )
                 } else {
-                    (None, None)
+                    (None, None, None, None)
                 };
                 let text = if kind.supports_text() {
                     Some(text_by_channel.remove(&dto.id).unwrap_or_default())
@@ -337,6 +361,8 @@ impl ServerRepository for PostgresServerRepository {
                     dto.updated_at,
                     muted,
                     voice,
+                    camera,
+                    screen,
                     text,
                     dto.last_join,
                 )

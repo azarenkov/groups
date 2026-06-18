@@ -51,7 +51,8 @@ use application::usecases::{
         edit_channel_message::EditChannelMessageError,
         join_text_channel::JoinTextChannelError, join_voice_connection::JoinVoiceConnectionError,
         leave_voice_connection::LeaveVoiceConnectionError, mute_channel::MuteChannelError,
-        send_channel_message::SendChannelMessageError, unmute_channel::UnmuteChannelError,
+        send_channel_message::SendChannelMessageError,
+        track_media_connection::TrackMediaConnectionError, unmute_channel::UnmuteChannelError,
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
     webhook::voice::HandleVoiceWebhookError,
@@ -567,6 +568,7 @@ impl ToHttpStatus for HandleVoiceWebhookError {
             HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_http_status(),
+            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_http_status(),
         }
     }
 
@@ -576,6 +578,7 @@ impl ToHttpStatus for HandleVoiceWebhookError {
             HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_user_message(),
+            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_user_message(),
         }
     }
 
@@ -585,6 +588,30 @@ impl ToHttpStatus for HandleVoiceWebhookError {
             HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_error_code(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_error_code(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_error_code(),
+            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for TrackMediaConnectionError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            TrackMediaConnectionError::Repository(e) => e.to_http_status(),
+            TrackMediaConnectionError::Domain(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            TrackMediaConnectionError::Repository(e) => e.to_user_message(),
+            TrackMediaConnectionError::Domain(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            TrackMediaConnectionError::Repository(e) => e.to_error_code(),
+            TrackMediaConnectionError::Domain(e) => e.to_error_code(),
         }
     }
 }
