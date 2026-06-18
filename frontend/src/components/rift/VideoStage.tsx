@@ -38,19 +38,16 @@ const VideoTileView: React.FC<{ tile: VideoTile }> = ({ tile }) => {
 };
 
 const VideoStage: React.FC<{ tiles: VideoTile[] }> = ({ tiles }) => {
-  const visible = tiles.filter(
-    (t) => !(t.isLocal && t.source === "screen"),
-  );
-  if (visible.length === 0) return null;
+  if (tiles.length === 0) return null;
 
-  const cols = visible.length === 1 ? 1 : visible.length <= 4 ? 2 : 3;
+  const cols = tiles.length === 1 ? 1 : tiles.length <= 4 ? 2 : 3;
 
   return (
     <div
       className="video-stage"
       style={{ ["--vs-cols" as unknown as string]: cols } as React.CSSProperties}
     >
-      {visible.map((tile) => (
+      {tiles.map((tile) => (
         <VideoTileView key={tile.id} tile={tile} />
       ))}
     </div>
