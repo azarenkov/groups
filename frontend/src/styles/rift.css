@@ -2737,8 +2737,13 @@ textarea.s-input {
   overflow: auto;
 }
 .voice-room-actions {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
   display: flex; gap: 10px; justify-content: center;
-  padding-bottom: 4px;
+  padding: 12px 0 4px;
+  background: var(--surface-panel);
+  z-index: 2;
 }
 .voice-room-action {
   display: inline-flex; align-items: center; gap: 8px;
