@@ -719,7 +719,24 @@ export class LiveKitService {
 
   async setScreenShareEnabled(enabled: boolean): Promise<void> {
     if (!this.room) return;
-    await this.room.localParticipant.setScreenShareEnabled(enabled);
+    if (enabled) {
+      await this.room.localParticipant.setScreenShareEnabled(
+        true,
+        {
+          resolution: { width: 1920, height: 1080, frameRate: 30 },
+          contentHint: "detail",
+        },
+        {
+          simulcast: false,
+          screenShareEncoding: {
+            maxBitrate: 5_000_000,
+            maxFramerate: 30,
+          },
+        },
+      );
+    } else {
+      await this.room.localParticipant.setScreenShareEnabled(false);
+    }
     this.notifyParticipantsChange();
   }
 
