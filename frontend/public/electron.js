@@ -300,10 +300,17 @@ app.on('ready', () => {
     callback({ responseHeaders: headers });
   });
 
+  session.defaultSession.setPermissionCheckHandler(() => true);
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, cb) => {
+    cb(true);
+  });
+
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    console.log('[screen-share] display media request received');
     desktopCapturer
       .getSources({ types: ['screen', 'window'] })
       .then((sources) => {
+        console.log('[screen-share] sources:', sources.map((s) => s.id));
         const screen = sources.find((s) => s.id.startsWith('screen:'));
         const chosen = screen || sources[0];
         if (!chosen) {
@@ -317,6 +324,7 @@ app.on('ready', () => {
         callback({});
       });
   });
+  console.log('[screen-share] display media request handler registered');
 
   if (autoUpdater) {
     createSplash();
