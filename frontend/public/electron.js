@@ -300,24 +300,23 @@ app.on('ready', () => {
     callback({ responseHeaders: headers });
   });
 
-  session.defaultSession.setDisplayMediaRequestHandler(
-    (request, callback) => {
-      desktopCapturer
-        .getSources({ types: ['screen', 'window'] })
-        .then((sources) => {
-          if (!sources.length) {
-            callback({});
-            return;
-          }
-          callback({ video: sources[0] });
-        })
-        .catch((err) => {
-          console.error('[screen-share] getSources failed:', err);
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer
+      .getSources({ types: ['screen', 'window'] })
+      .then((sources) => {
+        const screen = sources.find((s) => s.id.startsWith('screen:'));
+        const chosen = screen || sources[0];
+        if (!chosen) {
           callback({});
-        });
-    },
-    { useSystemPicker: true },
-  );
+          return;
+        }
+        callback({ video: chosen });
+      })
+      .catch((err) => {
+        console.error('[screen-share] getSources failed:', err);
+        callback({});
+      });
+  });
 
   if (autoUpdater) {
     createSplash();
