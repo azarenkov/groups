@@ -723,13 +723,14 @@ export class LiveKitService {
       await this.room.localParticipant.setScreenShareEnabled(
         true,
         {
-          resolution: { width: 1920, height: 1080, frameRate: 30 },
+          resolution: { width: 3840, height: 2160, frameRate: 30 },
           contentHint: "detail",
         },
         {
           simulcast: false,
+          videoCodec: "vp9",
           screenShareEncoding: {
-            maxBitrate: 5_000_000,
+            maxBitrate: 12_000_000,
             maxFramerate: 30,
           },
         },
