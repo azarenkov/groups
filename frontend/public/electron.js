@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, nativeImage, safeStorage, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, nativeImage, safeStorage, session, shell } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const crypto = require('crypto');
@@ -299,6 +299,25 @@ app.on('ready', () => {
     headers['Cross-Origin-Embedder-Policy'] = ['credentialless'];
     callback({ responseHeaders: headers });
   });
+
+  session.defaultSession.setDisplayMediaRequestHandler(
+    (request, callback) => {
+      desktopCapturer
+        .getSources({ types: ['screen', 'window'] })
+        .then((sources) => {
+          if (!sources.length) {
+            callback({});
+            return;
+          }
+          callback({ video: sources[0] });
+        })
+        .catch((err) => {
+          console.error('[screen-share] getSources failed:', err);
+          callback({});
+        });
+    },
+    { useSystemPicker: true },
+  );
 
   if (autoUpdater) {
     createSplash();
