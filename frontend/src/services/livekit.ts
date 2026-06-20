@@ -209,6 +209,10 @@ export class LiveKitService {
       await this.room.connect(url, token, connectOptions);
       console.log("Successfully connected to room");
 
+      this.room.remoteParticipants.forEach((participant) => {
+        this.addParticipant(participant);
+      });
+
       await this.enableMicrophone();
 
       this.isConnecting = false;
@@ -905,9 +909,6 @@ export class LiveKitService {
       },
     );
 
-    this.room.remoteParticipants.forEach((participant) => {
-      this.addParticipant(participant);
-    });
   }
 
   private addParticipant(participant: RemoteParticipant): void {
@@ -979,7 +980,26 @@ export class LiveKitService {
     return Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, uiVolume));
   }
 
+  private ensureParticipant(identity: string, name?: string): void {
+    if (this.participants.has(identity)) return;
+    this.participants.set(identity, {
+      identity,
+      name: name || identity,
+      isSpeaking: false,
+      isMuted: false,
+      isSharingScreen: false,
+      audioTrack: null,
+      cameraTrack: null,
+      screenTrack: null,
+      quality: ConnectionQuality.Unknown,
+    });
+  }
+
   private handleVideoTrack(track: VideoTrack, identity: string): void {
+    this.ensureParticipant(
+      identity,
+      this.room?.remoteParticipants.get(identity)?.name,
+    );
     const isScreen = track.source === Track.Source.ScreenShare;
     this.updateParticipant(
       identity,
@@ -991,6 +1011,7 @@ export class LiveKitService {
     track: AudioTrack,
     participant: RemoteParticipant,
   ): void {
+    this.ensureParticipant(participant.identity, participant.name);
     this.updateParticipant(participant.identity, { audioTrack: track });
 
     const audioElement = track.attach();
