@@ -42,6 +42,7 @@ export const VideoTileCell: React.FC<{ tile: VideoTile; label: string }> = ({
         title={t("fullscreen")}
       >
         <Icon name="expand" size={14} />
+        <span>{t("fullscreen")}</span>
       </button>
       <div className="voice-tile-name">
         {label}

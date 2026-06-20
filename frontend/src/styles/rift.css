@@ -2800,16 +2800,20 @@ textarea.s-input {
   top: 8px; right: 8px;
   z-index: 2;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px;
-  border: none; border-radius: 8px;
-  background: rgba(0, 0, 0, 0.5);
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
+  font-size: 12px; font-weight: 500;
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.9;
   transition: opacity var(--dur-fast), background var(--dur-fast);
 }
 .voice-tile.video:hover .voice-tile-fs { opacity: 1; }
-.voice-tile-fs:hover { background: rgba(0, 0, 0, 0.75); }
+.voice-tile-fs:hover { background: rgba(0, 0, 0, 0.8); }
 .voice-tile {
   position: relative;
   background: var(--surface-raised);
