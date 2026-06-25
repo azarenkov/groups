@@ -15,6 +15,10 @@ import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import {
+  useStreamViewersStore,
+  streamViewerKey,
+} from "../store/streamViewersStore";
 import { getLiveKitService } from "../services/livekit";
 import { ws } from "../services/websocket";
 import { setActiveChatView } from "../services/websocketBootstrap";
@@ -68,6 +72,7 @@ const ServersPage: React.FC = () => {
     (t) => t.isLocal && t.source === "screen",
   );
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
+  const streamViewerCounts = useStreamViewersStore((s) => s.counts);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
   const channelToServer = useUnreadStore((s) => s.channelToServer);
@@ -262,7 +267,7 @@ const ServersPage: React.FC = () => {
       synced.add(s.id);
       serverAPI
         .listVoicePresence(s.id)
-        .then((items) => {
+        .then(({ items, streamViewers }) => {
           const groups: Record<
             string,
             {
@@ -292,6 +297,11 @@ const ServersPage: React.FC = () => {
           }
           for (const [channelId, members] of Object.entries(groups)) {
             useVoicePresenceStore.getState().setMembers(channelId, members);
+          }
+          for (const sv of streamViewers) {
+            useStreamViewersStore
+              .getState()
+              .setCount(sv.channelId, sv.streamerId, sv.count);
           }
         })
         .catch((err) => {
@@ -626,6 +636,25 @@ const ServersPage: React.FC = () => {
     setVoiceJoinFailed(true);
   }, []);
 
+  const watchServerId = joinedChannel?.serverId;
+  const watchChannelId = joinedChannel?.channel.id;
+  const reportStreamWatch = useCallback(
+    (streamerId: string, watching: boolean) => {
+      if (!watchServerId || !watchChannelId) return;
+      serverAPI
+        .updateStreamViewer(
+          watchServerId,
+          watchChannelId,
+          streamerId,
+          watching,
+        )
+        .catch((err) =>
+          console.warn("[stream-viewers] report failed:", err),
+        );
+    },
+    [watchServerId, watchChannelId],
+  );
+
   const handleLogout = async () => {
     serverAPI.removeAuthToken();
     channelAPI.removeAuthToken();
@@ -922,9 +951,17 @@ const ServersPage: React.FC = () => {
                             }
                             viewers={
                               vt.source === "screen"
-                                ? Math.max(0, nameById.size - 1)
+                                ? streamViewerCounts[
+                                    streamViewerKey(
+                                      joinedChannel.channel.id,
+                                      vt.isLocal
+                                        ? user?.id || "you"
+                                        : vt.identity,
+                                    )
+                                  ] ?? 0
                                 : undefined
                             }
+                            onWatchChange={reportStreamWatch}
                           />
                         ))}
                         {avatarTiles.map((t) => {

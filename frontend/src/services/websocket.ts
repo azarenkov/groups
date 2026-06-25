@@ -40,6 +40,7 @@ export type WsEventType =
   | "channel.participant.camera.off"
   | "channel.participant.screen.on"
   | "channel.participant.screen.off"
+  | "channel.stream.viewers"
   | "channel.text.joined"
   | "server.created"
   | "server.deleted"

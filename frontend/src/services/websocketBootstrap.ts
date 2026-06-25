@@ -3,6 +3,7 @@ import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
@@ -243,6 +244,17 @@ function dispatch(env: WsEnvelope) {
       useVoicePresenceStore
         .getState()
         .setChannelMedia(channelId, userId, source, enabled);
+      return;
+    }
+
+    case "channel.stream.viewers": {
+      const channelId = asString(d.channelId);
+      const streamerId = asString(d.streamerId);
+      if (!channelId || !streamerId) return;
+      const count = typeof d.count === "number" ? d.count : 0;
+      useStreamViewersStore
+        .getState()
+        .setCount(channelId, streamerId, count);
       return;
     }
 

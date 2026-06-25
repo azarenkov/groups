@@ -7,7 +7,8 @@ export const VideoTileCell: React.FC<{
   tile: VideoTile;
   label: string;
   viewers?: number;
-}> = ({ tile, label, viewers }) => {
+  onWatchChange?: (streamerId: string, watching: boolean) => void;
+}> = ({ tile, label, viewers, onWatchChange }) => {
   const ref = useRef<HTMLVideoElement>(null);
   const { t } = useTranslation("voice");
 
@@ -19,6 +20,12 @@ export const VideoTileCell: React.FC<{
       tile.track.detach(el);
     };
   }, [tile.track]);
+
+  useEffect(() => {
+    if (tile.isLocal || tile.source !== "screen" || !onWatchChange) return;
+    onWatchChange(tile.identity, true);
+    return () => onWatchChange(tile.identity, false);
+  }, [tile.isLocal, tile.source, tile.identity, onWatchChange]);
 
   const goFullscreen = () => {
     const el = ref.current;
