@@ -14,3 +14,4 @@ pub mod search_channel_messages;
 pub mod send_channel_message;
 pub mod track_media_connection;
 pub mod unmute_channel;
+pub mod update_stream_viewer;

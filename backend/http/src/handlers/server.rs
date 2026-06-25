@@ -1,4 +1,4 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, post, put, web};
 use application::dto::requests::server::delete_server::DeleteServerRequest;
 use domain::{server::id::ServerId, shared::pagination::Pagination, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
@@ -125,12 +125,13 @@ async fn list_voice_presence(
     let server_id = ServerId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
 
-    let rows = app_state
+    let snapshot = app_state
         .get_voice_presence_usecase
         .execute(server_id, requester_id)
         .await?;
 
-    let items: Vec<VoicePresenceItem> = rows
+    let items: Vec<VoicePresenceItem> = snapshot
+        .presence
         .into_iter()
         .map(|r| VoicePresenceItem {
             channel_id: r.channel_id.uuid(),
@@ -142,7 +143,20 @@ async fn list_voice_presence(
         })
         .collect();
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(VoicePresenceResponse { items })))
+    let stream_viewers: Vec<StreamViewerItem> = snapshot
+        .stream_viewers
+        .into_iter()
+        .map(|r| StreamViewerItem {
+            channel_id: r.channel_id.uuid(),
+            streamer_id: r.streamer_id.uuid(),
+            count: r.count,
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(VoicePresenceResponse {
+        items,
+        stream_viewers,
+    })))
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -157,8 +171,56 @@ struct VoicePresenceItem {
 }
 
 #[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StreamViewerItem {
+    channel_id: Uuid,
+    streamer_id: Uuid,
+    count: i64,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 struct VoicePresenceResponse {
     items: Vec<VoicePresenceItem>,
+    stream_viewers: Vec<StreamViewerItem>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateStreamViewerBody {
+    channel_id: Uuid,
+    streamer_id: Uuid,
+    watching: bool,
+}
+
+#[put("/{server_id}/stream-viewers")]
+async fn update_stream_viewer(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    body: web::Json<UpdateStreamViewerBody>,
+) -> Result<impl Responder, ApiError> {
+    let server_id = ServerId::new(path.into_inner());
+    let viewer_id = UserId::new(auth_token.id);
+    let body = body.into_inner();
+    let ctx = request_context(&req);
+
+    app_state
+        .update_stream_viewer_usecase
+        .execute(
+            server_id,
+            viewer_id,
+            application::dto::requests::channel::update_stream_viewer::UpdateStreamViewerRequest {
+                channel_id: body.channel_id,
+                streamer_id: body.streamer_id,
+                watching: body.watching,
+                ctx,
+            },
+        )
+        .await?;
+
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[get("/{server_id}/sent-invites")]

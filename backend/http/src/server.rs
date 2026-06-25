@@ -35,6 +35,7 @@ use application::usecases::{
         search_channel_messages::SearchChannelMessages,
         send_channel_message::SendChannelMessage,
         track_media_connection::TrackMediaConnection, unmute_channel::UnmuteChannel,
+        update_stream_viewer::UpdateStreamViewer,
     },
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
@@ -226,6 +227,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
     let get_voice_presence_usecase =
         GetVoicePresence::new(server_repository.clone(), channel_repository.clone());
+    let update_stream_viewer_usecase =
+        UpdateStreamViewer::new(server_repository.clone(), channel_repository.clone());
 
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
@@ -308,6 +311,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_server_members_usecase,
         list_server_channels_usecase,
         get_voice_presence_usecase,
+        update_stream_viewer_usecase,
         send_friend_request_usecase,
         accept_friend_request_usecase,
         remove_friendship_usecase,

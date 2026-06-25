@@ -1,11 +1,16 @@
 use std::sync::Arc;
 
 use domain::{
-    channel::repository::{ChannelRepository, VoicePresenceRow},
+    channel::repository::{ChannelRepository, StreamViewerCountRow, VoicePresenceRow},
     server::{id::ServerId, repository::ServerRepository},
     shared::repository::error::RepositoryError,
     user::id::UserId,
 };
+
+pub struct VoicePresenceSnapshot {
+    pub presence: Vec<VoicePresenceRow>,
+    pub stream_viewers: Vec<StreamViewerCountRow>,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetVoicePresenceError {
@@ -40,7 +45,7 @@ where
         &self,
         server_id: ServerId,
         requester_id: UserId,
-    ) -> Result<Vec<VoicePresenceRow>, GetVoicePresenceError> {
+    ) -> Result<VoicePresenceSnapshot, GetVoicePresenceError> {
         if !self
             .server_repository
             .is_server_member(&server_id, &requester_id)
@@ -49,9 +54,18 @@ where
             return Err(GetVoicePresenceError::NotMember);
         }
 
-        Ok(self
+        let presence = self
             .channel_repository
             .list_voice_presence_for_server(&server_id)
-            .await?)
+            .await?;
+        let stream_viewers = self
+            .channel_repository
+            .list_stream_viewer_counts_for_server(&server_id)
+            .await?;
+
+        Ok(VoicePresenceSnapshot {
+            presence,
+            stream_viewers,
+        })
     }
 }

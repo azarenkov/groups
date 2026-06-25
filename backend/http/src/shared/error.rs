@@ -35,6 +35,7 @@ use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::get_voice_presence::GetVoicePresenceError;
+use application::usecases::channel::update_stream_viewer::UpdateStreamViewerError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
@@ -1108,6 +1109,31 @@ impl ToHttpStatus for GetVoicePresenceError {
     }
 }
 
+impl ToHttpStatus for UpdateStreamViewerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateStreamViewerError::Repository(e) => e.to_http_status(),
+            UpdateStreamViewerError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateStreamViewerError::Repository(e) => e.to_user_message(),
+            UpdateStreamViewerError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateStreamViewerError::Repository(e) => e.to_error_code(),
+            UpdateStreamViewerError::NotMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
+
 impl ToHttpStatus for ListServerChannelsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -2085,6 +2111,7 @@ impl_from_for_api_error!(
     ListServerMembersError,
     ListServerChannelsError,
     GetVoicePresenceError,
+    UpdateStreamViewerError,
     ListChannelParticipantsError,
     ListChannelMessagesError,
     SearchChannelMessagesError,

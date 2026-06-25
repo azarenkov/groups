@@ -567,6 +567,143 @@ impl ChannelRepository for PostgresChannelRepository {
             .collect())
     }
 
+    async fn set_stream_viewer(
+        &self,
+        channel_id: &ChannelId,
+        streamer_id: &UserId,
+        viewer_id: &UserId,
+        watching: bool,
+        occurred_at: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<i64, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let server_row = sqlx::query!(
+            r#"SELECT server_id FROM channels WHERE id = $1"#,
+            channel_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+        let server_id = server_row.server_id;
+
+        if watching {
+            sqlx::query!(
+                r#"
+                INSERT INTO channel_stream_viewers
+                    (channel_id, streamer_id, viewer_id, updated_at)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (channel_id, streamer_id, viewer_id)
+                DO UPDATE SET updated_at = EXCLUDED.updated_at
+                "#,
+                channel_id.uuid(),
+                streamer_id.uuid(),
+                viewer_id.uuid(),
+                occurred_at,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        } else {
+            sqlx::query!(
+                r#"
+                DELETE FROM channel_stream_viewers
+                WHERE channel_id = $1 AND streamer_id = $2 AND viewer_id = $3
+                "#,
+                channel_id.uuid(),
+                streamer_id.uuid(),
+                viewer_id.uuid(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+
+        let count_row = sqlx::query!(
+            r#"
+            SELECT count(*) AS "count!"
+            FROM channel_stream_viewers v
+            WHERE v.channel_id = $1
+              AND v.streamer_id = $2
+              AND EXISTS (
+                SELECT 1 FROM channel_voice_participants p
+                WHERE p.channel_id = v.channel_id AND p.user_id = v.viewer_id
+              )
+            "#,
+            channel_id.uuid(),
+            streamer_id.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let count = count_row.count;
+
+        let record = OutboxRecord {
+            id: uuid::Uuid::new_v4(),
+            aggregate_id: channel_id.uuid(),
+            aggregate_type:
+                domain::shared::outbox::outbox_record::AggregateType::Channel,
+            parent_id: Some(server_id),
+            parent_type: Some(
+                domain::shared::outbox::outbox_record::AggregateType::Server,
+            ),
+            event_type: "stream.viewers".to_string(),
+            payload: serde_json::json!({
+                "channel_id": channel_id.uuid(),
+                "server_id": server_id,
+                "streamer_id": streamer_id.uuid(),
+                "count": count,
+                "occurred_at": occurred_at,
+            }),
+            occurred_at,
+            request_id,
+        };
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(count)
+    }
+
+    async fn list_stream_viewer_counts_for_server(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<domain::channel::repository::StreamViewerCountRow>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                v.channel_id,
+                v.streamer_id,
+                count(*) AS "count!"
+            FROM channel_stream_viewers v
+            INNER JOIN channels c ON c.id = v.channel_id
+            WHERE c.server_id = $1
+              AND EXISTS (
+                SELECT 1 FROM channel_voice_participants p
+                WHERE p.channel_id = v.channel_id AND p.user_id = v.viewer_id
+              )
+            GROUP BY v.channel_id, v.streamer_id
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| domain::channel::repository::StreamViewerCountRow {
+                channel_id: ChannelId::new(r.channel_id),
+                streamer_id: UserId::new(r.streamer_id),
+                count: r.count,
+            })
+            .collect())
+    }
+
     async fn is_text_channel_member(
         &self,
         channel_id: &ChannelId,

@@ -157,6 +157,28 @@ pub trait ChannelRepository {
         &self,
         server_id: &crate::server::id::ServerId,
     ) -> Result<Vec<VoicePresenceRow>, RepositoryError>;
+
+    async fn set_stream_viewer(
+        &self,
+        channel_id: &ChannelId,
+        streamer_id: &UserId,
+        viewer_id: &UserId,
+        watching: bool,
+        occurred_at: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<i64, RepositoryError>;
+
+    async fn list_stream_viewer_counts_for_server(
+        &self,
+        server_id: &crate::server::id::ServerId,
+    ) -> Result<Vec<StreamViewerCountRow>, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct StreamViewerCountRow {
+    pub channel_id: ChannelId,
+    pub streamer_id: UserId,
+    pub count: i64,
 }
 
 #[derive(Debug, Clone)]

@@ -270,6 +270,23 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".channel.stream.viewers") {
+        let evt: StreamViewersDto = serde_json::from_slice(payload)?;
+        let recipients = resolver.server_members(evt.server_id).await?;
+        let envelope = Envelope::new(
+            "channel.stream.viewers",
+            json!({
+                "channelId": evt.channel_id,
+                "serverId": evt.server_id,
+                "streamerId": evt.streamer_id,
+                "count": evt.count,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".channel.participant.camera.on")
         || ends_with(subject, ".channel.participant.camera.off")
         || ends_with(subject, ".channel.participant.screen.on")
@@ -587,6 +604,15 @@ struct ParticipantMediaDto {
     user_id: Uuid,
     source: String,
     enabled: bool,
+    occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct StreamViewersDto {
+    channel_id: Uuid,
+    server_id: Uuid,
+    streamer_id: Uuid,
+    count: i64,
     occurred_at: DateTime<Utc>,
 }
 

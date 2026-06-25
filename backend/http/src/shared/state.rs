@@ -29,6 +29,7 @@ use application::usecases::{
         list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
         search_channel_messages::SearchChannelMessages,
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
+        update_stream_viewer::UpdateStreamViewer,
     },
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
@@ -172,6 +173,8 @@ pub struct AppState {
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
     pub get_voice_presence_usecase:
         GetVoicePresence<PostgresServerRepository, PostgresChannelRepository>,
+    pub update_stream_viewer_usecase:
+        UpdateStreamViewer<PostgresServerRepository, PostgresChannelRepository>,
 
     pub jwt_secret: String,
     pub trust_forwarded_headers: bool,
@@ -273,6 +276,10 @@ impl AppState {
             PostgresServerRepository,
             PostgresChannelRepository,
         >,
+        update_stream_viewer_usecase: UpdateStreamViewer<
+            PostgresServerRepository,
+            PostgresChannelRepository,
+        >,
         send_friend_request_usecase: SendFriendRequest<
             PostgresFriendshipRepository,
             PostgresUserRepository,
@@ -353,6 +360,7 @@ impl AppState {
             list_server_members_usecase,
             list_server_channels_usecase,
             get_voice_presence_usecase,
+            update_stream_viewer_usecase,
             send_friend_request_usecase,
             accept_friend_request_usecase,
             remove_friendship_usecase,
