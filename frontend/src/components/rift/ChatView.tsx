@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
@@ -108,6 +109,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   onRemoveFriend,
   onGoToServer,
 }) => {
+  const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
 
   const channelMsgHandlers = React.useMemo(
@@ -888,11 +890,8 @@ const ChatView: React.FC<ChatViewProps> = ({
             <div className="icon-wrap">
               <Icon name="hash" size={22} />
             </div>
-            <h3>Welcome to #{headerName}</h3>
-            <p>
-              This is the beginning of the conversation. Say hi — messages
-              appear here in real-time.
-            </p>
+            <h3>{t("welcomeTitle", { name: headerName })}</h3>
+            <p>{t("welcomeBody")}</p>
           </div>
         ) : (
           <div className="inner">
