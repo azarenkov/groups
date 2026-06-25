@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { VideoTile } from "../../services/livekit";
 
-export const VideoTileCell: React.FC<{ tile: VideoTile; label: string }> = ({
-  tile,
-  label,
-}) => {
+export const VideoTileCell: React.FC<{
+  tile: VideoTile;
+  label: string;
+  viewers?: number;
+}> = ({ tile, label, viewers }) => {
   const ref = useRef<HTMLVideoElement>(null);
   const { t } = useTranslation("voice");
 
@@ -44,6 +45,12 @@ export const VideoTileCell: React.FC<{ tile: VideoTile; label: string }> = ({
         <Icon name="expand" size={14} />
         <span>{t("fullscreen")}</span>
       </button>
+      {tile.source === "screen" && viewers !== undefined && (
+        <div className="voice-tile-viewers" title={t("viewers")}>
+          <Icon name="eye" size={12} />
+          <span>{viewers}</span>
+        </div>
+      )}
       <div className="voice-tile-name">
         {label}
         {tile.source === "screen" ? ` · ${t("screen")}` : ""}

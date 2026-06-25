@@ -920,6 +920,11 @@ const ServersPage: React.FC = () => {
                                 ? userName || "You"
                                 : nameById.get(vt.identity) || vt.name
                             }
+                            viewers={
+                              vt.source === "screen"
+                                ? Math.max(0, nameById.size - 1)
+                                : undefined
+                            }
                           />
                         ))}
                         {avatarTiles.map((t) => {

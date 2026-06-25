@@ -31,6 +31,7 @@
   "startScreenShare": "Показать экран",
   "stopScreenShare": "Остановить показ",
   "fullscreen": "На весь экран",
+  "viewers": "Зрители",
   "membersConnected_one": "{{count}} участник",
   "membersConnected_few": "{{count}} участника",
   "membersConnected_many": "{{count}} участников",

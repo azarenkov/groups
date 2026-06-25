@@ -2814,6 +2814,18 @@ textarea.s-input {
 }
 .voice-tile.video:hover .voice-tile-fs { opacity: 1; }
 .voice-tile-fs:hover { background: rgba(0, 0, 0, 0.8); }
+.voice-tile-viewers {
+  position: absolute;
+  top: 8px; left: 8px;
+  z-index: 2;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px; font-weight: 600;
+}
 .voice-tile {
   position: relative;
   background: var(--surface-raised);
