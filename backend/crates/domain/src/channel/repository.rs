@@ -160,6 +160,7 @@ pub trait ChannelRepository {
 
     async fn set_stream_viewer(
         &self,
+        server_id: &crate::server::id::ServerId,
         channel_id: &ChannelId,
         streamer_id: &UserId,
         viewer_id: &UserId,

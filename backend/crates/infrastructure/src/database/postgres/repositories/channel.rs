@@ -569,6 +569,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
     async fn set_stream_viewer(
         &self,
+        server_id: &ServerId,
         channel_id: &ChannelId,
         streamer_id: &UserId,
         viewer_id: &UserId,
@@ -582,15 +583,16 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        let server_row = sqlx::query!(
-            r#"SELECT server_id FROM channels WHERE id = $1"#,
+        sqlx::query!(
+            r#"SELECT 1 AS one FROM channels WHERE id = $1 AND server_id = $2"#,
             channel_id.uuid(),
+            server_id.uuid(),
         )
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?
         .ok_or(RepositoryError::NotFound)?;
-        let server_id = server_row.server_id;
+        let server_id = server_id.uuid();
 
         if watching {
             sqlx::query!(

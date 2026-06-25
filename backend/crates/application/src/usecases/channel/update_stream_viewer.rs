@@ -59,6 +59,7 @@ where
         let count = self
             .channel_repository
             .set_stream_viewer(
+                &server_id,
                 &channel_id,
                 &streamer_id,
                 &viewer_id,
