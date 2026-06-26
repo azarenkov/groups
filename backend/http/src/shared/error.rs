@@ -181,6 +181,7 @@ impl ToHttpStatus for ChannelError {
             ChannelError::VoiceNotSupported | ChannelError::TextNotSupported => {
                 StatusCode::BAD_REQUEST
             }
+            ChannelError::ParticipantNotJoined => StatusCode::CONFLICT,
         }
     }
 
@@ -202,6 +203,9 @@ impl ToHttpStatus for ChannelError {
             ChannelError::TextNotSupported => {
                 "Text is not supported for this channel".to_string()
             }
+            ChannelError::ParticipantNotJoined => {
+                "Participant has not joined the voice session yet".to_string()
+            }
         }
     }
 
@@ -215,6 +219,7 @@ impl ToHttpStatus for ChannelError {
             ChannelError::NotMuted => "PARTICIPANT_NOT_MUTED",
             ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             ChannelError::TextNotSupported => "CHANNEL_NOT_TEXT",
+            ChannelError::ParticipantNotJoined => "PARTICIPANT_NOT_JOINED",
         }
     }
 }

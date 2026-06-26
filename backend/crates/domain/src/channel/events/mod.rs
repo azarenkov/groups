@@ -84,6 +84,14 @@ impl ChannelEvent {
         }
     }
 
+    pub fn departed_user(&self) -> Option<crate::user::id::UserId> {
+        match self {
+            Self::ParticipantLeft(e) => Some(e.user_id),
+            Self::ParticipantConnectionAborted(e) => Some(e.user_id),
+            _ => None,
+        }
+    }
+
     pub fn event_type(&self) -> &'static str {
         match self {
             Self::Created(_) => "created",

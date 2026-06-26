@@ -626,45 +626,17 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
 
-        let count_row = sqlx::query!(
-            r#"
-            SELECT count(*) AS "count!"
-            FROM channel_stream_viewers v
-            WHERE v.channel_id = $1
-              AND v.streamer_id = $2
-              AND EXISTS (
-                SELECT 1 FROM channel_voice_participants p
-                WHERE p.channel_id = v.channel_id AND p.user_id = v.viewer_id
-              )
-            "#,
-            channel_id.uuid(),
-            streamer_id.uuid(),
-        )
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        let count = count_row.count;
+        let count =
+            count_stream_viewers(&mut tx, channel_id.uuid(), streamer_id.uuid()).await?;
 
-        let record = OutboxRecord {
-            id: uuid::Uuid::new_v4(),
-            aggregate_id: channel_id.uuid(),
-            aggregate_type:
-                domain::shared::outbox::outbox_record::AggregateType::Channel,
-            parent_id: Some(server_id),
-            parent_type: Some(
-                domain::shared::outbox::outbox_record::AggregateType::Server,
-            ),
-            event_type: "stream.viewers".to_string(),
-            payload: serde_json::json!({
-                "channel_id": channel_id.uuid(),
-                "server_id": server_id,
-                "streamer_id": streamer_id.uuid(),
-                "count": count,
-                "occurred_at": occurred_at,
-            }),
+        let record = stream_viewers_record(
+            channel_id.uuid(),
+            server_id,
+            streamer_id.uuid(),
+            count,
             occurred_at,
             request_id,
-        };
+        );
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
@@ -940,6 +912,134 @@ async fn apply_media_changes(
     Ok(())
 }
 
+async fn count_stream_viewers(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    streamer_id: uuid::Uuid,
+) -> Result<i64, RepositoryError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT count(*) AS "count!"
+        FROM channel_stream_viewers v
+        WHERE v.channel_id = $1
+          AND v.streamer_id = $2
+          AND EXISTS (
+            SELECT 1 FROM channel_voice_participants p
+            WHERE p.channel_id = v.channel_id AND p.user_id = v.viewer_id
+          )
+        "#,
+        channel_id,
+        streamer_id,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(row.count)
+}
+
+fn stream_viewers_record(
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    streamer_id: uuid::Uuid,
+    count: i64,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> OutboxRecord {
+    OutboxRecord {
+        id: uuid::Uuid::new_v4(),
+        aggregate_id: channel_id,
+        aggregate_type: domain::shared::outbox::outbox_record::AggregateType::Channel,
+        parent_id: Some(server_id),
+        parent_type: Some(domain::shared::outbox::outbox_record::AggregateType::Server),
+        event_type: "stream.viewers".to_string(),
+        payload: serde_json::json!({
+            "channel_id": channel_id,
+            "server_id": server_id,
+            "streamer_id": streamer_id,
+            "count": count,
+            "occurred_at": occurred_at,
+        }),
+        occurred_at,
+        request_id,
+    }
+}
+
+async fn cleanup_departed_stream_viewers(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    departed: uuid::Uuid,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> Result<Vec<OutboxRecord>, RepositoryError> {
+    let watched = sqlx::query!(
+        r#"
+        SELECT DISTINCT streamer_id
+        FROM channel_stream_viewers
+        WHERE channel_id = $1 AND viewer_id = $2
+        "#,
+        channel_id,
+        departed,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    let was_streamer = sqlx::query!(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM channel_stream_viewers
+            WHERE channel_id = $1 AND streamer_id = $2
+        ) AS "exists!"
+        "#,
+        channel_id,
+        departed,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?
+    .exists;
+
+    sqlx::query!(
+        r#"
+        DELETE FROM channel_stream_viewers
+        WHERE channel_id = $1 AND (viewer_id = $2 OR streamer_id = $2)
+        "#,
+        channel_id,
+        departed,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    let mut records = Vec::new();
+    for w in watched {
+        if w.streamer_id == departed {
+            continue;
+        }
+        let count = count_stream_viewers(tx, channel_id, w.streamer_id).await?;
+        records.push(stream_viewers_record(
+            channel_id,
+            server_id,
+            w.streamer_id,
+            count,
+            occurred_at,
+            request_id.clone(),
+        ));
+    }
+    if was_streamer {
+        records.push(stream_viewers_record(
+            channel_id,
+            server_id,
+            departed,
+            0,
+            occurred_at,
+            request_id,
+        ));
+    }
+    Ok(records)
+}
+
 async fn apply_voice_operation<F>(
     pool: &Pool<Postgres>,
     channel_id: &ChannelId,
@@ -974,14 +1074,20 @@ where
 
     mutate(&mut channel)?;
 
-    let events: Vec<OutboxRecord> = channel
-        .pull_events()
+    let channel_events = channel.pull_events();
+    let departed: Vec<uuid::Uuid> = channel_events
+        .iter()
+        .filter_map(|e| e.departed_user().map(|u| u.uuid()))
+        .collect();
+    let mut events: Vec<OutboxRecord> = channel_events
         .iter()
         .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
         .collect::<Result<_, _>>()
         .map_err(|e| RepositoryError::Internal(format!("outbox error: {e}")))?;
     let voice_changes = channel.pull_voice_changes();
     let media_changes = channel.pull_media_changes();
+    let server_id = channel.server_id().uuid();
+    let channel_uuid = channel.id().uuid();
 
     sqlx::query!(
         r#"
@@ -998,6 +1104,19 @@ where
 
     apply_voice_changes(&mut tx, channel.id(), &voice_changes).await?;
     apply_media_changes(&mut tx, channel.id(), &media_changes).await?;
+
+    for user in departed {
+        let extra = cleanup_departed_stream_viewers(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            user,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?;
+        events.extend(extra);
+    }
 
     save_outbox_records(&mut tx, &events).await?;
 

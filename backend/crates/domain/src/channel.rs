@@ -53,6 +53,8 @@ pub enum ChannelError {
     VoiceNotSupported,
     #[error("Text is not supported for this channel")]
     TextNotSupported,
+    #[error("Participant has not joined the voice session yet")]
+    ParticipantNotJoined,
 }
 
 #[derive(Debug, Clone)]
@@ -429,6 +431,9 @@ impl Channel {
             .map(|sessions| sessions.contains(&session_id))
             .unwrap_or(false);
         if !is_participant {
+            if enabled {
+                return Err(ChannelError::ParticipantNotJoined);
+            }
             return Ok(());
         }
 

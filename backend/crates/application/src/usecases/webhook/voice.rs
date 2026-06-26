@@ -279,11 +279,14 @@ where
 }
 
 fn is_track_stale(e: &TrackMediaConnectionError) -> bool {
-    matches!(
-        e,
-        TrackMediaConnectionError::Repository(RepositoryError::NotFound)
-            | TrackMediaConnectionError::Domain(_)
-    )
+    match e {
+        TrackMediaConnectionError::Repository(RepositoryError::NotFound) => true,
+        TrackMediaConnectionError::Domain(
+            domain::channel::ChannelError::ParticipantNotJoined,
+        ) => false,
+        TrackMediaConnectionError::Domain(_) => true,
+        _ => false,
+    }
 }
 
 fn is_join_stale(e: &JoinVoiceConnectionError) -> bool {
