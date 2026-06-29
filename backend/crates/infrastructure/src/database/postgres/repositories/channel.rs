@@ -674,6 +674,12 @@ impl ChannelRepository for PostgresChannelRepository {
                   AND p.user_id = v.viewer_id
                   AND p.session_id = v.viewer_session_id
               )
+              AND EXISTS (
+                SELECT 1 FROM channel_voice_participants s
+                WHERE s.channel_id = v.channel_id
+                  AND s.user_id = v.streamer_id
+                  AND s.screen_on = true
+              )
             GROUP BY v.channel_id, v.streamer_id
             "#,
             server_id.uuid(),
@@ -943,6 +949,12 @@ pub(crate) async fn count_stream_viewers(
               AND p.user_id = v.viewer_id
               AND p.session_id = v.viewer_session_id
           )
+          AND EXISTS (
+            SELECT 1 FROM channel_voice_participants s
+            WHERE s.channel_id = v.channel_id
+              AND s.user_id = v.streamer_id
+              AND s.screen_on = true
+          )
         "#,
         channel_id,
         streamer_id,
@@ -1133,6 +1145,10 @@ where
         .iter()
         .filter_map(|e| e.screen_stopped_user().map(|u| u.uuid()))
         .collect();
+    let screen_started: Vec<uuid::Uuid> = channel_events
+        .iter()
+        .filter_map(|e| e.screen_started_user().map(|u| u.uuid()))
+        .collect();
     let mut events: Vec<OutboxRecord> = channel_events
         .iter()
         .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
@@ -1185,6 +1201,18 @@ where
         {
             events.push(record);
         }
+    }
+
+    for streamer in screen_started {
+        let count = count_stream_viewers(&mut tx, channel_uuid, streamer).await?;
+        events.push(stream_viewers_record(
+            channel_uuid,
+            server_id,
+            streamer,
+            count,
+            Utc::now(),
+            request_id.clone(),
+        ));
     }
 
     save_outbox_records(&mut tx, &events).await?;
