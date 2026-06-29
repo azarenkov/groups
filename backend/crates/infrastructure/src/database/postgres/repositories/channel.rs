@@ -599,7 +599,15 @@ impl ChannelRepository for PostgresChannelRepository {
                 r#"
                 INSERT INTO channel_stream_viewers
                     (channel_id, streamer_id, viewer_id, updated_at)
-                VALUES ($1, $2, $3, $4)
+                SELECT $1, $2, $3, $4
+                WHERE EXISTS (
+                    SELECT 1 FROM channel_voice_participants p
+                    WHERE p.channel_id = $1 AND p.user_id = $3
+                )
+                AND EXISTS (
+                    SELECT 1 FROM channel_voice_participants s
+                    WHERE s.channel_id = $1 AND s.user_id = $2 AND s.screen_on = true
+                )
                 ON CONFLICT (channel_id, streamer_id, viewer_id)
                 DO UPDATE SET updated_at = EXCLUDED.updated_at
                 "#,
