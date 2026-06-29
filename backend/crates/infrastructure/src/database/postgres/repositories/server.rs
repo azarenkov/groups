@@ -476,6 +476,19 @@ impl ServerRepository for PostgresServerRepository {
 
         sqlx::query!(
             r#"
+                DELETE FROM channel_stream_viewers
+                WHERE (viewer_id = $1 OR streamer_id = $1)
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
                 DELETE FROM channel_muted_participants
                 WHERE user_id = $1
                   AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)

@@ -92,6 +92,17 @@ impl ChannelEvent {
         }
     }
 
+    pub fn screen_stopped_user(&self) -> Option<crate::user::id::UserId> {
+        match self {
+            Self::ParticipantMediaChanged(e)
+                if e.source == MediaSource::Screen && !e.enabled =>
+            {
+                Some(e.user_id)
+            }
+            _ => None,
+        }
+    }
+
     pub fn event_type(&self) -> &'static str {
         match self {
             Self::Created(_) => "created",

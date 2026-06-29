@@ -964,6 +964,40 @@ fn stream_viewers_record(
     }
 }
 
+async fn clear_stream_for_streamer(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    streamer_id: uuid::Uuid,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> Result<Option<OutboxRecord>, RepositoryError> {
+    let deleted = sqlx::query!(
+        r#"
+        DELETE FROM channel_stream_viewers
+        WHERE channel_id = $1 AND streamer_id = $2
+        "#,
+        channel_id,
+        streamer_id,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    if deleted.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    Ok(Some(stream_viewers_record(
+        channel_id,
+        server_id,
+        streamer_id,
+        0,
+        occurred_at,
+        request_id,
+    )))
+}
+
 async fn cleanup_departed_stream_viewers(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     channel_id: uuid::Uuid,
@@ -1079,6 +1113,10 @@ where
         .iter()
         .filter_map(|e| e.departed_user().map(|u| u.uuid()))
         .collect();
+    let screen_stopped: Vec<uuid::Uuid> = channel_events
+        .iter()
+        .filter_map(|e| e.screen_stopped_user().map(|u| u.uuid()))
+        .collect();
     let mut events: Vec<OutboxRecord> = channel_events
         .iter()
         .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
@@ -1116,6 +1154,21 @@ where
         )
         .await?;
         events.extend(extra);
+    }
+
+    for streamer in screen_stopped {
+        if let Some(record) = clear_stream_for_streamer(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            streamer,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?
+        {
+            events.push(record);
+        }
     }
 
     save_outbox_records(&mut tx, &events).await?;
