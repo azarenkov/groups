@@ -9,6 +9,7 @@ import { AnimatePresence } from "framer-motion";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ServersPage from "./pages/ServersPage";
+import ScreenSharePicker from "./components/rift/ScreenSharePicker";
 import { useAuthStore } from "./store/authStore";
 import { useThemeStore, applyTheme } from "./store/themeStore";
 import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
@@ -194,6 +195,7 @@ const App: React.FC = () => {
             />
           </Routes>
         </AnimatePresence>
+        <ScreenSharePicker />
       </div>
     </Router>
   );

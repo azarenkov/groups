@@ -32,6 +32,10 @@
   "stopScreenShare": "Stop sharing",
   "fullscreen": "Fullscreen",
   "viewers": "Viewers",
+  "pickScreenTitle": "Share your screen",
+  "pickScreenSubtitle": "Choose a screen or window to share.",
+  "entireScreen": "Entire screen",
+  "applicationWindow": "Application window",
   "membersConnected_one": "{{count}} connected",
   "membersConnected_other": "{{count}} connected"
 }

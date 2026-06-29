@@ -326,25 +326,55 @@ app.on('ready', () => {
     cb(ALLOWED_PERMISSIONS.has(permission) && isTrustedSource(contentsUrl(wc)));
   });
 
-  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-    console.log('[screen-share] display media request received');
-    desktopCapturer
-      .getSources({ types: ['screen', 'window'] })
-      .then((sources) => {
-        console.log('[screen-share] sources:', sources.map((s) => s.id));
-        const screen = sources.find((s) => s.id.startsWith('screen:'));
-        const chosen = screen || sources[0];
-        if (!chosen) {
-          callback({});
-          return;
-        }
-        callback({ video: chosen });
-      })
-      .catch((err) => {
-        console.error('[screen-share] getSources failed:', err);
-        callback({});
-      });
+  const pendingScreenShare = new Map();
+  let screenShareSeq = 0;
+
+  ipcMain.on('screen-share:picked', (_event, { requestId, sourceId }) => {
+    const entry = pendingScreenShare.get(requestId);
+    if (!entry) return;
+    pendingScreenShare.delete(requestId);
+    clearTimeout(entry.timer);
+    const chosen = entry.sources.find((s) => s.id === sourceId);
+    entry.callback(chosen ? { video: chosen } : {});
   });
+
+  session.defaultSession.setDisplayMediaRequestHandler(
+    (request, callback) => {
+      desktopCapturer
+        .getSources({
+          types: ['screen', 'window'],
+          thumbnailSize: { width: 320, height: 180 },
+        })
+        .then((sources) => {
+          if (!sources.length || !mainWindow || mainWindow.isDestroyed()) {
+            callback({});
+            return;
+          }
+          const requestId = ++screenShareSeq;
+          const timer = setTimeout(() => {
+            if (pendingScreenShare.has(requestId)) {
+              pendingScreenShare.delete(requestId);
+              callback({});
+            }
+          }, 60000);
+          pendingScreenShare.set(requestId, { sources, callback, timer });
+          mainWindow.webContents.send('screen-share:sources', {
+            requestId,
+            sources: sources.map((s) => ({
+              id: s.id,
+              name: s.name,
+              kind: s.id.startsWith('screen:') ? 'screen' : 'window',
+              thumbnail: s.thumbnail.toDataURL(),
+            })),
+          });
+        })
+        .catch((err) => {
+          console.error('[screen-share] getSources failed:', err);
+          callback({});
+        });
+    },
+    { useSystemPicker: true },
+  );
   console.log('[screen-share] display media request handler registered');
 
   if (autoUpdater) {
