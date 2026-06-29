@@ -638,19 +638,38 @@ const ServersPage: React.FC = () => {
 
   const watchServerId = joinedChannel?.serverId;
   const watchChannelId = joinedChannel?.channel.id;
+  const watchStateRef = useRef(
+    new Map<string, { desired: boolean; running: boolean }>(),
+  );
   const reportStreamWatch = useCallback(
     (streamerId: string, watching: boolean) => {
       if (!watchServerId || !watchChannelId) return;
-      serverAPI
-        .updateStreamViewer(
-          watchServerId,
-          watchChannelId,
-          streamerId,
-          watching,
-        )
-        .catch((err) =>
-          console.warn("[stream-viewers] report failed:", err),
-        );
+      const key = `${watchServerId}:${watchChannelId}:${streamerId}`;
+      const states = watchStateRef.current;
+      const entry = states.get(key) ?? { desired: watching, running: false };
+      entry.desired = watching;
+      states.set(key, entry);
+      if (entry.running) return;
+      entry.running = true;
+      void (async () => {
+        let lastSent: boolean | undefined;
+        while (states.get(key) && states.get(key)!.desired !== lastSent) {
+          const target = states.get(key)!.desired;
+          lastSent = target;
+          try {
+            await serverAPI.updateStreamViewer(
+              watchServerId,
+              watchChannelId,
+              streamerId,
+              target,
+            );
+          } catch (err) {
+            console.warn("[stream-viewers] report failed:", err);
+          }
+        }
+        const e = states.get(key);
+        if (e) e.running = false;
+      })();
     },
     [watchServerId, watchChannelId],
   );

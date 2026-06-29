@@ -920,7 +920,7 @@ async fn apply_media_changes(
     Ok(())
 }
 
-async fn count_stream_viewers(
+pub(crate) async fn count_stream_viewers(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     channel_id: uuid::Uuid,
     streamer_id: uuid::Uuid,
@@ -945,7 +945,7 @@ async fn count_stream_viewers(
     Ok(row.count)
 }
 
-fn stream_viewers_record(
+pub(crate) fn stream_viewers_record(
     channel_id: uuid::Uuid,
     server_id: uuid::Uuid,
     streamer_id: uuid::Uuid,
