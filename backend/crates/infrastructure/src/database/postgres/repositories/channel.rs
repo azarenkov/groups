@@ -573,6 +573,7 @@ impl ChannelRepository for PostgresChannelRepository {
         channel_id: &ChannelId,
         streamer_id: &UserId,
         viewer_id: &UserId,
+        viewer_session_id: &SessionId,
         watching: bool,
         occurred_at: DateTime<Utc>,
         request_id: Option<String>,
@@ -598,22 +599,21 @@ impl ChannelRepository for PostgresChannelRepository {
             sqlx::query!(
                 r#"
                 INSERT INTO channel_stream_viewers
-                    (channel_id, streamer_id, viewer_id, updated_at)
-                SELECT $1, $2, $3, $4
+                    (channel_id, streamer_id, viewer_id, viewer_session_id, updated_at)
+                SELECT $1, $2, $3, $4, $5
                 WHERE EXISTS (
                     SELECT 1 FROM channel_voice_participants p
-                    WHERE p.channel_id = $1 AND p.user_id = $3
+                    WHERE p.channel_id = $1
+                      AND p.user_id = $3
+                      AND p.session_id = $4
                 )
-                AND EXISTS (
-                    SELECT 1 FROM channel_voice_participants s
-                    WHERE s.channel_id = $1 AND s.user_id = $2 AND s.screen_on = true
-                )
-                ON CONFLICT (channel_id, streamer_id, viewer_id)
+                ON CONFLICT (channel_id, streamer_id, viewer_id, viewer_session_id)
                 DO UPDATE SET updated_at = EXCLUDED.updated_at
                 "#,
                 channel_id.uuid(),
                 streamer_id.uuid(),
                 viewer_id.uuid(),
+                viewer_session_id.as_str(),
                 occurred_at,
             )
             .execute(&mut *tx)
@@ -623,11 +623,15 @@ impl ChannelRepository for PostgresChannelRepository {
             sqlx::query!(
                 r#"
                 DELETE FROM channel_stream_viewers
-                WHERE channel_id = $1 AND streamer_id = $2 AND viewer_id = $3
+                WHERE channel_id = $1
+                  AND streamer_id = $2
+                  AND viewer_id = $3
+                  AND viewer_session_id = $4
                 "#,
                 channel_id.uuid(),
                 streamer_id.uuid(),
                 viewer_id.uuid(),
+                viewer_session_id.as_str(),
             )
             .execute(&mut *tx)
             .await
@@ -660,13 +664,15 @@ impl ChannelRepository for PostgresChannelRepository {
             SELECT
                 v.channel_id,
                 v.streamer_id,
-                count(*) AS "count!"
+                count(DISTINCT v.viewer_id) AS "count!"
             FROM channel_stream_viewers v
             INNER JOIN channels c ON c.id = v.channel_id
             WHERE c.server_id = $1
               AND EXISTS (
                 SELECT 1 FROM channel_voice_participants p
-                WHERE p.channel_id = v.channel_id AND p.user_id = v.viewer_id
+                WHERE p.channel_id = v.channel_id
+                  AND p.user_id = v.viewer_id
+                  AND p.session_id = v.viewer_session_id
               )
             GROUP BY v.channel_id, v.streamer_id
             "#,
@@ -927,13 +933,15 @@ pub(crate) async fn count_stream_viewers(
 ) -> Result<i64, RepositoryError> {
     let row = sqlx::query!(
         r#"
-        SELECT count(*) AS "count!"
+        SELECT count(DISTINCT v.viewer_id) AS "count!"
         FROM channel_stream_viewers v
         WHERE v.channel_id = $1
           AND v.streamer_id = $2
           AND EXISTS (
             SELECT 1 FROM channel_voice_participants p
-            WHERE p.channel_id = v.channel_id AND p.user_id = v.viewer_id
+            WHERE p.channel_id = v.channel_id
+              AND p.user_id = v.viewer_id
+              AND p.session_id = v.viewer_session_id
           )
         "#,
         channel_id,

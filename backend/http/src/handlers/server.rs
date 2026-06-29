@@ -190,6 +190,7 @@ struct VoicePresenceResponse {
 struct UpdateStreamViewerBody {
     channel_id: Uuid,
     streamer_id: Uuid,
+    viewer_session_id: String,
     watching: bool,
 }
 
@@ -214,6 +215,7 @@ async fn update_stream_viewer(
             application::dto::requests::channel::update_stream_viewer::UpdateStreamViewerRequest {
                 channel_id: body.channel_id,
                 streamer_id: body.streamer_id,
+                viewer_session_id: body.viewer_session_id,
                 watching: body.watching,
                 ctx,
             },

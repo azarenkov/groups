@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(DISTINCT v.viewer_id) AS \"count!\"\n        FROM channel_stream_viewers v\n        WHERE v.channel_id = $1\n          AND v.streamer_id = $2\n          AND EXISTS (\n            SELECT 1 FROM channel_voice_participants p\n            WHERE p.channel_id = v.channel_id\n              AND p.user_id = v.viewer_id\n              AND p.session_id = v.viewer_session_id\n          )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6d2a0bbb5f6a72c9cd555572f4a308629d6289677c330f983ad6ec0da4c399f9"
+}

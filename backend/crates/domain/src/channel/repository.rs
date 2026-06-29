@@ -164,6 +164,7 @@ pub trait ChannelRepository {
         channel_id: &ChannelId,
         streamer_id: &UserId,
         viewer_id: &UserId,
+        viewer_session_id: &SessionId,
         watching: bool,
         occurred_at: DateTime<Utc>,
         request_id: Option<String>,

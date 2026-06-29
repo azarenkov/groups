@@ -144,11 +144,13 @@ class ServerAPI {
     serverId: string,
     channelId: string,
     streamerId: string,
+    viewerSessionId: string,
     watching: boolean,
   ): Promise<void> {
     await this.client.put(`/v1/servers/${serverId}/stream-viewers`, {
       channelId,
       streamerId,
+      viewerSessionId,
       watching,
     });
   }

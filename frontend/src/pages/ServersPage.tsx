@@ -655,12 +655,15 @@ const ServersPage: React.FC = () => {
         let lastSent: boolean | undefined;
         while (states.get(key) && states.get(key)!.desired !== lastSent) {
           const target = states.get(key)!.desired;
+          const sessionId = getLiveKitService().getLocalSessionId();
+          if (!sessionId) break;
           lastSent = target;
           try {
             await serverAPI.updateStreamViewer(
               watchServerId,
               watchChannelId,
               streamerId,
+              sessionId,
               target,
             );
           } catch (err) {

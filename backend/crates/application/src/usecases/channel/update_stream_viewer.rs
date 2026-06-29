@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    channel::{id::ChannelId, repository::ChannelRepository},
+    channel::{id::ChannelId, repository::ChannelRepository, session_id::SessionId},
     server::{id::ServerId, repository::ServerRepository},
     shared::repository::error::RepositoryError,
     user::id::UserId,
@@ -55,6 +55,7 @@ where
 
         let channel_id = ChannelId::new(request.channel_id);
         let streamer_id = UserId::new(request.streamer_id);
+        let viewer_session_id = SessionId::new(request.viewer_session_id);
 
         let count = self
             .channel_repository
@@ -63,6 +64,7 @@ where
                 &channel_id,
                 &streamer_id,
                 &viewer_id,
+                &viewer_session_id,
                 request.watching,
                 Utc::now(),
                 request.ctx.request_id,
