@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT 1 AS one FROM channels WHERE id = $1 AND server_id = $2",
+  "query": "SELECT 1 AS one FROM channels WHERE id = $1 AND server_id = $2 FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -19,5 +19,5 @@
       null
     ]
   },
-  "hash": "138983c0f99f1105dee81c8586ad8a6c21a746bcbe6a1184938916f073c6addf"
+  "hash": "92ac5794bddd9f71310531fa9e629424306118e335e4dc10eb9f74d0b5bd1fd2"
 }

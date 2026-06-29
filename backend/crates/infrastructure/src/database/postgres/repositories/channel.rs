@@ -585,7 +585,7 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
         sqlx::query!(
-            r#"SELECT 1 AS one FROM channels WHERE id = $1 AND server_id = $2"#,
+            r#"SELECT 1 AS one FROM channels WHERE id = $1 AND server_id = $2 FOR UPDATE"#,
             channel_id.uuid(),
             server_id.uuid(),
         )
