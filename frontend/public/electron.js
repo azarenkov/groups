@@ -300,9 +300,30 @@ app.on('ready', () => {
     callback({ responseHeaders: headers });
   });
 
-  session.defaultSession.setPermissionCheckHandler(() => true);
-  session.defaultSession.setPermissionRequestHandler((_wc, _permission, cb) => {
-    cb(true);
+  const ALLOWED_PERMISSIONS = new Set(['media', 'display-capture', 'fullscreen']);
+
+  const isTrustedSource = (value) => {
+    if (!value) return false;
+    return isDev
+      ? value.startsWith('http://localhost:3000')
+      : value.startsWith('file://');
+  };
+
+  const contentsUrl = (wc) => {
+    try {
+      return wc && typeof wc.getURL === 'function' ? wc.getURL() : '';
+    } catch (_e) {
+      return '';
+    }
+  };
+
+  session.defaultSession.setPermissionCheckHandler(
+    (wc, permission, requestingOrigin) =>
+      ALLOWED_PERMISSIONS.has(permission) &&
+      (isTrustedSource(contentsUrl(wc)) || isTrustedSource(requestingOrigin)),
+  );
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+    cb(ALLOWED_PERMISSIONS.has(permission) && isTrustedSource(contentsUrl(wc)));
   });
 
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
