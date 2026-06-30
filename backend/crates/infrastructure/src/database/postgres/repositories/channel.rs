@@ -600,13 +600,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 r#"
                 INSERT INTO channel_stream_viewers
                     (channel_id, streamer_id, viewer_id, viewer_session_id, updated_at)
-                SELECT $1, $2, $3, $4, $5
-                WHERE EXISTS (
-                    SELECT 1 FROM channel_voice_participants p
-                    WHERE p.channel_id = $1
-                      AND p.user_id = $3
-                      AND p.session_id = $4
-                )
+                VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT (channel_id, streamer_id, viewer_id, viewer_session_id)
                 DO UPDATE SET updated_at = EXCLUDED.updated_at
                 "#,
@@ -1026,6 +1020,44 @@ async fn clear_stream_for_streamer(
     )))
 }
 
+async fn recompute_session_watched_streams(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    viewer_id: uuid::Uuid,
+    viewer_session_id: &str,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> Result<Vec<OutboxRecord>, RepositoryError> {
+    let watched = sqlx::query!(
+        r#"
+        SELECT DISTINCT streamer_id
+        FROM channel_stream_viewers
+        WHERE channel_id = $1 AND viewer_id = $2 AND viewer_session_id = $3
+        "#,
+        channel_id,
+        viewer_id,
+        viewer_session_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    let mut records = Vec::new();
+    for w in watched {
+        let count = count_stream_viewers(tx, channel_id, w.streamer_id).await?;
+        records.push(stream_viewers_record(
+            channel_id,
+            server_id,
+            w.streamer_id,
+            count,
+            occurred_at,
+            request_id.clone(),
+        ));
+    }
+    Ok(records)
+}
+
 async fn cleanup_session_stream_viewer(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     channel_id: uuid::Uuid,
@@ -1161,9 +1193,33 @@ where
             VoiceChange::Added { .. } => None,
         })
         .collect();
+    let added_sessions: Vec<(uuid::Uuid, String)> = voice_changes
+        .iter()
+        .filter_map(|vc| match vc {
+            VoiceChange::Added {
+                user_id,
+                session_id,
+            } => Some((user_id.uuid(), session_id.as_str().to_string())),
+            VoiceChange::Removed { .. } => None,
+        })
+        .collect();
 
     apply_voice_changes(&mut tx, channel.id(), &voice_changes).await?;
     apply_media_changes(&mut tx, channel.id(), &media_changes).await?;
+
+    for (viewer, session) in added_sessions {
+        let extra = recompute_session_watched_streams(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            viewer,
+            &session,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?;
+        events.extend(extra);
+    }
 
     for (viewer, session) in removed_sessions {
         let extra = cleanup_session_stream_viewer(
