@@ -1026,11 +1026,12 @@ async fn clear_stream_for_streamer(
     )))
 }
 
-async fn cleanup_departed_stream_viewers(
+async fn cleanup_session_stream_viewer(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     channel_id: uuid::Uuid,
     server_id: uuid::Uuid,
-    departed: uuid::Uuid,
+    viewer_id: uuid::Uuid,
+    viewer_session_id: &str,
     occurred_at: DateTime<Utc>,
     request_id: Option<String>,
 ) -> Result<Vec<OutboxRecord>, RepositoryError> {
@@ -1038,47 +1039,35 @@ async fn cleanup_departed_stream_viewers(
         r#"
         SELECT DISTINCT streamer_id
         FROM channel_stream_viewers
-        WHERE channel_id = $1 AND viewer_id = $2
+        WHERE channel_id = $1 AND viewer_id = $2 AND viewer_session_id = $3
         "#,
         channel_id,
-        departed,
+        viewer_id,
+        viewer_session_id,
     )
     .fetch_all(&mut **tx)
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
-    let was_streamer = sqlx::query!(
-        r#"
-        SELECT EXISTS(
-            SELECT 1 FROM channel_stream_viewers
-            WHERE channel_id = $1 AND streamer_id = $2
-        ) AS "exists!"
-        "#,
-        channel_id,
-        departed,
-    )
-    .fetch_one(&mut **tx)
-    .await
-    .map_err(map_sqlx_error_to_domain_error)?
-    .exists;
-
-    sqlx::query!(
+    let deleted = sqlx::query!(
         r#"
         DELETE FROM channel_stream_viewers
-        WHERE channel_id = $1 AND (viewer_id = $2 OR streamer_id = $2)
+        WHERE channel_id = $1 AND viewer_id = $2 AND viewer_session_id = $3
         "#,
         channel_id,
-        departed,
+        viewer_id,
+        viewer_session_id,
     )
     .execute(&mut **tx)
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
+    if deleted.rows_affected() == 0 {
+        return Ok(Vec::new());
+    }
+
     let mut records = Vec::new();
     for w in watched {
-        if w.streamer_id == departed {
-            continue;
-        }
         let count = count_stream_viewers(tx, channel_id, w.streamer_id).await?;
         records.push(stream_viewers_record(
             channel_id,
@@ -1087,16 +1076,6 @@ async fn cleanup_departed_stream_viewers(
             count,
             occurred_at,
             request_id.clone(),
-        ));
-    }
-    if was_streamer {
-        records.push(stream_viewers_record(
-            channel_id,
-            server_id,
-            departed,
-            0,
-            occurred_at,
-            request_id,
         ));
     }
     Ok(records)
@@ -1172,20 +1151,47 @@ where
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
+    let removed_sessions: Vec<(uuid::Uuid, String)> = voice_changes
+        .iter()
+        .filter_map(|vc| match vc {
+            VoiceChange::Removed {
+                user_id,
+                session_id,
+            } => Some((user_id.uuid(), session_id.as_str().to_string())),
+            VoiceChange::Added { .. } => None,
+        })
+        .collect();
+
     apply_voice_changes(&mut tx, channel.id(), &voice_changes).await?;
     apply_media_changes(&mut tx, channel.id(), &media_changes).await?;
 
-    for user in departed {
-        let extra = cleanup_departed_stream_viewers(
+    for (viewer, session) in removed_sessions {
+        let extra = cleanup_session_stream_viewer(
             &mut tx,
             channel_uuid,
             server_id,
-            user,
+            viewer,
+            &session,
             Utc::now(),
             request_id.clone(),
         )
         .await?;
         events.extend(extra);
+    }
+
+    for streamer in departed {
+        if let Some(record) = clear_stream_for_streamer(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            streamer,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?
+        {
+            events.push(record);
+        }
     }
 
     for streamer in screen_stopped {
