@@ -73,6 +73,11 @@ class CallAPI {
     return response.data.data;
   }
 
+  async getActive(): Promise<({ callId: string } & CallToken) | null> {
+    const response = await this.client.get("/v1/calls/active");
+    return response.data.data ?? null;
+  }
+
   async decline(callId: string): Promise<void> {
     await this.client.post(`/v1/calls/${callId}/decline`, {});
   }

@@ -298,4 +298,7 @@ export function installWsBootstrap() {
   if (installed) return;
   installed = true;
   ws.on(dispatch);
+  ws.onOpen(() => {
+    void useCallStore.getState().rehydrate();
+  });
 }

@@ -29,6 +29,7 @@ interface CallState {
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
 
+  rehydrate: () => Promise<void>;
   start: (recipientIds: string[]) => Promise<void>;
   accept: () => Promise<void>;
   decline: () => Promise<void>;
@@ -65,6 +66,30 @@ export const useCallStore = create<CallState>()((set, get) => ({
       delete next[userId];
       return { participants: next };
     }),
+
+  rehydrate: async () => {
+    if (get().connecting) return;
+    const active = await callAPI.getActive().catch(() => null);
+    if (!active) {
+      const service = getLiveKitService();
+      if (
+        get().activeCallId &&
+        !service.isConnected() &&
+        !service.isConnectingNow()
+      ) {
+        set({ activeCallId: null, participants: {} });
+      }
+      return;
+    }
+    const participants = Object.fromEntries(
+      active.participants.map((p) => [p.userId, p.userName]),
+    );
+    const service = getLiveKitService();
+    if (!service.isConnected() && !service.isConnectingNow()) {
+      await connectToRoom(active.token, active.url).catch(() => {});
+    }
+    set({ activeCallId: active.callId, participants });
+  },
 
   start: async (recipientIds) => {
     set({ connecting: true });
