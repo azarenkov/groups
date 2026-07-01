@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                v.channel_id,\n                v.streamer_id,\n                count(DISTINCT v.viewer_id) AS \"count!\"\n            FROM channel_stream_viewers v\n            INNER JOIN channels c ON c.id = v.channel_id\n            WHERE c.server_id = $1\n              AND v.viewer_id <> v.streamer_id\n              AND EXISTS (\n                SELECT 1 FROM channel_voice_participants p\n                WHERE p.channel_id = v.channel_id\n                  AND p.user_id = v.viewer_id\n                  AND p.session_id = v.viewer_session_id\n              )\n              AND EXISTS (\n                SELECT 1 FROM channel_voice_participants s\n                WHERE s.channel_id = v.channel_id\n                  AND s.user_id = v.streamer_id\n                  AND s.screen_on = true\n              )\n            GROUP BY v.channel_id, v.streamer_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "streamer_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "e12aa269c81e8a29b3095144ad16a1f9cf1896ab56273512ca72d83b135eb9d2"
+}

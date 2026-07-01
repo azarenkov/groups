@@ -662,6 +662,7 @@ impl ChannelRepository for PostgresChannelRepository {
             FROM channel_stream_viewers v
             INNER JOIN channels c ON c.id = v.channel_id
             WHERE c.server_id = $1
+              AND v.viewer_id <> v.streamer_id
               AND EXISTS (
                 SELECT 1 FROM channel_voice_participants p
                 WHERE p.channel_id = v.channel_id
@@ -937,6 +938,7 @@ pub(crate) async fn count_stream_viewers(
         FROM channel_stream_viewers v
         WHERE v.channel_id = $1
           AND v.streamer_id = $2
+          AND v.viewer_id <> v.streamer_id
           AND EXISTS (
             SELECT 1 FROM channel_voice_participants p
             WHERE p.channel_id = v.channel_id
