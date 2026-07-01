@@ -62,7 +62,7 @@ export const VideoTileCell: React.FC<{
         autoPlay
         playsInline
         muted={tile.isLocal}
-        className={tile.source === "camera" ? "mirror" : ""}
+        className={tile.isLocal && tile.source === "camera" ? "mirror" : ""}
       />
       <button
         type="button"
