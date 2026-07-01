@@ -2814,6 +2814,38 @@ textarea.s-input {
 }
 .voice-tile.video:hover .voice-tile-fs { opacity: 1; }
 .voice-tile-fs:hover { background: rgba(0, 0, 0, 0.8); }
+.voice-tile-vol {
+  position: absolute;
+  right: 8px; bottom: 8px;
+  z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+}
+.voice-tile-vol-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.voice-tile-vol-btn:hover,
+.voice-tile-vol-btn.on { background: rgba(0, 0, 0, 0.8); }
+.voice-tile-vol-pop {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.8);
+}
+.voice-tile-vol-pop input[type="range"] {
+  width: 110px;
+  accent-color: var(--accent, #5865f2);
+}
+.voice-tile-vol-pct {
+  font-size: 11px; font-weight: 600; color: #fff;
+  min-width: 34px; text-align: right;
+}
 .ssp-overlay {
   position: fixed; inset: 0; z-index: 1000;
   display: flex; align-items: center; justify-content: center;
