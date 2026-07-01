@@ -261,7 +261,21 @@ where
             .await;
 
         if let Err(e) = result {
-            if is_track_stale(&e) {
+            let is_pre_join_race = matches!(
+                &e,
+                TrackMediaConnectionError::Domain(
+                    domain::channel::ChannelError::ParticipantNotJoined,
+                )
+            );
+
+            let give_up = if is_pre_join_race {
+                Utc::now().signed_duration_since(occurred_at)
+                    >= chrono::Duration::seconds(TRACK_JOIN_GRACE_SECS)
+            } else {
+                is_track_stale(&e)
+            };
+
+            if give_up {
                 tracing::info!(
                     channel_id = %channel_id,
                     user_id = %user_id,
@@ -278,15 +292,14 @@ where
     }
 }
 
+const TRACK_JOIN_GRACE_SECS: i64 = 10;
+
 fn is_track_stale(e: &TrackMediaConnectionError) -> bool {
-    match e {
-        TrackMediaConnectionError::Repository(RepositoryError::NotFound) => true,
-        TrackMediaConnectionError::Domain(
-            domain::channel::ChannelError::ParticipantNotJoined,
-        ) => false,
-        TrackMediaConnectionError::Domain(_) => true,
-        _ => false,
-    }
+    matches!(
+        e,
+        TrackMediaConnectionError::Repository(RepositoryError::NotFound)
+            | TrackMediaConnectionError::Domain(_)
+    )
 }
 
 fn is_join_stale(e: &JoinVoiceConnectionError) -> bool {
