@@ -132,6 +132,31 @@ select:focus-visible {
 .titlebar .spacer { flex: 1; }
 .titlebar .icon-btn,
 .titlebar button { -webkit-app-region: no-drag; }
+.titlebar-right {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+}
+.titlebar-btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border: none; border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.titlebar-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
+.titlebar-badge {
+  position: absolute; top: -2px; right: -2px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: var(--danger, #e5484d);
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  box-sizing: border-box;
+}
 .titlebar .win-title {
   position: absolute; left: 50%; top: 0;
   transform: translateX(-50%);

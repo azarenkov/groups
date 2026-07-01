@@ -14,7 +14,6 @@ interface SidebarProps {
   joinedChannelId: string | null;
   selectedDmId: string | null;
   directs: MockDirect[];
-  pendingCount?: number;
   onToggleServer: (serverId: string) => void;
   onSelectServer: (serverId: string) => void;
   onSelectChannel: (server: Server, channel: Channel) => void;
@@ -23,7 +22,6 @@ interface SidebarProps {
   onAddChannel: (server: Server) => void;
   onInviteServer: (server: Server) => void;
   onAddDm: () => void;
-  onOpenPendingRequests?: () => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
@@ -67,7 +65,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   joinedChannelId,
   selectedDmId,
   directs,
-  pendingCount = 0,
   onToggleServer,
   onSelectServer,
   onSelectChannel,
@@ -76,7 +73,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddChannel,
   onInviteServer,
   onAddDm,
-  onOpenPendingRequests,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
@@ -223,23 +219,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <span>{t("directMessages")}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {onOpenPendingRequests && (
-              <button
-                type="button"
-                tabIndex={-1}
-                className="sb-section-add sb-pending-toggle"
-                title={t("pendingRequests")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPendingRequests();
-                }}
-              >
-                <Icon name="bell" size={14} />
-                {pendingCount > 0 && (
-                  <span className="sb-pending-badge">{pendingCount}</span>
-                )}
-              </button>
-            )}
             <button
               type="button"
               tabIndex={-1}

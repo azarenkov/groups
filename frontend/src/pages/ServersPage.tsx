@@ -62,6 +62,7 @@ interface ChannelOverride {
 const ServersPage: React.FC = () => {
   const { t: tModals } = useTranslation("modals");
   const { t: tVoice } = useTranslation("voice");
+  const { t: tSidebar } = useTranslation("sidebar");
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
   const videoTiles = useVideoTiles();
@@ -772,7 +773,19 @@ const ServersPage: React.FC = () => {
           <i />
         </div>
         <div className="win-title">{winTitle}</div>
-        <div className="spacer" />
+        <div className="titlebar-right">
+          <button
+            type="button"
+            className="titlebar-btn"
+            title={tSidebar("pendingRequests")}
+            onClick={() => setIsPendingOpen(true)}
+          >
+            <Icon name="mail" size={16} />
+            {pendingCount > 0 && (
+              <span className="titlebar-badge">{pendingCount}</span>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="body-area">
@@ -803,7 +816,6 @@ const ServersPage: React.FC = () => {
           voiceMembersByChannel={voiceMembersByChannel}
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
-          pendingCount={pendingCount}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}
@@ -815,7 +827,6 @@ const ServersPage: React.FC = () => {
           }}
           onInviteServer={(server) => setInviteModalServer(server)}
           onAddDm={() => setIsAddFriendOpen(true)}
-          onOpenPendingRequests={() => setIsPendingOpen(true)}
           onDeleteServer={(server) => {
             const isOwner = server.ownerId === user?.id;
             setDeleteConfirm({
