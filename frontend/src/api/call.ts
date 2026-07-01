@@ -5,9 +5,15 @@ import { toApiError } from "../utils/apiError";
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
+export interface CallParticipant {
+  userId: string;
+  userName: string;
+}
+
 export interface CallToken {
   token: string;
   url: string;
+  participants: CallParticipant[];
 }
 
 class CallAPI {

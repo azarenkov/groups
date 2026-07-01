@@ -55,9 +55,9 @@ export type WsEventType =
   | "user.online"
   | "user.offline"
   | "call.incoming"
-  | "call.accepted"
   | "call.declined"
-  | "call.left";
+  | "call.participant.joined"
+  | "call.participant.left";
 
 export interface WsEnvelope<T = unknown> {
   type: WsEventType;

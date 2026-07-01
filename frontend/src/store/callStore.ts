@@ -21,10 +21,13 @@ interface CallState {
   activeCallId: string | null;
   connecting: boolean;
   ringtoneMuted: boolean;
+  participants: Record<string, string>;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
   muteRingtone: () => void;
+  participantJoined: (callId: string, userId: string, userName: string) => void;
+  participantLeft: (callId: string, userId: string) => void;
 
   start: (recipientIds: string[]) => Promise<void>;
   accept: () => Promise<void>;
@@ -38,6 +41,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   activeCallId: null,
   connecting: false,
   ringtoneMuted: false,
+  participants: {},
 
   setIncoming: (call) =>
     set((s) =>
@@ -48,12 +52,33 @@ export const useCallStore = create<CallState>()((set, get) => ({
   clearIncoming: () => set({ incoming: null }),
   muteRingtone: () => set({ ringtoneMuted: true }),
 
+  participantJoined: (callId, userId, userName) =>
+    set((s) =>
+      s.activeCallId === callId
+        ? { participants: { ...s.participants, [userId]: userName } }
+        : s,
+    ),
+  participantLeft: (callId, userId) =>
+    set((s) => {
+      if (s.activeCallId !== callId) return s;
+      const next = { ...s.participants };
+      delete next[userId];
+      return { participants: next };
+    }),
+
   start: async (recipientIds) => {
     set({ connecting: true });
     try {
-      const { callId, token, url } = await callAPI.start(recipientIds);
+      const { callId, token, url, participants } =
+        await callAPI.start(recipientIds);
       await connectToRoom(token, url);
-      set({ activeCallId: callId, connecting: false });
+      set({
+        activeCallId: callId,
+        connecting: false,
+        participants: Object.fromEntries(
+          participants.map((p) => [p.userId, p.userName]),
+        ),
+      });
     } catch (e) {
       set({ connecting: false });
       throw e;
@@ -65,9 +90,15 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (!inc) return;
     set({ connecting: true, incoming: null });
     try {
-      const { token, url } = await callAPI.accept(inc.callId);
+      const { token, url, participants } = await callAPI.accept(inc.callId);
       await connectToRoom(token, url);
-      set({ activeCallId: inc.callId, connecting: false });
+      set({
+        activeCallId: inc.callId,
+        connecting: false,
+        participants: Object.fromEntries(
+          participants.map((p) => [p.userId, p.userName]),
+        ),
+      });
     } catch (e) {
       set({ connecting: false });
       throw e;
@@ -84,7 +115,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async () => {
     const callId = get().activeCallId;
-    set({ activeCallId: null });
+    set({ activeCallId: null, participants: {} });
     await getLiveKitService()
       .disconnect()
       .catch(() => {});

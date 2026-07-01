@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useCallStore } from "../../store/callStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
-import { useParticipants } from "../../hooks/useParticipants";
 import { getLiveKitService } from "../../services/livekit";
 import { colorForId, initialFor } from "../../utils/avatar";
 
@@ -11,15 +10,15 @@ const ActiveCallBar: React.FC = () => {
   const activeCallId = useCallStore((s) => s.activeCallId);
   const leave = useCallStore((s) => s.leave);
   const addParticipants = useCallStore((s) => s.addParticipants);
+  const participants = useCallStore((s) => s.participants);
   const friends = useFriendshipStore((s) => s.friends);
-  const participants = useParticipants();
   const [muted, setMuted] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { t } = useTranslation("call");
 
   const inCallIds = useMemo(
-    () => new Set(participants.map((p) => p.identity)),
+    () => new Set(Object.keys(participants)),
     [participants],
   );
   const invitable = useMemo(
@@ -62,7 +61,7 @@ const ActiveCallBar: React.FC = () => {
       <div className="acb-info">
         <span className="acb-dot" />
         <span className="acb-label">{t("inCall")}</span>
-        <span className="acb-count">{participants.length + 1}</span>
+        <span className="acb-count">{Math.max(inCallIds.size, 1)}</span>
       </div>
       <div className="acb-actions">
         <button
