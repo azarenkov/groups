@@ -2,6 +2,14 @@ import { create } from "zustand";
 import { callAPI } from "../api/call";
 import { getLiveKitService } from "../services/livekit";
 
+async function connectToRoom(token: string, url: string): Promise<void> {
+  const service = getLiveKitService();
+  if (service.isConnected() || service.isConnectingNow()) {
+    await service.disconnect().catch(() => {});
+  }
+  await service.connect(token, url);
+}
+
 export interface IncomingCall {
   callId: string;
   callerId: string;
@@ -44,7 +52,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     set({ connecting: true });
     try {
       const { callId, token, url } = await callAPI.start(recipientIds);
-      await getLiveKitService().connect(token, url);
+      await connectToRoom(token, url);
       set({ activeCallId: callId, connecting: false });
     } catch (e) {
       set({ connecting: false });
@@ -58,7 +66,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     set({ connecting: true, incoming: null });
     try {
       const { token, url } = await callAPI.accept(inc.callId);
-      await getLiveKitService().connect(token, url);
+      await connectToRoom(token, url);
       set({ activeCallId: inc.callId, connecting: false });
     } catch (e) {
       set({ connecting: false });
