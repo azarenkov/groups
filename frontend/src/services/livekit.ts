@@ -729,6 +729,7 @@ export class LiveKitService {
         {
           resolution: { width: 3840, height: 2160, frameRate: 30 },
           contentHint: "detail",
+          audio: true,
         },
         {
           simulcast: false,

@@ -335,7 +335,15 @@ app.on('ready', () => {
     pendingScreenShare.delete(requestId);
     clearTimeout(entry.timer);
     const chosen = entry.sources.find((s) => s.id === sourceId);
-    entry.callback(chosen ? { video: chosen } : {});
+    if (!chosen) {
+      entry.callback({});
+      return;
+    }
+    const stream = { video: chosen };
+    if (process.platform === 'win32') {
+      stream.audio = 'loopback';
+    }
+    entry.callback(stream);
   });
 
   session.defaultSession.setDisplayMediaRequestHandler(
