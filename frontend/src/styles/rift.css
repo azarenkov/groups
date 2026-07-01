@@ -136,6 +136,24 @@ select:focus-visible {
   margin-left: auto;
   display: flex; align-items: center; gap: 8px;
 }
+.titlebar-add {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--dur-fast), color var(--dur-fast),
+    background var(--dur-fast);
+}
+.titlebar-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-tint);
+}
 .titlebar-btn {
   position: relative;
   display: inline-flex; align-items: center; justify-content: center;

@@ -776,6 +776,15 @@ const ServersPage: React.FC = () => {
         <div className="titlebar-right">
           <button
             type="button"
+            className="titlebar-add"
+            title={tSidebar("addFriend")}
+            onClick={() => setIsAddFriendOpen(true)}
+          >
+            <Icon name="user-plus" size={14} />
+            <span>{tSidebar("addFriend")}</span>
+          </button>
+          <button
+            type="button"
             className="titlebar-btn"
             title={tSidebar("pendingRequests")}
             onClick={() => setIsPendingOpen(true)}
@@ -826,7 +835,6 @@ const ServersPage: React.FC = () => {
             setIsChannelModalOpen(true);
           }}
           onInviteServer={(server) => setInviteModalServer(server)}
-          onAddDm={() => setIsAddFriendOpen(true)}
           onDeleteServer={(server) => {
             const isOwner = server.ownerId === user?.id;
             setDeleteConfirm({

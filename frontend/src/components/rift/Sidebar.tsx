@@ -21,7 +21,6 @@ interface SidebarProps {
   onAddServer: () => void;
   onAddChannel: (server: Server) => void;
   onInviteServer: (server: Server) => void;
-  onAddDm: () => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
@@ -72,7 +71,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddServer,
   onAddChannel,
   onInviteServer,
-  onAddDm,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
@@ -219,18 +217,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <span>{t("directMessages")}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <button
-              type="button"
-              tabIndex={-1}
-              className="sb-section-add"
-              title={t("addDm")}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddDm();
-              }}
-            >
-              <Icon name="plus" size={14} />
-            </button>
             <Icon name="chev" size={12} className="chev" />
           </span>
         </div>
