@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    call::repository::CallRepository,
+    call::repository::{CallParticipantView, CallRepository},
     channel::{id::ChannelId, token::ChannelToken},
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     server::id::ServerId,
@@ -34,6 +34,7 @@ pub struct StartCallResult {
     pub call_id: Uuid,
     pub token: ChannelToken,
     pub url: String,
+    pub participants: Vec<CallParticipantView>,
 }
 
 pub struct StartCall<C, V, F, U>
@@ -125,10 +126,13 @@ where
             .create_token(&caller_id, caller.name(), &room)
             .await?;
 
+        let participants = self.call_repository.list_active(call_id).await?;
+
         Ok(StartCallResult {
             call_id,
             token,
             url: self.voice_service.client_url(),
+            participants,
         })
     }
 }

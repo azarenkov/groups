@@ -214,6 +214,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         abort_voice_connection_usecase,
         leave_voice_connection_usecase,
         track_media_connection_usecase,
+        call_repository.clone(),
     );
 
     let create_server_usecase = CreateServer::new(server_repository.clone());

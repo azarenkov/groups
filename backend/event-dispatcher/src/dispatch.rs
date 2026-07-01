@@ -401,11 +401,11 @@ pub async fn dispatch(
         return Ok(());
     }
 
-    if ends_with(subject, ".call.accepted") {
+    if ends_with(subject, ".call.participant.joined") {
         let evt: CallEventDto = serde_json::from_slice(payload)?;
         let name = resolver.user_name(evt.actor_id).await?;
         let envelope = Envelope::new(
-            "call.accepted",
+            "call.participant.joined",
             json!({
                 "callId": evt.call_id,
                 "userId": evt.actor_id,
@@ -433,10 +433,10 @@ pub async fn dispatch(
         return Ok(());
     }
 
-    if ends_with(subject, ".call.left") {
+    if ends_with(subject, ".call.participant.left") {
         let evt: CallEventDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
-            "call.left",
+            "call.participant.left",
             json!({
                 "callId": evt.call_id,
                 "userId": evt.actor_id,

@@ -46,4 +46,31 @@ pub trait CallRepository {
         call_id: Uuid,
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
+
+    async fn list_active(
+        &self,
+        call_id: Uuid,
+    ) -> Result<Vec<CallParticipantView>, RepositoryError>;
+
+    async fn webhook_joined(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<bool, RepositoryError>;
+
+    async fn webhook_left(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<bool, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct CallParticipantView {
+    pub user_id: UserId,
+    pub user_name: String,
 }

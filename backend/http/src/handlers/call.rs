@@ -25,10 +25,18 @@ struct AddParticipantsBody {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct CallParticipantDto {
+    user_id: Uuid,
+    user_name: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct StartCallResponse {
     call_id: Uuid,
     token: String,
     url: String,
+    participants: Vec<CallParticipantDto>,
 }
 
 #[derive(Debug, Serialize)]
@@ -36,6 +44,7 @@ struct StartCallResponse {
 struct CallTokenResponse {
     token: String,
     url: String,
+    participants: Vec<CallParticipantDto>,
 }
 
 #[post("")]
@@ -62,6 +71,14 @@ async fn start_call(
         call_id: result.call_id,
         token: result.token.as_str().to_string(),
         url: result.url,
+        participants: result
+            .participants
+            .into_iter()
+            .map(|p| CallParticipantDto {
+                user_id: p.user_id.uuid(),
+                user_name: p.user_name,
+            })
+            .collect(),
     })))
 }
 
@@ -82,6 +99,14 @@ async fn accept_call(
     Ok(HttpResponse::Ok().json(ApiResponse::success(CallTokenResponse {
         token: result.token.as_str().to_string(),
         url: result.url,
+        participants: result
+            .participants
+            .into_iter()
+            .map(|p| CallParticipantDto {
+                user_id: p.user_id.uuid(),
+                user_name: p.user_name,
+            })
+            .collect(),
     })))
 }
 

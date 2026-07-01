@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    call::repository::CallRepository,
+    call::repository::{CallParticipantView, CallRepository},
     channel::{id::ChannelId, token::ChannelToken},
     shared::repository::error::RepositoryError,
     user::{id::UserId, repository::UserRepository},
@@ -26,6 +26,7 @@ pub enum AcceptCallError {
 pub struct AcceptCallResult {
     pub token: ChannelToken,
     pub url: String,
+    pub participants: Vec<CallParticipantView>,
 }
 
 pub struct AcceptCall<C, V, U>
@@ -87,9 +88,12 @@ where
             .create_token(&user_id, user.name(), &room)
             .await?;
 
+        let participants = self.call_repository.list_active(call_id).await?;
+
         Ok(AcceptCallResult {
             token,
             url: self.voice_service.client_url(),
+            participants,
         })
     }
 }

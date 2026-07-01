@@ -143,7 +143,7 @@ pub struct AppState {
     pub logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
 
     pub handle_livekit_webhook_usecase:
-        HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository>,
+        HandleVoiceWebhook<LiveKitWebhookReceiver, PostgresChannelRepository, PostgresCallRepository>,
 
     pub send_friend_request_usecase:
         SendFriendRequest<PostgresFriendshipRepository, PostgresUserRepository>,
@@ -295,6 +295,7 @@ impl AppState {
         handle_livekit_webhook_usecase: HandleVoiceWebhook<
             LiveKitWebhookReceiver,
             PostgresChannelRepository,
+            PostgresCallRepository,
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,

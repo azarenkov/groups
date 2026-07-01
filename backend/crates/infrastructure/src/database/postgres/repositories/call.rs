@@ -165,10 +165,14 @@ impl CallRepository for PostgresCallRepository {
             return Ok(false);
         }
 
-        let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
-        let event_type = if accept { "call.accepted" } else { "call.declined" };
-        let record = call_event(call_id, event_type, user_id.uuid(), &recipients, request_id, now);
-        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+        // On accept, presence is broadcast by the LiveKit participant_joined
+        // webhook; only decline needs an immediate signaling event.
+        if !accept {
+            let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
+            let record =
+                call_event(call_id, "call.declined", user_id.uuid(), &recipients, request_id, now);
+            save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+        }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
@@ -252,7 +256,14 @@ impl CallRepository for PostgresCallRepository {
         }
 
         let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
-        let record = call_event(call_id, "call.left", user_id.uuid(), &recipients, request_id, now);
+        let record = call_event(
+            call_id,
+            "call.participant.left",
+            user_id.uuid(),
+            &recipients,
+            request_id,
+            now,
+        );
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
@@ -278,5 +289,122 @@ impl CallRepository for PostgresCallRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.exists)
+    }
+
+    async fn list_active(
+        &self,
+        call_id: Uuid,
+    ) -> Result<Vec<domain::call::repository::CallParticipantView>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT p.user_id, u.name AS user_name
+            FROM call_participants p
+            INNER JOIN users u ON u.id = p.user_id
+            WHERE p.call_id = $1 AND p.status = 'joined'
+            "#,
+            call_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| domain::call::repository::CallParticipantView {
+                user_id: UserId::new(r.user_id),
+                user_name: r.user_name,
+            })
+            .collect())
+    }
+
+    async fn webhook_joined(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let updated = sqlx::query!(
+            r#"
+            UPDATE call_participants
+            SET status = 'joined', updated_at = $3
+            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined', 'left')
+            "#,
+            call_id,
+            user_id.uuid(),
+            now,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if updated.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
+        let record = call_event(
+            call_id,
+            "call.participant.joined",
+            user_id.uuid(),
+            &recipients,
+            request_id,
+            now,
+        );
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
+    }
+
+    async fn webhook_left(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let updated = sqlx::query!(
+            r#"
+            UPDATE call_participants
+            SET status = 'left', updated_at = $3
+            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined')
+            "#,
+            call_id,
+            user_id.uuid(),
+            now,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if updated.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
+        let record = call_event(
+            call_id,
+            "call.participant.left",
+            user_id.uuid(),
+            &recipients,
+            request_id,
+            now,
+        );
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
     }
 }
