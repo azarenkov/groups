@@ -1,0 +1,282 @@
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use domain::{
+    call::{repository::CallRepository, CallParticipantStatus},
+    shared::{
+        outbox::outbox_record::{AggregateType, OutboxRecord},
+        repository::error::RepositoryError,
+    },
+    user::id::UserId,
+};
+use sqlx::{Pool, Postgres};
+use uuid::Uuid;
+
+use crate::database::postgres::{
+    error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
+};
+
+pub struct PostgresCallRepository {
+    pool: Pool<Postgres>,
+}
+
+impl PostgresCallRepository {
+    pub fn new(pool: Pool<Postgres>) -> Self {
+        Self { pool }
+    }
+}
+
+fn call_event(
+    call_id: Uuid,
+    event_type: &str,
+    actor_id: Uuid,
+    recipients: &[Uuid],
+    request_id: Option<String>,
+    occurred_at: DateTime<Utc>,
+) -> OutboxRecord {
+    OutboxRecord {
+        id: Uuid::new_v4(),
+        aggregate_id: call_id,
+        aggregate_type: AggregateType::User,
+        parent_id: None,
+        parent_type: None,
+        event_type: event_type.to_string(),
+        payload: serde_json::json!({
+            "call_id": call_id,
+            "actor_id": actor_id,
+            "recipients": recipients,
+        }),
+        occurred_at,
+        request_id,
+    }
+}
+
+async fn active_others(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    exclude: Uuid,
+) -> Result<Vec<Uuid>, RepositoryError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT user_id
+        FROM call_participants
+        WHERE call_id = $1
+          AND user_id <> $2
+          AND status IN ('invited', 'joined')
+        "#,
+        call_id,
+        exclude,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(rows.into_iter().map(|r| r.user_id).collect())
+}
+
+#[async_trait]
+impl CallRepository for PostgresCallRepository {
+    async fn start_call(
+        &self,
+        call_id: Uuid,
+        caller: &UserId,
+        invitees: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
+            VALUES ($1, $2, $2, 'joined', $3, $3)
+            ON CONFLICT (call_id, user_id) DO NOTHING
+            "#,
+            call_id,
+            caller.uuid(),
+            now,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let invitee_ids: Vec<Uuid> = invitees.iter().map(|u| u.uuid()).collect();
+        for invitee in &invitee_ids {
+            sqlx::query!(
+                r#"
+                INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
+                VALUES ($1, $2, $3, 'invited', $4, $4)
+                ON CONFLICT (call_id, user_id) DO NOTHING
+                "#,
+                call_id,
+                invitee,
+                caller.uuid(),
+                now,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+
+        let record = call_event(call_id, "call.ring", caller.uuid(), &invitee_ids, request_id, now);
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn respond(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        accept: bool,
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let status = if accept {
+            CallParticipantStatus::Joined
+        } else {
+            CallParticipantStatus::Declined
+        };
+        let updated = sqlx::query!(
+            r#"
+            UPDATE call_participants
+            SET status = $4, updated_at = $3
+            WHERE call_id = $1 AND user_id = $2 AND status = 'invited'
+            "#,
+            call_id,
+            user_id.uuid(),
+            now,
+            status.as_str(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if updated.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
+        let event_type = if accept { "call.accepted" } else { "call.declined" };
+        let record = call_event(call_id, event_type, user_id.uuid(), &recipients, request_id, now);
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
+    }
+
+    async fn add_participants(
+        &self,
+        call_id: Uuid,
+        inviter: &UserId,
+        invitees: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let mut ringed: Vec<Uuid> = Vec::new();
+        for invitee in invitees {
+            let inserted = sqlx::query!(
+                r#"
+                INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
+                VALUES ($1, $2, $3, 'invited', $4, $4)
+                ON CONFLICT (call_id, user_id) DO UPDATE
+                    SET status = 'invited', inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at
+                    WHERE call_participants.status IN ('declined', 'left')
+                "#,
+                call_id,
+                invitee.uuid(),
+                inviter.uuid(),
+                now,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if inserted.rows_affected() > 0 {
+                ringed.push(invitee.uuid());
+            }
+        }
+
+        if !ringed.is_empty() {
+            let record = call_event(call_id, "call.ring", inviter.uuid(), &ringed, request_id, now);
+            save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+        }
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn leave(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let updated = sqlx::query!(
+            r#"
+            UPDATE call_participants
+            SET status = 'left', updated_at = $3
+            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined')
+            "#,
+            call_id,
+            user_id.uuid(),
+            now,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if updated.rows_affected() == 0 {
+            return Ok(());
+        }
+
+        let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
+        let record = call_event(call_id, "call.left", user_id.uuid(), &recipients, request_id, now);
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn is_active_participant(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM call_participants
+                WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined')
+            ) AS "exists!"
+            "#,
+            call_id,
+            user_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.exists)
+    }
+}

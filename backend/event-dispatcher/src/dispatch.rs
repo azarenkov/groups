@@ -384,6 +384,70 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".call.ring") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let caller_name = resolver.user_name(evt.actor_id).await?;
+        let envelope = Envelope::new(
+            "call.incoming",
+            json!({
+                "callId": evt.call_id,
+                "callerId": evt.actor_id,
+                "callerName": caller_name,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.accepted") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let name = resolver.user_name(evt.actor_id).await?;
+        let envelope = Envelope::new(
+            "call.accepted",
+            json!({
+                "callId": evt.call_id,
+                "userId": evt.actor_id,
+                "userName": name,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.declined") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "call.declined",
+            json!({
+                "callId": evt.call_id,
+                "userId": evt.actor_id,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.left") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "call.left",
+            json!({
+                "callId": evt.call_id,
+                "userId": evt.actor_id,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".user.request_sent") {
         let evt: FriendRequestSentDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
@@ -649,6 +713,13 @@ struct ServerDeletedDto {
     #[serde(default)]
     member_ids: Option<Vec<Uuid>>,
     occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct CallEventDto {
+    call_id: Uuid,
+    actor_id: Uuid,
+    recipients: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]

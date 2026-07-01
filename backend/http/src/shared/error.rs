@@ -9,6 +9,10 @@ use application::ports::{
     voice_webhook_verifier::VoiceWebhookVerifierError,
 };
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
+use application::usecases::call::{
+    accept_call::AcceptCallError, add_participants::AddCallParticipantsError,
+    decline_call::DeclineCallError, leave_call::LeaveCallError, start_call::StartCallError,
+};
 use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
 use application::usecases::channel::search_channel_messages::SearchChannelMessagesError;
 use application::usecases::friendship::{
@@ -1037,6 +1041,130 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::Hash(e) => e.to_error_code(),
             JoinVoiceChannelError::Domain(e) => e.to_error_code(),
             JoinVoiceChannelError::Outbox(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for StartCallError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            StartCallError::Repository(e) => e.to_http_status(),
+            StartCallError::Voice(e) => e.to_http_status(),
+            StartCallError::NoRecipients => StatusCode::BAD_REQUEST,
+            StartCallError::NotFriends => StatusCode::FORBIDDEN,
+            StartCallError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            StartCallError::Repository(e) => e.to_user_message(),
+            StartCallError::Voice(e) => e.to_user_message(),
+            StartCallError::NoRecipients => "No recipients specified".to_string(),
+            StartCallError::NotFriends => "You can only call your friends".to_string(),
+            StartCallError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            StartCallError::Repository(e) => e.to_error_code(),
+            StartCallError::Voice(e) => e.to_error_code(),
+            StartCallError::NoRecipients => "CALL_NO_RECIPIENTS",
+            StartCallError::NotFriends => "CALL_NOT_FRIENDS",
+            StartCallError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for AcceptCallError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            AcceptCallError::Repository(e) => e.to_http_status(),
+            AcceptCallError::Voice(e) => e.to_http_status(),
+            AcceptCallError::NotParticipant => StatusCode::FORBIDDEN,
+            AcceptCallError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            AcceptCallError::Repository(e) => e.to_user_message(),
+            AcceptCallError::Voice(e) => e.to_user_message(),
+            AcceptCallError::NotParticipant => "You are not invited to this call".to_string(),
+            AcceptCallError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            AcceptCallError::Repository(e) => e.to_error_code(),
+            AcceptCallError::Voice(e) => e.to_error_code(),
+            AcceptCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
+            AcceptCallError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for DeclineCallError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeclineCallError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DeclineCallError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeclineCallError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for LeaveCallError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            LeaveCallError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            LeaveCallError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            LeaveCallError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for AddCallParticipantsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            AddCallParticipantsError::Repository(e) => e.to_http_status(),
+            AddCallParticipantsError::NotParticipant => StatusCode::FORBIDDEN,
+            AddCallParticipantsError::NotFriends => StatusCode::FORBIDDEN,
+            AddCallParticipantsError::NoRecipients => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            AddCallParticipantsError::Repository(e) => e.to_user_message(),
+            AddCallParticipantsError::NotParticipant => {
+                "You are not part of this call".to_string()
+            }
+            AddCallParticipantsError::NotFriends => {
+                "You can only invite your friends".to_string()
+            }
+            AddCallParticipantsError::NoRecipients => "No recipients specified".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            AddCallParticipantsError::Repository(e) => e.to_error_code(),
+            AddCallParticipantsError::NotParticipant => "CALL_NOT_PARTICIPANT",
+            AddCallParticipantsError::NotFriends => "CALL_NOT_FRIENDS",
+            AddCallParticipantsError::NoRecipients => "CALL_NO_RECIPIENTS",
         }
     }
 }
@@ -2112,6 +2240,11 @@ impl_from_for_api_error!(
     DeleteServerError,
     PaginationError,
     JoinVoiceChannelError,
+    StartCallError,
+    AcceptCallError,
+    DeclineCallError,
+    LeaveCallError,
+    AddCallParticipantsError,
     ListServersByUserError,
     ListServerMembersError,
     ListServerChannelsError,

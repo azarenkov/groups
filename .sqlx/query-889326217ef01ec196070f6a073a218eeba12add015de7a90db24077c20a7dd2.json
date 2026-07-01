@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)\n                VALUES ($1, $2, $3, 'invited', $4, $4)\n                ON CONFLICT (call_id, user_id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "889326217ef01ec196070f6a073a218eeba12add015de7a90db24077c20a7dd2"
+}

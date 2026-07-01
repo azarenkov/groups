@@ -24,6 +24,10 @@ use application::usecases::{
     user::{
         get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
     },
+    call::{
+        accept_call::AcceptCall, add_participants::AddCallParticipants,
+        decline_call::DeclineCall, leave_call::LeaveCall, start_call::StartCall,
+    },
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
         delete_channel::DeleteChannel, delete_channel_message::DeleteChannelMessage,
@@ -53,7 +57,7 @@ use infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            channel::PostgresChannelRepository,
+            call::PostgresCallRepository, channel::PostgresChannelRepository,
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository,
             message::PostgresMessageRepository,
@@ -94,6 +98,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
+    let call_repository = Arc::new(PostgresCallRepository::new(postgres_pool.clone()));
     let message_repository = Arc::new(PostgresMessageRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
     let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
@@ -232,6 +237,21 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
+    let start_call_usecase = StartCall::new(
+        call_repository.clone(),
+        livekit_service.clone(),
+        friendship_repository.clone(),
+        user_repository.clone(),
+    );
+    let accept_call_usecase = AcceptCall::new(
+        call_repository.clone(),
+        livekit_service.clone(),
+        user_repository.clone(),
+    );
+    let decline_call_usecase = DeclineCall::new(call_repository.clone());
+    let leave_call_usecase = LeaveCall::new(call_repository.clone());
+    let add_call_participants_usecase =
+        AddCallParticipants::new(call_repository.clone(), friendship_repository.clone());
     let send_friend_request_usecase = SendFriendRequest::new(
         friendship_repository.clone(),
         user_repository.clone(),
@@ -286,6 +306,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let app_state = web::Data::new(AppState::new(
         create_channel_usecase,
         join_voice_channel_usecase,
+        start_call_usecase,
+        accept_call_usecase,
+        decline_call_usecase,
+        leave_call_usecase,
+        add_call_participants_usecase,
         mute_channel_usecase,
         unmute_channel_usecase,
         delete_channel_usecase,

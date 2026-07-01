@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)\n                VALUES ($1, $2, $3, 'invited', $4, $4)\n                ON CONFLICT (call_id, user_id) DO UPDATE\n                    SET status = 'invited', inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at\n                    WHERE call_participants.status IN ('declined', 'left')\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "937b23b2ddef10a0908d316b4b9a269c8f66cd54e20bf218096ef4a7be18117a"
+}

@@ -4,6 +4,10 @@ use application::usecases::{
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
+    call::{
+        accept_call::AcceptCall, add_participants::AddCallParticipants,
+        decline_call::DeclineCall, leave_call::LeaveCall, start_call::StartCall,
+    },
     dm::{
         delete_dm_message::DeleteDmMessage, edit_dm_message::EditDmMessage,
         list_dm_messages::ListDmMessages, search_dm_messages::SearchDmMessages,
@@ -45,7 +49,8 @@ use infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::repositories::{
         channel::PostgresChannelRepository, dm_message::PostgresDmMessageRepository,
-        friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
+        call::PostgresCallRepository, friendship::PostgresFriendshipRepository,
+        message::PostgresMessageRepository,
         read_state::PostgresReadStateRepository, refresh_token::PostgresRefreshTokenRepository,
         server::PostgresServerRepository, user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
@@ -63,6 +68,18 @@ pub struct AppState {
         PostgresUserRepository,
         BcryptHasher,
     >,
+    pub start_call_usecase: StartCall<
+        PostgresCallRepository,
+        LiveKitService,
+        PostgresFriendshipRepository,
+        PostgresUserRepository,
+    >,
+    pub accept_call_usecase:
+        AcceptCall<PostgresCallRepository, LiveKitService, PostgresUserRepository>,
+    pub decline_call_usecase: DeclineCall<PostgresCallRepository>,
+    pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
+    pub add_call_participants_usecase:
+        AddCallParticipants<PostgresCallRepository, PostgresFriendshipRepository>,
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
@@ -193,6 +210,23 @@ impl AppState {
             PostgresChannelRepository,
             PostgresUserRepository,
             BcryptHasher,
+        >,
+        start_call_usecase: StartCall<
+            PostgresCallRepository,
+            LiveKitService,
+            PostgresFriendshipRepository,
+            PostgresUserRepository,
+        >,
+        accept_call_usecase: AcceptCall<
+            PostgresCallRepository,
+            LiveKitService,
+            PostgresUserRepository,
+        >,
+        decline_call_usecase: DeclineCall<PostgresCallRepository>,
+        leave_call_usecase: LeaveCall<PostgresCallRepository>,
+        add_call_participants_usecase: AddCallParticipants<
+            PostgresCallRepository,
+            PostgresFriendshipRepository,
         >,
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
@@ -335,6 +369,11 @@ impl AppState {
         Self {
             create_channel_usecase,
             join_voice_channel_usecase,
+            start_call_usecase,
+            accept_call_usecase,
+            decline_call_usecase,
+            leave_call_usecase,
+            add_call_participants_usecase,
             mute_channel_usecase,
             unmute_channel_usecase,
             delete_channel_usecase,
