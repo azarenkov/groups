@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use crate::{
     channel::{
         Channel, ChannelError, VoiceChange,
-        events::participant::{ConnectionAbortReason, LeaveReason},
+        events::participant::{ConnectionAbortReason, LeaveReason, MediaSource},
         id::ChannelId,
         session_id::SessionId,
     },
@@ -75,6 +75,30 @@ pub trait ChannelRepository {
         request_id: Option<String>,
     ) -> Result<bool, ChannelOperationError>;
 
+    async fn apply_track_published(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        request_id: Option<String>,
+    ) -> Result<bool, ChannelOperationError>;
+
+    async fn apply_track_unpublished(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        request_id: Option<String>,
+    ) -> Result<bool, ChannelOperationError>;
+
     async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError>;
 
     async fn mute_participant_with_events(
@@ -133,6 +157,30 @@ pub trait ChannelRepository {
         &self,
         server_id: &crate::server::id::ServerId,
     ) -> Result<Vec<VoicePresenceRow>, RepositoryError>;
+
+    async fn set_stream_viewer(
+        &self,
+        server_id: &crate::server::id::ServerId,
+        channel_id: &ChannelId,
+        streamer_id: &UserId,
+        viewer_id: &UserId,
+        viewer_session_id: &SessionId,
+        watching: bool,
+        occurred_at: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<i64, RepositoryError>;
+
+    async fn list_stream_viewer_counts_for_server(
+        &self,
+        server_id: &crate::server::id::ServerId,
+    ) -> Result<Vec<StreamViewerCountRow>, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct StreamViewerCountRow {
+    pub channel_id: ChannelId,
+    pub streamer_id: UserId,
+    pub count: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -141,4 +189,6 @@ pub struct VoicePresenceRow {
     pub user_id: UserId,
     pub user_name: String,
     pub is_muted: bool,
+    pub camera_on: bool,
+    pub screen_on: bool,
 }

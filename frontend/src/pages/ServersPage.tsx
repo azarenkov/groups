@@ -15,6 +15,10 @@ import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import {
+  useStreamViewersStore,
+  streamViewerKey,
+} from "../store/streamViewersStore";
 import { getLiveKitService } from "../services/livekit";
 import { ws } from "../services/websocket";
 import { setActiveChatView } from "../services/websocketBootstrap";
@@ -29,11 +33,13 @@ import ConfirmModal from "../components/rift/ConfirmModal";
 import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
+import { VideoTileCell } from "../components/rift/VideoStage";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
+import { useVideoTiles } from "../hooks/useVideoTiles";
 import { qualityClass, qualityLabel } from "../utils/quality";
 import {
   Channel,
@@ -58,7 +64,15 @@ const ServersPage: React.FC = () => {
   const { t: tVoice } = useTranslation("voice");
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
+  const videoTiles = useVideoTiles();
+  const localCameraOn = videoTiles.some(
+    (t) => t.isLocal && t.source === "camera",
+  );
+  const localScreenOn = videoTiles.some(
+    (t) => t.isLocal && t.source === "screen",
+  );
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
+  const streamViewerCounts = useStreamViewersStore((s) => s.counts);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
   const channelToServer = useUnreadStore((s) => s.channelToServer);
@@ -253,16 +267,24 @@ const ServersPage: React.FC = () => {
       synced.add(s.id);
       serverAPI
         .listVoicePresence(s.id)
-        .then((items) => {
+        .then(({ items, streamViewers }) => {
           const groups: Record<
             string,
-            { id: string; name: string; isMuted: boolean }[]
+            {
+              id: string;
+              name: string;
+              isMuted: boolean;
+              cameraOn: boolean;
+              screenOn: boolean;
+            }[]
           > = {};
           for (const item of items) {
             (groups[item.channelId] ||= []).push({
               id: item.userId,
               name: item.userName,
               isMuted: item.isMuted,
+              cameraOn: item.cameraOn,
+              screenOn: item.screenOn,
             });
           }
           const snapshotChannels = new Set(Object.keys(groups));
@@ -276,6 +298,7 @@ const ServersPage: React.FC = () => {
           for (const [channelId, members] of Object.entries(groups)) {
             useVoicePresenceStore.getState().setMembers(channelId, members);
           }
+          useStreamViewersStore.getState().resetForServer(s.id, streamViewers);
         })
         .catch((err) => {
           synced.delete(s.id);
@@ -609,6 +632,48 @@ const ServersPage: React.FC = () => {
     setVoiceJoinFailed(true);
   }, []);
 
+  const watchServerId = joinedChannel?.serverId;
+  const watchChannelId = joinedChannel?.channel.id;
+  const watchStateRef = useRef(
+    new Map<string, { desired: boolean; running: boolean }>(),
+  );
+  const reportStreamWatch = useCallback(
+    (streamerId: string, watching: boolean) => {
+      if (!watchServerId || !watchChannelId) return;
+      const key = `${watchServerId}:${watchChannelId}:${streamerId}`;
+      const states = watchStateRef.current;
+      const entry = states.get(key) ?? { desired: watching, running: false };
+      entry.desired = watching;
+      states.set(key, entry);
+      if (entry.running) return;
+      entry.running = true;
+      void (async () => {
+        let lastSent: boolean | undefined;
+        while (states.get(key) && states.get(key)!.desired !== lastSent) {
+          const target = states.get(key)!.desired;
+          const sessionId = getLiveKitService().getLocalSessionId();
+          if (!sessionId) break;
+          try {
+            await serverAPI.updateStreamViewer(
+              watchServerId,
+              watchChannelId,
+              streamerId,
+              sessionId,
+              target,
+            );
+            lastSent = target;
+          } catch (err) {
+            console.warn("[stream-viewers] report failed:", err);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+        const e = states.get(key);
+        if (e) e.running = false;
+      })();
+    },
+    [watchServerId, watchChannelId],
+  );
+
   const handleLogout = async () => {
     serverAPI.removeAuthToken();
     channelAPI.removeAuthToken();
@@ -659,6 +724,7 @@ const ServersPage: React.FC = () => {
       color: string;
       isMuted?: boolean;
       isSharingScreen?: boolean;
+      isCameraOn?: boolean;
     }[]
   > = React.useMemo(() => {
     const out: Record<
@@ -670,6 +736,7 @@ const ServersPage: React.FC = () => {
         color: string;
         isMuted?: boolean;
         isSharingScreen?: boolean;
+        isCameraOn?: boolean;
       }[]
     > = {};
     for (const [channelId, members] of Object.entries(voicePresenceByChannel)) {
@@ -679,6 +746,8 @@ const ServersPage: React.FC = () => {
         initials: initialFor(m.name),
         color: colorForId(m.id),
         isMuted: m.isMuted,
+        isSharingScreen: m.screenOn,
+        isCameraOn: m.cameraOn,
       }));
     }
     return out;
@@ -727,7 +796,6 @@ const ServersPage: React.FC = () => {
                     name: p.name || p.identity,
                     initials: initialFor(p.name || p.identity),
                     color: colorForId(p.identity),
-                    isSharingScreen: p.isSharingScreen,
                   })),
                 ]
               : []
@@ -837,6 +905,21 @@ const ServersPage: React.FC = () => {
                   </div>
                 </header>
                 {(() => {
+                  const selfId = user?.id || "you";
+                  const nameById = new Map<string, string>();
+                  nameById.set(selfId, userName || "You");
+                  const presenceMembers = joinedChannel
+                    ? voicePresenceByChannel[joinedChannel.channel.id] || []
+                    : [];
+                  for (const m of presenceMembers) nameById.set(m.id, m.name);
+                  for (const p of voiceParticipants) {
+                    if (!nameById.has(p.identity)) {
+                      nameById.set(p.identity, p.name || p.identity);
+                    }
+                  }
+
+                  const withVideo = new Set(videoTiles.map((v) => v.identity));
+
                   const tilesById = new Map<
                     string,
                     {
@@ -846,47 +929,26 @@ const ServersPage: React.FC = () => {
                       color: string;
                     }
                   >();
-                  const selfId = user?.id || "you";
-                  tilesById.set(selfId, {
-                    id: selfId,
-                    name: userName || "You",
-                    initials: initialFor(userName),
-                    color: colorForId(selfId),
-                  });
-                  const presenceMembers = joinedChannel
-                    ? voicePresenceByChannel[joinedChannel.channel.id] || []
-                    : [];
-                  for (const m of presenceMembers) {
-                    if (tilesById.has(m.id)) continue;
-                    tilesById.set(m.id, {
-                      id: m.id,
-                      name: m.name,
-                      initials: initialFor(m.name),
-                      color: colorForId(m.id),
+                  for (const [id, name] of nameById) {
+                    if (withVideo.has(id)) continue;
+                    tilesById.set(id, {
+                      id,
+                      name,
+                      initials: initialFor(name),
+                      color: colorForId(id),
                     });
                   }
-                  for (const p of voiceParticipants) {
-                    if (tilesById.has(p.identity)) continue;
-                    tilesById.set(p.identity, {
-                      id: p.identity,
-                      name: p.name || p.identity,
-                      initials: initialFor(p.name || p.identity),
-                      color: colorForId(p.identity),
-                    });
-                  }
-                  const tiles = Array.from(tilesById.values());
+                  const avatarTiles = Array.from(tilesById.values());
+
+                  const cellCount = videoTiles.length + avatarTiles.length;
                   const cols =
-                    tiles.length === 1
+                    cellCount <= 1
                       ? 1
-                      : tiles.length === 2
+                      : cellCount <= 4
                         ? 2
-                        : tiles.length <= 4
-                          ? 2
-                          : tiles.length <= 6
-                            ? 3
-                            : tiles.length <= 9
-                              ? 3
-                              : 4;
+                        : cellCount <= 9
+                          ? 3
+                          : 4;
                   return (
                     <div className="voice-room">
                       <div
@@ -897,7 +959,32 @@ const ServersPage: React.FC = () => {
                           } as React.CSSProperties
                         }
                       >
-                        {tiles.map((t) => {
+                        {videoTiles.map((vt) => (
+                          <VideoTileCell
+                            key={vt.id}
+                            tile={vt}
+                            label={
+                              vt.isLocal
+                                ? userName || "You"
+                                : nameById.get(vt.identity) || vt.name
+                            }
+                            viewers={
+                              vt.source === "screen"
+                                ? streamViewerCounts[
+                                    streamViewerKey(
+                                      joinedChannel.serverId,
+                                      joinedChannel.channel.id,
+                                      vt.isLocal
+                                        ? user?.id || "you"
+                                        : vt.identity,
+                                    )
+                                  ] ?? 0
+                                : undefined
+                            }
+                            onWatchChange={reportStreamWatch}
+                          />
+                        ))}
+                        {avatarTiles.map((t) => {
                           const isSelf = t.id === (user?.id || "you");
                           const vol = tileVolumes[t.id] ?? 100;
                           return (
@@ -977,6 +1064,46 @@ const ServersPage: React.FC = () => {
                         })}
                       </div>
                       <div className="voice-room-actions">
+                        <button
+                          type="button"
+                          className={
+                            "voice-room-action" + (localCameraOn ? " on" : "")
+                          }
+                          onClick={() => {
+                            getLiveKitService()
+                              .setCameraEnabled(!localCameraOn)
+                              .catch((e) =>
+                                console.error("[voice] camera toggle failed:", e),
+                              );
+                          }}
+                        >
+                          <Icon name="camera" size={16} />
+                          <span>
+                            {localCameraOn
+                              ? tVoice("stopCamera")
+                              : tVoice("startCamera")}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            "voice-room-action" + (localScreenOn ? " on" : "")
+                          }
+                          onClick={() => {
+                            getLiveKitService()
+                              .setScreenShareEnabled(!localScreenOn)
+                              .catch((e) =>
+                                console.error("[voice] screen toggle failed:", e),
+                              );
+                          }}
+                        >
+                          <Icon name="monitor" size={16} />
+                          <span>
+                            {localScreenOn
+                              ? tVoice("stopScreenShare")
+                              : tVoice("startScreenShare")}
+                          </span>
+                        </button>
                         <button
                           type="button"
                           className="voice-room-action leave"

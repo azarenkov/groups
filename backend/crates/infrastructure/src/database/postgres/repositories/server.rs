@@ -26,7 +26,10 @@ use crate::database::postgres::{
         server::ServerDto, user::UserDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
-    repositories::outbox_record::save_outbox_records,
+    repositories::{
+        channel::{count_stream_viewers, stream_viewers_record},
+        outbox_record::save_outbox_records,
+    },
 };
 
 pub struct PostgresServerRepository {
@@ -267,7 +270,7 @@ impl ServerRepository for PostgresServerRepository {
 
         let voice_rows = sqlx::query!(
             r#"
-            SELECT channel_id, user_id, session_id
+            SELECT channel_id, user_id, session_id, camera_on, screen_on
             FROM channel_voice_participants
             WHERE channel_id = ANY($1)
             "#,
@@ -279,13 +282,35 @@ impl ServerRepository for PostgresServerRepository {
 
         let mut voice_by_channel: HashMap<Uuid, HashMap<UserId, HashSet<SessionId>>> =
             HashMap::new();
+        let mut camera_by_channel: HashMap<Uuid, HashMap<UserId, HashSet<SessionId>>> =
+            HashMap::new();
+        let mut screen_by_channel: HashMap<Uuid, HashMap<UserId, HashSet<SessionId>>> =
+            HashMap::new();
         for row in voice_rows {
+            let user_id = UserId::new(row.user_id);
+            let session_id = SessionId::new(row.session_id);
+            if row.camera_on {
+                camera_by_channel
+                    .entry(row.channel_id)
+                    .or_default()
+                    .entry(user_id)
+                    .or_default()
+                    .insert(session_id.clone());
+            }
+            if row.screen_on {
+                screen_by_channel
+                    .entry(row.channel_id)
+                    .or_default()
+                    .entry(user_id)
+                    .or_default()
+                    .insert(session_id.clone());
+            }
             voice_by_channel
                 .entry(row.channel_id)
                 .or_default()
-                .entry(UserId::new(row.user_id))
+                .entry(user_id)
                 .or_default()
-                .insert(SessionId::new(row.session_id));
+                .insert(session_id);
         }
 
         let text_rows = sqlx::query!(
@@ -312,13 +337,15 @@ impl ServerRepository for PostgresServerRepository {
             .into_iter()
             .map(|dto| {
                 let kind: ChannelKind = dto.kind.into();
-                let (muted, voice) = if kind.supports_voice() {
+                let (muted, voice, camera, screen) = if kind.supports_voice() {
                     (
                         Some(muted_by_channel.remove(&dto.id).unwrap_or_default()),
                         Some(voice_by_channel.remove(&dto.id).unwrap_or_default()),
+                        Some(camera_by_channel.remove(&dto.id).unwrap_or_default()),
+                        Some(screen_by_channel.remove(&dto.id).unwrap_or_default()),
                     )
                 } else {
-                    (None, None)
+                    (None, None, None, None)
                 };
                 let text = if kind.supports_text() {
                     Some(text_by_channel.remove(&dto.id).unwrap_or_default())
@@ -337,6 +364,8 @@ impl ServerRepository for PostgresServerRepository {
                     dto.updated_at,
                     muted,
                     voice,
+                    camera,
+                    screen,
                     text,
                     dto.last_join,
                 )
@@ -447,6 +476,72 @@ impl ServerRepository for PostgresServerRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        let watched = sqlx::query!(
+            r#"
+                SELECT DISTINCT v.channel_id, v.streamer_id
+                FROM channel_stream_viewers v
+                INNER JOIN channels c ON c.id = v.channel_id
+                WHERE v.viewer_id = $1 AND c.server_id = $2 AND v.streamer_id <> $1
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let streamed = sqlx::query!(
+            r#"
+                SELECT DISTINCT v.channel_id
+                FROM channel_stream_viewers v
+                INNER JOIN channels c ON c.id = v.channel_id
+                WHERE v.streamer_id = $1 AND c.server_id = $2
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                DELETE FROM channel_stream_viewers
+                WHERE (viewer_id = $1 OR streamer_id = $1)
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+            user_id.uuid(),
+            server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let now = chrono::Utc::now();
+        let mut viewer_events = Vec::new();
+        for w in watched {
+            let count = count_stream_viewers(&mut tx, w.channel_id, w.streamer_id).await?;
+            viewer_events.push(stream_viewers_record(
+                w.channel_id,
+                server_id.uuid(),
+                w.streamer_id,
+                count,
+                now,
+                None,
+            ));
+        }
+        for s in streamed {
+            viewer_events.push(stream_viewers_record(
+                s.channel_id,
+                server_id.uuid(),
+                user_id.uuid(),
+                0,
+                now,
+                None,
+            ));
+        }
+        save_outbox_records(&mut tx, &viewer_events).await?;
 
         sqlx::query!(
             r#"

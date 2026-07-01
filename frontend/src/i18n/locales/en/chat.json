@@ -6,6 +6,8 @@
   "delete": "Delete",
   "deletedMessage": "Message deleted",
   "today": "Today",
+  "welcomeTitle": "Welcome to #{{name}}",
+  "welcomeBody": "This is the beginning of the conversation. Say hi — messages appear here in real-time.",
   "yesterday": "Yesterday",
   "loadMore": "Load more",
   "noMessages": "No messages yet. Be the first to say something.",

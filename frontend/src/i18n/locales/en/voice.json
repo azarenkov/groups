@@ -25,6 +25,18 @@
   "yourMicrophone": "Your microphone",
   "live": "Live",
   "sharing": "Sharing screen",
+  "screen": "Screen",
+  "startCamera": "Turn on camera",
+  "stopCamera": "Turn off camera",
+  "startScreenShare": "Share screen",
+  "stopScreenShare": "Stop sharing",
+  "fullscreen": "Fullscreen",
+  "viewers": "Viewers",
+  "volume": "Volume",
+  "pickScreenTitle": "Share your screen",
+  "pickScreenSubtitle": "Choose a screen or window to share.",
+  "entireScreen": "Entire screen",
+  "applicationWindow": "Application window",
   "membersConnected_one": "{{count}} connected",
   "membersConnected_other": "{{count}} connected"
 }

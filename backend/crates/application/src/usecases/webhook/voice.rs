@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
-use domain::{channel::repository::ChannelRepository, shared::repository::error::RepositoryError};
+use chrono::{DateTime, Utc};
+use domain::{
+    channel::{events::participant::MediaSource, repository::ChannelRepository},
+    shared::repository::error::RepositoryError,
+};
+use uuid::Uuid;
 
 use crate::{
     dto::{
@@ -9,15 +14,17 @@ use crate::{
             abort_voice_connection::AbortVoiceConnectionRequest,
             join_voice_connection::JoinVoiceConnectionRequest,
             leave_voice_connection::LeaveVoiceConnectionRequest,
+            track_media_connection::TrackMediaConnectionRequest,
         },
     },
     ports::voice_webhook_verifier::{
-        VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError,
+        VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError, WebhookSource,
     },
     usecases::channel::{
         abort_voice_connection::{AbortVoiceConnection, AbortVoiceConnectionError},
         join_voice_connection::{JoinVoiceConnection, JoinVoiceConnectionError},
         leave_voice_connection::{LeaveVoiceConnection, LeaveVoiceConnectionError},
+        track_media_connection::{TrackMediaConnection, TrackMediaConnectionError},
     },
 };
 
@@ -31,6 +38,8 @@ pub enum HandleVoiceWebhookError {
     AbortVoiceConnection(#[from] AbortVoiceConnectionError),
     #[error("Leave voice connection error: {0}")]
     LeaveVoiceConnection(#[from] LeaveVoiceConnectionError),
+    #[error("Track media connection error: {0}")]
+    TrackMediaConnection(#[from] TrackMediaConnectionError),
 }
 
 pub struct HandleVoiceWebhook<V, T>
@@ -42,6 +51,7 @@ where
     join_voice_connection: JoinVoiceConnection<T>,
     abort_voice_connection: AbortVoiceConnection<T>,
     leave_voice_connection: LeaveVoiceConnection<T>,
+    track_media_connection: TrackMediaConnection<T>,
 }
 
 impl<V, T> HandleVoiceWebhook<V, T>
@@ -54,12 +64,14 @@ where
         join_voice_connection: JoinVoiceConnection<T>,
         abort_voice_connection: AbortVoiceConnection<T>,
         leave_voice_connection: LeaveVoiceConnection<T>,
+        track_media_connection: TrackMediaConnection<T>,
     ) -> Self {
         Self {
             verifier,
             join_voice_connection,
             abort_voice_connection,
             leave_voice_connection,
+            track_media_connection,
         }
     }
 
@@ -176,11 +188,118 @@ where
                     }
                 }
             }
+            VoiceWebhookEvent::TrackPublished {
+                channel_id,
+                user_id,
+                session_id,
+                source: media_source,
+            } => {
+                self.handle_track(
+                    channel_id,
+                    user_id,
+                    session_id,
+                    media_source,
+                    true,
+                    occurred_at,
+                    source,
+                    external_id,
+                    ctx,
+                )
+                .await?;
+            }
+            VoiceWebhookEvent::TrackUnpublished {
+                channel_id,
+                user_id,
+                session_id,
+                source: media_source,
+            } => {
+                self.handle_track(
+                    channel_id,
+                    user_id,
+                    session_id,
+                    media_source,
+                    false,
+                    occurred_at,
+                    source,
+                    external_id,
+                    ctx,
+                )
+                .await?;
+            }
             VoiceWebhookEvent::Other => {}
         }
 
         Ok(())
     }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_track(
+        &self,
+        channel_id: Uuid,
+        user_id: Uuid,
+        session_id: String,
+        source: MediaSource,
+        published: bool,
+        occurred_at: DateTime<Utc>,
+        inbox_source: WebhookSource,
+        external_id: String,
+        ctx: RequestContext,
+    ) -> Result<(), HandleVoiceWebhookError> {
+        let result = self
+            .track_media_connection
+            .execute(TrackMediaConnectionRequest {
+                channel_id,
+                user_id,
+                session_id,
+                source,
+                published,
+                occurred_at,
+                inbox_source,
+                inbox_external_id: external_id.clone(),
+                ctx,
+            })
+            .await;
+
+        if let Err(e) = result {
+            let is_pre_join_race = matches!(
+                &e,
+                TrackMediaConnectionError::Domain(
+                    domain::channel::ChannelError::ParticipantNotJoined,
+                )
+            );
+
+            let give_up = if is_pre_join_race {
+                Utc::now().signed_duration_since(occurred_at)
+                    >= chrono::Duration::seconds(TRACK_JOIN_GRACE_SECS)
+            } else {
+                is_track_stale(&e)
+            };
+
+            if give_up {
+                tracing::info!(
+                    channel_id = %channel_id,
+                    user_id = %user_id,
+                    external_id = %external_id,
+                    error = ?e,
+                    "Skipping stale track media webhook",
+                );
+            } else {
+                return Err(e.into());
+            }
+        }
+
+        Ok(())
+    }
+}
+
+const TRACK_JOIN_GRACE_SECS: i64 = 10;
+
+fn is_track_stale(e: &TrackMediaConnectionError) -> bool {
+    matches!(
+        e,
+        TrackMediaConnectionError::Repository(RepositoryError::NotFound)
+            | TrackMediaConnectionError::Domain(_)
+    )
 }
 
 fn is_join_stale(e: &JoinVoiceConnectionError) -> bool {

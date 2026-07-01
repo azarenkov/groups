@@ -17,4 +17,12 @@ contextBridge.exposeInMainWorld('electron', {
 
   googleOAuth: () => ipcRenderer.invoke('oauth:google'),
   googleOAuthAvailable: () => ipcRenderer.invoke('oauth:google-available'),
+
+  onScreenShareSources: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('screen-share:sources', handler);
+    return () => ipcRenderer.removeListener('screen-share:sources', handler);
+  },
+  pickScreenShareSource: (requestId, sourceId) =>
+    ipcRenderer.send('screen-share:picked', { requestId, sourceId }),
 });

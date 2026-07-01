@@ -7,20 +7,32 @@ use std::{
 use application::{
     dto::{
         context::RequestContext,
-        requests::channel::abort_voice_connection::AbortVoiceConnectionRequest,
+        requests::channel::{
+            abort_voice_connection::AbortVoiceConnectionRequest,
+            track_media_connection::TrackMediaConnectionRequest,
+        },
     },
     ports::voice_webhook_verifier::WebhookSource,
-    usecases::channel::abort_voice_connection::AbortVoiceConnection,
+    usecases::channel::{
+        abort_voice_connection::AbortVoiceConnection,
+        track_media_connection::TrackMediaConnection,
+    },
 };
 use chrono::Utc;
 use domain::{
-    channel::{events::participant::ConnectionAbortReason, repository::ChannelRepository},
+    channel::{
+        events::participant::{ConnectionAbortReason, MediaSource},
+        repository::ChannelRepository,
+    },
     shared::repository::error::RepositoryError,
 };
 use livekit_api::services::room::RoomClient;
 use sqlx::{PgPool, Row};
 use tokio::time::timeout;
 use uuid::Uuid;
+
+const LK_SOURCE_CAMERA: i32 = 1;
+const LK_SOURCE_SCREEN: i32 = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReconcileError {
@@ -35,6 +47,15 @@ struct StaleParticipant {
     session_id: String,
 }
 
+#[derive(Debug, Clone)]
+struct TrackCorrection {
+    channel_id: Uuid,
+    user_id: Uuid,
+    session_id: String,
+    source: MediaSource,
+    enabled: bool,
+}
+
 pub struct Reconciler<T>
 where
     T: ChannelRepository,
@@ -44,6 +65,7 @@ where
     api_key: String,
     api_secret: String,
     abort_use_case: Arc<AbortVoiceConnection<T>>,
+    track_use_case: Arc<TrackMediaConnection<T>>,
     grace: Duration,
     request_timeout: Duration,
     max_aborts_per_pass: usize,
@@ -60,6 +82,7 @@ where
         api_key: String,
         api_secret: String,
         abort_use_case: Arc<AbortVoiceConnection<T>>,
+        track_use_case: Arc<TrackMediaConnection<T>>,
         grace: Duration,
         request_timeout: Duration,
         max_aborts_per_pass: usize,
@@ -70,6 +93,7 @@ where
             api_key,
             api_secret,
             abort_use_case,
+            track_use_case,
             grace,
             request_timeout,
             max_aborts_per_pass,
@@ -81,7 +105,7 @@ where
 
         let rows = sqlx::query(
             r#"
-            SELECT channel_id, user_id, session_id
+            SELECT channel_id, user_id, session_id, camera_on, screen_on
             FROM channel_voice_participants
             WHERE joined_at < $1
             "#,
@@ -94,17 +118,19 @@ where
             return Ok(ReconcileSummary::default());
         }
 
-        let mut by_channel: HashMap<Uuid, Vec<(Uuid, String)>> = HashMap::new();
+        let mut by_channel: HashMap<Uuid, Vec<(Uuid, String, bool, bool)>> = HashMap::new();
         let mut total_entries = 0usize;
         for row in rows {
             let channel_id: Uuid = row.get(0);
             let user_id: Uuid = row.get(1);
             let session_id: String = row.get(2);
+            let camera_on: bool = row.get(3);
+            let screen_on: bool = row.get(4);
             total_entries += 1;
             by_channel
                 .entry(channel_id)
                 .or_default()
-                .push((user_id, session_id));
+                .push((user_id, session_id, camera_on, screen_on));
         }
 
         let room_client = RoomClient::with_api_key(
@@ -135,6 +161,7 @@ where
                     aborted: 0,
                     abort_skipped: 0,
                     abort_failed: 0,
+                    tracks_reconciled: 0,
                 });
             }
             Err(_) => {
@@ -151,11 +178,13 @@ where
                     aborted: 0,
                     abort_skipped: 0,
                     abort_failed: 0,
+                    tracks_reconciled: 0,
                 });
             }
         };
 
         let mut stale: Vec<StaleParticipant> = Vec::new();
+        let mut corrections: Vec<TrackCorrection> = Vec::new();
         let mut rooms_checked = 0usize;
         let mut rooms_missing = 0usize;
         let mut livekit_errors = 0usize;
@@ -163,11 +192,11 @@ where
         for (channel_id, db_entries) in by_channel {
             rooms_checked += 1;
 
-            let live_pairs: Vec<(String, String)> = if !live_room_names
+            let live_map: HashMap<(String, String), (bool, bool)> = if !live_room_names
                 .contains(&channel_id.to_string())
             {
                 rooms_missing += 1;
-                Vec::new()
+                HashMap::new()
             } else {
                 let result = timeout(
                     self.request_timeout,
@@ -177,7 +206,17 @@ where
                 match result {
                     Ok(Ok(participants)) => participants
                         .into_iter()
-                        .map(|p| (p.identity, p.sid))
+                        .map(|p| {
+                            let camera = p
+                                .tracks
+                                .iter()
+                                .any(|t| t.source == LK_SOURCE_CAMERA);
+                            let screen = p
+                                .tracks
+                                .iter()
+                                .any(|t| t.source == LK_SOURCE_SCREEN);
+                            ((p.identity, p.sid), (camera, screen))
+                        })
                         .collect(),
                     Ok(Err(e)) => {
                         livekit_errors += 1;
@@ -200,19 +239,38 @@ where
                 }
             };
 
-            for (user_id, session_id) in db_entries {
+            for (user_id, session_id, camera_on, screen_on) in db_entries {
                 let identity = user_id.to_string();
-                let still_live = live_pairs
-                    .iter()
-                    .any(|(id, sid)| id == &identity && sid == &session_id);
-                if !still_live {
-                    stale.push(StaleParticipant {
-                        channel_id,
-                        user_id,
-                        session_id,
-                    });
-                    if stale.len() >= self.max_aborts_per_pass {
-                        break;
+                match live_map.get(&(identity, session_id.clone())) {
+                    None => {
+                        stale.push(StaleParticipant {
+                            channel_id,
+                            user_id,
+                            session_id,
+                        });
+                        if stale.len() >= self.max_aborts_per_pass {
+                            break;
+                        }
+                    }
+                    Some(&(live_camera, live_screen)) => {
+                        if live_camera != camera_on {
+                            corrections.push(TrackCorrection {
+                                channel_id,
+                                user_id,
+                                session_id: session_id.clone(),
+                                source: MediaSource::Camera,
+                                enabled: live_camera,
+                            });
+                        }
+                        if live_screen != screen_on {
+                            corrections.push(TrackCorrection {
+                                channel_id,
+                                user_id,
+                                session_id: session_id.clone(),
+                                source: MediaSource::Screen,
+                                enabled: live_screen,
+                            });
+                        }
                     }
                 }
             }
@@ -283,6 +341,55 @@ where
             }
         }
 
+        let mut tracks_reconciled = 0usize;
+        for correction in &corrections {
+            let source_str = match correction.source {
+                MediaSource::Camera => "camera",
+                MediaSource::Screen => "screen",
+            };
+            let external_id = format!(
+                "reconcile-track:{}:{}:{}:{}:{}:{}",
+                correction.channel_id,
+                correction.user_id,
+                correction.session_id,
+                source_str,
+                correction.enabled,
+                Utc::now().timestamp_millis(),
+            );
+            let request = TrackMediaConnectionRequest {
+                channel_id: correction.channel_id,
+                user_id: correction.user_id,
+                session_id: correction.session_id.clone(),
+                source: correction.source,
+                published: correction.enabled,
+                occurred_at: Utc::now(),
+                inbox_source: WebhookSource::LiveKitPooler,
+                inbox_external_id: external_id.clone(),
+                ctx: RequestContext::default(),
+            };
+
+            match self.track_use_case.execute(request).await {
+                Ok(_) => {
+                    tracks_reconciled += 1;
+                    tracing::info!(
+                        channel_id = %correction.channel_id,
+                        user_id = %correction.user_id,
+                        session_id = %correction.session_id,
+                        source = source_str,
+                        enabled = correction.enabled,
+                        "Reconciled drifted track media state",
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        error = ?e,
+                        %external_id,
+                        "Failed to reconcile track media state",
+                    );
+                }
+            }
+        }
+
         Ok(ReconcileSummary {
             rooms_checked,
             rooms_missing,
@@ -292,6 +399,7 @@ where
             aborted,
             abort_skipped,
             abort_failed,
+            tracks_reconciled,
         })
     }
 }
@@ -306,4 +414,5 @@ pub struct ReconcileSummary {
     pub aborted: usize,
     pub abort_skipped: usize,
     pub abort_failed: usize,
+    pub tracks_reconciled: usize,
 }

@@ -270,6 +270,51 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".channel.stream.viewers") {
+        let evt: StreamViewersDto = serde_json::from_slice(payload)?;
+        let recipients = resolver.server_members(evt.server_id).await?;
+        let envelope = Envelope::new(
+            "channel.stream.viewers",
+            json!({
+                "channelId": evt.channel_id,
+                "serverId": evt.server_id,
+                "streamerId": evt.streamer_id,
+                "count": evt.count,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".channel.participant.camera.on")
+        || ends_with(subject, ".channel.participant.camera.off")
+        || ends_with(subject, ".channel.participant.screen.on")
+        || ends_with(subject, ".channel.participant.screen.off")
+    {
+        let evt: ParticipantMediaDto = serde_json::from_slice(payload)?;
+        let recipients = resolver.server_members(evt.server_id).await?;
+        let ws_event = match (evt.source.as_str(), evt.enabled) {
+            ("camera", true) => "channel.participant.camera.on",
+            ("camera", false) => "channel.participant.camera.off",
+            ("screen", true) => "channel.participant.screen.on",
+            _ => "channel.participant.screen.off",
+        };
+        let envelope = Envelope::new(
+            ws_event,
+            json!({
+                "channelId": evt.channel_id,
+                "serverId": evt.server_id,
+                "userId": evt.user_id,
+                "source": evt.source,
+                "enabled": evt.enabled,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".channel.participant.connection_aborted") {
         let evt: ParticipantConnectionAbortedDto = serde_json::from_slice(payload)?;
         let recipients = resolver.server_members(evt.server_id).await?;
@@ -549,6 +594,25 @@ struct ParticipantUnmutedDto {
     server_id: Uuid,
     user_id: Uuid,
     unmuted_by: Uuid,
+    occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct ParticipantMediaDto {
+    channel_id: Uuid,
+    server_id: Uuid,
+    user_id: Uuid,
+    source: String,
+    enabled: bool,
+    occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct StreamViewersDto {
+    channel_id: Uuid,
+    server_id: Uuid,
+    streamer_id: Uuid,
+    count: i64,
     occurred_at: DateTime<Utc>,
 }
 

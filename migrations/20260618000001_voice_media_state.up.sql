@@ -1,0 +1,3 @@
+ALTER TABLE channel_voice_participants
+    ADD COLUMN camera_on BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN screen_on BOOLEAN NOT NULL DEFAULT FALSE;

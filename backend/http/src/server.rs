@@ -33,7 +33,9 @@ use application::usecases::{
         list_channel_messages::ListChannelMessages,
         list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
         search_channel_messages::SearchChannelMessages,
-        send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
+        send_channel_message::SendChannelMessage,
+        track_media_connection::TrackMediaConnection, unmute_channel::UnmuteChannel,
+        update_stream_viewer::UpdateStreamViewer,
     },
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
@@ -200,11 +202,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let join_voice_connection_usecase = JoinVoiceConnection::new(channel_repository.clone());
     let abort_voice_connection_usecase = AbortVoiceConnection::new(channel_repository.clone());
     let leave_voice_connection_usecase = LeaveVoiceConnection::new(channel_repository.clone());
+    let track_media_connection_usecase = TrackMediaConnection::new(channel_repository.clone());
     let handle_livekit_webhook_usecase = HandleVoiceWebhook::new(
         livekit_webhook_receiver.clone(),
         join_voice_connection_usecase,
         abort_voice_connection_usecase,
         leave_voice_connection_usecase,
+        track_media_connection_usecase,
     );
 
     let create_server_usecase = CreateServer::new(server_repository.clone());
@@ -223,6 +227,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let list_server_channels_usecase = ListServerChannels::new(server_repository.clone());
     let get_voice_presence_usecase =
         GetVoicePresence::new(server_repository.clone(), channel_repository.clone());
+    let update_stream_viewer_usecase =
+        UpdateStreamViewer::new(server_repository.clone(), channel_repository.clone());
 
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
@@ -305,6 +311,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_server_members_usecase,
         list_server_channels_usecase,
         get_voice_presence_usecase,
+        update_stream_viewer_usecase,
         send_friend_request_usecase,
         accept_friend_request_usecase,
         remove_friendship_usecase,

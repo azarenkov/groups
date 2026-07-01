@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::{
     channel::{
-        Channel, VoiceChange,
-        events::participant::{ConnectionAbortReason, LeaveReason},
+        Channel, MediaChange, VoiceChange,
+        events::participant::{ConnectionAbortReason, LeaveReason, MediaSource},
         id::ChannelId,
         kind::ChannelKind,
         name::ChannelName,
@@ -222,6 +222,50 @@ impl ChannelRepository for PostgresChannelRepository {
             inbox_external_id,
             request_id,
             |channel| channel.connection_aborted(user_id, session_id, reason, occurred_at),
+        )
+        .await
+    }
+
+    async fn apply_track_published(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        request_id: Option<String>,
+    ) -> Result<bool, ChannelOperationError> {
+        apply_voice_operation(
+            &self.pool,
+            channel_id,
+            inbox_source,
+            inbox_external_id,
+            request_id,
+            |channel| channel.publish_track(user_id, session_id, source, occurred_at),
+        )
+        .await
+    }
+
+    async fn apply_track_unpublished(
+        &self,
+        channel_id: &ChannelId,
+        user_id: UserId,
+        session_id: SessionId,
+        source: MediaSource,
+        occurred_at: DateTime<Utc>,
+        inbox_source: &str,
+        inbox_external_id: &str,
+        request_id: Option<String>,
+    ) -> Result<bool, ChannelOperationError> {
+        apply_voice_operation(
+            &self.pool,
+            channel_id,
+            inbox_source,
+            inbox_external_id,
+            request_id,
+            |channel| channel.unpublish_track(user_id, session_id, source, occurred_at),
         )
         .await
     }
@@ -487,10 +531,12 @@ impl ChannelRepository for PostgresChannelRepository {
     ) -> Result<Vec<domain::channel::repository::VoicePresenceRow>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
-            SELECT DISTINCT
+            SELECT
                 cvp.channel_id,
                 cvp.user_id,
                 u.name AS user_name,
+                bool_or(cvp.camera_on) AS "camera_on!",
+                bool_or(cvp.screen_on) AS "screen_on!",
                 EXISTS (
                     SELECT 1 FROM channel_muted_participants cmp
                     WHERE cmp.channel_id = cvp.channel_id
@@ -500,6 +546,7 @@ impl ChannelRepository for PostgresChannelRepository {
             INNER JOIN channels c ON c.id = cvp.channel_id
             INNER JOIN users u ON u.id = cvp.user_id
             WHERE c.server_id = $1
+            GROUP BY cvp.channel_id, cvp.user_id, u.name
             "#,
             server_id.uuid(),
         )
@@ -514,6 +561,134 @@ impl ChannelRepository for PostgresChannelRepository {
                 user_id: UserId::new(r.user_id),
                 user_name: r.user_name,
                 is_muted: r.is_muted,
+                camera_on: r.camera_on,
+                screen_on: r.screen_on,
+            })
+            .collect())
+    }
+
+    async fn set_stream_viewer(
+        &self,
+        server_id: &ServerId,
+        channel_id: &ChannelId,
+        streamer_id: &UserId,
+        viewer_id: &UserId,
+        viewer_session_id: &SessionId,
+        watching: bool,
+        occurred_at: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<i64, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"SELECT 1 AS one FROM channels WHERE id = $1 AND server_id = $2 FOR UPDATE"#,
+            channel_id.uuid(),
+            server_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+        let server_id = server_id.uuid();
+
+        if watching {
+            sqlx::query!(
+                r#"
+                INSERT INTO channel_stream_viewers
+                    (channel_id, streamer_id, viewer_id, viewer_session_id, updated_at)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (channel_id, streamer_id, viewer_id, viewer_session_id)
+                DO UPDATE SET updated_at = EXCLUDED.updated_at
+                "#,
+                channel_id.uuid(),
+                streamer_id.uuid(),
+                viewer_id.uuid(),
+                viewer_session_id.as_str(),
+                occurred_at,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        } else {
+            sqlx::query!(
+                r#"
+                DELETE FROM channel_stream_viewers
+                WHERE channel_id = $1
+                  AND streamer_id = $2
+                  AND viewer_id = $3
+                  AND viewer_session_id = $4
+                "#,
+                channel_id.uuid(),
+                streamer_id.uuid(),
+                viewer_id.uuid(),
+                viewer_session_id.as_str(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+
+        let count =
+            count_stream_viewers(&mut tx, channel_id.uuid(), streamer_id.uuid()).await?;
+
+        let record = stream_viewers_record(
+            channel_id.uuid(),
+            server_id,
+            streamer_id.uuid(),
+            count,
+            occurred_at,
+            request_id,
+        );
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(count)
+    }
+
+    async fn list_stream_viewer_counts_for_server(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<domain::channel::repository::StreamViewerCountRow>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                v.channel_id,
+                v.streamer_id,
+                count(DISTINCT v.viewer_id) AS "count!"
+            FROM channel_stream_viewers v
+            INNER JOIN channels c ON c.id = v.channel_id
+            WHERE c.server_id = $1
+              AND v.viewer_id <> v.streamer_id
+              AND EXISTS (
+                SELECT 1 FROM channel_voice_participants p
+                WHERE p.channel_id = v.channel_id
+                  AND p.user_id = v.viewer_id
+                  AND p.session_id = v.viewer_session_id
+              )
+              AND EXISTS (
+                SELECT 1 FROM channel_voice_participants s
+                WHERE s.channel_id = v.channel_id
+                  AND s.user_id = v.streamer_id
+                  AND s.screen_on = true
+              )
+            GROUP BY v.channel_id, v.streamer_id
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| domain::channel::repository::StreamViewerCountRow {
+                channel_id: ChannelId::new(r.channel_id),
+                streamer_id: UserId::new(r.streamer_id),
+                count: r.count,
             })
             .collect())
     }
@@ -591,7 +766,8 @@ impl ChannelRepository for PostgresChannelRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         let kind: ChannelKind = dto.kind.into();
-        let (muted_participants, voice_participants) = if kind.supports_voice() {
+        let (muted_participants, voice_participants, camera_participants, screen_participants) =
+            if kind.supports_voice() {
             let map: HashMap<UserId, ParticipantMute> = muted_dtos
                 .into_iter()
                 .map(|dto| {
@@ -602,7 +778,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let voice_rows = sqlx::query!(
                 r#"
-                SELECT user_id, session_id
+                SELECT user_id, session_id, camera_on, screen_on
                 FROM channel_voice_participants
                 WHERE channel_id = $1
                 "#,
@@ -613,16 +789,23 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
             let mut voice: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+            let mut camera: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+            let mut screen: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
             for r in voice_rows {
-                voice
-                    .entry(UserId::new(r.user_id))
-                    .or_default()
-                    .insert(SessionId::new(r.session_id));
+                let user_id = UserId::new(r.user_id);
+                let session_id = SessionId::new(r.session_id);
+                if r.camera_on {
+                    camera.entry(user_id).or_default().insert(session_id.clone());
+                }
+                if r.screen_on {
+                    screen.entry(user_id).or_default().insert(session_id.clone());
+                }
+                voice.entry(user_id).or_default().insert(session_id);
             }
 
-            (Some(map), Some(voice))
+            (Some(map), Some(voice), Some(camera), Some(screen))
         } else {
-            (None, None)
+            (None, None, None, None)
         };
 
         let text_participants = if kind.supports_text() {
@@ -643,6 +826,8 @@ impl ChannelRepository for PostgresChannelRepository {
             dto.updated_at,
             muted_participants,
             voice_participants,
+            camera_participants,
+            screen_participants,
             text_participants,
             dto.last_join,
         );
@@ -698,6 +883,238 @@ async fn apply_voice_changes(
     Ok(())
 }
 
+async fn apply_media_changes(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: &ChannelId,
+    changes: &[MediaChange],
+) -> Result<(), RepositoryError> {
+    for change in changes {
+        match change.source {
+            MediaSource::Camera => {
+                sqlx::query!(
+                    r#"
+                    UPDATE channel_voice_participants
+                    SET camera_on = $4
+                    WHERE channel_id = $1 AND user_id = $2 AND session_id = $3
+                    "#,
+                    channel_id.uuid(),
+                    change.user_id.uuid(),
+                    change.session_id.as_str(),
+                    change.enabled,
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+            MediaSource::Screen => {
+                sqlx::query!(
+                    r#"
+                    UPDATE channel_voice_participants
+                    SET screen_on = $4
+                    WHERE channel_id = $1 AND user_id = $2 AND session_id = $3
+                    "#,
+                    channel_id.uuid(),
+                    change.user_id.uuid(),
+                    change.session_id.as_str(),
+                    change.enabled,
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) async fn count_stream_viewers(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    streamer_id: uuid::Uuid,
+) -> Result<i64, RepositoryError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT count(DISTINCT v.viewer_id) AS "count!"
+        FROM channel_stream_viewers v
+        WHERE v.channel_id = $1
+          AND v.streamer_id = $2
+          AND v.viewer_id <> v.streamer_id
+          AND EXISTS (
+            SELECT 1 FROM channel_voice_participants p
+            WHERE p.channel_id = v.channel_id
+              AND p.user_id = v.viewer_id
+              AND p.session_id = v.viewer_session_id
+          )
+          AND EXISTS (
+            SELECT 1 FROM channel_voice_participants s
+            WHERE s.channel_id = v.channel_id
+              AND s.user_id = v.streamer_id
+              AND s.screen_on = true
+          )
+        "#,
+        channel_id,
+        streamer_id,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(row.count)
+}
+
+pub(crate) fn stream_viewers_record(
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    streamer_id: uuid::Uuid,
+    count: i64,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> OutboxRecord {
+    OutboxRecord {
+        id: uuid::Uuid::new_v4(),
+        aggregate_id: channel_id,
+        aggregate_type: domain::shared::outbox::outbox_record::AggregateType::Channel,
+        parent_id: Some(server_id),
+        parent_type: Some(domain::shared::outbox::outbox_record::AggregateType::Server),
+        event_type: "stream.viewers".to_string(),
+        payload: serde_json::json!({
+            "channel_id": channel_id,
+            "server_id": server_id,
+            "streamer_id": streamer_id,
+            "count": count,
+            "occurred_at": occurred_at,
+        }),
+        occurred_at,
+        request_id,
+    }
+}
+
+async fn clear_stream_for_streamer(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    streamer_id: uuid::Uuid,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> Result<Option<OutboxRecord>, RepositoryError> {
+    let deleted = sqlx::query!(
+        r#"
+        DELETE FROM channel_stream_viewers
+        WHERE channel_id = $1 AND streamer_id = $2
+        "#,
+        channel_id,
+        streamer_id,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    if deleted.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    Ok(Some(stream_viewers_record(
+        channel_id,
+        server_id,
+        streamer_id,
+        0,
+        occurred_at,
+        request_id,
+    )))
+}
+
+async fn recompute_session_watched_streams(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    viewer_id: uuid::Uuid,
+    viewer_session_id: &str,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> Result<Vec<OutboxRecord>, RepositoryError> {
+    let watched = sqlx::query!(
+        r#"
+        SELECT DISTINCT streamer_id
+        FROM channel_stream_viewers
+        WHERE channel_id = $1 AND viewer_id = $2 AND viewer_session_id = $3
+        "#,
+        channel_id,
+        viewer_id,
+        viewer_session_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    let mut records = Vec::new();
+    for w in watched {
+        let count = count_stream_viewers(tx, channel_id, w.streamer_id).await?;
+        records.push(stream_viewers_record(
+            channel_id,
+            server_id,
+            w.streamer_id,
+            count,
+            occurred_at,
+            request_id.clone(),
+        ));
+    }
+    Ok(records)
+}
+
+async fn cleanup_session_stream_viewer(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    channel_id: uuid::Uuid,
+    server_id: uuid::Uuid,
+    viewer_id: uuid::Uuid,
+    viewer_session_id: &str,
+    occurred_at: DateTime<Utc>,
+    request_id: Option<String>,
+) -> Result<Vec<OutboxRecord>, RepositoryError> {
+    let watched = sqlx::query!(
+        r#"
+        SELECT DISTINCT streamer_id
+        FROM channel_stream_viewers
+        WHERE channel_id = $1 AND viewer_id = $2 AND viewer_session_id = $3
+        "#,
+        channel_id,
+        viewer_id,
+        viewer_session_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    let deleted = sqlx::query!(
+        r#"
+        DELETE FROM channel_stream_viewers
+        WHERE channel_id = $1 AND viewer_id = $2 AND viewer_session_id = $3
+        "#,
+        channel_id,
+        viewer_id,
+        viewer_session_id,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    if deleted.rows_affected() == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut records = Vec::new();
+    for w in watched {
+        let count = count_stream_viewers(tx, channel_id, w.streamer_id).await?;
+        records.push(stream_viewers_record(
+            channel_id,
+            server_id,
+            w.streamer_id,
+            count,
+            occurred_at,
+            request_id.clone(),
+        ));
+    }
+    Ok(records)
+}
+
 async fn apply_voice_operation<F>(
     pool: &Pool<Postgres>,
     channel_id: &ChannelId,
@@ -732,13 +1149,28 @@ where
 
     mutate(&mut channel)?;
 
-    let events: Vec<OutboxRecord> = channel
-        .pull_events()
+    let channel_events = channel.pull_events();
+    let departed: Vec<uuid::Uuid> = channel_events
+        .iter()
+        .filter_map(|e| e.departed_user().map(|u| u.uuid()))
+        .collect();
+    let screen_stopped: Vec<uuid::Uuid> = channel_events
+        .iter()
+        .filter_map(|e| e.screen_stopped_user().map(|u| u.uuid()))
+        .collect();
+    let screen_started: Vec<uuid::Uuid> = channel_events
+        .iter()
+        .filter_map(|e| e.screen_started_user().map(|u| u.uuid()))
+        .collect();
+    let mut events: Vec<OutboxRecord> = channel_events
         .iter()
         .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
         .collect::<Result<_, _>>()
         .map_err(|e| RepositoryError::Internal(format!("outbox error: {e}")))?;
     let voice_changes = channel.pull_voice_changes();
+    let media_changes = channel.pull_media_changes();
+    let server_id = channel.server_id().uuid();
+    let channel_uuid = channel.id().uuid();
 
     sqlx::query!(
         r#"
@@ -753,7 +1185,99 @@ where
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
+    let removed_sessions: Vec<(uuid::Uuid, String)> = voice_changes
+        .iter()
+        .filter_map(|vc| match vc {
+            VoiceChange::Removed {
+                user_id,
+                session_id,
+            } => Some((user_id.uuid(), session_id.as_str().to_string())),
+            VoiceChange::Added { .. } => None,
+        })
+        .collect();
+    let added_sessions: Vec<(uuid::Uuid, String)> = voice_changes
+        .iter()
+        .filter_map(|vc| match vc {
+            VoiceChange::Added {
+                user_id,
+                session_id,
+            } => Some((user_id.uuid(), session_id.as_str().to_string())),
+            VoiceChange::Removed { .. } => None,
+        })
+        .collect();
+
     apply_voice_changes(&mut tx, channel.id(), &voice_changes).await?;
+    apply_media_changes(&mut tx, channel.id(), &media_changes).await?;
+
+    for (viewer, session) in added_sessions {
+        let extra = recompute_session_watched_streams(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            viewer,
+            &session,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?;
+        events.extend(extra);
+    }
+
+    for (viewer, session) in removed_sessions {
+        let extra = cleanup_session_stream_viewer(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            viewer,
+            &session,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?;
+        events.extend(extra);
+    }
+
+    for streamer in departed {
+        if let Some(record) = clear_stream_for_streamer(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            streamer,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?
+        {
+            events.push(record);
+        }
+    }
+
+    for streamer in screen_stopped {
+        if let Some(record) = clear_stream_for_streamer(
+            &mut tx,
+            channel_uuid,
+            server_id,
+            streamer,
+            Utc::now(),
+            request_id.clone(),
+        )
+        .await?
+        {
+            events.push(record);
+        }
+    }
+
+    for streamer in screen_started {
+        let count = count_stream_viewers(&mut tx, channel_uuid, streamer).await?;
+        events.push(stream_viewers_record(
+            channel_uuid,
+            server_id,
+            streamer,
+            count,
+            Utc::now(),
+            request_id.clone(),
+        ));
+    }
 
     save_outbox_records(&mut tx, &events).await?;
 
@@ -798,7 +1322,8 @@ async fn load_channel_for_update(
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
-    let (muted_participants, voice_participants) = if kind.supports_voice() {
+    let (muted_participants, voice_participants, camera_participants, screen_participants) =
+        if kind.supports_voice() {
         let map: HashMap<UserId, ParticipantMute> = muted_dtos
             .into_iter()
             .map(|d| {
@@ -809,7 +1334,7 @@ async fn load_channel_for_update(
 
         let voice_rows = sqlx::query!(
             r#"
-            SELECT user_id, session_id
+            SELECT user_id, session_id, camera_on, screen_on
             FROM channel_voice_participants
             WHERE channel_id = $1
             "#,
@@ -820,16 +1345,23 @@ async fn load_channel_for_update(
         .map_err(map_sqlx_error_to_domain_error)?;
 
         let mut voice: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+        let mut camera: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
+        let mut screen: HashMap<UserId, HashSet<SessionId>> = HashMap::new();
         for r in voice_rows {
-            voice
-                .entry(UserId::new(r.user_id))
-                .or_default()
-                .insert(SessionId::new(r.session_id));
+            let user_id = UserId::new(r.user_id);
+            let session_id = SessionId::new(r.session_id);
+            if r.camera_on {
+                camera.entry(user_id).or_default().insert(session_id.clone());
+            }
+            if r.screen_on {
+                screen.entry(user_id).or_default().insert(session_id.clone());
+            }
+            voice.entry(user_id).or_default().insert(session_id);
         }
 
-        (Some(map), Some(voice))
+        (Some(map), Some(voice), Some(camera), Some(screen))
     } else {
-        (None, None)
+        (None, None, None, None)
     };
 
     let text_participants = if kind.supports_text() {
@@ -850,6 +1382,8 @@ async fn load_channel_for_update(
         dto.updated_at,
         muted_participants,
         voice_participants,
+        camera_participants,
+        screen_participants,
         text_participants,
         dto.last_join,
     ))

@@ -7,8 +7,8 @@ use crate::{
         events::{
             lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
             participant::{
-                ParticipantConnectionAborted, ParticipantJoined, ParticipantLeft, ParticipantMuted,
-                ParticipantUnmuted, TextChannelJoined,
+                MediaSource, ParticipantConnectionAborted, ParticipantJoined, ParticipantLeft,
+                ParticipantMediaChanged, ParticipantMuted, ParticipantUnmuted, TextChannelJoined,
             },
         },
         id::ChannelId,
@@ -34,6 +34,7 @@ pub enum ChannelEvent {
     ParticipantMuted(ParticipantMuted),
     ParticipantUnmuted(ParticipantUnmuted),
     ParticipantConnectionAborted(ParticipantConnectionAborted),
+    ParticipantMediaChanged(ParticipantMediaChanged),
     TextJoined(TextChannelJoined),
 }
 
@@ -48,6 +49,7 @@ impl ChannelEvent {
             Self::ParticipantMuted(e) => &e.channel_id,
             Self::ParticipantUnmuted(e) => &e.channel_id,
             Self::ParticipantConnectionAborted(e) => &e.channel_id,
+            Self::ParticipantMediaChanged(e) => &e.channel_id,
             Self::TextJoined(e) => &e.channel_id,
         }
     }
@@ -62,6 +64,7 @@ impl ChannelEvent {
             Self::ParticipantMuted(e) => &e.server_id,
             Self::ParticipantUnmuted(e) => &e.server_id,
             Self::ParticipantConnectionAborted(e) => &e.server_id,
+            Self::ParticipantMediaChanged(e) => &e.server_id,
             Self::TextJoined(e) => &e.server_id,
         }
     }
@@ -76,7 +79,38 @@ impl ChannelEvent {
             Self::ParticipantMuted(e) => e.occurred_at,
             Self::ParticipantUnmuted(e) => e.occurred_at,
             Self::ParticipantConnectionAborted(e) => e.occurred_at,
+            Self::ParticipantMediaChanged(e) => e.occurred_at,
             Self::TextJoined(e) => e.joined_at,
+        }
+    }
+
+    pub fn departed_user(&self) -> Option<crate::user::id::UserId> {
+        match self {
+            Self::ParticipantLeft(e) => Some(e.user_id),
+            Self::ParticipantConnectionAborted(e) => Some(e.user_id),
+            _ => None,
+        }
+    }
+
+    pub fn screen_stopped_user(&self) -> Option<crate::user::id::UserId> {
+        match self {
+            Self::ParticipantMediaChanged(e)
+                if e.source == MediaSource::Screen && !e.enabled =>
+            {
+                Some(e.user_id)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn screen_started_user(&self) -> Option<crate::user::id::UserId> {
+        match self {
+            Self::ParticipantMediaChanged(e)
+                if e.source == MediaSource::Screen && e.enabled =>
+            {
+                Some(e.user_id)
+            }
+            _ => None,
         }
     }
 
@@ -90,6 +124,12 @@ impl ChannelEvent {
             Self::ParticipantMuted(_) => "participant.muted",
             Self::ParticipantUnmuted(_) => "participant.unmuted",
             Self::ParticipantConnectionAborted(_) => "participant.connection_aborted",
+            Self::ParticipantMediaChanged(e) => match (e.source, e.enabled) {
+                (MediaSource::Camera, true) => "participant.camera.on",
+                (MediaSource::Camera, false) => "participant.camera.off",
+                (MediaSource::Screen, true) => "participant.screen.on",
+                (MediaSource::Screen, false) => "participant.screen.off",
+            },
             Self::TextJoined(_) => "text.joined",
         }
     }

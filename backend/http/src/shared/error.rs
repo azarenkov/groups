@@ -35,6 +35,7 @@ use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::get_voice_presence::GetVoicePresenceError;
+use application::usecases::channel::update_stream_viewer::UpdateStreamViewerError;
 use application::usecases::server::list_server_channels::ListServerChannelsError;
 use application::usecases::server::list_server_members::ListServerMembersError;
 use application::usecases::server::list_servers_by_user::ListServersByUserError;
@@ -51,7 +52,8 @@ use application::usecases::{
         edit_channel_message::EditChannelMessageError,
         join_text_channel::JoinTextChannelError, join_voice_connection::JoinVoiceConnectionError,
         leave_voice_connection::LeaveVoiceConnectionError, mute_channel::MuteChannelError,
-        send_channel_message::SendChannelMessageError, unmute_channel::UnmuteChannelError,
+        send_channel_message::SendChannelMessageError,
+        track_media_connection::TrackMediaConnectionError, unmute_channel::UnmuteChannelError,
     },
     server::{create_server::CreateServerError, delete_server::DeleteServerError},
     webhook::voice::HandleVoiceWebhookError,
@@ -179,6 +181,7 @@ impl ToHttpStatus for ChannelError {
             ChannelError::VoiceNotSupported | ChannelError::TextNotSupported => {
                 StatusCode::BAD_REQUEST
             }
+            ChannelError::ParticipantNotJoined => StatusCode::CONFLICT,
         }
     }
 
@@ -200,6 +203,9 @@ impl ToHttpStatus for ChannelError {
             ChannelError::TextNotSupported => {
                 "Text is not supported for this channel".to_string()
             }
+            ChannelError::ParticipantNotJoined => {
+                "Participant has not joined the voice session yet".to_string()
+            }
         }
     }
 
@@ -213,6 +219,7 @@ impl ToHttpStatus for ChannelError {
             ChannelError::NotMuted => "PARTICIPANT_NOT_MUTED",
             ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             ChannelError::TextNotSupported => "CHANNEL_NOT_TEXT",
+            ChannelError::ParticipantNotJoined => "PARTICIPANT_NOT_JOINED",
         }
     }
 }
@@ -567,6 +574,7 @@ impl ToHttpStatus for HandleVoiceWebhookError {
             HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_http_status(),
+            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_http_status(),
         }
     }
 
@@ -576,6 +584,7 @@ impl ToHttpStatus for HandleVoiceWebhookError {
             HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_user_message(),
+            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_user_message(),
         }
     }
 
@@ -585,6 +594,30 @@ impl ToHttpStatus for HandleVoiceWebhookError {
             HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_error_code(),
             HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_error_code(),
             HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_error_code(),
+            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for TrackMediaConnectionError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            TrackMediaConnectionError::Repository(e) => e.to_http_status(),
+            TrackMediaConnectionError::Domain(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            TrackMediaConnectionError::Repository(e) => e.to_user_message(),
+            TrackMediaConnectionError::Domain(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            TrackMediaConnectionError::Repository(e) => e.to_error_code(),
+            TrackMediaConnectionError::Domain(e) => e.to_error_code(),
         }
     }
 }
@@ -1077,6 +1110,31 @@ impl ToHttpStatus for GetVoicePresenceError {
         match self {
             GetVoicePresenceError::Repository(e) => e.to_error_code(),
             GetVoicePresenceError::NotMember => "SERVER_NOT_MEMBER",
+        }
+    }
+}
+
+impl ToHttpStatus for UpdateStreamViewerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateStreamViewerError::Repository(e) => e.to_http_status(),
+            UpdateStreamViewerError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateStreamViewerError::Repository(e) => e.to_user_message(),
+            UpdateStreamViewerError::NotMember => {
+                "You are not a member of this server".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateStreamViewerError::Repository(e) => e.to_error_code(),
+            UpdateStreamViewerError::NotMember => "SERVER_NOT_MEMBER",
         }
     }
 }
@@ -2058,6 +2116,7 @@ impl_from_for_api_error!(
     ListServerMembersError,
     ListServerChannelsError,
     GetVoicePresenceError,
+    UpdateStreamViewerError,
     ListChannelParticipantsError,
     ListChannelMessagesError,
     SearchChannelMessagesError,

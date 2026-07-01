@@ -1,6 +1,7 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
 use application::usecases::channel::abort_voice_connection::AbortVoiceConnection;
+use application::usecases::channel::track_media_connection::TrackMediaConnection;
 use infrastructure::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
     database::postgres::{
@@ -44,7 +45,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(pool.clone()));
-    let abort_use_case = Arc::new(AbortVoiceConnection::new(channel_repository));
+    let abort_use_case = Arc::new(AbortVoiceConnection::new(channel_repository.clone()));
+    let track_use_case = Arc::new(TrackMediaConnection::new(channel_repository));
 
     let reconciler = Arc::new(Reconciler::new(
         pool,
@@ -52,6 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         livekit_config.api_key().to_string(),
         livekit_config.api_secret().to_string(),
         abort_use_case,
+        track_use_case,
         Duration::from_secs(pooler_config.livekit_pooler_grace_secs),
         Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs),
         pooler_config.livekit_pooler_max_aborts_per_pass,
@@ -75,7 +78,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         match reconciler.run_once().await {
             Ok(summary) => {
-                if summary.db_entries_checked > 0 || summary.aborted > 0 {
+                if summary.db_entries_checked > 0
+                    || summary.aborted > 0
+                    || summary.tracks_reconciled > 0
+                {
                     tracing::info!(
                         rooms_checked = summary.rooms_checked,
                         rooms_missing = summary.rooms_missing,
@@ -85,6 +91,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         aborted = summary.aborted,
                         abort_skipped = summary.abort_skipped,
                         abort_failed = summary.abort_failed,
+                        tracks_reconciled = summary.tracks_reconciled,
                         "LiveKit pooler pass completed",
                     );
                 }

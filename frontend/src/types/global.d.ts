@@ -16,6 +16,29 @@ declare global {
 
       googleOAuth?: () => Promise<string>;
       googleOAuthAvailable?: () => Promise<boolean>;
+
+      onScreenShareSources?: (
+        callback: (data: {
+          requestId: number;
+          sources: {
+            id: string;
+            name: string;
+            kind: "screen" | "window";
+            thumbnail: string;
+          }[];
+        }) => void,
+      ) => () => void;
+      pickScreenShareSource?: (
+        requestId: number,
+        sourceId: string | null,
+      ) => void;
     };
   }
+}
+
+export interface ScreenShareSource {
+  id: string;
+  name: string;
+  kind: "screen" | "window";
+  thumbnail: string;
 }

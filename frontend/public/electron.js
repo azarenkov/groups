@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, nativeImage, safeStorage, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, nativeImage, safeStorage, session, shell } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const crypto = require('crypto');
@@ -299,6 +299,91 @@ app.on('ready', () => {
     headers['Cross-Origin-Embedder-Policy'] = ['credentialless'];
     callback({ responseHeaders: headers });
   });
+
+  const ALLOWED_PERMISSIONS = new Set(['media', 'display-capture', 'fullscreen']);
+
+  const isTrustedSource = (value) => {
+    if (!value) return false;
+    return isDev
+      ? value.startsWith('http://localhost:3000')
+      : value.startsWith('file://');
+  };
+
+  const contentsUrl = (wc) => {
+    try {
+      return wc && typeof wc.getURL === 'function' ? wc.getURL() : '';
+    } catch (_e) {
+      return '';
+    }
+  };
+
+  session.defaultSession.setPermissionCheckHandler(
+    (wc, permission, requestingOrigin) =>
+      ALLOWED_PERMISSIONS.has(permission) &&
+      (isTrustedSource(contentsUrl(wc)) || isTrustedSource(requestingOrigin)),
+  );
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+    cb(ALLOWED_PERMISSIONS.has(permission) && isTrustedSource(contentsUrl(wc)));
+  });
+
+  const pendingScreenShare = new Map();
+  let screenShareSeq = 0;
+
+  ipcMain.on('screen-share:picked', (_event, { requestId, sourceId }) => {
+    const entry = pendingScreenShare.get(requestId);
+    if (!entry) return;
+    pendingScreenShare.delete(requestId);
+    clearTimeout(entry.timer);
+    const chosen = entry.sources.find((s) => s.id === sourceId);
+    if (!chosen) {
+      entry.callback({});
+      return;
+    }
+    const stream = { video: chosen };
+    if (process.platform === 'win32') {
+      stream.audio = 'loopback';
+    }
+    entry.callback(stream);
+  });
+
+  session.defaultSession.setDisplayMediaRequestHandler(
+    (request, callback) => {
+      desktopCapturer
+        .getSources({
+          types: ['screen', 'window'],
+          thumbnailSize: { width: 320, height: 180 },
+        })
+        .then((sources) => {
+          if (!sources.length || !mainWindow || mainWindow.isDestroyed()) {
+            callback({});
+            return;
+          }
+          const requestId = ++screenShareSeq;
+          const timer = setTimeout(() => {
+            if (pendingScreenShare.has(requestId)) {
+              pendingScreenShare.delete(requestId);
+              callback({});
+            }
+          }, 60000);
+          pendingScreenShare.set(requestId, { sources, callback, timer });
+          mainWindow.webContents.send('screen-share:sources', {
+            requestId,
+            sources: sources.map((s) => ({
+              id: s.id,
+              name: s.name,
+              kind: s.id.startsWith('screen:') ? 'screen' : 'window',
+              thumbnail: s.thumbnail.toDataURL(),
+            })),
+          });
+        })
+        .catch((err) => {
+          console.error('[screen-share] getSources failed:', err);
+          callback({});
+        });
+    },
+    { useSystemPicker: true },
+  );
+  console.log('[screen-share] display media request handler registered');
 
   if (autoUpdater) {
     createSplash();

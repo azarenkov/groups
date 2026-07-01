@@ -116,18 +116,43 @@ class ServerAPI {
     return all;
   }
 
-  async listVoicePresence(serverId: string): Promise<
-    {
+  async listVoicePresence(serverId: string): Promise<{
+    items: {
       channelId: string;
       userId: string;
       userName: string;
       isMuted: boolean;
-    }[]
-  > {
+      cameraOn: boolean;
+      screenOn: boolean;
+    }[];
+    streamViewers: {
+      channelId: string;
+      streamerId: string;
+      count: number;
+    }[];
+  }> {
     const response = await this.client.get(
       `/v1/servers/${serverId}/voice-presence`,
     );
-    return response.data.data.items;
+    return {
+      items: response.data.data.items,
+      streamViewers: response.data.data.streamViewers ?? [],
+    };
+  }
+
+  async updateStreamViewer(
+    serverId: string,
+    channelId: string,
+    streamerId: string,
+    viewerSessionId: string,
+    watching: boolean,
+  ): Promise<void> {
+    await this.client.put(`/v1/servers/${serverId}/stream-viewers`, {
+      channelId,
+      streamerId,
+      viewerSessionId,
+      watching,
+    });
   }
 
   async listSentInvites(serverId: string): Promise<{ recipientIds: string[] }> {

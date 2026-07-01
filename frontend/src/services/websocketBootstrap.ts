@@ -3,6 +3,7 @@ import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
@@ -153,9 +154,13 @@ function dispatch(env: WsEnvelope) {
       const userId = asString(d.userId);
       if (!channelId || !userId) return;
       const userName = asString(d.userName) ?? userId;
-      useVoicePresenceStore
-        .getState()
-        .addMember(channelId, { id: userId, name: userName, isMuted: false });
+      useVoicePresenceStore.getState().addMember(channelId, {
+        id: userId,
+        name: userName,
+        isMuted: false,
+        cameraOn: false,
+        screenOn: false,
+      });
       return;
     }
 
@@ -224,6 +229,33 @@ function dispatch(env: WsEnvelope) {
       useVoicePresenceStore
         .getState()
         .setChannelMute(channelId, userId, isMuted);
+      return;
+    }
+
+    case "channel.participant.camera.on":
+    case "channel.participant.camera.off":
+    case "channel.participant.screen.on":
+    case "channel.participant.screen.off": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const source = env.type.includes("camera") ? "camera" : "screen";
+      const enabled = env.type.endsWith(".on");
+      useVoicePresenceStore
+        .getState()
+        .setChannelMedia(channelId, userId, source, enabled);
+      return;
+    }
+
+    case "channel.stream.viewers": {
+      const serverId = asString(d.serverId);
+      const channelId = asString(d.channelId);
+      const streamerId = asString(d.streamerId);
+      if (!serverId || !channelId || !streamerId) return;
+      const count = typeof d.count === "number" ? d.count : 0;
+      useStreamViewersStore
+        .getState()
+        .setCount(serverId, channelId, streamerId, count);
       return;
     }
 
