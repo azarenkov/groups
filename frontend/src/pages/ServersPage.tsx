@@ -657,7 +657,6 @@ const ServersPage: React.FC = () => {
           const target = states.get(key)!.desired;
           const sessionId = getLiveKitService().getLocalSessionId();
           if (!sessionId) break;
-          lastSent = target;
           try {
             await serverAPI.updateStreamViewer(
               watchServerId,
@@ -666,8 +665,10 @@ const ServersPage: React.FC = () => {
               sessionId,
               target,
             );
+            lastSent = target;
           } catch (err) {
             console.warn("[stream-viewers] report failed:", err);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
           }
         }
         const e = states.get(key);
