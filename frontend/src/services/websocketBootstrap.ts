@@ -248,13 +248,14 @@ function dispatch(env: WsEnvelope) {
     }
 
     case "channel.stream.viewers": {
+      const serverId = asString(d.serverId);
       const channelId = asString(d.channelId);
       const streamerId = asString(d.streamerId);
-      if (!channelId || !streamerId) return;
+      if (!serverId || !channelId || !streamerId) return;
       const count = typeof d.count === "number" ? d.count : 0;
       useStreamViewersStore
         .getState()
-        .setCount(channelId, streamerId, count);
+        .setCount(serverId, channelId, streamerId, count);
       return;
     }
 

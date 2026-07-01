@@ -290,19 +290,15 @@ const ServersPage: React.FC = () => {
           const snapshotChannels = new Set(Object.keys(groups));
           const knownChannels =
             useChannelStore.getState().channelsByServer[s.id] || [];
-          const voiceChannelIds: string[] = [];
           for (const c of knownChannels) {
             if (c.kind !== "voice") continue;
-            voiceChannelIds.push(c.id);
             if (snapshotChannels.has(c.id)) continue;
             useVoicePresenceStore.getState().clearChannel(c.id);
           }
           for (const [channelId, members] of Object.entries(groups)) {
             useVoicePresenceStore.getState().setMembers(channelId, members);
           }
-          useStreamViewersStore
-            .getState()
-            .resetForChannels(voiceChannelIds, streamViewers);
+          useStreamViewersStore.getState().resetForServer(s.id, streamViewers);
         })
         .catch((err) => {
           synced.delete(s.id);
@@ -976,6 +972,7 @@ const ServersPage: React.FC = () => {
                               vt.source === "screen"
                                 ? streamViewerCounts[
                                     streamViewerKey(
+                                      joinedChannel.serverId,
                                       joinedChannel.channel.id,
                                       vt.isLocal
                                         ? user?.id || "you"
