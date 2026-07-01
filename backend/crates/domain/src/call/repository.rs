@@ -52,6 +52,8 @@ pub trait CallRepository {
         call_id: Uuid,
     ) -> Result<Vec<CallParticipantView>, RepositoryError>;
 
+    async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError>;
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,

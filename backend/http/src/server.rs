@@ -26,7 +26,8 @@ use application::usecases::{
     },
     call::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
-        decline_call::DeclineCall, leave_call::LeaveCall, start_call::StartCall,
+        decline_call::DeclineCall, get_active_call::GetActiveCall, leave_call::LeaveCall,
+        start_call::StartCall,
     },
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
@@ -253,6 +254,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let leave_call_usecase = LeaveCall::new(call_repository.clone());
     let add_call_participants_usecase =
         AddCallParticipants::new(call_repository.clone(), friendship_repository.clone());
+    let get_active_call_usecase = GetActiveCall::new(
+        call_repository.clone(),
+        livekit_service.clone(),
+        user_repository.clone(),
+    );
     let send_friend_request_usecase = SendFriendRequest::new(
         friendship_repository.clone(),
         user_repository.clone(),
@@ -312,6 +318,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         decline_call_usecase,
         leave_call_usecase,
         add_call_participants_usecase,
+        get_active_call_usecase,
         mute_channel_usecase,
         unmute_channel_usecase,
         delete_channel_usecase,

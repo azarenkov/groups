@@ -1,4 +1,4 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, get, post, web};
 use application::dto::requests::call::{
     add_participants::AddCallParticipantsRequest, start_call::StartCallRequest,
 };
@@ -80,6 +80,34 @@ async fn start_call(
             })
             .collect(),
     })))
+}
+
+#[get("/active")]
+async fn get_active_call(
+    _req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let result = app_state
+        .get_active_call_usecase
+        .execute(user_id)
+        .await?
+        .map(|r| StartCallResponse {
+            call_id: r.call_id,
+            token: r.token.as_str().to_string(),
+            url: r.url,
+            participants: r
+                .participants
+                .into_iter()
+                .map(|p| CallParticipantDto {
+                    user_id: p.user_id.uuid(),
+                    user_name: p.user_name,
+                })
+                .collect(),
+        });
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(result)))
 }
 
 #[post("/{call_id}/accept")]
@@ -170,6 +198,7 @@ pub fn call_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/v1/calls")
             .service(start_call)
+            .service(get_active_call)
             .service(accept_call)
             .service(decline_call)
             .service(leave_call)

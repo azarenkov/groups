@@ -11,7 +11,8 @@ use application::ports::{
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::call::{
     accept_call::AcceptCallError, add_participants::AddCallParticipantsError,
-    decline_call::DeclineCallError, leave_call::LeaveCallError, start_call::StartCallError,
+    decline_call::DeclineCallError, get_active_call::GetActiveCallError, leave_call::LeaveCallError,
+    start_call::StartCallError,
 };
 use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
 use application::usecases::channel::search_channel_messages::SearchChannelMessagesError;
@@ -1119,6 +1120,30 @@ impl ToHttpStatus for DeclineCallError {
     fn to_error_code(&self) -> &'static str {
         match self {
             DeclineCallError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for GetActiveCallError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetActiveCallError::Repository(e) => e.to_http_status(),
+            GetActiveCallError::Voice(e) => e.to_http_status(),
+            GetActiveCallError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetActiveCallError::Repository(e) => e.to_user_message(),
+            GetActiveCallError::Voice(e) => e.to_user_message(),
+            GetActiveCallError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetActiveCallError::Repository(e) => e.to_error_code(),
+            GetActiveCallError::Voice(e) => e.to_error_code(),
+            GetActiveCallError::UserNotFound => "USER_NOT_FOUND",
         }
     }
 }
@@ -2248,6 +2273,7 @@ impl_from_for_api_error!(
     DeclineCallError,
     LeaveCallError,
     AddCallParticipantsError,
+    GetActiveCallError,
     ListServersByUserError,
     ListServerMembersError,
     ListServerChannelsError,

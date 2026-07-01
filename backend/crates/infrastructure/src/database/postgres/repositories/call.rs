@@ -316,6 +316,23 @@ impl CallRepository for PostgresCallRepository {
             .collect())
     }
 
+    async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT call_id
+            FROM call_participants
+            WHERE user_id = $1 AND status = 'joined'
+            ORDER BY updated_at DESC
+            LIMIT 1
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| r.call_id))
+    }
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,
