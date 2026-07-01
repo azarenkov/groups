@@ -1015,6 +1015,10 @@ export class LiveKitService {
     this.ensureParticipant(participant.identity, participant.name);
     this.updateParticipant(participant.identity, { audioTrack: track });
 
+    if (track.attachedElements.length > 0) {
+      return;
+    }
+
     const audioElement = track.attach();
     audioElement.volume = 1.0;
     document.body.appendChild(audioElement);
