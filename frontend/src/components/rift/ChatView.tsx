@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
+import { useCallStore } from "../../store/callStore";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
@@ -1075,7 +1076,21 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         <span className="sep" />
         <span className="topic">{dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}</span>
         <div className="right">
-          <button type="button" className="icon-btn" title={i18n.t("voiceCallInvite", { ns: "chat" })}>
+          <button
+            type="button"
+            className="icon-btn"
+            title={i18n.t("voiceCallInvite", { ns: "chat" })}
+            onClick={() => {
+              if (dm?.friendId) {
+                useCallStore
+                  .getState()
+                  .start([dm.friendId])
+                  .catch((e) =>
+                    console.warn("[call] start failed:", e),
+                  );
+              }
+            }}
+          >
             <Icon name="phone" size={16} />
           </button>
           {onToggleSearch && (

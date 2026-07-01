@@ -1,0 +1,13 @@
+{
+  "incoming": "Incoming call",
+  "accept": "Accept",
+  "decline": "Decline",
+  "mute": "Mute",
+  "unmute": "Unmute",
+  "inCall": "In call",
+  "leave": "Leave call",
+  "addParticipants": "Add people",
+  "add": "Add",
+  "cancel": "Cancel",
+  "noFriendsToAdd": "No friends to add"
+}

@@ -5,6 +5,7 @@ import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useThemeStore } from "../store/themeStore";
 import { serverAPI } from "../api/server";
+import { callAPI } from "../api/call";
 import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
@@ -30,6 +31,8 @@ import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
+import IncomingCallModal from "../components/rift/IncomingCallModal";
+import ActiveCallBar from "../components/rift/ActiveCallBar";
 import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
@@ -236,6 +239,7 @@ const ServersPage: React.FC = () => {
       channelAPI.setAuthToken(tokens.accessToken);
       friendshipAPI.setAuthToken(tokens.accessToken);
       dmAPI.setAuthToken(tokens.accessToken);
+      callAPI.setAuthToken(tokens.accessToken);
       fetchServers();
       fetchFriends();
     }
@@ -680,6 +684,7 @@ const ServersPage: React.FC = () => {
     channelAPI.removeAuthToken();
     friendshipAPI.removeAuthToken();
     dmAPI.removeAuthToken();
+    callAPI.removeAuthToken();
     await signOut();
   };
 
@@ -1338,6 +1343,9 @@ const ServersPage: React.FC = () => {
         onClose={() => setIsDmModalOpen(false)}
         onPick={handlePickDmFromModal}
       />
+
+      <IncomingCallModal />
+      <ActiveCallBar />
 
       <AddFriendModal
         isOpen={isAddFriendOpen}

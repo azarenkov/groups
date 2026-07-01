@@ -4,6 +4,7 @@ import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
+import { useCallStore } from "../store/callStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
@@ -219,6 +220,20 @@ function dispatch(env: WsEnvelope) {
       if (userId) usePresenceStore.getState().setOffline(userId);
       return;
     }
+
+    case "call.incoming": {
+      const callId = asString(d.callId);
+      const callerId = asString(d.callerId);
+      if (!callId || !callerId) return;
+      const callerName = asString(d.callerName) ?? callerId;
+      useCallStore.getState().setIncoming({ callId, callerId, callerName });
+      return;
+    }
+
+    case "call.accepted":
+    case "call.declined":
+    case "call.left":
+      return;
 
     case "channel.participant.muted":
     case "channel.participant.unmuted": {
