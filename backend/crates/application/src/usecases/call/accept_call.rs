@@ -86,8 +86,6 @@ where
 
         let participants = self.call_repository.list_active(call_id).await?;
 
-        // Mutate status last: if the token/lookup above fails we must not leave
-        // a ghost joined participant keeping the call alive.
         self.call_repository
             .respond(call_id, &user_id, true, Utc::now(), request_id)
             .await?;

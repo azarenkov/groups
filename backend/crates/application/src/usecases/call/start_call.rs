@@ -111,8 +111,6 @@ where
             .create_voice_channel(&room, &ServerId::new(call_id))
             .await?;
 
-        // Issue the token before ringing so a token failure cannot leave
-        // invitees with a phantom incoming call the caller cannot clean up.
         let token = self
             .voice_service
             .create_token(&caller_id, caller.name(), &room)

@@ -217,8 +217,6 @@ impl CallRepository for PostgresCallRepository {
             return Ok(false);
         }
 
-        // On accept, presence is broadcast by the LiveKit participant_joined
-        // webhook; only decline needs an immediate signaling event.
         if !accept {
             let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
             let record =
@@ -455,9 +453,6 @@ impl CallRepository for PostgresCallRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if updated.rows_affected() == 0 {
-            // Either a stale/out-of-order join for an older LiveKit session, or
-            // not a call room. Ignore stale call events; only channel rooms fall
-            // through to the channel join path.
             let is_call = sqlx::query!(
                 r#"
                 SELECT EXISTS(
@@ -519,9 +514,6 @@ impl CallRepository for PostgresCallRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if updated.rows_affected() == 0 {
-            // Either a stale webhook for a superseded LiveKit session, or not a
-            // call room at all. Only fall through to the channel path in the
-            // latter case; a stale call event must be ignored, not re-handled.
             let is_call = sqlx::query!(
                 r#"
                 SELECT EXISTS(
