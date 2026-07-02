@@ -22,12 +22,15 @@ interface CallState {
   connecting: boolean;
   ringtoneMuted: boolean;
   participants: Record<string, string>;
+  ringing: string[];
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
   muteRingtone: () => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
+  participantDeclined: (callId: string, userId: string) => void;
+  callEnded: (callId: string) => void;
 
   rehydrate: () => Promise<void>;
   start: (recipientIds: string[]) => Promise<void>;
@@ -37,12 +40,15 @@ interface CallState {
   addParticipants: (recipientIds: string[]) => Promise<void>;
 }
 
+const without = (list: string[], id: string) => list.filter((x) => x !== id);
+
 export const useCallStore = create<CallState>()((set, get) => ({
   incoming: null,
   activeCallId: null,
   connecting: false,
   ringtoneMuted: false,
   participants: {},
+  ringing: [],
 
   setIncoming: (call) =>
     set((s) =>
@@ -56,7 +62,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
   participantJoined: (callId, userId, userName) =>
     set((s) =>
       s.activeCallId === callId
-        ? { participants: { ...s.participants, [userId]: userName } }
+        ? {
+            participants: { ...s.participants, [userId]: userName },
+            ringing: without(s.ringing, userId),
+          }
         : s,
     ),
   participantLeft: (callId, userId) =>
@@ -64,8 +73,23 @@ export const useCallStore = create<CallState>()((set, get) => ({
       if (s.activeCallId !== callId) return s;
       const next = { ...s.participants };
       delete next[userId];
-      return { participants: next };
+      return { participants: next, ringing: without(s.ringing, userId) };
     }),
+  participantDeclined: (callId, userId) =>
+    set((s) =>
+      s.activeCallId === callId ? { ringing: without(s.ringing, userId) } : s,
+    ),
+
+  callEnded: (callId) => {
+    const s = get();
+    if (s.incoming?.callId === callId) set({ incoming: null });
+    if (s.activeCallId === callId) {
+      set({ activeCallId: null, participants: {}, ringing: [] });
+      getLiveKitService()
+        .disconnect()
+        .catch(() => {});
+    }
+  },
 
   rehydrate: async () => {
     if (get().connecting) return;
@@ -77,7 +101,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         !service.isConnected() &&
         !service.isConnectingNow()
       ) {
-        set({ activeCallId: null, participants: {} });
+        set({ activeCallId: null, participants: {}, ringing: [] });
       }
       return;
     }
@@ -88,7 +112,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (!service.isConnected() && !service.isConnectingNow()) {
       await connectToRoom(active.token, active.url).catch(() => {});
     }
-    set({ activeCallId: active.callId, participants });
+    set((s) => ({
+      activeCallId: active.callId,
+      participants,
+      ringing: s.activeCallId === active.callId ? s.ringing : [],
+    }));
   },
 
   start: async (recipientIds) => {
@@ -103,6 +131,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         participants: Object.fromEntries(
           participants.map((p) => [p.userId, p.userName]),
         ),
+        ringing: recipientIds,
       });
     } catch (e) {
       set({ connecting: false });
@@ -123,6 +152,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         participants: Object.fromEntries(
           participants.map((p) => [p.userId, p.userName]),
         ),
+        ringing: [],
       });
     } catch (e) {
       set({ connecting: false });
@@ -140,7 +170,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async () => {
     const callId = get().activeCallId;
-    set({ activeCallId: null, participants: {} });
+    set({ activeCallId: null, participants: {}, ringing: [] });
     await getLiveKitService()
       .disconnect()
       .catch(() => {});
@@ -152,6 +182,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
   addParticipants: async (recipientIds) => {
     const callId = get().activeCallId;
     if (!callId) return;
+    set((s) => ({
+      ringing: Array.from(new Set([...s.ringing, ...recipientIds])),
+    }));
     await callAPI.addParticipants(callId, recipientIds);
   },
 }));

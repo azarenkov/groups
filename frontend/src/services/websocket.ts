@@ -56,6 +56,7 @@ export type WsEventType =
   | "user.offline"
   | "call.incoming"
   | "call.declined"
+  | "call.ended"
   | "call.participant.joined"
   | "call.participant.left";
 

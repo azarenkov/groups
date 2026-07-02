@@ -247,8 +247,20 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
-    case "call.declined":
+    case "call.declined": {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (callId && userId) {
+        useCallStore.getState().participantDeclined(callId, userId);
+      }
       return;
+    }
+
+    case "call.ended": {
+      const callId = asString(d.callId);
+      if (callId) useCallStore.getState().callEnded(callId);
+      return;
+    }
 
     case "channel.participant.muted":
     case "channel.participant.unmuted": {

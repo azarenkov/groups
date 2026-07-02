@@ -3378,3 +3378,11 @@ textarea.s-input {
 }
 .acb-add-name { flex: 1; text-align: left; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acb-add-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--hairline); }
+.acb-add-foot .btn {
+  height: 30px; padding: 0 14px; width: auto;
+  font-size: 13px; font-weight: 500; border-radius: 8px;
+}
+.acb-add-foot .btn:not(.primary) { background: var(--surface-active); color: var(--fg-1); }
+.acb-add-foot .btn:not(.primary):hover { background: var(--surface-hover); }
+.acb-add-foot .btn.primary { box-shadow: none; }
+.acb-add-foot .btn.primary:disabled { opacity: 0.5; cursor: default; }

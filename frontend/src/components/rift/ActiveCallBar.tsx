@@ -11,6 +11,7 @@ const ActiveCallBar: React.FC = () => {
   const leave = useCallStore((s) => s.leave);
   const addParticipants = useCallStore((s) => s.addParticipants);
   const participants = useCallStore((s) => s.participants);
+  const ringing = useCallStore((s) => s.ringing);
   const friends = useFriendshipStore((s) => s.friends);
   const [muted, setMuted] = useState(false);
   const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
@@ -20,16 +21,16 @@ const ActiveCallBar: React.FC = () => {
     setMountPoint(document.getElementById("voice-dock-slot"));
   }, []);
 
-  const inCallIds = useMemo(
-    () => new Set(Object.keys(participants)),
-    [participants],
+  const busyIds = useMemo(
+    () => new Set([...Object.keys(participants), ...ringing]),
+    [participants, ringing],
   );
   const candidates = useMemo(
     () =>
       friends
-        .filter((f) => f.status === "accepted" && !inCallIds.has(f.friendId))
+        .filter((f) => f.status === "accepted" && !busyIds.has(f.friendId))
         .map((f) => ({ id: f.friendId, name: f.friendName })),
-    [friends, inCallIds],
+    [friends, busyIds],
   );
 
   if (!activeCallId || !mountPoint) return null;
@@ -40,7 +41,7 @@ const ActiveCallBar: React.FC = () => {
     setMuted(next);
   };
 
-  const count = Math.max(inCallIds.size, 1);
+  const count = Math.max(Object.keys(participants).length, 1);
 
   return createPortal(
     <VoicePill
