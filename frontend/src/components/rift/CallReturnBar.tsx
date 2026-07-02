@@ -28,6 +28,7 @@ const CallReturnBar: React.FC = () => {
       <span className="crb-meta">
         {count} {t("voice:connected").toLowerCase()}
       </span>
+      <span className="crb-cta">{t("returnToCall")}</span>
       <span
         role="button"
         tabIndex={-1}
@@ -40,7 +41,6 @@ const CallReturnBar: React.FC = () => {
       >
         <Icon name="logout" size={15} />
       </span>
-      <span className="crb-cta">{t("returnToCall")}</span>
     </button>
   );
 };
