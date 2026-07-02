@@ -111,6 +111,18 @@ where
             .create_voice_channel(&room, &ServerId::new(call_id))
             .await?;
 
+        // Issue the token before ringing so a token failure cannot leave
+        // invitees with a phantom incoming call the caller cannot clean up.
+        let token = self
+            .voice_service
+            .create_token(&caller_id, caller.name(), &room)
+            .await?;
+
+        let participants = vec![CallParticipantView {
+            user_id: UserId::new(caller_id.uuid()),
+            user_name: caller.name().as_str().to_string(),
+        }];
+
         self.call_repository
             .start_call(
                 call_id,
@@ -120,13 +132,6 @@ where
                 request.ctx.request_id,
             )
             .await?;
-
-        let token = self
-            .voice_service
-            .create_token(&caller_id, caller.name(), &room)
-            .await?;
-
-        let participants = self.call_repository.list_active(call_id).await?;
 
         Ok(StartCallResult {
             call_id,

@@ -441,7 +441,9 @@ impl CallRepository for PostgresCallRepository {
             r#"
             UPDATE call_participants
             SET status = 'joined', session_id = $3, updated_at = $4
-            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined', 'left')
+            WHERE call_id = $1 AND user_id = $2
+              AND status IN ('invited', 'joined', 'left')
+              AND (session_id IS NULL OR $4 >= updated_at)
             "#,
             call_id,
             user_id.uuid(),
@@ -453,7 +455,21 @@ impl CallRepository for PostgresCallRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if updated.rows_affected() == 0 {
-            return Ok(false);
+            // Either a stale/out-of-order join for an older LiveKit session, or
+            // not a call room. Ignore stale call events; only channel rooms fall
+            // through to the channel join path.
+            let is_call = sqlx::query!(
+                r#"
+                SELECT EXISTS(
+                    SELECT 1 FROM call_participants WHERE call_id = $1
+                ) AS "exists!"
+                "#,
+                call_id,
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            return Ok(is_call.exists);
         }
 
         let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;

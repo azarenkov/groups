@@ -64,10 +64,6 @@ where
         call_id: Uuid,
         request_id: Option<String>,
     ) -> Result<AcceptCallResult, AcceptCallError> {
-        self.call_repository
-            .respond(call_id, &user_id, true, Utc::now(), request_id)
-            .await?;
-
         if !self
             .call_repository
             .is_active_participant(call_id, &user_id)
@@ -89,6 +85,12 @@ where
             .await?;
 
         let participants = self.call_repository.list_active(call_id).await?;
+
+        // Mutate status last: if the token/lookup above fails we must not leave
+        // a ghost joined participant keeping the call alive.
+        self.call_repository
+            .respond(call_id, &user_id, true, Utc::now(), request_id)
+            .await?;
 
         Ok(AcceptCallResult {
             token,
