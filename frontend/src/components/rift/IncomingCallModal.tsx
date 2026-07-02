@@ -72,7 +72,7 @@ const IncomingCallModal: React.FC = () => {
           onClick={() => muteRingtone()}
           title={t("mute")}
         >
-          <Icon name="mic-off" size={18} />
+          <Icon name="mic-off" size={15} />
         </button>
         <button
           type="button"
