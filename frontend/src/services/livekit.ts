@@ -762,6 +762,10 @@ export class LiveKitService {
     return this.isConnecting;
   }
 
+  getRoomName(): string | null {
+    return this.room?.state === "connected" ? this.room.name : null;
+  }
+
   private setupEventListeners(): void {
     if (!this.room) return;
 

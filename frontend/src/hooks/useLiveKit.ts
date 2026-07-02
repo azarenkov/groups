@@ -137,8 +137,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     const service = serviceRef.current;
     if (!service) return;
     try {
-      console.log("[useLiveKit] Leaving channel...");
-      await service.disconnect();
+      const active = activeChannelRef.current;
+      const ownsRoom = !active || service.getRoomName() === active.channelId;
+      if (ownsRoom) {
+        console.log("[useLiveKit] Leaving channel...");
+        await service.disconnect();
+      } else {
+        console.log("[useLiveKit] Room superseded, skipping disconnect");
+      }
       activeChannelRef.current = null;
       setParticipants([]);
       setVideoTiles([]);
@@ -197,8 +203,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
   useEffect(() => {
     return () => {
-      if (isConnectedRef.current) {
-        serviceRef.current?.disconnect();
+      const active = activeChannelRef.current;
+      const service = serviceRef.current;
+      if (
+        isConnectedRef.current &&
+        service &&
+        (!active || service.getRoomName() === active.channelId)
+      ) {
+        service.disconnect();
       }
     };
   }, []);

@@ -29,6 +29,7 @@ interface CallState {
   participantLeft: (callId: string, userId: string) => void;
   participantDeclined: (callId: string, userId: string) => void;
   callEnded: (callId: string) => void;
+  reset: () => void;
 
   rehydrate: () => Promise<void>;
   start: (recipientIds: string[]) => Promise<void>;
@@ -82,6 +83,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
         .catch(() => {});
     }
   },
+
+  reset: () => set({ activeCallId: null, participants: {}, ringing: [] }),
 
   rehydrate: async () => {
     if (get().connecting) return;

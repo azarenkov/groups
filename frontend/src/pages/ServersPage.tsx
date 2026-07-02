@@ -25,6 +25,7 @@ import { ws } from "../services/websocket";
 import { setActiveChatView } from "../services/websocketBootstrap";
 import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
+import { useCallStore } from "../store/callStore";
 import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
@@ -431,6 +432,7 @@ const ServersPage: React.FC = () => {
   };
 
   const finalizeJoin = (server: Server, channel: Channel, password?: string) => {
+    useCallStore.getState().reset();
     setSelectedServer(server.id);
     setSelectedChannel(channel.id);
     setJoinedChannel({ channel, serverId: server.id, password });
@@ -636,6 +638,17 @@ const ServersPage: React.FC = () => {
   const handleVoiceJoinFailed = useCallback(() => {
     setVoiceJoinFailed(true);
   }, []);
+
+  const activeCallId = useCallStore((s) => s.activeCallId);
+  const prevActiveCallRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevActiveCallRef.current;
+    prevActiveCallRef.current = activeCallId;
+    if (!prev && activeCallId && joinedChannel) {
+      setJoinedChannel(null);
+      setVoiceJoinFailed(false);
+    }
+  }, [activeCallId, joinedChannel]);
 
   const watchServerId = joinedChannel?.serverId;
   const watchChannelId = joinedChannel?.channel.id;
