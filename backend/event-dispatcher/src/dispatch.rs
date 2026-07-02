@@ -433,6 +433,20 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".call.ended") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "call.ended",
+            json!({
+                "callId": evt.call_id,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".call.participant.left") {
         let evt: CallEventDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(

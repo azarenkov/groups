@@ -72,6 +72,58 @@ async fn active_others(
     Ok(rows.into_iter().map(|r| r.user_id).collect())
 }
 
+async fn end_call_if_empty(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    actor: Uuid,
+    request_id: Option<String>,
+    now: DateTime<Utc>,
+) -> Result<(), RepositoryError> {
+    let joined = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND status = 'joined'"#,
+        call_id,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    if joined > 0 {
+        return Ok(());
+    }
+
+    let ringing: Vec<Uuid> = sqlx::query!(
+        r#"SELECT user_id FROM call_participants WHERE call_id = $1 AND status = 'invited'"#,
+        call_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?
+    .into_iter()
+    .map(|r| r.user_id)
+    .collect();
+
+    if ringing.is_empty() {
+        return Ok(());
+    }
+
+    sqlx::query!(
+        r#"
+        UPDATE call_participants
+        SET status = 'left', updated_at = $2
+        WHERE call_id = $1 AND status = 'invited'
+        "#,
+        call_id,
+        now,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+
+    let record = call_event(call_id, "call.ended", actor, &ringing, request_id, now);
+    save_outbox_records(tx, std::slice::from_ref(&record)).await?;
+    Ok(())
+}
+
 #[async_trait]
 impl CallRepository for PostgresCallRepository {
     async fn start_call(
@@ -261,10 +313,12 @@ impl CallRepository for PostgresCallRepository {
             "call.participant.left",
             user_id.uuid(),
             &recipients,
-            request_id,
+            request_id.clone(),
             now,
         );
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        end_call_if_empty(&mut tx, call_id, user_id.uuid(), request_id, now).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
@@ -416,10 +470,12 @@ impl CallRepository for PostgresCallRepository {
             "call.participant.left",
             user_id.uuid(),
             &recipients,
-            request_id,
+            request_id.clone(),
             now,
         );
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        end_call_if_empty(&mut tx, call_id, user_id.uuid(), request_id, now).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
