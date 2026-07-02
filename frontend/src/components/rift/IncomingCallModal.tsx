@@ -55,22 +55,29 @@ const IncomingCallModal: React.FC = () => {
 
   return (
     <div className="incoming-call">
-      <div
-        className="incoming-call-ava"
-        style={{ background: colorForId(incoming.callerId) }}
-      >
-        {initialFor(incoming.callerName)}
+      <div className="ic-avatar-wrap">
+        <div
+          className="ic-ava"
+          style={{ background: colorForId(incoming.callerId) }}
+        >
+          {initialFor(incoming.callerName)}
+        </div>
       </div>
-      <div className="incoming-call-name">{incoming.callerName}</div>
-      <div className="incoming-call-sub">{t("incoming")}</div>
-      <div className="incoming-call-actions">
+      <div className="ic-text">
+        <div className="ic-name">{incoming.callerName}</div>
+        <div className="ic-sub">
+          <span className="ic-sub-dot" />
+          {t("incoming")}
+        </div>
+      </div>
+      <div className="ic-actions">
         <button
           type="button"
           className="ic-btn decline"
           onClick={() => decline()}
           title={t("decline")}
         >
-          <Icon name="phone" size={18} />
+          <Icon name="phone" size={17} />
         </button>
         <button
           type="button"
@@ -78,7 +85,7 @@ const IncomingCallModal: React.FC = () => {
           onClick={() => accept()}
           title={t("accept")}
         >
-          <Icon name="phone" size={18} />
+          <Icon name="phone" size={17} />
         </button>
       </div>
     </div>
