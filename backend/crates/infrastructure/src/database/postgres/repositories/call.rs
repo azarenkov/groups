@@ -345,6 +345,27 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.exists)
     }
 
+    async fn is_joined_participant(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM call_participants
+                WHERE call_id = $1 AND user_id = $2 AND status = 'joined'
+            ) AS "exists!"
+            "#,
+            call_id,
+            user_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.exists)
+    }
+
     async fn list_active(
         &self,
         call_id: Uuid,

@@ -47,6 +47,12 @@ pub trait CallRepository {
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
 
+    async fn is_joined_participant(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
+
     async fn list_active(
         &self,
         call_id: Uuid,

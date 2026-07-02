@@ -50,7 +50,7 @@ where
     ) -> Result<(), AddCallParticipantsError> {
         if !self
             .call_repository
-            .is_active_participant(request.call_id, &caller_id)
+            .is_joined_participant(request.call_id, &caller_id)
             .await?
         {
             return Err(AddCallParticipantsError::NotParticipant);
