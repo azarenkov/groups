@@ -801,6 +801,15 @@ const ServersPage: React.FC = () => {
           <button
             type="button"
             className="titlebar-add"
+            title={tSidebar("createServer")}
+            onClick={() => setIsServerModalOpen(true)}
+          >
+            <Icon name="plus" size={14} />
+            <span>{tSidebar("createServer")}</span>
+          </button>
+          <button
+            type="button"
+            className="titlebar-add"
             title={tSidebar("addFriend")}
             onClick={() => setIsAddFriendOpen(true)}
           >
@@ -853,7 +862,6 @@ const ServersPage: React.FC = () => {
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
-          onAddServer={() => setIsServerModalOpen(true)}
           onAddChannel={(server) => {
             setChannelModalServerId(server.id);
             setIsChannelModalOpen(true);
