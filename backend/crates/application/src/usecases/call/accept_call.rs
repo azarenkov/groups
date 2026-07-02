@@ -84,11 +84,22 @@ where
             .create_token(&user_id, user.name(), &room)
             .await?;
 
-        let participants = self.call_repository.list_active(call_id).await?;
+        let mut participants: Vec<CallParticipantView> = self
+            .call_repository
+            .list_active(call_id)
+            .await?
+            .into_iter()
+            .filter(|p| p.user_id != user_id)
+            .collect();
 
         self.call_repository
             .respond(call_id, &user_id, true, Utc::now(), request_id)
             .await?;
+
+        participants.push(CallParticipantView {
+            user_id: UserId::new(user_id.uuid()),
+            user_name: user.name().as_str().to_string(),
+        });
 
         Ok(AcceptCallResult {
             token,
