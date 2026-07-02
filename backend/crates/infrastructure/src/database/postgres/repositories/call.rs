@@ -249,7 +249,7 @@ impl CallRepository for PostgresCallRepository {
                 INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
                 VALUES ($1, $2, $3, 'invited', $4, $4)
                 ON CONFLICT (call_id, user_id) DO UPDATE
-                    SET status = 'invited', inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at
+                    SET status = 'invited', session_id = NULL, inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at
                     WHERE call_participants.status IN ('declined', 'left')
                 "#,
                 call_id,
@@ -441,9 +441,8 @@ impl CallRepository for PostgresCallRepository {
             SET status = 'joined', session_id = $3, updated_at = $4
             WHERE call_id = $1 AND user_id = $2
               AND (
-                    status = 'invited'
-                 OR (status = 'joined' AND (session_id IS NULL OR $4 >= updated_at))
-                 OR (status = 'left' AND $4 >= updated_at)
+                    (status = 'joined' AND session_id IS NULL)
+                 OR (status IN ('invited', 'joined', 'left') AND $4 >= updated_at)
               )
             "#,
             call_id,
@@ -505,7 +504,7 @@ impl CallRepository for PostgresCallRepository {
             SET status = 'left', updated_at = $4
             WHERE call_id = $1 AND user_id = $2
               AND status IN ('invited', 'joined')
-              AND (session_id IS NULL OR session_id = $3)
+              AND (session_id = $3 OR (session_id IS NULL AND $4 >= updated_at))
             "#,
             call_id,
             user_id.uuid(),
