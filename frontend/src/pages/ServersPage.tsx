@@ -38,6 +38,7 @@ import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
 import CallStage from "../components/rift/CallStage";
+import CallReturnBar from "../components/rift/CallReturnBar";
 import { VideoTileCell } from "../components/rift/VideoStage";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
@@ -888,6 +889,7 @@ const ServersPage: React.FC = () => {
 
         <main className="main">
           <div className="main-inner">
+            <CallReturnBar />
             {activeCallId && callFocused ? (
               <CallStage onMinimize={() => useCallStore.getState().setFocused(false)} />
             ) : !selectedServer && !selectedDm ? (
