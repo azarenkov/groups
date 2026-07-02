@@ -293,6 +293,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span>{t("servers")}</span>
         </div>
 
+        <button
+          type="button"
+          tabIndex={-1}
+          className="sb-create-server"
+          onClick={onAddServer}
+        >
+          <span className="plus">
+            <Icon name="plus" size={12} />
+          </span>
+          <span>{t("createServer")}</span>
+        </button>
+
         {filteredServers.length === 0 && (
           <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--fg-3)" }}>
             {isFiltering ? t("noMatches") : t("noServers")}
@@ -562,13 +574,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           );
         })}
-
-        <button type="button" tabIndex={-1} className="sb-create-server" onClick={onAddServer}>
-          <span className="plus">
-            <Icon name="plus" size={12} />
-          </span>
-          <span>{t("addServer")}</span>
-        </button>
       </div>
 
       <div id="voice-dock-slot" className="sb-voice-dock" />

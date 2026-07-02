@@ -1010,7 +1010,7 @@ select:focus-visible {
 .sb-create-server {
   display: flex; align-items: center; gap: 8px;
   width: calc(100% - 16px);
-  margin: 8px 8px 0;
+  margin: 8px 8px 6px;
   padding: 8px 10px;
   border: 1px dashed var(--hairline-strong);
   border-radius: 8px;

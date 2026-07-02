@@ -3,6 +3,7 @@
   "directMessages": "Direct Messages",
   "servers": "Servers",
   "addServer": "Add server",
+  "createServer": "Create server",
   "addChannel": "Add channel",
   "noServers": "No servers yet. Create one to get started.",
   "noMatches": "No matching servers or channels.",
