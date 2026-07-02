@@ -92,9 +92,19 @@ where
             .filter(|p| p.user_id != user_id)
             .collect();
 
-        self.call_repository
+        let accepted = self
+            .call_repository
             .respond(call_id, &user_id, true, Utc::now(), request_id)
             .await?;
+
+        if !accepted
+            && !self
+                .call_repository
+                .is_joined_participant(call_id, &user_id)
+                .await?
+        {
+            return Err(AcceptCallError::NotParticipant);
+        }
 
         participants.push(CallParticipantView {
             user_id: UserId::new(user_id.uuid()),
