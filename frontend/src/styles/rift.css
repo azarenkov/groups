@@ -3353,12 +3353,6 @@ textarea.s-input {
 .ic-btn.accept { background: var(--success, #3ba55d); }
 .ic-btn.decline { background: var(--danger, #e5484d); }
 .ic-btn.decline svg { transform: rotate(135deg); }
-.ic-btn.mute {
-  width: 34px; height: 34px;
-  background: var(--surface-active); color: var(--fg-2); box-shadow: none;
-}
-.ic-btn.mute:hover { background: var(--surface-hover); color: var(--fg-1); }
-.ic-btn.mute.on { background: var(--accent, #5865f2); color: #fff; }
 
 .acb-add {
   position: absolute; left: 0; bottom: calc(100% + 8px);

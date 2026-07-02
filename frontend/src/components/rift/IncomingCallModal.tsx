@@ -6,14 +6,12 @@ import { colorForId, initialFor } from "../../utils/avatar";
 
 const IncomingCallModal: React.FC = () => {
   const incoming = useCallStore((s) => s.incoming);
-  const ringtoneMuted = useCallStore((s) => s.ringtoneMuted);
   const accept = useCallStore((s) => s.accept);
   const decline = useCallStore((s) => s.decline);
-  const muteRingtone = useCallStore((s) => s.muteRingtone);
   const { t } = useTranslation("call");
 
   useEffect(() => {
-    if (!incoming || ringtoneMuted) return;
+    if (!incoming) return;
     const AudioCtx =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext })
@@ -21,29 +19,37 @@ const IncomingCallModal: React.FC = () => {
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
     let stopped = false;
-    const beep = () => {
+    const notes = [
+      { f: 587.33, at: 0, dur: 0.16 },
+      { f: 783.99, at: 0.16, dur: 0.16 },
+      { f: 1174.66, at: 0.32, dur: 0.3 },
+    ];
+    const ring = () => {
       if (stopped) return;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 480;
-      const now = ctx.currentTime;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 1);
+      const base = ctx.currentTime;
+      for (const n of notes) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = n.f;
+        const start = base + n.at;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.13, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + n.dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + n.dur + 0.05);
+      }
     };
-    beep();
-    const id = setInterval(beep, 2500);
+    ring();
+    const id = setInterval(ring, 2200);
     return () => {
       stopped = true;
       clearInterval(id);
       ctx.close().catch(() => {});
     };
-  }, [incoming, ringtoneMuted]);
+  }, [incoming]);
 
   if (!incoming) return null;
 
@@ -65,14 +71,6 @@ const IncomingCallModal: React.FC = () => {
           title={t("decline")}
         >
           <Icon name="phone" size={18} />
-        </button>
-        <button
-          type="button"
-          className={"ic-btn mute" + (ringtoneMuted ? " on" : "")}
-          onClick={() => muteRingtone()}
-          title={t("mute")}
-        >
-          <Icon name="mic-off" size={15} />
         </button>
         <button
           type="button"

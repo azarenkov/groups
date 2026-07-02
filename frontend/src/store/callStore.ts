@@ -20,13 +20,11 @@ interface CallState {
   incoming: IncomingCall | null;
   activeCallId: string | null;
   connecting: boolean;
-  ringtoneMuted: boolean;
   participants: Record<string, string>;
   ringing: string[];
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
-  muteRingtone: () => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
   participantDeclined: (callId: string, userId: string) => void;
@@ -46,18 +44,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
   incoming: null,
   activeCallId: null,
   connecting: false,
-  ringtoneMuted: false,
   participants: {},
   ringing: [],
 
   setIncoming: (call) =>
-    set((s) =>
-      s.activeCallId === call.callId
-        ? s
-        : { incoming: call, ringtoneMuted: false },
-    ),
+    set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
   clearIncoming: () => set({ incoming: null }),
-  muteRingtone: () => set({ ringtoneMuted: true }),
 
   participantJoined: (callId, userId, userName) =>
     set((s) =>
