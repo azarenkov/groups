@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { VideoTileCell } from "./VideoStage";
@@ -19,6 +19,24 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
 
   const selfId = user?.id || "you";
   const selfName = user?.name || "You";
+
+  const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
+  const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
+  const volumePopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openVolumeFor) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        volumePopoverRef.current &&
+        !volumePopoverRef.current.contains(e.target as Node)
+      ) {
+        setOpenVolumeFor(null);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [openVolumeFor]);
 
   const localCameraOn = videoTiles.some(
     (t) => t.isLocal && t.source === "camera",
@@ -87,14 +105,73 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
               }
             />
           ))}
-          {avatarTiles.map((tl) => (
-            <div key={tl.id} className="voice-tile">
-              <div className="voice-tile-ava" style={{ background: tl.color }}>
-                {tl.initials}
+          {avatarTiles.map((tl) => {
+            const isSelf = tl.id === selfId;
+            const vol = tileVolumes[tl.id] ?? 100;
+            return (
+              <div key={tl.id} className="voice-tile">
+                <div className="voice-tile-ava" style={{ background: tl.color }}>
+                  {tl.initials}
+                </div>
+                <div className="voice-tile-name">{tl.name}</div>
+                {!isSelf && (
+                  <div className="voice-tile-volume-wrap">
+                    <button
+                      type="button"
+                      className={
+                        "voice-tile-volume-btn" +
+                        (openVolumeFor === tl.id ? " on" : "")
+                      }
+                      title={`Volume ${vol}%`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenVolumeFor((prev) =>
+                          prev === tl.id ? null : tl.id,
+                        );
+                      }}
+                    >
+                      <Icon
+                        name={
+                          vol === 0
+                            ? "speaker-off"
+                            : vol < 40
+                              ? "speaker-lo"
+                              : "speaker-hi"
+                        }
+                        size={14}
+                      />
+                    </button>
+                    {openVolumeFor === tl.id && (
+                      <div
+                        className="voice-tile-volume-pop"
+                        ref={volumePopoverRef}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={vol}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            setTileVolumes((prev) => ({ ...prev, [tl.id]: v }));
+                            getLiveKitService().setRemoteVolume(tl.id, v / 100);
+                          }}
+                          style={
+                            {
+                              ["--pct" as unknown as string]: `${vol}%`,
+                            } as React.CSSProperties
+                          }
+                        />
+                        <span className="voice-tile-volume-pct">{vol}%</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="voice-tile-name">{tl.name}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div className="voice-room-actions">
           <button
