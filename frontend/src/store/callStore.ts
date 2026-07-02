@@ -125,7 +125,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
     try {
       const { callId, token, url, participants } =
         await callAPI.start(recipientIds);
-      await connectToRoom(token, url);
+      try {
+        await connectToRoom(token, url);
+      } catch (e) {
+        await callAPI.leave(callId).catch(() => {});
+        throw e;
+      }
       set({
         activeCallId: callId,
         connecting: false,
@@ -147,7 +152,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
     set({ connecting: true, incoming: null });
     try {
       const { token, url, participants } = await callAPI.accept(inc.callId);
-      await connectToRoom(token, url);
+      try {
+        await connectToRoom(token, url);
+      } catch (e) {
+        await callAPI.leave(inc.callId).catch(() => {});
+        throw e;
+      }
       set({
         activeCallId: inc.callId,
         connecting: false,
