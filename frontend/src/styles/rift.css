@@ -3351,40 +3351,6 @@ textarea.s-input {
 .ic-btn.mute { background: var(--surface-active); color: var(--fg-2); }
 .ic-btn.mute.on { background: var(--accent, #5865f2); color: #fff; }
 
-.active-call-bar {
-  position: fixed;
-  left: 18px; bottom: 18px;
-  z-index: 1150;
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 12px;
-  background: var(--surface-panel);
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.55);
-}
-.acb-info { display: flex; align-items: center; gap: 8px; }
-.acb-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--success, #3ba55d);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success, #3ba55d) 25%, transparent);
-}
-.acb-label { font-size: 13px; font-weight: 600; color: var(--fg-1); }
-.acb-count {
-  font-size: 11px; font-weight: 700; color: var(--fg-3);
-  background: var(--surface-sunken); border-radius: 6px; padding: 1px 6px;
-}
-.acb-actions { display: flex; gap: 6px; }
-.acb-btn {
-  width: 32px; height: 32px; border-radius: 8px;
-  border: none; background: var(--surface-active); color: var(--fg-2);
-  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-  transition: background var(--dur-fast), color var(--dur-fast);
-}
-.acb-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
-.acb-btn.on { background: var(--accent, #5865f2); color: #fff; }
-.acb-btn.muted { background: var(--danger, #e5484d); color: #fff; }
-.acb-btn.leave { background: var(--danger, #e5484d); color: #fff; }
-.acb-btn.leave svg { transform: rotate(135deg); }
 .acb-add {
   position: absolute; left: 0; bottom: calc(100% + 8px);
   width: 260px; max-height: 320px;

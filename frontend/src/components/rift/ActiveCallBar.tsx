@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useCallStore } from "../../store/callStore";
@@ -15,7 +16,13 @@ const ActiveCallBar: React.FC = () => {
   const [muted, setMuted] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const { t } = useTranslation("call");
+  const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation(["call", "voice"]);
+
+  useEffect(() => {
+    setMountPoint(document.getElementById("voice-dock-slot"));
+  }, []);
 
   const inCallIds = useMemo(
     () => new Set(Object.keys(participants)),
@@ -29,7 +36,25 @@ const ActiveCallBar: React.FC = () => {
     [friends, inCallIds],
   );
 
-  if (!activeCallId) return null;
+  useEffect(() => {
+    if (!addOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setAddOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAddOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [addOpen]);
+
+  if (!activeCallId || !mountPoint) return null;
 
   const toggleMute = () => {
     const next = !muted;
@@ -56,39 +81,42 @@ const ActiveCallBar: React.FC = () => {
     }
   };
 
-  return (
-    <div className="active-call-bar">
-      <div className="acb-info">
-        <span className="acb-dot" />
-        <span className="acb-label">{t("inCall")}</span>
-        <span className="acb-count">{Math.max(inCallIds.size, 1)}</span>
+  const count = Math.max(inCallIds.size, 1);
+
+  return createPortal(
+    <div className="voice-pill in-dock connected" ref={rootRef}>
+      <div className="vp-meta-wrap">
+        <div className="vp-title">{t("inCall")}</div>
+        <div className="vp-meta">
+          {count} {t("voice:connected").toLowerCase()}
+        </div>
       </div>
-      <div className="acb-actions">
+      <div className="vp-actions">
         <button
           type="button"
-          className={"acb-btn" + (addOpen ? " on" : "")}
+          className={"vp-btn" + (addOpen ? " on" : "")}
           title={t("addParticipants")}
           onClick={() => setAddOpen((v) => !v)}
         >
-          <Icon name="user-plus" size={16} />
+          <Icon name="user-plus" size={15} />
         </button>
         <button
           type="button"
-          className={"acb-btn" + (muted ? " muted" : "")}
+          className={"vp-btn" + (muted ? " muted" : "")}
           title={muted ? t("unmute") : t("mute")}
           onClick={toggleMute}
         >
-          <Icon name={muted ? "mic-off" : "mic"} size={16} />
-        </button>
-        <button
-          type="button"
-          className="acb-btn leave"
-          title={t("leave")}
-          onClick={() => leave()}
-        >
-          <Icon name="phone" size={16} />
+          <Icon name={muted ? "mic-off" : "mic"} size={15} />
         </button>
       </div>
+      <button
+        type="button"
+        className="vp-btn leave"
+        title={t("leave")}
+        onClick={() => leave()}
+      >
+        <Icon name="logout" size={15} />
+      </button>
 
       {addOpen && (
         <div className="acb-add" onMouseDown={(e) => e.stopPropagation()}>
@@ -136,7 +164,8 @@ const ActiveCallBar: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    mountPoint,
   );
 };
 
