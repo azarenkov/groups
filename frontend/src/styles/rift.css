@@ -1316,6 +1316,8 @@ select:focus-visible {
 .voice-pill.poor { --vp-tint: var(--warning, #ff9f0a); }
 .voice-pill.lost { --vp-tint: var(--danger, #ff3b30); }
 .voice-pill > .vp-meta-wrap { flex: 1 1 auto; min-width: 0; }
+.voice-pill > .vp-meta-wrap.clickable { cursor: pointer; border-radius: 8px; }
+.voice-pill > .vp-meta-wrap.clickable:hover > .vp-title { text-decoration: underline; }
 .voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }
 .voice-pill > .vp-actions { flex: 0 0 auto; display: inline-flex; gap: 4px; }
 .voice-pill > .vp-btn.leave { flex: 0 0 auto; }

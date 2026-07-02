@@ -426,6 +426,7 @@ const ServersPage: React.FC = () => {
   };
 
   const handleSelectServer = (serverId: string) => {
+    useCallStore.getState().setFocused(false);
     setSelectedServer(serverId);
     setSelectedDm(null);
     const firstText = channelsByServer[serverId]?.find((c) => c.kind === "text");
@@ -443,6 +444,7 @@ const ServersPage: React.FC = () => {
   };
 
   const handleSelectChannel = (server: Server, channel: Channel) => {
+    useCallStore.getState().setFocused(false);
     if (channel.kind === "text") {
       setSelectedServer(server.id);
       setSelectedChannel(channel.id);
@@ -471,6 +473,7 @@ const ServersPage: React.FC = () => {
   };
 
   const handleSelectDm = (dm: MockDirect) => {
+    useCallStore.getState().setFocused(false);
     setSelectedDm(dm);
     setSelectedChannel(null);
     useUnreadStore.getState().resetDm(dm.id);
@@ -641,6 +644,7 @@ const ServersPage: React.FC = () => {
   }, []);
 
   const activeCallId = useCallStore((s) => s.activeCallId);
+  const callFocused = useCallStore((s) => s.focused);
   const prevActiveCallRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevActiveCallRef.current;
@@ -884,8 +888,8 @@ const ServersPage: React.FC = () => {
 
         <main className="main">
           <div className="main-inner">
-            {activeCallId ? (
-              <CallStage />
+            {activeCallId && callFocused ? (
+              <CallStage onMinimize={() => useCallStore.getState().setFocused(false)} />
             ) : !selectedServer && !selectedDm ? (
               <Welcome
                 loading={serversLoading && servers.length === 0}

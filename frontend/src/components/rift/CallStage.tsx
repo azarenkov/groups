@@ -9,7 +9,7 @@ import { useVideoTiles } from "../../hooks/useVideoTiles";
 import { getLiveKitService } from "../../services/livekit";
 import { colorForId, initialFor } from "../../utils/avatar";
 
-const CallStage: React.FC = () => {
+const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const { t } = useTranslation(["call", "voice"]);
   const participants = useCallStore((s) => s.participants);
   const leave = useCallStore((s) => s.leave);
@@ -62,6 +62,16 @@ const CallStage: React.FC = () => {
             "voice:connected",
           ).toLowerCase()}`}
         </span>
+        <div className="right">
+          <button
+            type="button"
+            className="icon-btn"
+            title={t("minimize")}
+            onClick={onMinimize}
+          >
+            <Icon name="chevron" size={16} />
+          </button>
+        </div>
       </header>
       <div className="voice-room">
         <div

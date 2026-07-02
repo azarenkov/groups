@@ -5,6 +5,8 @@
   "mute": "Mute",
   "unmute": "Unmute",
   "inCall": "In call",
+  "minimize": "Minimize",
+  "openCall": "Open call",
   "leave": "Leave call",
   "addParticipants": "Add people",
   "add": "Add",

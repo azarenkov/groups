@@ -22,9 +22,11 @@ interface CallState {
   connecting: boolean;
   participants: Record<string, string>;
   ringing: string[];
+  focused: boolean;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
+  setFocused: (focused: boolean) => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
   participantDeclined: (callId: string, userId: string) => void;
@@ -47,10 +49,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
   connecting: false,
   participants: {},
   ringing: [],
+  focused: false,
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
   clearIncoming: () => set({ incoming: null }),
+  setFocused: (focused) => set({ focused }),
 
   participantJoined: (callId, userId, userName) =>
     set((s) =>
@@ -77,14 +81,15 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const s = get();
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
-      set({ activeCallId: null, participants: {}, ringing: [] });
+      set({ activeCallId: null, participants: {}, ringing: [], focused: false });
       getLiveKitService()
         .disconnect()
         .catch(() => {});
     }
   },
 
-  reset: () => set({ activeCallId: null, participants: {}, ringing: [] }),
+  reset: () =>
+    set({ activeCallId: null, participants: {}, ringing: [], focused: false }),
 
   rehydrate: async () => {
     if (get().connecting) return;
@@ -111,6 +116,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       activeCallId: active.callId,
       participants,
       ringing: s.activeCallId === active.callId ? s.ringing : [],
+      focused: s.activeCallId === active.callId ? s.focused : true,
     }));
   },
 
@@ -127,6 +133,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
           participants.map((p) => [p.userId, p.userName]),
         ),
         ringing: recipientIds,
+        focused: true,
       });
     } catch (e) {
       set({ connecting: false });
@@ -148,6 +155,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
           participants.map((p) => [p.userId, p.userName]),
         ),
         ringing: [],
+        focused: true,
       });
     } catch (e) {
       set({ connecting: false });
@@ -165,7 +173,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async () => {
     const callId = get().activeCallId;
-    set({ activeCallId: null, participants: {}, ringing: [] });
+    set({ activeCallId: null, participants: {}, ringing: [], focused: false });
     await getLiveKitService()
       .disconnect()
       .catch(() => {});

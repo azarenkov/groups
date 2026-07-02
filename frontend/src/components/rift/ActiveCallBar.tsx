@@ -9,6 +9,7 @@ import { getLiveKitService } from "../../services/livekit";
 const ActiveCallBar: React.FC = () => {
   const activeCallId = useCallStore((s) => s.activeCallId);
   const leave = useCallStore((s) => s.leave);
+  const setFocused = useCallStore((s) => s.setFocused);
   const addParticipants = useCallStore((s) => s.addParticipants);
   const participants = useCallStore((s) => s.participants);
   const ringing = useCallStore((s) => s.ringing);
@@ -50,6 +51,8 @@ const ActiveCallBar: React.FC = () => {
       isMuted={muted}
       onToggleMute={toggleMute}
       onLeave={() => leave()}
+      onOpen={() => setFocused(true)}
+      openTitle={t("openCall")}
       invite={{
         candidates,
         onAdd: (ids) =>
