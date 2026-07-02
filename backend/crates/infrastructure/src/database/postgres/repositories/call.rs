@@ -408,10 +408,26 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.map(|r| r.call_id))
     }
 
+    async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM call_participants WHERE call_id = $1
+            ) AS "exists!"
+            "#,
+            call_id,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.exists)
+    }
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,
         user_id: &UserId,
+        session_id: &str,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<bool, RepositoryError> {
@@ -424,11 +440,12 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'joined', updated_at = $3
+            SET status = 'joined', session_id = $3, updated_at = $4
             WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined', 'left')
             "#,
             call_id,
             user_id.uuid(),
+            session_id,
             now,
         )
         .execute(&mut *tx)
@@ -458,6 +475,7 @@ impl CallRepository for PostgresCallRepository {
         &self,
         call_id: Uuid,
         user_id: &UserId,
+        session_id: &str,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<bool, RepositoryError> {
@@ -470,11 +488,14 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'left', updated_at = $3
-            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined')
+            SET status = 'left', updated_at = $4
+            WHERE call_id = $1 AND user_id = $2
+              AND status IN ('invited', 'joined')
+              AND (session_id IS NULL OR session_id = $3)
             "#,
             call_id,
             user_id.uuid(),
+            session_id,
             now,
         )
         .execute(&mut *tx)
@@ -482,7 +503,21 @@ impl CallRepository for PostgresCallRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if updated.rows_affected() == 0 {
-            return Ok(false);
+            // Either a stale webhook for a superseded LiveKit session, or not a
+            // call room at all. Only fall through to the channel path in the
+            // latter case; a stale call event must be ignored, not re-handled.
+            let is_call = sqlx::query!(
+                r#"
+                SELECT EXISTS(
+                    SELECT 1 FROM call_participants WHERE call_id = $1
+                ) AS "exists!"
+                "#,
+                call_id,
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            return Ok(is_call.exists);
         }
 
         let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;

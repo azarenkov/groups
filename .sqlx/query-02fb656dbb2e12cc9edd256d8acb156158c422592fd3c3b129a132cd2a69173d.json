@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE call_participants\n            SET status = 'joined', session_id = $3, updated_at = $4\n            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined', 'left')\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "02fb656dbb2e12cc9edd256d8acb156158c422592fd3c3b129a132cd2a69173d"
+}

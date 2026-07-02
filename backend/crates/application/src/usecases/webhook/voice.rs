@@ -107,6 +107,7 @@ where
                     .webhook_joined(
                         channel_id,
                         &UserId::new(user_id),
+                        &session_id,
                         occurred_at,
                         ctx.request_id.clone(),
                     )
@@ -152,6 +153,7 @@ where
                     .webhook_left(
                         channel_id,
                         &UserId::new(user_id),
+                        &session_id,
                         occurred_at,
                         ctx.request_id.clone(),
                     )
@@ -198,6 +200,7 @@ where
                     .webhook_left(
                         channel_id,
                         &UserId::new(user_id),
+                        &session_id,
                         occurred_at,
                         ctx.request_id.clone(),
                     )
@@ -290,6 +293,10 @@ where
         external_id: String,
         ctx: RequestContext,
     ) -> Result<(), HandleVoiceWebhookError> {
+        if self.call_repository.is_call_room(channel_id).await? {
+            return Ok(());
+        }
+
         let result = self
             .track_media_connection
             .execute(TrackMediaConnectionRequest {

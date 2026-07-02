@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS(\n                SELECT 1 FROM call_participants WHERE call_id = $1\n            ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b14a8b0ad828b32179adaf78b483b3c58ac7573d1502f089c30098b0676decfa"
+}

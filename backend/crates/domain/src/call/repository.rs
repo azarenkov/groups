@@ -60,10 +60,13 @@ pub trait CallRepository {
 
     async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError>;
 
+    async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,
         user_id: &UserId,
+        session_id: &str,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<bool, RepositoryError>;
@@ -72,6 +75,7 @@ pub trait CallRepository {
         &self,
         call_id: Uuid,
         user_id: &UserId,
+        session_id: &str,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<bool, RepositoryError>;
