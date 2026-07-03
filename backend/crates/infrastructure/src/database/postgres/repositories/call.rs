@@ -72,6 +72,42 @@ async fn active_others(
     Ok(rows.into_iter().map(|r| r.user_id).collect())
 }
 
+async fn joinable_others(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    exclude: Uuid,
+) -> Result<Vec<Uuid>, RepositoryError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT user_id
+        FROM call_participants
+        WHERE call_id = $1
+          AND user_id <> $2
+          AND status IN ('invited', 'declined', 'left')
+        "#,
+        call_id,
+        exclude,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(rows.into_iter().map(|r| r.user_id).collect())
+}
+
+async fn all_participants(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+) -> Result<Vec<Uuid>, RepositoryError> {
+    let rows = sqlx::query!(
+        r#"SELECT user_id FROM call_participants WHERE call_id = $1"#,
+        call_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(rows.into_iter().map(|r| r.user_id).collect())
+}
+
 async fn end_call_if_empty(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     call_id: Uuid,
@@ -91,20 +127,7 @@ async fn end_call_if_empty(
         return Ok(());
     }
 
-    let ringing: Vec<Uuid> = sqlx::query!(
-        r#"SELECT user_id FROM call_participants WHERE call_id = $1 AND status = 'invited'"#,
-        call_id,
-    )
-    .fetch_all(&mut **tx)
-    .await
-    .map_err(map_sqlx_error_to_domain_error)?
-    .into_iter()
-    .map(|r| r.user_id)
-    .collect();
-
-    if ringing.is_empty() {
-        return Ok(());
-    }
+    let recipients = all_participants(tx, call_id).await?;
 
     sqlx::query!(
         r#"
@@ -119,8 +142,10 @@ async fn end_call_if_empty(
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
-    let record = call_event(call_id, "call.ended", actor, &ringing, request_id, now);
-    save_outbox_records(tx, std::slice::from_ref(&record)).await?;
+    if !recipients.is_empty() {
+        let record = call_event(call_id, "call.ended", actor, &recipients, request_id, now);
+        save_outbox_records(tx, std::slice::from_ref(&record)).await?;
+    }
     Ok(())
 }
 
@@ -531,6 +556,12 @@ impl CallRepository for PostgresCallRepository {
             now,
         );
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        let joinable = joinable_others(&mut tx, call_id, user_id.uuid()).await?;
+        if !joinable.is_empty() {
+            let avail = call_event(call_id, "call.available", user_id.uuid(), &joinable, None, now);
+            save_outbox_records(&mut tx, std::slice::from_ref(&avail)).await?;
+        }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
