@@ -3175,14 +3175,28 @@ textarea.s-input {
 .cs-vol-btn.on { background: var(--accent, #0a84ff); }
 .cs-vol .cs-vol-pop {
   position: absolute;
-  left: 8px; right: 8px; bottom: 8px; top: auto;
+  left: auto; right: 8px; top: 8px; bottom: 8px;
   transform: none;
   z-index: 5;
-  padding: 6px 10px; gap: 8px;
-  justify-content: space-between;
+  flex-direction: column-reverse;
+  align-items: center;
+  padding: 8px 5px; gap: 6px;
+  border-radius: 999px;
 }
-.cs-vol .cs-vol-pop input[type="range"] { width: auto; flex: 1 1 auto; }
-.cs-vol .cs-vol-pop .voice-tile-volume-pct { font-size: 10px; flex: 0 0 auto; }
+.cs-vol .cs-vol-pop input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 5px; height: auto;
+  flex: 1 1 auto; min-height: 40px;
+  background: linear-gradient(
+    to top,
+    var(--accent) 0,
+    var(--accent) var(--pct, 50%),
+    var(--surface-raised) var(--pct, 50%),
+    var(--surface-raised) 100%
+  );
+}
+.cs-vol .cs-vol-pop .voice-tile-volume-pct { font-size: 9px; flex: 0 0 auto; }
 .cs-more {
   height: 52px; flex: 0 0 auto; border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
