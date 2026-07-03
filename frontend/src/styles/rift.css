@@ -2752,12 +2752,17 @@ textarea.s-input {
   position: static;
   inset: auto;
   flex: 0 0 auto;
-  height: 42vh;
-  min-height: 220px;
-  border-bottom: 1px solid var(--hairline);
+  height: 40vh;
+  min-height: 210px;
+  margin: 12px 12px 0;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-1);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
 }
-.voice-stage-wrap.embedded .main-header { height: 40px; }
-.voice-stage-wrap.embedded .voice-room { padding: 14px 20px; }
+.voice-stage-wrap.embedded .voice-room { padding: 16px 20px; }
+.voice-stage-wrap.embedded .voice-room-actions { background: transparent; }
 .voice-preview {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;

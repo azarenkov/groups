@@ -23,6 +23,7 @@ interface CallState {
   participants: Record<string, string>;
   ringing: string[];
   focused: boolean;
+  peerId: string | null;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
@@ -49,6 +50,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   participants: {},
   ringing: [],
   focused: false,
+  peerId: null,
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
@@ -80,7 +82,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const s = get();
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
-      set({ activeCallId: null, participants: {}, ringing: [], focused: false });
+      set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
       getLiveKitService()
         .disconnect()
         .catch(() => {});
@@ -136,6 +138,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         ),
         ringing: recipientIds,
         focused: true,
+        peerId: recipientIds[0] ?? null,
       });
     } catch (e) {
       set({ connecting: false });
@@ -163,6 +166,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         ),
         ringing: [],
         focused: true,
+        peerId: inc.callerId,
       });
     } catch (e) {
       set({ connecting: false });
@@ -180,7 +184,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
-    set({ activeCallId: null, participants: {}, ringing: [], focused: false });
+    set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
     if (!keepRoom) {
       await getLiveKitService()
         .disconnect()

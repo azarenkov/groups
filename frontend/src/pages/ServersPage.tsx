@@ -646,6 +646,7 @@ const ServersPage: React.FC = () => {
 
   const activeCallId = useCallStore((s) => s.activeCallId);
   const callFocused = useCallStore((s) => s.focused);
+  const callPeerId = useCallStore((s) => s.peerId);
   const prevActiveCallRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevActiveCallRef.current;
@@ -655,6 +656,23 @@ const ServersPage: React.FC = () => {
       setVoiceJoinFailed(false);
     }
   }, [activeCallId, joinedChannel]);
+
+  useEffect(() => {
+    if (!callFocused || !activeCallId || !callPeerId) return;
+    if (selectedDm?.id === callPeerId) return;
+    const peer = acceptedFriends.find((d) => d.id === callPeerId);
+    if (!peer) return;
+    setSelectedDm(peer);
+    setSelectedChannel(null);
+    setJoinedChannel(null);
+  }, [
+    callFocused,
+    activeCallId,
+    callPeerId,
+    selectedDm,
+    acceptedFriends,
+    setSelectedChannel,
+  ]);
 
   const watchServerId = joinedChannel?.serverId;
   const watchChannelId = joinedChannel?.channel.id;
