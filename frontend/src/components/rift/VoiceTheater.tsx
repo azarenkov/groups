@@ -1,9 +1,114 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { VideoTileCell } from "./VideoStage";
 import { getLiveKitService, VideoTile } from "../../services/livekit";
 import { colorForId, initialFor } from "../../utils/avatar";
+
+const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
+  id,
+  className,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [vol, setVol] = useState(100);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        popRef.current &&
+        !popRef.current.contains(target) &&
+        btnRef.current &&
+        !btnRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      const menuW = 216;
+      const menuH = 54;
+      let left = r.left - menuW - 8;
+      if (left < 8) left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
+      let top = r.top;
+      if (top + menuH > window.innerHeight - 8) {
+        top = window.innerHeight - menuH - 8;
+      }
+      setPos({ top, left });
+    }
+    setOpen(true);
+  };
+
+  const change = (v: number) => {
+    setVol(v);
+    getLiveKitService().setRemoteVolume(id, v / 100);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        className={"cs-menu-btn" + (className ? ` ${className}` : "") + (open ? " on" : "")}
+        onClick={toggle}
+      >
+        <Icon name="more" size={16} />
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={popRef}
+            className="cs-menu-pop"
+            style={{ top: pos.top, left: pos.left }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="cs-menu-vol">
+              <Icon
+                name={
+                  vol === 0 ? "speaker-off" : vol < 40 ? "speaker-lo" : "speaker-hi"
+                }
+                size={15}
+              />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={vol}
+                onChange={(e) => change(Number(e.target.value))}
+                style={{ ["--pct" as unknown as string]: `${vol}%` } as React.CSSProperties}
+              />
+              <span className="cs-menu-pct">{vol}%</span>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+};
 
 export interface TheaterEntry {
   id: string;
@@ -58,9 +163,6 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const inviteRef = useRef<HTMLDivElement>(null);
-  const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
-  const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
-  const volRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!addOpen) return;
@@ -72,17 +174,6 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [addOpen]);
-
-  useEffect(() => {
-    if (!openVolumeFor) return;
-    const onDoc = (e: MouseEvent) => {
-      if (volRef.current && !volRef.current.contains(e.target as Node)) {
-        setOpenVolumeFor(null);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [openVolumeFor]);
 
   const toggleSelected = (id: string) =>
     setSelected((prev) => {
@@ -150,84 +241,27 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         ) : (
           <div className="call-screen empty">
             <div className="call-empty-orbs">
-              {roster.map((r) => {
-                const vol = tileVolumes[r.id] ?? 100;
-                return (
-                  <div key={r.id} className="call-empty-cell">
-                    <div
-                      className={
-                        "call-empty-orb" + (r.speaking ? " speaking" : "")
-                      }
-                      style={{ "--orb-color": r.color } as React.CSSProperties}
-                    >
-                      {r.initials}
-                      {r.muted && (
-                        <span className="call-empty-mute">
-                          <Icon name="mic-off" size={16} />
-                        </span>
-                      )}
-                      {!r.isSelf && (
-                      <div className="call-empty-vol">
-                        <button
-                          type="button"
-                          className={
-                            "cs-vol-btn" + (openVolumeFor === r.id ? " on" : "")
-                          }
-                          title={`Volume ${vol}%`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenVolumeFor((p) => (p === r.id ? null : r.id));
-                          }}
-                        >
-                          <Icon
-                            name={
-                              vol === 0
-                                ? "speaker-off"
-                                : vol < 40
-                                  ? "speaker-lo"
-                                  : "speaker-hi"
-                            }
-                            size={14}
-                          />
-                        </button>
-                        {openVolumeFor === r.id && (
-                          <div
-                            className="voice-tile-volume-pop call-empty-vol-pop"
-                            ref={volRef}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="range"
-                              min={0}
-                              max={100}
-                              step={1}
-                              value={vol}
-                              onChange={(e) => {
-                                const v = Number(e.target.value);
-                                setTileVolumes((prev) => ({
-                                  ...prev,
-                                  [r.id]: v,
-                                }));
-                                getLiveKitService().setRemoteVolume(r.id, v / 100);
-                              }}
-                              style={
-                                {
-                                  ["--pct" as unknown as string]: `${vol}%`,
-                                } as React.CSSProperties
-                              }
-                            />
-                            <span className="voice-tile-volume-pct">{vol}%</span>
-                          </div>
-                        )}
-                      </div>
-                      )}
-                    </div>
-                    <div className="call-empty-name">
-                      {r.isSelf ? t("you") : r.name}
-                    </div>
+              {roster.map((r) => (
+                <div key={r.id} className="call-empty-cell">
+                  <div
+                    className={"call-empty-orb" + (r.speaking ? " speaking" : "")}
+                    style={{ "--orb-color": r.color } as React.CSSProperties}
+                  >
+                    {r.initials}
+                    {r.muted && (
+                      <span className="call-empty-mute">
+                        <Icon name="mic-off" size={16} />
+                      </span>
+                    )}
+                    {!r.isSelf && (
+                      <TileVolumeMenu id={r.id} className="call-orb-menu" />
+                    )}
                   </div>
-                );
-              })}
+                  <div className="call-empty-name">
+                    {r.isSelf ? t("you") : r.name}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -333,9 +367,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
 
       {mainVideo && (
       <div className="call-strip">
-        {strip.map((r) => {
-          const vol = tileVolumes[r.id] ?? 100;
-          return (
+        {strip.map((r) => (
             <div
               key={r.id}
               className={"cs-tile" + (r.speaking ? " speaking" : "")}
@@ -352,60 +384,10 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                 <span>{r.isSelf ? t("you") : r.name}</span>
               </div>
               {!r.isSelf && (
-                <div className="cs-vol">
-                  <button
-                    type="button"
-                    className={
-                      "cs-vol-btn" + (openVolumeFor === r.id ? " on" : "")
-                    }
-                    title={`Volume ${vol}%`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenVolumeFor((p) => (p === r.id ? null : r.id));
-                    }}
-                  >
-                    <Icon
-                      name={
-                        vol === 0
-                          ? "speaker-off"
-                          : vol < 40
-                            ? "speaker-lo"
-                            : "speaker-hi"
-                      }
-                      size={13}
-                    />
-                  </button>
-                  {openVolumeFor === r.id && (
-                    <div
-                      className="voice-tile-volume-pop cs-vol-pop"
-                      ref={volRef}
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={vol}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setTileVolumes((prev) => ({ ...prev, [r.id]: v }));
-                          getLiveKitService().setRemoteVolume(r.id, v / 100);
-                        }}
-                        style={
-                          {
-                            ["--pct" as unknown as string]: `${vol}%`,
-                          } as React.CSSProperties
-                        }
-                      />
-                      <span className="voice-tile-volume-pct">{vol}%</span>
-                    </div>
-                  )}
-                </div>
+                <TileVolumeMenu id={r.id} className="cs-tile-menu" />
               )}
             </div>
-          );
-        })}
+          ))}
         {overflow.length > 0 && (
           <div className="cs-more">
             <div className="cs-more-avas">
