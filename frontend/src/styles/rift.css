@@ -2764,14 +2764,24 @@ textarea.s-input {
 }
 .voice-stage-wrap.embedded .voice-room { padding: 16px 20px; }
 .voice-stage-wrap.embedded .voice-room-actions { background: transparent; }
+.has-video .voice-room { position: relative; }
 .has-video .call-orbs {
+  position: absolute;
+  left: 20px;
+  bottom: 72px;
+  max-width: calc(100% - 40px);
   flex: 0 0 auto;
-  gap: 12px 24px;
-  padding: 4px 0;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 0;
+  z-index: 3;
 }
-.has-video .call-orb { width: 56px; height: 56px; }
-.has-video .call-orb-letter { font-size: 22px; }
-.has-video .call-orb-cell { width: 88px; gap: 8px; }
+.has-video .call-orb { width: 40px; height: 40px; }
+.has-video .call-orb-letter { font-size: 16px; }
+.has-video .call-orb-cell { width: auto; gap: 4px; }
+.has-video .call-orb-name { display: none; }
+.has-video .orb-vol-btn { width: 18px; height: 18px; }
 .call-orbs {
   flex: 1;
   display: flex;
