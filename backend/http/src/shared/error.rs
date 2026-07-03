@@ -11,8 +11,9 @@ use application::ports::{
 use application::usecases::channel::join_voice_channel::JoinVoiceChannelError;
 use application::usecases::call::{
     accept_call::AcceptCallError, add_participants::AddCallParticipantsError,
-    decline_call::DeclineCallError, get_active_call::GetActiveCallError, leave_call::LeaveCallError,
-    start_call::StartCallError,
+    decline_call::DeclineCallError, get_active_call::GetActiveCallError,
+    get_active_call_with::GetActiveCallWithError, join_call::JoinCallError,
+    leave_call::LeaveCallError, start_call::StartCallError,
 };
 use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
 use application::usecases::channel::search_channel_messages::SearchChannelMessagesError;
@@ -1120,6 +1121,51 @@ impl ToHttpStatus for DeclineCallError {
     fn to_error_code(&self) -> &'static str {
         match self {
             DeclineCallError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for JoinCallError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            JoinCallError::Repository(e) => e.to_http_status(),
+            JoinCallError::Voice(e) => e.to_http_status(),
+            JoinCallError::NotParticipant => StatusCode::FORBIDDEN,
+            JoinCallError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            JoinCallError::Repository(e) => e.to_user_message(),
+            JoinCallError::Voice(e) => e.to_user_message(),
+            JoinCallError::NotParticipant => "You are not part of this call".to_string(),
+            JoinCallError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            JoinCallError::Repository(e) => e.to_error_code(),
+            JoinCallError::Voice(e) => e.to_error_code(),
+            JoinCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
+            JoinCallError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for GetActiveCallWithError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetActiveCallWithError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetActiveCallWithError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetActiveCallWithError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -2274,6 +2320,8 @@ impl_from_for_api_error!(
     LeaveCallError,
     AddCallParticipantsError,
     GetActiveCallError,
+    GetActiveCallWithError,
+    JoinCallError,
     ListServersByUserError,
     ListServerMembersError,
     ListServerChannelsError,

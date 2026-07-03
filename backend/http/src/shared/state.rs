@@ -6,7 +6,8 @@ use application::usecases::{
     },
     call::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
-        decline_call::DeclineCall, get_active_call::GetActiveCall, leave_call::LeaveCall,
+        decline_call::DeclineCall, get_active_call::GetActiveCall,
+        get_active_call_with::GetActiveCallWith, join_call::JoinCall, leave_call::LeaveCall,
         start_call::StartCall,
     },
     dm::{
@@ -83,6 +84,9 @@ pub struct AppState {
         AddCallParticipants<PostgresCallRepository, PostgresFriendshipRepository>,
     pub get_active_call_usecase:
         GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserRepository>,
+    pub get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,
+    pub join_call_usecase:
+        JoinCall<PostgresCallRepository, LiveKitService, PostgresUserRepository>,
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
@@ -236,6 +240,12 @@ impl AppState {
             LiveKitService,
             PostgresUserRepository,
         >,
+        get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,
+        join_call_usecase: JoinCall<
+            PostgresCallRepository,
+            LiveKitService,
+            PostgresUserRepository,
+        >,
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
@@ -384,6 +394,8 @@ impl AppState {
             leave_call_usecase,
             add_call_participants_usecase,
             get_active_call_usecase,
+            get_active_call_with_usecase,
+            join_call_usecase,
             mute_channel_usecase,
             unmute_channel_usecase,
             delete_channel_usecase,

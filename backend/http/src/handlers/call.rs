@@ -47,6 +47,12 @@ struct CallTokenResponse {
     participants: Vec<CallParticipantDto>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ActiveCallWithResponse {
+    call_id: Option<Uuid>,
+}
+
 #[post("")]
 async fn start_call(
     req: HttpRequest,
@@ -138,6 +144,48 @@ async fn accept_call(
     })))
 }
 
+#[get("/with/{friend_id}")]
+async fn active_call_with(
+    _req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let call_id = app_state
+        .get_active_call_with_usecase
+        .execute(user_id, path.into_inner())
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(ActiveCallWithResponse { call_id })))
+}
+
+#[post("/{call_id}/join")]
+async fn join_call(
+    _req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let result = app_state
+        .join_call_usecase
+        .execute(user_id, path.into_inner())
+        .await?;
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(CallTokenResponse {
+        token: result.token.as_str().to_string(),
+        url: result.url,
+        participants: result
+            .participants
+            .into_iter()
+            .map(|p| CallParticipantDto {
+                user_id: p.user_id.uuid(),
+                user_name: p.user_name,
+            })
+            .collect(),
+    })))
+}
+
 #[post("/{call_id}/decline")]
 async fn decline_call(
     req: HttpRequest,
@@ -199,6 +247,8 @@ pub fn call_routes(cfg: &mut web::ServiceConfig) {
         web::scope("/v1/calls")
             .service(start_call)
             .service(get_active_call)
+            .service(active_call_with)
+            .service(join_call)
             .service(accept_call)
             .service(decline_call)
             .service(leave_call)

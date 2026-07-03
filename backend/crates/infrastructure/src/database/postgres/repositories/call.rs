@@ -406,6 +406,57 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.map(|r| r.call_id))
     }
 
+    async fn active_call_between(
+        &self,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<Option<Uuid>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT p1.call_id
+            FROM call_participants p1
+            INNER JOIN call_participants p2
+                ON p2.call_id = p1.call_id AND p2.user_id = $2
+            WHERE p1.user_id = $1
+              AND EXISTS(
+                SELECT 1 FROM call_participants j
+                WHERE j.call_id = p1.call_id AND j.status = 'joined'
+              )
+            ORDER BY p1.updated_at DESC
+            LIMIT 1
+            "#,
+            user_a.uuid(),
+            user_b.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| r.call_id))
+    }
+
+    async fn join(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError> {
+        let updated = sqlx::query!(
+            r#"
+            UPDATE call_participants
+            SET status = 'joined', session_id = NULL, updated_at = $3
+            WHERE call_id = $1 AND user_id = $2
+              AND status IN ('invited', 'declined', 'left', 'joined')
+            "#,
+            call_id,
+            user_id.uuid(),
+            now,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(updated.rows_affected() > 0)
+    }
+
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError> {
         let row = sqlx::query!(
             r#"

@@ -60,6 +60,19 @@ pub trait CallRepository {
 
     async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError>;
 
+    async fn active_call_between(
+        &self,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<Option<Uuid>, RepositoryError>;
+
+    async fn join(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError>;
+
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
 
     async fn webhook_joined(
