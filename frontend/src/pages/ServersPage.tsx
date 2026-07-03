@@ -921,7 +921,6 @@ const ServersPage: React.FC = () => {
             <CallReturnBar />
             {activeCallId && callFocused && !selectedDm && (
               <CallStage
-                embedded
                 onMinimize={() => useCallStore.getState().setFocused(false)}
               />
             )}
@@ -942,10 +941,10 @@ const ServersPage: React.FC = () => {
                 currentUserId={user?.id}
                 servers={servers}
                 onGoToServer={handleGoToServer}
+                callMode={!!activeCallId && callFocused}
                 topSlot={
                   activeCallId && callFocused ? (
                     <CallStage
-                      embedded
                       onMinimize={() =>
                         useCallStore.getState().setFocused(false)
                       }

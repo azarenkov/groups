@@ -5,6 +5,8 @@
   "mute": "Заглушить",
   "unmute": "Включить микрофон",
   "inCall": "В звонке",
+  "you": "Вы",
+  "sharingScreen": "{{name}} демонстрирует экран",
   "minimize": "Свернуть",
   "openCall": "Открыть звонок",
   "returnToCall": "Вернуться",

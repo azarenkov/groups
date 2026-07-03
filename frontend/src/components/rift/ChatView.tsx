@@ -97,6 +97,7 @@ interface ChatViewProps {
   onRemoveFriend?: () => void;
   onGoToServer?: (serverId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
+  callMode?: boolean;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -111,6 +112,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   onRemoveFriend,
   onGoToServer,
   topSlot,
+  callMode,
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
@@ -800,7 +802,12 @@ const ChatView: React.FC<ChatViewProps> = ({
           </button>
         </div>
       )}
-      <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>
+      <div
+        className="chat-body"
+        ref={bodyRef}
+        onScroll={handleScroll}
+        style={callMode ? { display: "none" } : undefined}
+      >
         {searchOpen && searchInput.trim().length > 0 ? (
           <div className="search-results">
             {searchLoading ? (

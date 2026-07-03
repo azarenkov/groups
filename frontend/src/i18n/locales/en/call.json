@@ -5,6 +5,8 @@
   "mute": "Mute",
   "unmute": "Unmute",
   "inCall": "In call",
+  "you": "You",
+  "sharingScreen": "{{name}} is sharing the screen",
   "minimize": "Minimize",
   "openCall": "Open call",
   "returnToCall": "Return",
