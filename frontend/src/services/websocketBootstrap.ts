@@ -256,6 +256,15 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "call.available": {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (callId && userId) {
+        useCallStore.getState().callAvailable(userId, callId);
+      }
+      return;
+    }
+
     case "call.ended": {
       const callId = asString(d.callId);
       if (callId) useCallStore.getState().callEnded(callId);

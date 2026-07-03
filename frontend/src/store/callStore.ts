@@ -24,10 +24,12 @@ interface CallState {
   ringing: string[];
   focused: boolean;
   peerId: string | null;
+  joinableByPeer: Record<string, string>;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
   setFocused: (focused: boolean) => void;
+  callAvailable: (peerId: string, callId: string) => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
   participantDeclined: (callId: string, userId: string) => void;
@@ -52,11 +54,14 @@ export const useCallStore = create<CallState>()((set, get) => ({
   ringing: [],
   focused: false,
   peerId: null,
+  joinableByPeer: {},
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
   clearIncoming: () => set({ incoming: null }),
   setFocused: (focused) => set({ focused }),
+  callAvailable: (peerId, callId) =>
+    set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
 
   participantJoined: (callId, userId, userName) =>
     set((s) =>
@@ -81,6 +86,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   callEnded: (callId) => {
     const s = get();
+    const joinable = Object.fromEntries(
+      Object.entries(s.joinableByPeer).filter(([, cid]) => cid !== callId),
+    );
+    if (Object.keys(joinable).length !== Object.keys(s.joinableByPeer).length) {
+      set({ joinableByPeer: joinable });
+    }
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
       set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
@@ -207,7 +218,14 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   decline: async () => {
     const inc = get().incoming;
-    set({ incoming: null });
+    set((s) =>
+      inc
+        ? {
+            incoming: null,
+            joinableByPeer: { ...s.joinableByPeer, [inc.callerId]: inc.callId },
+          }
+        : { incoming: null },
+    );
     if (inc) {
       await callAPI.decline(inc.callId).catch(() => {});
     }
