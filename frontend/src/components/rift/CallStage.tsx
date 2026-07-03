@@ -71,29 +71,31 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
 
   return (
     <div className={"voice-stage-wrap" + (embedded ? " embedded" : "")}>
-      <header className="main-header">
-        <span className="ch-ico">
-          <Icon name="phone" size={16} />
-        </span>
-        <span className="ch-name">{t("inCall")}</span>
-        <span className="sep" />
-        <span className="topic voice-stage-status">
-          <span className="voice-stage-dot" />
-          {`${Math.max(Object.keys(participants).length, 1)} ${t(
-            "voice:connected",
-          ).toLowerCase()}`}
-        </span>
-        <div className="right">
-          <button
-            type="button"
-            className="icon-btn"
-            title={t("minimize")}
-            onClick={onMinimize}
-          >
-            <Icon name="chevron" size={16} />
-          </button>
-        </div>
-      </header>
+      {!embedded && (
+        <header className="main-header">
+          <span className="ch-ico">
+            <Icon name="phone" size={16} />
+          </span>
+          <span className="ch-name">{t("inCall")}</span>
+          <span className="sep" />
+          <span className="topic voice-stage-status">
+            <span className="voice-stage-dot" />
+            {`${Math.max(Object.keys(participants).length, 1)} ${t(
+              "voice:connected",
+            ).toLowerCase()}`}
+          </span>
+          <div className="right">
+            <button
+              type="button"
+              className="icon-btn"
+              title={t("minimize")}
+              onClick={onMinimize}
+            >
+              <Icon name="chevron" size={16} />
+            </button>
+          </div>
+        </header>
+      )}
       <div className="voice-room">
         <div
           className="voice-room-grid"

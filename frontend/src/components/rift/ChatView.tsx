@@ -96,6 +96,7 @@ interface ChatViewProps {
   onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
   onGoToServer?: (serverId: string) => void | Promise<void>;
+  topSlot?: React.ReactNode;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -109,6 +110,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   onOpenChannelSettings,
   onRemoveFriend,
   onGoToServer,
+  topSlot,
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
@@ -773,6 +775,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         onOpenChannelSettings={onOpenChannelSettings}
         onRemoveFriend={onRemoveFriend}
       />
+      {topSlot}
       {searchOpen && (channel || dm) && (
         <div className="search-bar">
           <Icon name="search" size={14} />

@@ -901,7 +901,7 @@ const ServersPage: React.FC = () => {
         <main className="main">
           <div className="main-inner">
             <CallReturnBar />
-            {activeCallId && callFocused && (
+            {activeCallId && callFocused && !selectedDm && (
               <CallStage
                 embedded
                 onMinimize={() => useCallStore.getState().setFocused(false)}
@@ -924,6 +924,16 @@ const ServersPage: React.FC = () => {
                 currentUserId={user?.id}
                 servers={servers}
                 onGoToServer={handleGoToServer}
+                topSlot={
+                  activeCallId && callFocused ? (
+                    <CallStage
+                      embedded
+                      onMinimize={() =>
+                        useCallStore.getState().setFocused(false)
+                      }
+                    />
+                  ) : undefined
+                }
                 onRemoveFriend={() =>
                   setDeleteConfirm({
                     type: "friend",
