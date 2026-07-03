@@ -1095,14 +1095,20 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             className="icon-btn"
             title={i18n.t("voiceCallInvite", { ns: "chat" })}
             onClick={() => {
-              if (dm?.friendId) {
-                useCallStore
-                  .getState()
-                  .start([dm.friendId])
-                  .catch((e) =>
-                    console.warn("[call] start failed:", e),
-                  );
+              if (!dm?.friendId) return;
+              const cs = useCallStore.getState();
+              const inCallWithFriend =
+                !!cs.activeCallId &&
+                (cs.peerId === dm.friendId ||
+                  dm.friendId in cs.participants ||
+                  cs.ringing.includes(dm.friendId));
+              if (inCallWithFriend) {
+                cs.setFocused(true);
+                return;
               }
+              cs.start([dm.friendId]).catch((e) =>
+                console.warn("[call] start failed:", e),
+              );
             }}
           >
             <Icon name="phone" size={16} />
