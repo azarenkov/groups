@@ -3049,6 +3049,17 @@ textarea.s-input {
     0 0 24px color-mix(in srgb, var(--voice-live, #30a46c) 40%, transparent);
 }
 .call-empty-name { font-size: 14px; font-weight: 500; color: #e6e6e9; }
+.call-empty-cell { position: relative; }
+.call-empty-vol { position: relative; margin-top: 4px; }
+.call-empty-vol .cs-vol-btn { opacity: 1; width: 30px; height: 30px; }
+.call-empty-vol .call-empty-vol-pop {
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 6;
+}
 .call-empty-mute {
   position: absolute; right: 0; bottom: 0;
   width: 32px; height: 32px; border-radius: 50%;

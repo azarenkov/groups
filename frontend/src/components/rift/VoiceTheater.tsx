@@ -150,24 +150,84 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         ) : (
           <div className="call-screen empty">
             <div className="call-empty-orbs">
-              {roster.map((r) => (
-                <div key={r.id} className="call-empty-cell">
-                  <div
-                    className={"call-empty-orb" + (r.speaking ? " speaking" : "")}
-                    style={{ "--orb-color": r.color } as React.CSSProperties}
-                  >
-                    {r.initials}
-                    {r.muted && (
-                      <span className="call-empty-mute">
-                        <Icon name="mic-off" size={16} />
-                      </span>
+              {roster.map((r) => {
+                const vol = tileVolumes[r.id] ?? 100;
+                return (
+                  <div key={r.id} className="call-empty-cell">
+                    <div
+                      className={
+                        "call-empty-orb" + (r.speaking ? " speaking" : "")
+                      }
+                      style={{ "--orb-color": r.color } as React.CSSProperties}
+                    >
+                      {r.initials}
+                      {r.muted && (
+                        <span className="call-empty-mute">
+                          <Icon name="mic-off" size={16} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="call-empty-name">
+                      {r.isSelf ? t("you") : r.name}
+                    </div>
+                    {!r.isSelf && (
+                      <div className="call-empty-vol">
+                        <button
+                          type="button"
+                          className={
+                            "cs-vol-btn" + (openVolumeFor === r.id ? " on" : "")
+                          }
+                          title={`Volume ${vol}%`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenVolumeFor((p) => (p === r.id ? null : r.id));
+                          }}
+                        >
+                          <Icon
+                            name={
+                              vol === 0
+                                ? "speaker-off"
+                                : vol < 40
+                                  ? "speaker-lo"
+                                  : "speaker-hi"
+                            }
+                            size={14}
+                          />
+                        </button>
+                        {openVolumeFor === r.id && (
+                          <div
+                            className="voice-tile-volume-pop call-empty-vol-pop"
+                            ref={volRef}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={vol}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                setTileVolumes((prev) => ({
+                                  ...prev,
+                                  [r.id]: v,
+                                }));
+                                getLiveKitService().setRemoteVolume(r.id, v / 100);
+                              }}
+                              style={
+                                {
+                                  ["--pct" as unknown as string]: `${vol}%`,
+                                } as React.CSSProperties
+                              }
+                            />
+                            <span className="voice-tile-volume-pct">{vol}%</span>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <div className="call-empty-name">
-                    {r.isSelf ? t("you") : r.name}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
