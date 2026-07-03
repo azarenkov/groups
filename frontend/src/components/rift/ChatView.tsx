@@ -958,6 +958,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           </div>
         )}
       </div>
+      {!callMode && (
       <form className="composer" onSubmit={handleSend}>
         <div className="composer-wrap">
           <input
@@ -982,6 +983,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
         {composerError && <div className="composer-error">{composerError}</div>}
       </form>
+      )}
       {deleteTarget && (
         <ConfirmModal
           title={i18n.t("deleteMessage", { ns: "chat" })}
