@@ -442,7 +442,8 @@ impl CallRepository for PostgresCallRepository {
             WHERE call_id = $1 AND user_id = $2
               AND (
                     (status = 'joined' AND session_id IS NULL)
-                 OR (status IN ('invited', 'joined', 'left') AND $4 >= updated_at)
+                 OR (status IN ('invited', 'joined') AND $4 >= updated_at)
+                 OR (status = 'left' AND $4 > updated_at)
               )
             "#,
             call_id,
