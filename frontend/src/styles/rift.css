@@ -3174,6 +3174,9 @@ textarea.s-input {
 .cs-vol-btn.on { opacity: 1; }
 .cs-vol-btn:hover { background: rgba(0, 0, 0, 0.72); }
 .cs-vol-btn.on { background: var(--accent, #0a84ff); }
+.cs-vol .cs-vol-pop { padding: 7px 10px; gap: 8px; }
+.cs-vol .cs-vol-pop input[type="range"] { width: 70px; }
+.cs-vol .cs-vol-pop .voice-tile-volume-pct { font-size: 10px; }
 .cs-more {
   height: 52px; flex: 0 0 auto; border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
