@@ -4,6 +4,7 @@ import Icon from "./Icon";
 import { VideoTileCell } from "./VideoStage";
 import { useCallStore } from "../../store/callStore";
 import { useAuthStore } from "../../store/authStore";
+import { useFriendshipStore } from "../../store/friendshipStore";
 import { useParticipants } from "../../hooks/useParticipants";
 import { useVideoTiles } from "../../hooks/useVideoTiles";
 import { getLiveKitService } from "../../services/livekit";
@@ -15,8 +16,11 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
 }) => {
   const { t } = useTranslation(["call", "voice"]);
   const participants = useCallStore((s) => s.participants);
+  const ringing = useCallStore((s) => s.ringing);
   const leave = useCallStore((s) => s.leave);
+  const addParticipants = useCallStore((s) => s.addParticipants);
   const user = useAuthStore((s) => s.user);
+  const friends = useFriendshipStore((s) => s.friends);
   const voiceParticipants = useParticipants();
   const videoTiles = useVideoTiles();
 
@@ -26,6 +30,21 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
   const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
   const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const inviteRef = useRef<HTMLDivElement>(null);
+
+  const busyIds = useMemo(
+    () => new Set([...Object.keys(participants), ...ringing]),
+    [participants, ringing],
+  );
+  const candidates = useMemo(
+    () =>
+      friends
+        .filter((f) => f.status === "accepted" && !busyIds.has(f.friendId))
+        .map((f) => ({ id: f.friendId, name: f.friendName })),
+    [friends, busyIds],
+  );
 
   useEffect(() => {
     if (!openVolumeFor) return;
@@ -40,6 +59,36 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [openVolumeFor]);
+
+  useEffect(() => {
+    if (!addOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (inviteRef.current && !inviteRef.current.contains(e.target as Node)) {
+        setAddOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [addOpen]);
+
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const confirmAdd = () => {
+    const ids = Array.from(selected);
+    setAddOpen(false);
+    setSelected(new Set());
+    if (ids.length > 0) {
+      addParticipants(ids).catch((e) =>
+        console.warn("[call] add participants failed:", e),
+      );
+    }
+  };
 
   const localCameraOn = videoTiles.some(
     (t) => t.isLocal && t.source === "camera",
@@ -198,6 +247,62 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
           </div>
         )}
         <div className="voice-room-actions call-actions">
+          <div className="call-invite" ref={inviteRef}>
+            <button
+              type="button"
+              className={"call-action" + (addOpen ? " on" : "")}
+              title={t("addParticipants")}
+              onClick={() => setAddOpen((v) => !v)}
+            >
+              <Icon name="user-plus" size={16} />
+            </button>
+            {addOpen && (
+              <div className="acb-add call-invite-pop">
+                <div className="acb-add-title">{t("addParticipants")}</div>
+                <div className="acb-add-list">
+                  {candidates.length === 0 && (
+                    <div className="acb-add-empty">{t("noFriendsToAdd")}</div>
+                  )}
+                  {candidates.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={
+                        "acb-add-item" + (selected.has(c.id) ? " on" : "")
+                      }
+                      onClick={() => toggleSelected(c.id)}
+                    >
+                      <span
+                        className="acb-add-ava"
+                        style={{ background: colorForId(c.id) }}
+                      >
+                        {initialFor(c.name)}
+                      </span>
+                      <span className="acb-add-name">{c.name}</span>
+                      {selected.has(c.id) && <Icon name="check" size={14} />}
+                    </button>
+                  ))}
+                </div>
+                <div className="acb-add-foot">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setAddOpen(false)}
+                  >
+                    {t("cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={selected.size === 0}
+                    onClick={confirmAdd}
+                  >
+                    {t("add")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className={"call-action" + (localCameraOn ? " on" : "")}
