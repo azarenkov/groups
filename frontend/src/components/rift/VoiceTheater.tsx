@@ -12,6 +12,7 @@ export interface TheaterEntry {
   color: string;
   initials: string;
   speaking: boolean;
+  muted: boolean;
   camera: VideoTile | null;
 }
 
@@ -173,7 +174,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
             title={isMuted ? t("voice:unmuteSelf") : t("voice:muteSelf")}
             onClick={onToggleMute}
           >
-            <Icon name={isMuted ? "mic-off" : "mic"} size={20} />
+            <Icon name={isMuted ? "mic-off" : "mic"} size={18} />
           </button>
           <button
             type="button"
@@ -181,7 +182,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
             title={cameraOn ? t("voice:stopCamera") : t("voice:startCamera")}
             onClick={onToggleCamera}
           >
-            <Icon name="camera" size={20} />
+            <Icon name="camera" size={18} />
           </button>
           <button
             type="button"
@@ -193,7 +194,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
             }
             onClick={onToggleScreen}
           >
-            <Icon name="monitor" size={20} />
+            <Icon name="monitor" size={18} />
           </button>
           {invite && (
             <div className="call-invite" ref={inviteRef}>
@@ -203,7 +204,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                 title={t("addParticipants")}
                 onClick={() => setAddOpen((v) => !v)}
               >
-                <Icon name="user-plus" size={20} />
+                <Icon name="user-plus" size={18} />
               </button>
               {addOpen && (
                 <div className="acb-add call-invite-pop">
@@ -260,7 +261,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
             title={t("voice:leave")}
             onClick={onLeave}
           >
-            <Icon name="logout" size={20} />
+            <Icon name="logout" size={18} />
           </button>
         </div>
       </div>
@@ -280,7 +281,10 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                   {r.initials}
                 </div>
               )}
-              <div className="cs-tile-name">{r.isSelf ? t("you") : r.name}</div>
+              <div className={"cs-tile-name" + (r.muted ? " muted" : "")}>
+                <Icon name={r.muted ? "mic-off" : "mic"} size={12} />
+                <span>{r.isSelf ? t("you") : r.name}</span>
+              </div>
               {!r.isSelf && (
                 <div className="cs-vol">
                   <button

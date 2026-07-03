@@ -36,6 +36,11 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       ),
     [voiceParticipants],
   );
+  const mutedIds = useMemo(
+    () =>
+      new Set(voiceParticipants.filter((p) => p.isMuted).map((p) => p.identity)),
+    [voiceParticipants],
+  );
   const cameraByIdentity = useMemo(() => {
     const m = new Map<string, (typeof videoTiles)[number]>();
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
@@ -60,6 +65,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       color: colorForId(id),
       initials: initialFor(name),
       speaking: speakingIds.has(id),
+      muted: id === selfId ? muted : mutedIds.has(id),
       camera: cameraByIdentity.get(id) ?? null,
     }));
   }, [
@@ -68,6 +74,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     selfId,
     selfName,
     speakingIds,
+    mutedIds,
+    muted,
     cameraByIdentity,
   ]);
 

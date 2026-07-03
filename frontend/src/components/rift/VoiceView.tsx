@@ -140,6 +140,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     () => new Set(participants.filter((p) => p.isSpeaking).map((p) => p.identity)),
     [participants],
   );
+  const mutedIds = useMemo(
+    () => new Set(participants.filter((p) => p.isMuted).map((p) => p.identity)),
+    [participants],
+  );
   const roster = useMemo<TheaterEntry[]>(() => {
     const names = new Map<string, string>();
     names.set(selfId, selfName);
@@ -154,6 +158,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       color: colorForId(id),
       initials: initialFor(name),
       speaking: id === selfId ? false : speakingIds.has(id),
+      muted: id === selfId ? isMuted : mutedIds.has(id),
       camera: cameraByIdentity.get(id) ?? null,
     }));
   }, [
@@ -162,6 +167,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     selfId,
     selfName,
     speakingIds,
+    mutedIds,
+    isMuted,
     cameraByIdentity,
   ]);
   const sharerName = screenTile
