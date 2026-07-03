@@ -1,17 +1,24 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import VoicePill from "./VoicePill";
+import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
 import { useLiveKit } from "../../hooks/useLiveKit";
 import { qualityClass, qualityLabel } from "../../utils/quality";
 import { useVoicePresenceStore } from "../../store/voicePresenceStore";
+import { colorForId, initialFor } from "../../utils/avatar";
 
 interface VoiceViewProps {
   channelId: string;
   serverId: string;
   channelName: string;
   password?: string;
+  currentUserId?: string;
+  userName?: string;
+  stageActive?: boolean;
+  viewersFor?: (id: string) => number | undefined;
+  onStreamWatch?: (streamerId: string, watching: boolean) => void;
   onLeave: () => void;
   onJoinFailed?: (message: string) => void;
 }
@@ -21,6 +28,11 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   serverId,
   channelName,
   password,
+  currentUserId,
+  userName,
+  stageActive,
+  viewersFor,
+  onStreamWatch,
   onLeave,
   onJoinFailed,
 }) => {
@@ -29,13 +41,18 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   onLeaveRef.current = onLeave;
   const {
     participants,
+    videoTiles,
     isConnected,
     isMuted,
+    isCameraEnabled,
+    isScreenShareEnabled,
     error,
     localQuality,
     joinChannel,
     leaveChannel,
     toggleMute,
+    toggleCamera,
+    toggleScreenShare,
   } = useLiveKit({
     onUnexpectedDisconnect: (reason) => {
       console.warn("[VoiceView] unexpected disconnect, leaving:", reason);
@@ -47,10 +64,19 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   const currentChannelRef = useRef<string | null>(null);
   const isJoiningRef = useRef(false);
   const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
+  const [stageMount, setStageMount] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     setMountPoint(document.getElementById("voice-dock-slot"));
   }, []);
+
+  useEffect(() => {
+    setStageMount(
+      stageActive && isConnected
+        ? document.getElementById("voice-stage-slot")
+        : null,
+    );
+  }, [stageActive, isConnected, channelId]);
 
   useEffect(() => {
     const shouldJoin =
@@ -98,6 +124,50 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     ? Math.max(livekitCount, presenceCount)
     : 0;
 
+  const selfId = currentUserId || "you";
+  const selfName = userName || "You";
+
+  const cameraByIdentity = useMemo(() => {
+    const m = new Map<string, (typeof videoTiles)[number]>();
+    for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
+    return m;
+  }, [videoTiles]);
+  const screenTile = useMemo(
+    () => videoTiles.find((v) => v.source === "screen") ?? null,
+    [videoTiles],
+  );
+  const speakingIds = useMemo(
+    () => new Set(participants.filter((p) => p.isSpeaking).map((p) => p.identity)),
+    [participants],
+  );
+  const roster = useMemo<TheaterEntry[]>(() => {
+    const names = new Map<string, string>();
+    names.set(selfId, selfName);
+    for (const m of presenceForChannel ?? []) names.set(m.id, m.name);
+    for (const p of participants) {
+      if (!names.has(p.identity)) names.set(p.identity, p.name || p.identity);
+    }
+    return Array.from(names.entries()).map(([id, name]) => ({
+      id,
+      name,
+      isSelf: id === selfId,
+      color: colorForId(id),
+      initials: initialFor(name),
+      speaking: id === selfId ? false : speakingIds.has(id),
+      camera: cameraByIdentity.get(id) ?? null,
+    }));
+  }, [
+    participants,
+    presenceForChannel,
+    selfId,
+    selfName,
+    speakingIds,
+    cameraByIdentity,
+  ]);
+  const sharerName = screenTile
+    ? (roster.find((r) => r.id === screenTile.identity)?.name ?? selfName)
+    : null;
+
   if (!mountPoint) return null;
 
   if (error) {
@@ -142,17 +212,39 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     ? `${speakingPerson.name || speakingPerson.identity} — ${t("speaking")}`
     : `${totalConnected} ${t("connected").toLowerCase()}`;
 
-  return createPortal(
-    <VoicePill
-      title={channelName}
-      meta={meta}
-      isMuted={isMuted}
-      onToggleMute={toggleMute}
-      onLeave={handleLeave}
-      className={qualityClass(localQuality)}
-      titleAttr={`${t("connected")}: ${qualityLabel(localQuality)}`}
-    />,
-    mountPoint,
+  return (
+    <>
+      {createPortal(
+        <VoicePill
+          title={channelName}
+          meta={meta}
+          isMuted={isMuted}
+          onToggleMute={toggleMute}
+          onLeave={handleLeave}
+          className={qualityClass(localQuality)}
+          titleAttr={`${t("connected")}: ${qualityLabel(localQuality)}`}
+        />,
+        mountPoint,
+      )}
+      {stageMount &&
+        createPortal(
+          <VoiceTheater
+            roster={roster}
+            screenTile={screenTile}
+            liveName={sharerName}
+            isMuted={isMuted}
+            cameraOn={isCameraEnabled}
+            screenOn={isScreenShareEnabled}
+            onToggleMute={toggleMute}
+            onToggleCamera={() => toggleCamera()}
+            onToggleScreen={() => toggleScreenShare()}
+            onLeave={handleLeave}
+            viewersFor={viewersFor}
+            onWatchChange={onStreamWatch}
+          />,
+          stageMount,
+        )}
+    </>
   );
 };
 

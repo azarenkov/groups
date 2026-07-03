@@ -39,13 +39,11 @@ import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
 import CallStage from "../components/rift/CallStage";
 import CallReturnBar from "../components/rift/CallReturnBar";
-import { VideoTileCell } from "../components/rift/VideoStage";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
-import { useVideoTiles } from "../hooks/useVideoTiles";
 import { qualityClass, qualityLabel } from "../utils/quality";
 import {
   Channel,
@@ -71,41 +69,11 @@ const ServersPage: React.FC = () => {
   const { t: tSidebar } = useTranslation("sidebar");
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
-  const videoTiles = useVideoTiles();
-  const localCameraOn = videoTiles.some(
-    (t) => t.isLocal && t.source === "camera",
-  );
-  const localScreenOn = videoTiles.some(
-    (t) => t.isLocal && t.source === "screen",
-  );
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
   const streamViewerCounts = useStreamViewersStore((s) => s.counts);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
   const channelToServer = useUnreadStore((s) => s.channelToServer);
-  const [tileVolumes, setTileVolumes] = useState<Record<string, number>>({});
-  const [openVolumeFor, setOpenVolumeFor] = useState<string | null>(null);
-  const volumePopoverRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!openVolumeFor) return;
-    const onDoc = (e: MouseEvent) => {
-      if (
-        volumePopoverRef.current &&
-        !volumePopoverRef.current.contains(e.target as Node)
-      ) {
-        setOpenVolumeFor(null);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenVolumeFor(null);
-    };
-    document.addEventListener("mousedown", onDoc);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [openVolumeFor]);
   const { tokens, user, signOut } = useAuthStore();
   const {
     servers,
@@ -992,218 +960,7 @@ const ServersPage: React.FC = () => {
                     </button>
                   </div>
                 </header>
-                {(() => {
-                  const selfId = user?.id || "you";
-                  const nameById = new Map<string, string>();
-                  nameById.set(selfId, userName || "You");
-                  const presenceMembers = joinedChannel
-                    ? voicePresenceByChannel[joinedChannel.channel.id] || []
-                    : [];
-                  for (const m of presenceMembers) nameById.set(m.id, m.name);
-                  for (const p of voiceParticipants) {
-                    if (!nameById.has(p.identity)) {
-                      nameById.set(p.identity, p.name || p.identity);
-                    }
-                  }
-
-                  const withVideo = new Set(videoTiles.map((v) => v.identity));
-
-                  const tilesById = new Map<
-                    string,
-                    {
-                      id: string;
-                      name: string;
-                      initials: string;
-                      color: string;
-                    }
-                  >();
-                  for (const [id, name] of nameById) {
-                    if (withVideo.has(id)) continue;
-                    tilesById.set(id, {
-                      id,
-                      name,
-                      initials: initialFor(name),
-                      color: colorForId(id),
-                    });
-                  }
-                  const avatarTiles = Array.from(tilesById.values());
-
-                  const cellCount = videoTiles.length + avatarTiles.length;
-                  const cols =
-                    cellCount <= 1
-                      ? 1
-                      : cellCount <= 4
-                        ? 2
-                        : cellCount <= 9
-                          ? 3
-                          : 4;
-                  return (
-                    <div className="voice-room">
-                      <div
-                        className="voice-room-grid"
-                        style={
-                          {
-                            "--vt-cols": cols,
-                          } as React.CSSProperties
-                        }
-                      >
-                        {videoTiles.map((vt) => (
-                          <VideoTileCell
-                            key={vt.id}
-                            tile={vt}
-                            label={
-                              vt.isLocal
-                                ? userName || "You"
-                                : nameById.get(vt.identity) || vt.name
-                            }
-                            viewers={
-                              vt.source === "screen"
-                                ? streamViewerCounts[
-                                    streamViewerKey(
-                                      joinedChannel.serverId,
-                                      joinedChannel.channel.id,
-                                      vt.isLocal
-                                        ? user?.id || "you"
-                                        : vt.identity,
-                                    )
-                                  ] ?? 0
-                                : undefined
-                            }
-                            onWatchChange={reportStreamWatch}
-                          />
-                        ))}
-                        {avatarTiles.map((t) => {
-                          const isSelf = t.id === (user?.id || "you");
-                          const vol = tileVolumes[t.id] ?? 100;
-                          return (
-                            <div key={t.id} className="voice-tile">
-                              <div
-                                className="voice-tile-ava"
-                                style={{ background: t.color }}
-                              >
-                                {t.initials}
-                              </div>
-                              <div className="voice-tile-name">{t.name}</div>
-                              {!isSelf && (
-                                <div className="voice-tile-volume-wrap">
-                                  <button
-                                    type="button"
-                                    className={
-                                      "voice-tile-volume-btn" +
-                                      (openVolumeFor === t.id ? " on" : "")
-                                    }
-                                    title={`Volume ${vol}%`}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenVolumeFor((prev) =>
-                                        prev === t.id ? null : t.id,
-                                      );
-                                    }}
-                                  >
-                                    <Icon
-                                      name={
-                                        vol === 0
-                                          ? "speaker-off"
-                                          : vol < 40
-                                            ? "speaker-lo"
-                                            : "speaker-hi"
-                                      }
-                                      size={14}
-                                    />
-                                  </button>
-                                  {openVolumeFor === t.id && (
-                                    <div
-                                      className="voice-tile-volume-pop"
-                                      ref={volumePopoverRef}
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                    >
-                                      <input
-                                        type="range"
-                                        min={0}
-                                        max={100}
-                                        step={1}
-                                        value={vol}
-                                        onChange={(e) => {
-                                          const v = Number(e.target.value);
-                                          setTileVolumes((prev) => ({
-                                            ...prev,
-                                            [t.id]: v,
-                                          }));
-                                          getLiveKitService().setRemoteVolume(
-                                            t.id,
-                                            v / 100,
-                                          );
-                                        }}
-                                        style={
-                                          {
-                                            ["--pct" as unknown as string]: `${vol}%`,
-                                          } as React.CSSProperties
-                                        }
-                                      />
-                                      <span className="voice-tile-volume-pct">
-                                        {vol}%
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="voice-room-actions">
-                        <button
-                          type="button"
-                          className={
-                            "voice-room-action" + (localCameraOn ? " on" : "")
-                          }
-                          onClick={() => {
-                            getLiveKitService()
-                              .setCameraEnabled(!localCameraOn)
-                              .catch((e) =>
-                                console.error("[voice] camera toggle failed:", e),
-                              );
-                          }}
-                        >
-                          <Icon name="camera" size={16} />
-                          <span>
-                            {localCameraOn
-                              ? tVoice("stopCamera")
-                              : tVoice("startCamera")}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className={
-                            "voice-room-action" + (localScreenOn ? " on" : "")
-                          }
-                          onClick={() => {
-                            getLiveKitService()
-                              .setScreenShareEnabled(!localScreenOn)
-                              .catch((e) =>
-                                console.error("[voice] screen toggle failed:", e),
-                              );
-                          }}
-                        >
-                          <Icon name="monitor" size={16} />
-                          <span>
-                            {localScreenOn
-                              ? tVoice("stopScreenShare")
-                              : tVoice("startScreenShare")}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className="voice-room-action leave"
-                          onClick={handleVoiceLeave}
-                        >
-                          <Icon name="logout" size={16} />
-                          <span>{tVoice("leave")}</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
+                <div id="voice-stage-slot" className="voice-stage-slot" />
               </div>
             ) : !selectedServerChannelsLoaded ? (
               <div className="empty-state" style={{ padding: 60 }}>
@@ -1346,6 +1103,22 @@ const ServersPage: React.FC = () => {
                 serverId={joinedChannel.serverId}
                 channelName={joinedChannel.channel.name}
                 password={joinedChannel.password}
+                currentUserId={user?.id}
+                userName={userName}
+                stageActive={
+                  selectedChannelId === joinedChannel.channel.id &&
+                  !voiceJoinFailed
+                }
+                viewersFor={(id) =>
+                  streamViewerCounts[
+                    streamViewerKey(
+                      joinedChannel.serverId,
+                      joinedChannel.channel.id,
+                      id === (user?.id || "you") ? user?.id || "you" : id,
+                    )
+                  ]
+                }
+                onStreamWatch={reportStreamWatch}
                 onLeave={handleVoiceLeave}
                 onJoinFailed={handleVoiceJoinFailed}
               />

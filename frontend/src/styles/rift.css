@@ -2951,6 +2951,12 @@ textarea.s-input {
   z-index: 6;
 }
 
+.voice-stage-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
 /* ---------- Call theater ---------- */
 .call-theater {
   flex: 1 1 auto;
