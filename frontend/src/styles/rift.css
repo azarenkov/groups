@@ -2764,6 +2764,18 @@ textarea.s-input {
 }
 .voice-stage-wrap.embedded .voice-room { padding: 16px 20px; }
 .voice-stage-wrap.embedded .voice-room-actions { background: transparent; }
+.has-video .voice-room-grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.has-video .voice-room-grid > .voice-tile {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+}
 .has-video .call-orbs {
   flex: 0 0 auto;
   align-items: flex-start;
