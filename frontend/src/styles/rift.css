@@ -2765,25 +2765,56 @@ textarea.s-input {
 .voice-stage-wrap.embedded .voice-room-actions { background: transparent; }
 .call-orbs {
   flex: 1;
-  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   align-content: center;
-  gap: 40px;
-  padding: 8px 0;
+  justify-content: center;
+  gap: 20px 36px;
+  padding: 10px 0;
 }
-.call-orbs .voice-stage-orb-cell { justify-content: flex-start; }
-.voice-stage-orb.speaking {
+.call-orb-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 116px;
+}
+.call-orb {
+  position: relative;
+  width: 88px; height: 88px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in srgb, var(--orb-color, var(--voice-live)) 72%, #fff 0%),
+    color-mix(in srgb, var(--orb-color, var(--voice-live)) 82%, #000 20%)
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.call-orb.speaking {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 0 0 3px color-mix(in srgb, var(--voice-live, #30a46c) 65%, transparent),
-    0 0 22px color-mix(in srgb, var(--voice-live, #30a46c) 40%, transparent);
+    0 0 0 2px color-mix(in srgb, var(--voice-live, #30a46c) 70%, transparent),
+    0 0 20px color-mix(in srgb, var(--voice-live, #30a46c) 40%, transparent);
 }
-.orb-volume { position: absolute; right: 2px; bottom: 2px; }
+.call-orb-letter {
+  font-size: 34px; font-weight: 600; color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.call-orb-name {
+  max-width: 100%;
+  font-size: 13px; font-weight: 500; color: var(--fg-1);
+  text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.orb-volume { position: absolute; right: -2px; bottom: -2px; }
 .orb-volume .voice-tile-volume-btn {
   width: 26px; height: 26px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
 }
-.orb-volume .voice-tile-volume-btn:hover { background: rgba(0, 0, 0, 0.68); }
+.orb-volume .voice-tile-volume-btn:hover { background: rgba(0, 0, 0, 0.7); }
 .voice-preview {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;

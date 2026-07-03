@@ -73,8 +73,6 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
         : videoTiles.length <= 9
           ? 3
           : 4;
-  const orbSize =
-    avatarTiles.length === 1 ? "solo" : avatarTiles.length <= 4 ? "row" : "grid";
   const speakingIds = useMemo(
     () =>
       new Set(
@@ -128,20 +126,18 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
           </div>
         )}
         {avatarTiles.length > 0 && (
-          <div className={`voice-stage-orbs call-orbs ${orbSize}`}>
+          <div className="call-orbs">
             {avatarTiles.map((tl) => {
               const isSelf = tl.id === selfId;
               const vol = tileVolumes[tl.id] ?? 100;
               const speaking = speakingIds.has(tl.id);
               return (
-                <div key={tl.id} className="voice-stage-orb-cell">
+                <div key={tl.id} className="call-orb-cell">
                   <div
-                    className={"voice-stage-orb" + (speaking ? " speaking" : "")}
+                    className={"call-orb" + (speaking ? " speaking" : "")}
                     style={{ "--orb-color": tl.color } as React.CSSProperties}
                   >
-                    <span className="voice-stage-orb-letter">
-                      {tl.initials}
-                    </span>
+                    <span className="call-orb-letter">{tl.initials}</span>
                     {!isSelf && (
                       <div className="orb-volume">
                         <button
@@ -204,7 +200,7 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
                       </div>
                     )}
                   </div>
-                  <div className="voice-stage-orb-name">{tl.name}</div>
+                  <div className="call-orb-name">{tl.name}</div>
                 </div>
               );
             })}
