@@ -3160,10 +3160,9 @@ textarea.s-input {
 .cs-tile-name svg { flex-shrink: 0; }
 .cs-tile-name.muted { color: #ff6b6b; }
 .cs-tile-name.muted svg { color: #ff453a; }
-.cs-vol {
-  position: absolute; right: 8px; bottom: 8px; z-index: 3;
-}
+.cs-vol { display: contents; }
 .cs-vol-btn {
+  position: absolute; right: 8px; bottom: 8px; z-index: 4;
   width: 26px; height: 26px; border-radius: 50%; border: 0; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, 0.5); color: #fff;
@@ -3174,9 +3173,16 @@ textarea.s-input {
 .cs-vol-btn.on { opacity: 1; }
 .cs-vol-btn:hover { background: rgba(0, 0, 0, 0.72); }
 .cs-vol-btn.on { background: var(--accent, #0a84ff); }
-.cs-vol .cs-vol-pop { padding: 7px 10px; gap: 8px; }
-.cs-vol .cs-vol-pop input[type="range"] { width: 70px; }
-.cs-vol .cs-vol-pop .voice-tile-volume-pct { font-size: 10px; }
+.cs-vol .cs-vol-pop {
+  position: absolute;
+  left: 8px; right: 8px; bottom: 8px; top: auto;
+  transform: none;
+  z-index: 5;
+  padding: 6px 10px; gap: 8px;
+  justify-content: space-between;
+}
+.cs-vol .cs-vol-pop input[type="range"] { width: auto; flex: 1 1 auto; }
+.cs-vol .cs-vol-pop .voice-tile-volume-pct { font-size: 10px; flex: 0 0 auto; }
 .cs-more {
   height: 52px; flex: 0 0 auto; border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
