@@ -2752,8 +2752,9 @@ textarea.s-input {
   position: static;
   inset: auto;
   flex: 0 0 auto;
-  height: 40vh;
-  min-height: 210px;
+  height: 30vh;
+  min-height: 180px;
+  max-height: 320px;
   margin: 12px 12px 0;
   background: var(--surface-sunken);
   border: 1px solid var(--border-1);
@@ -2774,6 +2775,7 @@ textarea.s-input {
   padding: 10px 0;
 }
 .call-orb-cell {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2808,13 +2810,23 @@ textarea.s-input {
   text-align: center;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.orb-volume { position: absolute; right: -2px; bottom: -2px; }
-.orb-volume .voice-tile-volume-btn {
-  width: 26px; height: 26px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+.orb-vol-btn {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 26px; height: 26px; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55); color: #fff; cursor: pointer;
+  transition: background 0.15s ease;
 }
-.orb-volume .voice-tile-volume-btn:hover { background: rgba(0, 0, 0, 0.7); }
+.orb-vol-btn:hover { background: rgba(0, 0, 0, 0.72); }
+.orb-vol-btn.on { background: var(--accent, #5865f2); }
+.orb-vol-pop {
+  right: auto;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 5;
+}
+.orb-vol-pop input[type="range"] { width: 96px; }
 .voice-preview {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;

@@ -139,68 +139,59 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
                   >
                     <span className="call-orb-letter">{tl.initials}</span>
                     {!isSelf && (
-                      <div className="orb-volume">
-                        <button
-                          type="button"
-                          className={
-                            "voice-tile-volume-btn" +
-                            (openVolumeFor === tl.id ? " on" : "")
+                      <button
+                        type="button"
+                        className={
+                          "orb-vol-btn" + (openVolumeFor === tl.id ? " on" : "")
+                        }
+                        title={`Volume ${vol}%`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenVolumeFor((prev) =>
+                            prev === tl.id ? null : tl.id,
+                          );
+                        }}
+                      >
+                        <Icon
+                          name={
+                            vol === 0
+                              ? "speaker-off"
+                              : vol < 40
+                                ? "speaker-lo"
+                                : "speaker-hi"
                           }
-                          title={`Volume ${vol}%`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenVolumeFor((prev) =>
-                              prev === tl.id ? null : tl.id,
-                            );
-                          }}
-                        >
-                          <Icon
-                            name={
-                              vol === 0
-                                ? "speaker-off"
-                                : vol < 40
-                                  ? "speaker-lo"
-                                  : "speaker-hi"
-                            }
-                            size={14}
-                          />
-                        </button>
-                        {openVolumeFor === tl.id && (
-                          <div
-                            className="voice-tile-volume-pop"
-                            ref={volumePopoverRef}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="range"
-                              min={0}
-                              max={100}
-                              step={1}
-                              value={vol}
-                              onChange={(e) => {
-                                const v = Number(e.target.value);
-                                setTileVolumes((prev) => ({
-                                  ...prev,
-                                  [tl.id]: v,
-                                }));
-                                getLiveKitService().setRemoteVolume(
-                                  tl.id,
-                                  v / 100,
-                                );
-                              }}
-                              style={
-                                {
-                                  ["--pct" as unknown as string]: `${vol}%`,
-                                } as React.CSSProperties
-                              }
-                            />
-                            <span className="voice-tile-volume-pct">{vol}%</span>
-                          </div>
-                        )}
-                      </div>
+                          size={13}
+                        />
+                      </button>
                     )}
                   </div>
                   <div className="call-orb-name">{tl.name}</div>
+                  {!isSelf && openVolumeFor === tl.id && (
+                    <div
+                      className="voice-tile-volume-pop orb-vol-pop"
+                      ref={volumePopoverRef}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={vol}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setTileVolumes((prev) => ({ ...prev, [tl.id]: v }));
+                          getLiveKitService().setRemoteVolume(tl.id, v / 100);
+                        }}
+                        style={
+                          {
+                            ["--pct" as unknown as string]: `${vol}%`,
+                          } as React.CSSProperties
+                        }
+                      />
+                      <span className="voice-tile-volume-pct">{vol}%</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
