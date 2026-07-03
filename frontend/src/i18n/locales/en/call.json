@@ -10,6 +10,8 @@
   "minimize": "Minimize",
   "openCall": "Open call",
   "returnToCall": "Return",
+  "ongoingCall": "Call in progress",
+  "joinCall": "Join",
   "leave": "Leave call",
   "addParticipants": "Add people",
   "add": "Add",

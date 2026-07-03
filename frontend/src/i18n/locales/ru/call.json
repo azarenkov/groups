@@ -10,6 +10,8 @@
   "minimize": "Свернуть",
   "openCall": "Открыть звонок",
   "returnToCall": "Вернуться",
+  "ongoingCall": "Идёт звонок",
+  "joinCall": "Присоединиться",
   "leave": "Завершить",
   "addParticipants": "Добавить участников",
   "add": "Добавить",

@@ -78,6 +78,16 @@ class CallAPI {
     return response.data.data ?? null;
   }
 
+  async activeCallWith(friendId: string): Promise<string | null> {
+    const response = await this.client.get(`/v1/calls/with/${friendId}`);
+    return response.data.data?.callId ?? null;
+  }
+
+  async join(callId: string): Promise<CallToken> {
+    const response = await this.client.post(`/v1/calls/${callId}/join`, {});
+    return response.data.data;
+  }
+
   async decline(callId: string): Promise<void> {
     await this.client.post(`/v1/calls/${callId}/decline`, {});
   }

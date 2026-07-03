@@ -34,6 +34,7 @@ interface CallState {
   callEnded: (callId: string) => void;
 
   rehydrate: () => Promise<void>;
+  joinCall: (callId: string, peerId?: string) => Promise<void>;
   start: (recipientIds: string[]) => Promise<void>;
   accept: () => Promise<void>;
   decline: () => Promise<void>;
@@ -117,6 +118,36 @@ export const useCallStore = create<CallState>()((set, get) => ({
       ringing: s.activeCallId === active.callId ? s.ringing : [],
       focused: s.activeCallId === active.callId ? s.focused : true,
     }));
+  },
+
+  joinCall: async (callId, peerId) => {
+    if (get().activeCallId === callId) {
+      set({ focused: true });
+      return;
+    }
+    set({ connecting: true });
+    try {
+      const { token, url, participants } = await callAPI.join(callId);
+      try {
+        await connectToRoom(token, url);
+      } catch (e) {
+        await callAPI.leave(callId).catch(() => {});
+        throw e;
+      }
+      set({
+        activeCallId: callId,
+        connecting: false,
+        participants: Object.fromEntries(
+          participants.map((p) => [p.userId, p.userName]),
+        ),
+        ringing: [],
+        focused: true,
+        peerId: peerId ?? null,
+      });
+    } catch (e) {
+      set({ connecting: false });
+      throw e;
+    }
   },
 
   start: async (recipientIds) => {

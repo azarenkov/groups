@@ -2957,6 +2957,33 @@ textarea.s-input {
   display: flex;
 }
 
+.call-join-banner {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 9px 16px;
+  border: 0; border-bottom: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--success, #3ba55d) 14%, var(--surface-panel));
+  color: var(--fg-1); font: inherit; cursor: pointer;
+}
+.call-join-banner:hover {
+  background: color-mix(in srgb, var(--success, #3ba55d) 20%, var(--surface-panel));
+}
+.call-join-banner .cjb-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success, #3ba55d);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success, #3ba55d) 25%, transparent);
+  animation: ic-blink 1.4s ease-in-out infinite;
+}
+.call-join-banner .cjb-label { font-size: 13px; font-weight: 600; }
+.call-join-banner .cjb-cta {
+  margin-left: auto;
+  font-size: 12px; font-weight: 700; color: #fff;
+  background: var(--success, #3ba55d);
+  padding: 5px 14px; border-radius: 8px;
+}
+.call-join-banner:hover .cjb-cta { filter: brightness(1.06); }
+
 /* ---------- Call theater ---------- */
 .call-theater {
   flex: 1 1 auto;

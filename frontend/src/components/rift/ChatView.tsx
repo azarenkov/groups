@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
+import CallJoinBanner from "./CallJoinBanner";
 import { useCallStore } from "../../store/callStore";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
@@ -778,6 +779,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         onRemoveFriend={onRemoveFriend}
       />
       {topSlot}
+      {dm && !callMode && <CallJoinBanner friendId={dm.friendId} />}
       {searchOpen && (channel || dm) && (
         <div className="search-bar">
           <Icon name="search" size={14} />
