@@ -2778,11 +2778,22 @@ textarea.s-input {
   padding: 0;
   z-index: 3;
 }
-.has-video .call-orb { width: 40px; height: 40px; }
+.has-video .call-orb {
+  width: 40px; height: 40px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.55);
+}
 .has-video .call-orb-letter { font-size: 16px; }
 .has-video .call-orb-cell { width: auto; gap: 4px; }
 .has-video .call-orb-name { display: none; }
-.has-video .orb-vol-btn { width: 18px; height: 18px; }
+.has-video .orb-vol-btn {
+  width: 18px; height: 18px;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.has-video .call-orb-cell:hover .orb-vol-btn,
+.has-video .orb-vol-btn.on { opacity: 1; }
 .call-orbs {
   flex: 1;
   display: flex;
