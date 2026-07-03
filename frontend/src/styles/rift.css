@@ -2748,6 +2748,16 @@ textarea.s-input {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
 }
+.voice-stage-wrap.embedded {
+  position: static;
+  inset: auto;
+  flex: 0 0 auto;
+  height: 42vh;
+  min-height: 220px;
+  border-bottom: 1px solid var(--hairline);
+}
+.voice-stage-wrap.embedded .main-header { height: 40px; }
+.voice-stage-wrap.embedded .voice-room { padding: 14px 20px; }
 .voice-preview {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;

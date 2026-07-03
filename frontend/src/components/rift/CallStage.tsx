@@ -9,7 +9,10 @@ import { useVideoTiles } from "../../hooks/useVideoTiles";
 import { getLiveKitService } from "../../services/livekit";
 import { colorForId, initialFor } from "../../utils/avatar";
 
-const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
+const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
+  onMinimize,
+  embedded,
+}) => {
   const { t } = useTranslation(["call", "voice"]);
   const participants = useCallStore((s) => s.participants);
   const leave = useCallStore((s) => s.leave);
@@ -67,7 +70,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     cellCount <= 1 ? 1 : cellCount <= 4 ? 2 : cellCount <= 9 ? 3 : 4;
 
   return (
-    <div className="voice-stage-wrap">
+    <div className={"voice-stage-wrap" + (embedded ? " embedded" : "")}>
       <header className="main-header">
         <span className="ch-ico">
           <Icon name="phone" size={16} />
