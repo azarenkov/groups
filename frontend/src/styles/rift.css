@@ -2767,12 +2767,13 @@ textarea.s-input {
 .has-video .voice-room { position: relative; }
 .has-video .call-orbs {
   position: absolute;
-  left: 20px;
-  bottom: 72px;
-  max-width: calc(100% - 40px);
+  left: 16px;
+  top: 14px;
+  bottom: auto;
+  max-width: calc(100% - 32px);
   flex: 0 0 auto;
   justify-content: flex-start;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
   padding: 0;
   z-index: 3;
