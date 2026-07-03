@@ -166,11 +166,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                           <Icon name="mic-off" size={16} />
                         </span>
                       )}
-                    </div>
-                    <div className="call-empty-name">
-                      {r.isSelf ? t("you") : r.name}
-                    </div>
-                    {!r.isSelf && (
+                      {!r.isSelf && (
                       <div className="call-empty-vol">
                         <button
                           type="button"
@@ -224,7 +220,11 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                           </div>
                         )}
                       </div>
-                    )}
+                      )}
+                    </div>
+                    <div className="call-empty-name">
+                      {r.isSelf ? t("you") : r.name}
+                    </div>
                   </div>
                 );
               })}
