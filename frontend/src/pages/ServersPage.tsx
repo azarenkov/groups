@@ -435,7 +435,7 @@ const ServersPage: React.FC = () => {
   };
 
   const finalizeJoin = (server: Server, channel: Channel, password?: string) => {
-    useCallStore.getState().reset();
+    void useCallStore.getState().leave(true);
     setSelectedServer(server.id);
     setSelectedChannel(channel.id);
     setJoinedChannel({ channel, serverId: server.id, password });
@@ -699,6 +699,9 @@ const ServersPage: React.FC = () => {
   );
 
   const handleLogout = async () => {
+    if (useCallStore.getState().activeCallId) {
+      await useCallStore.getState().leave();
+    }
     serverAPI.removeAuthToken();
     channelAPI.removeAuthToken();
     friendshipAPI.removeAuthToken();

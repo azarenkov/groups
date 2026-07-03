@@ -31,13 +31,12 @@ interface CallState {
   participantLeft: (callId: string, userId: string) => void;
   participantDeclined: (callId: string, userId: string) => void;
   callEnded: (callId: string) => void;
-  reset: () => void;
 
   rehydrate: () => Promise<void>;
   start: (recipientIds: string[]) => Promise<void>;
   accept: () => Promise<void>;
   decline: () => Promise<void>;
-  leave: () => Promise<void>;
+  leave: (keepRoom?: boolean) => Promise<void>;
   addParticipants: (recipientIds: string[]) => Promise<void>;
 }
 
@@ -88,8 +87,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
   },
 
-  reset: () =>
-    set({ activeCallId: null, participants: {}, ringing: [], focused: false }),
 
   rehydrate: async () => {
     if (get().connecting) return;
@@ -181,12 +178,14 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
   },
 
-  leave: async () => {
+  leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
     set({ activeCallId: null, participants: {}, ringing: [], focused: false });
-    await getLiveKitService()
-      .disconnect()
-      .catch(() => {});
+    if (!keepRoom) {
+      await getLiveKitService()
+        .disconnect()
+        .catch(() => {});
+    }
     if (callId) {
       await callAPI.leave(callId).catch(() => {});
     }
