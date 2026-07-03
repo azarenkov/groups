@@ -18,6 +18,10 @@ pub struct DmMessageResponse {
     pub invite_server_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invite_server_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub call_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub call_duration_seconds: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
 }
@@ -32,6 +36,8 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
             content: value.content,
             invite_server_id: value.invite_server_id,
             invite_server_name: value.invite_server_name,
+            call_status: None,
+            call_duration_seconds: None,
             created_at: value.created_at,
             edited_at: None,
         }
@@ -48,6 +54,8 @@ impl From<DmMessageDto> for DmMessageResponse {
             content: value.content,
             invite_server_id: value.invite_server_id,
             invite_server_name: value.invite_server_name,
+            call_status: value.call_status,
+            call_duration_seconds: value.call_duration_seconds,
             created_at: value.created_at,
             edited_at: value.edited_at,
         }

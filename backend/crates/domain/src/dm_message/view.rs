@@ -11,6 +11,8 @@ pub struct DmMessageView {
     pub content: String,
     pub invite_server_id: Option<ServerId>,
     pub invite_server_name: Option<String>,
+    pub call_status: Option<String>,
+    pub call_duration_seconds: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
 }

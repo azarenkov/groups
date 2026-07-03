@@ -35,6 +35,8 @@ pub struct DmMessage {
     recipient_id: UserId,
     content: MessageContent,
     invite_server_id: Option<ServerId>,
+    call_status: Option<String>,
+    call_duration_seconds: Option<i32>,
     created_at: DateTime<Utc>,
     edited_at: Option<DateTime<Utc>>,
     events: Vec<DmMessageDomainEvent>,
@@ -54,6 +56,35 @@ impl DmMessage {
             recipient_id,
             content: content.clone(),
             invite_server_id: None,
+            call_status: None,
+            call_duration_seconds: None,
+            created_at: now,
+            edited_at: None,
+            events: Vec::new(),
+        };
+        message.events.push(DmMessageDomainEvent::Sent(
+            DmMessageSent::record(id, sender_id, recipient_id, content, now),
+        ));
+        message
+    }
+
+    pub fn create_call(
+        sender_id: UserId,
+        recipient_id: UserId,
+        call_status: String,
+        call_duration_seconds: Option<i32>,
+        content: MessageContent,
+        now: DateTime<Utc>,
+    ) -> Self {
+        let id = DmMessageId::generate();
+        let mut message = Self {
+            id,
+            sender_id,
+            recipient_id,
+            content: content.clone(),
+            invite_server_id: None,
+            call_status: Some(call_status),
+            call_duration_seconds,
             created_at: now,
             edited_at: None,
             events: Vec::new(),
@@ -78,6 +109,8 @@ impl DmMessage {
             recipient_id,
             content: content.clone(),
             invite_server_id: Some(server_id),
+            call_status: None,
+            call_duration_seconds: None,
             created_at: now,
             edited_at: None,
             events: Vec::new(),
@@ -88,12 +121,15 @@ impl DmMessage {
         message
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn restore(
         id: DmMessageId,
         sender_id: UserId,
         recipient_id: UserId,
         content: MessageContent,
         invite_server_id: Option<ServerId>,
+        call_status: Option<String>,
+        call_duration_seconds: Option<i32>,
         created_at: DateTime<Utc>,
         edited_at: Option<DateTime<Utc>>,
     ) -> Self {
@@ -103,6 +139,8 @@ impl DmMessage {
             recipient_id,
             content,
             invite_server_id,
+            call_status,
+            call_duration_seconds,
             created_at,
             edited_at,
             events: Vec::new(),
@@ -178,6 +216,12 @@ impl DmMessage {
     }
     pub fn invite_server_id(&self) -> Option<&ServerId> {
         self.invite_server_id.as_ref()
+    }
+    pub fn call_status(&self) -> Option<&str> {
+        self.call_status.as_deref()
+    }
+    pub fn call_duration_seconds(&self) -> Option<i32> {
+        self.call_duration_seconds
     }
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at

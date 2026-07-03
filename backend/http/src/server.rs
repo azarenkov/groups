@@ -28,7 +28,7 @@ use application::usecases::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
         decline_call::DeclineCall, get_active_call::GetActiveCall,
         get_active_call_with::GetActiveCallWith, join_call::JoinCall, leave_call::LeaveCall,
-        start_call::StartCall,
+        log_call::LogCall, start_call::StartCall,
     },
     channel::{
         abort_voice_connection::AbortVoiceConnection, create_channel::CreateChannel,
@@ -292,6 +292,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
 
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
+    let log_call_usecase =
+        LogCall::new(dm_repository.clone(), friendship_repository.clone());
     let send_dm_message_usecase = SendDmMessage::new(
         dm_repository.clone(),
         friendship_repository.clone(),
@@ -328,6 +330,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         get_active_call_usecase,
         get_active_call_with_usecase,
         join_call_usecase,
+        log_call_usecase,
         mute_channel_usecase,
         unmute_channel_usecase,
         delete_channel_usecase,

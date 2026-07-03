@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT m.id, m.sender_id, m.recipient_id,\n                           u.name AS sender_name,\n                           m.content, m.invite_server_id,\n                           s.name AS \"invite_server_name?\",\n                           m.created_at, m.edited_at\n                    FROM dm_messages m\n                    INNER JOIN users u ON u.id = m.sender_id\n                    LEFT JOIN servers s ON s.id = m.invite_server_id\n                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                      AND (m.created_at, m.id) < ($3, $4)\n                    ORDER BY m.created_at DESC, m.id DESC\n                    LIMIT $5\n                    ",
+  "query": "\n                SELECT m.id, m.sender_id, m.recipient_id,\n                       u.name AS sender_name,\n                       m.content, m.invite_server_id,\n                       s.name AS \"invite_server_name?\",\n                       m.call_status, m.call_duration_seconds,\n                       m.created_at, m.edited_at\n                FROM dm_messages m\n                INNER JOIN users u ON u.id = m.sender_id\n                LEFT JOIN servers s ON s.id = m.invite_server_id\n                WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                  AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                ORDER BY m.created_at DESC, m.id DESC\n                LIMIT $3\n                ",
   "describe": {
     "columns": [
       {
@@ -40,11 +40,21 @@
       },
       {
         "ordinal": 7,
+        "name": "call_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "call_duration_seconds",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "edited_at",
         "type_info": "Timestamptz"
       }
@@ -52,8 +62,6 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
-        "Timestamptz",
         "Uuid",
         "Int8"
       ]
@@ -66,9 +74,11 @@
       false,
       true,
       false,
+      true,
+      true,
       false,
       true
     ]
   },
-  "hash": "f2aefc5aee6d7d39d7ffcd3a3f8c0319f26a6a9c09142db14fc7d3e3592be743"
+  "hash": "01f55feaf95457f35cbce1bb6ff8dd54e971032817fbea8d8608f6734a53cf28"
 }

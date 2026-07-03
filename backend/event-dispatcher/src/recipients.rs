@@ -40,6 +40,28 @@ impl RecipientResolver {
         Ok(row.map(|r| r.get::<String, _>(0)))
     }
 
+    pub async fn dm_call_for(
+        &self,
+        message_id: Uuid,
+    ) -> Result<Option<(String, Option<i32>)>, sqlx::Error> {
+        let row = sqlx::query(
+            r#"
+            SELECT call_status, call_duration_seconds
+            FROM dm_messages
+            WHERE id = $1
+            "#,
+        )
+        .bind(message_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let status: Option<String> = row.get(0);
+        let duration: Option<i32> = row.get(1);
+        Ok(status.map(|s| (s, duration)))
+    }
+
     pub async fn dm_invite_for(
         &self,
         message_id: Uuid,

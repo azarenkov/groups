@@ -13,7 +13,7 @@ use application::usecases::call::{
     accept_call::AcceptCallError, add_participants::AddCallParticipantsError,
     decline_call::DeclineCallError, get_active_call::GetActiveCallError,
     get_active_call_with::GetActiveCallWithError, join_call::JoinCallError,
-    leave_call::LeaveCallError, start_call::StartCallError,
+    leave_call::LeaveCallError, log_call::LogCallError, start_call::StartCallError,
 };
 use application::usecases::channel::list_channel_messages::ListChannelMessagesError;
 use application::usecases::channel::search_channel_messages::SearchChannelMessagesError;
@@ -1148,6 +1148,33 @@ impl ToHttpStatus for JoinCallError {
             JoinCallError::Voice(e) => e.to_error_code(),
             JoinCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
             JoinCallError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for LogCallError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            LogCallError::Repository(e) => e.to_http_status(),
+            LogCallError::Domain(e) => e.to_http_status(),
+            LogCallError::Outbox(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            LogCallError::NotFriends => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            LogCallError::Repository(e) => e.to_user_message(),
+            LogCallError::Domain(e) => e.to_user_message(),
+            LogCallError::Outbox(_) => "Failed to log call".to_string(),
+            LogCallError::NotFriends => "You can only call your friends".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            LogCallError::Repository(e) => e.to_error_code(),
+            LogCallError::Domain(e) => e.to_error_code(),
+            LogCallError::Outbox(_) => "CALL_LOG_FAILED",
+            LogCallError::NotFriends => "CALL_NOT_FRIENDS",
         }
     }
 }
@@ -2322,6 +2349,7 @@ impl_from_for_api_error!(
     GetActiveCallError,
     GetActiveCallWithError,
     JoinCallError,
+    LogCallError,
     ListServersByUserError,
     ListServerMembersError,
     ListServerChannelsError,

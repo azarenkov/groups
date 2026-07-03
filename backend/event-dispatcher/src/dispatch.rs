@@ -30,6 +30,7 @@ pub async fn dispatch(
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
         let invite = resolver.dm_invite_for(evt.message_id).await?;
+        let call = resolver.dm_call_for(evt.message_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
@@ -42,6 +43,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
                 "inviteServerId": invite.as_ref().map(|i| i.0),
                 "inviteServerName": invite.as_ref().map(|i| i.1.clone()),
+                "callStatus": call.as_ref().map(|c| c.0.clone()),
+                "callDurationSeconds": call.as_ref().and_then(|c| c.1),
             }),
         );
         publisher

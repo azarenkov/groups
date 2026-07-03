@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, sender_id, recipient_id, content, invite_server_id, created_at, edited_at\n            FROM dm_messages\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT id, sender_id, recipient_id, content, invite_server_id, call_status, call_duration_seconds, created_at, edited_at\n            FROM dm_messages\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -30,11 +30,21 @@
       },
       {
         "ordinal": 5,
+        "name": "call_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "call_duration_seconds",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "edited_at",
         "type_info": "Timestamptz"
       }
@@ -50,9 +60,11 @@
       false,
       false,
       true,
+      true,
+      true,
       false,
       true
     ]
   },
-  "hash": "f498202a1cdd45eca32b353058c3edf0e6f371bf14a3fd2669b3f86e4dca4603"
+  "hash": "4ac94577ee3d4ec353262b434bcf9e9a3213d92bbf26cf5a95a49e051a6c951e"
 }
