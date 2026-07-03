@@ -15,6 +15,8 @@ interface DmRow {
   content: string;
   inviteServerId?: string;
   inviteServerName?: string;
+  callStatus?: string;
+  callDurationSeconds?: number;
   createdAt: string;
   editedAt: string | null;
 }
@@ -27,6 +29,8 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   content: r.content,
   inviteServerId: r.inviteServerId,
   inviteServerName: r.inviteServerName,
+  callStatus: r.callStatus,
+  callDurationSeconds: r.callDurationSeconds,
   createdAt: r.createdAt,
   editedAt: r.editedAt,
 });

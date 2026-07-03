@@ -60,6 +60,8 @@ export interface DmMessageHandlers {
     occurredAt: string;
     inviteServerId?: string;
     inviteServerName?: string;
+    callStatus?: string;
+    callDurationSeconds?: number;
   }) => void;
   onEdited?: (m: {
     id: string;

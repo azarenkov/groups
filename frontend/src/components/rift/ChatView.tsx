@@ -86,6 +86,12 @@ interface DmMeta {
   online: boolean;
 }
 
+const formatCallDuration = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+};
+
 interface ChatViewProps {
   channel?: ChannelMeta;
   serverId?: string;
@@ -178,6 +184,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         occurredAt: string;
         inviteServerId?: string;
         inviteServerName?: string;
+        callStatus?: string;
+        callDurationSeconds?: number;
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -192,6 +200,8 @@ const ChatView: React.FC<ChatViewProps> = ({
                   content: m.content,
                   inviteServerId: m.inviteServerId,
                   inviteServerName: m.inviteServerName,
+                  callStatus: m.callStatus,
+                  callDurationSeconds: m.callDurationSeconds,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },
@@ -1298,7 +1308,25 @@ const Message: React.FC<MessageProps> = ({
             <time>{time}</time>
           </div>
         )}
-        {msg.inviteServerId ? (
+        {msg.callStatus ? (
+          <div className={"dm-call-card " + msg.callStatus}>
+            <span className="dm-call-icon">
+              <Icon name="phone" size={15} />
+            </span>
+            <div className="dm-call-info">
+              <div className="dm-call-title">
+                {i18n.t("voiceCall", { ns: "call" })}
+              </div>
+              <div className="dm-call-sub">
+                {msg.callStatus === "completed"
+                  ? formatCallDuration(msg.callDurationSeconds ?? 0)
+                  : msg.callStatus === "declined"
+                    ? i18n.t("callDeclined", { ns: "call" })
+                    : i18n.t("callMissed", { ns: "call" })}
+              </div>
+            </div>
+          </div>
+        ) : msg.inviteServerId ? (
           <div className="dm-invite-card">
             <div className="dm-invite-card-label">Server invite</div>
             <div className="dm-invite-card-row">

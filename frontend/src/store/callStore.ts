@@ -46,6 +46,30 @@ interface CallState {
 
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
+interface CallLog {
+  startedAt: number;
+  peerId: string;
+  peerJoined: boolean;
+  declined: boolean;
+}
+
+let pendingLog: CallLog | null = null;
+
+function finalizeCallLog() {
+  const cl = pendingLog;
+  pendingLog = null;
+  if (!cl) return;
+  let status = "missed";
+  let duration: number | undefined;
+  if (cl.declined) {
+    status = "declined";
+  } else if (cl.peerJoined) {
+    status = "completed";
+    duration = Math.max(0, Math.round((Date.now() - cl.startedAt) / 1000));
+  }
+  callAPI.logCall(cl.peerId, status, duration).catch(() => {});
+}
+
 export const useCallStore = create<CallState>()((set, get) => ({
   incoming: null,
   activeCallId: null,
@@ -64,14 +88,14 @@ export const useCallStore = create<CallState>()((set, get) => ({
     set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
 
   participantJoined: (callId, userId, userName) =>
-    set((s) =>
-      s.activeCallId === callId
-        ? {
-            participants: { ...s.participants, [userId]: userName },
-            ringing: without(s.ringing, userId),
-          }
-        : s,
-    ),
+    set((s) => {
+      if (s.activeCallId !== callId) return s;
+      if (pendingLog && pendingLog.peerId === userId) pendingLog.peerJoined = true;
+      return {
+        participants: { ...s.participants, [userId]: userName },
+        ringing: without(s.ringing, userId),
+      };
+    }),
   participantLeft: (callId, userId) =>
     set((s) => {
       if (s.activeCallId !== callId) return s;
@@ -80,9 +104,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
       return { participants: next, ringing: without(s.ringing, userId) };
     }),
   participantDeclined: (callId, userId) =>
-    set((s) =>
-      s.activeCallId === callId ? { ringing: without(s.ringing, userId) } : s,
-    ),
+    set((s) => {
+      if (s.activeCallId !== callId) return s;
+      if (pendingLog && pendingLog.peerId === userId) pendingLog.declined = true;
+      return { ringing: without(s.ringing, userId) };
+    }),
 
   callEnded: (callId) => {
     const s = get();
@@ -94,6 +120,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
+      finalizeCallLog();
       set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
       getLiveKitService()
         .disconnect()
@@ -172,6 +199,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
         await callAPI.leave(callId).catch(() => {});
         throw e;
       }
+      pendingLog = {
+        startedAt: Date.now(),
+        peerId: recipientIds[0],
+        peerJoined: false,
+        declined: false,
+      };
       set({
         activeCallId: callId,
         connecting: false,
@@ -233,6 +266,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
+    finalizeCallLog();
     set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
     if (!keepRoom) {
       await getLiveKitService()
