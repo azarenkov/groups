@@ -176,10 +176,11 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
             );
           })}
         </div>
-        <div className="voice-room-actions">
+        <div className="voice-room-actions call-actions">
           <button
             type="button"
-            className={"voice-room-action" + (localCameraOn ? " on" : "")}
+            className={"call-action" + (localCameraOn ? " on" : "")}
+            title={localCameraOn ? t("voice:stopCamera") : t("voice:startCamera")}
             onClick={() => {
               getLiveKitService()
                 .setCameraEnabled(!localCameraOn)
@@ -187,13 +188,15 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
             }}
           >
             <Icon name="camera" size={16} />
-            <span>
-              {localCameraOn ? t("voice:stopCamera") : t("voice:startCamera")}
-            </span>
           </button>
           <button
             type="button"
-            className={"voice-room-action" + (localScreenOn ? " on" : "")}
+            className={"call-action" + (localScreenOn ? " on" : "")}
+            title={
+              localScreenOn
+                ? t("voice:stopScreenShare")
+                : t("voice:startScreenShare")
+            }
             onClick={() => {
               getLiveKitService()
                 .setScreenShareEnabled(!localScreenOn)
@@ -201,19 +204,14 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
             }}
           >
             <Icon name="monitor" size={16} />
-            <span>
-              {localScreenOn
-                ? t("voice:stopScreenShare")
-                : t("voice:startScreenShare")}
-            </span>
           </button>
           <button
             type="button"
-            className="voice-room-action leave"
+            className="call-action leave"
+            title={t("voice:leave")}
             onClick={() => leave()}
           >
             <Icon name="logout" size={16} />
-            <span>{t("voice:leave")}</span>
           </button>
         </div>
       </div>
