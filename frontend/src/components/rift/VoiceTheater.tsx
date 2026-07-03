@@ -157,6 +157,11 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                     style={{ "--orb-color": r.color } as React.CSSProperties}
                   >
                     {r.initials}
+                    {r.muted && (
+                      <span className="call-empty-mute">
+                        <Icon name="mic-off" size={16} />
+                      </span>
+                    )}
                   </div>
                   <div className="call-empty-name">
                     {r.isSelf ? t("you") : r.name}
@@ -266,6 +271,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         </div>
       </div>
 
+      {mainVideo && (
       <div className="call-strip">
         {strip.map((r) => {
           const vol = tileVolumes[r.id] ?? 100;
@@ -351,6 +357,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };
