@@ -131,7 +131,13 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
   );
 
   return (
-    <div className={"voice-stage-wrap" + (embedded ? " embedded" : "")}>
+    <div
+      className={
+        "voice-stage-wrap" +
+        (embedded ? " embedded" : "") +
+        (videoTiles.length > 0 ? " has-video" : "")
+      }
+    >
       {!embedded && (
         <header className="main-header">
           <span className="ch-ico">

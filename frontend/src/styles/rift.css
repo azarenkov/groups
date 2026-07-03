@@ -2762,8 +2762,20 @@ textarea.s-input {
   box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
+.voice-stage-wrap.embedded.has-video {
+  height: 62vh;
+  max-height: 640px;
+}
 .voice-stage-wrap.embedded .voice-room { padding: 16px 20px; }
 .voice-stage-wrap.embedded .voice-room-actions { background: transparent; }
+.has-video .call-orbs {
+  flex: 0 0 auto;
+  gap: 12px 24px;
+  padding: 4px 0;
+}
+.has-video .call-orb { width: 56px; height: 56px; }
+.has-video .call-orb-letter { font-size: 22px; }
+.has-video .call-orb-cell { width: 88px; gap: 8px; }
 .call-orbs {
   flex: 1;
   display: flex;
