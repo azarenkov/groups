@@ -65,9 +65,23 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
     return { nameById: names, avatarTiles: tiles };
   }, [participants, voiceParticipants, videoTiles, selfId, selfName]);
 
-  const cellCount = videoTiles.length + avatarTiles.length;
   const cols =
-    cellCount <= 1 ? 1 : cellCount <= 4 ? 2 : cellCount <= 9 ? 3 : 4;
+    videoTiles.length <= 1
+      ? 1
+      : videoTiles.length <= 4
+        ? 2
+        : videoTiles.length <= 9
+          ? 3
+          : 4;
+  const orbSize =
+    avatarTiles.length === 1 ? "solo" : avatarTiles.length <= 4 ? "row" : "grid";
+  const speakingIds = useMemo(
+    () =>
+      new Set(
+        voiceParticipants.filter((p) => p.isSpeaking).map((p) => p.identity),
+      ),
+    [voiceParticipants],
+  );
 
   return (
     <div className={"voice-stage-wrap" + (embedded ? " embedded" : "")}>
@@ -97,87 +111,102 @@ const CallStage: React.FC<{ onMinimize: () => void; embedded?: boolean }> = ({
         </header>
       )}
       <div className="voice-room">
-        <div
-          className="voice-room-grid"
-          style={{ "--vt-cols": cols } as React.CSSProperties}
-        >
-          {videoTiles.map((vt) => (
-            <VideoTileCell
-              key={vt.id}
-              tile={vt}
-              label={
-                vt.isLocal ? selfName : nameById.get(vt.identity) || vt.name
-              }
-            />
-          ))}
-          {avatarTiles.map((tl) => {
-            const isSelf = tl.id === selfId;
-            const vol = tileVolumes[tl.id] ?? 100;
-            return (
-              <div key={tl.id} className="voice-tile">
-                <div className="voice-tile-ava" style={{ background: tl.color }}>
-                  {tl.initials}
-                </div>
-                <div className="voice-tile-name">{tl.name}</div>
-                {!isSelf && (
-                  <div className="voice-tile-volume-wrap">
-                    <button
-                      type="button"
-                      className={
-                        "voice-tile-volume-btn" +
-                        (openVolumeFor === tl.id ? " on" : "")
-                      }
-                      title={`Volume ${vol}%`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenVolumeFor((prev) =>
-                          prev === tl.id ? null : tl.id,
-                        );
-                      }}
-                    >
-                      <Icon
-                        name={
-                          vol === 0
-                            ? "speaker-off"
-                            : vol < 40
-                              ? "speaker-lo"
-                              : "speaker-hi"
-                        }
-                        size={14}
-                      />
-                    </button>
-                    {openVolumeFor === tl.id && (
-                      <div
-                        className="voice-tile-volume-pop"
-                        ref={volumePopoverRef}
-                        onMouseDown={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={vol}
-                          onChange={(e) => {
-                            const v = Number(e.target.value);
-                            setTileVolumes((prev) => ({ ...prev, [tl.id]: v }));
-                            getLiveKitService().setRemoteVolume(tl.id, v / 100);
-                          }}
-                          style={
-                            {
-                              ["--pct" as unknown as string]: `${vol}%`,
-                            } as React.CSSProperties
-                          }
-                        />
-                        <span className="voice-tile-volume-pct">{vol}%</span>
-                      </div>
-                    )}
+        {videoTiles.length > 0 && (
+          <div
+            className="voice-room-grid"
+            style={{ "--vt-cols": cols } as React.CSSProperties}
+          >
+            {videoTiles.map((vt) => (
+              <VideoTileCell
+                key={vt.id}
+                tile={vt}
+                label={
+                  vt.isLocal ? selfName : nameById.get(vt.identity) || vt.name
+                }
+              />
+            ))}
+          </div>
+        )}
+        {avatarTiles.length > 0 && (
+          <div className={`voice-stage-orbs call-orbs ${orbSize}`}>
+            {avatarTiles.map((tl) => {
+              const isSelf = tl.id === selfId;
+              const vol = tileVolumes[tl.id] ?? 100;
+              const speaking = speakingIds.has(tl.id);
+              return (
+                <div key={tl.id} className="voice-stage-orb-cell">
+                  <div
+                    className={"voice-stage-orb" + (speaking ? " speaking" : "")}
+                    style={{ "--orb-color": tl.color } as React.CSSProperties}
+                  >
+                    <span className="voice-stage-orb-letter">
+                      {tl.initials}
+                    </span>
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  <div className="voice-stage-orb-name">{tl.name}</div>
+                  {!isSelf && (
+                    <div className="orb-volume">
+                      <button
+                        type="button"
+                        className={
+                          "voice-tile-volume-btn" +
+                          (openVolumeFor === tl.id ? " on" : "")
+                        }
+                        title={`Volume ${vol}%`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenVolumeFor((prev) =>
+                            prev === tl.id ? null : tl.id,
+                          );
+                        }}
+                      >
+                        <Icon
+                          name={
+                            vol === 0
+                              ? "speaker-off"
+                              : vol < 40
+                                ? "speaker-lo"
+                                : "speaker-hi"
+                          }
+                          size={14}
+                        />
+                      </button>
+                      {openVolumeFor === tl.id && (
+                        <div
+                          className="voice-tile-volume-pop"
+                          ref={volumePopoverRef}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={vol}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setTileVolumes((prev) => ({
+                                ...prev,
+                                [tl.id]: v,
+                              }));
+                              getLiveKitService().setRemoteVolume(tl.id, v / 100);
+                            }}
+                            style={
+                              {
+                                ["--pct" as unknown as string]: `${vol}%`,
+                              } as React.CSSProperties
+                            }
+                          />
+                          <span className="voice-tile-volume-pct">{vol}%</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="voice-room-actions call-actions">
           <button
             type="button"

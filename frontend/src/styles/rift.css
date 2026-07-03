@@ -2763,6 +2763,19 @@ textarea.s-input {
 }
 .voice-stage-wrap.embedded .voice-room { padding: 16px 20px; }
 .voice-stage-wrap.embedded .voice-room-actions { background: transparent; }
+.call-orbs {
+  flex: 1;
+  align-content: center;
+  gap: 44px;
+  padding: 8px 0;
+}
+.voice-stage-orb.speaking {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 3px color-mix(in srgb, var(--voice-live, #30a46c) 65%, transparent),
+    0 0 22px color-mix(in srgb, var(--voice-live, #30a46c) 40%, transparent);
+}
+.orb-volume { position: relative; margin-top: 2px; }
 .voice-preview {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
