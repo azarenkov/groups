@@ -1174,6 +1174,17 @@ select:focus-visible {
 .msg:hover .msg-actions { display: flex; }
 .msg-actions .icon-btn { width: 26px; height: 26px; }
 .msg-edited { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
+.msg-receipt {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -2px;
+  color: var(--fg-3);
+  vertical-align: baseline;
+  user-select: none;
+}
+.msg-receipt.read { color: var(--accent, #3b82f6); }
 .msg-edit { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .msg-edit input {
   width: 100%;

@@ -18,8 +18,9 @@ use application::usecases::{
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
     read_state::{
-        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
-        mark_dm_read::MarkDmRead,
+        get_channel_read_receipts::GetChannelReadReceipts,
+        get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
+        mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     user::{
         get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
@@ -284,6 +285,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let mark_dm_read_usecase =
         MarkDmRead::new(read_state_repository.clone(), friendship_repository.clone());
     let get_unread_counts_usecase = GetUnreadCounts::new(read_state_repository.clone());
+    let get_dm_read_receipt_usecase = GetDmReadReceipt::new(
+        read_state_repository.clone(),
+        friendship_repository.clone(),
+    );
+    let get_channel_read_receipts_usecase = GetChannelReadReceipts::new(
+        read_state_repository.clone(),
+        channel_repository.clone(),
+    );
 
     let nats_core = nats_jetstream.client().clone();
     let presence_preference_subject = format!(
@@ -367,6 +376,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mark_channel_read_usecase,
         mark_dm_read_usecase,
         get_unread_counts_usecase,
+        get_dm_read_receipt_usecase,
+        get_channel_read_receipts_usecase,
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase,

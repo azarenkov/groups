@@ -6,6 +6,8 @@ import { useCallStore } from "../../store/callStore";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
+import { userAPI } from "../../api/user";
+import { useReadReceiptStore } from "../../store/readReceiptStore";
 import { ChannelMessage } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
@@ -123,6 +125,60 @@ const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+
+  const dmFriendId = dm?.friendId;
+  const channelId = channel?.id;
+  const dmPeerReadAt = useReadReceiptStore((s) =>
+    dmFriendId ? s.dmPeerReadAt[dmFriendId] : undefined,
+  );
+  const channelReads = useReadReceiptStore((s) =>
+    channelId ? s.channelReads[channelId] : undefined,
+  );
+
+  React.useEffect(() => {
+    if (!dmFriendId) return;
+    userAPI
+      .getDmReadState(dmFriendId)
+      .then((r) => {
+        if (r.readAt)
+          useReadReceiptStore.getState().setDmPeerReadAt(dmFriendId, r.readAt);
+      })
+      .catch(() => {});
+  }, [dmFriendId]);
+
+  React.useEffect(() => {
+    if (!channelId) return;
+    userAPI
+      .getChannelReadStates(channelId)
+      .then((r) =>
+        useReadReceiptStore.getState().seedChannelReads(channelId, r.members),
+      )
+      .catch(() => {});
+  }, [channelId]);
+
+  const receiptFor = (
+    m: ChannelMessage,
+    mine: boolean,
+  ): "sent" | "read" | null => {
+    if (!mine || m.callStatus || m.inviteServerId) return null;
+    const created = new Date(m.createdAt).getTime();
+    if (dmFriendId) {
+      return dmPeerReadAt && new Date(dmPeerReadAt).getTime() >= created
+        ? "read"
+        : "sent";
+    }
+    if (channelId) {
+      if (!channelReads) return "sent";
+      const members = Object.keys(channelReads);
+      if (members.length === 0) return "sent";
+      const all = members.every((uid) => {
+        const r = channelReads[uid];
+        return r != null && new Date(r).getTime() >= created;
+      });
+      return all ? "read" : "sent";
+    }
+    return null;
+  };
 
   const channelMsgHandlers = React.useMemo(
     () => ({
@@ -947,6 +1003,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   displayName={displayName}
                   continued={cont}
                   isMine={isMine}
+                  receipt={receiptFor(m, isMine)}
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
@@ -1253,6 +1310,7 @@ interface MessageProps {
   displayName: string;
   continued: boolean;
   isMine: boolean;
+  receipt: "sent" | "read" | null;
   editing: boolean;
   highlighted: boolean;
   editText: string;
@@ -1272,6 +1330,7 @@ const Message: React.FC<MessageProps> = ({
   displayName,
   continued,
   isMine,
+  receipt,
   editing,
   highlighted,
   editText,
@@ -1401,6 +1460,17 @@ const Message: React.FC<MessageProps> = ({
           <div className="txt">
             {msg.content}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
+            {receipt && (
+              <span
+                className={"msg-receipt" + (receipt === "read" ? " read" : "")}
+                title={i18n.t(receipt === "read" ? "seen" : "delivered", {
+                  ns: "chat",
+                })}
+                aria-hidden="true"
+              >
+                {receipt === "read" ? "✓✓" : "✓"}
+              </span>
+            )}
           </div>
         )}
       </div>

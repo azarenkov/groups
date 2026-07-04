@@ -25,6 +25,8 @@ export type WsEventType =
   | "dm_message.sent"
   | "dm_message.edited"
   | "dm_message.deleted"
+  | "dm.read"
+  | "channel.read"
   | "message.sent"
   | "message.edited"
   | "message.deleted"

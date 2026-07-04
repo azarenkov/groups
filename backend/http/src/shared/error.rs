@@ -31,6 +31,8 @@ use application::usecases::server::decline_server_invite::DeclineServerInviteErr
 use application::usecases::server::leave_server::LeaveServerError;
 use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
+use application::usecases::read_state::get_channel_read_receipts::GetChannelReadReceiptsError;
+use application::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use application::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use application::usecases::read_state::mark_channel_read::MarkChannelReadError;
 use application::usecases::read_state::mark_dm_read::MarkDmReadError;
@@ -2138,6 +2140,52 @@ impl ToHttpStatus for GetUnreadCountsError {
     }
 }
 
+impl ToHttpStatus for GetDmReadReceiptError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetDmReadReceiptError::Repository(e) => e.to_http_status(),
+            GetDmReadReceiptError::NotFriends => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetDmReadReceiptError::Repository(e) => e.to_user_message(),
+            GetDmReadReceiptError::NotFriends => {
+                "You are not friends with this user".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetDmReadReceiptError::Repository(e) => e.to_error_code(),
+            GetDmReadReceiptError::NotFriends => "NOT_FRIENDS",
+        }
+    }
+}
+
+impl ToHttpStatus for GetChannelReadReceiptsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetChannelReadReceiptsError::Repository(e) => e.to_http_status(),
+            GetChannelReadReceiptsError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetChannelReadReceiptsError::Repository(e) => e.to_user_message(),
+            GetChannelReadReceiptsError::NotMember => {
+                "You are not a member of this channel".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetChannelReadReceiptsError::Repository(e) => e.to_error_code(),
+            GetChannelReadReceiptsError::NotMember => "CHANNEL_NOT_MEMBER",
+        }
+    }
+}
+
 impl ToHttpStatus for GetMeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -2372,6 +2420,8 @@ impl_from_for_api_error!(
     MarkChannelReadError,
     MarkDmReadError,
     GetUnreadCountsError,
+    GetDmReadReceiptError,
+    GetChannelReadReceiptsError,
     SendDmMessageError,
     SendServerInviteError,
     AcceptServerInviteError,

@@ -3,6 +3,8 @@
   "messagePlaceholderDm": "Message @{{user}}",
   "send": "Send",
   "edited": "edited",
+  "delivered": "Delivered",
+  "seen": "Seen",
   "delete": "Delete",
   "deletedMessage": "Message deleted",
   "today": "Today",

@@ -6,6 +6,7 @@ import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useCallStore } from "../store/callStore";
 import { useUnreadStore } from "../store/unreadStore";
+import { useReadReceiptStore } from "../store/readReceiptStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import type { Server } from "../types/server";
@@ -206,6 +207,27 @@ function dispatch(env: WsEnvelope) {
         return;
       }
       useUnreadStore.getState().bumpDm(senderId);
+      return;
+    }
+
+    case "dm.read": {
+      const readerId = asString(d.readerId);
+      const readAt = asString(d.readAt);
+      if (readerId && readAt) {
+        useReadReceiptStore.getState().setDmPeerReadAt(readerId, readAt);
+      }
+      return;
+    }
+
+    case "channel.read": {
+      const channelId = asString(d.channelId);
+      const readerId = asString(d.readerId);
+      const readAt = asString(d.readAt);
+      if (channelId && readerId && readAt) {
+        useReadReceiptStore
+          .getState()
+          .setChannelMemberRead(channelId, readerId, readAt);
+      }
       return;
     }
 

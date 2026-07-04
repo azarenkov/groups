@@ -3,6 +3,8 @@
   "messagePlaceholderDm": "Сообщение @{{user}}",
   "send": "Отправить",
   "edited": "изменено",
+  "delivered": "Доставлено",
+  "seen": "Прочитано",
   "delete": "Удалить",
   "deletedMessage": "Сообщение удалено",
   "today": "Сегодня",

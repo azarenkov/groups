@@ -20,8 +20,9 @@ use application::usecases::{
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
     read_state::{
-        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
-        mark_dm_read::MarkDmRead,
+        get_channel_read_receipts::GetChannelReadReceipts,
+        get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
+        mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     user::{
         get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
@@ -168,6 +169,10 @@ pub struct AppState {
     pub mark_dm_read_usecase:
         MarkDmRead<PostgresReadStateRepository, PostgresFriendshipRepository>,
     pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+    pub get_dm_read_receipt_usecase:
+        GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
+    pub get_channel_read_receipts_usecase:
+        GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
 
@@ -358,6 +363,14 @@ impl AppState {
             PostgresFriendshipRepository,
         >,
         get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+        get_dm_read_receipt_usecase: GetDmReadReceipt<
+            PostgresReadStateRepository,
+            PostgresFriendshipRepository,
+        >,
+        get_channel_read_receipts_usecase: GetChannelReadReceipts<
+            PostgresReadStateRepository,
+            PostgresChannelRepository,
+        >,
         nats_core: async_nats::Client,
         presence_preference_subject: String,
         send_dm_message_usecase: SendDmMessage<
@@ -439,6 +452,8 @@ impl AppState {
             mark_channel_read_usecase,
             mark_dm_read_usecase,
             get_unread_counts_usecase,
+            get_dm_read_receipt_usecase,
+            get_channel_read_receipts_usecase,
             nats_core,
             presence_preference_subject,
             send_dm_message_usecase,
