@@ -324,6 +324,13 @@ export const useCallStore = create<CallState>()((set, get) => ({
     set((s) => ({
       ringing: Array.from(new Set([...s.ringing, ...recipientIds])),
     }));
-    await callAPI.addParticipants(callId, recipientIds);
+    try {
+      await callAPI.addParticipants(callId, recipientIds);
+    } catch (e) {
+      set((s) => ({
+        ringing: s.ringing.filter((id) => !recipientIds.includes(id)),
+      }));
+      throw e;
+    }
   },
 }));
