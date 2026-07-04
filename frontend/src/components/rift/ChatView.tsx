@@ -1322,7 +1322,9 @@ const Message: React.FC<MessageProps> = ({
                   ? formatCallDuration(msg.callDurationSeconds ?? 0)
                   : msg.callStatus === "declined"
                     ? i18n.t("callDeclined", { ns: "call" })
-                    : i18n.t("callMissed", { ns: "call" })}
+                    : isMine
+                      ? i18n.t("callNoAnswer", { ns: "call" })
+                      : i18n.t("callMissed", { ns: "call" })}
               </div>
             </div>
           </div>
