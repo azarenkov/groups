@@ -14,16 +14,12 @@ interface SidebarProps {
   joinedChannelId: string | null;
   selectedDmId: string | null;
   directs: MockDirect[];
-  pendingCount?: number;
   onToggleServer: (serverId: string) => void;
   onSelectServer: (serverId: string) => void;
   onSelectChannel: (server: Server, channel: Channel) => void;
   onSelectDm: (dm: MockDirect) => void;
-  onAddServer: () => void;
   onAddChannel: (server: Server) => void;
   onInviteServer: (server: Server) => void;
-  onAddDm: () => void;
-  onOpenPendingRequests?: () => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
@@ -67,16 +63,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   joinedChannelId,
   selectedDmId,
   directs,
-  pendingCount = 0,
   onToggleServer,
   onSelectServer,
   onSelectChannel,
   onSelectDm,
-  onAddServer,
   onAddChannel,
   onInviteServer,
-  onAddDm,
-  onOpenPendingRequests,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
@@ -223,35 +215,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <span>{t("directMessages")}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {onOpenPendingRequests && (
-              <button
-                type="button"
-                tabIndex={-1}
-                className="sb-section-add sb-pending-toggle"
-                title={t("pendingRequests")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPendingRequests();
-                }}
-              >
-                <Icon name="bell" size={14} />
-                {pendingCount > 0 && (
-                  <span className="sb-pending-badge">{pendingCount}</span>
-                )}
-              </button>
-            )}
-            <button
-              type="button"
-              tabIndex={-1}
-              className="sb-section-add"
-              title={t("addDm")}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddDm();
-              }}
-            >
-              <Icon name="plus" size={14} />
-            </button>
             <Icon name="chev" size={12} className="chev" />
           </span>
         </div>
@@ -597,13 +560,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           );
         })}
-
-        <button type="button" tabIndex={-1} className="sb-create-server" onClick={onAddServer}>
-          <span className="plus">
-            <Icon name="plus" size={12} />
-          </span>
-          <span>{t("addServer")}</span>
-        </button>
       </div>
 
       <div id="voice-dock-slot" className="sb-voice-dock" />

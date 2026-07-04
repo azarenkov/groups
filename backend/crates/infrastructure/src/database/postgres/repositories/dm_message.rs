@@ -77,14 +77,16 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         sqlx::query!(
             r#"
-            INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_server_id, created_at, edited_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_server_id, call_status, call_duration_seconds, created_at, edited_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
             message.id().uuid(),
             message.sender_id().uuid(),
             message.recipient_id().uuid(),
             message.content().as_str(),
             message.invite_server_id().map(|id| id.uuid()),
+            message.call_status(),
+            message.call_duration_seconds(),
             message.created_at(),
             message.edited_at(),
         )
@@ -157,7 +159,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, sender_id, recipient_id, content, invite_server_id, created_at, edited_at
+            SELECT id, sender_id, recipient_id, content, invite_server_id, call_status, call_duration_seconds, created_at, edited_at
             FROM dm_messages
             WHERE id = $1
             "#,
@@ -177,6 +179,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             UserId::new(row.recipient_id),
             content,
             row.invite_server_id.map(ServerId::new),
+            row.call_status,
+            row.call_duration_seconds,
             row.created_at,
             row.edited_at,
         ))
@@ -199,6 +203,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            u.name AS sender_name,
                            m.content, m.invite_server_id,
                            s.name AS "invite_server_name?",
+                           m.call_status, m.call_duration_seconds,
                            m.created_at, m.edited_at
                     FROM dm_messages m
                     INNER JOIN users u ON u.id = m.sender_id
@@ -227,6 +232,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     content: r.content,
                     invite_server_id: r.invite_server_id.map(ServerId::new),
                     invite_server_name: r.invite_server_name,
+                    call_status: r.call_status,
+                    call_duration_seconds: r.call_duration_seconds,
                     created_at: r.created_at,
                     edited_at: r.edited_at,
                 })
@@ -240,6 +247,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            u.name AS sender_name,
                            m.content, m.invite_server_id,
                            s.name AS "invite_server_name?",
+                           m.call_status, m.call_duration_seconds,
                            m.created_at, m.edited_at
                     FROM dm_messages m
                     INNER JOIN users u ON u.id = m.sender_id
@@ -268,6 +276,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     content: r.content,
                     invite_server_id: r.invite_server_id.map(ServerId::new),
                     invite_server_name: r.invite_server_name,
+                    call_status: r.call_status,
+                    call_duration_seconds: r.call_duration_seconds,
                     created_at: r.created_at,
                     edited_at: r.edited_at,
                 })
@@ -281,6 +291,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                        u.name AS sender_name,
                        m.content, m.invite_server_id,
                        s.name AS "invite_server_name?",
+                       m.call_status, m.call_duration_seconds,
                        m.created_at, m.edited_at
                 FROM dm_messages m
                 INNER JOIN users u ON u.id = m.sender_id
@@ -306,6 +317,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 content: r.content,
                 invite_server_id: r.invite_server_id.map(ServerId::new),
                 invite_server_name: r.invite_server_name,
+                call_status: r.call_status,
+                call_duration_seconds: r.call_duration_seconds,
                 created_at: r.created_at,
                 edited_at: r.edited_at,
             })
@@ -345,6 +358,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    u.name AS sender_name,
                    m.content, m.invite_server_id,
                    s.name AS "invite_server_name?",
+                   m.call_status, m.call_duration_seconds,
                    m.created_at, m.edited_at
             FROM dm_messages m
             INNER JOIN users u ON u.id = m.sender_id
@@ -376,6 +390,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 content: r.content,
                 invite_server_id: r.invite_server_id.map(ServerId::new),
                 invite_server_name: r.invite_server_name,
+                call_status: r.call_status,
+                call_duration_seconds: r.call_duration_seconds,
                 created_at: r.created_at,
                 edited_at: r.edited_at,
             })

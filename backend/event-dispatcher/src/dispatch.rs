@@ -30,6 +30,7 @@ pub async fn dispatch(
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
         let invite = resolver.dm_invite_for(evt.message_id).await?;
+        let call = resolver.dm_call_for(evt.message_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
@@ -42,6 +43,8 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
                 "inviteServerId": invite.as_ref().map(|i| i.0),
                 "inviteServerName": invite.as_ref().map(|i| i.1.clone()),
+                "callStatus": call.as_ref().map(|c| c.0.clone()),
+                "callDurationSeconds": call.as_ref().and_then(|c| c.1),
             }),
         );
         publisher
@@ -384,6 +387,99 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".call.ring") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let caller_name = resolver.user_name(evt.actor_id).await?;
+        let envelope = Envelope::new(
+            "call.incoming",
+            json!({
+                "callId": evt.call_id,
+                "callerId": evt.actor_id,
+                "callerName": caller_name,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.participant.joined") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let name = resolver.user_name(evt.actor_id).await?;
+        let envelope = Envelope::new(
+            "call.participant.joined",
+            json!({
+                "callId": evt.call_id,
+                "userId": evt.actor_id,
+                "userName": name,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.declined") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "call.declined",
+            json!({
+                "callId": evt.call_id,
+                "userId": evt.actor_id,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.available") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "call.available",
+            json!({
+                "callId": evt.call_id,
+                "userId": evt.actor_id,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.ended") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "call.ended",
+            json!({
+                "callId": evt.call_id,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".call.participant.left") {
+        let evt: CallEventDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "call.participant.left",
+            json!({
+                "callId": evt.call_id,
+                "userId": evt.actor_id,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".user.request_sent") {
         let evt: FriendRequestSentDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
@@ -649,6 +745,13 @@ struct ServerDeletedDto {
     #[serde(default)]
     member_ids: Option<Vec<Uuid>>,
     occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct CallEventDto {
+    call_id: Uuid,
+    actor_id: Uuid,
+    recipients: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]

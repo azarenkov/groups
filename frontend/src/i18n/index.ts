@@ -3,6 +3,7 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 
 import enAuth from "./locales/en/auth.json";
+import enCall from "./locales/en/call.json";
 import enChat from "./locales/en/chat.json";
 import enCommon from "./locales/en/common.json";
 import enMembers from "./locales/en/members.json";
@@ -11,6 +12,7 @@ import enSettings from "./locales/en/settings.json";
 import enSidebar from "./locales/en/sidebar.json";
 import enVoice from "./locales/en/voice.json";
 import ruAuth from "./locales/ru/auth.json";
+import ruCall from "./locales/ru/call.json";
 import ruChat from "./locales/ru/chat.json";
 import ruCommon from "./locales/ru/common.json";
 import ruMembers from "./locales/ru/members.json";
@@ -31,6 +33,7 @@ export const NAMESPACES = [
   "voice",
   "modals",
   "members",
+  "call",
 ] as const;
 
 const resources = {
@@ -43,6 +46,7 @@ const resources = {
     voice: enVoice,
     modals: enModals,
     members: enMembers,
+    call: enCall,
   },
   ru: {
     common: ruCommon,
@@ -53,6 +57,7 @@ const resources = {
     voice: ruVoice,
     modals: ruModals,
     members: ruMembers,
+    call: ruCall,
   },
 } as const;
 

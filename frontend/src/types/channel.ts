@@ -67,6 +67,8 @@ export interface ChannelMessage {
   content: string;
   inviteServerId?: string;
   inviteServerName?: string;
+  callStatus?: string;
+  callDurationSeconds?: number;
   createdAt: string;
   editedAt: string | null;
 }

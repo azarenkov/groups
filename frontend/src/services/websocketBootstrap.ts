@@ -4,6 +4,7 @@ import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
+import { useCallStore } from "../store/callStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
@@ -220,6 +221,56 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "call.incoming": {
+      const callId = asString(d.callId);
+      const callerId = asString(d.callerId);
+      if (!callId || !callerId) return;
+      const callerName = asString(d.callerName) ?? callerId;
+      useCallStore.getState().setIncoming({ callId, callerId, callerName });
+      return;
+    }
+
+    case "call.participant.joined": {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (!callId || !userId) return;
+      const userName = asString(d.userName) ?? userId;
+      useCallStore.getState().participantJoined(callId, userId, userName);
+      return;
+    }
+
+    case "call.participant.left": {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (!callId || !userId) return;
+      useCallStore.getState().participantLeft(callId, userId);
+      return;
+    }
+
+    case "call.declined": {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (callId && userId) {
+        useCallStore.getState().participantDeclined(callId, userId);
+      }
+      return;
+    }
+
+    case "call.available": {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (callId && userId) {
+        useCallStore.getState().callAvailable(userId, callId);
+      }
+      return;
+    }
+
+    case "call.ended": {
+      const callId = asString(d.callId);
+      if (callId) useCallStore.getState().callEnded(callId);
+      return;
+    }
+
     case "channel.participant.muted":
     case "channel.participant.unmuted": {
       const channelId = asString(d.channelId);
@@ -268,4 +319,7 @@ export function installWsBootstrap() {
   if (installed) return;
   installed = true;
   ws.on(dispatch);
+  ws.onOpen(() => {
+    void useCallStore.getState().rehydrate();
+  });
 }

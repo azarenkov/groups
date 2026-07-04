@@ -51,6 +51,7 @@ export class LiveKitService {
   private onError?: (error: Error) => void;
   private onUnexpectedDisconnect?: (reason: DisconnectReason) => void;
   private isConnecting: boolean = false;
+  private targetRoomName: string | null = null;
   private dfnPipeline: DfnPipeline | null = null;
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
@@ -174,7 +175,11 @@ export class LiveKitService {
     });
   }
 
-  async connect(token: string, url: string): Promise<void> {
+  async connect(
+    token: string,
+    url: string,
+    roomName?: string,
+  ): Promise<void> {
     if (this.isConnecting) {
       console.log("[LiveKitService] Connection already in progress, skipping");
       return;
@@ -187,6 +192,7 @@ export class LiveKitService {
 
     try {
       this.isConnecting = true;
+      this.targetRoomName = roomName ?? null;
       console.log("Connecting to LiveKit...", { url });
 
       this.room = new Room({
@@ -227,6 +233,7 @@ export class LiveKitService {
       });
 
       this.isConnecting = false;
+      this.targetRoomName = null;
       this.onError?.(
         error instanceof Error ? error : new Error("Failed to connect"),
       );
@@ -260,6 +267,7 @@ export class LiveKitService {
       console.log("[LiveKitService] Disconnecting from room");
       await this.room.disconnect();
       this.room = null;
+      this.targetRoomName = null;
       this.participants.clear();
       this.isConnecting = false;
       this.desiredMicMuted = false;
@@ -760,6 +768,15 @@ export class LiveKitService {
 
   isConnectingNow(): boolean {
     return this.isConnecting;
+  }
+
+  getRoomName(): string | null {
+    return this.room?.state === "connected" ? this.room.name : null;
+  }
+
+  getActiveRoomName(): string | null {
+    if (!this.room) return null;
+    return this.targetRoomName ?? this.room.name ?? null;
   }
 
   private setupEventListeners(): void {

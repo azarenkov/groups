@@ -2,8 +2,10 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use domain::{
+    call::repository::CallRepository,
     channel::{events::participant::MediaSource, repository::ChannelRepository},
     shared::repository::error::RepositoryError,
+    user::id::UserId,
 };
 use uuid::Uuid;
 
@@ -40,24 +42,29 @@ pub enum HandleVoiceWebhookError {
     LeaveVoiceConnection(#[from] LeaveVoiceConnectionError),
     #[error("Track media connection error: {0}")]
     TrackMediaConnection(#[from] TrackMediaConnectionError),
+    #[error("Call repository error: {0}")]
+    Call(#[from] RepositoryError),
 }
 
-pub struct HandleVoiceWebhook<V, T>
+pub struct HandleVoiceWebhook<V, T, C>
 where
     V: VoiceWebhookVerifier,
     T: ChannelRepository,
+    C: CallRepository,
 {
     verifier: Arc<V>,
     join_voice_connection: JoinVoiceConnection<T>,
     abort_voice_connection: AbortVoiceConnection<T>,
     leave_voice_connection: LeaveVoiceConnection<T>,
     track_media_connection: TrackMediaConnection<T>,
+    call_repository: Arc<C>,
 }
 
-impl<V, T> HandleVoiceWebhook<V, T>
+impl<V, T, C> HandleVoiceWebhook<V, T, C>
 where
     V: VoiceWebhookVerifier,
     T: ChannelRepository,
+    C: CallRepository,
 {
     pub fn new(
         verifier: Arc<V>,
@@ -65,6 +72,7 @@ where
         abort_voice_connection: AbortVoiceConnection<T>,
         leave_voice_connection: LeaveVoiceConnection<T>,
         track_media_connection: TrackMediaConnection<T>,
+        call_repository: Arc<C>,
     ) -> Self {
         Self {
             verifier,
@@ -72,6 +80,7 @@ where
             abort_voice_connection,
             leave_voice_connection,
             track_media_connection,
+            call_repository,
         }
     }
 
@@ -93,6 +102,19 @@ where
                 user_id,
                 session_id,
             } => {
+                if self
+                    .call_repository
+                    .webhook_joined(
+                        channel_id,
+                        &UserId::new(user_id),
+                        &session_id,
+                        occurred_at,
+                        ctx.request_id.clone(),
+                    )
+                    .await?
+                {
+                    return Ok(());
+                }
                 let result = self
                     .join_voice_connection
                     .execute(JoinVoiceConnectionRequest {
@@ -126,6 +148,19 @@ where
                 session_id,
                 reason,
             } => {
+                if self
+                    .call_repository
+                    .webhook_left(
+                        channel_id,
+                        &UserId::new(user_id),
+                        &session_id,
+                        occurred_at,
+                        ctx.request_id.clone(),
+                    )
+                    .await?
+                {
+                    return Ok(());
+                }
                 let result = self
                     .abort_voice_connection
                     .execute(AbortVoiceConnectionRequest {
@@ -160,6 +195,19 @@ where
                 session_id,
                 reason,
             } => {
+                if self
+                    .call_repository
+                    .webhook_left(
+                        channel_id,
+                        &UserId::new(user_id),
+                        &session_id,
+                        occurred_at,
+                        ctx.request_id.clone(),
+                    )
+                    .await?
+                {
+                    return Ok(());
+                }
                 let result = self
                     .leave_voice_connection
                     .execute(LeaveVoiceConnectionRequest {
@@ -245,6 +293,10 @@ where
         external_id: String,
         ctx: RequestContext,
     ) -> Result<(), HandleVoiceWebhookError> {
+        if self.call_repository.is_call_room(channel_id).await? {
+            return Ok(());
+        }
+
         let result = self
             .track_media_connection
             .execute(TrackMediaConnectionRequest {

@@ -53,7 +53,13 @@ export type WsEventType =
   | "user.loggedIn"
   | "user.loggedOut"
   | "user.online"
-  | "user.offline";
+  | "user.offline"
+  | "call.incoming"
+  | "call.declined"
+  | "call.available"
+  | "call.ended"
+  | "call.participant.joined"
+  | "call.participant.left";
 
 export interface WsEnvelope<T = unknown> {
   type: WsEventType;

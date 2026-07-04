@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod call;
 pub mod channel;
 pub mod client_context;
 pub mod dm;

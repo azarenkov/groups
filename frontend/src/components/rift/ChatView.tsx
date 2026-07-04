@@ -1,6 +1,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
+import CallJoinBanner from "./CallJoinBanner";
+import { useCallStore } from "../../store/callStore";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
@@ -84,6 +86,12 @@ interface DmMeta {
   online: boolean;
 }
 
+const formatCallDuration = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+};
+
 interface ChatViewProps {
   channel?: ChannelMeta;
   serverId?: string;
@@ -95,6 +103,8 @@ interface ChatViewProps {
   onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
   onGoToServer?: (serverId: string) => void | Promise<void>;
+  topSlot?: React.ReactNode;
+  callMode?: boolean;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -108,6 +118,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   onOpenChannelSettings,
   onRemoveFriend,
   onGoToServer,
+  topSlot,
+  callMode,
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
@@ -172,6 +184,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         occurredAt: string;
         inviteServerId?: string;
         inviteServerName?: string;
+        callStatus?: string;
+        callDurationSeconds?: number;
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -186,6 +200,8 @@ const ChatView: React.FC<ChatViewProps> = ({
                   content: m.content,
                   inviteServerId: m.inviteServerId,
                   inviteServerName: m.inviteServerName,
+                  callStatus: m.callStatus,
+                  callDurationSeconds: m.callDurationSeconds,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },
@@ -772,6 +788,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         onOpenChannelSettings={onOpenChannelSettings}
         onRemoveFriend={onRemoveFriend}
       />
+      {topSlot}
+      {dm && !callMode && <CallJoinBanner friendId={dm.friendId} />}
       {searchOpen && (channel || dm) && (
         <div className="search-bar">
           <Icon name="search" size={14} />
@@ -796,7 +814,12 @@ const ChatView: React.FC<ChatViewProps> = ({
           </button>
         </div>
       )}
-      <div className="chat-body" ref={bodyRef} onScroll={handleScroll}>
+      <div
+        className="chat-body"
+        ref={bodyRef}
+        onScroll={handleScroll}
+        style={callMode ? { display: "none" } : undefined}
+      >
         {searchOpen && searchInput.trim().length > 0 ? (
           <div className="search-results">
             {searchLoading ? (
@@ -947,6 +970,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           </div>
         )}
       </div>
+      {!callMode && (
       <form className="composer" onSubmit={handleSend}>
         <div className="composer-wrap">
           <input
@@ -971,6 +995,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
         {composerError && <div className="composer-error">{composerError}</div>}
       </form>
+      )}
       {deleteTarget && (
         <ConfirmModal
           title={i18n.t("deleteMessage", { ns: "chat" })}
@@ -1075,7 +1100,27 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         <span className="sep" />
         <span className="topic">{dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}</span>
         <div className="right">
-          <button type="button" className="icon-btn" title={i18n.t("voiceCallInvite", { ns: "chat" })}>
+          <button
+            type="button"
+            className="icon-btn"
+            title={i18n.t("voiceCallInvite", { ns: "chat" })}
+            onClick={() => {
+              if (!dm?.friendId) return;
+              const cs = useCallStore.getState();
+              const inCallWithFriend =
+                !!cs.activeCallId &&
+                (cs.peerId === dm.friendId ||
+                  dm.friendId in cs.participants ||
+                  cs.ringing.includes(dm.friendId));
+              if (inCallWithFriend) {
+                cs.setFocused(true);
+                return;
+              }
+              cs.start([dm.friendId]).catch((e) =>
+                console.warn("[call] start failed:", e),
+              );
+            }}
+          >
             <Icon name="phone" size={16} />
           </button>
           {onToggleSearch && (
@@ -1263,7 +1308,27 @@ const Message: React.FC<MessageProps> = ({
             <time>{time}</time>
           </div>
         )}
-        {msg.inviteServerId ? (
+        {msg.callStatus ? (
+          <div className={"dm-call-card " + msg.callStatus}>
+            <span className="dm-call-icon">
+              <Icon name="phone" size={15} />
+            </span>
+            <div className="dm-call-info">
+              <div className="dm-call-title">
+                {i18n.t("voiceCall", { ns: "call" })}
+              </div>
+              <div className="dm-call-sub">
+                {msg.callStatus === "completed"
+                  ? formatCallDuration(msg.callDurationSeconds ?? 0)
+                  : msg.callStatus === "declined"
+                    ? i18n.t("callDeclined", { ns: "call" })
+                    : isMine
+                      ? i18n.t("callNoAnswer", { ns: "call" })
+                      : i18n.t("callMissed", { ns: "call" })}
+              </div>
+            </div>
+          </div>
+        ) : msg.inviteServerId ? (
           <div className="dm-invite-card">
             <div className="dm-invite-card-label">Server invite</div>
             <div className="dm-invite-card-row">
