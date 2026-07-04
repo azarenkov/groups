@@ -593,8 +593,8 @@ impl CallRepository for PostgresCallRepository {
             UPDATE call_participants
             SET status = 'left', updated_at = $4
             WHERE call_id = $1 AND user_id = $2
-              AND status IN ('invited', 'joined')
-              AND (session_id = $3 OR (session_id IS NULL AND $4 >= updated_at))
+              AND status = 'joined'
+              AND session_id = $3
             "#,
             call_id,
             user_id.uuid(),
