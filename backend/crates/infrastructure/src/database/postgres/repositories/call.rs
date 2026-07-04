@@ -469,6 +469,15 @@ impl CallRepository for PostgresCallRepository {
             SET status = 'joined', session_id = NULL, updated_at = $3
             WHERE call_id = $1 AND user_id = $2
               AND status IN ('invited', 'declined', 'left', 'joined')
+              AND (
+                status = 'joined'
+                OR EXISTS(
+                    SELECT 1 FROM call_participants o
+                    WHERE o.call_id = $1
+                      AND o.user_id <> $2
+                      AND o.status = 'joined'
+                )
+              )
             "#,
             call_id,
             user_id.uuid(),

@@ -32,6 +32,7 @@ interface CallState {
   setFocused: (focused: boolean) => void;
   setMicMuted: (muted: boolean) => void;
   callAvailable: (peerId: string, callId: string) => void;
+  clearJoinable: (peerId: string) => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
   participantDeclined: (callId: string, userId: string) => void;
@@ -93,6 +94,13 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
   callAvailable: (peerId, callId) =>
     set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
+  clearJoinable: (peerId) =>
+    set((s) => {
+      if (!(peerId in s.joinableByPeer)) return s;
+      const next = { ...s.joinableByPeer };
+      delete next[peerId];
+      return { joinableByPeer: next };
+    }),
 
   participantJoined: (callId, userId, userName) =>
     set((s) => {

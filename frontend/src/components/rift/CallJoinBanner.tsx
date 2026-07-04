@@ -16,8 +16,11 @@ const CallJoinBanner: React.FC<{ friendId: string }> = ({ friendId }) => {
     callAPI
       .activeCallWith(friendId)
       .then((id) => {
-        if (!cancelled && id) {
+        if (cancelled) return;
+        if (id) {
           useCallStore.getState().callAvailable(friendId, id);
+        } else {
+          useCallStore.getState().clearJoinable(friendId);
         }
       })
       .catch(() => {});
