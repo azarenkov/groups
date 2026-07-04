@@ -441,12 +441,10 @@ impl CallRepository for PostgresCallRepository {
             SELECT p1.call_id
             FROM call_participants p1
             INNER JOIN call_participants p2
-                ON p2.call_id = p1.call_id AND p2.user_id = $2
+                ON p2.call_id = p1.call_id
+                AND p2.user_id = $2
+                AND p2.status = 'joined'
             WHERE p1.user_id = $1
-              AND EXISTS(
-                SELECT 1 FROM call_participants j
-                WHERE j.call_id = p1.call_id AND j.status = 'joined'
-              )
             ORDER BY p1.updated_at DESC
             LIMIT 1
             "#,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
 import { useCallStore } from "../../store/callStore";
 import { useAuthStore } from "../../store/authStore";
@@ -13,6 +13,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const ringing = useCallStore((s) => s.ringing);
   const leave = useCallStore((s) => s.leave);
   const addParticipants = useCallStore((s) => s.addParticipants);
+  const muted = useCallStore((s) => s.micMuted);
+  const setMicMuted = useCallStore((s) => s.setMicMuted);
   const user = useAuthStore((s) => s.user);
   const friends = useFriendshipStore((s) => s.friends);
   const voiceParticipants = useParticipants();
@@ -20,7 +22,6 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
 
   const selfId = user?.id || "you";
   const selfName = user?.name || "You";
-  const [muted, setMuted] = useState(false);
 
   const localCameraOn = videoTiles.some(
     (v) => v.isLocal && v.source === "camera",
@@ -95,11 +96,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     ? (roster.find((r) => r.id === screenTile.identity)?.name ?? selfName)
     : null;
 
-  const toggleMute = () => {
-    const next = !muted;
-    getLiveKitService().setMicrophoneMuted(next);
-    setMuted(next);
-  };
+  const toggleMute = () => setMicMuted(!muted);
 
   return (
     <VoiceTheater

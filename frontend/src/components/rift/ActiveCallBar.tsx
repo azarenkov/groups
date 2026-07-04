@@ -3,14 +3,14 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import VoicePill from "./VoicePill";
 import { useCallStore } from "../../store/callStore";
-import { getLiveKitService } from "../../services/livekit";
 
 const ActiveCallBar: React.FC = () => {
   const activeCallId = useCallStore((s) => s.activeCallId);
   const leave = useCallStore((s) => s.leave);
   const setFocused = useCallStore((s) => s.setFocused);
   const participants = useCallStore((s) => s.participants);
-  const [muted, setMuted] = useState(false);
+  const muted = useCallStore((s) => s.micMuted);
+  const setMicMuted = useCallStore((s) => s.setMicMuted);
   const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
   const { t } = useTranslation(["call", "voice"]);
 
@@ -20,11 +20,7 @@ const ActiveCallBar: React.FC = () => {
 
   if (!activeCallId || !mountPoint) return null;
 
-  const toggleMute = () => {
-    const next = !muted;
-    getLiveKitService().setMicrophoneMuted(next);
-    setMuted(next);
-  };
+  const toggleMute = () => setMicMuted(!muted);
 
   const count = Math.max(Object.keys(participants).length, 1);
 
