@@ -1003,6 +1003,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   displayName={displayName}
                   continued={cont}
                   isMine={isMine}
+                  dmStyle={!!dm}
                   receipt={receiptFor(m, isMine)}
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
@@ -1310,6 +1311,7 @@ interface MessageProps {
   displayName: string;
   continued: boolean;
   isMine: boolean;
+  dmStyle: boolean;
   receipt: "sent" | "read" | null;
   editing: boolean;
   highlighted: boolean;
@@ -1330,6 +1332,7 @@ const Message: React.FC<MessageProps> = ({
   displayName,
   continued,
   isMine,
+  dmStyle,
   receipt,
   editing,
   highlighted,
@@ -1354,7 +1357,10 @@ const Message: React.FC<MessageProps> = ({
     <div
       data-msg-id={msg.id}
       className={
-        "msg" + (continued ? " cont" : "") + (highlighted ? " highlight" : "")
+        "msg" +
+        (continued ? " cont" : "") +
+        (highlighted ? " highlight" : "") +
+        (dmStyle ? " dm " + (isMine ? "mine" : "theirs") : "")
       }
     >
       <div className="ava" style={{ background: colorForId(msg.authorId) }}>
@@ -1460,6 +1466,22 @@ const Message: React.FC<MessageProps> = ({
           <div className="txt">
             {msg.content}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
+            {(dmStyle || receipt) && (
+              <span className="msg-meta">
+                {dmStyle && <time className="msg-time">{time}</time>}
+                {receipt && (
+                  <span
+                    className={"msg-receipt" + (receipt === "read" ? " read" : "")}
+                    title={i18n.t(receipt === "read" ? "seen" : "delivered", {
+                      ns: "chat",
+                    })}
+                    aria-hidden="true"
+                  >
+                    {receipt === "read" ? "✓✓" : "✓"}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -1482,17 +1504,6 @@ const Message: React.FC<MessageProps> = ({
             <Icon name="trash" size={13} />
           </button>
         </div>
-      )}
-      {receipt && (
-        <span
-          className={"msg-receipt" + (receipt === "read" ? " read" : "")}
-          title={i18n.t(receipt === "read" ? "seen" : "delivered", {
-            ns: "chat",
-          })}
-          aria-hidden="true"
-        >
-          {receipt === "read" ? "✓✓" : "✓"}
-        </span>
       )}
     </div>
   );

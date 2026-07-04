@@ -1174,10 +1174,16 @@ select:focus-visible {
 .msg:hover .msg-actions { display: flex; }
 .msg-actions .icon-btn { width: 26px; height: 26px; }
 .msg-edited { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
+.msg-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.msg-time { font-size: 11px; color: var(--fg-3); }
 .msg-receipt {
-  position: absolute;
-  right: 12px;
-  bottom: 5px;
   font-size: 11px;
   line-height: 1;
   letter-spacing: -2px;
@@ -1185,6 +1191,25 @@ select:focus-visible {
   user-select: none;
 }
 .msg-receipt.read { color: var(--accent); }
+
+.msg.dm { gap: 0; padding: 2px 8px; }
+.msg.dm:hover { background: transparent; }
+.msg.dm.mine { justify-content: flex-end; }
+.msg.dm.theirs { justify-content: flex-start; }
+.msg.dm .ava { display: none; }
+.msg.dm .head { display: none; }
+.msg.dm .body { flex: 0 1 auto; min-width: 0; max-width: 74%; }
+.msg.dm .txt {
+  display: inline-block;
+  margin-top: 0;
+  padding: 7px 11px;
+  border-radius: 16px;
+  background: var(--surface-hover);
+}
+.msg.dm.mine .txt { background: var(--accent); color: #fff; }
+.msg.dm.mine .msg-time,
+.msg.dm.mine .msg-receipt { color: rgba(255, 255, 255, 0.72); }
+.msg.dm.mine .msg-receipt.read { color: #fff; }
 .msg-edit { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .msg-edit input {
   width: 100%;
