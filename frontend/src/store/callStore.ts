@@ -178,6 +178,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       set({ focused: true });
       return;
     }
+    if (get().activeCallId) await get().leave();
     set({ connecting: true });
     try {
       const { token, url, participants } = await callAPI.join(callId);
@@ -205,6 +206,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
 
   start: async (recipientIds) => {
+    if (get().activeCallId) await get().leave();
     set({ connecting: true });
     try {
       const { callId, token, url, participants } =
@@ -241,6 +243,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   accept: async () => {
     const inc = get().incoming;
     if (!inc) return;
+    if (get().activeCallId) await get().leave();
     set({ connecting: true, incoming: null });
     try {
       const { token, url, participants } = await callAPI.accept(inc.callId);
