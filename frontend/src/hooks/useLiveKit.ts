@@ -119,7 +119,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
-        await service.connect(response.token, response.url);
+        await service.connect(response.token, response.url, channelId);
 
         setIsConnecting(false);
       } catch (err) {
@@ -138,7 +138,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     if (!service) return;
     try {
       const active = activeChannelRef.current;
-      const ownsRoom = !active || service.getRoomName() === active.channelId;
+      const ownsRoom = !active || service.getActiveRoomName() === active.channelId;
       if (ownsRoom) {
         console.log("[useLiveKit] Leaving channel...");
         await service.disconnect();

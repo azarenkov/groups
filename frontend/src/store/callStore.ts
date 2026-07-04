@@ -2,12 +2,16 @@ import { create } from "zustand";
 import { callAPI } from "../api/call";
 import { getLiveKitService } from "../services/livekit";
 
-async function connectToRoom(token: string, url: string): Promise<void> {
+async function connectToRoom(
+  token: string,
+  url: string,
+  roomName: string,
+): Promise<void> {
   const service = getLiveKitService();
   if (service.isConnected() || service.isConnectingNow()) {
     await service.disconnect().catch(() => {});
   }
-  await service.connect(token, url);
+  await service.connect(token, url, roomName);
 }
 
 export interface IncomingCall {
@@ -168,7 +172,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
     );
     const service = getLiveKitService();
     if (!service.isConnected() && !service.isConnectingNow()) {
-      await connectToRoom(active.token, active.url).catch(() => {});
+      await connectToRoom(active.token, active.url, active.callId).catch(
+        () => {},
+      );
     }
     set((s) => ({
       activeCallId: active.callId,
@@ -188,7 +194,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     try {
       const { token, url, participants } = await callAPI.join(callId);
       try {
-        await connectToRoom(token, url);
+        await connectToRoom(token, url, callId);
       } catch (e) {
         await callAPI.leave(callId).catch(() => {});
         throw e;
@@ -236,7 +242,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       micMuted: false,
     });
     try {
-      await connectToRoom(token, url);
+      await connectToRoom(token, url, callId);
     } catch (e) {
       pendingLog = null;
       set({
@@ -261,7 +267,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     try {
       const { token, url, participants } = await callAPI.accept(inc.callId);
       try {
-        await connectToRoom(token, url);
+        await connectToRoom(token, url, inc.callId);
       } catch (e) {
         await callAPI.leave(inc.callId).catch(() => {});
         throw e;
