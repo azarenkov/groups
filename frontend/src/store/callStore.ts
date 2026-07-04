@@ -51,6 +51,7 @@ const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
 interface CallLog {
   startedAt: number;
+  answeredAt: number | null;
   peerId: string;
   peerJoined: boolean;
   declined: boolean;
@@ -68,7 +69,8 @@ function finalizeCallLog() {
     status = "declined";
   } else if (cl.peerJoined) {
     status = "completed";
-    duration = Math.max(0, Math.round((Date.now() - cl.startedAt) / 1000));
+    const from = cl.answeredAt ?? cl.startedAt;
+    duration = Math.max(0, Math.round((Date.now() - from) / 1000));
   }
   callAPI.logCall(cl.peerId, status, duration).catch(() => {});
 }
@@ -105,7 +107,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
   participantJoined: (callId, userId, userName) =>
     set((s) => {
       if (s.activeCallId !== callId) return s;
-      if (pendingLog && pendingLog.peerId === userId) pendingLog.peerJoined = true;
+      if (pendingLog && pendingLog.peerId === userId && !pendingLog.peerJoined) {
+        pendingLog.peerJoined = true;
+        pendingLog.answeredAt = Date.now();
+      }
       return {
         participants: { ...s.participants, [userId]: userName },
         ringing: without(s.ringing, userId),
@@ -208,36 +213,44 @@ export const useCallStore = create<CallState>()((set, get) => ({
   start: async (recipientIds) => {
     if (get().activeCallId) await get().leave();
     set({ connecting: true });
-    try {
-      const { callId, token, url, participants } =
-        await callAPI.start(recipientIds);
-      try {
-        await connectToRoom(token, url);
-      } catch (e) {
-        await callAPI.leave(callId).catch(() => {});
-        throw e;
-      }
-      pendingLog = {
-        startedAt: Date.now(),
-        peerId: recipientIds[0],
-        peerJoined: false,
-        declined: false,
-      };
-      set({
-        activeCallId: callId,
-        connecting: false,
-        participants: Object.fromEntries(
-          participants.map((p) => [p.userId, p.userName]),
-        ),
-        ringing: recipientIds,
-        focused: true,
-        peerId: recipientIds[0] ?? null,
-        micMuted: false,
-      });
-    } catch (e) {
+    const session = await callAPI.start(recipientIds).catch((e) => {
       set({ connecting: false });
       throw e;
+    });
+    const { callId, token, url, participants } = session;
+    pendingLog = {
+      startedAt: Date.now(),
+      answeredAt: null,
+      peerId: recipientIds[0],
+      peerJoined: false,
+      declined: false,
+    };
+    set({
+      activeCallId: callId,
+      participants: Object.fromEntries(
+        participants.map((p) => [p.userId, p.userName]),
+      ),
+      ringing: recipientIds,
+      focused: true,
+      peerId: recipientIds[0] ?? null,
+      micMuted: false,
+    });
+    try {
+      await connectToRoom(token, url);
+    } catch (e) {
+      pendingLog = null;
+      set({
+        activeCallId: null,
+        connecting: false,
+        participants: {},
+        ringing: [],
+        focused: false,
+        peerId: null,
+      });
+      await callAPI.leave(callId).catch(() => {});
+      throw e;
     }
+    set({ connecting: false });
   },
 
   accept: async () => {

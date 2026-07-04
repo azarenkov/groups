@@ -887,12 +887,11 @@ const ServersPage: React.FC = () => {
         <main className="main">
           <div className="main-inner">
             <CallReturnBar />
-            {activeCallId && callFocused && !selectedDm && (
+            {activeCallId && callFocused && !selectedDm ? (
               <CallStage
                 onMinimize={() => useCallStore.getState().setFocused(false)}
               />
-            )}
-            {!selectedServer && !selectedDm ? (
+            ) : !selectedServer && !selectedDm ? (
               <Welcome
                 loading={serversLoading && servers.length === 0}
                 onCreate={() => setIsServerModalOpen(true)}
