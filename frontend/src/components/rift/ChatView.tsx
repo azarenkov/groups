@@ -1460,17 +1460,6 @@ const Message: React.FC<MessageProps> = ({
           <div className="txt">
             {msg.content}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
-            {receipt && (
-              <span
-                className={"msg-receipt" + (receipt === "read" ? " read" : "")}
-                title={i18n.t(receipt === "read" ? "seen" : "delivered", {
-                  ns: "chat",
-                })}
-                aria-hidden="true"
-              >
-                {receipt === "read" ? "✓✓" : "✓"}
-              </span>
-            )}
           </div>
         )}
       </div>
@@ -1493,6 +1482,17 @@ const Message: React.FC<MessageProps> = ({
             <Icon name="trash" size={13} />
           </button>
         </div>
+      )}
+      {receipt && (
+        <span
+          className={"msg-receipt" + (receipt === "read" ? " read" : "")}
+          title={i18n.t(receipt === "read" ? "seen" : "delivered", {
+            ns: "chat",
+          })}
+          aria-hidden="true"
+        >
+          {receipt === "read" ? "✓✓" : "✓"}
+        </span>
       )}
     </div>
   );
