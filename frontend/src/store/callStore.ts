@@ -172,9 +172,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     );
     const service = getLiveKitService();
     if (!service.isConnected() && !service.isConnectingNow()) {
-      await connectToRoom(active.token, active.url, active.callId).catch(
-        () => {},
-      );
+      try {
+        await connectToRoom(active.token, active.url, active.callId);
+      } catch {
+        return;
+      }
     }
     set((s) => ({
       activeCallId: active.callId,
