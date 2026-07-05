@@ -1184,11 +1184,15 @@ select:focus-visible {
 }
 .msg-time { font-size: 11px; color: var(--fg-3); }
 .msg-receipt {
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: -2px;
+  display: inline-flex;
+  align-items: center;
   color: var(--fg-3);
   user-select: none;
+}
+.msg-receipt .rc-icon {
+  width: 15px;
+  height: 11px;
+  display: block;
 }
 .msg-receipt.read { color: var(--accent); }
 
