@@ -139,10 +139,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (!dmFriendId) return;
     userAPI
       .getDmReadState(dmFriendId)
-      .then((r) => {
-        if (r.readAt)
-          useReadReceiptStore.getState().setDmPeerReadAt(dmFriendId, r.readAt);
-      })
+      .then((r) =>
+        useReadReceiptStore.getState().seedDmPeerReadAt(dmFriendId, r.readAt),
+      )
       .catch(() => {});
   }, [dmFriendId]);
 

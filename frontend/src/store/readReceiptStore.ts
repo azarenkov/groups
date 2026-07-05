@@ -6,6 +6,7 @@ interface ReadReceiptState {
   dmPeerReadAt: Record<string, string>;
   channelReads: Record<string, ChannelMemberReads>;
   setDmPeerReadAt: (friendId: string, readAt: string) => void;
+  seedDmPeerReadAt: (friendId: string, readAt: string | null) => void;
   seedChannelReads: (
     channelId: string,
     members: { userId: string; readAt: string | null }[],
@@ -28,6 +29,18 @@ export const useReadReceiptStore = create<ReadReceiptState>()((set) => ({
 
   setDmPeerReadAt: (friendId, readAt) =>
     set((s) => {
+      if (!newer(s.dmPeerReadAt[friendId], readAt)) return s;
+      return { dmPeerReadAt: { ...s.dmPeerReadAt, [friendId]: readAt } };
+    }),
+
+  seedDmPeerReadAt: (friendId, readAt) =>
+    set((s) => {
+      if (readAt == null) {
+        if (!(friendId in s.dmPeerReadAt)) return s;
+        const next = { ...s.dmPeerReadAt };
+        delete next[friendId];
+        return { dmPeerReadAt: next };
+      }
       if (!newer(s.dmPeerReadAt[friendId], readAt)) return s;
       return { dmPeerReadAt: { ...s.dmPeerReadAt, [friendId]: readAt } };
     }),

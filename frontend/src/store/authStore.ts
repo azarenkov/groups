@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { clearRefreshToken, setRefreshToken } from "../utils/secureStorage";
+import { useReadReceiptStore } from "./readReceiptStore";
 
 interface User {
   id: string;
@@ -56,6 +57,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   logout: () => {
     set({ user: null, tokens: null, isAuthenticated: false, error: null });
+    useReadReceiptStore.getState().clear();
     void clearRefreshToken();
   },
 
