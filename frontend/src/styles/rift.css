@@ -1192,24 +1192,33 @@ select:focus-visible {
 }
 .msg-receipt.read { color: var(--accent); }
 
-.msg.dm { gap: 0; padding: 2px 8px; }
-.msg.dm:hover { background: transparent; }
-.msg.dm.mine { justify-content: flex-end; }
-.msg.dm.theirs { justify-content: flex-start; }
-.msg.dm .ava { display: none; }
-.msg.dm .head { display: none; }
-.msg.dm .body { flex: 0 1 auto; min-width: 0; max-width: 74%; }
-.msg.dm .txt {
+.msg.bubble { gap: 8px; padding: 2px 8px; }
+.msg.bubble:hover { background: transparent; }
+.msg.bubble.mine { justify-content: flex-end; gap: 0; }
+.msg.bubble.theirs { justify-content: flex-start; }
+.msg.bubble.mine .ava { display: none; }
+.msg.bubble.dm .ava { display: none; }
+.msg.bubble .head { display: none; }
+.msg.bubble.theirs .ava { align-self: flex-end; }
+.msg.bubble.cont .ava { visibility: hidden; height: auto; }
+.msg.bubble .body { flex: 0 1 auto; min-width: 0; max-width: 74%; }
+.msg.bubble .txt {
   display: inline-block;
   margin-top: 0;
   padding: 7px 11px;
   border-radius: 16px;
   background: var(--surface-hover);
 }
-.msg.dm.mine .txt { background: var(--accent); color: #fff; }
-.msg.dm.mine .msg-time,
-.msg.dm.mine .msg-receipt { color: rgba(255, 255, 255, 0.72); }
-.msg.dm.mine .msg-receipt.read { color: #fff; }
+.msg-author {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+.msg.bubble.mine .txt { background: var(--accent); color: #fff; }
+.msg.bubble.mine .msg-time,
+.msg.bubble.mine .msg-receipt { color: rgba(255, 255, 255, 0.72); }
+.msg.bubble.mine .msg-receipt.read { color: #fff; }
 .msg-edit { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .msg-edit input {
   width: 100%;

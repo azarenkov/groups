@@ -1357,10 +1357,11 @@ const Message: React.FC<MessageProps> = ({
     <div
       data-msg-id={msg.id}
       className={
-        "msg" +
+        "msg bubble " +
+        (isMine ? "mine" : "theirs") +
+        (dmStyle ? " dm" : "") +
         (continued ? " cont" : "") +
-        (highlighted ? " highlight" : "") +
-        (dmStyle ? " dm " + (isMine ? "mine" : "theirs") : "")
+        (highlighted ? " highlight" : "")
       }
     >
       <div className="ava" style={{ background: colorForId(msg.authorId) }}>
@@ -1464,11 +1465,18 @@ const Message: React.FC<MessageProps> = ({
           </div>
         ) : (
           <div className="txt">
+            {!dmStyle && !isMine && !continued && (
+              <div
+                className="msg-author"
+                style={{ color: colorForId(msg.authorId) }}
+              >
+                {displayName}
+              </div>
+            )}
             {msg.content}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
-            {(dmStyle || receipt) && (
-              <span className="msg-meta">
-                {dmStyle && <time className="msg-time">{time}</time>}
+            <span className="msg-meta">
+              <time className="msg-time">{time}</time>
                 {receipt && (
                   <span
                     className={"msg-receipt" + (receipt === "read" ? " read" : "")}
@@ -1477,11 +1485,10 @@ const Message: React.FC<MessageProps> = ({
                     })}
                     aria-hidden="true"
                   >
-                    {receipt === "read" ? "✓✓" : "✓"}
-                  </span>
-                )}
-              </span>
-            )}
+                  {receipt === "read" ? "✓✓" : "✓"}
+                </span>
+              )}
+            </span>
           </div>
         )}
       </div>
