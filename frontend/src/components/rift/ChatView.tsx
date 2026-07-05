@@ -1312,17 +1312,17 @@ const ReadTicks: React.FC<{ read: boolean }> = ({ read }) => (
     viewBox="0 0 15 11"
     fill="none"
     stroke="currentColor"
-    strokeWidth={1.6}
+    strokeWidth={1.5}
     strokeLinecap="round"
     strokeLinejoin="round"
   >
     {read ? (
       <>
-        <path d="M1 6 L3.7 8.7 L8.6 2.7" />
-        <path d="M5.6 8.7 L10.5 2.7" />
+        <path d="M1 6.2 L3.5 8.7 L7.8 3" />
+        <path d="M5.4 6.2 L7.9 8.7 L12.2 3" />
       </>
     ) : (
-      <path d="M2.4 6 L5.1 8.7 L10 2.7" />
+      <path d="M2.4 6.2 L5 8.7 L9.6 3" />
     )}
   </svg>
 );
