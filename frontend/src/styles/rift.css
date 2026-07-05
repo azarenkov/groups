@@ -129,6 +129,7 @@ select:focus-visible {
   -webkit-app-region: drag;
   flex-shrink: 0;
   position: relative;
+  z-index: 40;
   background: var(--material-regular, transparent);
   backdrop-filter: blur(24px) saturate(180%);
   border-bottom: 1px solid var(--hairline);
@@ -199,18 +200,19 @@ select:focus-visible {
   gap: 2px;
 }
 .sb-search {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 10px;
   background: var(--surface-sunken);
-  border-radius: var(--r-md);
-  padding: 0 10px;
-  height: 28px;
+  border-radius: 10px;
+  padding: 0 12px;
+  height: 40px;
   color: var(--fg-3);
-  margin: 0 4px 8px;
+  margin: 0 4px 10px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 .sb-search:focus-within { background: var(--surface-panel); box-shadow: var(--shadow-xs); }
 .sb-search input {
   flex: 1; border: 0; background: transparent; outline: none;
-  font: inherit; font-size: 13px; color: var(--fg-1);
+  font: inherit; font-size: 14px; color: var(--fg-1);
 }
 .sb-search input::placeholder { color: var(--fg-4); }
 .sb-search kbd {
