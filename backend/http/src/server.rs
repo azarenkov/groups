@@ -47,6 +47,9 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+        invite_codes::{
+            CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode,
+        },
         update_server::UpdateServer,
         leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
         get_voice_presence::GetVoicePresence, list_server_channels::ListServerChannels,
@@ -223,6 +226,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let create_server_usecase = CreateServer::new(server_repository.clone());
     let update_server_usecase = UpdateServer::new(server_repository.clone());
+    let create_invite_code_usecase = CreateInviteCode::new(server_repository.clone());
+    let list_invite_codes_usecase = ListInviteCodes::new(server_repository.clone());
+    let revoke_invite_code_usecase = RevokeInviteCode::new(server_repository.clone());
+    let redeem_invite_code_usecase = RedeemInviteCode::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(
         server_repository.clone(),
         channel_repository.clone(),
@@ -363,6 +370,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         create_server_usecase,
         delete_server_usecase,
         update_server_usecase,
+        create_invite_code_usecase,
+        list_invite_codes_usecase,
+        revoke_invite_code_usecase,
+        redeem_invite_code_usecase,
         leave_server_usecase,
         list_servers_by_user_usecase,
         list_server_members_usecase,

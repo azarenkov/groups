@@ -13,6 +13,16 @@ export interface Member {
   name: string;
 }
 
+export interface InviteCode {
+  code: string;
+  createdBy: string;
+  creatorName: string | null;
+  uses: number;
+  maxUses: number | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface PaginationMeta {
   total: number;
   page: number;

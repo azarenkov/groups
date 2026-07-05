@@ -4,6 +4,7 @@ import {
   ListServerMembersResponse,
   CreateServerRequest,
   CreateServerResponse,
+  InviteCode,
 } from "../types/server";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
@@ -84,6 +85,40 @@ class ServerAPI {
     data: { name: string; description?: string },
   ): Promise<void> {
     await this.client.patch(`/v1/servers/${serverId}`, data);
+  }
+
+  async createInviteCode(
+    serverId: string,
+    opts: { expiresDays?: number | null; maxUses?: number | null } = {},
+  ): Promise<InviteCode> {
+    const response = await this.client.post(
+      `/v1/servers/${serverId}/invite-codes`,
+      {
+        expiresDays: opts.expiresDays ?? undefined,
+        maxUses: opts.maxUses ?? undefined,
+      },
+    );
+    return response.data.data;
+  }
+
+  async listInviteCodes(serverId: string): Promise<{ invites: InviteCode[] }> {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/invite-codes`,
+    );
+    return response.data.data;
+  }
+
+  async revokeInviteCode(serverId: string, code: string): Promise<void> {
+    await this.client.delete(
+      `/v1/servers/${serverId}/invite-codes/${encodeURIComponent(code)}`,
+    );
+  }
+
+  async redeemInviteCode(code: string): Promise<{ serverId: string }> {
+    const response = await this.client.post(
+      `/v1/servers/invite-codes/${encodeURIComponent(code)}/redeem`,
+    );
+    return response.data.data;
   }
 
   async deleteServer(serverId: string): Promise<void> {

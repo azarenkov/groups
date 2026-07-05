@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO server_members (server_id, user_id, joined_at)\n            VALUES ($1, $2, NOW())\n            ON CONFLICT (server_id, user_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6145f2f3fb20735dc0f775cc3a6a828d584df3b9e28f5b58e390aa1cd591e3c8"
+}

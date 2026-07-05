@@ -17,6 +17,7 @@ use crate::shared::{
             ApiResponse,
             server::{
                 create_server::CreateServerResponse,
+                invite_codes::{InviteCodeResponse, ListInviteCodesResponse},
                 list_sent_server_invites::ListSentServerInvitesResponse,
                 list_server_channels::ListServerChannelsResponse,
                 list_server_members::ListServerMembersResponse,
@@ -258,6 +259,97 @@ async fn leave_server(
 
     app_state.leave_server_usecase.execute(server_id, user_id).await?;
     Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, serde::Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+struct CreateInviteCodeBody {
+    #[validate(range(min = 1, max = 365))]
+    expires_days: Option<i64>,
+    #[validate(range(min = 1, max = 10000))]
+    max_uses: Option<i32>,
+}
+
+#[post("/{server_id}/invite-codes")]
+async fn create_invite_code(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    body: web::Json<CreateInviteCodeBody>,
+) -> Result<impl Responder, ApiError> {
+    let body = body.into_inner();
+    body.validate()?;
+
+    let server_id = ServerId::new(path.into_inner());
+    let user_id = UserId::new(auth_token.id);
+
+    let invite = app_state
+        .create_invite_code_usecase
+        .execute(server_id, user_id, body.expires_days, body.max_uses)
+        .await?;
+
+    Ok(HttpResponse::Created().json(ApiResponse::success(InviteCodeResponse::from(invite))))
+}
+
+#[get("/{server_id}/invite-codes")]
+async fn list_invite_codes(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let server_id = ServerId::new(path.into_inner());
+    let user_id = UserId::new(auth_token.id);
+
+    let invites = app_state
+        .list_invite_codes_usecase
+        .execute(server_id, user_id)
+        .await?;
+
+    let response = ListInviteCodesResponse {
+        invites: invites.into_iter().map(InviteCodeResponse::from).collect(),
+    };
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[delete("/{server_id}/invite-codes/{code}")]
+async fn revoke_invite_code(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, String)>,
+) -> Result<impl Responder, ApiError> {
+    let (server_id, code) = path.into_inner();
+    let server_id = ServerId::new(server_id);
+    let user_id = UserId::new(auth_token.id);
+
+    app_state
+        .revoke_invite_code_usecase
+        .execute(server_id, code, user_id)
+        .await?;
+
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RedeemInviteCodeResponse {
+    server_id: Uuid,
+}
+
+#[post("/invite-codes/{code}/redeem")]
+async fn redeem_invite_code(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<String>,
+) -> Result<impl Responder, ApiError> {
+    let code = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+
+    let server_id = app_state
+        .redeem_invite_code_usecase
+        .execute(code, user_id)
+        .await?;
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(RedeemInviteCodeResponse { server_id })))
 }
 
 #[patch("/{server_id}")]

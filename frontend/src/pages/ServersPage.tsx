@@ -1172,6 +1172,11 @@ const ServersPage: React.FC = () => {
         isOpen={isServerModalOpen}
         onClose={() => setIsServerModalOpen(false)}
         onCreate={handleCreateServer}
+        onJoinByCode={async (code) => {
+          const { serverId } = await serverAPI.redeemInviteCode(code);
+          await fetchServers();
+          setSelectedServer(serverId);
+        }}
       />
 
       <CreateChannelModal

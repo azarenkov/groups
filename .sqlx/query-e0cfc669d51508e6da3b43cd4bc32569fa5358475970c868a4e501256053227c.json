@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT server_id\n            FROM server_invite_codes\n            WHERE code = $1\n              AND revoked_at IS NULL\n              AND (expires_at IS NULL OR expires_at > now())\n              AND (max_uses IS NULL OR uses < max_uses)\n            FOR UPDATE\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "server_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e0cfc669d51508e6da3b43cd4bc32569fa5358475970c868a4e501256053227c"
+}

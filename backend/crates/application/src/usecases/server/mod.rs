@@ -3,6 +3,7 @@ pub mod create_server;
 pub mod decline_server_invite;
 pub mod delete_server;
 pub mod get_voice_presence;
+pub mod invite_codes;
 pub mod leave_server;
 pub mod list_sent_server_invites;
 pub mod list_server_members;

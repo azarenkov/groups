@@ -41,6 +41,9 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+        invite_codes::{
+            CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode,
+        },
         update_server::UpdateServer,
         get_voice_presence::GetVoicePresence, leave_server::LeaveServer,
         list_sent_server_invites::ListSentServerInvites,
@@ -199,6 +202,10 @@ pub struct AppState {
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub update_server_usecase: UpdateServer<PostgresServerRepository>,
+    pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
+    pub list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
+    pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,
+    pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
     pub leave_server_usecase:
         LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
@@ -331,6 +338,10 @@ impl AppState {
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
         update_server_usecase: UpdateServer<PostgresServerRepository>,
+        create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
+        list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
+        revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,
+        redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
         leave_server_usecase: LeaveServer<
             PostgresServerRepository,
             PostgresChannelRepository,
@@ -440,6 +451,10 @@ impl AppState {
             create_server_usecase,
             delete_server_usecase,
             update_server_usecase,
+            create_invite_code_usecase,
+            list_invite_codes_usecase,
+            revoke_invite_code_usecase,
+            redeem_invite_code_usecase,
             leave_server_usecase,
             list_servers_by_user_usecase,
             list_server_members_usecase,

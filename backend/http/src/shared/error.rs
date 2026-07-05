@@ -65,6 +65,10 @@ use application::usecases::{
     },
     server::{
         create_server::CreateServerError, delete_server::DeleteServerError,
+        invite_codes::{
+            CreateInviteCodeError, ListInviteCodesError, RedeemInviteCodeError,
+            RevokeInviteCodeError,
+        },
         update_server::UpdateServerError,
     },
     webhook::voice::HandleVoiceWebhookError,
@@ -1028,6 +1032,96 @@ impl ToHttpStatus for UpdateServerError {
             UpdateServerError::NotOwner => "SERVER_NOT_OWNER",
             UpdateServerError::NameTaken => "SERVER_NAME_TAKEN",
             UpdateServerError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for CreateInviteCodeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            CreateInviteCodeError::NotMember => StatusCode::FORBIDDEN,
+            CreateInviteCodeError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            CreateInviteCodeError::NotMember => {
+                "You are not a member of this server.".to_string()
+            }
+            CreateInviteCodeError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            CreateInviteCodeError::NotMember => "SERVER_NOT_MEMBER",
+            CreateInviteCodeError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for ListInviteCodesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListInviteCodesError::NotMember => StatusCode::FORBIDDEN,
+            ListInviteCodesError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListInviteCodesError::NotMember => {
+                "You are not a member of this server.".to_string()
+            }
+            ListInviteCodesError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListInviteCodesError::NotMember => "SERVER_NOT_MEMBER",
+            ListInviteCodesError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for RevokeInviteCodeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RevokeInviteCodeError::NotFound => StatusCode::NOT_FOUND,
+            RevokeInviteCodeError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RevokeInviteCodeError::NotFound => "Invite not found.".to_string(),
+            RevokeInviteCodeError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RevokeInviteCodeError::NotFound => "INVITE_NOT_FOUND",
+            RevokeInviteCodeError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for RedeemInviteCodeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RedeemInviteCodeError::InvalidCode => StatusCode::NOT_FOUND,
+            RedeemInviteCodeError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RedeemInviteCodeError::InvalidCode => {
+                "This invite code is invalid or has expired.".to_string()
+            }
+            RedeemInviteCodeError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RedeemInviteCodeError::InvalidCode => "INVITE_CODE_INVALID",
+            RedeemInviteCodeError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -2420,6 +2514,10 @@ impl_from_for_api_error!(
     CreateServerError,
     DeleteServerError,
     UpdateServerError,
+    CreateInviteCodeError,
+    ListInviteCodesError,
+    RevokeInviteCodeError,
+    RedeemInviteCodeError,
     PaginationError,
     JoinVoiceChannelError,
     StartCallError,

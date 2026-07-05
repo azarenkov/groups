@@ -12,6 +12,7 @@ interface CreateServerModalProps {
     description?: string,
     accentColor?: string,
   ) => Promise<void>;
+  onJoinByCode?: (code: string) => Promise<void>;
 }
 const MAX_SERVER_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
@@ -20,13 +21,36 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   isOpen,
   onClose,
   onCreate,
+  onJoinByCode,
 }) => {
-  const { t } = useTranslation(["modals", "common"]);
+  const { t } = useTranslation(["modals", "serverSettings", "common"]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [accent, setAccent] = useState(PALETTE[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
+
+  const handleJoin = async () => {
+    const code = joinCode.trim();
+    if (!code || !onJoinByCode) return;
+    setJoining(true);
+    setError(null);
+    try {
+      await onJoinByCode(code);
+      setJoinCode("");
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("common:error", { defaultValue: "Error" }),
+      );
+    } finally {
+      setJoining(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -139,6 +163,44 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
             </div>
           </div>
 
+          {onJoinByCode && (
+            <>
+              <div className="m-divider">
+                {t("joinByCode", { ns: "serverSettings" })}
+              </div>
+              <div className="join-code-row">
+                <input
+                  type="text"
+                  placeholder={t("joinByCodePlaceholder", {
+                    ns: "serverSettings",
+                  })}
+                  value={joinCode}
+                  disabled={joining}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleJoin();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="primary"
+                  style={{ height: 38 }}
+                  disabled={joining || !joinCode.trim()}
+                  onClick={handleJoin}
+                >
+                  {joining ? (
+                    <span className="loading-spinner" />
+                  ) : (
+                    t("join", { ns: "serverSettings" })
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+
           {error && (
             <div
               style={{
@@ -147,6 +209,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
                 background: "var(--danger-tint)",
                 padding: "8px 12px",
                 borderRadius: 8,
+                marginTop: 10,
               }}
             >
               {error}

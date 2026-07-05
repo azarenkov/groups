@@ -34,5 +34,22 @@
   "deleteServerHint": "The server, all rooms and history will be permanently deleted. This cannot be undone.",
   "leaveServer": "Leave server",
   "leaveServerHint": "You will lose access to this server's channels until you are invited again.",
-  "leave": "Leave"
+  "leave": "Leave",
+  "inviteLink": "Invite link",
+  "copy": "Copy",
+  "copied": "Copied",
+  "expires": "Expires",
+  "expiryNever": "Never",
+  "expiryDays": "{{count}} days",
+  "maxUses": "Max uses",
+  "noLimit": "No limit",
+  "regenerate": "Regenerate",
+  "activeInvites": "Active invites — {{count}}",
+  "expiresIn": "Expires in {{count}} d",
+  "useCount": "{{count}} uses",
+  "revoke": "Revoke",
+  "inviteFriendsTitle": "Invite friends",
+  "joinByCode": "Have an invite code?",
+  "joinByCodePlaceholder": "Invite code",
+  "join": "Join"
 }

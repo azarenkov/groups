@@ -4243,3 +4243,114 @@ textarea.s-input {
 .ssv-danger-info { flex: 1; }
 .ssv-danger-title { font-size: 15px; font-weight: 600; color: var(--fg-1); margin-bottom: 4px; }
 .ssv-danger-sub { font-size: 13px; color: var(--fg-3); line-height: 1.5; }
+
+/* ---- Invite code card ---- */
+.ssv-invite-card {
+  border-radius: 16px;
+  background: var(--surface-panel);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 0 0 1px var(--hairline);
+  padding: 22px;
+  margin-bottom: 28px;
+}
+.ssv-invite-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 600; color: var(--fg-1);
+  margin-bottom: 14px;
+}
+.ssv-invite-head svg { color: var(--accent); }
+.ssv-invite-row { display: flex; gap: 10px; align-items: center; }
+.ssv-invite-code {
+  flex: 1;
+  display: flex; align-items: center;
+  height: 46px; padding: 0 16px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font: 500 15px/1 var(--font-mono);
+  color: var(--fg-1);
+  overflow: hidden; white-space: nowrap;
+}
+.ssv-invite-code .dim { color: var(--fg-3); }
+.ssv-invite-opts { display: flex; gap: 14px; margin-top: 18px; }
+.ssv-invite-opt {
+  flex: 1;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.ssv-invite-opt-label { font-size: 12px; color: var(--fg-3); }
+.ssv-invite-opt select {
+  border: 0; background: transparent; outline: none;
+  font: inherit; font-size: 15px; font-weight: 600;
+  color: var(--fg-1);
+  cursor: pointer;
+  appearance: auto;
+  padding: 0;
+}
+.ssv-invite-opt select option { color: initial; }
+.ssv-invite-refresh {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  width: 96px;
+  border: 0; border-radius: 10px; cursor: pointer;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--fg-2);
+  font: inherit; font-size: 12px; font-weight: 500;
+  transition: background 160ms var(--ease-spring), color 160ms;
+}
+.ssv-invite-refresh:hover { background: var(--surface-hover); color: var(--fg-1); }
+.ssv-invite-refresh:disabled { opacity: 0.55; cursor: default; }
+.ssv-invite-code-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ssv-invite-mono { font: 600 14px/1 var(--font-mono); color: var(--fg-1); }
+.ssv-invite-by { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+.ssv-icon-btn {
+  width: 34px; height: 34px;
+  border: 0; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  color: var(--fg-3);
+  transition: background 140ms var(--ease-spring), color 140ms;
+  flex-shrink: 0;
+}
+.ssv-icon-btn:hover { background: var(--surface-active); color: var(--fg-1); }
+.ssv-icon-btn.danger:hover { background: var(--danger-tint); color: var(--danger); }
+
+/* ---- Join by code (create server modal) ---- */
+.join-code-row {
+  display: flex; gap: 8px; align-items: center;
+  margin-top: 4px;
+}
+.join-code-row input {
+  flex: 1;
+  height: 38px;
+  padding: 0 12px;
+  border: 0; border-radius: 9px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  font: 500 14px/1 var(--font-mono);
+  color: var(--fg-1);
+  outline: none;
+}
+.join-code-row input:focus { box-shadow: inset 0 0 0 1px var(--accent); }
+.join-code-row button {
+  padding: 0 16px;
+  border: 0; border-radius: 9px;
+  background: var(--accent); color: #fff;
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.join-code-row button:hover { background: var(--accent-hover); }
+.join-code-row button:disabled { opacity: 0.55; cursor: default; }
+.m-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 16px 0 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--fg-4);
+}
+.m-divider::before, .m-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--hairline);
+}
