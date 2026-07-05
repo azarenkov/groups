@@ -21,6 +21,31 @@ const daysLeft = (expiresAt: string | null): number | null => {
   return Math.max(1, Math.ceil(ms / 86_400_000));
 };
 
+const copyText = async (text: string): Promise<boolean> => {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    void 0;
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
 const SECTIONS: { id: SectionId; icon: IconName }[] = [
   { id: "overview", icon: "grid" },
   { id: "invites", icon: "user-plus" },
@@ -100,10 +125,12 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   }, [server.id, currentUserId]);
 
   const copyCode = (code: string) => {
-    navigator.clipboard?.writeText(code).catch(() => {});
-    setCopied(code);
-    if (copyTimer.current) clearTimeout(copyTimer.current);
-    copyTimer.current = setTimeout(() => setCopied(null), 1600);
+    void copyText(code).then((ok) => {
+      if (!ok) return;
+      setCopied(code);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(null), 1600);
+    });
   };
 
   const regenerateCode = async () => {
