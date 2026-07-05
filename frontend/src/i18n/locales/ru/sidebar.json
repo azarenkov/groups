@@ -2,6 +2,8 @@
   "searchPlaceholder": "Поиск",
   "directMessages": "Личные сообщения",
   "servers": "Серверы",
+  "tabDirects": "Личные",
+  "tabServers": "Серверы",
   "addServer": "Добавить сервер",
   "createServer": "Создать сервер",
   "addChannel": "Добавить канал",

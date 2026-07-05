@@ -2,6 +2,8 @@
   "searchPlaceholder": "Search",
   "directMessages": "Direct Messages",
   "servers": "Servers",
+  "tabDirects": "Direct",
+  "tabServers": "Servers",
   "addServer": "Add server",
   "createServer": "Create server",
   "addChannel": "Add channel",
