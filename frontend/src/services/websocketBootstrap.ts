@@ -231,6 +231,16 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "channel.text.joined": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      const selfId = useAuthStore.getState().user?.id;
+      if (channelId && userId && userId !== selfId) {
+        useReadReceiptStore.getState().addChannelMember(channelId, userId);
+      }
+      return;
+    }
+
     case "user.online": {
       const userId = asString(d.userId);
       if (userId) usePresenceStore.getState().setOnline(userId);

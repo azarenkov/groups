@@ -15,6 +15,7 @@ interface ReadReceiptState {
     memberId: string,
     readAt: string,
   ) => void;
+  addChannelMember: (channelId: string, memberId: string) => void;
   clear: () => void;
 }
 
@@ -33,8 +34,13 @@ export const useReadReceiptStore = create<ReadReceiptState>()((set) => ({
 
   seedChannelReads: (channelId, members) =>
     set((s) => {
+      const existing = s.channelReads[channelId] ?? {};
       const map: ChannelMemberReads = {};
-      for (const m of members) map[m.userId] = m.readAt;
+      for (const m of members) {
+        const cur = existing[m.userId];
+        map[m.userId] =
+          m.readAt && newer(cur, m.readAt) ? m.readAt : (cur ?? m.readAt);
+      }
       return { channelReads: { ...s.channelReads, [channelId]: map } };
     }),
 
@@ -46,6 +52,18 @@ export const useReadReceiptStore = create<ReadReceiptState>()((set) => ({
         channelReads: {
           ...s.channelReads,
           [channelId]: { ...current, [memberId]: readAt },
+        },
+      };
+    }),
+
+  addChannelMember: (channelId, memberId) =>
+    set((s) => {
+      const cur = s.channelReads[channelId];
+      if (!cur || memberId in cur) return s;
+      return {
+        channelReads: {
+          ...s.channelReads,
+          [channelId]: { ...cur, [memberId]: null },
         },
       };
     }),
