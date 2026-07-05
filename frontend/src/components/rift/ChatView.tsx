@@ -155,6 +155,16 @@ const ChatView: React.FC<ChatViewProps> = ({
       .catch(() => {});
   }, [channelId]);
 
+  const reseedChannelReads = React.useCallback(() => {
+    if (!channelId) return;
+    userAPI
+      .getChannelReadStates(channelId)
+      .then((r) =>
+        useReadReceiptStore.getState().seedChannelReads(channelId, r.members),
+      )
+      .catch(() => {});
+  }, [channelId]);
+
   const receiptFor = (
     m: ChannelMessage,
     mine: boolean,
@@ -491,6 +501,7 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const refreshHistoryAfterJoin = async () => {
     if (!messenger) return;
+    reseedChannelReads();
     try {
       const res = await messenger.listMessages({ limit: PAGE_LIMIT });
       const ordered = [...res.messages].reverse();

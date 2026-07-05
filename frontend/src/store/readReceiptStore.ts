@@ -59,7 +59,8 @@ export const useReadReceiptStore = create<ReadReceiptState>()((set) => ({
 
   setChannelMemberRead: (channelId, memberId, readAt) =>
     set((s) => {
-      const current = s.channelReads[channelId] ?? {};
+      const current = s.channelReads[channelId];
+      if (!current) return s;
       if (!newer(current[memberId], readAt)) return s;
       return {
         channelReads: {
