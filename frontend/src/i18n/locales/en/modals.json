@@ -83,5 +83,25 @@
     "remove": "Remove",
     "delete": "Delete"
   },
-  "accent": "Accent"
+  "accent": "Accent",
+  "serverModal": {
+    "addTitle": "Add a server",
+    "addSub": "Create a new server or join with an invite.",
+    "createOwn": "Create my own",
+    "createOwnSub": "Set up a new space from scratch.",
+    "haveInvite": "I have an invite",
+    "haveInviteSub": "Join with an invite code.",
+    "createBlurb": "A server is a private space for voice and chat. Create it and invite people.",
+    "namePlaceholder": "e.g. Focus Lab",
+    "descLabel": "Description",
+    "descOptional": "— optional",
+    "descPlaceholder": "What is this server about?",
+    "accentLabel": "Server color",
+    "joinTitle": "Join a server",
+    "joinBlurb": "Enter an invite code to join an existing server.",
+    "codeLabel": "Invite code",
+    "codeHint": "An invite looks like:",
+    "back": "Back",
+    "joinCta": "Join"
+  }
 }

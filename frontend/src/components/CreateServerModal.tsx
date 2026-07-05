@@ -2,10 +2,23 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import "../styles/rift.css";
-import { AVATAR_PALETTE as PALETTE } from "../utils/avatar";
+
+export type ServerModalView = "choose" | "create" | "join";
+
+const ACCENTS = [
+  "#0071e3",
+  "#2f9e8f",
+  "#4f9d5b",
+  "#c68a2e",
+  "#c1694a",
+  "#c05a78",
+  "#5566cc",
+  "#6e6e73",
+];
 
 interface CreateServerModalProps {
   isOpen: boolean;
+  initialView?: ServerModalView;
   onClose: () => void;
   onCreate: (
     name: string,
@@ -13,42 +26,95 @@ interface CreateServerModalProps {
     accentColor?: string,
   ) => Promise<void>;
   onJoinByCode?: (code: string) => Promise<void>;
-  focusJoin?: boolean;
 }
+
 const MAX_SERVER_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
 
 const CreateServerModal: React.FC<CreateServerModalProps> = ({
   isOpen,
+  initialView = "choose",
   onClose,
   onCreate,
   onJoinByCode,
-  focusJoin,
 }) => {
-  const { t } = useTranslation(["modals", "serverSettings", "common"]);
+  const { t } = useTranslation(["modals", "common"]);
+  const [view, setView] = useState<ServerModalView>(initialView);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [accent, setAccent] = useState(PALETTE[0]);
+  const [accentIdx, setAccentIdx] = useState(0);
+  const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
-  const joinInputRef = React.useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && focusJoin) {
-      setTimeout(() => joinInputRef.current?.focus(), 0);
+    if (isOpen) {
+      setView(initialView);
+      setError(null);
     }
-  }, [isOpen, focusJoin]);
+  }, [isOpen, initialView]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  const trimmed = name.trim();
+  const initial = (trimmed[0] || "?").toUpperCase();
+  const accent = ACCENTS[accentIdx];
+
+  const resetAll = () => {
+    setName("");
+    setDescription("");
+    setAccentIdx(0);
+    setCode("");
+    setError(null);
+  };
+
+  const handleClose = () => {
+    if (isLoading || joining) return;
+    resetAll();
+    onClose();
+  };
+
+  const goTo = (v: ServerModalView) => {
+    setError(null);
+    setView(v);
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trimmed) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      await onCreate(trimmed, description.trim() || undefined, accent);
+      resetAll();
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("common:error", { defaultValue: "Error" }),
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleJoin = async () => {
-    const code = joinCode.trim();
-    if (!code || !onJoinByCode) return;
+    const c = code.trim();
+    if (!c || !onJoinByCode) return;
     setJoining(true);
     setError(null);
     try {
-      await onJoinByCode(code);
-      setJoinCode("");
+      await onJoinByCode(c);
+      resetAll();
       onClose();
     } catch (err) {
       setError(
@@ -61,184 +127,235 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
-
-  const trimmed = name.trim();
-  const glyph =
-    trimmed
-      ? trimmed.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase()
-      : "?";
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trimmed) {
-      setError(t("createServer.nameLabel"));
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      await onCreate(trimmed, description.trim() || undefined, accent);
-      setName("");
-      setDescription("");
-      setAccent(PALETTE[0]);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("common:error", { defaultValue: "Error" }));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleClose = () => {
-    if (isLoading) return;
-    setName("");
-    setDescription("");
-    setAccent(PALETTE[0]);
-    setError(null);
-    onClose();
-  };
-
   if (!isOpen) return null;
+
+  const closeBtn = (
+    <button
+      type="button"
+      className="srvm-icon-btn"
+      title={t("close", { ns: "common" })}
+      onClick={handleClose}
+    >
+      <Icon name="x" size={16} />
+    </button>
+  );
+
+  const backBtn = (
+    <button
+      type="button"
+      className="srvm-icon-btn"
+      title={t("serverModal.back")}
+      onClick={() => goTo("choose")}
+    >
+      <Icon name="chev-left" size={17} />
+    </button>
+  );
+
+  const errorBox = error && <div className="srvm-error">{error}</div>;
 
   return (
     <div className="modal-overlay" onMouseDown={handleClose}>
-      <form
-        className="modal server-modal"
-        onMouseDown={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
-      >
-        <div className="m-head">
-          <h3>{t("createServer.title")}</h3>
-          <button type="button" className="close" onClick={handleClose} title={t("close", { ns: "common" })}>
-            <Icon name="x" size={14} />
-          </button>
-        </div>
-        <div className="m-body">
-          <div className="cs-glyph-row">
-            <div className="cs-glyph-preview" style={{ background: accent }}>
-              {glyph}
-            </div>
-            <div className="cs-glyph-hint">
-              {t("createServer.subtitle")}
-            </div>
-          </div>
-
-          <div className="m-field">
-            <label>{t("createServer.nameLabel")}</label>
-            <input
-              type="text"
-              autoFocus
-              placeholder={t("createServer.namePlaceholder")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isLoading}
-              maxLength={MAX_SERVER_NAME_LENGTH}
-            />
-          </div>
-
-          <div className="m-field">
-            <label>{t("common:edit", { defaultValue: "Description" })}</label>
-            <textarea
-              placeholder=""
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={isLoading}
-              maxLength={MAX_DESCRIPTION_LENGTH}
-              rows={3}
-            />
-          </div>
-
-          <div className="m-field">
-            <label>{t("accent")}</label>
-            <div className="cs-accent-swatches">
-              {PALETTE.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={"cs-accent-swatch" + (accent === c ? " selected" : "")}
-                  style={{ background: c }}
-                  onClick={() => setAccent(c)}
-                  title={c}
-                />
-              ))}
-            </div>
-          </div>
-
-          {onJoinByCode && (
-            <>
-              <div className="m-divider">
-                {t("joinByCode", { ns: "serverSettings" })}
-              </div>
-              <div className="join-code-row">
-                <input
-                  ref={joinInputRef}
-                  type="text"
-                  placeholder={t("joinByCodePlaceholder", {
-                    ns: "serverSettings",
-                  })}
-                  value={joinCode}
-                  disabled={joining}
-                  onChange={(e) => setJoinCode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleJoin();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="primary"
-                  style={{ height: 38 }}
-                  disabled={joining || !joinCode.trim()}
-                  onClick={handleJoin}
-                >
-                  {joining ? (
-                    <span className="loading-spinner" />
-                  ) : (
-                    t("join", { ns: "serverSettings" })
-                  )}
-                </button>
-              </div>
-            </>
-          )}
-
-          {error && (
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--danger)",
-                background: "var(--danger-tint)",
-                padding: "8px 12px",
-                borderRadius: 8,
-                marginTop: 10,
-              }}
+      {view === "choose" && (
+        <div
+          className="srvm srvm-choose"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="srvm-choose-close">{closeBtn}</div>
+          <div className="srvm-choose-body">
+            <h3 className="srvm-title">{t("serverModal.addTitle")}</h3>
+            <p className="srvm-sub">{t("serverModal.addSub")}</p>
+            <button
+              type="button"
+              className="srvm-option"
+              onClick={() => goTo("create")}
             >
-              {error}
+              <span className="srvm-option-icon accent">
+                <Icon name="plus" size={22} />
+              </span>
+              <span className="srvm-option-body">
+                <span className="srvm-option-title">
+                  {t("serverModal.createOwn")}
+                </span>
+                <span className="srvm-option-sub">
+                  {t("serverModal.createOwnSub")}
+                </span>
+              </span>
+              <Icon name="chev-left" size={18} className="srvm-option-chev" />
+            </button>
+            <button
+              type="button"
+              className="srvm-option"
+              onClick={() => goTo("join")}
+            >
+              <span className="srvm-option-icon">
+                <Icon name="link" size={22} />
+              </span>
+              <span className="srvm-option-body">
+                <span className="srvm-option-title">
+                  {t("serverModal.haveInvite")}
+                </span>
+                <span className="srvm-option-sub">
+                  {t("serverModal.haveInviteSub")}
+                </span>
+              </span>
+              <Icon name="chev-left" size={18} className="srvm-option-chev" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {view === "create" && (
+        <form
+          className="srvm srvm-create"
+          onMouseDown={(e) => e.stopPropagation()}
+          onSubmit={handleCreate}
+        >
+          <div className="srvm-head">
+            {backBtn}
+            <h4 className="srvm-head-title">{t("createServer.title")}</h4>
+            {closeBtn}
+          </div>
+          <div className="srvm-body">
+            <p className="srvm-sub">{t("serverModal.createBlurb")}</p>
+            <div className="srvm-identity-row">
+              <div
+                className={"srvm-avatar" + (trimmed ? " named" : "")}
+                style={{ background: accent }}
+              >
+                {initial}
+              </div>
+              <div className="srvm-field">
+                <label>{t("createServer.nameLabel")}</label>
+                <input
+                  autoFocus
+                  value={name}
+                  maxLength={MAX_SERVER_NAME_LENGTH}
+                  placeholder={t("serverModal.namePlaceholder")}
+                  disabled={isLoading}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
             </div>
-          )}
+            <div className="srvm-field">
+              <label>
+                {t("serverModal.descLabel")}{" "}
+                <span className="srvm-optional">
+                  {t("serverModal.descOptional")}
+                </span>
+              </label>
+              <textarea
+                rows={3}
+                value={description}
+                maxLength={MAX_DESCRIPTION_LENGTH}
+                placeholder={t("serverModal.descPlaceholder")}
+                disabled={isLoading}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="srvm-field">
+              <label>{t("serverModal.accentLabel")}</label>
+              <div className="srvm-accents">
+                {ACCENTS.map((c, i) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={"srvm-accent" + (accentIdx === i ? " selected" : "")}
+                    style={{ background: c, color: c }}
+                    onClick={() => setAccentIdx(i)}
+                  >
+                    {accentIdx === i && <Icon name="check" size={15} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {errorBox}
+          </div>
+          <div className="srvm-foot">
+            <button
+              type="button"
+              className="srvm-btn"
+              disabled={isLoading}
+              onClick={handleClose}
+            >
+              {t("common:cancel")}
+            </button>
+            <button
+              type="submit"
+              className="srvm-btn primary"
+              disabled={isLoading || !trimmed}
+            >
+              {isLoading ? (
+                <span className="loading-spinner" />
+              ) : (
+                t("createServer.create")
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {view === "join" && (
+        <div
+          className="srvm srvm-join"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="srvm-head">
+            {backBtn}
+            <h4 className="srvm-head-title">{t("serverModal.joinTitle")}</h4>
+            {closeBtn}
+          </div>
+          <div className="srvm-body">
+            <p className="srvm-sub">{t("serverModal.joinBlurb")}</p>
+            <div className="srvm-field">
+              <label>{t("serverModal.codeLabel")}</label>
+              <input
+                autoFocus
+                className="srvm-code-input"
+                value={code}
+                placeholder="x7Kd9m"
+                disabled={joining}
+                onChange={(e) => setCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleJoin();
+                  }
+                }}
+              />
+            </div>
+            <div className="srvm-hint">
+              <Icon name="info" size={15} />
+              <span>
+                {t("serverModal.codeHint")}{" "}
+                <span className="srvm-hint-mono">rift.app/x7Kd9m</span>
+              </span>
+            </div>
+            {errorBox}
+          </div>
+          <div className="srvm-foot">
+            <button
+              type="button"
+              className="srvm-btn"
+              disabled={joining}
+              onClick={() => goTo("choose")}
+            >
+              {t("serverModal.back")}
+            </button>
+            <button
+              type="button"
+              className="srvm-btn primary"
+              disabled={joining || !code.trim()}
+              onClick={handleJoin}
+            >
+              {joining ? (
+                <span className="loading-spinner" />
+              ) : (
+                t("serverModal.joinCta")
+              )}
+            </button>
+          </div>
         </div>
-        <div className="m-foot">
-          <button type="button" onClick={handleClose} disabled={isLoading}>
-            {t("common:cancel")}
-          </button>
-          <button
-            type="submit"
-            className="primary"
-            disabled={isLoading || !trimmed}
-          >
-            {isLoading ? <span className="loading-spinner" /> : t("createServer.create")}
-          </button>
-        </div>
-      </form>
+      )}
     </div>
   );
 };

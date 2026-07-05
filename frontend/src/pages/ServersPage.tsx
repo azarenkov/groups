@@ -123,7 +123,9 @@ const ServersPage: React.FC = () => {
   }, []);
 
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  const [serverModalFocusJoin, setServerModalFocusJoin] = useState(false);
+  const [serverModalView, setServerModalView] = useState<
+    "choose" | "create" | "join"
+  >("choose");
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
@@ -864,7 +866,7 @@ const ServersPage: React.FC = () => {
                   className="tb-create-mi"
                   onClick={() => {
                     setCreateMenuOpen(false);
-                    setServerModalFocusJoin(false);
+                    setServerModalView("create");
                     setIsServerModalOpen(true);
                   }}
                 >
@@ -886,7 +888,7 @@ const ServersPage: React.FC = () => {
                   className="tb-create-mi"
                   onClick={() => {
                     setCreateMenuOpen(false);
-                    setServerModalFocusJoin(true);
+                    setServerModalView("join");
                     setIsServerModalOpen(true);
                   }}
                 >
@@ -1005,7 +1007,7 @@ const ServersPage: React.FC = () => {
               <Welcome
                 loading={serversLoading && servers.length === 0}
                 onCreate={() => {
-                  setServerModalFocusJoin(false);
+                  setServerModalView("choose");
                   setIsServerModalOpen(true);
                 }}
               />
@@ -1282,7 +1284,7 @@ const ServersPage: React.FC = () => {
         isOpen={isServerModalOpen}
         onClose={() => setIsServerModalOpen(false)}
         onCreate={handleCreateServer}
-        focusJoin={serverModalFocusJoin}
+        initialView={serverModalView}
         onJoinByCode={async (code) => {
           const { serverId } = await serverAPI.redeemInviteCode(code);
           await fetchServers();
