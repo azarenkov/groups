@@ -1,4 +1,4 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, post, put, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, put, web};
 use application::dto::requests::server::delete_server::DeleteServerRequest;
 use domain::{server::id::ServerId, shared::pagination::Pagination, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
@@ -9,7 +9,10 @@ use crate::shared::{
     context::request_context,
     dto::{
         pagination::{PaginationMeta, PaginationQuery},
-        requests::server::create_server::CreateServerRequestBody,
+        requests::server::{
+            create_server::CreateServerRequestBody,
+            update_server::UpdateServerRequestBody,
+        },
         responses::{
             ApiResponse,
             server::{
@@ -254,6 +257,28 @@ async fn leave_server(
     let user_id = UserId::new(auth_token.id);
 
     app_state.leave_server_usecase.execute(server_id, user_id).await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[patch("/{server_id}")]
+async fn update_server(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    body: web::Json<UpdateServerRequestBody>,
+) -> Result<impl Responder, ApiError> {
+    let body: UpdateServerRequestBody = body.into_inner();
+    body.validate()?;
+
+    let server_id = ServerId::new(path.into_inner());
+    let owner_id = UserId::new(auth_token.id);
+
+    app_state
+        .update_server_usecase
+        .execute(body.into_request(server_id, owner_id, request_context(&req)))
+        .await?;
+
     Ok(HttpResponse::NoContent().finish())
 }
 

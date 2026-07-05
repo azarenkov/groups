@@ -63,7 +63,10 @@ use application::usecases::{
         send_channel_message::SendChannelMessageError,
         track_media_connection::TrackMediaConnectionError, unmute_channel::UnmuteChannelError,
     },
-    server::{create_server::CreateServerError, delete_server::DeleteServerError},
+    server::{
+        create_server::CreateServerError, delete_server::DeleteServerError,
+        update_server::UpdateServerError,
+    },
     webhook::voice::HandleVoiceWebhookError,
 };
 use domain::channel::ChannelError;
@@ -996,6 +999,35 @@ impl ToHttpStatus for DeleteServerError {
             DeleteServerError::Repository(e) => e.to_error_code(),
             DeleteServerError::Outbox(e) => e.to_error_code(),
             DeleteServerError::VoiceService(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for UpdateServerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateServerError::ServerNotFound => StatusCode::NOT_FOUND,
+            UpdateServerError::NotOwner => StatusCode::FORBIDDEN,
+            UpdateServerError::NameTaken => StatusCode::CONFLICT,
+            UpdateServerError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateServerError::ServerNotFound => "Server not found".to_string(),
+            UpdateServerError::NotOwner => "Only the server owner can edit it.".to_string(),
+            UpdateServerError::NameTaken => "A server with this name already exists.".to_string(),
+            UpdateServerError::Repository(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateServerError::ServerNotFound => "SERVER_NOT_FOUND",
+            UpdateServerError::NotOwner => "SERVER_NOT_OWNER",
+            UpdateServerError::NameTaken => "SERVER_NAME_TAKEN",
+            UpdateServerError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -2387,6 +2419,7 @@ impl_from_for_api_error!(
     HandleVoiceWebhookError,
     CreateServerError,
     DeleteServerError,
+    UpdateServerError,
     PaginationError,
     JoinVoiceChannelError,
     StartCallError,

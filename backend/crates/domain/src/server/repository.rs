@@ -70,4 +70,10 @@ pub trait ServerRepository {
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
+    async fn update_server_details(
+        &self,
+        server_id: &ServerId,
+        name: &str,
+        description: Option<&str>,
+    ) -> Result<bool, RepositoryError>;
 }

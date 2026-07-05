@@ -20,6 +20,7 @@ interface SidebarProps {
   onSelectDm: (dm: MockDirect) => void;
   onAddChannel: (server: Server) => void;
   onInviteServer: (server: Server) => void;
+  onOpenServerSettings: (server: Server) => void;
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
@@ -69,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectDm,
   onAddChannel,
   onInviteServer,
+  onOpenServerSettings,
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
@@ -336,6 +338,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                         >
                           <Icon name="plus" size={12} />
                           <span>{t("addChannel")}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="sb-server-menu-item"
+                          onClick={() => {
+                            setMenuServerId(null);
+                            onOpenServerSettings(server);
+                          }}
+                        >
+                          <Icon name="settings" size={12} />
+                          <span>{t("serverSettings")}</span>
                         </button>
                         <div className="sb-server-menu-divider" />
                         <button

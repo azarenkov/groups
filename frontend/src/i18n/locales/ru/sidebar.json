@@ -28,5 +28,6 @@
   "noTextChannelsTitle": "Пока нет текстовых каналов",
   "noTextChannelsBody": "На сервере {{server}} нет текстовых каналов. Создайте, чтобы начать переписку.",
   "noTextChannelsBodyGeneric": "Создайте текстовый канал, чтобы начать переписку.",
-  "createChannelCta": "Создать канал"
+  "createChannelCta": "Создать канал",
+  "serverSettings": "Настройки сервера"
 }

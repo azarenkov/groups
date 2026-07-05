@@ -8,6 +8,7 @@ import enChat from "./locales/en/chat.json";
 import enCommon from "./locales/en/common.json";
 import enMembers from "./locales/en/members.json";
 import enModals from "./locales/en/modals.json";
+import enServerSettings from "./locales/en/serverSettings.json";
 import enSettings from "./locales/en/settings.json";
 import enSidebar from "./locales/en/sidebar.json";
 import enVoice from "./locales/en/voice.json";
@@ -17,6 +18,7 @@ import ruChat from "./locales/ru/chat.json";
 import ruCommon from "./locales/ru/common.json";
 import ruMembers from "./locales/ru/members.json";
 import ruModals from "./locales/ru/modals.json";
+import ruServerSettings from "./locales/ru/serverSettings.json";
 import ruSettings from "./locales/ru/settings.json";
 import ruSidebar from "./locales/ru/sidebar.json";
 import ruVoice from "./locales/ru/voice.json";
@@ -34,6 +36,7 @@ export const NAMESPACES = [
   "modals",
   "members",
   "call",
+  "serverSettings",
 ] as const;
 
 const resources = {
@@ -47,6 +50,7 @@ const resources = {
     modals: enModals,
     members: enMembers,
     call: enCall,
+    serverSettings: enServerSettings,
   },
   ru: {
     common: ruCommon,
@@ -58,6 +62,7 @@ const resources = {
     modals: ruModals,
     members: ruMembers,
     call: ruCall,
+    serverSettings: ruServerSettings,
   },
 } as const;
 

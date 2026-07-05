@@ -79,6 +79,13 @@ class ServerAPI {
     return response.data.data;
   }
 
+  async updateServer(
+    serverId: string,
+    data: { name: string; description?: string },
+  ): Promise<void> {
+    await this.client.patch(`/v1/servers/${serverId}`, data);
+  }
+
   async deleteServer(serverId: string): Promise<void> {
     await this.client.delete(`/v1/servers/${serverId}`);
   }

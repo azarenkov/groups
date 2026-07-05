@@ -41,6 +41,7 @@ import CallStage from "../components/rift/CallStage";
 import CallReturnBar from "../components/rift/CallReturnBar";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
+import ServerSettingsView from "../components/rift/ServerSettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
@@ -128,6 +129,7 @@ const ServersPage: React.FC = () => {
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
+  const [serverSettings, setServerSettings] = useState<Server | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -856,6 +858,7 @@ const ServersPage: React.FC = () => {
             setIsChannelModalOpen(true);
           }}
           onInviteServer={(server) => setInviteModalServer(server)}
+          onOpenServerSettings={(server) => setServerSettings(server)}
           onDeleteServer={(server) => {
             const isOwner = server.ownerId === user?.id;
             setDeleteConfirm({
@@ -1141,6 +1144,25 @@ const ServersPage: React.FC = () => {
             onAccent={setAccent}
             onClose={() => setSettingsOpen(false)}
             onSignOut={handleLogout}
+          />
+        )}
+
+        {serverSettings && (
+          <ServerSettingsView
+            server={
+              servers.find((s) => s.id === serverSettings.id) ?? serverSettings
+            }
+            friends={friends}
+            currentUserId={user?.id}
+            onClose={() => setServerSettings(null)}
+            onDeleteServer={(server) => {
+              const isOwner = server.ownerId === user?.id;
+              setDeleteConfirm({
+                type: isOwner ? "server" : "leave-server",
+                id: server.id,
+                name: server.name,
+              });
+            }}
           />
         )}
       </div>

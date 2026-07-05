@@ -28,5 +28,6 @@
   "noTextChannelsTitle": "No text channels yet",
   "noTextChannelsBody": "{{server}} doesn't have any text channels. Create one to start chatting.",
   "noTextChannelsBodyGeneric": "Create a text channel to start chatting.",
-  "createChannelCta": "Create channel"
+  "createChannelCta": "Create channel",
+  "serverSettings": "Server settings"
 }
