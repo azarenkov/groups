@@ -123,6 +123,30 @@ const ServersPage: React.FC = () => {
   }, []);
 
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [serverModalFocusJoin, setServerModalFocusJoin] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!createMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        createMenuRef.current &&
+        !createMenuRef.current.contains(e.target as Node)
+      ) {
+        setCreateMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCreateMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [createMenuOpen]);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
@@ -769,15 +793,34 @@ const ServersPage: React.FC = () => {
     return out;
   }, [voicePresenceByChannel]);
 
-  const winTitle = selectedDm
-    ? selectedDm.name
+  const tbIdentity = selectedDm
+    ? {
+        icon: "user" as const,
+        title: selectedDm.name,
+        sub: selectedDm.online
+          ? tSidebar("statusOnline")
+          : tSidebar("statusOffline"),
+      }
     : joinedChannel
-      ? `${servers.find((s) => s.id === joinedChannel.serverId)?.name ?? ""} — ${joinedChannel.channel.name}`
-      : selectedServer
-        ? activeTextChannel
-          ? `${selectedServer.name} — ${activeTextChannel.name}`
-          : selectedServer.name
-        : "Rift";
+      ? {
+          icon: "volume" as const,
+          title: joinedChannel.channel.name,
+          sub:
+            servers.find((s) => s.id === joinedChannel.serverId)?.name ?? "",
+        }
+      : selectedServer && activeTextChannel
+        ? {
+            icon: "hash" as const,
+            title: activeTextChannel.name,
+            sub: activeTextChannel.topic ?? selectedServer.name,
+          }
+        : selectedServer
+          ? {
+              icon: "grid" as const,
+              title: selectedServer.name,
+              sub: selectedServer.description ?? "",
+            }
+          : null;
 
   return (
     <div className="win">
@@ -787,24 +830,88 @@ const ServersPage: React.FC = () => {
           <i />
           <i />
         </div>
-        <div className="win-title">{winTitle}</div>
+        {tbIdentity && (
+          <div className="tb-identity">
+            <Icon name={tbIdentity.icon} size={18} />
+            <span className="tb-identity-title">{tbIdentity.title}</span>
+            {tbIdentity.sub && (
+              <>
+                <span className="tb-identity-sep" />
+                <span className="tb-identity-sub">{tbIdentity.sub}</span>
+              </>
+            )}
+          </div>
+        )}
         <div className="titlebar-right">
+          <div className="tb-create-wrap" ref={createMenuRef}>
+            <button
+              type="button"
+              className="tb-create-btn"
+              onClick={() => setCreateMenuOpen((v) => !v)}
+            >
+              <Icon name="plus" size={14} />
+              <span>{tSidebar("createServer")}</span>
+              <Icon
+                name="chev"
+                size={13}
+                className={"tb-create-chev" + (createMenuOpen ? " up" : "")}
+              />
+            </button>
+            {createMenuOpen && (
+              <div className="tb-create-menu">
+                <button
+                  type="button"
+                  className="tb-create-mi"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    setServerModalFocusJoin(false);
+                    setIsServerModalOpen(true);
+                  }}
+                >
+                  <span className="tb-create-mi-icon accent">
+                    <Icon name="plus" size={18} />
+                  </span>
+                  <span className="tb-create-mi-body">
+                    <span className="tb-create-mi-title">
+                      {tSidebar("createServer")}
+                    </span>
+                    <span className="tb-create-mi-sub">
+                      {tSidebar("createServerHint")}
+                    </span>
+                  </span>
+                </button>
+                <div className="tb-create-menu-divider" />
+                <button
+                  type="button"
+                  className="tb-create-mi"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    setServerModalFocusJoin(true);
+                    setIsServerModalOpen(true);
+                  }}
+                >
+                  <span className="tb-create-mi-icon">
+                    <Icon name="logout" size={18} />
+                  </span>
+                  <span className="tb-create-mi-body">
+                    <span className="tb-create-mi-title">
+                      {tSidebar("joinServer")}
+                    </span>
+                    <span className="tb-create-mi-sub">
+                      {tSidebar("joinServerHint")}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
-            className="titlebar-add"
-            title={tSidebar("createServer")}
-            onClick={() => setIsServerModalOpen(true)}
-          >
-            <Icon name="plus" size={14} />
-            <span>{tSidebar("createServer")}</span>
-          </button>
-          <button
-            type="button"
-            className="titlebar-add"
+            className="tb-friend-btn"
             title={tSidebar("addFriend")}
             onClick={() => setIsAddFriendOpen(true)}
           >
-            <Icon name="user-plus" size={14} />
+            <Icon name="user-plus" size={15} />
             <span>{tSidebar("addFriend")}</span>
           </button>
           <button
@@ -813,7 +920,7 @@ const ServersPage: React.FC = () => {
             title={tSidebar("pendingRequests")}
             onClick={() => setIsPendingOpen(true)}
           >
-            <Icon name="mail" size={16} />
+            <Icon name="mail" size={17} />
             {pendingCount > 0 && (
               <span className="titlebar-badge">{pendingCount}</span>
             )}
@@ -897,7 +1004,10 @@ const ServersPage: React.FC = () => {
             ) : !selectedServer && !selectedDm ? (
               <Welcome
                 loading={serversLoading && servers.length === 0}
-                onCreate={() => setIsServerModalOpen(true)}
+                onCreate={() => {
+                  setServerModalFocusJoin(false);
+                  setIsServerModalOpen(true);
+                }}
               />
             ) : selectedDm ? (
               <ChatView
@@ -1172,6 +1282,7 @@ const ServersPage: React.FC = () => {
         isOpen={isServerModalOpen}
         onClose={() => setIsServerModalOpen(false)}
         onCreate={handleCreateServer}
+        focusJoin={serverModalFocusJoin}
         onJoinByCode={async (code) => {
           const { serverId } = await serverAPI.redeemInviteCode(code);
           await fetchServers();

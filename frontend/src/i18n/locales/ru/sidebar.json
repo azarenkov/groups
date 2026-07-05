@@ -29,5 +29,8 @@
   "noTextChannelsBody": "На сервере {{server}} нет текстовых каналов. Создайте, чтобы начать переписку.",
   "noTextChannelsBodyGeneric": "Создайте текстовый канал, чтобы начать переписку.",
   "createChannelCta": "Создать канал",
-  "serverSettings": "Настройки сервера"
+  "serverSettings": "Настройки сервера",
+  "createServerHint": "Своё пространство для голоса и чата",
+  "joinServer": "Присоединиться",
+  "joinServerHint": "Войти по коду приглашения"
 }

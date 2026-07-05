@@ -13,6 +13,7 @@ interface CreateServerModalProps {
     accentColor?: string,
   ) => Promise<void>;
   onJoinByCode?: (code: string) => Promise<void>;
+  focusJoin?: boolean;
 }
 const MAX_SERVER_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
@@ -22,6 +23,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   onClose,
   onCreate,
   onJoinByCode,
+  focusJoin,
 }) => {
   const { t } = useTranslation(["modals", "serverSettings", "common"]);
   const [name, setName] = useState("");
@@ -31,6 +33,13 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
+  const joinInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen && focusJoin) {
+      setTimeout(() => joinInputRef.current?.focus(), 0);
+    }
+  }, [isOpen, focusJoin]);
 
   const handleJoin = async () => {
     const code = joinCode.trim();
@@ -170,6 +179,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
               </div>
               <div className="join-code-row">
                 <input
+                  ref={joinInputRef}
                   type="text"
                   placeholder={t("joinByCodePlaceholder", {
                     ns: "serverSettings",

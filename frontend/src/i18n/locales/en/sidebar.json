@@ -29,5 +29,8 @@
   "noTextChannelsBody": "{{server}} doesn't have any text channels. Create one to start chatting.",
   "noTextChannelsBodyGeneric": "Create a text channel to start chatting.",
   "createChannelCta": "Create channel",
-  "serverSettings": "Server settings"
+  "serverSettings": "Server settings",
+  "createServerHint": "Your own space for voice and chat",
+  "joinServer": "Join a server",
+  "joinServerHint": "Enter with an invite code"
 }
