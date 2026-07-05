@@ -338,6 +338,8 @@ select:focus-visible {
 .sb-srv-chev { color: var(--fg-3); flex: 0 0 auto; transition: transform 160ms var(--ease-standard); }
 .sb-srv-chev.collapsed { transform: rotate(-90deg); }
 .sb-srv-channels { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px; padding-left: 8px; }
+.sb-srv-channels .sb-item { margin-left: 14px; }
+.sb-srv-channels .sb-voice-members { margin-left: 14px; }
 
 .sb-section-head {
   display: flex; align-items: center; justify-content: space-between;
