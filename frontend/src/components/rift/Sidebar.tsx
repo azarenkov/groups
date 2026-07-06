@@ -173,6 +173,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     return channels.filter((c) => match(c.name));
   };
 
+  const settleAfterPick = (target: "dms" | "servers") => {
+    if (!isFiltering) return;
+    setTab(target);
+    setQuery("");
+  };
+
+  const pickDm = (d: MockDirect) => {
+    onSelectDm(d);
+    settleAfterPick("dms");
+  };
+
+  const pickServer = (server: Server) => {
+    onToggleServer(server.id);
+    onSelectServer(server.id);
+    settleAfterPick("servers");
+  };
+
+  const pickChannel = (server: Server, channel: Channel) => {
+    onSelectChannel(server, channel);
+    settleAfterPick("servers");
+  };
+
   const renderDms = () => (
     <div className="sb-view">
       <div className="sb-vhead">
@@ -198,11 +220,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               (selectedDmId === d.id ? " active" : "") +
               (!d.online ? " off" : "")
             }
-            onClick={() => onSelectDm(d)}
+            onClick={() => pickDm(d)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                onSelectDm(d);
+                pickDm(d);
               }
             }}
           >
@@ -259,15 +281,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               role="button"
               tabIndex={0}
               className="sb-srv"
-              onClick={() => {
-                onToggleServer(server.id);
-                onSelectServer(server.id);
-              }}
+              onClick={() => pickServer(server)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onToggleServer(server.id);
-                  onSelectServer(server.id);
+                  pickServer(server);
                 }
               }}
             >
@@ -400,11 +418,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                           ? " unread"
                           : "")
                       }
-                      onClick={() => onSelectChannel(server, channel)}
+                      onClick={() => pickChannel(server, channel)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          onSelectChannel(server, channel);
+                          pickChannel(server, channel);
                         }
                       }}
                       onContextMenu={(e) => {
