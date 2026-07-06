@@ -35,6 +35,10 @@ const App: React.FC = () => {
     installWsBootstrap();
   }, []);
 
+  useEffect(() => {
+    if (window.electron) document.body.classList.add("electron");
+  }, []);
+
   const hasAccessToken = !!tokens?.accessToken;
   useEffect(() => {
     const ready = isAuthenticated && !hasUnverifiedSession && hasAccessToken;
