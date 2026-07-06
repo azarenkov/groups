@@ -39,6 +39,7 @@ import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
 import CallStage from "../components/rift/CallStage";
 import CallReturnBar from "../components/rift/CallReturnBar";
+import VoiceRoomSplash from "../components/rift/VoiceRoomSplash";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import ServerSettingsView from "../components/rift/ServerSettingsView";
@@ -1110,7 +1111,25 @@ const ServersPage: React.FC = () => {
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
-                    <div className="voice-preview-empty">{tVoice("noOneHere")}</div>
+                    <VoiceRoomSplash
+                      channelName={selectedVoiceChannelNotJoined.name}
+                      onConnect={() => {
+                        if (
+                          selectedVoiceChannelNotJoined.visibility === "private"
+                        ) {
+                          setPasswordPrompt({
+                            server: selectedServer,
+                            channel: selectedVoiceChannelNotJoined,
+                          });
+                          return;
+                        }
+                        finalizeJoin(
+                          selectedServer,
+                          selectedVoiceChannelNotJoined,
+                        );
+                      }}
+                      onInvite={() => setInviteModalServer(selectedServer)}
+                    />
                   ) : (
                     (() => {
                       const sizeClass =
@@ -1144,22 +1163,29 @@ const ServersPage: React.FC = () => {
                       );
                     })()
                   )}
-                  <button
-                    type="button"
-                    className="btn primary voice-preview-join"
-                    onClick={() => {
-                      if (selectedVoiceChannelNotJoined.visibility === "private") {
-                        setPasswordPrompt({
-                          server: selectedServer,
-                          channel: selectedVoiceChannelNotJoined,
-                        });
-                        return;
-                      }
-                      finalizeJoin(selectedServer, selectedVoiceChannelNotJoined);
-                    }}
-                  >
-                    {tVoice("connect")}
-                  </button>
+                  {previewParticipants.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn primary voice-preview-join"
+                      onClick={() => {
+                        if (
+                          selectedVoiceChannelNotJoined.visibility === "private"
+                        ) {
+                          setPasswordPrompt({
+                            server: selectedServer,
+                            channel: selectedVoiceChannelNotJoined,
+                          });
+                          return;
+                        }
+                        finalizeJoin(
+                          selectedServer,
+                          selectedVoiceChannelNotJoined,
+                        );
+                      }}
+                    >
+                      {tVoice("connect")}
+                    </button>
+                  )}
                 </div>
               </div>
             ) : !serverHasTextChannel ? (
