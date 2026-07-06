@@ -32,5 +32,8 @@
   "serverSettings": "Настройки сервера",
   "createServerHint": "Своё пространство для голоса и чата",
   "joinServer": "Присоединиться",
-  "joinServerHint": "Войти по коду приглашения"
+  "joinServerHint": "Войти по коду приглашения",
+  "previewCall": "Звонок",
+  "previewInvite": "Приглашение на сервер",
+  "previewYou": "Вы:"
 }

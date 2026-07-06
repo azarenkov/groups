@@ -111,6 +111,48 @@ async fn decline_server_invite(
     Ok(HttpResponse::NoContent().finish())
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DmPreviewItem {
+    peer_id: Uuid,
+    sender_id: Uuid,
+    content: String,
+    call_status: Option<String>,
+    invite_server_id: Option<Uuid>,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct ListDmPreviewsResponse {
+    previews: Vec<DmPreviewItem>,
+}
+
+#[get("/me/dms/previews")]
+async fn list_dm_previews(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let previews = app_state
+        .list_dm_previews_usecase
+        .execute(user_id)
+        .await?;
+    let response = ListDmPreviewsResponse {
+        previews: previews
+            .into_iter()
+            .map(|p| DmPreviewItem {
+                peer_id: p.peer_id,
+                sender_id: p.sender_id,
+                content: p.content,
+                call_status: p.call_status,
+                invite_server_id: p.invite_server_id,
+                created_at: p.created_at,
+            })
+            .collect(),
+    };
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
 #[get("/me/dms/{friend_id}/messages")]
 async fn list_dm_messages(
     req: HttpRequest,

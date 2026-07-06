@@ -12,8 +12,8 @@ use application::usecases::{
     },
     dm::{
         delete_dm_message::DeleteDmMessage, edit_dm_message::EditDmMessage,
-        list_dm_messages::ListDmMessages, search_dm_messages::SearchDmMessages,
-        send_dm_message::SendDmMessage,
+        list_dm_messages::ListDmMessages, list_dm_previews::ListDmPreviews,
+        search_dm_messages::SearchDmMessages, send_dm_message::SendDmMessage,
     },
     friendship::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
@@ -184,6 +184,7 @@ pub struct AppState {
         SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+    pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase:
         ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub search_dm_messages_usecase:
@@ -393,6 +394,7 @@ impl AppState {
         >,
         edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
         delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+        list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
         list_dm_messages_usecase: ListDmMessages<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
@@ -478,6 +480,7 @@ impl AppState {
             send_dm_message_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,
+            list_dm_previews_usecase,
             list_dm_messages_usecase,
             search_dm_messages_usecase,
             send_server_invite_usecase,

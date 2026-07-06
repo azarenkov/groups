@@ -21,6 +21,7 @@ use application::usecases::friendship::{
     accept_friend_request::AcceptFriendRequestError, list_friends::ListFriendsError,
     remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
 };
+use application::usecases::dm::list_dm_previews::ListDmPreviewsError;
 use application::usecases::dm::{
     delete_dm_message::DeleteDmMessageError, edit_dm_message::EditDmMessageError,
     list_dm_messages::ListDmMessagesError, search_dm_messages::SearchDmMessagesError,
@@ -2145,6 +2146,24 @@ impl ToHttpStatus for DeleteDmMessageError {
     }
 }
 
+impl ToHttpStatus for ListDmPreviewsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListDmPreviewsError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListDmPreviewsError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListDmPreviewsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for ListDmMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -2554,6 +2573,7 @@ impl_from_for_api_error!(
     GetDmReadReceiptError,
     GetChannelReadReceiptsError,
     SendDmMessageError,
+    ListDmPreviewsError,
     SendServerInviteError,
     AcceptServerInviteError,
     DeclineServerInviteError,

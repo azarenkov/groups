@@ -10,8 +10,8 @@ use application::usecases::{
     },
     dm::{
         delete_dm_message::DeleteDmMessage, edit_dm_message::EditDmMessage,
-        list_dm_messages::ListDmMessages, search_dm_messages::SearchDmMessages,
-        send_dm_message::SendDmMessage,
+        list_dm_messages::ListDmMessages, list_dm_previews::ListDmPreviews,
+        search_dm_messages::SearchDmMessages, send_dm_message::SendDmMessage,
     },
     friendship::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
@@ -318,6 +318,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let edit_dm_message_usecase = EditDmMessage::new(dm_repository.clone());
     let delete_dm_message_usecase = DeleteDmMessage::new(dm_repository.clone());
+    let list_dm_previews_usecase = ListDmPreviews::new(dm_repository.clone());
     let list_dm_messages_usecase = ListDmMessages::new(
         dm_repository.clone(),
         friendship_repository.clone(),
@@ -397,6 +398,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         send_dm_message_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,
+        list_dm_previews_usecase,
         list_dm_messages_usecase,
         search_dm_messages_usecase,
         send_server_invite_usecase,

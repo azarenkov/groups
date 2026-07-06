@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use crate::{
     dm_message::{DmMessage, id::DmMessageId, view::DmMessageView},
@@ -10,6 +12,16 @@ use crate::{
     },
     user::id::UserId,
 };
+
+#[derive(Debug, Clone)]
+pub struct DmConversationPreview {
+    pub peer_id: Uuid,
+    pub sender_id: Uuid,
+    pub content: String,
+    pub call_status: Option<String>,
+    pub invite_server_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+}
 
 #[async_trait]
 pub trait DmMessageRepository {
@@ -62,4 +74,9 @@ pub trait DmMessageRepository {
         sender_id: &UserId,
         server_id: &ServerId,
     ) -> Result<Vec<UserId>, RepositoryError>;
+
+    async fn list_conversation_previews(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<DmConversationPreview>, RepositoryError>;
 }

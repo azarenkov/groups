@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use domain::{
     dm_message::{
-        DmMessage, id::DmMessageId, repository::DmMessageRepository, view::DmMessageView,
+        DmMessage, id::DmMessageId,
+        repository::{DmConversationPreview, DmMessageRepository},
+        view::DmMessageView,
     },
     message::content::MessageContent,
     server::id::ServerId,
@@ -444,6 +446,51 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(rows
             .into_iter()
             .map(|r| UserId::new(r.recipient_id))
+            .collect())
+    }
+
+    async fn list_conversation_previews(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<DmConversationPreview>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT DISTINCT ON (m.peer)
+                m.peer AS "peer!",
+                m.sender_id AS "sender_id!",
+                m.content AS "content!",
+                m.call_status,
+                m.invite_server_id,
+                m.created_at AS "created_at!"
+            FROM (
+                SELECT
+                    CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer,
+                    sender_id,
+                    content,
+                    call_status,
+                    invite_server_id,
+                    created_at
+                FROM dm_messages
+                WHERE sender_id = $1 OR recipient_id = $1
+            ) m
+            ORDER BY m.peer, m.created_at DESC
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| DmConversationPreview {
+                peer_id: r.peer,
+                sender_id: r.sender_id,
+                content: r.content,
+                call_status: r.call_status,
+                invite_server_id: r.invite_server_id,
+                created_at: r.created_at,
+            })
             .collect())
     }
 }

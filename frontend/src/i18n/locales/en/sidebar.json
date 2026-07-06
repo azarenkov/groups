@@ -32,5 +32,8 @@
   "serverSettings": "Server settings",
   "createServerHint": "Your own space for voice and chat",
   "joinServer": "Join a server",
-  "joinServerHint": "Enter with an invite code"
+  "joinServerHint": "Enter with an invite code",
+  "previewCall": "Voice call",
+  "previewInvite": "Server invite",
+  "previewYou": "You:"
 }

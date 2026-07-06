@@ -97,6 +97,20 @@ class DmAPI {
     };
   }
 
+  async listPreviews(): Promise<{
+    previews: {
+      peerId: string;
+      senderId: string;
+      content: string;
+      callStatus: string | null;
+      inviteServerId: string | null;
+      createdAt: string;
+    }[];
+  }> {
+    const response = await this.client.get(`/v1/users/me/dms/previews`);
+    return response.data.data;
+  }
+
   async sendMessage(friendId: string, content: string): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/users/me/dms/${friendId}/messages`,

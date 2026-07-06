@@ -7,6 +7,7 @@ import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useCallStore } from "../store/callStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { useReadReceiptStore } from "../store/readReceiptStore";
+import { useDmPreviewStore } from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import type { Server } from "../types/server";
@@ -201,6 +202,14 @@ function dispatch(env: WsEnvelope) {
       const recipientId = asString(d.recipientId);
       const selfId = useAuthStore.getState().user?.id;
       if (!senderId || !recipientId || !selfId) return;
+      const peerId = senderId === selfId ? recipientId : senderId;
+      useDmPreviewStore.getState().push(peerId, {
+        senderId,
+        content: asString(d.content) ?? "",
+        callStatus: asString(d.callStatus) ?? null,
+        inviteServerId: asString(d.inviteServerId) ?? null,
+        createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
+      });
       if (recipientId !== selfId) return;
       if (activeDmView === senderId) {
         throttleMarkDmRead(senderId);
