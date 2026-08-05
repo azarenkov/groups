@@ -198,7 +198,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const pickServer = (server: Server) => {
-    onToggleServer(server.id);
+    if (!isFiltering || !expandedServerIds.has(server.id)) {
+      onToggleServer(server.id);
+    }
     onSelectServer(server.id);
     settleAfterPick("servers");
   };
