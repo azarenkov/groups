@@ -11,7 +11,10 @@ export interface DmPreview {
 
 interface DmPreviewState {
   byFriend: Record<string, DmPreview>;
-  setAll: (items: (DmPreview & { peerId: string })[]) => void;
+  setAll: (
+    items: (DmPreview & { peerId: string })[],
+    replace?: boolean,
+  ) => void;
   push: (friendId: string, preview: DmPreview) => void;
   editMessage: (messageId: string, newContent: string) => void;
   hasMessage: (messageId: string) => boolean;
@@ -21,9 +24,9 @@ interface DmPreviewState {
 export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
 
-  setAll: (items) =>
+  setAll: (items, replace = false) =>
     set((s) => {
-      const map: Record<string, DmPreview> = { ...s.byFriend };
+      const map: Record<string, DmPreview> = replace ? {} : { ...s.byFriend };
       for (const it of items) {
         const cur = map[it.peerId];
         if (
@@ -77,11 +80,11 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   clear: () => set({ byFriend: {} }),
 }));
 
-export function refetchDmPreviews(): void {
+export function refetchDmPreviews(replace = false): void {
   void import("../api/dm").then(({ dmAPI }) =>
     dmAPI
       .listPreviews()
-      .then((res) => useDmPreviewStore.getState().setAll(res.previews))
+      .then((res) => useDmPreviewStore.getState().setAll(res.previews, replace))
       .catch(() => {}),
   );
 }

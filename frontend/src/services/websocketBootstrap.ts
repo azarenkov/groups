@@ -235,7 +235,7 @@ function dispatch(env: WsEnvelope) {
     case "dm_message.deleted": {
       const id = asString(d.id);
       if (id && useDmPreviewStore.getState().hasMessage(id)) {
-        refetchDmPreviews();
+        refetchDmPreviews(true);
       }
       return;
     }
