@@ -205,6 +205,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const pickChannel = (server: Server, channel: Channel) => {
     onSelectChannel(server, channel);
+    if (isFiltering && !expandedServerIds.has(server.id)) {
+      onToggleServer(server.id);
+    }
     settleAfterPick("servers");
   };
 

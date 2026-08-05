@@ -76,8 +76,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
-  const setServers = useServerStore((s) => s.setServers);
-  const servers = useServerStore((s) => s.servers);
+  const patchServer = useServerStore((s) => s.patchServer);
 
   const [members, setMembers] = React.useState<{ id: string; name: string }[]>([]);
   const [invitedIds, setInvitedIds] = React.useState<Set<string>>(new Set());
@@ -206,13 +205,10 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
         name: trimmed,
         description: description.trim() || undefined,
       });
-      setServers(
-        servers.map((s) =>
-          s.id === server.id
-            ? { ...s, name: trimmed, description: description.trim() || null }
-            : s,
-        ),
-      );
+      patchServer(server.id, {
+        name: trimmed,
+        description: description.trim() || null,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 1600);
     } catch (err) {
