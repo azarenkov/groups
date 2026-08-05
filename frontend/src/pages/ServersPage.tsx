@@ -1332,7 +1332,14 @@ const ServersPage: React.FC = () => {
         onJoinByCode={async (code) => {
           const { serverId } = await serverAPI.redeemInviteCode(code);
           await fetchServers();
+          setExpandedServerIds((prev) => {
+            const next = new Set(prev);
+            next.add(serverId);
+            return next;
+          });
           setSelectedServer(serverId);
+          setSelectedChannel(null);
+          setSelectedDm(null);
         }}
       />
 

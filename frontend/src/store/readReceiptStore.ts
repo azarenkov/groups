@@ -35,12 +35,7 @@ export const useReadReceiptStore = create<ReadReceiptState>()((set) => ({
 
   seedDmPeerReadAt: (friendId, readAt) =>
     set((s) => {
-      if (readAt == null) {
-        if (!(friendId in s.dmPeerReadAt)) return s;
-        const next = { ...s.dmPeerReadAt };
-        delete next[friendId];
-        return { dmPeerReadAt: next };
-      }
+      if (readAt == null) return s;
       if (!newer(s.dmPeerReadAt[friendId], readAt)) return s;
       return { dmPeerReadAt: { ...s.dmPeerReadAt, [friendId]: readAt } };
     }),
