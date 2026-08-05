@@ -147,12 +147,16 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   React.useEffect(() => {
     if (!channelId) return;
-    userAPI
-      .getChannelReadStates(channelId)
-      .then((r) =>
-        useReadReceiptStore.getState().seedChannelReads(channelId, r.members),
-      )
-      .catch(() => {});
+    const seed = () =>
+      userAPI
+        .getChannelReadStates(channelId)
+        .then((r) =>
+          useReadReceiptStore.getState().seedChannelReads(channelId, r.members),
+        )
+        .catch(() => {});
+    void seed();
+    const interval = setInterval(seed, 60_000);
+    return () => clearInterval(interval);
   }, [channelId]);
 
   const reseedChannelReads = React.useCallback(() => {

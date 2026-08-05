@@ -22,9 +22,16 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
 
   setAll: (items) =>
-    set(() => {
-      const map: Record<string, DmPreview> = {};
+    set((s) => {
+      const map: Record<string, DmPreview> = { ...s.byFriend };
       for (const it of items) {
+        const cur = map[it.peerId];
+        if (
+          cur &&
+          new Date(cur.createdAt).getTime() > new Date(it.createdAt).getTime()
+        ) {
+          continue;
+        }
         map[it.peerId] = {
           messageId: it.messageId,
           senderId: it.senderId,
