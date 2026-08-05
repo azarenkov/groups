@@ -51,5 +51,6 @@
   "inviteFriendsTitle": "Invite friends",
   "joinByCode": "Have an invite code?",
   "joinByCodePlaceholder": "Invite code",
-  "join": "Join"
+  "join": "Join",
+  "generate": "Generate link"
 }

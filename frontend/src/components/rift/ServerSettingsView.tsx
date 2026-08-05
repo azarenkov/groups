@@ -104,16 +104,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
         if (cancelled) return;
         setInvites(res.invites);
         const mine = res.invites.find((i) => i.createdBy === currentUserId);
-        if (mine ?? res.invites[0]) {
-          setPrimaryCode((mine ?? res.invites[0]).code);
-        } else {
-          const created = await serverAPI.createInviteCode(server.id, {
-            expiresDays: 7,
-          });
-          if (cancelled) return;
-          setInvites([created]);
-          setPrimaryCode(created.code);
-        }
+        setPrimaryCode((mine ?? res.invites[0])?.code ?? null);
       } catch {
         return;
       }
@@ -396,23 +387,34 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 <div className="ssv-invite-row">
                   <div className="ssv-invite-code">
                     <span className="dim">rift.chat/</span>
-                    <span>{primaryCode ?? "…"}</span>
+                    <span>{primaryCode ?? "—"}</span>
                   </div>
-                  <button
-                    type="button"
-                    className={
-                      "ssv-btn primary" +
-                      (copied === primaryCode ? " saved" : "")
-                    }
-                    disabled={!primaryCode}
-                    onClick={() => primaryCode && copyCode(primaryCode)}
-                  >
-                    <Icon
-                      name={copied === primaryCode ? "check" : "link"}
-                      size={14}
-                    />
-                    {copied === primaryCode ? t("copied") : t("copy")}
-                  </button>
+                  {primaryCode ? (
+                    <button
+                      type="button"
+                      className={
+                        "ssv-btn primary" +
+                        (copied === primaryCode ? " saved" : "")
+                      }
+                      onClick={() => copyCode(primaryCode)}
+                    >
+                      <Icon
+                        name={copied === primaryCode ? "check" : "link"}
+                        size={14}
+                      />
+                      {copied === primaryCode ? t("copied") : t("copy")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ssv-btn primary"
+                      disabled={codeBusy}
+                      onClick={regenerateCode}
+                    >
+                      <Icon name="plus" size={14} />
+                      {t("generate")}
+                    </button>
+                  )}
                 </div>
                 <div className="ssv-invite-opts">
                   <label className="ssv-invite-opt">

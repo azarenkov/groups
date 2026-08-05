@@ -51,5 +51,6 @@
   "inviteFriendsTitle": "Пригласить друзей",
   "joinByCode": "Есть код приглашения?",
   "joinByCodePlaceholder": "Код приглашения",
-  "join": "Присоединиться"
+  "join": "Присоединиться",
+  "generate": "Создать ссылку"
 }
