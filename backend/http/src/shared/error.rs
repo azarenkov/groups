@@ -1108,6 +1108,7 @@ impl ToHttpStatus for RedeemInviteCodeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RedeemInviteCodeError::InvalidCode => StatusCode::NOT_FOUND,
+            RedeemInviteCodeError::ServerNotFound => StatusCode::NOT_FOUND,
             RedeemInviteCodeError::Repository(e) => e.to_http_status(),
         }
     }
@@ -1116,12 +1117,14 @@ impl ToHttpStatus for RedeemInviteCodeError {
             RedeemInviteCodeError::InvalidCode => {
                 "This invite code is invalid or has expired.".to_string()
             }
+            RedeemInviteCodeError::ServerNotFound => "Server not found".to_string(),
             RedeemInviteCodeError::Repository(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             RedeemInviteCodeError::InvalidCode => "INVITE_CODE_INVALID",
+            RedeemInviteCodeError::ServerNotFound => "SERVER_NOT_FOUND",
             RedeemInviteCodeError::Repository(e) => e.to_error_code(),
         }
     }

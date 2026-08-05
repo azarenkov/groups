@@ -456,6 +456,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let rows = sqlx::query!(
             r#"
             SELECT DISTINCT ON (m.peer)
+                m.id AS "message_id!",
                 m.peer AS "peer!",
                 m.sender_id AS "sender_id!",
                 m.content AS "content!",
@@ -464,6 +465,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 m.created_at AS "created_at!"
             FROM (
                 SELECT
+                    id,
                     CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer,
                     sender_id,
                     content,
@@ -484,6 +486,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(rows
             .into_iter()
             .map(|r| DmConversationPreview {
+                message_id: r.message_id,
                 peer_id: r.peer,
                 sender_id: r.sender_id,
                 content: r.content,

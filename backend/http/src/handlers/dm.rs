@@ -114,6 +114,7 @@ async fn decline_server_invite(
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DmPreviewItem {
+    message_id: Uuid,
     peer_id: Uuid,
     sender_id: Uuid,
     content: String,
@@ -141,6 +142,7 @@ async fn list_dm_previews(
         previews: previews
             .into_iter()
             .map(|p| DmPreviewItem {
+                message_id: p.message_id,
                 peer_id: p.peer_id,
                 sender_id: p.sender_id,
                 content: p.content,

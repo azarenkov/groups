@@ -99,6 +99,7 @@ class DmAPI {
 
   async listPreviews(): Promise<{
     previews: {
+      messageId: string;
       peerId: string;
       senderId: string;
       content: string;

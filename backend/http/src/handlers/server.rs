@@ -329,12 +329,6 @@ async fn revoke_invite_code(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[derive(Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RedeemInviteCodeResponse {
-    server_id: Uuid,
-}
-
 #[post("/invite-codes/{code}/redeem")]
 async fn redeem_invite_code(
     auth_token: RateLimitedAuthToken,
@@ -344,12 +338,12 @@ async fn redeem_invite_code(
     let code = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
-    let server_id = app_state
+    let server = app_state
         .redeem_invite_code_usecase
         .execute(code, user_id)
         .await?;
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(RedeemInviteCodeResponse { server_id })))
+    Ok(HttpResponse::Ok().json(ApiResponse::success(CreateServerResponse::from(server))))
 }
 
 #[patch("/{server_id}")]

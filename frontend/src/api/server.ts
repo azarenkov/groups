@@ -5,6 +5,7 @@ import {
   CreateServerRequest,
   CreateServerResponse,
   InviteCode,
+  Server,
 } from "../types/server";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
@@ -114,7 +115,7 @@ class ServerAPI {
     );
   }
 
-  async redeemInviteCode(code: string): Promise<{ serverId: string }> {
+  async redeemInviteCode(code: string): Promise<Server> {
     const response = await this.client.post(
       `/v1/servers/invite-codes/${encodeURIComponent(code)}/redeem`,
     );

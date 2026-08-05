@@ -7,7 +7,10 @@ import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useCallStore } from "../store/callStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { useReadReceiptStore } from "../store/readReceiptStore";
-import { useDmPreviewStore } from "../store/dmPreviewStore";
+import {
+  refetchDmPreviews,
+  useDmPreviewStore,
+} from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import type { Server } from "../types/server";
@@ -204,6 +207,7 @@ function dispatch(env: WsEnvelope) {
       if (!senderId || !recipientId || !selfId) return;
       const peerId = senderId === selfId ? recipientId : senderId;
       useDmPreviewStore.getState().push(peerId, {
+        messageId: asString(d.id) ?? "",
         senderId,
         content: asString(d.content) ?? "",
         callStatus: asString(d.callStatus) ?? null,
@@ -216,6 +220,23 @@ function dispatch(env: WsEnvelope) {
         return;
       }
       useUnreadStore.getState().bumpDm(senderId);
+      return;
+    }
+
+    case "dm_message.edited": {
+      const id = asString(d.id);
+      const newContent = asString(d.newContent);
+      if (id && newContent != null) {
+        useDmPreviewStore.getState().editMessage(id, newContent);
+      }
+      return;
+    }
+
+    case "dm_message.deleted": {
+      const id = asString(d.id);
+      if (id && useDmPreviewStore.getState().hasMessage(id)) {
+        refetchDmPreviews();
+      }
       return;
     }
 

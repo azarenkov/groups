@@ -149,6 +149,8 @@ impl<S: ServerRepository> RevokeInviteCode<S> {
 pub enum RedeemInviteCodeError {
     #[error("Invalid or expired invite code")]
     InvalidCode,
+    #[error("Server not found")]
+    ServerNotFound,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
 }
@@ -166,12 +168,17 @@ impl<S: ServerRepository> RedeemInviteCode<S> {
         &self,
         code: String,
         user_id: UserId,
-    ) -> Result<Uuid, RedeemInviteCodeError> {
+    ) -> Result<domain::server::Server, RedeemInviteCodeError> {
         let server_id = self
             .server_repository
             .redeem_invite_code(code.trim(), &user_id)
             .await?
             .ok_or(RedeemInviteCodeError::InvalidCode)?;
-        Ok(server_id.uuid())
+        let server = self
+            .server_repository
+            .find_server_by_id(&server_id)
+            .await?
+            .ok_or(RedeemInviteCodeError::ServerNotFound)?;
+        Ok(server)
     }
 }

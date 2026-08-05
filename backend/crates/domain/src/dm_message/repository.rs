@@ -15,6 +15,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct DmConversationPreview {
+    pub message_id: Uuid,
     pub peer_id: Uuid,
     pub sender_id: Uuid,
     pub content: String,
