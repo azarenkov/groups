@@ -90,6 +90,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [tab, setTab] = React.useState<"dms" | "servers">(
     selectedChannelId ? "servers" : "dms",
   );
+  const prevSelection = React.useRef({
+    dm: selectedDmId,
+    channel: selectedChannelId,
+  });
+  React.useEffect(() => {
+    const prev = prevSelection.current;
+    if (selectedDmId && selectedDmId !== prev.dm) {
+      setTab("dms");
+    } else if (selectedChannelId && selectedChannelId !== prev.channel) {
+      setTab("servers");
+    }
+    prevSelection.current = { dm: selectedDmId, channel: selectedChannelId };
+  }, [selectedDmId, selectedChannelId]);
   const [menuServerId, setMenuServerId] = React.useState<string | null>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
