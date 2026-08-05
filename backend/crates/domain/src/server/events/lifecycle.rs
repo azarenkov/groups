@@ -61,3 +61,32 @@ impl ServerDeleted {
         }
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct ServerUpdated {
+    pub id: EventId,
+    pub server_id: ServerId,
+    pub name: ServerName,
+    pub description: Option<ServerDescription>,
+    pub member_ids: Vec<UserId>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ServerUpdated {
+    pub fn record(
+        server_id: ServerId,
+        name: ServerName,
+        description: Option<ServerDescription>,
+        member_ids: Vec<UserId>,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            server_id,
+            name,
+            description,
+            member_ids,
+            occurred_at: now,
+        }
+    }
+}

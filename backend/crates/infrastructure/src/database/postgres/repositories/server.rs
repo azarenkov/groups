@@ -818,7 +818,14 @@ impl ServerRepository for PostgresServerRepository {
         server_id: &ServerId,
         name: &str,
         description: Option<&str>,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
         let updated = sqlx::query!(
             r#"
             UPDATE servers
@@ -829,10 +836,16 @@ impl ServerRepository for PostgresServerRepository {
             name,
             description,
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(updated.rows_affected() > 0)
+        if updated.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
     }
 }

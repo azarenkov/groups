@@ -400,6 +400,23 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".server.updated") {
+        let evt: ServerUpdatedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "server.updated",
+            json!({
+                "id": evt.server_id,
+                "name": evt.name,
+                "description": evt.description,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.member_ids), &envelope)
+            .await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".server.deleted") {
         let evt: ServerDeletedDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
@@ -781,6 +798,15 @@ struct ServerCreatedDto {
     owner_id: Uuid,
     name: Value,
     description: Option<Value>,
+    occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct ServerUpdatedDto {
+    server_id: Uuid,
+    name: Value,
+    description: Option<Value>,
+    member_ids: Vec<Uuid>,
     occurred_at: DateTime<Utc>,
 }
 

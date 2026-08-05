@@ -17,6 +17,10 @@ interface ServerState {
   setServers: (servers: Server[]) => void;
   setSelectedServer: (serverId: string | null) => void;
   addServer: (server: Server) => void;
+  patchServer: (
+    serverId: string,
+    patch: Partial<Pick<Server, "name" | "description">>,
+  ) => void;
   removeServer: (serverId: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -49,6 +53,13 @@ export const useServerStore = create<ServerState>((set, get) => ({
         ? state
         : { servers: [server, ...state.servers] },
     ),
+
+  patchServer: (serverId, patch) =>
+    set((state) => ({
+      servers: state.servers.map((s) =>
+        s.id === serverId ? { ...s, ...patch } : s,
+      ),
+    })),
 
   removeServer: (serverId) =>
     set((state) => ({

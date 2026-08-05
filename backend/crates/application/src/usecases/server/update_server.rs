@@ -1,7 +1,20 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use domain::{
-    server::repository::ServerRepository, shared::repository::error::RepositoryError,
+    server::{
+        description::ServerDescription,
+        events::{ServerEvent, lifecycle::ServerUpdated},
+        name::ServerName,
+        repository::ServerRepository,
+    },
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
 };
 
 use crate::dto::requests::server::update_server::UpdateServerRequest;
@@ -14,6 +27,8 @@ pub enum UpdateServerError {
     NotOwner,
     #[error("Server name already taken")]
     NameTaken,
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
     #[error("Repository error: {0}")]
     Repository(RepositoryError),
 }
@@ -48,7 +63,7 @@ where
             owner_id,
             name,
             description,
-            ..
+            ctx,
         } = request;
 
         let actual_owner = self
@@ -61,9 +76,24 @@ where
             return Err(UpdateServerError::NotOwner);
         }
 
+        let member_ids = self
+            .server_repository
+            .find_member_ids_by_server_id(&server_id)
+            .await?;
+
+        let event = ServerEvent::Updated(ServerUpdated::record(
+            server_id,
+            ServerName::new(name.clone()),
+            description.clone().map(ServerDescription::new),
+            member_ids,
+            Utc::now(),
+        ));
+        let records: Vec<OutboxRecord> =
+            vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
+
         let updated = self
             .server_repository
-            .update_server_details(&server_id, &name, description.as_deref())
+            .update_server_details(&server_id, &name, description.as_deref(), &records)
             .await?;
 
         if !updated {

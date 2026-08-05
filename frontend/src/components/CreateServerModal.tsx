@@ -108,7 +108,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   };
 
   const handleJoin = async () => {
-    const c = code.trim();
+    const c = code.trim().split(/[\s/]+/).filter(Boolean).pop() ?? "";
     if (!c || !onJoinByCode) return;
     setJoining(true);
     setError(null);

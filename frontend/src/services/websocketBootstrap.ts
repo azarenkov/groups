@@ -80,6 +80,17 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "server.updated": {
+      const id = asString(d.id);
+      if (!id) return;
+      const patch: { name?: string; description?: string | null } = {};
+      const name = asString(d.name);
+      if (name) patch.name = name;
+      patch.description = asString(d.description) ?? null;
+      useServerStore.getState().patchServer(id, patch);
+      return;
+    }
+
     case "server.deleted": {
       const id = asString(d.id);
       if (!id) return;

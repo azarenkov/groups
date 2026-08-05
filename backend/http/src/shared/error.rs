@@ -1014,6 +1014,7 @@ impl ToHttpStatus for UpdateServerError {
             UpdateServerError::ServerNotFound => StatusCode::NOT_FOUND,
             UpdateServerError::NotOwner => StatusCode::FORBIDDEN,
             UpdateServerError::NameTaken => StatusCode::CONFLICT,
+            UpdateServerError::Outbox(e) => e.to_http_status(),
             UpdateServerError::Repository(e) => e.to_http_status(),
         }
     }
@@ -1023,6 +1024,7 @@ impl ToHttpStatus for UpdateServerError {
             UpdateServerError::ServerNotFound => "Server not found".to_string(),
             UpdateServerError::NotOwner => "Only the server owner can edit it.".to_string(),
             UpdateServerError::NameTaken => "A server with this name already exists.".to_string(),
+            UpdateServerError::Outbox(e) => e.to_user_message(),
             UpdateServerError::Repository(e) => e.to_user_message(),
         }
     }
@@ -1032,6 +1034,7 @@ impl ToHttpStatus for UpdateServerError {
             UpdateServerError::ServerNotFound => "SERVER_NOT_FOUND",
             UpdateServerError::NotOwner => "SERVER_NOT_OWNER",
             UpdateServerError::NameTaken => "SERVER_NAME_TAKEN",
+            UpdateServerError::Outbox(e) => e.to_error_code(),
             UpdateServerError::Repository(e) => e.to_error_code(),
         }
     }

@@ -45,6 +45,7 @@ export type WsEventType =
   | "channel.stream.viewers"
   | "channel.text.joined"
   | "server.created"
+  | "server.updated"
   | "server.deleted"
   | "friendship.requestSent"
   | "friendship.requestAccepted"

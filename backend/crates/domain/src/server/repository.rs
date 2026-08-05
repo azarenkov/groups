@@ -75,6 +75,7 @@ pub trait ServerRepository {
         server_id: &ServerId,
         name: &str,
         description: Option<&str>,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
     async fn create_invite_code(
         &self,
