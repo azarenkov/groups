@@ -1,3 +1,4 @@
+pub mod attachment;
 pub mod call;
 pub mod channel;
 pub mod dm_message;

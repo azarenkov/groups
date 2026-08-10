@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE attachments\n                SET dm_message_id = $3\n                WHERE id = ANY($1) AND owner_id = $2\n                  AND message_id IS NULL AND dm_message_id IS NULL\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3480c97782b100c1c83e7ed8347a067b1bbcd0ed04325797ed662ef00225aed7"
+}

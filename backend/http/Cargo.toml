@@ -17,6 +17,8 @@ serde = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 actix-web = { workspace = true }
+actix-multipart = { workspace = true }
+futures = { workspace = true }
 actix-cors = { workspace = true }
 async-nats = { workspace = true }
 validator = { workspace = true }

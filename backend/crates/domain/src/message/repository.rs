@@ -16,6 +16,7 @@ pub trait MessageRepository {
         &self,
         message: &Message,
         events: &[OutboxRecord],
+        attachment_ids: &[uuid::Uuid],
     ) -> Result<(), RepositoryError>;
 
     async fn update_message_with_events(

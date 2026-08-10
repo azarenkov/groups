@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
     message::{
         Message, MessageError, content::MessageContent, repository::MessageRepository,
@@ -40,34 +41,41 @@ pub enum SendChannelMessageError {
     ChannelNotFound,
     #[error("Channel is not a text channel")]
     NotTextChannel,
+    #[error("Invalid attachments")]
+    InvalidAttachments,
 }
 
-pub struct SendChannelMessage<M, C, S>
+pub struct SendChannelMessage<M, C, S, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    A: AttachmentRepository,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
+    attachment_repository: Arc<A>,
 }
 
-impl<M, C, S> SendChannelMessage<M, C, S>
+impl<M, C, S, A> SendChannelMessage<M, C, S, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    A: AttachmentRepository,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
+        attachment_repository: Arc<A>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
+            attachment_repository,
         }
     }
 
@@ -112,7 +120,24 @@ where
             return Err(SendChannelMessageError::NotChannelMember);
         }
 
-        let content = MessageContent::new(request.content)?;
+        if request.attachment_ids.len() > 10 {
+            return Err(SendChannelMessageError::InvalidAttachments);
+        }
+        if !request.attachment_ids.is_empty() {
+            let owned = self
+                .attachment_repository
+                .count_unlinked_owned(&request.attachment_ids, &author_id)
+                .await?;
+            if owned as usize != request.attachment_ids.len() {
+                return Err(SendChannelMessageError::InvalidAttachments);
+            }
+        }
+
+        let content = if request.attachment_ids.is_empty() {
+            MessageContent::new(request.content)?
+        } else {
+            MessageContent::new_allow_empty(request.content)?
+        };
         let now = Utc::now();
         let mut message = Message::create(channel_id, author_id, content, now);
 
@@ -130,7 +155,7 @@ where
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
         self.message_repository
-            .save_message_with_events(&message, &records)
+            .save_message_with_events(&message, &records, &request.attachment_ids)
             .await?;
 
         Ok(SendChannelMessageResponse::from(&message))

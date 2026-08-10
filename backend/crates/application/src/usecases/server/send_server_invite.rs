@@ -124,7 +124,11 @@ where
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
-        match self.dm_repository.save_with_events(&message, &records).await {
+        match self
+            .dm_repository
+            .save_with_events(&message, &records, &[])
+            .await
+        {
             Ok(()) => {}
             Err(RepositoryError::AlreadyExists) => {
                 return Err(SendServerInviteError::InviteAlreadyPending);

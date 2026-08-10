@@ -6,14 +6,21 @@ use crate::dto::RequestContext;
 pub struct SendDmMessageRequest {
     pub recipient_id: Uuid,
     pub content: String,
+    pub attachment_ids: Vec<Uuid>,
     pub ctx: RequestContext,
 }
 
 impl SendDmMessageRequest {
-    pub fn new(recipient_id: Uuid, content: String, ctx: RequestContext) -> Self {
+    pub fn new(
+        recipient_id: Uuid,
+        content: String,
+        attachment_ids: Vec<Uuid>,
+        ctx: RequestContext,
+    ) -> Self {
         Self {
             recipient_id,
             content,
+            attachment_ids,
             ctx,
         }
     }

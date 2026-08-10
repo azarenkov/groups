@@ -45,7 +45,12 @@ async fn send_dm_message(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
 
-    let data = SendDmMessageRequest::new(friend_id, body.content, request_context(&req));
+    let data = SendDmMessageRequest::new(
+        friend_id,
+        body.content,
+        body.attachment_ids,
+        request_context(&req),
+    );
 
     let response = app_state
         .send_dm_message_usecase
@@ -179,8 +184,21 @@ async fn list_dm_messages(
         .execute(data, user_id)
         .await?;
 
-    let response =
-        ListDmMessagesResponse::new(messages.into_iter().map(DmMessageResponse::from).collect());
+    let mut items: Vec<DmMessageResponse> =
+        messages.into_iter().map(DmMessageResponse::from).collect();
+    let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_dm_messages(&ids)
+        .await?;
+    for a in attachments {
+        if let Some(mid) = a.dm_message_id
+            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
+        {
+            m.attachments.push(a.into());
+        }
+    }
+    let response = ListDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

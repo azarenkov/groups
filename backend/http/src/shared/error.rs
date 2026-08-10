@@ -21,6 +21,10 @@ use application::usecases::friendship::{
     accept_friend_request::AcceptFriendRequestError, list_friends::ListFriendsError,
     remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
 };
+use application::usecases::attachment::get_attachment::GetAttachmentError;
+use application::usecases::attachment::upload_attachment::UploadAttachmentError;
+use application::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
+use application::ports::file_storage::FileStorageError;
 use application::usecases::dm::list_dm_previews::ListDmPreviewsError;
 use application::usecases::dm::{
     delete_dm_message::DeleteDmMessageError, edit_dm_message::EditDmMessageError,
@@ -1586,6 +1590,7 @@ impl ToHttpStatus for SendChannelMessageError {
             | SendChannelMessageError::NotChannelMember => StatusCode::FORBIDDEN,
             SendChannelMessageError::ChannelNotFound => StatusCode::NOT_FOUND,
             SendChannelMessageError::NotTextChannel => StatusCode::BAD_REQUEST,
+            SendChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -1602,6 +1607,9 @@ impl ToHttpStatus for SendChannelMessageError {
                 "You are not a member of this channel".to_string()
             }
             SendChannelMessageError::ChannelNotFound => "Channel not found".to_string(),
+            SendChannelMessageError::InvalidAttachments => {
+                "One or more attachments are invalid.".to_string()
+            }
             SendChannelMessageError::NotTextChannel => {
                 "Channel does not support text".to_string()
             }
@@ -1617,6 +1625,7 @@ impl ToHttpStatus for SendChannelMessageError {
             SendChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
             SendChannelMessageError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             SendChannelMessageError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            SendChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             SendChannelMessageError::NotTextChannel => "CHANNEL_NOT_TEXT",
         }
     }
@@ -1913,6 +1922,7 @@ impl ToHttpStatus for SendDmMessageError {
             SendDmMessageError::Domain(e) => e.to_http_status(),
             SendDmMessageError::Outbox(e) => e.to_http_status(),
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
+            SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1920,6 +1930,9 @@ impl ToHttpStatus for SendDmMessageError {
             SendDmMessageError::Repository(e) => e.to_user_message(),
             SendDmMessageError::Domain(e) => e.to_user_message(),
             SendDmMessageError::Outbox(e) => e.to_user_message(),
+            SendDmMessageError::InvalidAttachments => {
+                "One or more attachments are invalid.".to_string()
+            }
             SendDmMessageError::NotFriends => {
                 "You can only DM users who are your friends".to_string()
             }
@@ -1930,6 +1943,7 @@ impl ToHttpStatus for SendDmMessageError {
             SendDmMessageError::Repository(e) => e.to_error_code(),
             SendDmMessageError::Domain(e) => e.to_error_code(),
             SendDmMessageError::Outbox(e) => e.to_error_code(),
+            SendDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
         }
     }
@@ -2148,6 +2162,108 @@ impl ToHttpStatus for DeleteDmMessageError {
             DeleteDmMessageError::Dm(e) => e.to_error_code(),
             DeleteDmMessageError::Outbox(e) => e.to_error_code(),
             DeleteDmMessageError::NotFound => "DM_NOT_FOUND",
+        }
+    }
+}
+
+impl ToHttpStatus for FileStorageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            FileStorageError::NotFound => StatusCode::NOT_FOUND,
+            FileStorageError::Internal(_) => StatusCode::BAD_GATEWAY,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            FileStorageError::NotFound => "File not found.".to_string(),
+            FileStorageError::Internal(_) => {
+                "File storage is temporarily unavailable.".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            FileStorageError::NotFound => "ATTACHMENT_NOT_FOUND",
+            FileStorageError::Internal(_) => "STORAGE_UNAVAILABLE",
+        }
+    }
+}
+
+impl ToHttpStatus for UploadAttachmentError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UploadAttachmentError::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
+            UploadAttachmentError::Empty => StatusCode::BAD_REQUEST,
+            UploadAttachmentError::TypeNotAllowed => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            UploadAttachmentError::Storage(e) => e.to_http_status(),
+            UploadAttachmentError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            UploadAttachmentError::TooLarge => "File is too large (max 15 MB).".to_string(),
+            UploadAttachmentError::Empty => "File is empty.".to_string(),
+            UploadAttachmentError::TypeNotAllowed => {
+                "This file type is not allowed.".to_string()
+            }
+            UploadAttachmentError::Storage(e) => e.to_user_message(),
+            UploadAttachmentError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UploadAttachmentError::TooLarge => "ATTACHMENT_TOO_LARGE",
+            UploadAttachmentError::Empty => "ATTACHMENT_EMPTY",
+            UploadAttachmentError::TypeNotAllowed => "ATTACHMENT_TYPE_NOT_ALLOWED",
+            UploadAttachmentError::Storage(e) => e.to_error_code(),
+            UploadAttachmentError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for GetAttachmentError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetAttachmentError::NotFound => StatusCode::NOT_FOUND,
+            GetAttachmentError::Forbidden => StatusCode::FORBIDDEN,
+            GetAttachmentError::Storage(e) => e.to_http_status(),
+            GetAttachmentError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetAttachmentError::NotFound => "Attachment not found.".to_string(),
+            GetAttachmentError::Forbidden => {
+                "You do not have access to this attachment.".to_string()
+            }
+            GetAttachmentError::Storage(e) => e.to_user_message(),
+            GetAttachmentError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetAttachmentError::NotFound => "ATTACHMENT_NOT_FOUND",
+            GetAttachmentError::Forbidden => "ATTACHMENT_FORBIDDEN",
+            GetAttachmentError::Storage(e) => e.to_error_code(),
+            GetAttachmentError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for ListMessageAttachmentsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListMessageAttachmentsError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListMessageAttachmentsError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListMessageAttachmentsError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -2474,6 +2590,24 @@ impl ApiError {
         }
     }
 
+    pub fn bad_request(message: String) -> Self {
+        Self {
+            message,
+            status: StatusCode::BAD_REQUEST,
+            code: "BAD_REQUEST",
+            fields: None,
+        }
+    }
+
+    pub fn payload_too_large() -> Self {
+        Self {
+            message: "File is too large.".to_string(),
+            status: StatusCode::PAYLOAD_TOO_LARGE,
+            code: "ATTACHMENT_TOO_LARGE",
+            fields: None,
+        }
+    }
+
     fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
         tracing::error!("API Error: {:?}", error);
         Self {
@@ -2580,6 +2714,9 @@ impl_from_for_api_error!(
     GetChannelReadReceiptsError,
     SendDmMessageError,
     ListDmPreviewsError,
+    UploadAttachmentError,
+    GetAttachmentError,
+    ListMessageAttachmentsError,
     SendServerInviteError,
     AcceptServerInviteError,
     DeclineServerInviteError,

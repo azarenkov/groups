@@ -4,8 +4,10 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct SendDmMessageBody {
-    #[validate(length(min = 1, max = 2000))]
+    #[validate(length(max = 2000))]
     pub content: String,
+    #[serde(default)]
+    pub attachment_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, Validate)]

@@ -65,6 +65,7 @@ impl MessageRepository for PostgresMessageRepository {
         &self,
         message: &Message,
         events: &[OutboxRecord],
+        attachment_ids: &[uuid::Uuid],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
@@ -87,6 +88,23 @@ impl MessageRepository for PostgresMessageRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        if !attachment_ids.is_empty() {
+            sqlx::query!(
+                r#"
+                UPDATE attachments
+                SET message_id = $3
+                WHERE id = ANY($1) AND owner_id = $2
+                  AND message_id IS NULL AND dm_message_id IS NULL
+                "#,
+                attachment_ids,
+                message.author_id().uuid(),
+                message.id().uuid(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
 
         save_outbox_records(&mut tx, events).await?;
 

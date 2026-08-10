@@ -1,4 +1,8 @@
 use application::usecases::{
+    attachment::{
+        get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
+        upload_attachment::UploadAttachment,
+    },
     auth::{
         confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
@@ -55,6 +59,7 @@ use application::usecases::{
 use infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::repositories::{
+        attachment::PostgresAttachmentRepository,
         channel::PostgresChannelRepository, dm_message::PostgresDmMessageRepository,
         call::PostgresCallRepository, friendship::PostgresFriendshipRepository,
         message::PostgresMessageRepository,
@@ -63,6 +68,7 @@ use infrastructure::{
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    storage::minio_storage::MinioStorage,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
 
@@ -106,6 +112,7 @@ pub struct AppState {
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
+        PostgresAttachmentRepository,
     >,
     pub edit_channel_message_usecase: EditChannelMessage<
         PostgresMessageRepository,
@@ -180,8 +187,16 @@ pub struct AppState {
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
 
-    pub send_dm_message_usecase:
-        SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub send_dm_message_usecase: SendDmMessage<
+        PostgresDmMessageRepository,
+        PostgresFriendshipRepository,
+        PostgresAttachmentRepository,
+    >,
+    pub upload_attachment_usecase:
+        UploadAttachment<PostgresAttachmentRepository, MinioStorage>,
+    pub get_attachment_usecase: GetAttachment<PostgresAttachmentRepository, MinioStorage>,
+    pub list_message_attachments_usecase:
+        ListMessageAttachments<PostgresAttachmentRepository>,
     pub edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
@@ -280,6 +295,7 @@ impl AppState {
             PostgresMessageRepository,
             PostgresChannelRepository,
             PostgresServerRepository,
+            PostgresAttachmentRepository,
         >,
         edit_channel_message_usecase: EditChannelMessage<
             PostgresMessageRepository,
@@ -391,6 +407,15 @@ impl AppState {
         send_dm_message_usecase: SendDmMessage<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
+            PostgresAttachmentRepository,
+        >,
+        upload_attachment_usecase: UploadAttachment<
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
+        get_attachment_usecase: GetAttachment<PostgresAttachmentRepository, MinioStorage>,
+        list_message_attachments_usecase: ListMessageAttachments<
+            PostgresAttachmentRepository,
         >,
         edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
         delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
@@ -478,6 +503,9 @@ impl AppState {
             nats_core,
             presence_preference_subject,
             send_dm_message_usecase,
+            upload_attachment_usecase,
+            get_attachment_usecase,
+            list_message_attachments_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,
             list_dm_previews_usecase,

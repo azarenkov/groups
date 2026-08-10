@@ -24,6 +24,8 @@ pub struct DmMessageResponse {
     pub call_duration_seconds: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<crate::shared::dto::responses::attachment::AttachmentResponse>,
 }
 
 impl From<SendDmMessageResponse> for DmMessageResponse {
@@ -40,6 +42,7 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
             call_duration_seconds: None,
             created_at: value.created_at,
             edited_at: None,
+            attachments: Vec::new(),
         }
     }
 }
@@ -58,6 +61,7 @@ impl From<DmMessageDto> for DmMessageResponse {
             call_duration_seconds: value.call_duration_seconds,
             created_at: value.created_at,
             edited_at: value.edited_at,
+            attachments: Vec::new(),
         }
     }
 }

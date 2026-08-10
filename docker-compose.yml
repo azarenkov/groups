@@ -90,6 +90,27 @@ services:
       retries: 5
       start_period: 15s
 
+  minio:
+    image: minio/minio:latest
+    container_name: rift-minio
+    restart: unless-stopped
+    command: server /data
+    env_file:
+      - path: env/minio.env
+        required: false
+    expose:
+      - "9000"
+    volumes:
+      - minio-data:/data
+    networks:
+      - rift-network
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || curl -sf http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   http:
     build:
       context: .
@@ -107,6 +128,8 @@ services:
         required: false
       - path: env/http.env
         required: false
+      - path: env/minio.env
+        required: false
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,6 +138,8 @@ services:
       livekit:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       test:
@@ -291,6 +316,7 @@ networks:
     name: rift-network
 
 volumes:
+  minio-data:
   postgres-data:
     name: rift-postgres-data
   pgadmin-data:

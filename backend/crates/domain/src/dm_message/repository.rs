@@ -30,6 +30,7 @@ pub trait DmMessageRepository {
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
+        attachment_ids: &[Uuid],
     ) -> Result<(), RepositoryError>;
 
     async fn update_with_events(

@@ -32,6 +32,7 @@ pub async fn dispatch(
         let invite = resolver.dm_invite_for(evt.message_id).await?;
         let call = resolver.dm_call_for(evt.message_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
+        let attachments = resolver.attachments_for_message(evt.message_id, true).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
             json!({
@@ -45,6 +46,7 @@ pub async fn dispatch(
                 "inviteServerName": invite.as_ref().map(|i| i.1.clone()),
                 "callStatus": call.as_ref().map(|c| c.0.clone()),
                 "callDurationSeconds": call.as_ref().and_then(|c| c.1),
+                "attachments": attachments,
             }),
         );
         publisher
@@ -128,6 +130,7 @@ pub async fn dispatch(
             resolver.text_channel_recipients(evt.channel_id).await?
         };
         let author_name = resolver.user_name(evt.author_id).await?;
+        let attachments = resolver.attachments_for_message(evt.message_id, false).await?;
         let envelope = Envelope::new(
             "message.sent",
             json!({
@@ -137,6 +140,7 @@ pub async fn dispatch(
                 "authorName": author_name,
                 "content": evt.content,
                 "occurredAt": evt.occurred_at,
+                "attachments": attachments,
             }),
         );
         publisher.publish_to_users(unique(recipients), &envelope).await?;

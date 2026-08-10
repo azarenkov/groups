@@ -19,6 +19,14 @@ impl MessageContent {
         Ok(Self(trimmed))
     }
 
+    pub fn new_allow_empty(value: String) -> Result<Self, MessageError> {
+        let trimmed = value.trim().to_string();
+        if trimmed.chars().count() > MAX_CONTENT_LENGTH {
+            return Err(MessageError::ContentTooLong);
+        }
+        Ok(Self(trimmed))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

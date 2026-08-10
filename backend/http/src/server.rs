@@ -3,6 +3,10 @@ use std::{error::Error, sync::Arc};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
+    attachment::{
+        get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
+        upload_attachment::UploadAttachment,
+    },
     auth::{
         confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
@@ -60,10 +64,14 @@ use application::usecases::{
 };
 use infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
-    config::{google::GoogleOAuthConfig, livekit::LiveKitConfig, postgres::PostgresConfig},
+    config::{
+        google::GoogleOAuthConfig, livekit::LiveKitConfig, minio::MinioConfig,
+        postgres::PostgresConfig,
+    },
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
+            attachment::PostgresAttachmentRepository,
             call::PostgresCallRepository, channel::PostgresChannelRepository,
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository,
@@ -75,6 +83,7 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    storage::minio_storage::MinioStorage,
     voice::{
         livekit_service::{LiveKitService, is_livekit_reachable},
         livekit_webhook_receiver::LiveKitWebhookReceiver,
@@ -97,6 +106,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_config = LiveKitConfig::from_env()?;
     let google_config = GoogleOAuthConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
+    let minio_config = MinioConfig::from_env()?;
     let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
@@ -115,6 +125,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let refresh_token_repository =
         Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
 
+    let attachment_repository = Arc::new(PostgresAttachmentRepository::new(postgres_pool.clone()));
+    let minio_storage = Arc::new(
+        MinioStorage::new(&minio_config)
+            .map_err(|e| Box::<dyn Error>::from(format!("minio init failed: {e}")))?,
+    );
+    if let Err(e) = minio_storage.ensure_bucket(&minio_config).await {
+        tracing::warn!(error = %e, "Failed to ensure MinIO bucket; uploads may fail until it exists");
+    }
+    let upload_attachment_usecase =
+        UploadAttachment::new(attachment_repository.clone(), minio_storage.clone());
+    let get_attachment_usecase =
+        GetAttachment::new(attachment_repository.clone(), minio_storage.clone());
+    let list_message_attachments_usecase =
+        ListMessageAttachments::new(attachment_repository.clone());
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
@@ -148,6 +172,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         message_repository.clone(),
         channel_repository.clone(),
         server_repository.clone(),
+        attachment_repository.clone(),
     );
     let edit_channel_message_usecase = EditChannelMessage::new(
         message_repository.clone(),
@@ -315,6 +340,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let send_dm_message_usecase = SendDmMessage::new(
         dm_repository.clone(),
         friendship_repository.clone(),
+        attachment_repository.clone(),
     );
     let edit_dm_message_usecase = EditDmMessage::new(dm_repository.clone());
     let delete_dm_message_usecase = DeleteDmMessage::new(dm_repository.clone());
@@ -396,6 +422,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase,
+        upload_attachment_usecase,
+        get_attachment_usecase,
+        list_message_attachments_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,
         list_dm_previews_usecase,

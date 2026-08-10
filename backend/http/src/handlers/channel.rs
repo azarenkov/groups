@@ -254,8 +254,21 @@ async fn list_channel_messages(
         .execute(data, user_id)
         .await?;
 
-    let response =
-        ListChannelMessagesResponse::new(messages.into_iter().map(MessageResponse::from).collect());
+    let mut items: Vec<MessageResponse> =
+        messages.into_iter().map(MessageResponse::from).collect();
+    let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_channel_messages(&ids)
+        .await?;
+    for a in attachments {
+        if let Some(mid) = a.message_id
+            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
+        {
+            m.attachments.push(a.into());
+        }
+    }
+    let response = ListChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -312,6 +325,7 @@ async fn send_channel_message(
         server_id,
         channel_id,
         body.content,
+        body.attachment_ids,
         request_context(&req),
     );
 
