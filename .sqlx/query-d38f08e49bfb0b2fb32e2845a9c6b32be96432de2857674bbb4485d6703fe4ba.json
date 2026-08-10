@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, storage_key\n            FROM attachments\n            WHERE message_id IS NULL AND dm_message_id IS NULL\n              AND created_at < now() - make_interval(hours => $1::int)\n            ORDER BY created_at ASC\n            LIMIT $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d38f08e49bfb0b2fb32e2845a9c6b32be96432de2857674bbb4485d6703fe4ba"
+}

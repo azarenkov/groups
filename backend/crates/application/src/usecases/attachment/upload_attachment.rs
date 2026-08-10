@@ -11,6 +11,8 @@ use uuid::Uuid;
 use crate::ports::file_storage::{FileStorage, FileStorageError};
 
 pub const MAX_ATTACHMENT_BYTES: usize = 15 * 1024 * 1024;
+pub const MAX_UNLINKED_COUNT: i64 = 50;
+pub const MAX_UNLINKED_BYTES: i64 = 200 * 1024 * 1024;
 
 const ALLOWED_PREFIXES: &[&str] = &["image/", "video/", "audio/", "text/"];
 const ALLOWED_TYPES: &[&str] = &[
@@ -43,6 +45,8 @@ pub enum UploadAttachmentError {
     Empty,
     #[error("File type is not allowed")]
     TypeNotAllowed,
+    #[error("Too many pending uploads")]
+    QuotaExceeded,
     #[error("Storage error: {0}")]
     Storage(#[from] FileStorageError),
     #[error("Repository error: {0}")]
@@ -77,6 +81,14 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         }
         if !content_type_allowed(&content_type) {
             return Err(UploadAttachmentError::TypeNotAllowed);
+        }
+
+        let (unlinked_count, unlinked_bytes) =
+            self.repository.unlinked_usage(&owner_id).await?;
+        if unlinked_count >= MAX_UNLINKED_COUNT
+            || unlinked_bytes + bytes.len() as i64 > MAX_UNLINKED_BYTES
+        {
+            return Err(UploadAttachmentError::QuotaExceeded);
         }
 
         let id = Uuid::new_v4();

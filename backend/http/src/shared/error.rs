@@ -2196,6 +2196,7 @@ impl ToHttpStatus for UploadAttachmentError {
             UploadAttachmentError::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             UploadAttachmentError::Empty => StatusCode::BAD_REQUEST,
             UploadAttachmentError::TypeNotAllowed => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            UploadAttachmentError::QuotaExceeded => StatusCode::TOO_MANY_REQUESTS,
             UploadAttachmentError::Storage(e) => e.to_http_status(),
             UploadAttachmentError::Repository(e) => e.to_http_status(),
         }
@@ -2207,6 +2208,9 @@ impl ToHttpStatus for UploadAttachmentError {
             UploadAttachmentError::TypeNotAllowed => {
                 "This file type is not allowed.".to_string()
             }
+            UploadAttachmentError::QuotaExceeded => {
+                "Too many pending uploads. Send or remove existing files first.".to_string()
+            }
             UploadAttachmentError::Storage(e) => e.to_user_message(),
             UploadAttachmentError::Repository(e) => e.to_user_message(),
         }
@@ -2216,6 +2220,7 @@ impl ToHttpStatus for UploadAttachmentError {
             UploadAttachmentError::TooLarge => "ATTACHMENT_TOO_LARGE",
             UploadAttachmentError::Empty => "ATTACHMENT_EMPTY",
             UploadAttachmentError::TypeNotAllowed => "ATTACHMENT_TYPE_NOT_ALLOWED",
+            UploadAttachmentError::QuotaExceeded => "ATTACHMENT_QUOTA_EXCEEDED",
             UploadAttachmentError::Storage(e) => e.to_error_code(),
             UploadAttachmentError::Repository(e) => e.to_error_code(),
         }

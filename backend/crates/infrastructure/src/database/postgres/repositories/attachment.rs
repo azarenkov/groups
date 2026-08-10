@@ -176,21 +176,19 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         rows.map_err(map_sqlx_error_to_domain_error)
     }
 
-    async fn take_orphans_older_than(
+    async fn list_orphans_older_than(
         &self,
         hours: i64,
         limit: i64,
-    ) -> Result<Vec<String>, RepositoryError> {
-        let rows = sqlx::query_scalar!(
+    ) -> Result<Vec<(Uuid, String)>, RepositoryError> {
+        let rows = sqlx::query!(
             r#"
-            DELETE FROM attachments
-            WHERE id IN (
-                SELECT id FROM attachments
-                WHERE message_id IS NULL AND dm_message_id IS NULL
-                  AND created_at < now() - make_interval(hours => $1::int)
-                LIMIT $2
-            )
-            RETURNING storage_key
+            SELECT id, storage_key
+            FROM attachments
+            WHERE message_id IS NULL AND dm_message_id IS NULL
+              AND created_at < now() - make_interval(hours => $1::int)
+            ORDER BY created_at ASC
+            LIMIT $2
             "#,
             hours as i32,
             limit,
@@ -198,7 +196,39 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows)
+        Ok(rows.into_iter().map(|r| (r.id, r.storage_key)).collect())
+    }
+
+    async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            DELETE FROM attachments
+            WHERE id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+            "#,
+            id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn unlinked_usage(
+        &self,
+        owner_id: &UserId,
+    ) -> Result<(i64, i64), RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) AS "count!", COALESCE(SUM(size_bytes), 0)::BIGINT AS "bytes!"
+            FROM attachments
+            WHERE owner_id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+            "#,
+            owner_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok((row.count, row.bytes))
     }
 
     async fn can_access(

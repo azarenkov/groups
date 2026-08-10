@@ -31,11 +31,18 @@ pub trait AttachmentRepository {
         dm: bool,
     ) -> Result<Vec<String>, RepositoryError>;
 
-    async fn take_orphans_older_than(
+    async fn list_orphans_older_than(
         &self,
         hours: i64,
         limit: i64,
-    ) -> Result<Vec<String>, RepositoryError>;
+    ) -> Result<Vec<(Uuid, String)>, RepositoryError>;
+
+    async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError>;
+
+    async fn unlinked_usage(
+        &self,
+        owner_id: &UserId,
+    ) -> Result<(i64, i64), RepositoryError>;
 
     async fn can_access(
         &self,
