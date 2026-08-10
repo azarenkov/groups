@@ -21,6 +21,7 @@ use application::usecases::friendship::{
     accept_friend_request::AcceptFriendRequestError, list_friends::ListFriendsError,
     remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
 };
+use application::usecases::attachment::delete_attachment::DeleteAttachmentError;
 use application::usecases::attachment::get_attachment::GetAttachmentError;
 use application::usecases::attachment::upload_attachment::UploadAttachmentError;
 use application::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
@@ -2250,6 +2251,27 @@ impl ToHttpStatus for GetAttachmentError {
     }
 }
 
+impl ToHttpStatus for DeleteAttachmentError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteAttachmentError::NotFound => StatusCode::NOT_FOUND,
+            DeleteAttachmentError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteAttachmentError::NotFound => "Attachment not found.".to_string(),
+            DeleteAttachmentError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteAttachmentError::NotFound => "ATTACHMENT_NOT_FOUND",
+            DeleteAttachmentError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for ListMessageAttachmentsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -2716,6 +2738,7 @@ impl_from_for_api_error!(
     ListDmPreviewsError,
     UploadAttachmentError,
     GetAttachmentError,
+    DeleteAttachmentError,
     ListMessageAttachmentsError,
     SendServerInviteError,
     AcceptServerInviteError,

@@ -132,6 +132,75 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             .collect())
     }
 
+    async fn delete_unlinked(
+        &self,
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<String>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            DELETE FROM attachments
+            WHERE id = $1 AND owner_id = $2
+              AND message_id IS NULL AND dm_message_id IS NULL
+            RETURNING storage_key
+            "#,
+            id,
+            owner_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| r.storage_key))
+    }
+
+    async fn storage_keys_for_message(
+        &self,
+        message_id: Uuid,
+        dm: bool,
+    ) -> Result<Vec<String>, RepositoryError> {
+        let rows = if dm {
+            sqlx::query_scalar!(
+                r#"SELECT storage_key FROM attachments WHERE dm_message_id = $1"#,
+                message_id,
+            )
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_scalar!(
+                r#"SELECT storage_key FROM attachments WHERE message_id = $1"#,
+                message_id,
+            )
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(map_sqlx_error_to_domain_error)
+    }
+
+    async fn take_orphans_older_than(
+        &self,
+        hours: i64,
+        limit: i64,
+    ) -> Result<Vec<String>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"
+            DELETE FROM attachments
+            WHERE id IN (
+                SELECT id FROM attachments
+                WHERE message_id IS NULL AND dm_message_id IS NULL
+                  AND created_at < now() - make_interval(hours => $1::int)
+                LIMIT $2
+            )
+            RETURNING storage_key
+            "#,
+            hours as i32,
+            limit,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows)
+    }
+
     async fn can_access(
         &self,
         attachment_id: Uuid,

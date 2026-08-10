@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
     shared::{
         outbox::{
@@ -13,7 +14,10 @@ use domain::{
     user::id::UserId,
 };
 
-use crate::dto::requests::dm::delete_dm_message::DeleteDmMessageRequest;
+use crate::{
+    dto::requests::dm::delete_dm_message::DeleteDmMessageRequest,
+    ports::file_storage::FileStorage,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteDmMessageError {
@@ -27,19 +31,33 @@ pub enum DeleteDmMessageError {
     NotFound,
 }
 
-pub struct DeleteDmMessage<M>
+pub struct DeleteDmMessage<M, A, S>
 where
     M: DmMessageRepository,
+    A: AttachmentRepository,
+    S: FileStorage,
 {
     dm_repository: Arc<M>,
+    attachment_repository: Arc<A>,
+    storage: Arc<S>,
 }
 
-impl<M> DeleteDmMessage<M>
+impl<M, A, S> DeleteDmMessage<M, A, S>
 where
     M: DmMessageRepository,
+    A: AttachmentRepository,
+    S: FileStorage,
 {
-    pub fn new(dm_repository: Arc<M>) -> Self {
-        Self { dm_repository }
+    pub fn new(
+        dm_repository: Arc<M>,
+        attachment_repository: Arc<A>,
+        storage: Arc<S>,
+    ) -> Self {
+        Self {
+            dm_repository,
+            attachment_repository,
+            storage,
+        }
     }
 
     pub async fn execute(
@@ -70,9 +88,19 @@ where
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        let storage_keys = self
+            .attachment_repository
+            .storage_keys_for_message(message_id.uuid(), true)
+            .await
+            .unwrap_or_default();
         self.dm_repository
             .delete_with_events(&message_id, &records)
             .await?;
+        for key in storage_keys {
+            if let Err(e) = self.storage.delete(&key).await {
+                tracing::warn!(error = %e, %key, "Failed to delete attachment object");
+            }
+        }
         Ok(())
     }
 }

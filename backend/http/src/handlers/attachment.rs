@@ -1,5 +1,5 @@
 use actix_multipart::Multipart;
-use actix_web::{HttpResponse, Responder, get, post, web};
+use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use application::usecases::attachment::upload_attachment::MAX_ATTACHMENT_BYTES;
 use domain::user::id::UserId;
 use futures::StreamExt;
@@ -86,10 +86,28 @@ async fn download_attachment(
         .body(bytes))
 }
 
+#[delete("/{attachment_id}")]
+async fn delete_attachment(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let attachment_id = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+
+    app_state
+        .delete_attachment_usecase
+        .execute(attachment_id, user_id)
+        .await?;
+
+    Ok(HttpResponse::NoContent().finish())
+}
+
 pub fn attachment_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/v1/attachments")
             .service(upload_attachment)
-            .service(download_attachment),
+            .service(download_attachment)
+            .service(delete_attachment),
     );
 }

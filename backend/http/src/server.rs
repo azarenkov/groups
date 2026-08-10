@@ -4,6 +4,7 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     attachment::{
+        cleanup_orphans::CleanupOrphanAttachments, delete_attachment::DeleteAttachment,
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
         upload_attachment::UploadAttachment,
     },
@@ -137,6 +138,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         UploadAttachment::new(attachment_repository.clone(), minio_storage.clone());
     let get_attachment_usecase =
         GetAttachment::new(attachment_repository.clone(), minio_storage.clone());
+    let delete_attachment_usecase =
+        DeleteAttachment::new(attachment_repository.clone(), minio_storage.clone());
+    let orphan_cleanup = Arc::new(CleanupOrphanAttachments::new(
+        attachment_repository.clone(),
+        minio_storage.clone(),
+    ));
+    {
+        let orphan_cleanup = orphan_cleanup.clone();
+        actix_web::rt::spawn(async move {
+            let mut interval =
+                actix_web::rt::time::interval(std::time::Duration::from_secs(3600));
+            loop {
+                interval.tick().await;
+                orphan_cleanup.run_once().await;
+            }
+        });
+    }
     let list_message_attachments_usecase =
         ListMessageAttachments::new(attachment_repository.clone());
     let hasher = Arc::new(BcryptHasher::default());
@@ -183,6 +201,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         message_repository.clone(),
         channel_repository.clone(),
         server_repository.clone(),
+        attachment_repository.clone(),
+        minio_storage.clone(),
     );
     let list_channel_messages_usecase = ListChannelMessages::new(
         message_repository.clone(),
@@ -343,7 +363,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         attachment_repository.clone(),
     );
     let edit_dm_message_usecase = EditDmMessage::new(dm_repository.clone());
-    let delete_dm_message_usecase = DeleteDmMessage::new(dm_repository.clone());
+    let delete_dm_message_usecase = DeleteDmMessage::new(
+        dm_repository.clone(),
+        attachment_repository.clone(),
+        minio_storage.clone(),
+    );
     let list_dm_previews_usecase = ListDmPreviews::new(dm_repository.clone());
     let list_dm_messages_usecase = ListDmMessages::new(
         dm_repository.clone(),
@@ -424,6 +448,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         send_dm_message_usecase,
         upload_attachment_usecase,
         get_attachment_usecase,
+        delete_attachment_usecase,
         list_message_attachments_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,

@@ -68,6 +68,10 @@ class AttachmentAPI {
     return response.data.data;
   }
 
+  async delete(attachmentId: string): Promise<void> {
+    await this.client.delete(`/v1/attachments/${attachmentId}`);
+  }
+
   async download(attachmentId: string): Promise<Blob> {
     const response = await this.client.get(`/v1/attachments/${attachmentId}`, {
       responseType: "blob",

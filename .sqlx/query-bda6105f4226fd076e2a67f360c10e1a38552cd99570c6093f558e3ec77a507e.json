@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM attachments\n            WHERE id = $1 AND owner_id = $2\n              AND message_id IS NULL AND dm_message_id IS NULL\n            RETURNING storage_key\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bda6105f4226fd076e2a67f360c10e1a38552cd99570c6093f558e3ec77a507e"
+}

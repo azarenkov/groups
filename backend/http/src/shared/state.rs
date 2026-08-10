@@ -1,6 +1,7 @@
 use application::usecases::{
     attachment::{
-        get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
+        delete_attachment::DeleteAttachment, get_attachment::GetAttachment,
+        list_message_attachments::ListMessageAttachments,
         upload_attachment::UploadAttachment,
     },
     auth::{
@@ -123,6 +124,8 @@ pub struct AppState {
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
+        PostgresAttachmentRepository,
+        MinioStorage,
     >,
     pub list_channel_messages_usecase: ListChannelMessages<
         PostgresMessageRepository,
@@ -195,10 +198,16 @@ pub struct AppState {
     pub upload_attachment_usecase:
         UploadAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub get_attachment_usecase: GetAttachment<PostgresAttachmentRepository, MinioStorage>,
+    pub delete_attachment_usecase:
+        DeleteAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresAttachmentRepository>,
     pub edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
-    pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+    pub delete_dm_message_usecase: DeleteDmMessage<
+        PostgresDmMessageRepository,
+        PostgresAttachmentRepository,
+        MinioStorage,
+    >,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase:
         ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
@@ -306,6 +315,8 @@ impl AppState {
             PostgresMessageRepository,
             PostgresChannelRepository,
             PostgresServerRepository,
+            PostgresAttachmentRepository,
+            MinioStorage,
         >,
         list_channel_messages_usecase: ListChannelMessages<
             PostgresMessageRepository,
@@ -414,11 +425,19 @@ impl AppState {
             MinioStorage,
         >,
         get_attachment_usecase: GetAttachment<PostgresAttachmentRepository, MinioStorage>,
+        delete_attachment_usecase: DeleteAttachment<
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
         list_message_attachments_usecase: ListMessageAttachments<
             PostgresAttachmentRepository,
         >,
         edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
-        delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+        delete_dm_message_usecase: DeleteDmMessage<
+            PostgresDmMessageRepository,
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
         list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
         list_dm_messages_usecase: ListDmMessages<
             PostgresDmMessageRepository,
@@ -505,6 +524,7 @@ impl AppState {
             send_dm_message_usecase,
             upload_attachment_usecase,
             get_attachment_usecase,
+            delete_attachment_usecase,
             list_message_attachments_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,

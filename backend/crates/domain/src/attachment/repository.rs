@@ -19,6 +19,24 @@ pub trait AttachmentRepository {
         dm_message_ids: &[Uuid],
     ) -> Result<Vec<Attachment>, RepositoryError>;
 
+    async fn delete_unlinked(
+        &self,
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<String>, RepositoryError>;
+
+    async fn storage_keys_for_message(
+        &self,
+        message_id: Uuid,
+        dm: bool,
+    ) -> Result<Vec<String>, RepositoryError>;
+
+    async fn take_orphans_older_than(
+        &self,
+        hours: i64,
+        limit: i64,
+    ) -> Result<Vec<String>, RepositoryError>;
+
     async fn can_access(
         &self,
         attachment_id: Uuid,

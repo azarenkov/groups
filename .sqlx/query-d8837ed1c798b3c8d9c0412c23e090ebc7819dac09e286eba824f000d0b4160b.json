@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM attachments\n            WHERE id IN (\n                SELECT id FROM attachments\n                WHERE message_id IS NULL AND dm_message_id IS NULL\n                  AND created_at < now() - make_interval(hours => $1::int)\n                LIMIT $2\n            )\n            RETURNING storage_key\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d8837ed1c798b3c8d9c0412c23e090ebc7819dac09e286eba824f000d0b4160b"
+}

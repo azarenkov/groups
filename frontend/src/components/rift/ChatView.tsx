@@ -192,7 +192,13 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, []);
 
   const removePendingFile = (localId: string) =>
-    setPendingFiles((prev) => prev.filter((p) => p.localId !== localId));
+    setPendingFiles((prev) => {
+      const target = prev.find((p) => p.localId === localId);
+      if (target?.attachment) {
+        void attachmentAPI.delete(target.attachment.id).catch(() => {});
+      }
+      return prev.filter((p) => p.localId !== localId);
+    });
 
   const dmFriendId = dm?.friendId;
   const channelId = channel?.id;
