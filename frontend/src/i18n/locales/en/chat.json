@@ -3,6 +3,8 @@
   "messagePlaceholderDm": "Message @{{user}}",
   "send": "Send",
   "edited": "edited",
+  "delivered": "Delivered",
+  "seen": "Seen",
   "delete": "Delete",
   "deletedMessage": "Message deleted",
   "today": "Today",
@@ -49,5 +51,14 @@
     "mentionsHint": "Only when someone @mentions you",
     "nothing": "Nothing",
     "nothingHint": "Channel is muted"
+  },
+  "invite": {
+    "label": "Server invite",
+    "serverFallback": "Server",
+    "youSent": "You sent a server invite",
+    "invitedYou": "{{name}} invited you to join",
+    "open": "Open",
+    "join": "Join",
+    "decline": "Decline"
   }
 }

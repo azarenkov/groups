@@ -12,16 +12,17 @@ use application::usecases::{
     },
     dm::{
         delete_dm_message::DeleteDmMessage, edit_dm_message::EditDmMessage,
-        list_dm_messages::ListDmMessages, search_dm_messages::SearchDmMessages,
-        send_dm_message::SendDmMessage,
+        list_dm_messages::ListDmMessages, list_dm_previews::ListDmPreviews,
+        search_dm_messages::SearchDmMessages, send_dm_message::SendDmMessage,
     },
     friendship::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
     read_state::{
-        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
-        mark_dm_read::MarkDmRead,
+        get_channel_read_receipts::GetChannelReadReceipts,
+        get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
+        mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     user::{
         get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
@@ -40,6 +41,10 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+        invite_codes::{
+            CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode,
+        },
+        update_server::UpdateServer,
         get_voice_presence::GetVoicePresence, leave_server::LeaveServer,
         list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
@@ -168,6 +173,10 @@ pub struct AppState {
     pub mark_dm_read_usecase:
         MarkDmRead<PostgresReadStateRepository, PostgresFriendshipRepository>,
     pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+    pub get_dm_read_receipt_usecase:
+        GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
+    pub get_channel_read_receipts_usecase:
+        GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
 
@@ -175,6 +184,7 @@ pub struct AppState {
         SendDmMessage<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+    pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase:
         ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub search_dm_messages_usecase:
@@ -192,6 +202,11 @@ pub struct AppState {
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+    pub update_server_usecase: UpdateServer<PostgresServerRepository>,
+    pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
+    pub list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
+    pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,
+    pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
     pub leave_server_usecase:
         LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
@@ -323,6 +338,11 @@ impl AppState {
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
         delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+        update_server_usecase: UpdateServer<PostgresServerRepository>,
+        create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
+        list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
+        revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,
+        redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
         leave_server_usecase: LeaveServer<
             PostgresServerRepository,
             PostgresChannelRepository,
@@ -358,6 +378,14 @@ impl AppState {
             PostgresFriendshipRepository,
         >,
         get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
+        get_dm_read_receipt_usecase: GetDmReadReceipt<
+            PostgresReadStateRepository,
+            PostgresFriendshipRepository,
+        >,
+        get_channel_read_receipts_usecase: GetChannelReadReceipts<
+            PostgresReadStateRepository,
+            PostgresChannelRepository,
+        >,
         nats_core: async_nats::Client,
         presence_preference_subject: String,
         send_dm_message_usecase: SendDmMessage<
@@ -366,6 +394,7 @@ impl AppState {
         >,
         edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository>,
         delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+        list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
         list_dm_messages_usecase: ListDmMessages<
             PostgresDmMessageRepository,
             PostgresFriendshipRepository,
@@ -423,6 +452,11 @@ impl AppState {
             handle_livekit_webhook_usecase,
             create_server_usecase,
             delete_server_usecase,
+            update_server_usecase,
+            create_invite_code_usecase,
+            list_invite_codes_usecase,
+            revoke_invite_code_usecase,
+            redeem_invite_code_usecase,
             leave_server_usecase,
             list_servers_by_user_usecase,
             list_server_members_usecase,
@@ -439,11 +473,14 @@ impl AppState {
             mark_channel_read_usecase,
             mark_dm_read_usecase,
             get_unread_counts_usecase,
+            get_dm_read_receipt_usecase,
+            get_channel_read_receipts_usecase,
             nats_core,
             presence_preference_subject,
             send_dm_message_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,
+            list_dm_previews_usecase,
             list_dm_messages_usecase,
             search_dm_messages_usecase,
             send_server_invite_usecase,

@@ -10,16 +10,17 @@ use application::usecases::{
     },
     dm::{
         delete_dm_message::DeleteDmMessage, edit_dm_message::EditDmMessage,
-        list_dm_messages::ListDmMessages, search_dm_messages::SearchDmMessages,
-        send_dm_message::SendDmMessage,
+        list_dm_messages::ListDmMessages, list_dm_previews::ListDmPreviews,
+        search_dm_messages::SearchDmMessages, send_dm_message::SendDmMessage,
     },
     friendship::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
     read_state::{
-        get_unread_counts::GetUnreadCounts, mark_channel_read::MarkChannelRead,
-        mark_dm_read::MarkDmRead,
+        get_channel_read_receipts::GetChannelReadReceipts,
+        get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
+        mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     user::{
         get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
@@ -46,6 +47,10 @@ use application::usecases::{
     server::{
         accept_server_invite::AcceptServerInvite, create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+        invite_codes::{
+            CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode,
+        },
+        update_server::UpdateServer,
         leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
         get_voice_presence::GetVoicePresence, list_server_channels::ListServerChannels,
         list_server_members::ListServerMembers,
@@ -220,6 +225,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
 
     let create_server_usecase = CreateServer::new(server_repository.clone());
+    let update_server_usecase = UpdateServer::new(server_repository.clone());
+    let create_invite_code_usecase = CreateInviteCode::new(server_repository.clone());
+    let list_invite_codes_usecase = ListInviteCodes::new(server_repository.clone());
+    let revoke_invite_code_usecase = RevokeInviteCode::new(server_repository.clone());
+    let redeem_invite_code_usecase = RedeemInviteCode::new(server_repository.clone());
     let delete_server_usecase = DeleteServer::new(
         server_repository.clone(),
         channel_repository.clone(),
@@ -284,6 +294,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let mark_dm_read_usecase =
         MarkDmRead::new(read_state_repository.clone(), friendship_repository.clone());
     let get_unread_counts_usecase = GetUnreadCounts::new(read_state_repository.clone());
+    let get_dm_read_receipt_usecase = GetDmReadReceipt::new(
+        read_state_repository.clone(),
+        friendship_repository.clone(),
+    );
+    let get_channel_read_receipts_usecase = GetChannelReadReceipts::new(
+        read_state_repository.clone(),
+        channel_repository.clone(),
+    );
 
     let nats_core = nats_jetstream.client().clone();
     let presence_preference_subject = format!(
@@ -300,6 +318,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let edit_dm_message_usecase = EditDmMessage::new(dm_repository.clone());
     let delete_dm_message_usecase = DeleteDmMessage::new(dm_repository.clone());
+    let list_dm_previews_usecase = ListDmPreviews::new(dm_repository.clone());
     let list_dm_messages_usecase = ListDmMessages::new(
         dm_repository.clone(),
         friendship_repository.clone(),
@@ -351,6 +370,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         handle_livekit_webhook_usecase,
         create_server_usecase,
         delete_server_usecase,
+        update_server_usecase,
+        create_invite_code_usecase,
+        list_invite_codes_usecase,
+        revoke_invite_code_usecase,
+        redeem_invite_code_usecase,
         leave_server_usecase,
         list_servers_by_user_usecase,
         list_server_members_usecase,
@@ -367,11 +391,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mark_channel_read_usecase,
         mark_dm_read_usecase,
         get_unread_counts_usecase,
+        get_dm_read_receipt_usecase,
+        get_channel_read_receipts_usecase,
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,
+        list_dm_previews_usecase,
         list_dm_messages_usecase,
         search_dm_messages_usecase,
         send_server_invite_usecase,

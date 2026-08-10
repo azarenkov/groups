@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
+use chrono::{DateTime, Utc};
 use domain::{channel::id::ChannelId, user::id::UserId};
 use serde::Serialize;
 use shared::middleware::auth::RateLimitedAuthToken;
@@ -88,8 +89,67 @@ async fn get_unread(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DmReadReceiptResponse {
+    read_at: Option<DateTime<Utc>>,
+}
+
+#[get("/dms/{friend_id}/read-state")]
+async fn get_dm_read_receipt(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let friend_id = UserId::new(path.into_inner());
+    let read_at = app_state
+        .get_dm_read_receipt_usecase
+        .execute(user_id, friend_id)
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(DmReadReceiptResponse { read_at })))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MemberReadItem {
+    user_id: Uuid,
+    read_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+struct ChannelReadReceiptsResponse {
+    members: Vec<MemberReadItem>,
+}
+
+#[get("/channels/{channel_id}/read-states")]
+async fn get_channel_read_receipts(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let channel_id = ChannelId::new(path.into_inner());
+    let reads = app_state
+        .get_channel_read_receipts_usecase
+        .execute(user_id, channel_id)
+        .await?;
+    let response = ChannelReadReceiptsResponse {
+        members: reads
+            .into_iter()
+            .map(|m| MemberReadItem {
+                user_id: m.user_id,
+                read_at: m.read_at,
+            })
+            .collect(),
+    };
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
 pub fn read_state_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(mark_channel_read);
     cfg.service(mark_dm_read);
     cfg.service(get_unread);
+    cfg.service(get_dm_read_receipt);
+    cfg.service(get_channel_read_receipts);
 }

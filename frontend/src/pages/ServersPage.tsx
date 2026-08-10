@@ -25,6 +25,7 @@ import { ws } from "../services/websocket";
 import { setActiveChatView } from "../services/websocketBootstrap";
 import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
+import { useDmPreviewStore } from "../store/dmPreviewStore";
 import { useCallStore } from "../store/callStore";
 import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
@@ -39,8 +40,10 @@ import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
 import CallStage from "../components/rift/CallStage";
 import CallReturnBar from "../components/rift/CallReturnBar";
+import VoiceRoomSplash from "../components/rift/VoiceRoomSplash";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
+import ServerSettingsView from "../components/rift/ServerSettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
@@ -122,12 +125,39 @@ const ServersPage: React.FC = () => {
   }, []);
 
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [serverModalView, setServerModalView] = useState<
+    "choose" | "create" | "join"
+  >("choose");
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!createMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        createMenuRef.current &&
+        !createMenuRef.current.contains(e.target as Node)
+      ) {
+        setCreateMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCreateMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [createMenuOpen]);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
+  const [serverSettings, setServerSettings] = useState<Server | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -167,19 +197,36 @@ const ServersPage: React.FC = () => {
   const [sidebarQuery, setSidebarQuery] = useState("");
 
   const onlineUsers = usePresenceStore((s) => s.online);
+  const dmPreviews = useDmPreviewStore((s) => s.byFriend);
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
       friends
         .filter((f) => f.status === "accepted")
-        .map((f) => ({
-          id: f.friendId,
-          name: f.friendName,
-          initials: initialFor(f.friendName),
-          color: colorForId(f.friendId),
-          online: !!onlineUsers[f.friendId],
-          unread: 0,
-        })),
-    [friends, onlineUsers],
+        .map((f) => {
+          const p = dmPreviews[f.friendId];
+          let lastMessage: string | undefined;
+          if (p) {
+            const body = p.callStatus
+              ? tSidebar("previewCall")
+              : p.inviteServerId
+                ? tSidebar("previewInvite")
+                : p.content;
+            lastMessage =
+              p.senderId === user?.id
+                ? `${tSidebar("previewYou")} ${body}`
+                : body;
+          }
+          return {
+            id: f.friendId,
+            name: f.friendName,
+            initials: initialFor(f.friendName),
+            color: colorForId(f.friendId),
+            online: !!onlineUsers[f.friendId],
+            unread: 0,
+            lastMessage,
+          };
+        }),
+    [friends, onlineUsers, dmPreviews, user?.id, tSidebar],
   );
 
   const pendingCount = React.useMemo(
@@ -767,15 +814,34 @@ const ServersPage: React.FC = () => {
     return out;
   }, [voicePresenceByChannel]);
 
-  const winTitle = selectedDm
-    ? selectedDm.name
+  const tbIdentity = selectedDm
+    ? {
+        icon: "user" as const,
+        title: selectedDm.name,
+        sub: selectedDm.online
+          ? tSidebar("statusOnline")
+          : tSidebar("statusOffline"),
+      }
     : joinedChannel
-      ? `${servers.find((s) => s.id === joinedChannel.serverId)?.name ?? ""} — ${joinedChannel.channel.name}`
-      : selectedServer
-        ? activeTextChannel
-          ? `${selectedServer.name} — ${activeTextChannel.name}`
-          : selectedServer.name
-        : "Rift";
+      ? {
+          icon: "volume" as const,
+          title: joinedChannel.channel.name,
+          sub:
+            servers.find((s) => s.id === joinedChannel.serverId)?.name ?? "",
+        }
+      : selectedServer && activeTextChannel
+        ? {
+            icon: "hash" as const,
+            title: activeTextChannel.name,
+            sub: activeTextChannel.topic ?? selectedServer.name,
+          }
+        : selectedServer
+          ? {
+              icon: "grid" as const,
+              title: selectedServer.name,
+              sub: selectedServer.description ?? "",
+            }
+          : null;
 
   return (
     <div className="win">
@@ -785,24 +851,88 @@ const ServersPage: React.FC = () => {
           <i />
           <i />
         </div>
-        <div className="win-title">{winTitle}</div>
+        {tbIdentity && (
+          <div className="tb-identity">
+            <Icon name={tbIdentity.icon} size={18} />
+            <span className="tb-identity-title">{tbIdentity.title}</span>
+            {tbIdentity.sub && (
+              <>
+                <span className="tb-identity-sep" />
+                <span className="tb-identity-sub">{tbIdentity.sub}</span>
+              </>
+            )}
+          </div>
+        )}
         <div className="titlebar-right">
+          <div className="tb-create-wrap" ref={createMenuRef}>
+            <button
+              type="button"
+              className="tb-create-btn"
+              onClick={() => setCreateMenuOpen((v) => !v)}
+            >
+              <Icon name="plus" size={14} />
+              <span>{tSidebar("createServer")}</span>
+              <Icon
+                name="chev"
+                size={13}
+                className={"tb-create-chev" + (createMenuOpen ? " up" : "")}
+              />
+            </button>
+            {createMenuOpen && (
+              <div className="tb-create-menu">
+                <button
+                  type="button"
+                  className="tb-create-mi"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    setServerModalView("create");
+                    setIsServerModalOpen(true);
+                  }}
+                >
+                  <span className="tb-create-mi-icon accent">
+                    <Icon name="plus" size={18} />
+                  </span>
+                  <span className="tb-create-mi-body">
+                    <span className="tb-create-mi-title">
+                      {tSidebar("createServer")}
+                    </span>
+                    <span className="tb-create-mi-sub">
+                      {tSidebar("createServerHint")}
+                    </span>
+                  </span>
+                </button>
+                <div className="tb-create-menu-divider" />
+                <button
+                  type="button"
+                  className="tb-create-mi"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    setServerModalView("join");
+                    setIsServerModalOpen(true);
+                  }}
+                >
+                  <span className="tb-create-mi-icon">
+                    <Icon name="logout" size={18} />
+                  </span>
+                  <span className="tb-create-mi-body">
+                    <span className="tb-create-mi-title">
+                      {tSidebar("joinServer")}
+                    </span>
+                    <span className="tb-create-mi-sub">
+                      {tSidebar("joinServerHint")}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
-            className="titlebar-add"
-            title={tSidebar("createServer")}
-            onClick={() => setIsServerModalOpen(true)}
-          >
-            <Icon name="plus" size={14} />
-            <span>{tSidebar("createServer")}</span>
-          </button>
-          <button
-            type="button"
-            className="titlebar-add"
+            className="tb-friend-btn"
             title={tSidebar("addFriend")}
             onClick={() => setIsAddFriendOpen(true)}
           >
-            <Icon name="user-plus" size={14} />
+            <Icon name="user-plus" size={15} />
             <span>{tSidebar("addFriend")}</span>
           </button>
           <button
@@ -811,7 +941,7 @@ const ServersPage: React.FC = () => {
             title={tSidebar("pendingRequests")}
             onClick={() => setIsPendingOpen(true)}
           >
-            <Icon name="mail" size={16} />
+            <Icon name="mail" size={17} />
             {pendingCount > 0 && (
               <span className="titlebar-badge">{pendingCount}</span>
             )}
@@ -856,6 +986,7 @@ const ServersPage: React.FC = () => {
             setIsChannelModalOpen(true);
           }}
           onInviteServer={(server) => setInviteModalServer(server)}
+          onOpenServerSettings={(server) => setServerSettings(server)}
           onDeleteServer={(server) => {
             const isOwner = server.ownerId === user?.id;
             setDeleteConfirm({
@@ -894,7 +1025,10 @@ const ServersPage: React.FC = () => {
             ) : !selectedServer && !selectedDm ? (
               <Welcome
                 loading={serversLoading && servers.length === 0}
-                onCreate={() => setIsServerModalOpen(true)}
+                onCreate={() => {
+                  setServerModalView("choose");
+                  setIsServerModalOpen(true);
+                }}
               />
             ) : selectedDm ? (
               <ChatView
@@ -995,7 +1129,25 @@ const ServersPage: React.FC = () => {
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
-                    <div className="voice-preview-empty">{tVoice("noOneHere")}</div>
+                    <VoiceRoomSplash
+                      channelName={selectedVoiceChannelNotJoined.name}
+                      onConnect={() => {
+                        if (
+                          selectedVoiceChannelNotJoined.visibility === "private"
+                        ) {
+                          setPasswordPrompt({
+                            server: selectedServer,
+                            channel: selectedVoiceChannelNotJoined,
+                          });
+                          return;
+                        }
+                        finalizeJoin(
+                          selectedServer,
+                          selectedVoiceChannelNotJoined,
+                        );
+                      }}
+                      onInvite={() => setInviteModalServer(selectedServer)}
+                    />
                   ) : (
                     (() => {
                       const sizeClass =
@@ -1029,22 +1181,29 @@ const ServersPage: React.FC = () => {
                       );
                     })()
                   )}
-                  <button
-                    type="button"
-                    className="btn primary voice-preview-join"
-                    onClick={() => {
-                      if (selectedVoiceChannelNotJoined.visibility === "private") {
-                        setPasswordPrompt({
-                          server: selectedServer,
-                          channel: selectedVoiceChannelNotJoined,
-                        });
-                        return;
-                      }
-                      finalizeJoin(selectedServer, selectedVoiceChannelNotJoined);
-                    }}
-                  >
-                    {tVoice("connect")}
-                  </button>
+                  {previewParticipants.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn primary voice-preview-join"
+                      onClick={() => {
+                        if (
+                          selectedVoiceChannelNotJoined.visibility === "private"
+                        ) {
+                          setPasswordPrompt({
+                            server: selectedServer,
+                            channel: selectedVoiceChannelNotJoined,
+                          });
+                          return;
+                        }
+                        finalizeJoin(
+                          selectedServer,
+                          selectedVoiceChannelNotJoined,
+                        );
+                      }}
+                    >
+                      {tVoice("connect")}
+                    </button>
+                  )}
                 </div>
               </div>
             ) : !serverHasTextChannel ? (
@@ -1143,6 +1302,25 @@ const ServersPage: React.FC = () => {
             onSignOut={handleLogout}
           />
         )}
+
+        {serverSettings && (
+          <ServerSettingsView
+            server={
+              servers.find((s) => s.id === serverSettings.id) ?? serverSettings
+            }
+            friends={friends}
+            currentUserId={user?.id}
+            onClose={() => setServerSettings(null)}
+            onDeleteServer={(server) => {
+              const isOwner = server.ownerId === user?.id;
+              setDeleteConfirm({
+                type: isOwner ? "server" : "leave-server",
+                id: server.id,
+                name: server.name,
+              });
+            }}
+          />
+        )}
       </div>
 
 
@@ -1150,6 +1328,19 @@ const ServersPage: React.FC = () => {
         isOpen={isServerModalOpen}
         onClose={() => setIsServerModalOpen(false)}
         onCreate={handleCreateServer}
+        initialView={serverModalView}
+        onJoinByCode={async (code) => {
+          const server = await serverAPI.redeemInviteCode(code);
+          useServerStore.getState().addServer(server);
+          setExpandedServerIds((prev) => {
+            const next = new Set(prev);
+            next.add(server.id);
+            return next;
+          });
+          setSelectedServer(server.id);
+          setSelectedChannel(null);
+          setSelectedDm(null);
+        }}
       />
 
       <CreateChannelModal

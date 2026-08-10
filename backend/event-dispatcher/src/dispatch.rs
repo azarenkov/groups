@@ -89,6 +89,37 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".dm.read") {
+        let evt: DmReadDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "dm.read",
+            json!({
+                "readerId": evt.reader_id,
+                "readAt": evt.read_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".channel.read") {
+        let evt: ChannelReadDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "channel.read",
+            json!({
+                "channelId": evt.channel_id,
+                "readerId": evt.reader_id,
+                "readAt": evt.read_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".message.sent") {
         let evt: ChannelMsgSent = serde_json::from_slice(payload)?;
         let recipients = if !evt.recipient_ids.is_empty() {
@@ -369,6 +400,23 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".server.updated") {
+        let evt: ServerUpdatedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "server.updated",
+            json!({
+                "id": evt.server_id,
+                "name": evt.name,
+                "description": evt.description,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.member_ids), &envelope)
+            .await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".server.deleted") {
         let evt: ServerDeletedDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
@@ -600,6 +648,21 @@ struct DmDeleted {
 }
 
 #[derive(Deserialize)]
+struct DmReadDto {
+    reader_id: Uuid,
+    read_at: DateTime<Utc>,
+    recipients: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
+struct ChannelReadDto {
+    channel_id: Uuid,
+    reader_id: Uuid,
+    read_at: DateTime<Utc>,
+    recipients: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
 struct ChannelMsgSent {
     message_id: Uuid,
     channel_id: Uuid,
@@ -735,6 +798,15 @@ struct ServerCreatedDto {
     owner_id: Uuid,
     name: Value,
     description: Option<Value>,
+    occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct ServerUpdatedDto {
+    server_id: Uuid,
+    name: Value,
+    description: Option<Value>,
+    member_ids: Vec<Uuid>,
     occurred_at: DateTime<Utc>,
 }
 

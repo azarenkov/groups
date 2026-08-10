@@ -1,0 +1,105 @@
+use std::sync::Arc;
+
+use chrono::Utc;
+use domain::{
+    server::{
+        description::ServerDescription,
+        events::{ServerEvent, lifecycle::ServerUpdated},
+        name::ServerName,
+        repository::ServerRepository,
+    },
+    shared::{
+        outbox::{
+            outbox_record::OutboxRecord,
+            to_outbox::{OutboxError, ToOutboxRecord},
+        },
+        repository::error::RepositoryError,
+    },
+};
+
+use crate::dto::requests::server::update_server::UpdateServerRequest;
+
+#[derive(Debug, thiserror::Error)]
+pub enum UpdateServerError {
+    #[error("Server not found")]
+    ServerNotFound,
+    #[error("Only the server owner can edit it")]
+    NotOwner,
+    #[error("Server name already taken")]
+    NameTaken,
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] OutboxError),
+    #[error("Repository error: {0}")]
+    Repository(RepositoryError),
+}
+
+impl From<RepositoryError> for UpdateServerError {
+    fn from(e: RepositoryError) -> Self {
+        match e {
+            RepositoryError::AlreadyExists => UpdateServerError::NameTaken,
+            other => UpdateServerError::Repository(other),
+        }
+    }
+}
+
+pub struct UpdateServer<S>
+where
+    S: ServerRepository,
+{
+    server_repository: Arc<S>,
+}
+
+impl<S> UpdateServer<S>
+where
+    S: ServerRepository,
+{
+    pub fn new(server_repository: Arc<S>) -> Self {
+        Self { server_repository }
+    }
+
+    pub async fn execute(&self, request: UpdateServerRequest) -> Result<(), UpdateServerError> {
+        let UpdateServerRequest {
+            server_id,
+            owner_id,
+            name,
+            description,
+            ctx,
+        } = request;
+
+        let actual_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?
+            .ok_or(UpdateServerError::ServerNotFound)?;
+
+        if actual_owner.uuid() != owner_id.uuid() {
+            return Err(UpdateServerError::NotOwner);
+        }
+
+        let member_ids = self
+            .server_repository
+            .find_member_ids_by_server_id(&server_id)
+            .await?;
+
+        let event = ServerEvent::Updated(ServerUpdated::record(
+            server_id,
+            ServerName::new(name.clone()),
+            description.clone().map(ServerDescription::new),
+            member_ids,
+            Utc::now(),
+        ));
+        let records: Vec<OutboxRecord> =
+            vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
+
+        let updated = self
+            .server_repository
+            .update_server_details(&server_id, &name, description.as_deref(), &records)
+            .await?;
+
+        if !updated {
+            return Err(UpdateServerError::ServerNotFound);
+        }
+
+        Ok(())
+    }
+}

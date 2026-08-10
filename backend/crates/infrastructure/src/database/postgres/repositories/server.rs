@@ -8,7 +8,9 @@ use domain::{
         participant_mute::ParticipantMute, session_id::SessionId,
     },
     dm_message::id::DmMessageId,
-    server::{Server, id::ServerId, repository::ServerRepository},
+    server::{
+        Server, id::ServerId, invite_code::InviteCode, repository::ServerRepository,
+    },
     shared::{
         outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
@@ -650,5 +652,200 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(row.exists)
+    }
+
+    async fn create_invite_code(
+        &self,
+        server_id: &ServerId,
+        created_by: &UserId,
+        code: &str,
+        max_uses: Option<i32>,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<InviteCode, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            INSERT INTO server_invite_codes (code, server_id, created_by, max_uses, expires_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING code, server_id, created_by, max_uses, uses, expires_at, created_at
+            "#,
+            code,
+            server_id.uuid(),
+            created_by.uuid(),
+            max_uses,
+            expires_at,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(InviteCode {
+            code: row.code,
+            server_id: row.server_id,
+            created_by: row.created_by,
+            creator_name: None,
+            max_uses: row.max_uses,
+            uses: row.uses,
+            expires_at: row.expires_at,
+            created_at: row.created_at,
+        })
+    }
+
+    async fn list_invite_codes(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<InviteCode>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                i.code, i.server_id, i.created_by, i.max_uses, i.uses,
+                i.expires_at, i.created_at,
+                u.name AS "creator_name?"
+            FROM server_invite_codes i
+            LEFT JOIN users u ON u.id = i.created_by
+            WHERE i.server_id = $1
+              AND i.revoked_at IS NULL
+              AND (i.expires_at IS NULL OR i.expires_at > now())
+              AND (i.max_uses IS NULL OR i.uses < i.max_uses)
+            ORDER BY i.created_at DESC
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| InviteCode {
+                code: r.code,
+                server_id: r.server_id,
+                created_by: r.created_by,
+                creator_name: r.creator_name,
+                max_uses: r.max_uses,
+                uses: r.uses,
+                expires_at: r.expires_at,
+                created_at: r.created_at,
+            })
+            .collect())
+    }
+
+    async fn revoke_invite_code(
+        &self,
+        server_id: &ServerId,
+        code: &str,
+        requester: &UserId,
+        is_owner: bool,
+    ) -> Result<bool, RepositoryError> {
+        let updated = sqlx::query!(
+            r#"
+            UPDATE server_invite_codes
+            SET revoked_at = now()
+            WHERE code = $1 AND server_id = $2 AND revoked_at IS NULL
+              AND (created_by = $3 OR $4)
+            "#,
+            code,
+            server_id.uuid(),
+            requester.uuid(),
+            is_owner,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(updated.rows_affected() > 0)
+    }
+
+    async fn redeem_invite_code(
+        &self,
+        code: &str,
+        user_id: &UserId,
+    ) -> Result<Option<ServerId>, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let invite = sqlx::query!(
+            r#"
+            SELECT server_id
+            FROM server_invite_codes
+            WHERE code = $1
+              AND revoked_at IS NULL
+              AND (expires_at IS NULL OR expires_at > now())
+              AND (max_uses IS NULL OR uses < max_uses)
+            FOR UPDATE
+            "#,
+            code,
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let Some(invite) = invite else {
+            return Ok(None);
+        };
+
+        let inserted = sqlx::query!(
+            r#"
+            INSERT INTO server_members (server_id, user_id, joined_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (server_id, user_id) DO NOTHING
+            "#,
+            invite.server_id,
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if inserted.rows_affected() > 0 {
+            sqlx::query!(
+                r#"UPDATE server_invite_codes SET uses = uses + 1 WHERE code = $1"#,
+                code,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(Some(ServerId::new(invite.server_id)))
+    }
+
+    async fn update_server_details(
+        &self,
+        server_id: &ServerId,
+        name: &str,
+        description: Option<&str>,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let updated = sqlx::query!(
+            r#"
+            UPDATE servers
+            SET name = $2, description = $3, updated_at = now()
+            WHERE id = $1
+            "#,
+            server_id.uuid(),
+            name,
+            description,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if updated.rows_affected() == 0 {
+            return Ok(false);
+        }
+
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
     }
 }

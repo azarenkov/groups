@@ -21,6 +21,7 @@ use application::usecases::friendship::{
     accept_friend_request::AcceptFriendRequestError, list_friends::ListFriendsError,
     remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
 };
+use application::usecases::dm::list_dm_previews::ListDmPreviewsError;
 use application::usecases::dm::{
     delete_dm_message::DeleteDmMessageError, edit_dm_message::EditDmMessageError,
     list_dm_messages::ListDmMessagesError, search_dm_messages::SearchDmMessagesError,
@@ -31,6 +32,8 @@ use application::usecases::server::decline_server_invite::DeclineServerInviteErr
 use application::usecases::server::leave_server::LeaveServerError;
 use application::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use application::usecases::server::send_server_invite::SendServerInviteError;
+use application::usecases::read_state::get_channel_read_receipts::GetChannelReadReceiptsError;
+use application::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use application::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use application::usecases::read_state::mark_channel_read::MarkChannelReadError;
 use application::usecases::read_state::mark_dm_read::MarkDmReadError;
@@ -61,7 +64,14 @@ use application::usecases::{
         send_channel_message::SendChannelMessageError,
         track_media_connection::TrackMediaConnectionError, unmute_channel::UnmuteChannelError,
     },
-    server::{create_server::CreateServerError, delete_server::DeleteServerError},
+    server::{
+        create_server::CreateServerError, delete_server::DeleteServerError,
+        invite_codes::{
+            CreateInviteCodeError, ListInviteCodesError, RedeemInviteCodeError,
+            RevokeInviteCodeError,
+        },
+        update_server::UpdateServerError,
+    },
     webhook::voice::HandleVoiceWebhookError,
 };
 use domain::channel::ChannelError;
@@ -994,6 +1004,131 @@ impl ToHttpStatus for DeleteServerError {
             DeleteServerError::Repository(e) => e.to_error_code(),
             DeleteServerError::Outbox(e) => e.to_error_code(),
             DeleteServerError::VoiceService(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for UpdateServerError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateServerError::ServerNotFound => StatusCode::NOT_FOUND,
+            UpdateServerError::NotOwner => StatusCode::FORBIDDEN,
+            UpdateServerError::NameTaken => StatusCode::CONFLICT,
+            UpdateServerError::Outbox(e) => e.to_http_status(),
+            UpdateServerError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateServerError::ServerNotFound => "Server not found".to_string(),
+            UpdateServerError::NotOwner => "Only the server owner can edit it.".to_string(),
+            UpdateServerError::NameTaken => "A server with this name already exists.".to_string(),
+            UpdateServerError::Outbox(e) => e.to_user_message(),
+            UpdateServerError::Repository(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateServerError::ServerNotFound => "SERVER_NOT_FOUND",
+            UpdateServerError::NotOwner => "SERVER_NOT_OWNER",
+            UpdateServerError::NameTaken => "SERVER_NAME_TAKEN",
+            UpdateServerError::Outbox(e) => e.to_error_code(),
+            UpdateServerError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for CreateInviteCodeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            CreateInviteCodeError::NotMember => StatusCode::FORBIDDEN,
+            CreateInviteCodeError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            CreateInviteCodeError::NotMember => {
+                "You are not a member of this server.".to_string()
+            }
+            CreateInviteCodeError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            CreateInviteCodeError::NotMember => "SERVER_NOT_MEMBER",
+            CreateInviteCodeError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for ListInviteCodesError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListInviteCodesError::NotMember => StatusCode::FORBIDDEN,
+            ListInviteCodesError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListInviteCodesError::NotMember => {
+                "You are not a member of this server.".to_string()
+            }
+            ListInviteCodesError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListInviteCodesError::NotMember => "SERVER_NOT_MEMBER",
+            ListInviteCodesError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for RevokeInviteCodeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RevokeInviteCodeError::NotFound => StatusCode::NOT_FOUND,
+            RevokeInviteCodeError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RevokeInviteCodeError::NotFound => "Invite not found.".to_string(),
+            RevokeInviteCodeError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RevokeInviteCodeError::NotFound => "INVITE_NOT_FOUND",
+            RevokeInviteCodeError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for RedeemInviteCodeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RedeemInviteCodeError::InvalidCode => StatusCode::NOT_FOUND,
+            RedeemInviteCodeError::ServerNotFound => StatusCode::NOT_FOUND,
+            RedeemInviteCodeError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RedeemInviteCodeError::InvalidCode => {
+                "This invite code is invalid or has expired.".to_string()
+            }
+            RedeemInviteCodeError::ServerNotFound => "Server not found".to_string(),
+            RedeemInviteCodeError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RedeemInviteCodeError::InvalidCode => "INVITE_CODE_INVALID",
+            RedeemInviteCodeError::ServerNotFound => "SERVER_NOT_FOUND",
+            RedeemInviteCodeError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -2017,6 +2152,24 @@ impl ToHttpStatus for DeleteDmMessageError {
     }
 }
 
+impl ToHttpStatus for ListDmPreviewsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListDmPreviewsError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ListDmPreviewsError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListDmPreviewsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for ListDmMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -2134,6 +2287,52 @@ impl ToHttpStatus for GetUnreadCountsError {
     fn to_error_code(&self) -> &'static str {
         match self {
             GetUnreadCountsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for GetDmReadReceiptError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetDmReadReceiptError::Repository(e) => e.to_http_status(),
+            GetDmReadReceiptError::NotFriends => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetDmReadReceiptError::Repository(e) => e.to_user_message(),
+            GetDmReadReceiptError::NotFriends => {
+                "You are not friends with this user".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetDmReadReceiptError::Repository(e) => e.to_error_code(),
+            GetDmReadReceiptError::NotFriends => "NOT_FRIENDS",
+        }
+    }
+}
+
+impl ToHttpStatus for GetChannelReadReceiptsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetChannelReadReceiptsError::Repository(e) => e.to_http_status(),
+            GetChannelReadReceiptsError::NotMember => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetChannelReadReceiptsError::Repository(e) => e.to_user_message(),
+            GetChannelReadReceiptsError::NotMember => {
+                "You are not a member of this channel".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetChannelReadReceiptsError::Repository(e) => e.to_error_code(),
+            GetChannelReadReceiptsError::NotMember => "CHANNEL_NOT_MEMBER",
         }
     }
 }
@@ -2339,6 +2538,11 @@ impl_from_for_api_error!(
     HandleVoiceWebhookError,
     CreateServerError,
     DeleteServerError,
+    UpdateServerError,
+    CreateInviteCodeError,
+    ListInviteCodesError,
+    RevokeInviteCodeError,
+    RedeemInviteCodeError,
     PaginationError,
     JoinVoiceChannelError,
     StartCallError,
@@ -2372,7 +2576,10 @@ impl_from_for_api_error!(
     MarkChannelReadError,
     MarkDmReadError,
     GetUnreadCountsError,
+    GetDmReadReceiptError,
+    GetChannelReadReceiptsError,
     SendDmMessageError,
+    ListDmPreviewsError,
     SendServerInviteError,
     AcceptServerInviteError,
     DeclineServerInviteError,

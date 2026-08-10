@@ -6,6 +6,11 @@ import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useCallStore } from "../store/callStore";
 import { useUnreadStore } from "../store/unreadStore";
+import { useReadReceiptStore } from "../store/readReceiptStore";
+import {
+  refetchDmPreviews,
+  useDmPreviewStore,
+} from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import type { Server } from "../types/server";
@@ -72,6 +77,17 @@ function dispatch(env: WsEnvelope) {
         updatedAt: asString(d.occurredAt) ?? new Date().toISOString(),
       };
       useServerStore.getState().addServer(server);
+      return;
+    }
+
+    case "server.updated": {
+      const id = asString(d.id);
+      if (!id) return;
+      const patch: { name?: string; description?: string | null } = {};
+      const name = asString(d.name);
+      if (name) patch.name = name;
+      patch.description = asString(d.description) ?? null;
+      useServerStore.getState().patchServer(id, patch);
       return;
     }
 
@@ -200,12 +216,69 @@ function dispatch(env: WsEnvelope) {
       const recipientId = asString(d.recipientId);
       const selfId = useAuthStore.getState().user?.id;
       if (!senderId || !recipientId || !selfId) return;
+      const peerId = senderId === selfId ? recipientId : senderId;
+      useDmPreviewStore.getState().push(peerId, {
+        messageId: asString(d.id) ?? "",
+        senderId,
+        content: asString(d.content) ?? "",
+        callStatus: asString(d.callStatus) ?? null,
+        inviteServerId: asString(d.inviteServerId) ?? null,
+        createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
+      });
       if (recipientId !== selfId) return;
       if (activeDmView === senderId) {
         throttleMarkDmRead(senderId);
         return;
       }
       useUnreadStore.getState().bumpDm(senderId);
+      return;
+    }
+
+    case "dm_message.edited": {
+      const id = asString(d.id);
+      const newContent = asString(d.newContent);
+      if (id && newContent != null) {
+        useDmPreviewStore.getState().editMessage(id, newContent);
+      }
+      return;
+    }
+
+    case "dm_message.deleted": {
+      const id = asString(d.id);
+      if (id && useDmPreviewStore.getState().hasMessage(id)) {
+        refetchDmPreviews(true);
+      }
+      return;
+    }
+
+    case "dm.read": {
+      const readerId = asString(d.readerId);
+      const readAt = asString(d.readAt);
+      if (readerId && readAt) {
+        useReadReceiptStore.getState().setDmPeerReadAt(readerId, readAt);
+      }
+      return;
+    }
+
+    case "channel.read": {
+      const channelId = asString(d.channelId);
+      const readerId = asString(d.readerId);
+      const readAt = asString(d.readAt);
+      if (channelId && readerId && readAt) {
+        useReadReceiptStore
+          .getState()
+          .setChannelMemberRead(channelId, readerId, readAt);
+      }
+      return;
+    }
+
+    case "channel.text.joined": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      const selfId = useAuthStore.getState().user?.id;
+      if (channelId && userId && userId !== selfId) {
+        useReadReceiptStore.getState().addChannelMember(channelId, userId);
+      }
       return;
     }
 

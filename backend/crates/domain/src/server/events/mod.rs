@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     server::{
-        events::lifecycle::{ServerCreated, ServerDeleted},
+        events::lifecycle::{ServerCreated, ServerDeleted, ServerUpdated},
         id::ServerId,
     },
     shared::outbox::{
@@ -19,6 +19,7 @@ pub mod lifecycle;
 #[serde(untagged)]
 pub enum ServerEvent {
     Created(ServerCreated),
+    Updated(ServerUpdated),
     Deleted(ServerDeleted),
 }
 
@@ -26,6 +27,7 @@ impl ServerEvent {
     pub fn server_id(&self) -> &ServerId {
         match self {
             Self::Created(e) => &e.server_id,
+            Self::Updated(e) => &e.server_id,
             Self::Deleted(e) => &e.server_id,
         }
     }
@@ -33,6 +35,7 @@ impl ServerEvent {
     pub fn occurred_at(&self) -> DateTime<Utc> {
         match self {
             Self::Created(e) => e.occurred_at,
+            Self::Updated(e) => e.occurred_at,
             Self::Deleted(e) => e.occurred_at,
         }
     }
@@ -40,6 +43,7 @@ impl ServerEvent {
     pub fn event_type(&self) -> &'static str {
         match self {
             Self::Created(_) => "created",
+            Self::Updated(_) => "updated",
             Self::Deleted(_) => "deleted",
         }
     }

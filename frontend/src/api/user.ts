@@ -82,6 +82,20 @@ class UserAPI {
     await this.client.post(`/v1/dms/${friendId}/read`);
   }
 
+  async getDmReadState(friendId: string): Promise<{ readAt: string | null }> {
+    const response = await this.client.get(`/v1/dms/${friendId}/read-state`);
+    return response.data.data;
+  }
+
+  async getChannelReadStates(
+    channelId: string,
+  ): Promise<{ members: { userId: string; readAt: string | null }[] }> {
+    const response = await this.client.get(
+      `/v1/channels/${channelId}/read-states`,
+    );
+    return response.data.data;
+  }
+
   async setAppearOffline(appearOffline: boolean): Promise<void> {
     await this.client.post("/v1/me/presence", { appearOffline });
   }

@@ -2,6 +2,8 @@
   "searchPlaceholder": "Поиск",
   "directMessages": "Личные сообщения",
   "servers": "Серверы",
+  "tabDirects": "Личные",
+  "tabServers": "Серверы",
   "addServer": "Добавить сервер",
   "createServer": "Создать сервер",
   "addChannel": "Добавить канал",
@@ -26,5 +28,12 @@
   "noTextChannelsTitle": "Пока нет текстовых каналов",
   "noTextChannelsBody": "На сервере {{server}} нет текстовых каналов. Создайте, чтобы начать переписку.",
   "noTextChannelsBodyGeneric": "Создайте текстовый канал, чтобы начать переписку.",
-  "createChannelCta": "Создать канал"
+  "createChannelCta": "Создать канал",
+  "serverSettings": "Настройки сервера",
+  "createServerHint": "Своё пространство для голоса и чата",
+  "joinServer": "Присоединиться",
+  "joinServerHint": "Войти по коду приглашения",
+  "previewCall": "Звонок",
+  "previewInvite": "Приглашение на сервер",
+  "previewYou": "Вы:"
 }

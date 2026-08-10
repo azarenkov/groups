@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::{
     channel::Channel,
     dm_message::id::DmMessageId,
-    server::{Server, id::ServerId},
+    server::{Server, id::ServerId, invite_code::InviteCode},
     shared::{
         outbox::outbox_record::OutboxRecord,
         pagination::{PaginatedResult, Pagination},
@@ -70,4 +70,35 @@ pub trait ServerRepository {
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
+    async fn update_server_details(
+        &self,
+        server_id: &ServerId,
+        name: &str,
+        description: Option<&str>,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError>;
+    async fn create_invite_code(
+        &self,
+        server_id: &ServerId,
+        created_by: &UserId,
+        code: &str,
+        max_uses: Option<i32>,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<InviteCode, RepositoryError>;
+    async fn list_invite_codes(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Vec<InviteCode>, RepositoryError>;
+    async fn revoke_invite_code(
+        &self,
+        server_id: &ServerId,
+        code: &str,
+        requester: &UserId,
+        is_owner: bool,
+    ) -> Result<bool, RepositoryError>;
+    async fn redeem_invite_code(
+        &self,
+        code: &str,
+        user_id: &UserId,
+    ) -> Result<Option<ServerId>, RepositoryError>;
 }

@@ -1,5 +1,6 @@
 pub mod description;
 pub mod events;
+pub mod invite_code;
 pub mod id;
 pub mod name;
 pub mod repository;

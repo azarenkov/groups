@@ -1,13 +1,20 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use domain::{
     channel::id::ChannelId,
-    read_state::repository::{ChannelUnread, DmUnread, ReadStateRepository},
-    shared::repository::error::RepositoryError,
+    read_state::repository::{ChannelUnread, DmUnread, MemberRead, ReadStateRepository},
+    shared::{
+        outbox::outbox_record::{AggregateType, OutboxRecord},
+        repository::error::RepositoryError,
+    },
     user::id::UserId,
 };
 use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
-use crate::database::postgres::error::map_sqlx_error_to_domain_error;
+use crate::database::postgres::{
+    error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
+};
 
 pub struct PostgresReadStateRepository {
     pool: Pool<Postgres>,
@@ -19,6 +26,25 @@ impl PostgresReadStateRepository {
     }
 }
 
+fn read_event(
+    aggregate_id: Uuid,
+    event_type: &str,
+    payload: serde_json::Value,
+    occurred_at: DateTime<Utc>,
+) -> OutboxRecord {
+    OutboxRecord {
+        id: Uuid::new_v4(),
+        aggregate_id,
+        aggregate_type: AggregateType::User,
+        parent_id: None,
+        parent_type: None,
+        event_type: event_type.to_string(),
+        payload,
+        occurred_at,
+        request_id: None,
+    }
+}
+
 #[async_trait]
 impl ReadStateRepository for PostgresReadStateRepository {
     async fn mark_channel_read(
@@ -26,19 +52,56 @@ impl ReadStateRepository for PostgresReadStateRepository {
         user_id: &UserId,
         channel_id: &ChannelId,
     ) -> Result<(), RepositoryError> {
-        sqlx::query!(
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let read_at = sqlx::query_scalar!(
             r#"
             INSERT INTO channel_read_state (user_id, channel_id, last_read_at)
             VALUES ($1, $2, now())
             ON CONFLICT (user_id, channel_id)
             DO UPDATE SET last_read_at = EXCLUDED.last_read_at
+            RETURNING last_read_at
             "#,
             user_id.uuid(),
             channel_id.uuid(),
         )
-        .execute(&self.pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        let recipients: Vec<Uuid> = sqlx::query_scalar!(
+            r#"
+            SELECT user_id
+            FROM channel_text_participants
+            WHERE channel_id = $1 AND user_id <> $2
+            "#,
+            channel_id.uuid(),
+            user_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if !recipients.is_empty() {
+            let record = read_event(
+                channel_id.uuid(),
+                "channel.read",
+                serde_json::json!({
+                    "channel_id": channel_id.uuid(),
+                    "reader_id": user_id.uuid(),
+                    "read_at": read_at,
+                    "recipients": recipients,
+                }),
+                read_at,
+            );
+            save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+        }
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 
@@ -47,19 +110,41 @@ impl ReadStateRepository for PostgresReadStateRepository {
         user_id: &UserId,
         friend_id: &UserId,
     ) -> Result<(), RepositoryError> {
-        sqlx::query!(
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let read_at = sqlx::query_scalar!(
             r#"
             INSERT INTO dm_read_state (user_id, friend_id, last_read_at)
             VALUES ($1, $2, now())
             ON CONFLICT (user_id, friend_id)
             DO UPDATE SET last_read_at = EXCLUDED.last_read_at
+            RETURNING last_read_at
             "#,
             user_id.uuid(),
             friend_id.uuid(),
         )
-        .execute(&self.pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+
+        let record = read_event(
+            user_id.uuid(),
+            "dm.read",
+            serde_json::json!({
+                "reader_id": user_id.uuid(),
+                "peer_id": friend_id.uuid(),
+                "read_at": read_at,
+                "recipients": [friend_id.uuid()],
+            }),
+            read_at,
+        );
+        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 
@@ -125,6 +210,55 @@ impl ReadStateRepository for PostgresReadStateRepository {
             .map(|r| DmUnread {
                 friend_id: r.friend_id,
                 count: r.count,
+            })
+            .collect())
+    }
+
+    async fn dm_peer_read_at(
+        &self,
+        user_id: &UserId,
+        friend_id: &UserId,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        let read_at = sqlx::query_scalar!(
+            r#"
+            SELECT last_read_at
+            FROM dm_read_state
+            WHERE user_id = $1 AND friend_id = $2
+            "#,
+            friend_id.uuid(),
+            user_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(read_at)
+    }
+
+    async fn channel_member_read_ats(
+        &self,
+        channel_id: &ChannelId,
+        exclude: &UserId,
+    ) -> Result<Vec<MemberRead>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT p.user_id, r.last_read_at AS "last_read_at?"
+            FROM channel_text_participants p
+            LEFT JOIN channel_read_state r
+                ON r.channel_id = p.channel_id AND r.user_id = p.user_id
+            WHERE p.channel_id = $1 AND p.user_id <> $2
+            "#,
+            channel_id.uuid(),
+            exclude.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| MemberRead {
+                user_id: r.user_id,
+                read_at: r.last_read_at,
             })
             .collect())
     }

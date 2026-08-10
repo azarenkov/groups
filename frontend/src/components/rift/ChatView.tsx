@@ -6,6 +6,8 @@ import { useCallStore } from "../../store/callStore";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
+import { userAPI } from "../../api/user";
+import { useReadReceiptStore } from "../../store/readReceiptStore";
 import { ChannelMessage } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
@@ -123,6 +125,73 @@ const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+
+  const dmFriendId = dm?.friendId;
+  const channelId = channel?.id;
+  const dmPeerReadAt = useReadReceiptStore((s) =>
+    dmFriendId ? s.dmPeerReadAt[dmFriendId] : undefined,
+  );
+  const channelReads = useReadReceiptStore((s) =>
+    channelId ? s.channelReads[channelId] : undefined,
+  );
+
+  React.useEffect(() => {
+    if (!dmFriendId) return;
+    userAPI
+      .getDmReadState(dmFriendId)
+      .then((r) =>
+        useReadReceiptStore.getState().seedDmPeerReadAt(dmFriendId, r.readAt),
+      )
+      .catch(() => {});
+  }, [dmFriendId]);
+
+  React.useEffect(() => {
+    if (!channelId) return;
+    const seed = () =>
+      userAPI
+        .getChannelReadStates(channelId)
+        .then((r) =>
+          useReadReceiptStore.getState().seedChannelReads(channelId, r.members),
+        )
+        .catch(() => {});
+    void seed();
+    const interval = setInterval(seed, 60_000);
+    return () => clearInterval(interval);
+  }, [channelId]);
+
+  const reseedChannelReads = React.useCallback(() => {
+    if (!channelId) return;
+    userAPI
+      .getChannelReadStates(channelId)
+      .then((r) =>
+        useReadReceiptStore.getState().seedChannelReads(channelId, r.members),
+      )
+      .catch(() => {});
+  }, [channelId]);
+
+  const receiptFor = (
+    m: ChannelMessage,
+    mine: boolean,
+  ): "sent" | "read" | null => {
+    if (!mine || m.callStatus || m.inviteServerId) return null;
+    const created = new Date(m.createdAt).getTime();
+    if (dmFriendId) {
+      return dmPeerReadAt && new Date(dmPeerReadAt).getTime() >= created
+        ? "read"
+        : "sent";
+    }
+    if (channelId) {
+      if (!channelReads) return "sent";
+      const members = Object.keys(channelReads);
+      if (members.length === 0) return "sent";
+      const all = members.every((uid) => {
+        const r = channelReads[uid];
+        return r != null && new Date(r).getTime() >= created;
+      });
+      return all ? "read" : "sent";
+    }
+    return null;
+  };
 
   const channelMsgHandlers = React.useMemo(
     () => ({
@@ -436,6 +505,7 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const refreshHistoryAfterJoin = async () => {
     if (!messenger) return;
+    reseedChannelReads();
     try {
       const res = await messenger.listMessages({ limit: PAGE_LIMIT });
       const ordered = [...res.messages].reverse();
@@ -947,6 +1017,8 @@ const ChatView: React.FC<ChatViewProps> = ({
                   displayName={displayName}
                   continued={cont}
                   isMine={isMine}
+                  dmStyle={!!dm}
+                  receipt={receiptFor(m, isMine)}
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
@@ -1248,11 +1320,34 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   );
 };
 
+const ReadTicks: React.FC<{ read: boolean }> = ({ read }) => (
+  <svg
+    className="rc-icon"
+    viewBox="0 0 15 11"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {read ? (
+      <>
+        <path d="M1 6.2 L3.5 8.7 L7.8 3" />
+        <path d="M5.4 6.2 L7.9 8.7 L12.2 3" />
+      </>
+    ) : (
+      <path d="M2.4 6.2 L5 8.7 L9.6 3" />
+    )}
+  </svg>
+);
+
 interface MessageProps {
   msg: ChannelMessage;
   displayName: string;
   continued: boolean;
   isMine: boolean;
+  dmStyle: boolean;
+  receipt: "sent" | "read" | null;
   editing: boolean;
   highlighted: boolean;
   editText: string;
@@ -1272,6 +1367,8 @@ const Message: React.FC<MessageProps> = ({
   displayName,
   continued,
   isMine,
+  dmStyle,
+  receipt,
   editing,
   highlighted,
   editText,
@@ -1295,7 +1392,11 @@ const Message: React.FC<MessageProps> = ({
     <div
       data-msg-id={msg.id}
       className={
-        "msg" + (continued ? " cont" : "") + (highlighted ? " highlight" : "")
+        "msg bubble " +
+        (isMine ? "mine" : "theirs") +
+        (dmStyle ? " dm" : "") +
+        (continued ? " cont" : "") +
+        (highlighted ? " highlight" : "")
       }
     >
       <div className="ava" style={{ background: colorForId(msg.authorId) }}>
@@ -1330,7 +1431,9 @@ const Message: React.FC<MessageProps> = ({
           </div>
         ) : msg.inviteServerId ? (
           <div className="dm-invite-card">
-            <div className="dm-invite-card-label">Server invite</div>
+            <div className="dm-invite-card-label">
+              {i18n.t("invite.label", { ns: "chat" })}
+            </div>
             <div className="dm-invite-card-row">
               <span
                 className="dm-invite-card-glyph"
@@ -1340,12 +1443,16 @@ const Message: React.FC<MessageProps> = ({
               </span>
               <div className="dm-invite-card-info">
                 <div className="dm-invite-card-name">
-                  {msg.inviteServerName ?? "Server"}
+                  {msg.inviteServerName ??
+                    i18n.t("invite.serverFallback", { ns: "chat" })}
                 </div>
                 <div className="dm-invite-card-sub">
                   {isMine
-                    ? "You sent a server invite"
-                    : `${displayName} invited you to join`}
+                    ? i18n.t("invite.youSent", { ns: "chat" })
+                    : i18n.t("invite.invitedYou", {
+                        ns: "chat",
+                        name: displayName,
+                      })}
                 </div>
               </div>
               {inviteIsMember ? (
@@ -1354,7 +1461,7 @@ const Message: React.FC<MessageProps> = ({
                   className="dm-invite-card-btn joined"
                   onClick={onOpenInviteServer}
                 >
-                  Open
+                  {i18n.t("invite.open", { ns: "chat" })}
                 </button>
               ) : isMine ? null : (
                 <div className="dm-invite-card-actions">
@@ -1363,14 +1470,14 @@ const Message: React.FC<MessageProps> = ({
                     className="dm-invite-card-btn"
                     onClick={onAcceptInvite}
                   >
-                    Join
+                    {i18n.t("invite.join", { ns: "chat" })}
                   </button>
                   <button
                     type="button"
                     className="dm-invite-card-btn decline"
                     onClick={onDeclineInvite}
                   >
-                    Decline
+                    {i18n.t("invite.decline", { ns: "chat" })}
                   </button>
                 </div>
               )}
@@ -1399,8 +1506,30 @@ const Message: React.FC<MessageProps> = ({
           </div>
         ) : (
           <div className="txt">
+            {!dmStyle && !isMine && !continued && (
+              <div
+                className="msg-author"
+                style={{ color: colorForId(msg.authorId) }}
+              >
+                {displayName}
+              </div>
+            )}
             {msg.content}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
+            <span className="msg-meta">
+              <time className="msg-time">{time}</time>
+                {receipt && (
+                  <span
+                    className={"msg-receipt" + (receipt === "read" ? " read" : "")}
+                    title={i18n.t(receipt === "read" ? "seen" : "delivered", {
+                      ns: "chat",
+                    })}
+                    aria-hidden="true"
+                  >
+                    <ReadTicks read={receipt === "read"} />
+                  </span>
+              )}
+            </span>
           </div>
         )}
       </div>

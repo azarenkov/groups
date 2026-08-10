@@ -35,6 +35,10 @@ const App: React.FC = () => {
     installWsBootstrap();
   }, []);
 
+  useEffect(() => {
+    if (window.electron) document.body.classList.add("electron");
+  }, []);
+
   const hasAccessToken = !!tokens?.accessToken;
   useEffect(() => {
     const ready = isAuthenticated && !hasUnverifiedSession && hasAccessToken;
@@ -58,6 +62,17 @@ const App: React.FC = () => {
           useUnreadStore.getState().setAll(channels, dms, channelToServer);
         } catch (err) {
           if (!cancelled) console.warn("[App] failed to load unread counts:", err);
+        }
+      })();
+      void (async () => {
+        try {
+          const { dmAPI } = await import("./api/dm");
+          const { useDmPreviewStore } = await import("./store/dmPreviewStore");
+          const res = await dmAPI.listPreviews();
+          if (cancelled) return;
+          useDmPreviewStore.getState().setAll(res.previews);
+        } catch (err) {
+          if (!cancelled) console.warn("[App] failed to load dm previews:", err);
         }
       })();
       return () => {

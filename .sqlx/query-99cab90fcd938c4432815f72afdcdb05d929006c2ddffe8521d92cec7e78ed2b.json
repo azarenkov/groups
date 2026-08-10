@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT DISTINCT ON (m.peer)\n                m.id AS \"message_id!\",\n                m.peer AS \"peer!\",\n                m.sender_id AS \"sender_id!\",\n                m.content AS \"content!\",\n                m.call_status,\n                m.invite_server_id,\n                m.created_at AS \"created_at!\"\n            FROM (\n                SELECT\n                    id,\n                    CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer,\n                    sender_id,\n                    content,\n                    call_status,\n                    invite_server_id,\n                    created_at\n                FROM dm_messages\n                WHERE sender_id = $1 OR recipient_id = $1\n            ) m\n            ORDER BY m.peer, m.created_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "peer!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "sender_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "content!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "call_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "invite_server_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "99cab90fcd938c4432815f72afdcdb05d929006c2ddffe8521d92cec7e78ed2b"
+}
