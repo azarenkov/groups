@@ -59,6 +59,13 @@ export interface JoinVoiceChannelResponse {
   url: string;
 }
 
+export interface Attachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
 export interface ChannelMessage {
   id: string;
   channelId: string;
@@ -69,6 +76,7 @@ export interface ChannelMessage {
   inviteServerName?: string;
   callStatus?: string;
   callDurationSeconds?: number;
+  attachments?: Attachment[];
   createdAt: string;
   editedAt: string | null;
 }

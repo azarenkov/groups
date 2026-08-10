@@ -5,6 +5,7 @@ import { friendshipAPI } from "./friendship";
 import { dmAPI } from "./dm";
 import { userAPI } from "./user";
 import { callAPI } from "./call";
+import { attachmentAPI } from "./attachment";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
 
@@ -246,6 +247,7 @@ class AuthAPI {
     dmAPI.setAuthToken(token);
     userAPI.setAuthToken(token);
     callAPI.setAuthToken(token);
+    attachmentAPI.setAuthToken(token);
   }
 
   removeAuthToken() {
@@ -256,6 +258,7 @@ class AuthAPI {
     dmAPI.removeAuthToken();
     userAPI.removeAuthToken();
     callAPI.removeAuthToken();
+    attachmentAPI.removeAuthToken();
   }
 }
 

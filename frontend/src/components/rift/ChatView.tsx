@@ -6,9 +6,14 @@ import { useCallStore } from "../../store/callStore";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
+import {
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  MAX_ATTACHMENT_BYTES,
+  attachmentAPI,
+} from "../../api/attachment";
 import { userAPI } from "../../api/user";
 import { useReadReceiptStore } from "../../store/readReceiptStore";
-import { ChannelMessage } from "../../types/channel";
+import { Attachment, ChannelMessage } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
 import { colorForId, glyphFor } from "../../utils/avatar";
@@ -88,6 +93,20 @@ interface DmMeta {
   online: boolean;
 }
 
+interface PendingFile {
+  localId: string;
+  file: File;
+  progress: number;
+  attachment?: Attachment;
+  error?: boolean;
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const formatCallDuration = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -125,6 +144,55 @@ const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+  const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
+  const [dragOver, setDragOver] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const addFiles = React.useCallback((incoming: File[] | FileList) => {
+    const files = Array.from(incoming);
+    if (files.length === 0) return;
+    setPendingFiles((prev) => {
+      const room = MAX_ATTACHMENTS_PER_MESSAGE - prev.length;
+      const accepted = files.slice(0, Math.max(0, room));
+      const additions: PendingFile[] = accepted.map((file) => ({
+        localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        progress: 0,
+        error: file.size > MAX_ATTACHMENT_BYTES || file.size === 0,
+      }));
+      for (const p of additions) {
+        if (p.error) continue;
+        void attachmentAPI
+          .upload(p.file, (fraction) => {
+            setPendingFiles((cur) =>
+              cur.map((x) =>
+                x.localId === p.localId ? { ...x, progress: fraction } : x,
+              ),
+            );
+          })
+          .then((attachment) => {
+            setPendingFiles((cur) =>
+              cur.map((x) =>
+                x.localId === p.localId
+                  ? { ...x, attachment, progress: 1 }
+                  : x,
+              ),
+            );
+          })
+          .catch(() => {
+            setPendingFiles((cur) =>
+              cur.map((x) =>
+                x.localId === p.localId ? { ...x, error: true } : x,
+              ),
+            );
+          });
+      }
+      return [...prev, ...additions];
+    });
+  }, []);
+
+  const removePendingFile = (localId: string) =>
+    setPendingFiles((prev) => prev.filter((p) => p.localId !== localId));
 
   const dmFriendId = dm?.friendId;
   const channelId = channel?.id;
@@ -214,6 +282,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   authorId: m.authorId,
                   authorName: m.authorName,
                   content: m.content,
+                  attachments: m.attachments,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },
@@ -271,6 +340,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   inviteServerName: m.inviteServerName,
                   callStatus: m.callStatus,
                   callDurationSeconds: m.callDurationSeconds,
+                  attachments: m.attachments,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },
@@ -352,8 +422,8 @@ const ChatView: React.FC<ChatViewProps> = ({
           after?: string;
           limit?: number;
         }) => dmAPI.listMessages(dm.friendId, opts),
-        sendMessage: (content: string) =>
-          dmAPI.sendMessage(dm.friendId, content),
+        sendMessage: (content: string, attachmentIds?: string[]) =>
+          dmAPI.sendMessage(dm.friendId, content, attachmentIds),
         editMessage: (messageId: string, content: string) =>
           dmAPI.editMessage(messageId, content),
         deleteMessage: (messageId: string) => dmAPI.deleteMessage(messageId),
@@ -368,8 +438,8 @@ const ChatView: React.FC<ChatViewProps> = ({
           after?: string;
           limit?: number;
         }) => channelAPI.listMessages(serverId, channel.id, opts),
-        sendMessage: (content: string) =>
-          channelAPI.sendMessage(serverId, channel.id, content),
+        sendMessage: (content: string, attachmentIds?: string[]) =>
+          channelAPI.sendMessage(serverId, channel.id, content, attachmentIds),
         editMessage: (messageId: string, content: string) =>
           channelAPI.editMessage(serverId, channel.id, messageId, content),
         deleteMessage: (messageId: string) =>
@@ -498,9 +568,12 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (b.scrollTop < 80) void loadOlder();
   }, [loadOlder, searchOpen, searchInput]);
 
-  const sendOnce = async (content: string): Promise<ChannelMessage> => {
+  const sendOnce = async (
+    content: string,
+    attachmentIds?: string[],
+  ): Promise<ChannelMessage> => {
     if (!messenger) throw new Error("no conversation");
-    return messenger.sendMessage(content);
+    return messenger.sendMessage(content, attachmentIds);
   };
 
   const refreshHistoryAfterJoin = async () => {
@@ -673,8 +746,16 @@ const ChatView: React.FC<ChatViewProps> = ({
     e.preventDefault();
     if (!messenger) return;
     const v = text.trim();
-    if (!v) return;
-    const chunks = splitForSend(v, MAX_CONTENT);
+    const readyIds = pendingFiles
+      .filter((p) => p.attachment)
+      .map((p) => p.attachment?.id ?? "");
+    const stillUploading = pendingFiles.some((p) => !p.attachment && !p.error);
+    if (stillUploading) {
+      setComposerError(i18n.t("attachmentsUploading", { ns: "chat" }));
+      return;
+    }
+    if (!v && readyIds.length === 0) return;
+    const chunks = v ? splitForSend(v, MAX_CONTENT) : [""];
     if (chunks.length === 0) return;
 
     setSending(true);
@@ -683,8 +764,19 @@ const ChatView: React.FC<ChatViewProps> = ({
     const remaining = [...chunks];
     const updateComposer = () => setText(remaining.join("\n\n"));
 
+    let idsToAttach: string[] | undefined =
+      readyIds.length > 0 ? readyIds : undefined;
     const sendChunk = async (chunk: string) => {
-      const msg = await sendOnce(chunk);
+      const msg = await sendOnce(chunk, idsToAttach);
+      if (idsToAttach) {
+        msg.attachments =
+          msg.attachments ??
+          pendingFiles
+            .filter((p) => p.attachment)
+            .map((p) => p.attachment as Attachment);
+        idsToAttach = undefined;
+        setPendingFiles([]);
+      }
       setMessages((prev) =>
         prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
       );
@@ -885,9 +977,23 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
       <div
-        className="chat-body"
+        className={"chat-body" + (dragOver ? " drag-over" : "")}
         ref={bodyRef}
         onScroll={handleScroll}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("Files")) {
+            e.preventDefault();
+            setDragOver(true);
+          }
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          if (e.dataTransfer.files.length > 0) {
+            e.preventDefault();
+            setDragOver(false);
+            addFiles(e.dataTransfer.files);
+          }
+        }}
         style={callMode ? { display: "none" } : undefined}
       >
         {searchOpen && searchInput.trim().length > 0 ? (
@@ -1044,7 +1150,60 @@ const ChatView: React.FC<ChatViewProps> = ({
       </div>
       {!callMode && (
       <form className="composer" onSubmit={handleSend}>
+        {pendingFiles.length > 0 && (
+          <div className="attach-chips">
+            {pendingFiles.map((p) => (
+              <div
+                key={p.localId}
+                className={"attach-chip" + (p.error ? " error" : "")}
+              >
+                {!p.error && !p.attachment && (
+                  <span
+                    className="attach-chip-progress"
+                    style={{ width: `${Math.round(p.progress * 100)}%` }}
+                  />
+                )}
+                <Icon
+                  name={p.file.type.startsWith("image/") ? "camera" : "pin"}
+                  size={13}
+                />
+                <span className="attach-chip-name">{p.file.name}</span>
+                <span className="attach-chip-size">
+                  {p.error
+                    ? i18n.t("attachmentFailed", { ns: "chat" })
+                    : formatFileSize(p.file.size)}
+                </span>
+                <button
+                  type="button"
+                  className="attach-chip-remove"
+                  onClick={() => removePendingFile(p.localId)}
+                >
+                  <Icon name="x" size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="composer-wrap">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            className="attach-btn"
+            title={i18n.t("attachFile", { ns: "chat" })}
+            disabled={sending}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Icon name="plus" size={16} />
+          </button>
           <input
             ref={composerRef}
             placeholder={placeholder}
@@ -1053,12 +1212,24 @@ const ChatView: React.FC<ChatViewProps> = ({
               setText(e.target.value);
               if (composerError) setComposerError(null);
             }}
+            onPaste={(e) => {
+              const files = Array.from(e.clipboardData?.files ?? []);
+              if (files.length > 0) {
+                e.preventDefault();
+                addFiles(files);
+              }
+            }}
             autoFocus
             disabled={sending}
           />
           <button
             type="submit"
-            className={"send-btn" + (text.trim() ? " enabled" : "")}
+            className={
+              "send-btn" +
+              (text.trim() || pendingFiles.some((p) => p.attachment)
+                ? " enabled"
+                : "")
+            }
             aria-label={i18n.t("send", { ns: "chat" })}
             disabled={sending}
           >
@@ -1320,6 +1491,95 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   );
 };
 
+const imageUrlCache = new Map<string, string>();
+
+const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
+  attachment,
+}) => {
+  const isImage = attachment.contentType.startsWith("image/");
+  const [url, setUrl] = React.useState<string | null>(
+    imageUrlCache.get(attachment.id) ?? null,
+  );
+  const [failed, setFailed] = React.useState(false);
+  const [viewerOpen, setViewerOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isImage || url) return;
+    let cancelled = false;
+    attachmentAPI
+      .download(attachment.id)
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        imageUrlCache.set(attachment.id, objectUrl);
+        if (!cancelled) setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment.id, isImage, url]);
+
+  const handleDownload = () => {
+    void attachmentAPI
+      .download(attachment.id)
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = attachment.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+      })
+      .catch(() => {});
+  };
+
+  if (isImage && !failed) {
+    return (
+      <>
+        <button
+          type="button"
+          className="msg-attach-image"
+          onClick={() => url && setViewerOpen(true)}
+        >
+          {url ? (
+            <img src={url} alt={attachment.fileName} loading="lazy" />
+          ) : (
+            <span className="msg-attach-image-loading">
+              <span className="loading-spinner" />
+            </span>
+          )}
+        </button>
+        {viewerOpen && url && (
+          <div
+            className="image-viewer-overlay"
+            onClick={() => setViewerOpen(false)}
+          >
+            <img src={url} alt={attachment.fileName} />
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <button type="button" className="msg-attach-file" onClick={handleDownload}>
+      <span className="msg-attach-file-icon">
+        <Icon name="download" size={16} />
+      </span>
+      <span className="msg-attach-file-info">
+        <span className="msg-attach-file-name">{attachment.fileName}</span>
+        <span className="msg-attach-file-size">
+          {formatFileSize(attachment.sizeBytes)}
+        </span>
+      </span>
+    </button>
+  );
+};
+
 const ReadTicks: React.FC<{ read: boolean }> = ({ read }) => (
   <svg
     className="rc-icon"
@@ -1515,6 +1775,13 @@ const Message: React.FC<MessageProps> = ({
               </div>
             )}
             {msg.content}
+            {(msg.attachments?.length ?? 0) > 0 && (
+              <div className="msg-attachments">
+                {(msg.attachments ?? []).map((a) => (
+                  <AttachmentItem key={a.id} attachment={a} />
+                ))}
+              </div>
+            )}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
             <span className="msg-meta">
               <time className="msg-time">{time}</time>

@@ -60,5 +60,8 @@
     "open": "Открыть",
     "join": "Присоединиться",
     "decline": "Отклонить"
-  }
+  },
+  "attachFile": "Прикрепить файл",
+  "attachmentsUploading": "Файлы ещё загружаются…",
+  "attachmentFailed": "Ошибка загрузки"
 }

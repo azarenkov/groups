@@ -60,5 +60,8 @@
     "open": "Open",
     "join": "Join",
     "decline": "Decline"
-  }
+  },
+  "attachFile": "Attach a file",
+  "attachmentsUploading": "Files are still uploading…",
+  "attachmentFailed": "Upload failed"
 }

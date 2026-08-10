@@ -4705,3 +4705,139 @@ textarea.s-input {
   transition: background 0.16s, color 0.16s;
 }
 .vrs-invite:hover { background: var(--surface-hover); color: var(--fg-1); }
+
+/* ---- Message attachments ---- */
+.chat-body.drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+  border-radius: 12px;
+  background: var(--accent-tint);
+}
+.attach-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 0 0 8px;
+}
+.attach-chip {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 8px 0 10px;
+  border-radius: 9px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 12px; color: var(--fg-1);
+  overflow: hidden;
+  max-width: 260px;
+}
+.attach-chip.error { box-shadow: inset 0 0 0 1px var(--danger); color: var(--danger); }
+.attach-chip-progress {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--accent-tint);
+  transition: width 0.2s;
+  pointer-events: none;
+}
+.attach-chip > svg { position: relative; flex-shrink: 0; color: var(--fg-3); }
+.attach-chip-name {
+  position: relative;
+  max-width: 140px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500;
+}
+.attach-chip-size { position: relative; color: var(--fg-3); font-size: 11px; white-space: nowrap; }
+.attach-chip-remove {
+  position: relative;
+  width: 18px; height: 18px;
+  border: 0; border-radius: 50%;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.attach-chip-remove:hover { background: var(--surface-hover); color: var(--fg-1); }
+.attach-btn {
+  width: 32px; height: 32px;
+  border: 0; border-radius: 9px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--fg-2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.attach-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
+.attach-btn:disabled { opacity: 0.5; cursor: default; }
+.msg-attachments {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 6px;
+}
+.msg-attach-image {
+  display: block;
+  border: 0; padding: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: 340px;
+}
+.msg-attach-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 10px;
+}
+.msg-attach-image-loading {
+  display: flex; align-items: center; justify-content: center;
+  width: 200px; height: 120px;
+  background: var(--surface-sunken);
+  border-radius: 10px;
+}
+.msg-attach-file {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border: 0; border-radius: 10px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  max-width: 300px;
+  transition: background var(--dur-fast);
+}
+.msg-attach-file:hover { background: var(--surface-hover); }
+.msg.bubble.mine .msg-attach-file {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+.msg.bubble.mine .msg-attach-file:hover { background: rgba(255, 255, 255, 0.22); }
+.msg-attach-file-icon {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: var(--accent-tint);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.msg.bubble.mine .msg-attach-file-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
+.msg-attach-file-info { min-width: 0; display: flex; flex-direction: column; }
+.msg-attach-file-name {
+  font-size: 13px; font-weight: 600; color: var(--fg-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.msg.bubble.mine .msg-attach-file-name { color: #fff; }
+.msg-attach-file-size { font-size: 11px; color: var(--fg-3); }
+.msg.bubble.mine .msg-attach-file-size { color: rgba(255, 255, 255, 0.72); }
+.image-viewer-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  cursor: zoom-out;
+  animation: fade-in var(--dur-fast) forwards;
+}
+.image-viewer-overlay img {
+  max-width: 92vw;
+  max-height: 92vh;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+}

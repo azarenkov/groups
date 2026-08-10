@@ -185,10 +185,11 @@ class ChannelAPI {
     serverId: string,
     channelId: string,
     content: string,
+    attachmentIds?: string[],
   ): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/servers/${serverId}/channels/${channelId}/messages`,
-      { content },
+      { content, attachmentIds },
     );
     return response.data.data;
   }
