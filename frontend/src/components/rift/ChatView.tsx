@@ -1431,7 +1431,9 @@ const Message: React.FC<MessageProps> = ({
           </div>
         ) : msg.inviteServerId ? (
           <div className="dm-invite-card">
-            <div className="dm-invite-card-label">Server invite</div>
+            <div className="dm-invite-card-label">
+              {i18n.t("invite.label", { ns: "chat" })}
+            </div>
             <div className="dm-invite-card-row">
               <span
                 className="dm-invite-card-glyph"
@@ -1441,12 +1443,16 @@ const Message: React.FC<MessageProps> = ({
               </span>
               <div className="dm-invite-card-info">
                 <div className="dm-invite-card-name">
-                  {msg.inviteServerName ?? "Server"}
+                  {msg.inviteServerName ??
+                    i18n.t("invite.serverFallback", { ns: "chat" })}
                 </div>
                 <div className="dm-invite-card-sub">
                   {isMine
-                    ? "You sent a server invite"
-                    : `${displayName} invited you to join`}
+                    ? i18n.t("invite.youSent", { ns: "chat" })
+                    : i18n.t("invite.invitedYou", {
+                        ns: "chat",
+                        name: displayName,
+                      })}
                 </div>
               </div>
               {inviteIsMember ? (
@@ -1455,7 +1461,7 @@ const Message: React.FC<MessageProps> = ({
                   className="dm-invite-card-btn joined"
                   onClick={onOpenInviteServer}
                 >
-                  Open
+                  {i18n.t("invite.open", { ns: "chat" })}
                 </button>
               ) : isMine ? null : (
                 <div className="dm-invite-card-actions">
@@ -1464,14 +1470,14 @@ const Message: React.FC<MessageProps> = ({
                     className="dm-invite-card-btn"
                     onClick={onAcceptInvite}
                   >
-                    Join
+                    {i18n.t("invite.join", { ns: "chat" })}
                   </button>
                   <button
                     type="button"
                     className="dm-invite-card-btn decline"
                     onClick={onDeclineInvite}
                   >
-                    Decline
+                    {i18n.t("invite.decline", { ns: "chat" })}
                   </button>
                 </div>
               )}
