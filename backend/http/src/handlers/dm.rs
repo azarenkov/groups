@@ -270,13 +270,24 @@ async fn search_dm_messages(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = SearchDmMessagesResponse::new(
-        result
-            .items
-            .into_iter()
-            .map(DmMessageResponse::from)
-            .collect(),
-    );
+    let mut items: Vec<DmMessageResponse> = result
+        .items
+        .into_iter()
+        .map(DmMessageResponse::from)
+        .collect();
+    let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_dm_messages(&ids)
+        .await?;
+    for a in attachments {
+        if let Some(mid) = a.dm_message_id
+            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
+        {
+            m.attachments.push(a.into());
+        }
+    }
+    let response = SearchDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
