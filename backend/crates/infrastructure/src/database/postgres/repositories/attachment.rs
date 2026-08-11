@@ -317,13 +317,17 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                 SELECT 1
                 FROM attachments a
                 LEFT JOIN messages m ON m.id = a.message_id
+                LEFT JOIN channels c ON c.id = m.channel_id
                 LEFT JOIN channel_text_participants p
                     ON p.channel_id = m.channel_id AND p.user_id = $2
+                LEFT JOIN server_members sm
+                    ON sm.server_id = c.server_id AND sm.user_id = $2
                 LEFT JOIN dm_messages d ON d.id = a.dm_message_id
                 WHERE a.id = $1
                   AND (
                     a.owner_id = $2
                     OR p.user_id IS NOT NULL
+                    OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
                     OR d.sender_id = $2
                     OR d.recipient_id = $2
                   )

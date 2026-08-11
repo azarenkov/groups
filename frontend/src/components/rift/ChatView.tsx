@@ -147,6 +147,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const cancelledUploadsRef = React.useRef<Set<string>>(new Set());
 
   const addFiles = React.useCallback((incoming: File[] | FileList) => {
     const files = Array.from(incoming);
@@ -171,6 +172,10 @@ const ChatView: React.FC<ChatViewProps> = ({
             );
           })
           .then((attachment) => {
+            if (cancelledUploadsRef.current.delete(p.localId)) {
+              void attachmentAPI.delete(attachment.id).catch(() => {});
+              return;
+            }
             setPendingFiles((cur) =>
               cur.map((x) =>
                 x.localId === p.localId
@@ -180,6 +185,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             );
           })
           .catch(() => {
+            cancelledUploadsRef.current.delete(p.localId);
             setPendingFiles((cur) =>
               cur.map((x) =>
                 x.localId === p.localId ? { ...x, error: true } : x,
@@ -191,12 +197,18 @@ const ChatView: React.FC<ChatViewProps> = ({
     });
   }, []);
 
+  const discardPendingFile = React.useCallback((target: PendingFile) => {
+    if (target.attachment) {
+      void attachmentAPI.delete(target.attachment.id).catch(() => {});
+    } else if (!target.error) {
+      cancelledUploadsRef.current.add(target.localId);
+    }
+  }, []);
+
   const removePendingFile = (localId: string) =>
     setPendingFiles((prev) => {
       const target = prev.find((p) => p.localId === localId);
-      if (target?.attachment) {
-        void attachmentAPI.delete(target.attachment.id).catch(() => {});
-      }
+      if (target) discardPendingFile(target);
       return prev.filter((p) => p.localId !== localId);
     });
 
@@ -461,6 +473,10 @@ const ChatView: React.FC<ChatViewProps> = ({
     setMessages([]);
     setText("");
     setComposerError(null);
+    setPendingFiles((prev) => {
+      for (const p of prev) discardPendingFile(p);
+      return [];
+    });
     setEditingId(null);
     setEditText("");
     setDeleteTarget(null);
