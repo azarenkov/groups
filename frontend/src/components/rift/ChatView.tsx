@@ -1497,14 +1497,34 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   );
 };
 
+const IMAGE_CACHE_LIMIT = 40;
 const imageUrlCache = new Map<string, string>();
+
+const cacheImageUrl = (id: string, url: string) => {
+  imageUrlCache.set(id, url);
+  while (imageUrlCache.size > IMAGE_CACHE_LIMIT) {
+    const oldest = imageUrlCache.keys().next().value;
+    if (oldest === undefined) break;
+    const evicted = imageUrlCache.get(oldest);
+    imageUrlCache.delete(oldest);
+    if (evicted) URL.revokeObjectURL(evicted);
+  }
+};
+
+const touchImageUrl = (id: string): string | null => {
+  const url = imageUrlCache.get(id);
+  if (url === undefined) return null;
+  imageUrlCache.delete(id);
+  imageUrlCache.set(id, url);
+  return url;
+};
 
 const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   attachment,
 }) => {
   const isImage = attachment.contentType.startsWith("image/");
-  const [url, setUrl] = React.useState<string | null>(
-    imageUrlCache.get(attachment.id) ?? null,
+  const [url, setUrl] = React.useState<string | null>(() =>
+    touchImageUrl(attachment.id),
   );
   const [failed, setFailed] = React.useState(false);
   const [viewerOpen, setViewerOpen] = React.useState(false);
@@ -1516,7 +1536,7 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
       .download(attachment.id)
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
-        imageUrlCache.set(attachment.id, objectUrl);
+        cacheImageUrl(attachment.id, objectUrl);
         if (!cancelled) setUrl(objectUrl);
       })
       .catch(() => {
@@ -1552,7 +1572,17 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
           onClick={() => url && setViewerOpen(true)}
         >
           {url ? (
-            <img src={url} alt={attachment.fileName} loading="lazy" />
+            <img
+              src={url}
+              alt={attachment.fileName}
+              loading="lazy"
+              onError={() => {
+                if (imageUrlCache.get(attachment.id) === url) {
+                  imageUrlCache.delete(attachment.id);
+                }
+                setUrl(null);
+              }}
+            />
           ) : (
             <span className="msg-attach-image-loading">
               <span className="loading-spinner" />

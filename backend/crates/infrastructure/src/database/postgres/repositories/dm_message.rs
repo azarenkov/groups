@@ -98,12 +98,13 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if !attachment_ids.is_empty() {
-            sqlx::query!(
+            let linked = sqlx::query!(
                 r#"
                 UPDATE attachments
                 SET dm_message_id = $3
                 WHERE id = ANY($1) AND owner_id = $2
                   AND message_id IS NULL AND dm_message_id IS NULL
+                  AND deleting_at IS NULL
                 "#,
                 attachment_ids,
                 message.sender_id().uuid(),
@@ -112,6 +113,12 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+            let distinct: std::collections::HashSet<&Uuid> = attachment_ids.iter().collect();
+            if linked.rows_affected() as usize != distinct.len() {
+                return Err(RepositoryError::InvalidData(
+                    "attachments unavailable".to_string(),
+                ));
+            }
         }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
@@ -190,7 +197,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         .map_err(map_sqlx_error_to_domain_error)?
         .ok_or(RepositoryError::NotFound)?;
 
-        let content = MessageContent::new(row.content)
+        let content = MessageContent::new_allow_empty(row.content)
             .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
 
         Ok(DmMessage::restore(

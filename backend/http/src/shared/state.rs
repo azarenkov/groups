@@ -104,7 +104,12 @@ pub struct AppState {
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
-    pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
+    pub delete_channel_usecase: DeleteChannel<
+        PostgresChannelRepository,
+        LiveKitService,
+        PostgresAttachmentRepository,
+        MinioStorage,
+    >,
     pub list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
 
     pub join_text_channel_usecase:
@@ -225,7 +230,13 @@ pub struct AppState {
         ListSentServerInvites<PostgresDmMessageRepository, PostgresServerRepository>,
 
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
-    pub delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+    pub delete_server_usecase: DeleteServer<
+        PostgresServerRepository,
+        PostgresChannelRepository,
+        LiveKitService,
+        PostgresAttachmentRepository,
+        MinioStorage,
+    >,
     pub update_server_usecase: UpdateServer<PostgresServerRepository>,
     pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
     pub list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
@@ -293,7 +304,12 @@ impl AppState {
         >,
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
-        delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
+        delete_channel_usecase: DeleteChannel<
+            PostgresChannelRepository,
+            LiveKitService,
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
         list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
         join_text_channel_usecase: JoinTextChannel<
             PostgresChannelRepository,
@@ -364,7 +380,13 @@ impl AppState {
             PostgresCallRepository,
         >,
         create_server_usecase: CreateServer<PostgresServerRepository>,
-        delete_server_usecase: DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+        delete_server_usecase: DeleteServer<
+            PostgresServerRepository,
+            PostgresChannelRepository,
+            LiveKitService,
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
         update_server_usecase: UpdateServer<PostgresServerRepository>,
         create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
         list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,

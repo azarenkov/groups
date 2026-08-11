@@ -7,6 +7,7 @@ CREATE TABLE attachments (
     storage_key TEXT NOT NULL,
     message_id UUID REFERENCES messages(id) ON DELETE CASCADE,
     dm_message_id UUID REFERENCES dm_messages(id) ON DELETE CASCADE,
+    deleting_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

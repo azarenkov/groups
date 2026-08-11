@@ -35,9 +35,21 @@ pub trait AttachmentRepository {
         &self,
         hours: i64,
         limit: i64,
-    ) -> Result<Vec<(Uuid, String)>, RepositoryError>;
+    ) -> Result<Vec<Uuid>, RepositoryError>;
+
+    async fn claim_orphan(&self, id: Uuid) -> Result<Option<String>, RepositoryError>;
 
     async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError>;
+
+    async fn storage_keys_for_channel(
+        &self,
+        channel_id: Uuid,
+    ) -> Result<Vec<String>, RepositoryError>;
+
+    async fn storage_keys_for_server(
+        &self,
+        server_id: Uuid,
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn unlinked_usage(
         &self,

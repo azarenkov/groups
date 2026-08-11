@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     channel::repository::ChannelRepository,
     server::{
         events::{ServerEvent, lifecycle::ServerDeleted},
@@ -18,7 +19,10 @@ use domain::{
 
 use crate::{
     dto::requests::server::delete_server::DeleteServerRequest,
-    ports::voice_service::{VoiceService, VoiceServiceError},
+    ports::{
+        file_storage::FileStorage,
+        voice_service::{VoiceService, VoiceServiceError},
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -35,32 +39,42 @@ pub enum DeleteServerError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteServer<S, C, V>
+pub struct DeleteServer<S, C, V, A, FS>
 where
     S: ServerRepository,
     C: ChannelRepository,
     V: VoiceService,
+    A: AttachmentRepository,
+    FS: FileStorage,
 {
     server_repository: Arc<S>,
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
+    attachment_repository: Arc<A>,
+    storage: Arc<FS>,
 }
 
-impl<S, C, V> DeleteServer<S, C, V>
+impl<S, C, V, A, FS> DeleteServer<S, C, V, A, FS>
 where
     S: ServerRepository,
     C: ChannelRepository,
     V: VoiceService,
+    A: AttachmentRepository,
+    FS: FileStorage,
 {
     pub fn new(
         server_repository: Arc<S>,
         channel_repository: Arc<C>,
         voice_service: Arc<V>,
+        attachment_repository: Arc<A>,
+        storage: Arc<FS>,
     ) -> Self {
         Self {
             server_repository,
             channel_repository,
             voice_service,
+            attachment_repository,
+            storage,
         }
     }
 
@@ -100,6 +114,12 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
+        let storage_keys = self
+            .attachment_repository
+            .storage_keys_for_server(server_id.uuid())
+            .await
+            .unwrap_or_default();
+
         let deleted = self
             .server_repository
             .delete_server_by_owner_with_events(&server_id, &owner_id, &records)
@@ -107,6 +127,12 @@ where
 
         if !deleted {
             return Ok(false);
+        }
+
+        for key in storage_keys {
+            if let Err(e) = self.storage.delete(&key).await {
+                tracing::warn!(error = %e, %key, "Failed to delete attachment object after server removal");
+            }
         }
 
         for channel_id in &voice_channel_ids {

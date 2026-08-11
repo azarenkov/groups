@@ -180,10 +180,10 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         &self,
         hours: i64,
         limit: i64,
-    ) -> Result<Vec<(Uuid, String)>, RepositoryError> {
-        let rows = sqlx::query!(
+    ) -> Result<Vec<Uuid>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
             r#"
-            SELECT id, storage_key
+            SELECT id
             FROM attachments
             WHERE message_id IS NULL AND dm_message_id IS NULL
               AND created_at < now() - make_interval(hours => $1::int)
@@ -196,7 +196,23 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows.into_iter().map(|r| (r.id, r.storage_key)).collect())
+        Ok(rows)
+    }
+
+    async fn claim_orphan(&self, id: Uuid) -> Result<Option<String>, RepositoryError> {
+        let row = sqlx::query_scalar!(
+            r#"
+            UPDATE attachments
+            SET deleting_at = now()
+            WHERE id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+            RETURNING storage_key
+            "#,
+            id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
     }
 
     async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError> {
@@ -213,6 +229,45 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(())
     }
 
+    async fn storage_keys_for_channel(
+        &self,
+        channel_id: Uuid,
+    ) -> Result<Vec<String>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"
+            SELECT a.storage_key
+            FROM attachments a
+            INNER JOIN messages m ON m.id = a.message_id
+            WHERE m.channel_id = $1
+            "#,
+            channel_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows)
+    }
+
+    async fn storage_keys_for_server(
+        &self,
+        server_id: Uuid,
+    ) -> Result<Vec<String>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"
+            SELECT a.storage_key
+            FROM attachments a
+            INNER JOIN messages m ON m.id = a.message_id
+            INNER JOIN channels c ON c.id = m.channel_id
+            WHERE c.server_id = $1
+            "#,
+            server_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows)
+    }
+
     async fn unlinked_usage(
         &self,
         owner_id: &UserId,
@@ -222,6 +277,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             SELECT COUNT(*) AS "count!", COALESCE(SUM(size_bytes), 0)::BIGINT AS "bytes!"
             FROM attachments
             WHERE owner_id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+              AND deleting_at IS NULL
             "#,
             owner_id.uuid(),
         )
@@ -274,6 +330,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             FROM attachments
             WHERE id = ANY($1) AND owner_id = $2
               AND message_id IS NULL AND dm_message_id IS NULL
+              AND deleting_at IS NULL
             "#,
             ids,
             owner_id.uuid(),

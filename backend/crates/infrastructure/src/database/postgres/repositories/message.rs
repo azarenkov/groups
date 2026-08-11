@@ -13,6 +13,7 @@ use domain::{
     user::id::UserId,
 };
 use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
 use crate::database::postgres::{
     dto::message::{MessageDto, MessageViewDto},
@@ -90,12 +91,13 @@ impl MessageRepository for PostgresMessageRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if !attachment_ids.is_empty() {
-            sqlx::query!(
+            let linked = sqlx::query!(
                 r#"
                 UPDATE attachments
                 SET message_id = $3
                 WHERE id = ANY($1) AND owner_id = $2
                   AND message_id IS NULL AND dm_message_id IS NULL
+                  AND deleting_at IS NULL
                 "#,
                 attachment_ids,
                 message.author_id().uuid(),
@@ -104,6 +106,12 @@ impl MessageRepository for PostgresMessageRepository {
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+            let distinct: std::collections::HashSet<&Uuid> = attachment_ids.iter().collect();
+            if linked.rows_affected() as usize != distinct.len() {
+                return Err(RepositoryError::InvalidData(
+                    "attachments unavailable".to_string(),
+                ));
+            }
         }
 
         save_outbox_records(&mut tx, events).await?;
@@ -326,7 +334,7 @@ impl MessageRepository for PostgresMessageRepository {
 }
 
 fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
-    let content = MessageContent::new(dto.content)
+    let content = MessageContent::new_allow_empty(dto.content)
         .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
     Ok(Message::restore(
         MessageId::new(dto.id),

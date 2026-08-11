@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     channel::{ChannelError, repository::ChannelRepository},
     shared::{
         outbox::{
@@ -14,7 +15,10 @@ use domain::{
 
 use crate::{
     dto::requests::channel::delete_channel::DeleteChannelRequest,
-    ports::voice_service::{VoiceService, VoiceServiceError},
+    ports::{
+        file_storage::FileStorage,
+        voice_service::{VoiceService, VoiceServiceError},
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -33,24 +37,37 @@ pub enum DeleteChannelError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteChannel<C, V>
+pub struct DeleteChannel<C, V, A, FS>
 where
     C: ChannelRepository,
     V: VoiceService,
+    A: AttachmentRepository,
+    FS: FileStorage,
 {
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
+    attachment_repository: Arc<A>,
+    storage: Arc<FS>,
 }
 
-impl<C, V> DeleteChannel<C, V>
+impl<C, V, A, FS> DeleteChannel<C, V, A, FS>
 where
     C: ChannelRepository,
     V: VoiceService,
+    A: AttachmentRepository,
+    FS: FileStorage,
 {
-    pub fn new(channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
+    pub fn new(
+        channel_repository: Arc<C>,
+        voice_service: Arc<V>,
+        attachment_repository: Arc<A>,
+        storage: Arc<FS>,
+    ) -> Self {
         Self {
             channel_repository,
             voice_service,
+            attachment_repository,
+            storage,
         }
     }
 
@@ -86,9 +103,21 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
+        let storage_keys = self
+            .attachment_repository
+            .storage_keys_for_channel(channel_id.uuid())
+            .await
+            .unwrap_or_default();
+
         self.channel_repository
             .delete_channel_with_events(&channel_id, &records)
             .await?;
+
+        for key in storage_keys {
+            if let Err(e) = self.storage.delete(&key).await {
+                tracing::warn!(error = %e, %key, "Failed to delete attachment object after channel removal");
+            }
+        }
 
         if supports_voice
             && let Err(err) = self.voice_service.delete_voice_channel(&channel_id).await
