@@ -71,12 +71,31 @@ async fn download_attachment(
         .await?;
 
     let inline = attachment.content_type.starts_with("image/");
-    let safe_name = attachment.file_name.replace(['"', '\\', '\r', '\n'], "_");
-    let disposition = if inline {
-        format!("inline; filename=\"{safe_name}\"")
-    } else {
-        format!("attachment; filename=\"{safe_name}\"")
-    };
+    let ascii_name: String = attachment
+        .file_name
+        .chars()
+        .map(|c| {
+            if c.is_ascii() && c != '"' && c != '\\' && !c.is_ascii_control() {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let encoded_name: String = attachment
+        .file_name
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect();
+    let kind = if inline { "inline" } else { "attachment" };
+    let disposition =
+        format!("{kind}; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded_name}");
 
     Ok(HttpResponse::Ok()
         .content_type(attachment.content_type)

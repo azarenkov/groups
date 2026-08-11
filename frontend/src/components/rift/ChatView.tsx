@@ -1555,9 +1555,13 @@ const releaseImageUrl = (id: string, url: string | null) => {
   if (entry && entry.url === url && entry.refs > 0) entry.refs -= 1;
 };
 
-const dropImageUrl = (id: string, url: string) => {
+const discardBrokenImageUrl = (id: string, url: string) => {
   const entry = imageUrlCache.get(id);
-  if (entry && entry.url === url) imageUrlCache.delete(id);
+  if (entry && entry.url === url) {
+    if (entry.refs > 0) entry.refs -= 1;
+    imageUrlCache.delete(id);
+  }
+  URL.revokeObjectURL(url);
 };
 
 const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
@@ -1627,11 +1631,9 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
               alt={attachment.fileName}
               loading="lazy"
               onError={() => {
-                if (url) {
-                  releaseImageUrl(attachment.id, url);
-                  dropImageUrl(attachment.id, url);
-                }
+                if (url) discardBrokenImageUrl(attachment.id, url);
                 setUrl(null);
+                setFailed(true);
               }}
             />
           ) : (
