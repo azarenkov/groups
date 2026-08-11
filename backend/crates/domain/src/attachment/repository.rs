@@ -5,7 +5,12 @@ use crate::{attachment::Attachment, shared::repository::error::RepositoryError, 
 
 #[async_trait]
 pub trait AttachmentRepository {
-    async fn insert(&self, attachment: &Attachment) -> Result<(), RepositoryError>;
+    async fn insert_reserving_quota(
+        &self,
+        attachment: &Attachment,
+        max_count: i64,
+        max_bytes: i64,
+    ) -> Result<bool, RepositoryError>;
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError>;
 
@@ -50,11 +55,6 @@ pub trait AttachmentRepository {
         &self,
         server_id: Uuid,
     ) -> Result<Vec<String>, RepositoryError>;
-
-    async fn unlinked_usage(
-        &self,
-        owner_id: &UserId,
-    ) -> Result<(i64, i64), RepositoryError>;
 
     async fn can_access(
         &self,

@@ -46,7 +46,43 @@ fn row_to_attachment(
 
 #[async_trait]
 impl AttachmentRepository for PostgresAttachmentRepository {
-    async fn insert(&self, a: &Attachment) -> Result<(), RepositoryError> {
+    async fn insert_reserving_quota(
+        &self,
+        a: &Attachment,
+        max_count: i64,
+        max_bytes: i64,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"SELECT pg_advisory_xact_lock(hashtextextended($1, 0))"#,
+            a.owner_id.to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let usage = sqlx::query!(
+            r#"
+            SELECT COUNT(*) AS "count!", COALESCE(SUM(size_bytes), 0)::BIGINT AS "bytes!"
+            FROM attachments
+            WHERE owner_id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+              AND deleting_at IS NULL
+            "#,
+            a.owner_id,
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if usage.count >= max_count || usage.bytes + a.size_bytes > max_bytes {
+            return Ok(false);
+        }
+
         sqlx::query!(
             r#"
             INSERT INTO attachments
@@ -61,10 +97,12 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             a.storage_key,
             a.created_at,
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError> {
@@ -266,25 +304,6 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(rows)
-    }
-
-    async fn unlinked_usage(
-        &self,
-        owner_id: &UserId,
-    ) -> Result<(i64, i64), RepositoryError> {
-        let row = sqlx::query!(
-            r#"
-            SELECT COUNT(*) AS "count!", COALESCE(SUM(size_bytes), 0)::BIGINT AS "bytes!"
-            FROM attachments
-            WHERE owner_id = $1 AND message_id IS NULL AND dm_message_id IS NULL
-              AND deleting_at IS NULL
-            "#,
-            owner_id.uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok((row.count, row.bytes))
     }
 
     async fn can_access(

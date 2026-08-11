@@ -83,20 +83,8 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             return Err(UploadAttachmentError::TypeNotAllowed);
         }
 
-        let (unlinked_count, unlinked_bytes) =
-            self.repository.unlinked_usage(&owner_id).await?;
-        if unlinked_count >= MAX_UNLINKED_COUNT
-            || unlinked_bytes + bytes.len() as i64 > MAX_UNLINKED_BYTES
-        {
-            return Err(UploadAttachmentError::QuotaExceeded);
-        }
-
         let id = Uuid::new_v4();
         let storage_key = format!("attachments/{id}");
-        self.storage
-            .put(&storage_key, &content_type, bytes.clone())
-            .await?;
-
         let attachment = Attachment {
             id,
             owner_id: owner_id.uuid(),
@@ -108,8 +96,21 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             dm_message_id: None,
             created_at: Utc::now(),
         };
-        if let Err(e) = self.repository.insert(&attachment).await {
-            let _ = self.storage.delete(&attachment.storage_key).await;
+
+        let reserved = self
+            .repository
+            .insert_reserving_quota(&attachment, MAX_UNLINKED_COUNT, MAX_UNLINKED_BYTES)
+            .await?;
+        if !reserved {
+            return Err(UploadAttachmentError::QuotaExceeded);
+        }
+
+        if let Err(e) = self
+            .storage
+            .put(&attachment.storage_key, &attachment.content_type, bytes)
+            .await
+        {
+            let _ = self.repository.delete_orphan_row(attachment.id).await;
             return Err(e.into());
         }
         Ok(attachment)
