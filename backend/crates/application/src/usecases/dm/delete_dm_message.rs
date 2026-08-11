@@ -96,9 +96,19 @@ where
         self.dm_repository
             .delete_with_events(&message_id, &records)
             .await?;
+        if let Err(e) = self.attachment_repository.enqueue_cleanup(&storage_keys).await {
+            tracing::warn!(error = %e, "Failed to enqueue attachment cleanup");
+        }
         for key in storage_keys {
-            if let Err(e) = self.storage.delete(&key).await {
-                tracing::warn!(error = %e, %key, "Failed to delete attachment object");
+            match self.storage.delete(&key).await {
+                Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {
+                    if let Err(e) = self.attachment_repository.dequeue_cleanup(&key).await {
+                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, %key, "Failed to delete attachment object; cleanup queue will retry");
+                }
             }
         }
         Ok(())

@@ -61,6 +61,18 @@ impl MinioStorage {
     }
 }
 
+fn check_status(code: u16, op: &str) -> Result<(), FileStorageError> {
+    if code == 404 {
+        return Err(FileStorageError::NotFound);
+    }
+    if !(200..300).contains(&code) {
+        return Err(FileStorageError::Internal(format!(
+            "{op} returned HTTP {code}"
+        )));
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl FileStorage for MinioStorage {
     async fn put(
@@ -69,11 +81,12 @@ impl FileStorage for MinioStorage {
         content_type: &str,
         bytes: Vec<u8>,
     ) -> Result<(), FileStorageError> {
-        self.bucket
+        let response = self
+            .bucket
             .put_object_with_content_type(key, &bytes, content_type)
             .await
             .map_err(|e| FileStorageError::Internal(e.to_string()))?;
-        Ok(())
+        check_status(response.status_code(), "put_object")
     }
 
     async fn get(&self, key: &str) -> Result<Vec<u8>, FileStorageError> {
@@ -82,17 +95,16 @@ impl FileStorage for MinioStorage {
             .get_object(key)
             .await
             .map_err(|e| FileStorageError::Internal(e.to_string()))?;
-        if response.status_code() == 404 {
-            return Err(FileStorageError::NotFound);
-        }
+        check_status(response.status_code(), "get_object")?;
         Ok(response.to_vec())
     }
 
     async fn delete(&self, key: &str) -> Result<(), FileStorageError> {
-        self.bucket
+        let response = self
+            .bucket
             .delete_object(key)
             .await
             .map_err(|e| FileStorageError::Internal(e.to_string()))?;
-        Ok(())
+        check_status(response.status_code(), "delete_object")
     }
 }

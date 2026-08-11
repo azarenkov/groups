@@ -1514,25 +1514,50 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 };
 
 const IMAGE_CACHE_LIMIT = 40;
-const imageUrlCache = new Map<string, string>();
+interface CachedImage {
+  url: string;
+  refs: number;
+}
+const imageUrlCache = new Map<string, CachedImage>();
 
-const cacheImageUrl = (id: string, url: string) => {
-  imageUrlCache.set(id, url);
-  while (imageUrlCache.size > IMAGE_CACHE_LIMIT) {
-    const oldest = imageUrlCache.keys().next().value;
-    if (oldest === undefined) break;
-    const evicted = imageUrlCache.get(oldest);
-    imageUrlCache.delete(oldest);
-    if (evicted) URL.revokeObjectURL(evicted);
+const evictImageUrls = () => {
+  if (imageUrlCache.size <= IMAGE_CACHE_LIMIT) return;
+  for (const [id, entry] of imageUrlCache) {
+    if (imageUrlCache.size <= IMAGE_CACHE_LIMIT) break;
+    if (entry.refs > 0) continue;
+    imageUrlCache.delete(id);
+    URL.revokeObjectURL(entry.url);
   }
 };
 
-const touchImageUrl = (id: string): string | null => {
-  const url = imageUrlCache.get(id);
-  if (url === undefined) return null;
+const cacheImageUrl = (id: string, url: string) => {
+  imageUrlCache.set(id, { url, refs: 0 });
+  evictImageUrls();
+};
+
+const acquireImageUrl = (id: string): string | null => {
+  const entry = imageUrlCache.get(id);
+  if (!entry) return null;
   imageUrlCache.delete(id);
-  imageUrlCache.set(id, url);
-  return url;
+  imageUrlCache.set(id, entry);
+  entry.refs += 1;
+  return entry.url;
+};
+
+const retainImageUrl = (id: string, url: string) => {
+  const entry = imageUrlCache.get(id);
+  if (entry && entry.url === url) entry.refs += 1;
+};
+
+const releaseImageUrl = (id: string, url: string | null) => {
+  if (!url) return;
+  const entry = imageUrlCache.get(id);
+  if (entry && entry.url === url && entry.refs > 0) entry.refs -= 1;
+};
+
+const dropImageUrl = (id: string, url: string) => {
+  const entry = imageUrlCache.get(id);
+  if (entry && entry.url === url) imageUrlCache.delete(id);
 };
 
 const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
@@ -1540,10 +1565,16 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
 }) => {
   const isImage = attachment.contentType.startsWith("image/");
   const [url, setUrl] = React.useState<string | null>(() =>
-    touchImageUrl(attachment.id),
+    acquireImageUrl(attachment.id),
   );
   const [failed, setFailed] = React.useState(false);
   const [viewerOpen, setViewerOpen] = React.useState(false);
+  const urlRef = React.useRef(url);
+  urlRef.current = url;
+
+  React.useEffect(() => {
+    return () => releaseImageUrl(attachment.id, urlRef.current);
+  }, [attachment.id]);
 
   React.useEffect(() => {
     if (!isImage || url) return;
@@ -1553,7 +1584,10 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
         cacheImageUrl(attachment.id, objectUrl);
-        if (!cancelled) setUrl(objectUrl);
+        if (!cancelled) {
+          retainImageUrl(attachment.id, objectUrl);
+          setUrl(objectUrl);
+        }
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -1593,8 +1627,9 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
               alt={attachment.fileName}
               loading="lazy"
               onError={() => {
-                if (imageUrlCache.get(attachment.id) === url) {
-                  imageUrlCache.delete(attachment.id);
+                if (url) {
+                  releaseImageUrl(attachment.id, url);
+                  dropImageUrl(attachment.id, url);
                 }
                 setUrl(null);
               }}

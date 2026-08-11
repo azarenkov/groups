@@ -170,14 +170,15 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             .collect())
     }
 
-    async fn delete_unlinked(
+    async fn claim_unlinked(
         &self,
         id: Uuid,
         owner_id: &UserId,
     ) -> Result<Option<String>, RepositoryError> {
-        let row = sqlx::query!(
+        let row = sqlx::query_scalar!(
             r#"
-            DELETE FROM attachments
+            UPDATE attachments
+            SET deleting_at = now()
             WHERE id = $1 AND owner_id = $2
               AND message_id IS NULL AND dm_message_id IS NULL
             RETURNING storage_key
@@ -188,7 +189,51 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| r.storage_key))
+        Ok(row)
+    }
+
+    async fn enqueue_cleanup(&self, keys: &[String]) -> Result<(), RepositoryError> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+        sqlx::query!(
+            r#"
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT * FROM UNNEST($1::text[])
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            keys,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn list_cleanup_queue(&self, limit: i64) -> Result<Vec<String>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"
+            SELECT storage_key FROM storage_cleanup_queue
+            ORDER BY created_at ASC
+            LIMIT $1
+            "#,
+            limit,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows)
+    }
+
+    async fn dequeue_cleanup(&self, key: &str) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"DELETE FROM storage_cleanup_queue WHERE storage_key = $1"#,
+            key,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
     }
 
     async fn storage_keys_for_message(

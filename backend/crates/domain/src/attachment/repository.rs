@@ -24,11 +24,17 @@ pub trait AttachmentRepository {
         dm_message_ids: &[Uuid],
     ) -> Result<Vec<Attachment>, RepositoryError>;
 
-    async fn delete_unlinked(
+    async fn claim_unlinked(
         &self,
         id: Uuid,
         owner_id: &UserId,
     ) -> Result<Option<String>, RepositoryError>;
+
+    async fn enqueue_cleanup(&self, keys: &[String]) -> Result<(), RepositoryError>;
+
+    async fn list_cleanup_queue(&self, limit: i64) -> Result<Vec<String>, RepositoryError>;
+
+    async fn dequeue_cleanup(&self, key: &str) -> Result<(), RepositoryError>;
 
     async fn storage_keys_for_message(
         &self,

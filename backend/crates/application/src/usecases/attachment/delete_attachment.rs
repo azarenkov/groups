@@ -6,7 +6,7 @@ use domain::{
 };
 use uuid::Uuid;
 
-use crate::ports::file_storage::FileStorage;
+use crate::ports::file_storage::{FileStorage, FileStorageError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteAttachmentError {
@@ -36,11 +36,16 @@ impl<R: AttachmentRepository, S: FileStorage> DeleteAttachment<R, S> {
     ) -> Result<(), DeleteAttachmentError> {
         let storage_key = self
             .repository
-            .delete_unlinked(attachment_id, &owner_id)
+            .claim_unlinked(attachment_id, &owner_id)
             .await?
             .ok_or(DeleteAttachmentError::NotFound)?;
-        if let Err(e) = self.storage.delete(&storage_key).await {
-            tracing::warn!(error = %e, key = %storage_key, "Failed to delete attachment object");
+        match self.storage.delete(&storage_key).await {
+            Ok(()) | Err(FileStorageError::NotFound) => {
+                self.repository.delete_orphan_row(attachment_id).await?;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, key = %storage_key, "Failed to delete attachment object; sweeper will retry");
+            }
         }
         Ok(())
     }

@@ -45,5 +45,25 @@ impl<R: AttachmentRepository, S: FileStorage> CleanupOrphanAttachments<R, S> {
                 tracing::warn!(error = %e, "Orphan attachment cleanup query failed");
             }
         }
+
+        match self.repository.list_cleanup_queue(1000).await {
+            Ok(keys) => {
+                for key in keys {
+                    match self.storage.delete(&key).await {
+                        Ok(()) | Err(FileStorageError::NotFound) => {
+                            if let Err(e) = self.repository.dequeue_cleanup(&key).await {
+                                tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, %key, "Failed to delete queued attachment object; will retry");
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Cleanup queue query failed");
+            }
+        }
     }
 }

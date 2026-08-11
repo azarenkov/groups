@@ -15,3 +15,8 @@ CREATE INDEX idx_attachments_message ON attachments (message_id) WHERE message_i
 CREATE INDEX idx_attachments_dm_message ON attachments (dm_message_id) WHERE dm_message_id IS NOT NULL;
 CREATE INDEX idx_attachments_owner_unlinked ON attachments (owner_id, created_at)
     WHERE message_id IS NULL AND dm_message_id IS NULL;
+
+CREATE TABLE storage_cleanup_queue (
+    storage_key TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
