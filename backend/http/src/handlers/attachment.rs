@@ -76,7 +76,7 @@ async fn download_attachment(
     let attachment_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
-    let (attachment, bytes) = app_state
+    let (attachment, stream) = app_state
         .get_attachment_usecase
         .execute(attachment_id, user_id)
         .await?;
@@ -108,12 +108,13 @@ async fn download_attachment(
     let disposition =
         format!("{kind}; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded_name}");
 
+    let body = stream.map(|chunk| chunk.map(web::Bytes::from));
     Ok(HttpResponse::Ok()
         .content_type(attachment.content_type)
         .insert_header(("Content-Disposition", disposition))
         .insert_header(("X-Content-Type-Options", "nosniff"))
         .insert_header(("Cache-Control", "private, max-age=31536000, immutable"))
-        .body(bytes))
+        .streaming(body))
 }
 
 #[delete("/{attachment_id}")]

@@ -7,7 +7,7 @@ use domain::{
 };
 use uuid::Uuid;
 
-use crate::ports::file_storage::{FileStorage, FileStorageError};
+use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetAttachmentError {
@@ -38,7 +38,7 @@ impl<R: AttachmentRepository, S: FileStorage> GetAttachment<R, S> {
         &self,
         attachment_id: Uuid,
         user_id: UserId,
-    ) -> Result<(Attachment, Vec<u8>), GetAttachmentError> {
+    ) -> Result<(Attachment, ByteStream), GetAttachmentError> {
         let attachment = self
             .repository
             .find_by_id(attachment_id)
@@ -50,7 +50,7 @@ impl<R: AttachmentRepository, S: FileStorage> GetAttachment<R, S> {
             return Err(GetAttachmentError::Forbidden);
         }
 
-        let bytes = self.storage.get(&attachment.storage_key).await?;
-        Ok((attachment, bytes))
+        let stream = self.storage.get_stream(&attachment.storage_key).await?;
+        Ok((attachment, stream))
     }
 }

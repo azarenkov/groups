@@ -6,10 +6,14 @@ pub struct MinioConfig {
     endpoint: String,
     #[serde(rename = "minio_bucket", default = "default_bucket")]
     bucket: String,
-    #[serde(rename = "minio_access_key", default = "default_access_key")]
-    access_key: String,
-    #[serde(rename = "minio_secret_key", default = "default_secret_key")]
-    secret_key: String,
+    #[serde(rename = "minio_access_key", default)]
+    access_key: Option<String>,
+    #[serde(rename = "minio_secret_key", default)]
+    secret_key: Option<String>,
+    #[serde(rename = "minio_root_user", default)]
+    root_user: Option<String>,
+    #[serde(rename = "minio_root_password", default)]
+    root_password: Option<String>,
     #[serde(rename = "minio_region", default = "default_region")]
     region: String,
 }
@@ -20,14 +24,6 @@ fn default_endpoint() -> String {
 
 fn default_bucket() -> String {
     "rift-attachments".to_string()
-}
-
-fn default_access_key() -> String {
-    "rift".to_string()
-}
-
-fn default_secret_key() -> String {
-    "rift-minio-secret".to_string()
 }
 
 fn default_region() -> String {
@@ -48,11 +44,17 @@ impl MinioConfig {
     }
 
     pub fn access_key(&self) -> &str {
-        &self.access_key
+        self.access_key
+            .as_deref()
+            .or(self.root_user.as_deref())
+            .unwrap_or("rift")
     }
 
     pub fn secret_key(&self) -> &str {
-        &self.secret_key
+        self.secret_key
+            .as_deref()
+            .or(self.root_password.as_deref())
+            .unwrap_or("rift-minio-secret")
     }
 
     pub fn region(&self) -> &str {

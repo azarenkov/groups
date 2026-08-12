@@ -1613,6 +1613,8 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   const [failed, setFailed] = React.useState(false);
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [visible, setVisible] = React.useState(false);
+  const [retryTick, setRetryTick] = React.useState(0);
+  const attemptsRef = React.useRef(0);
   const containerRef = React.useRef<HTMLButtonElement>(null);
   const urlRef = React.useRef(url);
   urlRef.current = url;
@@ -1645,20 +1647,30 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   React.useEffect(() => {
     if (!isImage || url || !visible) return;
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     downloadImageUrl(attachment.id)
       .then((objectUrl) => {
         if (!cancelled) {
+          attemptsRef.current = 0;
           retainImageUrl(attachment.id, objectUrl);
           setUrl(objectUrl);
         }
       })
       .catch(() => {
-        if (!cancelled) setFailed(true);
+        if (cancelled) return;
+        if (attemptsRef.current < 3) {
+          const delay = 1500 * 2 ** attemptsRef.current;
+          attemptsRef.current += 1;
+          retryTimer = setTimeout(() => setRetryTick((t) => t + 1), delay);
+        } else {
+          setFailed(true);
+        }
       });
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [attachment.id, isImage, url, visible]);
+  }, [attachment.id, isImage, url, visible, retryTick]);
 
   const handleDownload = () => {
     void attachmentAPI

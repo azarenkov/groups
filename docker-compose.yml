@@ -95,9 +95,9 @@ services:
     container_name: rift-minio
     restart: unless-stopped
     command: server /data
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rift-minio-secret}
+    env_file:
+      - path: env/minio.env
+        required: false
     expose:
       - "9000"
     volumes:

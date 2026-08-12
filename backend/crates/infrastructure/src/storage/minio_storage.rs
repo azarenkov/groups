@@ -1,5 +1,6 @@
-use application::ports::file_storage::{FileStorage, FileStorageError};
+use application::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
 use async_trait::async_trait;
+use futures::StreamExt;
 use s3::{Bucket, Region, creds::Credentials};
 
 use crate::config::minio::MinioConfig;
@@ -89,14 +90,21 @@ impl FileStorage for MinioStorage {
         check_status(response.status_code(), "put_object")
     }
 
-    async fn get(&self, key: &str) -> Result<Vec<u8>, FileStorageError> {
+    async fn get_stream(&self, key: &str) -> Result<ByteStream, FileStorageError> {
         let response = self
             .bucket
-            .get_object(key)
+            .get_object_stream(key)
             .await
-            .map_err(|e| FileStorageError::Internal(e.to_string()))?;
-        check_status(response.status_code(), "get_object")?;
-        Ok(response.to_vec())
+            .map_err(|e| match e {
+                s3::error::S3Error::HttpFailWithBody(404, _) => FileStorageError::NotFound,
+                other => FileStorageError::Internal(other.to_string()),
+            })?;
+        check_status(response.status_code, "get_object")?;
+        let stream = response.bytes.map(|chunk| match chunk {
+            Ok(bytes) => Ok(bytes.to_vec()),
+            Err(e) => Err(FileStorageError::Internal(e.to_string())),
+        });
+        Ok(Box::pin(stream))
     }
 
     async fn delete(&self, key: &str) -> Result<(), FileStorageError> {
