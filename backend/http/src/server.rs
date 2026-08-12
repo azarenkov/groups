@@ -148,7 +148,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let orphan_cleanup = orphan_cleanup.clone();
         actix_web::rt::spawn(async move {
             let mut interval =
-                actix_web::rt::time::interval(std::time::Duration::from_secs(3600));
+                actix_web::rt::time::interval(std::time::Duration::from_secs(600));
             loop {
                 interval.tick().await;
                 orphan_cleanup.run_once().await;
@@ -177,12 +177,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         MuteChannel::new(channel_repository.clone(), user_repository.clone());
     let unmute_channel_usecase =
         UnmuteChannel::new(channel_repository.clone(), user_repository.clone());
-    let delete_channel_usecase = DeleteChannel::new(
-        channel_repository.clone(),
-        livekit_service.clone(),
-        attachment_repository.clone(),
-        minio_storage.clone(),
-    );
+    let delete_channel_usecase =
+        DeleteChannel::new(channel_repository.clone(), livekit_service.clone());
     let list_channel_participants_usecase =
         ListChannelParticipants::new(channel_repository.clone(), server_repository.clone());
     let join_text_channel_usecase = JoinTextChannel::new(
@@ -283,8 +279,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         server_repository.clone(),
         channel_repository.clone(),
         livekit_service.clone(),
-        attachment_repository.clone(),
-        minio_storage.clone(),
     );
     let leave_server_usecase = LeaveServer::new(
         server_repository.clone(),

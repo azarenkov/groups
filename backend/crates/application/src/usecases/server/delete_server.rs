@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    attachment::repository::AttachmentRepository,
     channel::repository::ChannelRepository,
     server::{
         events::{ServerEvent, lifecycle::ServerDeleted},
@@ -19,10 +18,7 @@ use domain::{
 
 use crate::{
     dto::requests::server::delete_server::DeleteServerRequest,
-    ports::{
-        file_storage::FileStorage,
-        voice_service::{VoiceService, VoiceServiceError},
-    },
+    ports::voice_service::{VoiceService, VoiceServiceError},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -39,42 +35,32 @@ pub enum DeleteServerError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteServer<S, C, V, A, FS>
+pub struct DeleteServer<S, C, V>
 where
     S: ServerRepository,
     C: ChannelRepository,
     V: VoiceService,
-    A: AttachmentRepository,
-    FS: FileStorage,
 {
     server_repository: Arc<S>,
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
-    attachment_repository: Arc<A>,
-    storage: Arc<FS>,
 }
 
-impl<S, C, V, A, FS> DeleteServer<S, C, V, A, FS>
+impl<S, C, V> DeleteServer<S, C, V>
 where
     S: ServerRepository,
     C: ChannelRepository,
     V: VoiceService,
-    A: AttachmentRepository,
-    FS: FileStorage,
 {
     pub fn new(
         server_repository: Arc<S>,
         channel_repository: Arc<C>,
         voice_service: Arc<V>,
-        attachment_repository: Arc<A>,
-        storage: Arc<FS>,
     ) -> Self {
         Self {
             server_repository,
             channel_repository,
             voice_service,
-            attachment_repository,
-            storage,
         }
     }
 
@@ -114,25 +100,13 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
-        let Some(storage_keys) = self
+        if self
             .server_repository
             .delete_server_by_owner_with_events(&server_id, &owner_id, &records)
             .await?
-        else {
+            .is_none()
+        {
             return Ok(false);
-        };
-
-        for key in storage_keys {
-            match self.storage.delete(&key).await {
-                Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {
-                    if let Err(e) = self.attachment_repository.dequeue_cleanup(&key).await {
-                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, %key, "Failed to delete attachment object; cleanup queue will retry");
-                }
-            }
         }
 
         for channel_id in &voice_channel_ids {

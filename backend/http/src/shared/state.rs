@@ -104,12 +104,7 @@ pub struct AppState {
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
 
-    pub delete_channel_usecase: DeleteChannel<
-        PostgresChannelRepository,
-        LiveKitService,
-        PostgresAttachmentRepository,
-        MinioStorage,
-    >,
+    pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
     pub list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
 
     pub join_text_channel_usecase:
@@ -234,8 +229,6 @@ pub struct AppState {
         PostgresServerRepository,
         PostgresChannelRepository,
         LiveKitService,
-        PostgresAttachmentRepository,
-        MinioStorage,
     >,
     pub update_server_usecase: UpdateServer<PostgresServerRepository>,
     pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
@@ -304,12 +297,7 @@ impl AppState {
         >,
         mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
         unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
-        delete_channel_usecase: DeleteChannel<
-            PostgresChannelRepository,
-            LiveKitService,
-            PostgresAttachmentRepository,
-            MinioStorage,
-        >,
+        delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
         list_channel_participants_usecase: ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
         join_text_channel_usecase: JoinTextChannel<
             PostgresChannelRepository,
@@ -384,8 +372,6 @@ impl AppState {
             PostgresServerRepository,
             PostgresChannelRepository,
             LiveKitService,
-            PostgresAttachmentRepository,
-            MinioStorage,
         >,
         update_server_usecase: UpdateServer<PostgresServerRepository>,
         create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
