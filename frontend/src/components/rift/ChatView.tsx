@@ -795,18 +795,19 @@ const ChatView: React.FC<ChatViewProps> = ({
     const remaining = [...chunks];
     const updateComposer = () => setText(remaining.join("\n\n"));
 
+    const sentFiles = pendingFiles.filter((p) => p.attachment);
+    const sentLocalIds = new Set(sentFiles.map((p) => p.localId));
+    const sentAttachments = sentFiles.map((p) => p.attachment as Attachment);
     let idsToAttach: string[] | undefined =
       readyIds.length > 0 ? readyIds : undefined;
     const sendChunk = async (chunk: string) => {
       const msg = await sendOnce(chunk, idsToAttach);
       if (idsToAttach) {
-        msg.attachments =
-          msg.attachments ??
-          pendingFiles
-            .filter((p) => p.attachment)
-            .map((p) => p.attachment as Attachment);
+        msg.attachments = msg.attachments ?? sentAttachments;
         idsToAttach = undefined;
-        setPendingFiles([]);
+        setPendingFiles((prev) =>
+          prev.filter((p) => !sentLocalIds.has(p.localId)),
+        );
       }
       setMessages((prev) =>
         prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
@@ -1561,7 +1562,10 @@ const retainImageUrl = (id: string, url: string) => {
 const releaseImageUrl = (id: string, url: string | null) => {
   if (!url) return;
   const entry = imageUrlCache.get(id);
-  if (entry && entry.url === url && entry.refs > 0) entry.refs -= 1;
+  if (entry && entry.url === url && entry.refs > 0) {
+    entry.refs -= 1;
+    if (entry.refs === 0) evictImageUrls();
+  }
 };
 
 const discardBrokenImageUrl = (id: string, url: string) => {
