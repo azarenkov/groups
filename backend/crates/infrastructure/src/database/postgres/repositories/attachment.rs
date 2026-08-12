@@ -335,6 +335,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                         a.owner_id = $2
                         AND a.message_id IS NULL
                         AND a.dm_message_id IS NULL
+                        AND a.deleting_at IS NULL
                     )
                     OR p.user_id IS NOT NULL
                     OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
