@@ -110,7 +110,18 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             .put(&attachment.storage_key, &attachment.content_type, bytes)
             .await
         {
-            let _ = self.repository.delete_orphan_row(attachment.id).await;
+            match self
+                .repository
+                .enqueue_cleanup(std::slice::from_ref(&attachment.storage_key))
+                .await
+            {
+                Ok(()) => {
+                    let _ = self.repository.delete_orphan_row(attachment.id).await;
+                }
+                Err(qe) => {
+                    tracing::warn!(error = %qe, key = %attachment.storage_key, "Failed to enqueue cleanup after upload error; orphan sweep will reclaim");
+                }
+            }
             return Err(e.into());
         }
         Ok(attachment)

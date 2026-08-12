@@ -311,8 +311,18 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                     a.owner_id = $2
                     OR p.user_id IS NOT NULL
                     OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
-                    OR d.sender_id = $2
-                    OR d.recipient_id = $2
+                    OR (
+                        (d.sender_id = $2 OR d.recipient_id = $2)
+                        AND EXISTS(
+                            SELECT 1 FROM friendships f
+                            WHERE f.user_id = $2
+                              AND f.friend_id = CASE
+                                  WHEN d.sender_id = $2 THEN d.recipient_id
+                                  ELSE d.sender_id
+                              END
+                              AND f.status = 'accepted'
+                        )
+                    )
                   )
             ) AS "exists!"
             "#,
