@@ -6,6 +6,8 @@ use futures::StreamExt;
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
+const MAX_FILE_NAME_BYTES: usize = 255;
+
 use crate::shared::{
     dto::responses::{ApiResponse, attachment::AttachmentResponse},
     error::ApiError,
@@ -25,11 +27,20 @@ async fn upload_attachment(
         if field.name() != Some("file") {
             continue;
         }
-        let file_name = field
+        let raw_name = field
             .content_disposition()
             .and_then(|cd| cd.get_filename())
-            .unwrap_or("file")
-            .to_string();
+            .unwrap_or("file");
+        let mut file_name = String::with_capacity(raw_name.len().min(MAX_FILE_NAME_BYTES));
+        for c in raw_name.chars() {
+            if file_name.len() + c.len_utf8() > MAX_FILE_NAME_BYTES {
+                break;
+            }
+            file_name.push(c);
+        }
+        if file_name.trim().is_empty() {
+            file_name = "file".to_string();
+        }
         let content_type = field
             .content_type()
             .map(|m| m.to_string())

@@ -1586,6 +1586,8 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   );
   const [failed, setFailed] = React.useState(false);
   const [viewerOpen, setViewerOpen] = React.useState(false);
+  const [visible, setVisible] = React.useState(false);
+  const containerRef = React.useRef<HTMLButtonElement>(null);
   const urlRef = React.useRef(url);
   urlRef.current = url;
 
@@ -1594,7 +1596,28 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   }, [attachment.id]);
 
   React.useEffect(() => {
-    if (!isImage || url) return;
+    if (!isImage || url || visible) return;
+    const node = containerRef.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [attachment.id, isImage, url, visible]);
+
+  React.useEffect(() => {
+    if (!isImage || url || !visible) return;
     let cancelled = false;
     attachmentAPI
       .download(attachment.id)
@@ -1612,7 +1635,7 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
     return () => {
       cancelled = true;
     };
-  }, [attachment.id, isImage, url]);
+  }, [attachment.id, isImage, url, visible]);
 
   const handleDownload = () => {
     void attachmentAPI
@@ -1634,6 +1657,7 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
     return (
       <>
         <button
+          ref={containerRef}
           type="button"
           className="msg-attach-image"
           onClick={() => url && setViewerOpen(true)}
