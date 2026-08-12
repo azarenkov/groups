@@ -160,12 +160,33 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         &self,
         id: &DmMessageId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<Vec<String>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        let storage_keys = sqlx::query_scalar!(
+            r#"SELECT storage_key FROM attachments WHERE dm_message_id = $1"#,
+            id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT * FROM UNNEST($1::text[])
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            &storage_keys,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
         let result = sqlx::query!(
             r#"
             DELETE FROM dm_messages WHERE id = $1
@@ -180,7 +201,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(storage_keys)
     }
 
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError> {

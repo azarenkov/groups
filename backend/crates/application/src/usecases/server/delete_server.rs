@@ -114,24 +114,14 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
-        let storage_keys = self
-            .attachment_repository
-            .storage_keys_for_server(server_id.uuid())
-            .await
-            .unwrap_or_default();
-
-        let deleted = self
+        let Some(storage_keys) = self
             .server_repository
             .delete_server_by_owner_with_events(&server_id, &owner_id, &records)
-            .await?;
-
-        if !deleted {
+            .await?
+        else {
             return Ok(false);
-        }
+        };
 
-        if let Err(e) = self.attachment_repository.enqueue_cleanup(&storage_keys).await {
-            tracing::warn!(error = %e, "Failed to enqueue attachment cleanup");
-        }
         for key in storage_keys {
             match self.storage.delete(&key).await {
                 Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {

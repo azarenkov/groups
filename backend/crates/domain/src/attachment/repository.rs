@@ -36,12 +36,6 @@ pub trait AttachmentRepository {
 
     async fn dequeue_cleanup(&self, key: &str) -> Result<(), RepositoryError>;
 
-    async fn storage_keys_for_message(
-        &self,
-        message_id: Uuid,
-        dm: bool,
-    ) -> Result<Vec<String>, RepositoryError>;
-
     async fn list_orphans_older_than(
         &self,
         hours: i64,
@@ -51,16 +45,6 @@ pub trait AttachmentRepository {
     async fn claim_orphan(&self, id: Uuid) -> Result<Option<String>, RepositoryError>;
 
     async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError>;
-
-    async fn storage_keys_for_channel(
-        &self,
-        channel_id: Uuid,
-    ) -> Result<Vec<String>, RepositoryError>;
-
-    async fn storage_keys_for_server(
-        &self,
-        server_id: Uuid,
-    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn can_access(
         &self,

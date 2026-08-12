@@ -159,12 +159,34 @@ impl MessageRepository for PostgresMessageRepository {
         &self,
         message_id: &MessageId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<Vec<String>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        let storage_keys = sqlx::query_scalar!(
+            r#"
+            SELECT storage_key FROM attachments WHERE message_id = $1
+            "#,
+            message_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT * FROM UNNEST($1::text[])
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            &storage_keys,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
 
         let result = sqlx::query!(
             r#"
@@ -183,7 +205,7 @@ impl MessageRepository for PostgresMessageRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(storage_keys)
     }
 
     async fn find_message_by_id(

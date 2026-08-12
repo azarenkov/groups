@@ -236,29 +236,6 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(())
     }
 
-    async fn storage_keys_for_message(
-        &self,
-        message_id: Uuid,
-        dm: bool,
-    ) -> Result<Vec<String>, RepositoryError> {
-        let rows = if dm {
-            sqlx::query_scalar!(
-                r#"SELECT storage_key FROM attachments WHERE dm_message_id = $1"#,
-                message_id,
-            )
-            .fetch_all(&self.pool)
-            .await
-        } else {
-            sqlx::query_scalar!(
-                r#"SELECT storage_key FROM attachments WHERE message_id = $1"#,
-                message_id,
-            )
-            .fetch_all(&self.pool)
-            .await
-        };
-        rows.map_err(map_sqlx_error_to_domain_error)
-    }
-
     async fn list_orphans_older_than(
         &self,
         hours: i64,
@@ -310,45 +287,6 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
-    }
-
-    async fn storage_keys_for_channel(
-        &self,
-        channel_id: Uuid,
-    ) -> Result<Vec<String>, RepositoryError> {
-        let rows = sqlx::query_scalar!(
-            r#"
-            SELECT a.storage_key
-            FROM attachments a
-            INNER JOIN messages m ON m.id = a.message_id
-            WHERE m.channel_id = $1
-            "#,
-            channel_id,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows)
-    }
-
-    async fn storage_keys_for_server(
-        &self,
-        server_id: Uuid,
-    ) -> Result<Vec<String>, RepositoryError> {
-        let rows = sqlx::query_scalar!(
-            r#"
-            SELECT a.storage_key
-            FROM attachments a
-            INNER JOIN messages m ON m.id = a.message_id
-            INNER JOIN channels c ON c.id = m.channel_id
-            WHERE c.server_id = $1
-            "#,
-            server_id,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows)
     }
 
     async fn can_access(

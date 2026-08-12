@@ -136,16 +136,9 @@ where
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
         let storage_keys = self
-            .attachment_repository
-            .storage_keys_for_message(message_id.uuid(), false)
-            .await
-            .unwrap_or_default();
-        self.message_repository
+            .message_repository
             .delete_message_with_events(&message_id, &records)
             .await?;
-        if let Err(e) = self.attachment_repository.enqueue_cleanup(&storage_keys).await {
-            tracing::warn!(error = %e, "Failed to enqueue attachment cleanup");
-        }
         for key in storage_keys {
             match self.storage.delete(&key).await {
                 Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {

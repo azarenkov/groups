@@ -43,7 +43,7 @@ pub trait DmMessageRepository {
         &self,
         id: &DmMessageId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError>;
 

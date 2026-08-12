@@ -29,7 +29,7 @@ pub trait MessageRepository {
         &self,
         message_id: &MessageId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn find_message_by_id(
         &self,

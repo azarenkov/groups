@@ -104,18 +104,10 @@ where
             .collect::<Result<_, _>>()?;
 
         let storage_keys = self
-            .attachment_repository
-            .storage_keys_for_channel(channel_id.uuid())
-            .await
-            .unwrap_or_default();
-
-        self.channel_repository
+            .channel_repository
             .delete_channel_with_events(&channel_id, &records)
             .await?;
 
-        if let Err(e) = self.attachment_repository.enqueue_cleanup(&storage_keys).await {
-            tracing::warn!(error = %e, "Failed to enqueue attachment cleanup");
-        }
         for key in storage_keys {
             match self.storage.delete(&key).await {
                 Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {

@@ -274,12 +274,37 @@ impl ChannelRepository for PostgresChannelRepository {
         &self,
         channel_id: &ChannelId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<Vec<String>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        let storage_keys = sqlx::query_scalar!(
+            r#"
+            SELECT a.storage_key
+            FROM attachments a
+            INNER JOIN messages m ON m.id = a.message_id
+            WHERE m.channel_id = $1
+            "#,
+            channel_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT * FROM UNNEST($1::text[])
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            &storage_keys,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
 
         let result = sqlx::query!("DELETE FROM channels WHERE id = $1", channel_id.uuid())
             .execute(&mut *tx)
@@ -293,7 +318,7 @@ impl ChannelRepository for PostgresChannelRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(storage_keys)
     }
 
     async fn list_voice_channel_ids_by_server(
