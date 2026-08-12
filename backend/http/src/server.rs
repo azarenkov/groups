@@ -136,6 +136,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     }
     let upload_attachment_usecase =
         UploadAttachment::new(attachment_repository.clone(), minio_storage.clone());
+    let upload_semaphore = Arc::new(tokio::sync::Semaphore::new(8));
     let get_attachment_usecase =
         GetAttachment::new(attachment_repository.clone(), minio_storage.clone());
     let delete_attachment_usecase =
@@ -449,6 +450,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         presence_preference_subject,
         send_dm_message_usecase,
         upload_attachment_usecase,
+        upload_semaphore,
         get_attachment_usecase,
         delete_attachment_usecase,
         list_message_attachments_usecase,

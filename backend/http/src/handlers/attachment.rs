@@ -22,6 +22,13 @@ async fn upload_attachment(
 ) -> Result<impl Responder, ApiError> {
     let user_id = UserId::new(auth_token.id);
 
+    let _permit = app_state
+        .upload_semaphore
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|_| ApiError::bad_request("upload capacity unavailable".to_string()))?;
+
     while let Some(field) = payload.next().await {
         let mut field = field.map_err(|e| ApiError::bad_request(e.to_string()))?;
         if field.name() != Some("file") {

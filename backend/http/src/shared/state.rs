@@ -198,6 +198,7 @@ pub struct AppState {
     >,
     pub upload_attachment_usecase:
         UploadAttachment<PostgresAttachmentRepository, MinioStorage>,
+    pub upload_semaphore: std::sync::Arc<tokio::sync::Semaphore>,
     pub get_attachment_usecase: GetAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub delete_attachment_usecase:
         DeleteAttachment<PostgresAttachmentRepository, MinioStorage>,
@@ -435,6 +436,7 @@ impl AppState {
             PostgresAttachmentRepository,
             MinioStorage,
         >,
+        upload_semaphore: std::sync::Arc<tokio::sync::Semaphore>,
         get_attachment_usecase: GetAttachment<PostgresAttachmentRepository, MinioStorage>,
         delete_attachment_usecase: DeleteAttachment<
             PostgresAttachmentRepository,
@@ -537,6 +539,7 @@ impl AppState {
             presence_preference_subject,
             send_dm_message_usecase,
             upload_attachment_usecase,
+            upload_semaphore,
             get_attachment_usecase,
             delete_attachment_usecase,
             list_message_attachments_usecase,
