@@ -205,6 +205,15 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   }, []);
 
+  const pendingFilesRef = React.useRef<PendingFile[]>([]);
+  pendingFilesRef.current = pendingFiles;
+
+  React.useEffect(() => {
+    return () => {
+      for (const p of pendingFilesRef.current) discardPendingFile(p);
+    };
+  }, [discardPendingFile]);
+
   const removePendingFile = (localId: string) =>
     setPendingFiles((prev) => {
       const target = prev.find((p) => p.localId === localId);

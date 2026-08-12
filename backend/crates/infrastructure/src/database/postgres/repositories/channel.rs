@@ -281,6 +281,14 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        sqlx::query!(
+            r#"SELECT id FROM channels WHERE id = $1 FOR UPDATE"#,
+            channel_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
         let storage_keys = sqlx::query_scalar!(
             r#"
             SELECT a.storage_key
