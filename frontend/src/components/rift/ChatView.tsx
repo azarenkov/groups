@@ -1540,9 +1540,35 @@ const evictImageUrls = () => {
   }
 };
 
-const cacheImageUrl = (id: string, url: string) => {
+const cacheImageUrl = (id: string, url: string): string => {
+  const entry = imageUrlCache.get(id);
+  if (entry) {
+    if (entry.url === url) return url;
+    if (entry.refs > 0) {
+      URL.revokeObjectURL(url);
+      return entry.url;
+    }
+    imageUrlCache.delete(id);
+    URL.revokeObjectURL(entry.url);
+  }
   imageUrlCache.set(id, { url, refs: 0 });
   evictImageUrls();
+  return url;
+};
+
+const pendingImageDownloads = new Map<string, Promise<string>>();
+
+const downloadImageUrl = (id: string): Promise<string> => {
+  const existing = pendingImageDownloads.get(id);
+  if (existing) return existing;
+  const promise = attachmentAPI
+    .download(id)
+    .then((blob) => cacheImageUrl(id, URL.createObjectURL(blob)))
+    .finally(() => {
+      pendingImageDownloads.delete(id);
+    });
+  pendingImageDownloads.set(id, promise);
+  return promise;
 };
 
 const acquireImageUrl = (id: string): string | null => {
@@ -1619,11 +1645,8 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   React.useEffect(() => {
     if (!isImage || url || !visible) return;
     let cancelled = false;
-    attachmentAPI
-      .download(attachment.id)
-      .then((blob) => {
-        const objectUrl = URL.createObjectURL(blob);
-        cacheImageUrl(attachment.id, objectUrl);
+    downloadImageUrl(attachment.id)
+      .then((objectUrl) => {
         if (!cancelled) {
           retainImageUrl(attachment.id, objectUrl);
           setUrl(objectUrl);
