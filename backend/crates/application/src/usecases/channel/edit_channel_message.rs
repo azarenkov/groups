@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     message::{
         MessageError, content::MessageContent, id::MessageId, repository::MessageRepository,
     },

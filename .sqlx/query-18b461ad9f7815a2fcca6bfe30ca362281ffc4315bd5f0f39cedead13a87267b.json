@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT p.user_id, u.name AS user_name\n            FROM call_participants p\n            INNER JOIN users u ON u.id = p.user_id\n            WHERE p.call_id = $1 AND p.status = 'joined'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "18b461ad9f7815a2fcca6bfe30ca362281ffc4315bd5f0f39cedead13a87267b"
+}

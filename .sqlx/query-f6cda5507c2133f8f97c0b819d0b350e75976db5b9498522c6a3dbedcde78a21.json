@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT a.storage_key\n            FROM attachments a\n            INNER JOIN messages m ON m.id = a.message_id\n            WHERE m.channel_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f6cda5507c2133f8f97c0b819d0b350e75976db5b9498522c6a3dbedcde78a21"
+}

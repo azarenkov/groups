@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, created_at\n            FROM dm_messages\n            WHERE id = $1\n              AND LEAST(sender_id, recipient_id) = LEAST($2::uuid, $3::uuid)\n              AND GREATEST(sender_id, recipient_id) = GREATEST($2::uuid, $3::uuid)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8f4dbbde698bb7b29f0c2ee85491e655dc71dda89c5a165e0856247b760dd966"
+}

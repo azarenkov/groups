@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE channels\n            SET last_join = GREATEST(last_join, $2)\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2394d652c67a6ff325563bd2723c64bdef922e454fd9da12c92bf0105612a38f"
+}

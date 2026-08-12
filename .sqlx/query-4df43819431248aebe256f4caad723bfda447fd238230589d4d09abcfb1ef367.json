@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM channel_stream_viewers\n        WHERE channel_id = $1 AND viewer_id = $2 AND viewer_session_id = $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4df43819431248aebe256f4caad723bfda447fd238230589d4d09abcfb1ef367"
+}

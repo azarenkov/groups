@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO verification_codes (\n                    id, user_id, channel, code_hash, purpose,\n                    expires_at, consumed_at, attempts, created_at\n                )\n                VALUES (\n                    $1, $2, $3, $4, $5,\n                    $6, $7, $8, $9\n                )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "verification_channel",
+            "kind": {
+              "Enum": [
+                "email",
+                "phone"
+              ]
+            }
+          }
+        },
+        "Varchar",
+        {
+          "Custom": {
+            "name": "verification_purpose",
+            "kind": {
+              "Enum": [
+                "registration",
+                "password_reset",
+                "email_change",
+                "phone_change"
+              ]
+            }
+          }
+        },
+        "Timestamptz",
+        "Timestamptz",
+        "Int2",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2f4b04aee37c125502b1024e8b142e6201086a885c7eae59b1061ca43c4ecb9a"
+}

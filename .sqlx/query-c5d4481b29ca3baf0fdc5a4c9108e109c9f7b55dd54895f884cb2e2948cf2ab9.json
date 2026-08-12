@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO channel_stream_viewers\n                    (channel_id, streamer_id, viewer_id, viewer_session_id, updated_at)\n                VALUES ($1, $2, $3, $4, $5)\n                ON CONFLICT (channel_id, streamer_id, viewer_id, viewer_session_id)\n                DO UPDATE SET updated_at = EXCLUDED.updated_at\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5d4481b29ca3baf0fdc5a4c9108e109c9f7b55dd54895f884cb2e2948cf2ab9"
+}
