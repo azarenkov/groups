@@ -95,9 +95,9 @@ services:
     container_name: rift-minio
     restart: unless-stopped
     command: server /data
-    env_file:
-      - path: env/minio.env
-        required: true
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rift-minio-secret}
     expose:
       - "9000"
     volumes:
@@ -128,8 +128,11 @@ services:
         required: false
       - path: env/http.env
         required: false
-      - path: env/minio.env
-        required: true
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rift-minio-secret}
     depends_on:
       postgres:
         condition: service_healthy
