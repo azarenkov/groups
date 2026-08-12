@@ -30,7 +30,11 @@ impl From<SendChannelMessageResponse> for MessageResponse {
             content: value.content,
             created_at: value.created_at,
             edited_at: None,
-            attachments: Vec::new(),
+            attachments: value
+                .attachments
+                .into_iter()
+                .map(crate::shared::dto::responses::attachment::AttachmentResponse::from)
+                .collect(),
         }
     }
 }

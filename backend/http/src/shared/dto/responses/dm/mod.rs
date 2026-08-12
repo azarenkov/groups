@@ -42,7 +42,11 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
             call_duration_seconds: None,
             created_at: value.created_at,
             edited_at: None,
-            attachments: Vec::new(),
+            attachments: value
+                .attachments
+                .into_iter()
+                .map(crate::shared::dto::responses::attachment::AttachmentResponse::from)
+                .collect(),
         }
     }
 }

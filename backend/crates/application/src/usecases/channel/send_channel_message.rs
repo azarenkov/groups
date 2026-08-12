@@ -158,6 +158,13 @@ where
             .save_message_with_events(&message, &records, &request.attachment_ids)
             .await?;
 
-        Ok(SendChannelMessageResponse::from(&message))
+        let mut response = SendChannelMessageResponse::from(&message);
+        if !request.attachment_ids.is_empty() {
+            response.attachments = self
+                .attachment_repository
+                .list_for_messages(&[message.id().uuid()])
+                .await?;
+        }
+        Ok(response)
     }
 }
