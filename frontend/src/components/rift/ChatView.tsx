@@ -148,53 +148,55 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [dragOver, setDragOver] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelledUploadsRef = React.useRef<Set<string>>(new Set());
+  const pendingFilesRef = React.useRef<PendingFile[]>([]);
+  pendingFilesRef.current = pendingFiles;
 
   const addFiles = React.useCallback((incoming: File[] | FileList) => {
     const files = Array.from(incoming);
     if (files.length === 0) return;
-    setPendingFiles((prev) => {
-      const room = MAX_ATTACHMENTS_PER_MESSAGE - prev.length;
-      const accepted = files.slice(0, Math.max(0, room));
-      const additions: PendingFile[] = accepted.map((file) => ({
-        localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        file,
-        progress: 0,
-        error: file.size > MAX_ATTACHMENT_BYTES || file.size === 0,
-      }));
-      for (const p of additions) {
-        if (p.error) continue;
-        void attachmentAPI
-          .upload(p.file, (fraction) => {
-            setPendingFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId ? { ...x, progress: fraction } : x,
-              ),
-            );
-          })
-          .then((attachment) => {
-            if (cancelledUploadsRef.current.delete(p.localId)) {
-              void attachmentAPI.delete(attachment.id).catch(() => {});
-              return;
-            }
-            setPendingFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId
-                  ? { ...x, attachment, progress: 1 }
-                  : x,
-              ),
-            );
-          })
-          .catch(() => {
-            cancelledUploadsRef.current.delete(p.localId);
-            setPendingFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId ? { ...x, error: true } : x,
-              ),
-            );
-          });
-      }
-      return [...prev, ...additions];
-    });
+    const room =
+      MAX_ATTACHMENTS_PER_MESSAGE - pendingFilesRef.current.length;
+    const accepted = files.slice(0, Math.max(0, room));
+    const additions: PendingFile[] = accepted.map((file) => ({
+      localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      file,
+      progress: 0,
+      error: file.size > MAX_ATTACHMENT_BYTES || file.size === 0,
+    }));
+    if (additions.length === 0) return;
+    setPendingFiles((prev) => [...prev, ...additions]);
+    for (const p of additions) {
+      if (p.error) continue;
+      void attachmentAPI
+        .upload(p.file, (fraction) => {
+          setPendingFiles((cur) =>
+            cur.map((x) =>
+              x.localId === p.localId ? { ...x, progress: fraction } : x,
+            ),
+          );
+        })
+        .then((attachment) => {
+          if (cancelledUploadsRef.current.delete(p.localId)) {
+            void attachmentAPI.delete(attachment.id).catch(() => {});
+            return;
+          }
+          setPendingFiles((cur) =>
+            cur.map((x) =>
+              x.localId === p.localId
+                ? { ...x, attachment, progress: 1 }
+                : x,
+            ),
+          );
+        })
+        .catch(() => {
+          cancelledUploadsRef.current.delete(p.localId);
+          setPendingFiles((cur) =>
+            cur.map((x) =>
+              x.localId === p.localId ? { ...x, error: true } : x,
+            ),
+          );
+        });
+    }
   }, []);
 
   const discardPendingFile = React.useCallback((target: PendingFile) => {
@@ -204,9 +206,6 @@ const ChatView: React.FC<ChatViewProps> = ({
       cancelledUploadsRef.current.add(target.localId);
     }
   }, []);
-
-  const pendingFilesRef = React.useRef<PendingFile[]>([]);
-  pendingFilesRef.current = pendingFiles;
 
   React.useEffect(() => {
     return () => {
