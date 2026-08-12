@@ -13,7 +13,7 @@ pub struct SendDmMessageBody {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct EditDmMessageBody {
-    #[validate(length(min = 1, max = 2000))]
+    #[validate(length(max = 2000))]
     pub content: String,
 }
 

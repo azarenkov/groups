@@ -46,6 +46,12 @@ pub trait AttachmentRepository {
 
     async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError>;
 
+    async fn has_for_message(
+        &self,
+        message_id: Uuid,
+        dm: bool,
+    ) -> Result<bool, RepositoryError>;
+
     async fn can_access(
         &self,
         attachment_id: Uuid,

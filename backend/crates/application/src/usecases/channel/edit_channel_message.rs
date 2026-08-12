@@ -33,32 +33,37 @@ pub enum EditChannelMessageError {
     MessageNotFound,
 }
 
-pub struct EditChannelMessage<M, C, S>
+pub struct EditChannelMessage<M, C, S, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    A: AttachmentRepository,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
+    attachment_repository: Arc<A>,
 }
 
-impl<M, C, S> EditChannelMessage<M, C, S>
+impl<M, C, S, A> EditChannelMessage<M, C, S, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    A: AttachmentRepository,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
+        attachment_repository: Arc<A>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
+            attachment_repository,
         }
     }
 
@@ -105,7 +110,15 @@ where
             return Err(EditChannelMessageError::MessageNotFound);
         }
 
-        let new_content = MessageContent::new(request.new_content)?;
+        let has_attachments = self
+            .attachment_repository
+            .has_for_message(message_id.uuid(), false)
+            .await?;
+        let new_content = if has_attachments {
+            MessageContent::new_allow_empty(request.new_content)?
+        } else {
+            MessageContent::new(request.new_content)?
+        };
         let now = Utc::now();
         message.edit(new_content, editor_id, now)?;
 

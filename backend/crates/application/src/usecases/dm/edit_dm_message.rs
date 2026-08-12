@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
     message::{MessageError, content::MessageContent},
     shared::{
@@ -30,19 +31,25 @@ pub enum EditDmMessageError {
     NotFound,
 }
 
-pub struct EditDmMessage<M>
+pub struct EditDmMessage<M, A>
 where
     M: DmMessageRepository,
+    A: AttachmentRepository,
 {
     dm_repository: Arc<M>,
+    attachment_repository: Arc<A>,
 }
 
-impl<M> EditDmMessage<M>
+impl<M, A> EditDmMessage<M, A>
 where
     M: DmMessageRepository,
+    A: AttachmentRepository,
 {
-    pub fn new(dm_repository: Arc<M>) -> Self {
-        Self { dm_repository }
+    pub fn new(dm_repository: Arc<M>, attachment_repository: Arc<A>) -> Self {
+        Self {
+            dm_repository,
+            attachment_repository,
+        }
     }
 
     pub async fn execute(
@@ -65,7 +72,15 @@ where
             return Err(EditDmMessageError::NotFound);
         }
 
-        let new_content = MessageContent::new(request.content)?;
+        let has_attachments = self
+            .attachment_repository
+            .has_for_message(message_id.uuid(), true)
+            .await?;
+        let new_content = if has_attachments {
+            MessageContent::new_allow_empty(request.content)?
+        } else {
+            MessageContent::new(request.content)?
+        };
         let now = Utc::now();
         message.edit(new_content, editor_id, now)?;
         let request_id = request.ctx.request_id.clone();

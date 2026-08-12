@@ -289,6 +289,29 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(())
     }
 
+    async fn has_for_message(
+        &self,
+        message_id: Uuid,
+        dm: bool,
+    ) -> Result<bool, RepositoryError> {
+        let row = if dm {
+            sqlx::query_scalar!(
+                r#"SELECT EXISTS(SELECT 1 FROM attachments WHERE dm_message_id = $1) AS "exists!""#,
+                message_id,
+            )
+            .fetch_one(&self.pool)
+            .await
+        } else {
+            sqlx::query_scalar!(
+                r#"SELECT EXISTS(SELECT 1 FROM attachments WHERE message_id = $1) AS "exists!""#,
+                message_id,
+            )
+            .fetch_one(&self.pool)
+            .await
+        };
+        row.map_err(map_sqlx_error_to_domain_error)
+    }
+
     async fn can_access(
         &self,
         attachment_id: Uuid,
@@ -308,7 +331,11 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                 LEFT JOIN dm_messages d ON d.id = a.dm_message_id
                 WHERE a.id = $1
                   AND (
-                    a.owner_id = $2
+                    (
+                        a.owner_id = $2
+                        AND a.message_id IS NULL
+                        AND a.dm_message_id IS NULL
+                    )
                     OR p.user_id IS NOT NULL
                     OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
                     OR (
