@@ -58,9 +58,9 @@ pub trait AttachmentRepository {
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
 
-    async fn count_unlinked_owned(
+    async fn list_unlinked_owned(
         &self,
         ids: &[Uuid],
         owner_id: &UserId,
-    ) -> Result<i64, RepositoryError>;
+    ) -> Result<Vec<Attachment>, RepositoryError>;
 }

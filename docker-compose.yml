@@ -97,7 +97,7 @@ services:
     command: server /data
     env_file:
       - path: env/minio.env
-        required: false
+        required: true
     expose:
       - "9000"
     volumes:
@@ -129,7 +129,7 @@ services:
       - path: env/http.env
         required: false
       - path: env/minio.env
-        required: false
+        required: true
     depends_on:
       postgres:
         condition: service_healthy

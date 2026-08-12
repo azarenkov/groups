@@ -362,26 +362,44 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(row.exists)
     }
 
-    async fn count_unlinked_owned(
+    async fn list_unlinked_owned(
         &self,
         ids: &[Uuid],
         owner_id: &UserId,
-    ) -> Result<i64, RepositoryError> {
-        let row = sqlx::query!(
+    ) -> Result<Vec<Attachment>, RepositoryError> {
+        let rows = sqlx::query!(
             r#"
-            SELECT COUNT(*) AS "count!"
+            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key,
+                   message_id, dm_message_id, created_at
             FROM attachments
             WHERE id = ANY($1) AND owner_id = $2
               AND message_id IS NULL AND dm_message_id IS NULL
               AND deleting_at IS NULL
+            ORDER BY created_at ASC
             "#,
             ids,
             owner_id.uuid(),
         )
-        .fetch_one(&self.pool)
+        .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.count)
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                row_to_attachment(
+                    r.id,
+                    r.owner_id,
+                    r.file_name,
+                    r.content_type,
+                    r.size_bytes,
+                    r.storage_key,
+                    r.message_id,
+                    r.dm_message_id,
+                    r.created_at,
+                )
+            })
+            .collect())
     }
 
     async fn list_for_dm_messages(

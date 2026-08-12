@@ -123,15 +123,20 @@ where
         if request.attachment_ids.len() > 10 {
             return Err(SendChannelMessageError::InvalidAttachments);
         }
-        if !request.attachment_ids.is_empty() {
+        let attachments = if request.attachment_ids.is_empty() {
+            Vec::new()
+        } else {
             let owned = self
                 .attachment_repository
-                .count_unlinked_owned(&request.attachment_ids, &author_id)
+                .list_unlinked_owned(&request.attachment_ids, &author_id)
                 .await?;
-            if owned as usize != request.attachment_ids.len() {
+            let distinct: std::collections::HashSet<&uuid::Uuid> =
+                request.attachment_ids.iter().collect();
+            if owned.len() != distinct.len() {
                 return Err(SendChannelMessageError::InvalidAttachments);
             }
-        }
+            owned
+        };
 
         let content = if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
@@ -159,12 +164,7 @@ where
             .await?;
 
         let mut response = SendChannelMessageResponse::from(&message);
-        if !request.attachment_ids.is_empty() {
-            response.attachments = self
-                .attachment_repository
-                .list_for_messages(&[message.id().uuid()])
-                .await?;
-        }
+        response.attachments = attachments;
         Ok(response)
     }
 }
