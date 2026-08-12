@@ -575,6 +575,14 @@ impl ServerRepository for PostgresServerRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
         sqlx::query!(
+            r#"SELECT id FROM servers WHERE id = $1 FOR UPDATE"#,
+            server_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
             r#"SELECT id FROM channels WHERE server_id = $1 FOR UPDATE"#,
             server_id.uuid(),
         )

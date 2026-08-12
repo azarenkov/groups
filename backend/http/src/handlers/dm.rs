@@ -125,6 +125,7 @@ struct DmPreviewItem {
     content: String,
     call_status: Option<String>,
     invite_server_id: Option<Uuid>,
+    has_attachments: bool,
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -153,6 +154,7 @@ async fn list_dm_previews(
                 content: p.content,
                 call_status: p.call_status,
                 invite_server_id: p.invite_server_id,
+                has_attachments: p.has_attachments,
                 created_at: p.created_at,
             })
             .collect(),

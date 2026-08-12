@@ -107,6 +107,7 @@ class DmAPI {
       content: string;
       callStatus: string | null;
       inviteServerId: string | null;
+      hasAttachments: boolean;
       createdAt: string;
     }[];
   }> {

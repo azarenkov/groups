@@ -35,5 +35,6 @@
   "joinServerHint": "Enter with an invite code",
   "previewCall": "Voice call",
   "previewInvite": "Server invite",
-  "previewYou": "You:"
+  "previewYou": "You:",
+  "previewAttachment": "📎 Attachment"
 }

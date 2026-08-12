@@ -6,6 +6,7 @@ export interface DmPreview {
   content: string;
   callStatus: string | null;
   inviteServerId: string | null;
+  hasAttachments: boolean;
   createdAt: string;
 }
 
@@ -41,6 +42,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
           content: it.content,
           callStatus: it.callStatus,
           inviteServerId: it.inviteServerId,
+          hasAttachments: it.hasAttachments,
           createdAt: it.createdAt,
         };
       }

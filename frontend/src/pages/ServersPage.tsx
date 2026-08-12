@@ -211,7 +211,8 @@ const ServersPage: React.FC = () => {
               ? tSidebar("previewCall")
               : p.inviteServerId
                 ? tSidebar("previewInvite")
-                : p.content;
+                : p.content ||
+                  (p.hasAttachments ? tSidebar("previewAttachment") : "");
             lastMessage =
               p.senderId === user?.id
                 ? `${tSidebar("previewYou")} ${body}`

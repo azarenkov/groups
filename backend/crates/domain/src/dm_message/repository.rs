@@ -21,6 +21,7 @@ pub struct DmConversationPreview {
     pub content: String,
     pub call_status: Option<String>,
     pub invite_server_id: Option<Uuid>,
+    pub has_attachments: bool,
     pub created_at: DateTime<Utc>,
 }
 

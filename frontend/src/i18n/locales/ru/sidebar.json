@@ -35,5 +35,6 @@
   "joinServerHint": "Войти по коду приглашения",
   "previewCall": "Звонок",
   "previewInvite": "Приглашение на сервер",
-  "previewYou": "Вы:"
+  "previewYou": "Вы:",
+  "previewAttachment": "📎 Вложение"
 }

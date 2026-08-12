@@ -508,6 +508,9 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 m.content AS "content!",
                 m.call_status,
                 m.invite_server_id,
+                EXISTS(
+                    SELECT 1 FROM attachments att WHERE att.dm_message_id = m.id
+                ) AS "has_attachments!",
                 m.created_at AS "created_at!"
             FROM (
                 SELECT
@@ -538,6 +541,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 content: r.content,
                 call_status: r.call_status,
                 invite_server_id: r.invite_server_id,
+                has_attachments: r.has_attachments,
                 created_at: r.created_at,
             })
             .collect())
