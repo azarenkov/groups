@@ -1530,11 +1530,11 @@ interface CachedImage {
 }
 const imageUrlCache = new Map<string, CachedImage>();
 
-const evictImageUrls = () => {
+const evictImageUrls = (protectedId?: string) => {
   if (imageUrlCache.size <= IMAGE_CACHE_LIMIT) return;
   for (const [id, entry] of imageUrlCache) {
     if (imageUrlCache.size <= IMAGE_CACHE_LIMIT) break;
-    if (entry.refs > 0) continue;
+    if (entry.refs > 0 || id === protectedId) continue;
     imageUrlCache.delete(id);
     URL.revokeObjectURL(entry.url);
   }
@@ -1552,7 +1552,7 @@ const cacheImageUrl = (id: string, url: string): string => {
     URL.revokeObjectURL(entry.url);
   }
   imageUrlCache.set(id, { url, refs: 0 });
-  evictImageUrls();
+  evictImageUrls(id);
   return url;
 };
 

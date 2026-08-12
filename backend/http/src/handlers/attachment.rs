@@ -113,7 +113,7 @@ async fn download_attachment(
         .content_type(attachment.content_type)
         .insert_header(("Content-Disposition", disposition))
         .insert_header(("X-Content-Type-Options", "nosniff"))
-        .insert_header(("Cache-Control", "private, max-age=31536000, immutable"))
+        .insert_header(("Cache-Control", "private, no-store"))
         .streaming(body))
 }
 
