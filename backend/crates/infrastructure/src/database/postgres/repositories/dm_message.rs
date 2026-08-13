@@ -225,6 +225,17 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        let locked = sqlx::query_scalar!(
+            r#"SELECT id FROM dm_messages WHERE id = $1 FOR UPDATE"#,
+            id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if locked.is_none() {
+            return Err(RepositoryError::NotFound);
+        }
+
         let storage_keys = sqlx::query_scalar!(
             r#"SELECT storage_key FROM attachments WHERE dm_message_id = $1"#,
             id.uuid(),
