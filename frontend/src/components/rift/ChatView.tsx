@@ -296,6 +296,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         authorName?: string;
         content: string;
         occurredAt: string;
+        attachments?: Attachment[];
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -350,6 +351,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         inviteServerName?: string;
         callStatus?: string;
         callDurationSeconds?: number;
+        attachments?: Attachment[];
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
