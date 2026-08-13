@@ -22,6 +22,12 @@ export interface ChannelMessageHandlers {
     channelId: string;
     newContent: string;
     occurredAt: string;
+    attachments?: {
+      id: string;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+    }[];
   }) => void;
   onDeleted?: (m: {
     id: string;
@@ -80,6 +86,12 @@ export interface DmMessageHandlers {
     senderId: string;
     newContent: string;
     occurredAt: string;
+    attachments?: {
+      id: string;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+    }[];
   }) => void;
   onDeleted?: (m: {
     id: string;

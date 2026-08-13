@@ -66,5 +66,7 @@
   "attachmentFailed": "Ошибка загрузки",
   "linkPreviewShow": "Показать превью изображения",
   "editHint": "esc — отменить · enter — сохранить",
-  "editCaptionPlaceholder": "Подпись к файлам (необязательно)"
+  "editCaptionPlaceholder": "Подпись к файлам (необязательно)",
+  "editRemoveAttachment": "Открепить вложение",
+  "editRestoreAttachment": "Оставить вложение"
 }

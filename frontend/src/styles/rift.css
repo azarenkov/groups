@@ -4957,5 +4957,26 @@ textarea.s-input {
   font: inherit;
   text-align: left;
 }
-.msg-edit-attachments { margin-top: 0; margin-bottom: 2px; opacity: 0.85; pointer-events: none; }
+.msg-edit-attachments { margin-top: 0; margin-bottom: 2px; }
 .msg-edit input::placeholder { color: var(--fg-4); }
+.msg-edit-att { position: relative; }
+.msg-edit-att > *:not(.msg-edit-att-toggle) { pointer-events: none; opacity: 0.85; }
+.msg-edit-att.removed > *:not(.msg-edit-att-toggle) {
+  opacity: 0.3;
+  filter: grayscale(0.7);
+}
+.msg-edit-att-toggle {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 22px; height: 22px;
+  border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, transform 0.15s var(--ease-spring);
+}
+.msg-edit-att-toggle:hover { background: var(--danger); transform: scale(1.1); }
+.msg-edit-att.removed .msg-edit-att-toggle:hover { background: var(--accent); }
+.msg-edit-chips { padding: 0; }
+.msg-edit-input-row { display: flex; align-items: center; gap: 6px; }
+.msg-edit-input-row input:not([type="file"]) { flex: 1 1 auto; min-width: 0; }
+.msg-edit-attach { width: 30px; height: 30px; }

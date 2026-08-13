@@ -1640,6 +1640,7 @@ impl ToHttpStatus for EditChannelMessageError {
             EditChannelMessageError::Outbox(e) => e.to_http_status(),
             EditChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
             EditChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
+            EditChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -1652,6 +1653,9 @@ impl ToHttpStatus for EditChannelMessageError {
                 "You are not a member of this server".to_string()
             }
             EditChannelMessageError::MessageNotFound => "Message not found".to_string(),
+            EditChannelMessageError::InvalidAttachments => {
+                "Attachments are invalid or unavailable".to_string()
+            }
         }
     }
 
@@ -1662,6 +1666,7 @@ impl ToHttpStatus for EditChannelMessageError {
             EditChannelMessageError::Outbox(e) => e.to_error_code(),
             EditChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
             EditChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
+            EditChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
         }
     }
 }
@@ -2118,6 +2123,7 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Message(e) => e.to_http_status(),
             EditDmMessageError::Outbox(e) => e.to_http_status(),
             EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
+            EditDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -2127,6 +2133,9 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Message(e) => e.to_user_message(),
             EditDmMessageError::Outbox(e) => e.to_user_message(),
             EditDmMessageError::NotFound => "Message not found".to_string(),
+            EditDmMessageError::InvalidAttachments => {
+                "Attachments are invalid or unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -2136,6 +2145,7 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Message(e) => e.to_error_code(),
             EditDmMessageError::Outbox(e) => e.to_error_code(),
             EditDmMessageError::NotFound => "DM_NOT_FOUND",
+            EditDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
         }
     }
 }

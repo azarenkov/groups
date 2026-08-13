@@ -61,6 +61,7 @@ pub async fn dispatch(
         if let Some(rid) = resolver.dm_recipient_for(evt.message_id, evt.sender_id).await? {
             recipients.push(rid);
         }
+        let attachments = resolver.attachments_for_message(evt.message_id, true).await?;
         let envelope = Envelope::new(
             "dm_message.edited",
             json!({
@@ -68,6 +69,7 @@ pub async fn dispatch(
                 "senderId": evt.sender_id,
                 "newContent": evt.new_content,
                 "occurredAt": evt.occurred_at,
+                "attachments": attachments,
             }),
         );
         publisher.publish_to_users(unique(recipients), &envelope).await?;
@@ -154,6 +156,7 @@ pub async fn dispatch(
         } else {
             resolver.text_channel_recipients(evt.channel_id).await?
         };
+        let attachments = resolver.attachments_for_message(evt.message_id, false).await?;
         let envelope = Envelope::new(
             "message.edited",
             json!({
@@ -161,6 +164,7 @@ pub async fn dispatch(
                 "channelId": evt.channel_id,
                 "newContent": evt.new_content,
                 "occurredAt": evt.occurred_at,
+                "attachments": attachments,
             }),
         );
         publisher.publish_to_users(unique(recipients), &envelope).await?;

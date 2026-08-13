@@ -120,6 +120,7 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresServerRepository,
         PostgresAttachmentRepository,
+        MinioStorage,
     >,
     pub delete_channel_message_usecase: DeleteChannelMessage<
         PostgresMessageRepository,
@@ -205,7 +206,7 @@ pub struct AppState {
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresAttachmentRepository>,
     pub edit_dm_message_usecase:
-        EditDmMessage<PostgresDmMessageRepository, PostgresAttachmentRepository>,
+        EditDmMessage<PostgresDmMessageRepository, PostgresAttachmentRepository, MinioStorage>,
     pub delete_dm_message_usecase: DeleteDmMessage<
         PostgresDmMessageRepository,
         PostgresAttachmentRepository,
@@ -318,6 +319,7 @@ impl AppState {
             PostgresChannelRepository,
             PostgresServerRepository,
             PostgresAttachmentRepository,
+            MinioStorage,
         >,
         delete_channel_message_usecase: DeleteChannelMessage<
             PostgresMessageRepository,
@@ -448,6 +450,7 @@ impl AppState {
         edit_dm_message_usecase: EditDmMessage<
             PostgresDmMessageRepository,
             PostgresAttachmentRepository,
+            MinioStorage,
         >,
         delete_dm_message_usecase: DeleteDmMessage<
             PostgresDmMessageRepository,

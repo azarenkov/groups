@@ -199,10 +199,16 @@ class ChannelAPI {
     channelId: string,
     messageId: string,
     content: string,
+    addAttachmentIds?: string[],
+    removeAttachmentIds?: string[],
   ): Promise<void> {
     await this.client.patch(
       `/v1/servers/${serverId}/channels/${channelId}/messages/${messageId}`,
-      { content },
+      {
+        content,
+        addAttachmentIds: addAttachmentIds ?? [],
+        removeAttachmentIds: removeAttachmentIds ?? [],
+      },
     );
   }
 

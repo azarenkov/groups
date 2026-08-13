@@ -153,13 +153,23 @@ impl DmMessage {
         editor_id: UserId,
         now: DateTime<Utc>,
     ) -> Result<(), DmMessageError> {
+        self.edit_with_options(new_content, editor_id, now, false)
+    }
+
+    pub fn edit_with_options(
+        &mut self,
+        new_content: MessageContent,
+        editor_id: UserId,
+        now: DateTime<Utc>,
+        allow_unchanged: bool,
+    ) -> Result<(), DmMessageError> {
         if self.sender_id != editor_id {
             return Err(DmMessageError::NotSender);
         }
         if self.invite_server_id.is_some() {
             return Err(DmMessageError::NotEditable);
         }
-        if self.content == new_content {
+        if !allow_unchanged && self.content == new_content {
             return Err(DmMessageError::ContentUnchanged);
         }
         self.content = new_content.clone();

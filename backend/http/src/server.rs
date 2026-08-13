@@ -198,6 +198,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_repository.clone(),
         server_repository.clone(),
         attachment_repository.clone(),
+        minio_storage.clone(),
     );
     let delete_channel_message_usecase = DeleteChannelMessage::new(
         message_repository.clone(),
@@ -364,8 +365,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         friendship_repository.clone(),
         attachment_repository.clone(),
     );
-    let edit_dm_message_usecase =
-        EditDmMessage::new(dm_repository.clone(), attachment_repository.clone());
+    let edit_dm_message_usecase = EditDmMessage::new(
+        dm_repository.clone(),
+        attachment_repository.clone(),
+        minio_storage.clone(),
+    );
     let delete_dm_message_usecase = DeleteDmMessage::new(
         dm_repository.clone(),
         attachment_repository.clone(),

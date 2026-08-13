@@ -38,7 +38,9 @@ pub trait DmMessageRepository {
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+        add_attachment_ids: &[Uuid],
+        remove_attachment_ids: &[Uuid],
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn delete_with_events(
         &self,

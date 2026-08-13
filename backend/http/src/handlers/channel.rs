@@ -368,6 +368,8 @@ async fn edit_channel_message(
         channel_id,
         message_id,
         body.content,
+        body.add_attachment_ids,
+        body.remove_attachment_ids,
         request_context(&req),
     );
 

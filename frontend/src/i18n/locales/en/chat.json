@@ -66,5 +66,7 @@
   "attachmentFailed": "Upload failed",
   "linkPreviewShow": "Show image preview",
   "editHint": "escape to cancel · enter to save",
-  "editCaptionPlaceholder": "Add a caption (optional)"
+  "editCaptionPlaceholder": "Add a caption (optional)",
+  "editRemoveAttachment": "Remove attachment",
+  "editRestoreAttachment": "Keep attachment"
 }

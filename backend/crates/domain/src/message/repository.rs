@@ -23,7 +23,9 @@ pub trait MessageRepository {
         &self,
         message: &Message,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+        add_attachment_ids: &[uuid::Uuid],
+        remove_attachment_ids: &[uuid::Uuid],
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn delete_message_with_events(
         &self,

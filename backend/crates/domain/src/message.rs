@@ -93,10 +93,20 @@ impl Message {
         editor_id: UserId,
         now: DateTime<Utc>,
     ) -> Result<(), MessageError> {
+        self.edit_with_options(new_content, editor_id, now, false)
+    }
+
+    pub fn edit_with_options(
+        &mut self,
+        new_content: MessageContent,
+        editor_id: UserId,
+        now: DateTime<Utc>,
+        allow_unchanged: bool,
+    ) -> Result<(), MessageError> {
         if self.author_id != editor_id {
             return Err(MessageError::NotAuthor);
         }
-        if self.content == new_content {
+        if !allow_unchanged && self.content == new_content {
             return Err(MessageError::ContentUnchanged);
         }
         self.content = new_content.clone();

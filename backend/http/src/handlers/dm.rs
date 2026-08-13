@@ -218,7 +218,13 @@ async fn edit_dm_message(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
 
-    let data = EditDmMessageRequest::new(message_id, body.content, request_context(&req));
+    let data = EditDmMessageRequest::new(
+        message_id,
+        body.content,
+        body.add_attachment_ids,
+        body.remove_attachment_ids,
+        request_context(&req),
+    );
 
     app_state
         .edit_dm_message_usecase

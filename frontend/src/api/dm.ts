@@ -151,9 +151,16 @@ class DmAPI {
     );
   }
 
-  async editMessage(messageId: string, content: string): Promise<void> {
+  async editMessage(
+    messageId: string,
+    content: string,
+    addAttachmentIds?: string[],
+    removeAttachmentIds?: string[],
+  ): Promise<void> {
     await this.client.patch(`/v1/users/me/dms/messages/${messageId}`, {
       content,
+      addAttachmentIds: addAttachmentIds ?? [],
+      removeAttachmentIds: removeAttachmentIds ?? [],
     });
   }
 
