@@ -4957,26 +4957,53 @@ textarea.s-input {
   font: inherit;
   text-align: left;
 }
-.msg-edit-attachments { margin-top: 0; margin-bottom: 2px; }
+.msg-edit-attachments {
+  flex-direction: row; flex-wrap: wrap; align-items: flex-start;
+  gap: 8px;
+  margin-top: 0; margin-bottom: 2px;
+}
 .msg-edit input::placeholder { color: var(--fg-4); }
 .msg-edit-att { position: relative; }
 .msg-edit-att > *:not(.msg-edit-att-toggle) { pointer-events: none; opacity: 0.85; }
-.msg-edit-att.removed > *:not(.msg-edit-att-toggle) {
-  opacity: 0.3;
-  filter: grayscale(0.7);
-}
+.msg-edit-att .msg-attach-image img { max-height: 140px; }
 .msg-edit-att-toggle {
-  position: absolute; top: 6px; right: 6px; z-index: 2;
+  position: absolute; top: -7px; right: -7px; z-index: 2;
   width: 22px; height: 22px;
   border: 0; border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55); color: #fff;
+  background: rgba(0, 0, 0, 0.65); color: #fff;
+  box-shadow: 0 0 0 2px var(--surface-panel);
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   transition: background 0.15s ease, transform 0.15s var(--ease-spring);
 }
 .msg-edit-att-toggle:hover { background: var(--danger); transform: scale(1.1); }
-.msg-edit-att.removed .msg-edit-att-toggle:hover { background: var(--accent); }
+.msg-edit-add {
+  width: 44px; height: 44px;
+  align-self: center;
+  border: 1.5px dashed var(--hairline-strong, var(--hairline));
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.msg-edit-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-tint);
+}
 .msg-edit-chips { padding: 0; }
 .msg-edit-input-row { display: flex; align-items: center; gap: 6px; }
-.msg-edit-input-row input:not([type="file"]) { flex: 1 1 auto; min-width: 0; }
-.msg-edit-attach { width: 30px; height: 30px; }
+.msg-edit-input-row input { flex: 1 1 auto; min-width: 0; }
+.msg-edit-confirm {
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  border: 0; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform 0.15s var(--ease-spring), filter 0.15s ease;
+}
+.msg-edit-confirm:hover { filter: brightness(1.1); transform: scale(1.06); }
+.msg-edit-confirm:active { transform: scale(0.94); }

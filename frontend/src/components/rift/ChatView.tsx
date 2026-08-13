@@ -2191,29 +2191,41 @@ const Message: React.FC<MessageProps> = ({
           </div>
         ) : editing ? (
           <div className="msg-edit">
-            {(msg.attachments?.length ?? 0) > 0 && (
-              <div className="msg-attachments msg-edit-attachments">
-                {(msg.attachments ?? []).map((a) => {
-                  const removed = editRemovedIds.includes(a.id);
-                  return (
-                    <div
-                      key={a.id}
-                      className={"msg-edit-att" + (removed ? " removed" : "")}
+            <div className="msg-attachments msg-edit-attachments">
+              {(msg.attachments ?? [])
+                .filter((a) => !editRemovedIds.includes(a.id))
+                .map((a) => (
+                  <div key={a.id} className="msg-edit-att">
+                    <AttachmentItem attachment={a} />
+                    <button
+                      type="button"
+                      className="msg-edit-att-toggle"
+                      title={i18n.t("editRemoveAttachment", { ns: "chat" })}
+                      onClick={() => onToggleRemoveAttachment(a.id)}
                     >
-                      <AttachmentItem attachment={a} />
-                      <button
-                        type="button"
-                        className="msg-edit-att-toggle"
-                        title={i18n.t(removed ? "editRestoreAttachment" : "editRemoveAttachment", { ns: "chat" })}
-                        onClick={() => onToggleRemoveAttachment(a.id)}
-                      >
-                        <Icon name={removed ? "plus" : "x"} size={12} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      <Icon name="x" size={12} />
+                    </button>
+                  </div>
+                ))}
+              <input
+                ref={editFileInputRef}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => {
+                  if (e.target.files) onAddEditFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className="msg-edit-add"
+                title={i18n.t("attachFile", { ns: "chat" })}
+                onClick={() => editFileInputRef.current?.click()}
+              >
+                <Icon name="plus" size={16} />
+              </button>
+            </div>
             {editFiles.length > 0 && (
               <div className="attach-chips msg-edit-chips">
                 {editFiles.map((p) => (
@@ -2250,43 +2262,33 @@ const Message: React.FC<MessageProps> = ({
             )}
             <div className="msg-edit-input-row">
               <input
-                ref={editFileInputRef}
-                type="file"
-                multiple
-                hidden
-                onChange={(e) => {
-                  if (e.target.files) onAddEditFiles(e.target.files);
-                  e.target.value = "";
+                autoFocus
+                value={editText}
+                maxLength={MAX_CONTENT}
+                placeholder={
+                  (msg.attachments?.length ?? 0) > 0
+                    ? i18n.t("editCaptionPlaceholder", { ns: "chat" })
+                    : undefined
+                }
+                onChange={(e) => onEditTextChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    onCancelEdit();
+                  } else if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    onSaveEdit();
+                  }
                 }}
               />
               <button
                 type="button"
-                className="attach-btn msg-edit-attach"
-                title={i18n.t("attachFile", { ns: "chat" })}
-                onClick={() => editFileInputRef.current?.click()}
+                className="msg-edit-confirm"
+                title={i18n.t("editConfirm", { ns: "chat" })}
+                onClick={onSaveEdit}
               >
-                <Icon name="paperclip" size={16} />
+                <Icon name="check" size={16} />
               </button>
-            <input
-              autoFocus
-              value={editText}
-              maxLength={MAX_CONTENT}
-              placeholder={
-                (msg.attachments?.length ?? 0) > 0
-                  ? i18n.t("editCaptionPlaceholder", { ns: "chat" })
-                  : undefined
-              }
-              onChange={(e) => onEditTextChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  onCancelEdit();
-                } else if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  onSaveEdit();
-                }
-              }}
-            />
             </div>
             <div className="msg-edit-hint">
               {i18n.t("editHint", { ns: "chat" })}

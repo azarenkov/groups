@@ -68,5 +68,5 @@
   "editHint": "escape to cancel · enter to save",
   "editCaptionPlaceholder": "Add a caption (optional)",
   "editRemoveAttachment": "Remove attachment",
-  "editRestoreAttachment": "Keep attachment"
+  "editConfirm": "Save changes"
 }
