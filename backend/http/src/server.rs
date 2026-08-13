@@ -132,7 +132,25 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .map_err(|e| Box::<dyn Error>::from(format!("minio init failed: {e}")))?,
     );
     if let Err(e) = minio_storage.ensure_bucket(&minio_config).await {
-        tracing::warn!(error = %e, "Failed to ensure MinIO bucket; uploads may fail until it exists");
+        tracing::warn!(error = %e, "Failed to ensure MinIO bucket; retrying in background");
+        let retry_storage = minio_storage.clone();
+        let retry_config = minio_config.clone();
+        actix_web::rt::spawn(async move {
+            let mut delay = std::time::Duration::from_secs(2);
+            loop {
+                actix_web::rt::time::sleep(delay).await;
+                match retry_storage.ensure_bucket(&retry_config).await {
+                    Ok(()) => {
+                        tracing::info!("MinIO bucket ensured after retry");
+                        break;
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "MinIO bucket ensure retry failed");
+                        delay = (delay * 2).min(std::time::Duration::from_secs(60));
+                    }
+                }
+            }
+        });
     }
     let upload_attachment_usecase =
         UploadAttachment::new(attachment_repository.clone(), minio_storage.clone());

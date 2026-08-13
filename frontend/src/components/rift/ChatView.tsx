@@ -156,6 +156,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const cancelledUploadsRef = React.useRef<Set<string>>(new Set());
   const pendingFilesRef = React.useRef<PendingFile[]>([]);
   pendingFilesRef.current = pendingFiles;
+  const inFlightSendRef = React.useRef<Set<string>>(new Set());
 
   const addFiles = React.useCallback((incoming: File[] | FileList) => {
     const files = Array.from(incoming);
@@ -214,8 +215,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, []);
 
   React.useEffect(() => {
+    const inFlight = inFlightSendRef.current;
     return () => {
-      for (const p of pendingFilesRef.current) discardPendingFile(p);
+      for (const p of pendingFilesRef.current) {
+        if (!inFlight.has(p.localId)) discardPendingFile(p);
+      }
     };
   }, [discardPendingFile]);
 
@@ -609,7 +613,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     setText("");
     setComposerError(null);
     setPendingFiles((prev) => {
-      for (const p of prev) discardPendingFile(p);
+      for (const p of prev) {
+        if (!inFlightSendRef.current.has(p.localId)) discardPendingFile(p);
+      }
       return [];
     });
     setEditingId(null);
@@ -927,11 +933,15 @@ const ChatView: React.FC<ChatViewProps> = ({
     const sentAttachments = sentFiles.map((p) => p.attachment as Attachment);
     let idsToAttach: string[] | undefined =
       readyIds.length > 0 ? readyIds : undefined;
+    if (idsToAttach) {
+      for (const id of sentLocalIds) inFlightSendRef.current.add(id);
+    }
     const sendChunk = async (chunk: string) => {
       const msg = await sendOnce(chunk, idsToAttach);
       if (idsToAttach) {
         msg.attachments = msg.attachments ?? sentAttachments;
         idsToAttach = undefined;
+        for (const id of sentLocalIds) inFlightSendRef.current.delete(id);
         setPendingFiles((prev) =>
           prev.filter((p) => !sentLocalIds.has(p.localId)),
         );
@@ -996,6 +1006,16 @@ const ChatView: React.FC<ChatViewProps> = ({
         setComposerError(apiErr?.message || i18n.t("couldNotSend", { ns: "chat" }));
       }
     } finally {
+      for (const id of sentLocalIds) inFlightSendRef.current.delete(id);
+      if (idsToAttach) {
+        for (const p of sentFiles) {
+          if (
+            !pendingFilesRef.current.some((x) => x.localId === p.localId)
+          ) {
+            discardPendingFile(p);
+          }
+        }
+      }
       setSending(false);
     }
   };
@@ -1713,7 +1733,6 @@ const renderWithLinks = (text: string): React.ReactNode => {
 
 const LinkPreview: React.FC<{ link: ParsedLink }> = ({ link }) => {
   const [hidden, setHidden] = React.useState(false);
-  const [faviconFailed, setFaviconFailed] = React.useState(false);
   const [revealed, setRevealed] = React.useState(false);
   if (hidden) return null;
 
@@ -1787,16 +1806,7 @@ const LinkPreview: React.FC<{ link: ParsedLink }> = ({ link }) => {
       className="link-preview-card"
     >
       <span className="link-preview-favicon">
-        {faviconFailed ? (
-          <Icon name="globe" size={16} />
-        ) : (
-          <img
-            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`}
-            alt=""
-            loading="lazy"
-            onError={() => setFaviconFailed(true)}
-          />
-        )}
+        <Icon name="globe" size={16} />
       </span>
       <span className="link-preview-info">
         <span className="link-preview-domain">{domain}</span>
