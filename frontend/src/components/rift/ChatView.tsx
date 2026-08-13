@@ -506,6 +506,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [composerError, setComposerError] = React.useState<string | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editText, setEditText] = React.useState("");
+  const [savingEdit, setSavingEdit] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<ChannelMessage | null>(null);
   const [sending, setSending] = React.useState(false);
   const [accessError, setAccessError] = React.useState<string | null>(null);
@@ -1040,13 +1041,14 @@ const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const cancelEdit = () => {
+    if (savingEdit) return;
     discardEditFiles();
     setEditingId(null);
     setEditText("");
   };
 
   const saveEdit = async (msg: ChannelMessage) => {
-    if (!messenger) return;
+    if (!messenger || savingEdit) return;
     const v = editText.trim();
     const currentIds = (msg.attachments ?? []).map((a) => a.id);
     const removeIds = editRemovedIds.filter((id) => currentIds.includes(id));
@@ -1060,6 +1062,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       return;
     }
     if (v.length > MAX_CONTENT) return;
+    setSavingEdit(true);
     try {
       await messenger.editMessage(msg.id, v, addIds, removeIds);
       const editedAt = new Date().toISOString();
@@ -1071,6 +1074,10 @@ const ChatView: React.FC<ChatViewProps> = ({
           m.id === msg.id ? { ...m, content: v, editedAt, attachments } : m,
         ),
       );
+      const sentLocalIds = new Set(readyAdds.map((p) => p.localId));
+      for (const p of editFilesRef.current) {
+        if (!sentLocalIds.has(p.localId)) discardPendingFile(p);
+      }
       setEditFiles([]);
       setEditRemovedIds([]);
       setEditingId(null);
@@ -1081,10 +1088,13 @@ const ChatView: React.FC<ChatViewProps> = ({
         apiErr?.code === "MESSAGE_CONTENT_UNCHANGED" ||
         apiErr?.code === "DM_CONTENT_UNCHANGED"
       ) {
+        setSavingEdit(false);
         cancelEdit();
         return;
       }
       console.warn("[ChatView] edit failed:", err);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -1304,6 +1314,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   }
                   editRemovedIds={editRemovedIds}
                   editFiles={editFiles}
+                  editSaving={savingEdit}
                   onEditTextChange={setEditText}
                   onStartEdit={() => startEdit(m)}
                   onCancelEdit={cancelEdit}
@@ -2047,6 +2058,7 @@ interface MessageProps {
   editText: string;
   editRemovedIds: string[];
   editFiles: PendingFile[];
+  editSaving: boolean;
   inviteIsMember: boolean;
   onEditTextChange: (v: string) => void;
   onStartEdit: () => void;
@@ -2073,6 +2085,7 @@ const Message: React.FC<MessageProps> = ({
   editText,
   editRemovedIds,
   editFiles,
+  editSaving,
   inviteIsMember,
   onEditTextChange,
   onStartEdit,
@@ -2201,6 +2214,7 @@ const Message: React.FC<MessageProps> = ({
                       type="button"
                       className="msg-edit-att-toggle"
                       title={i18n.t("editRemoveAttachment", { ns: "chat" })}
+                      disabled={editSaving}
                       onClick={() => onToggleRemoveAttachment(a.id)}
                     >
                       <Icon name="x" size={12} />
@@ -2221,6 +2235,7 @@ const Message: React.FC<MessageProps> = ({
                 type="button"
                 className="msg-edit-add"
                 title={i18n.t("attachFile", { ns: "chat" })}
+                disabled={editSaving}
                 onClick={() => editFileInputRef.current?.click()}
               >
                 <Icon name="plus" size={16} />
@@ -2252,6 +2267,7 @@ const Message: React.FC<MessageProps> = ({
                     <button
                       type="button"
                       className="attach-chip-remove"
+                      disabled={editSaving}
                       onClick={() => onRemoveEditFile(p.localId)}
                     >
                       <Icon name="x" size={11} />
@@ -2270,8 +2286,10 @@ const Message: React.FC<MessageProps> = ({
                     ? i18n.t("editCaptionPlaceholder", { ns: "chat" })
                     : undefined
                 }
+                readOnly={editSaving}
                 onChange={(e) => onEditTextChange(e.target.value)}
                 onKeyDown={(e) => {
+                  if (editSaving) return;
                   if (e.key === "Escape") {
                     e.preventDefault();
                     onCancelEdit();
@@ -2285,6 +2303,7 @@ const Message: React.FC<MessageProps> = ({
                 type="button"
                 className="msg-edit-confirm"
                 title={i18n.t("editConfirm", { ns: "chat" })}
+                disabled={editSaving}
                 onClick={onSaveEdit}
               >
                 <Icon name="check" size={16} />

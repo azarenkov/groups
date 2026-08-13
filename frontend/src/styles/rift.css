@@ -5007,3 +5007,10 @@ textarea.s-input {
 }
 .msg-edit-confirm:hover { filter: brightness(1.1); transform: scale(1.06); }
 .msg-edit-confirm:active { transform: scale(0.94); }
+.msg-edit-att-toggle:disabled,
+.msg-edit-add:disabled,
+.msg-edit-confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}

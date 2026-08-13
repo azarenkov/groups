@@ -209,6 +209,20 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 ));
             }
         }
+        let final_count = sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*) AS "count!" FROM attachments WHERE dm_message_id = $1
+            "#,
+            message.id().uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if final_count > 10 || (final_count == 0 && message.content().as_str().is_empty()) {
+            return Err(RepositoryError::InvalidData(
+                "attachments unavailable".to_string(),
+            ));
+        }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(removed_keys)
