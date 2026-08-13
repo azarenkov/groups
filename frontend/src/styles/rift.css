@@ -4957,3 +4957,5 @@ textarea.s-input {
   font: inherit;
   text-align: left;
 }
+.msg-edit-attachments { margin-top: 0; margin-bottom: 2px; opacity: 0.85; pointer-events: none; }
+.msg-edit input::placeholder { color: var(--fg-4); }

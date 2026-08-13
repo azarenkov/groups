@@ -927,7 +927,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   const saveEdit = async (msg: ChannelMessage) => {
     if (!messenger) return;
     const v = editText.trim();
-    if (!v) {
+    const hasAttachments = (msg.attachments?.length ?? 0) > 0;
+    if (!v && !hasAttachments) {
       cancelEdit();
       return;
     }
@@ -2035,10 +2036,22 @@ const Message: React.FC<MessageProps> = ({
           </div>
         ) : editing ? (
           <div className="msg-edit">
+            {(msg.attachments?.length ?? 0) > 0 && (
+              <div className="msg-attachments msg-edit-attachments">
+                {(msg.attachments ?? []).map((a) => (
+                  <AttachmentItem key={a.id} attachment={a} />
+                ))}
+              </div>
+            )}
             <input
               autoFocus
               value={editText}
               maxLength={MAX_CONTENT}
+              placeholder={
+                (msg.attachments?.length ?? 0) > 0
+                  ? i18n.t("editCaptionPlaceholder", { ns: "chat" })
+                  : undefined
+              }
               onChange={(e) => onEditTextChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
@@ -2051,7 +2064,7 @@ const Message: React.FC<MessageProps> = ({
               }}
             />
             <div className="msg-edit-hint">
-              escape to cancel · enter to save
+              {i18n.t("editHint", { ns: "chat" })}
             </div>
           </div>
         ) : (

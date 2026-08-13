@@ -64,5 +64,7 @@
   "attachFile": "Прикрепить файл",
   "attachmentsUploading": "Файлы ещё загружаются…",
   "attachmentFailed": "Ошибка загрузки",
-  "linkPreviewShow": "Показать превью изображения"
+  "linkPreviewShow": "Показать превью изображения",
+  "editHint": "esc — отменить · enter — сохранить",
+  "editCaptionPlaceholder": "Подпись к файлам (необязательно)"
 }
