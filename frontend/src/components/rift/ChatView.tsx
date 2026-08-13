@@ -18,6 +18,12 @@ import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
 import { colorForId, glyphFor } from "../../utils/avatar";
 import {
+  ParsedLink,
+  URL_REGEX,
+  domainOf,
+  extractLinks,
+} from "../../utils/links";
+import {
   useWsChannelMessages,
   useWsDmMessages,
 } from "../../services/useWebSocketMessages";
@@ -1235,7 +1241,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             disabled={sending}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Icon name="plus" size={16} />
+            <Icon name="paperclip" size={17} />
           </button>
           <input
             ref={composerRef}
@@ -1521,6 +1527,107 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         )}
       </div>
     </header>
+  );
+};
+
+const renderWithLinks = (text: string): React.ReactNode => {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  for (const match of text.matchAll(URL_REGEX)) {
+    const idx = match.index ?? 0;
+    if (idx > last) parts.push(text.slice(last, idx));
+    parts.push(
+      <a
+        key={`l${i++}`}
+        href={match[0]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="msg-link"
+      >
+        {match[0]}
+      </a>,
+    );
+    last = idx + match[0].length;
+  }
+  if (parts.length === 0) return text;
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+};
+
+const LinkPreview: React.FC<{ link: ParsedLink }> = ({ link }) => {
+  const [hidden, setHidden] = React.useState(false);
+  const [faviconFailed, setFaviconFailed] = React.useState(false);
+  if (hidden) return null;
+
+  if (link.kind === "image") {
+    return (
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="link-preview-image"
+      >
+        <img
+          src={link.url}
+          alt={domainOf(link.url)}
+          loading="lazy"
+          onError={() => setHidden(true)}
+        />
+      </a>
+    );
+  }
+
+  if (link.kind === "youtube" && link.youtubeId) {
+    return (
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="link-preview-video"
+      >
+        <img
+          src={`https://img.youtube.com/vi/${link.youtubeId}/hqdefault.jpg`}
+          alt="YouTube"
+          loading="lazy"
+          onError={() => setHidden(true)}
+        />
+        <span className="link-preview-play">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </span>
+        <span className="link-preview-video-domain">youtube.com</span>
+      </a>
+    );
+  }
+
+  const domain = domainOf(link.url);
+  return (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="link-preview-card"
+    >
+      <span className="link-preview-favicon">
+        {faviconFailed ? (
+          <Icon name="globe" size={16} />
+        ) : (
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`}
+            alt=""
+            loading="lazy"
+            onError={() => setFaviconFailed(true)}
+          />
+        )}
+      </span>
+      <span className="link-preview-info">
+        <span className="link-preview-domain">{domain}</span>
+        <span className="link-preview-url">{link.url}</span>
+      </span>
+      <Icon name="chev-left" size={14} className="link-preview-arrow" />
+    </a>
   );
 };
 
@@ -1936,7 +2043,7 @@ const Message: React.FC<MessageProps> = ({
                 {displayName}
               </div>
             )}
-            {msg.content}
+            {renderWithLinks(msg.content)}
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">
                 {(msg.attachments ?? []).map((a) => (
@@ -1945,6 +2052,17 @@ const Message: React.FC<MessageProps> = ({
               </div>
             )}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}
+            {(() => {
+              const links = extractLinks(msg.content).slice(0, 2);
+              if (links.length === 0) return null;
+              return (
+                <div className="msg-link-previews">
+                  {links.map((l) => (
+                    <LinkPreview key={l.url} link={l} />
+                  ))}
+                </div>
+              );
+            })()}
             <span className="msg-meta">
               <time className="msg-time">{time}</time>
                 {receipt && (

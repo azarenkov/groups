@@ -4755,17 +4755,23 @@ textarea.s-input {
 }
 .attach-chip-remove:hover { background: var(--surface-hover); color: var(--fg-1); }
 .attach-btn {
-  width: 32px; height: 32px;
-  border: 0; border-radius: 9px;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  color: var(--fg-2);
+  width: 34px; height: 34px;
+  border: 0; border-radius: 50%;
+  background: transparent;
+  color: var(--fg-3);
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: background var(--dur-fast), color var(--dur-fast);
+  transition: background 0.18s var(--ease-spring), color 0.18s,
+    transform 0.18s var(--ease-spring);
 }
-.attach-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
+.attach-btn svg { transition: transform 0.22s var(--ease-spring); }
+.attach-btn:hover {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.attach-btn:hover svg { transform: rotate(-12deg) scale(1.08); }
+.attach-btn:active { transform: scale(0.92); }
 .attach-btn:disabled { opacity: 0.5; cursor: default; }
 .msg-attachments {
   display: flex; flex-direction: column; gap: 6px;
@@ -4840,4 +4846,105 @@ textarea.s-input {
   max-height: 92vh;
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
+}
+
+/* ---- Message links and previews ---- */
+.msg-link { color: var(--accent); text-decoration: none; word-break: break-all; }
+.msg-link:hover { text-decoration: underline; }
+.msg.bubble.mine .msg-link { color: #fff; text-decoration: underline; }
+.msg-link-previews {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 6px;
+}
+.link-preview-image {
+  display: block;
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: 340px;
+}
+.link-preview-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 10px;
+}
+.link-preview-video {
+  position: relative;
+  display: block;
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: 340px;
+}
+.link-preview-video img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.link-preview-play {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.16s, transform 0.16s var(--ease-spring);
+}
+.link-preview-video:hover .link-preview-play {
+  background: var(--accent);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+.link-preview-video-domain {
+  position: absolute;
+  left: 10px; bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 11px; font-weight: 500;
+}
+.link-preview-card {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  max-width: 340px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  text-decoration: none;
+  transition: background var(--dur-fast);
+}
+.link-preview-card:hover { background: var(--surface-hover); }
+.msg.bubble.mine .link-preview-card {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+.msg.bubble.mine .link-preview-card:hover { background: rgba(255, 255, 255, 0.22); }
+.link-preview-favicon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--surface-panel);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--fg-3);
+  overflow: hidden;
+}
+.link-preview-favicon img { width: 18px; height: 18px; }
+.link-preview-info { min-width: 0; display: flex; flex-direction: column; }
+.link-preview-domain {
+  font-size: 13px; font-weight: 600; color: var(--fg-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.msg.bubble.mine .link-preview-domain { color: #fff; }
+.link-preview-url {
+  font-size: 11px; color: var(--fg-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 240px;
+}
+.msg.bubble.mine .link-preview-url { color: rgba(255, 255, 255, 0.72); }
+.link-preview-arrow {
+  color: var(--fg-4);
+  transform: rotate(180deg);
+  flex-shrink: 0;
 }
