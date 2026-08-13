@@ -1343,18 +1343,21 @@ body.electron .titlebar { padding-left: 84px; }
 .msg.bubble.mine .msg-time,
 .msg.bubble.mine .msg-receipt { color: rgba(255, 255, 255, 0.72); }
 .msg.bubble.mine .msg-receipt.read { color: #fff; }
-.msg-edit { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.msg-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
 .msg-edit input {
   width: 100%;
-  background: var(--surface-sunken);
+  background: var(--surface-panel);
   border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 10px;
+  padding: 9px 12px;
   font: inherit;
   font-size: 14px;
   color: var(--fg-1);
   outline: 0;
+  box-shadow: 0 0 0 4px var(--accent-tint);
 }
+.msg.bubble.editing { justify-content: stretch; }
+.msg.bubble.editing .body { flex: 1 1 auto; max-width: 100%; }
 .msg-edit-hint { font-size: 11px; color: var(--fg-3); }
 .msg-loader { display: flex; justify-content: center; padding: 8px 0; }
 .composer-error {
@@ -4947,4 +4950,10 @@ textarea.s-input {
   color: var(--fg-4);
   transform: rotate(180deg);
   flex-shrink: 0;
+}
+.link-preview-reveal {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }

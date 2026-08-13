@@ -63,5 +63,6 @@
   },
   "attachFile": "Прикрепить файл",
   "attachmentsUploading": "Файлы ещё загружаются…",
-  "attachmentFailed": "Ошибка загрузки"
+  "attachmentFailed": "Ошибка загрузки",
+  "linkPreviewShow": "Показать превью изображения"
 }

@@ -1558,9 +1558,29 @@ const renderWithLinks = (text: string): React.ReactNode => {
 const LinkPreview: React.FC<{ link: ParsedLink }> = ({ link }) => {
   const [hidden, setHidden] = React.useState(false);
   const [faviconFailed, setFaviconFailed] = React.useState(false);
+  const [revealed, setRevealed] = React.useState(false);
   if (hidden) return null;
 
   if (link.kind === "image") {
+    if (!revealed) {
+      return (
+        <button
+          type="button"
+          className="link-preview-card link-preview-reveal"
+          onClick={() => setRevealed(true)}
+        >
+          <span className="link-preview-favicon">
+            <Icon name="eye" size={16} />
+          </span>
+          <span className="link-preview-info">
+            <span className="link-preview-domain">
+              {i18n.t("linkPreviewShow", { ns: "chat" })}
+            </span>
+            <span className="link-preview-url">{domainOf(link.url)}</span>
+          </span>
+        </button>
+      );
+    }
     return (
       <a
         href={link.url}
@@ -1925,7 +1945,8 @@ const Message: React.FC<MessageProps> = ({
         (isMine ? "mine" : "theirs") +
         (dmStyle ? " dm" : "") +
         (continued ? " cont" : "") +
-        (highlighted ? " highlight" : "")
+        (highlighted ? " highlight" : "") +
+        (editing ? " editing" : "")
       }
     >
       <div className="ava" style={{ background: colorForId(msg.authorId) }}>

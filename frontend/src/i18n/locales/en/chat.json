@@ -63,5 +63,6 @@
   },
   "attachFile": "Attach a file",
   "attachmentsUploading": "Files are still uploading…",
-  "attachmentFailed": "Upload failed"
+  "attachmentFailed": "Upload failed",
+  "linkPreviewShow": "Show image preview"
 }
