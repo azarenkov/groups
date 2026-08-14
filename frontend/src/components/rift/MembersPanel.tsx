@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
-import { colorForId, initialFor } from "../../utils/avatar";
+import { UserAvatar } from "./Avatar";
 import { usePresenceStore } from "../../store/presenceStore";
 
 interface MembersPanelProps {
@@ -90,17 +90,13 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
           : t("common:offline");
         return (
           <div key={m.id} className="member-row">
-            <div
-              className="ava"
-              style={{ background: colorForId(m.id), position: "relative" }}
-            >
-              {initialFor(m.name)}
+            <UserAvatar userId={m.id} name={m.name} className="ava">
               <span
                 className={"presence " + (isOnline ? "online" : "offline")}
                 title={statusLabel}
                 aria-label={statusLabel}
               />
-            </div>
+            </UserAvatar>
             <div className="info">
               <div className="name">
                 {m.name}

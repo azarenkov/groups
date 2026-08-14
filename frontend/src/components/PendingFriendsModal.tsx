@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import { useFriendshipStore } from "../store/friendshipStore";
-import { colorForId, initialFor } from "../utils/avatar";
+import { UserAvatar } from "./rift/Avatar";
 
 interface PendingFriendsModalProps {
   isOpen: boolean;
@@ -61,12 +61,11 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
               </div>
               {incoming.map((f) => (
                 <div key={f.friendId} className="pf-row">
-                  <div
+                  <UserAvatar
+                    userId={f.friendId}
+                    name={f.friendName}
                     className="pf-ava"
-                    style={{ background: colorForId(f.friendId) }}
-                  >
-                    {initialFor(f.friendName)}
-                  </div>
+                  />
                   <div className="pf-name">{f.friendName}</div>
                   <button
                     type="button"
@@ -96,12 +95,11 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
               </div>
               {outgoing.map((f) => (
                 <div key={f.friendId} className="pf-row">
-                  <div
+                  <UserAvatar
+                    userId={f.friendId}
+                    name={f.friendName}
                     className="pf-ava"
-                    style={{ background: colorForId(f.friendId) }}
-                  >
-                    {initialFor(f.friendName)}
-                  </div>
+                  />
                   <div className="pf-name">{f.friendName}</div>
                   <span className="pf-tag">sent</span>
                   <button
@@ -124,12 +122,11 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
               </div>
               {declined.map((f) => (
                 <div key={f.friendId} className="pf-row">
-                  <div
+                  <UserAvatar
+                    userId={f.friendId}
+                    name={f.friendName}
                     className="pf-ava"
-                    style={{ background: colorForId(f.friendId) }}
-                  >
-                    {initialFor(f.friendName)}
-                  </div>
+                  />
                   <div className="pf-name">{f.friendName}</div>
                   <span className="pf-tag pf-tag-danger">declined</span>
                   <button

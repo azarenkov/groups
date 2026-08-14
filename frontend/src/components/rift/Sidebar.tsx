@@ -5,6 +5,7 @@ import type { Server } from "../../types/server";
 import type { Channel } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 import { colorForId } from "../../utils/avatar";
+import { ServerLogo, UserAvatar } from "./Avatar";
 
 interface SidebarProps {
   servers: Server[];
@@ -247,9 +248,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             }}
           >
             <div className="sb-dm-ava-wrap">
-              <div className="sb-dm-ava" style={{ background: d.color }}>
-                {d.initials}
-              </div>
+              <UserAvatar
+                userId={d.id}
+                name={d.name}
+                className="sb-dm-ava"
+                style={{ background: d.color }}
+              />
               {d.online && <span className="sb-dm-dot" />}
             </div>
             <div className="sb-dm-main">
@@ -307,12 +311,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }
               }}
             >
-              <div
+              <ServerLogo
+                serverId={server.id}
+                name={server.name}
                 className="sb-srv-ava"
                 style={{ background: accent }}
-              >
-                {server.name.slice(0, 2).toUpperCase()}
-              </div>
+              />
               <span className="sb-srv-name">{server.name}</span>
               {hasVoiceActivity && (
                 <span
@@ -495,12 +499,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <div className="sb-voice-members">
                             {membersForChannel.map((m) => (
                               <div key={m.id} className="sb-voice-member">
-                                <span
+                                <UserAvatar
+                                  userId={m.id}
+                                  name={m.name}
                                   className="sb-voice-member-ava"
-                                  style={{ background: m.color }}
-                                >
-                                  {m.initials}
-                                </span>
+                                  style={{ background: m.color, display: "inline-flex" }}
+                                />
                                 <span className="sb-voice-member-name">
                                   {m.name}
                                 </span>
@@ -639,21 +643,17 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="sb-footer">
         <div className="user-pill">
-          <div
+          <UserAvatar
+            userId={currentUserId}
+            name={currentUserName}
             className="ava"
-            style={
-              currentUserId
-                ? { background: colorForId(currentUserId) }
-                : undefined
-            }
           >
-            {currentUserName.charAt(0).toUpperCase()}
             <span
               className={
                 "dot" + (currentUserStatus === "offline" ? " offline" : "")
               }
             />
-          </div>
+          </UserAvatar>
           <div
             className={"info user-pill-info-btn" + (statusMenuOpen ? " open" : "")}
             ref={statusMenuRef}

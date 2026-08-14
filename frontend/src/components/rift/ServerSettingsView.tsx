@@ -6,7 +6,9 @@ import { dmAPI } from "../../api/dm";
 import { useServerStore } from "../../store/serverStore";
 import { usePresenceStore } from "../../store/presenceStore";
 import { ApiError } from "../../utils/apiError";
-import { colorForId, initialFor } from "../../utils/avatar";
+import { colorForId } from "../../utils/avatar";
+import { ServerLogo, UserAvatar } from "./Avatar";
+import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import type { Friendship } from "../../types/friendship";
 import type { InviteCode, Server } from "../../types/server";
 
@@ -77,6 +79,38 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
   const patchServer = useServerStore((s) => s.patchServer);
+
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
+  const [logoBusy, setLogoBusy] = React.useState(false);
+  const logoUrl = useAvatarUrl("server", server.id);
+
+  const handleLogoFile = async (file: File) => {
+    setLogoBusy(true);
+    setSaveError(null);
+    try {
+      await serverAPI.uploadLogo(server.id, file);
+      bustAvatar("server", server.id);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setSaveError(apiErr?.message || t("logoError"));
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    setLogoBusy(true);
+    setSaveError(null);
+    try {
+      await serverAPI.deleteLogo(server.id);
+      bustAvatar("server", server.id);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setSaveError(apiErr?.message || t("logoError"));
+    } finally {
+      setLogoBusy(false);
+    }
+  };
 
   const [members, setMembers] = React.useState<{ id: string; name: string }[]>([]);
   const [invitedIds, setInvitedIds] = React.useState<Set<string>>(new Set());
@@ -243,7 +277,6 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   };
 
   const accent = server.accentColor ?? colorForId(server.id);
-  const glyph = server.name.slice(0, 2).toUpperCase();
 
   const onlineCount = members.filter((m) =>
     m.id === currentUserId ? selfOnline : !!online[m.id],
@@ -268,9 +301,12 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     <div className="settings-overlay">
       <nav className="settings-rail">
         <div className="ssv-identity">
-          <div className="ssv-identity-ava" style={{ background: accent }}>
-            {glyph}
-          </div>
+          <ServerLogo
+            serverId={server.id}
+            name={server.name}
+            className="ssv-identity-ava"
+            style={{ background: accent }}
+          />
           <div className="ssv-identity-info">
             <div className="ssv-identity-name">{server.name}</div>
             <div className="ssv-identity-sub">
@@ -323,9 +359,65 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
               <h1>{t("nav.overview")}</h1>
               <p className="lead">{t("overviewLead")}</p>
               <div className="ssv-hero">
-                <div className="ssv-hero-ava" style={{ background: accent }}>
-                  {glyph}
-                </div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleLogoFile(f);
+                    e.target.value = "";
+                  }}
+                />
+                <ServerLogo
+                  serverId={server.id}
+                  name={server.name}
+                  className="ssv-hero-ava"
+                  style={{
+                    background: accent,
+                    cursor: isOwner ? "pointer" : undefined,
+                  }}
+                  title={isOwner ? t("uploadLogo") : undefined}
+                >
+                  {isOwner && (
+                    <span
+                      className="edit-badge ssv-logo-badge"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => logoInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          logoInputRef.current?.click();
+                        }
+                      }}
+                    >
+                      <Icon name="camera" size={12} />
+                    </span>
+                  )}
+                </ServerLogo>
+                {isOwner && (
+                  <div className="ssv-logo-actions">
+                    <button
+                      type="button"
+                      className="ssv-btn"
+                      disabled={logoBusy}
+                      onClick={() => logoInputRef.current?.click()}
+                    >
+                      {t("uploadLogo")}
+                    </button>
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        className="ssv-btn danger"
+                        disabled={logoBusy}
+                        onClick={() => void handleLogoRemove()}
+                      >
+                        {t("removeLogo")}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <label className="ssv-label">{t("serverName")}</label>
               <input
@@ -465,12 +557,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                       <React.Fragment key={inv.code}>
                         {i > 0 && <div className="ssv-divider" />}
                         <div className="ssv-row">
-                          <div
+                          <UserAvatar
+                            userId={inv.createdBy}
+                            name={inv.creatorName ?? "?"}
                             className="ssv-row-ava"
-                            style={{ background: colorForId(inv.createdBy) }}
-                          >
-                            {initialFor(inv.creatorName ?? "?")}
-                          </div>
+                          />
                           <div className="ssv-row-main">
                             <div className="ssv-invite-code-line">
                               <span className="ssv-invite-mono">{inv.code}</span>
@@ -537,12 +628,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                     <React.Fragment key={f.friendId}>
                       {i > 0 && <div className="ssv-divider" />}
                       <div className="ssv-row">
-                        <div
+                        <UserAvatar
+                          userId={f.friendId}
+                          name={f.friendName}
                           className="ssv-row-ava"
-                          style={{ background: colorForId(f.friendId) }}
-                        >
-                          {initialFor(f.friendName)}
-                        </div>
+                        />
                         <div className="ssv-row-main">
                           <div className="ssv-row-name">{f.friendName}</div>
                         </div>
@@ -580,12 +670,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                       <React.Fragment key={f.friendId}>
                         {i > 0 && <div className="ssv-divider" />}
                         <div className="ssv-row">
-                          <div
+                          <UserAvatar
+                            userId={f.friendId}
+                            name={f.friendName}
                             className="ssv-row-ava"
-                            style={{ background: colorForId(f.friendId) }}
-                          >
-                            {initialFor(f.friendName)}
-                          </div>
+                          />
                           <div className="ssv-row-main">
                             <div className="ssv-row-name">{f.friendName}</div>
                             <div className="ssv-row-sub">{t("invitePending")}</div>
@@ -625,12 +714,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                       {i > 0 && <div className="ssv-divider" />}
                       <div className={"ssv-row" + (isOnline ? "" : " off")}>
                         <div className="ssv-row-ava-wrap">
-                          <div
+                          <UserAvatar
+                            userId={m.id}
+                            name={m.name}
                             className="ssv-row-ava"
-                            style={{ background: colorForId(m.id) }}
-                          >
-                            {initialFor(m.name)}
-                          </div>
+                          />
                           {isOnline && <span className="ssv-row-dot" />}
                         </div>
                         <div className="ssv-row-main">

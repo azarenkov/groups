@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useCallStore } from "../../store/callStore";
-import { colorForId, initialFor } from "../../utils/avatar";
+import { UserAvatar } from "./Avatar";
 
 const IncomingCallModal: React.FC = () => {
   const incoming = useCallStore((s) => s.incoming);
@@ -56,12 +56,11 @@ const IncomingCallModal: React.FC = () => {
   return (
     <div className="incoming-call">
       <div className="ic-avatar-wrap">
-        <div
+        <UserAvatar
+          userId={incoming.callerId}
+          name={incoming.callerName}
           className="ic-ava"
-          style={{ background: colorForId(incoming.callerId) }}
-        >
-          {initialFor(incoming.callerName)}
-        </div>
+        />
       </div>
       <div className="ic-text">
         <div className="ic-name">{incoming.callerName}</div>

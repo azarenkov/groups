@@ -5,6 +5,8 @@ import { Trans, useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
 import { currentLocale } from "../../i18n";
 import { authAPI, TokenPair } from "../../api/auth";
+import { userAPI } from "../../api/user";
+import { bustAvatar } from "../../utils/avatarCache";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
@@ -213,6 +215,9 @@ const SignInUp: React.FC<SignInUpProps> = ({
   const [pendingGoogleToken, setPendingGoogleToken] = useState<string | null>(
     null,
   );
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
   const [googleUsername, setGoogleUsername] = useState("");
 
   const finishGoogleSession = async (response: TokenPair) => {
@@ -295,11 +300,20 @@ const SignInUp: React.FC<SignInUpProps> = ({
         tokenType: response.tokenType,
         expiresIn: response.expiresIn,
       });
+      const newUserId = decodeAccessToken(response.accessToken)?.sub ?? "";
       useAuthStore.getState().setUser({
-        id: decodeAccessToken(response.accessToken)?.sub ?? "",
+        id: newUserId,
         name: data.name,
         email: data.email,
       });
+      if (avatarFile) {
+        try {
+          await userAPI.uploadAvatar(avatarFile);
+          if (newUserId) bustAvatar("user", newUserId);
+        } catch (avatarErr) {
+          console.error("[Auth] avatar upload failed:", avatarErr);
+        }
+      }
       try {
         await authAPI.requestVerificationCode();
       } catch (codeErr) {
@@ -438,6 +452,57 @@ const SignInUp: React.FC<SignInUpProps> = ({
       <p className="sub">{isSignup ? t("createSubtitle") : t("signInSubtitle")}</p>
 
       <form onSubmit={submit} autoComplete="off">
+        {isSignup && (
+          <div className="auth-avatar-pick">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setAvatarFile(f);
+                  setAvatarPreview((prev) => {
+                    if (prev) URL.revokeObjectURL(prev);
+                    return URL.createObjectURL(f);
+                  });
+                }
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="auth-avatar-circle"
+              title={t("avatarOptional")}
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="" />
+              ) : (
+                <Icon name="camera" size={18} />
+              )}
+            </button>
+            <div className="auth-avatar-text">
+              <span>{t("avatarOptional")}</span>
+              {avatarFile && (
+                <button
+                  type="button"
+                  className="auth-avatar-clear"
+                  onClick={() => {
+                    setAvatarFile(null);
+                    setAvatarPreview((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return null;
+                    });
+                  }}
+                >
+                  {t("avatarRemove")}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {isSignup && (
           <div className="field">
             <label>{t("displayName")}</label>

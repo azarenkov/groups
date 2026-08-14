@@ -4,7 +4,7 @@ import Icon from "./rift/Icon";
 import { dmAPI } from "../api/dm";
 import { serverAPI } from "../api/server";
 import { ApiError } from "../utils/apiError";
-import { colorForId, initialFor } from "../utils/avatar";
+import { UserAvatar } from "./rift/Avatar";
 import type { Friendship } from "../types/friendship";
 import type { Server } from "../types/server";
 
@@ -154,12 +154,11 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
                       : t("inviteFriends.invite");
                     return (
                       <div key={f.friendId} className="pf-row">
-                        <div
+                        <UserAvatar
+                          userId={f.friendId}
+                          name={f.friendName}
                           className="pf-ava"
-                          style={{ background: colorForId(f.friendId) }}
-                        >
-                          {initialFor(f.friendName)}
-                        </div>
+                        />
                         <div className="pf-name">{f.friendName}</div>
                         <button
                           type="button"

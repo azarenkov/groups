@@ -88,6 +88,27 @@ class ServerAPI {
     await this.client.patch(`/v1/servers/${serverId}`, data);
   }
 
+  async uploadLogo(serverId: string, file: File): Promise<void> {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    await this.client.post(`/v1/servers/${serverId}/logo`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+    });
+  }
+
+  async deleteLogo(serverId: string): Promise<void> {
+    await this.client.delete(`/v1/servers/${serverId}/logo`);
+  }
+
+  async downloadLogo(serverId: string): Promise<Blob> {
+    const response = await this.client.get(`/v1/servers/${serverId}/logo`, {
+      responseType: "blob",
+      timeout: 30000,
+    });
+    return response.data;
+  }
+
   async createInviteCode(
     serverId: string,
     opts: { expiresDays?: number | null; maxUses?: number | null } = {},

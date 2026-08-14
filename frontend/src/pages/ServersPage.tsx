@@ -32,6 +32,8 @@ import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
+import { UserAvatar } from "../components/rift/Avatar";
+import { bustAvatar } from "../utils/avatarCache";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import IncomingCallModal from "../components/rift/IncomingCallModal";
@@ -517,8 +519,17 @@ const ServersPage: React.FC = () => {
     name: string,
     description?: string,
     accentColor?: string,
+    logoFile?: File,
   ) => {
     const server = await createServer(name, description, accentColor);
+    if (logoFile) {
+      try {
+        await serverAPI.uploadLogo(server.id, logoFile);
+        bustAvatar("server", server.id);
+      } catch (err) {
+        console.error("[ServersPage] failed to upload server logo:", err);
+      }
+    }
     try {
       await createChannel(server.id, "general", "text", "public");
     } catch (err) {
@@ -1163,18 +1174,16 @@ const ServersPage: React.FC = () => {
                         <div className={`voice-stage-orbs ${sizeClass}`}>
                           {previewParticipants.map((p) => (
                             <div key={p.id} className="voice-stage-orb-cell">
-                              <div
+                              <UserAvatar
+                                userId={p.id}
+                                name={p.name}
                                 className="voice-stage-orb"
                                 style={
                                   {
                                     "--orb-color": colorForId(p.id),
                                   } as React.CSSProperties
                                 }
-                              >
-                                <span className="voice-stage-orb-letter">
-                                  {initialFor(p.name)}
-                                </span>
-                              </div>
+                              />
                               <div className="voice-stage-orb-name">
                                 {p.name}
                               </div>

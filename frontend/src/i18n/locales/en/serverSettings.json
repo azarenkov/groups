@@ -52,5 +52,8 @@
   "joinByCode": "Have an invite code?",
   "joinByCodePlaceholder": "Invite code",
   "join": "Join",
-  "generate": "Generate link"
+  "generate": "Generate link",
+  "uploadLogo": "Upload logo",
+  "removeLogo": "Remove logo",
+  "logoError": "Failed to update logo"
 }

@@ -102,6 +102,7 @@
     "codeLabel": "Invite code",
     "codeHint": "An invite looks like:",
     "back": "Back",
-    "joinCta": "Join"
+    "joinCta": "Join",
+    "logoPick": "Server photo (optional)"
   }
 }

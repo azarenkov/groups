@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import { SEED_MEMBERS, type MockMember, type MockDirect } from "../data/mockData";
+import { UserAvatar } from "./rift/Avatar";
 
 interface NewDmModalProps {
   isOpen: boolean;
@@ -109,10 +110,14 @@ const NewDmModal: React.FC<NewDmModalProps> = ({
               className="newdm-row"
               onClick={() => onPick(p)}
             >
-              <span className="newdm-ava" style={{ background: p.color }}>
-                {p.initials}
+              <UserAvatar
+                userId={p.id}
+                name={p.name}
+                className="newdm-ava"
+                style={{ background: p.color, display: "inline-flex" }}
+              >
                 {p.status === "online" && <span className="presence" />}
-              </span>
+              </UserAvatar>
               <span className="newdm-text">
                 <span className="newdm-name">{p.name}</span>
                 <span className="newdm-sub">

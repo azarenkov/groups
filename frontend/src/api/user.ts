@@ -66,6 +66,27 @@ class UserAPI {
     return response.data.data;
   }
 
+  async uploadAvatar(file: File): Promise<void> {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    await this.client.post("/v1/users/me/avatar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+    });
+  }
+
+  async deleteAvatar(): Promise<void> {
+    await this.client.delete("/v1/users/me/avatar");
+  }
+
+  async downloadAvatar(userId: string): Promise<Blob> {
+    const response = await this.client.get(`/v1/users/${userId}/avatar`, {
+      responseType: "blob",
+      timeout: 30000,
+    });
+    return response.data;
+  }
+
   async getUnread(): Promise<{
     channels: { channelId: string; serverId: string; count: number }[];
     dms: { friendId: string; count: number }[];
