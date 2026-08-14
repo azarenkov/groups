@@ -109,7 +109,7 @@ fn image_response(stream: application::ports::file_storage::ByteStream) -> HttpR
     HttpResponse::Ok()
         .content_type("image/png")
         .insert_header(("X-Content-Type-Options", "nosniff"))
-        .insert_header(("Cache-Control", "private, max-age=300"))
+        .insert_header(("Cache-Control", "private, no-store"))
         .streaming(body)
 }
 
