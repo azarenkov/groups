@@ -925,8 +925,16 @@ const ChatView: React.FC<ChatViewProps> = ({
     setSending(true);
     setComposerError(null);
 
+    const originConvId = currentChannelIdRef.current;
+    const stillHere = () => currentChannelIdRef.current === originConvId;
+    const reportComposerError = (message: string) => {
+      if (stillHere()) setComposerError(message);
+    };
+
     const remaining = [...chunks];
-    const updateComposer = () => setText(remaining.join("\n\n"));
+    const updateComposer = () => {
+      if (stillHere()) setText(remaining.join("\n\n"));
+    };
 
     const sentFiles = pendingFiles.filter((p) => p.attachment);
     const sentLocalIds = new Set(sentFiles.map((p) => p.localId));
@@ -946,9 +954,11 @@ const ChatView: React.FC<ChatViewProps> = ({
           prev.filter((p) => !sentLocalIds.has(p.localId)),
         );
       }
-      setMessages((prev) =>
-        prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
-      );
+      if (stillHere()) {
+        setMessages((prev) =>
+          prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
+        );
+      }
     };
 
     try {
@@ -981,7 +991,7 @@ const ChatView: React.FC<ChatViewProps> = ({
               remaining.shift();
               updateComposer();
             } else {
-              setComposerError(joinApi?.message || i18n.t("couldNotJoin", { ns: "chat" }));
+              reportComposerError(joinApi?.message || i18n.t("couldNotJoin", { ns: "chat" }));
               return;
             }
           }
@@ -998,12 +1008,12 @@ const ChatView: React.FC<ChatViewProps> = ({
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
       if (code === "MESSAGE_CONTENT_EMPTY") {
-        setComposerError(i18n.t("messageCantBeEmpty", { ns: "chat" }));
+        reportComposerError(i18n.t("messageCantBeEmpty", { ns: "chat" }));
       } else if (code === "MESSAGE_CONTENT_TOO_LONG") {
-        setComposerError(i18n.t("chunkTooLong", { ns: "chat" }));
+        reportComposerError(i18n.t("chunkTooLong", { ns: "chat" }));
       } else {
         console.warn("[ChatView] send failed:", err);
-        setComposerError(apiErr?.message || i18n.t("couldNotSend", { ns: "chat" }));
+        reportComposerError(apiErr?.message || i18n.t("couldNotSend", { ns: "chat" }));
       }
     } finally {
       for (const id of sentLocalIds) inFlightSendRef.current.delete(id);
