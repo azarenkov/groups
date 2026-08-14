@@ -1784,6 +1784,25 @@ const LinkPreview: React.FC<{ link: ParsedLink }> = ({ link }) => {
   }
 
   if (link.kind === "youtube" && link.youtubeId) {
+    if (!revealed) {
+      return (
+        <button
+          type="button"
+          className="link-preview-card link-preview-reveal"
+          onClick={() => setRevealed(true)}
+        >
+          <span className="link-preview-favicon">
+            <Icon name="eye" size={16} />
+          </span>
+          <span className="link-preview-info">
+            <span className="link-preview-domain">
+              {i18n.t("linkPreviewShowVideo", { ns: "chat" })}
+            </span>
+            <span className="link-preview-url">{domainOf(link.url)}</span>
+          </span>
+        </button>
+      );
+    }
     return (
       <a
         href={link.url}

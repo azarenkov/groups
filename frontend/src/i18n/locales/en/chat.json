@@ -65,6 +65,7 @@
   "attachmentsUploading": "Files are still uploading…",
   "attachmentFailed": "Upload failed",
   "linkPreviewShow": "Show image preview",
+  "linkPreviewShowVideo": "Show video preview",
   "editHint": "escape to cancel · enter to save",
   "editCaptionPlaceholder": "Add a caption (optional)",
   "editRemoveAttachment": "Remove attachment",
