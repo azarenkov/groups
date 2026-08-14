@@ -296,7 +296,9 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const discardEditFiles = React.useCallback(() => {
     setEditFiles((prev) => {
-      for (const p of prev) discardPendingFile(p);
+      for (const p of prev) {
+        if (!inFlightSendRef.current.has(p.localId)) discardPendingFile(p);
+      }
       return [];
     });
     setEditRemovedIds([]);
@@ -309,8 +311,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, []);
 
   React.useEffect(() => {
+    const inFlight = inFlightSendRef.current;
     return () => {
-      for (const p of editFilesRef.current) discardPendingFile(p);
+      for (const p of editFilesRef.current) {
+        if (!inFlight.has(p.localId)) discardPendingFile(p);
+      }
     };
   }, [discardPendingFile]);
 
@@ -1093,8 +1098,12 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
     if (v.length > MAX_CONTENT) return;
     setSavingEdit(true);
+    const sentLocalIds = new Set(readyAdds.map((p) => p.localId));
+    for (const id of sentLocalIds) inFlightSendRef.current.add(id);
+    let linked = false;
     try {
       await messenger.editMessage(msg.id, v, addIds, removeIds);
+      linked = true;
       const editedAt = new Date().toISOString();
       const attachments = (msg.attachments ?? [])
         .filter((a) => !removeIds.includes(a.id))
@@ -1104,7 +1113,6 @@ const ChatView: React.FC<ChatViewProps> = ({
           m.id === msg.id ? { ...m, content: v, editedAt, attachments } : m,
         ),
       );
-      const sentLocalIds = new Set(readyAdds.map((p) => p.localId));
       for (const p of editFilesRef.current) {
         if (!sentLocalIds.has(p.localId)) discardPendingFile(p);
       }
@@ -1124,6 +1132,14 @@ const ChatView: React.FC<ChatViewProps> = ({
       }
       console.warn("[ChatView] edit failed:", err);
     } finally {
+      for (const id of sentLocalIds) inFlightSendRef.current.delete(id);
+      if (!linked) {
+        for (const p of readyAdds) {
+          if (!editFilesRef.current.some((x) => x.localId === p.localId)) {
+            discardPendingFile(p);
+          }
+        }
+      }
       setSavingEdit(false);
     }
   };
