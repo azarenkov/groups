@@ -30,7 +30,9 @@ use application::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     user::{
-        get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
+        delete_avatar::DeleteUserAvatar, get_avatar::GetUserAvatar, get_me::GetMe,
+        search_users::SearchUsers, update_avatar::UpdateUserAvatar,
+        update_locale::UpdateUserLocale,
     },
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
@@ -49,6 +51,7 @@ use application::usecases::{
         invite_codes::{
             CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode,
         },
+        get_logo::GetServerLogo, update_logo::UpdateServerLogo,
         update_server::UpdateServer,
         get_voice_presence::GetVoicePresence, leave_server::LeaveServer,
         list_sent_server_invites::ListSentServerInvites,
@@ -205,6 +208,23 @@ pub struct AppState {
         DeleteAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresAttachmentRepository>,
+    pub update_user_avatar_usecase: UpdateUserAvatar<
+        PostgresUserRepository,
+        PostgresAttachmentRepository,
+        MinioStorage,
+    >,
+    pub delete_user_avatar_usecase: DeleteUserAvatar<
+        PostgresUserRepository,
+        PostgresAttachmentRepository,
+        MinioStorage,
+    >,
+    pub get_user_avatar_usecase: GetUserAvatar<PostgresUserRepository, MinioStorage>,
+    pub update_server_logo_usecase: UpdateServerLogo<
+        PostgresServerRepository,
+        PostgresAttachmentRepository,
+        MinioStorage,
+    >,
+    pub get_server_logo_usecase: GetServerLogo<PostgresServerRepository, MinioStorage>,
     pub edit_dm_message_usecase:
         EditDmMessage<PostgresDmMessageRepository, PostgresAttachmentRepository, MinioStorage>,
     pub delete_dm_message_usecase: DeleteDmMessage<
@@ -447,6 +467,23 @@ impl AppState {
         list_message_attachments_usecase: ListMessageAttachments<
             PostgresAttachmentRepository,
         >,
+        update_user_avatar_usecase: UpdateUserAvatar<
+            PostgresUserRepository,
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
+        delete_user_avatar_usecase: DeleteUserAvatar<
+            PostgresUserRepository,
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
+        get_user_avatar_usecase: GetUserAvatar<PostgresUserRepository, MinioStorage>,
+        update_server_logo_usecase: UpdateServerLogo<
+            PostgresServerRepository,
+            PostgresAttachmentRepository,
+            MinioStorage,
+        >,
+        get_server_logo_usecase: GetServerLogo<PostgresServerRepository, MinioStorage>,
         edit_dm_message_usecase: EditDmMessage<
             PostgresDmMessageRepository,
             PostgresAttachmentRepository,
@@ -546,6 +583,11 @@ impl AppState {
             get_attachment_usecase,
             delete_attachment_usecase,
             list_message_attachments_usecase,
+            update_user_avatar_usecase,
+            delete_user_avatar_usecase,
+            get_user_avatar_usecase,
+            update_server_logo_usecase,
+            get_server_logo_usecase,
             edit_dm_message_usecase,
             delete_dm_message_usecase,
             list_dm_previews_usecase,

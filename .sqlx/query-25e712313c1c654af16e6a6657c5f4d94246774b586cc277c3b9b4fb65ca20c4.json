@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH old AS (\n                SELECT id, logo_key FROM servers WHERE id = $1 FOR UPDATE\n            ), upd AS (\n                UPDATE servers SET logo_key = $2, updated_at = now()\n                WHERE id IN (SELECT id FROM old)\n            ), q AS (\n                INSERT INTO storage_cleanup_queue (storage_key)\n                SELECT logo_key FROM old\n                WHERE logo_key IS NOT NULL AND logo_key IS DISTINCT FROM $2\n                ON CONFLICT (storage_key) DO NOTHING\n            )\n            SELECT logo_key FROM old\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "logo_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "25e712313c1c654af16e6a6657c5f4d94246774b586cc277c3b9b4fb65ca20c4"
+}

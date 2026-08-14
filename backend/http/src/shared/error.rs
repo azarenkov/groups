@@ -22,6 +22,11 @@ use application::usecases::friendship::{
     remove_friendship::RemoveFriendshipError, send_friend_request::SendFriendRequestError,
 };
 use application::usecases::attachment::delete_attachment::DeleteAttachmentError;
+use application::usecases::server::get_logo::GetServerLogoError;
+use application::usecases::server::update_logo::UpdateServerLogoError;
+use application::usecases::user::delete_avatar::DeleteUserAvatarError;
+use application::usecases::user::get_avatar::GetUserAvatarError;
+use application::usecases::user::update_avatar::UpdateUserAvatarError;
 use application::usecases::attachment::get_attachment::GetAttachmentError;
 use application::usecases::attachment::upload_attachment::UploadAttachmentError;
 use application::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
@@ -2237,6 +2242,125 @@ impl ToHttpStatus for UploadAttachmentError {
     }
 }
 
+impl ToHttpStatus for UpdateUserAvatarError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateUserAvatarError::Repository(e) => e.to_http_status(),
+            UpdateUserAvatarError::Storage(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateUserAvatarError::Repository(e) => e.to_user_message(),
+            UpdateUserAvatarError::Storage(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateUserAvatarError::Repository(e) => e.to_error_code(),
+            UpdateUserAvatarError::Storage(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for DeleteUserAvatarError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteUserAvatarError::Repository(e) => e.to_http_status(),
+            DeleteUserAvatarError::Storage(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteUserAvatarError::Repository(e) => e.to_user_message(),
+            DeleteUserAvatarError::Storage(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteUserAvatarError::Repository(e) => e.to_error_code(),
+            DeleteUserAvatarError::Storage(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for GetUserAvatarError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetUserAvatarError::NotFound => StatusCode::NOT_FOUND,
+            GetUserAvatarError::Repository(e) => e.to_http_status(),
+            GetUserAvatarError::Storage(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetUserAvatarError::NotFound => "Avatar not found.".to_string(),
+            GetUserAvatarError::Repository(e) => e.to_user_message(),
+            GetUserAvatarError::Storage(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetUserAvatarError::NotFound => "AVATAR_NOT_FOUND",
+            GetUserAvatarError::Repository(e) => e.to_error_code(),
+            GetUserAvatarError::Storage(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for UpdateServerLogoError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateServerLogoError::ServerNotFound => StatusCode::NOT_FOUND,
+            UpdateServerLogoError::NotOwner => StatusCode::FORBIDDEN,
+            UpdateServerLogoError::Repository(e) => e.to_http_status(),
+            UpdateServerLogoError::Storage(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateServerLogoError::ServerNotFound => "Server not found.".to_string(),
+            UpdateServerLogoError::NotOwner => {
+                "Only the server owner can change the logo.".to_string()
+            }
+            UpdateServerLogoError::Repository(e) => e.to_user_message(),
+            UpdateServerLogoError::Storage(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateServerLogoError::ServerNotFound => "SERVER_NOT_FOUND",
+            UpdateServerLogoError::NotOwner => "SERVER_NOT_OWNER",
+            UpdateServerLogoError::Repository(e) => e.to_error_code(),
+            UpdateServerLogoError::Storage(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl ToHttpStatus for GetServerLogoError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetServerLogoError::NotFound => StatusCode::NOT_FOUND,
+            GetServerLogoError::Repository(e) => e.to_http_status(),
+            GetServerLogoError::Storage(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetServerLogoError::NotFound => "Logo not found.".to_string(),
+            GetServerLogoError::Repository(e) => e.to_user_message(),
+            GetServerLogoError::Storage(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetServerLogoError::NotFound => "LOGO_NOT_FOUND",
+            GetServerLogoError::Repository(e) => e.to_error_code(),
+            GetServerLogoError::Storage(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl ToHttpStatus for GetAttachmentError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -2764,6 +2888,11 @@ impl_from_for_api_error!(
     DeleteDmMessageError,
     ListDmMessagesError,
     SearchDmMessagesError,
+    UpdateUserAvatarError,
+    DeleteUserAvatarError,
+    GetUserAvatarError,
+    UpdateServerLogoError,
+    GetServerLogoError,
 );
 
 impl From<ValidationErrors> for ApiError {

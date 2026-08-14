@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH old AS (\n                SELECT id, avatar_key FROM users WHERE id = $1 FOR UPDATE\n            ), upd AS (\n                UPDATE users SET avatar_key = $2, updated_at = now()\n                WHERE id IN (SELECT id FROM old)\n            ), q AS (\n                INSERT INTO storage_cleanup_queue (storage_key)\n                SELECT avatar_key FROM old\n                WHERE avatar_key IS NOT NULL AND avatar_key IS DISTINCT FROM $2\n                ON CONFLICT (storage_key) DO NOTHING\n            )\n            SELECT avatar_key FROM old\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "avatar_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "eb2cdba6423e298aababc7790f7ab546eda1662e386d76310e8a6185e56d32cf"
+}

@@ -904,4 +904,47 @@ impl ServerRepository for PostgresServerRepository {
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
     }
+
+    async fn get_logo_key(
+        &self,
+        server_id: &ServerId,
+    ) -> Result<Option<String>, RepositoryError> {
+        sqlx::query_scalar!(
+            r#"SELECT logo_key FROM servers WHERE id = $1"#,
+            server_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)
+    }
+
+    async fn set_logo_key(
+        &self,
+        server_id: &ServerId,
+        key: Option<&str>,
+    ) -> Result<Option<String>, RepositoryError> {
+        sqlx::query_scalar!(
+            r#"
+            WITH old AS (
+                SELECT id, logo_key FROM servers WHERE id = $1 FOR UPDATE
+            ), upd AS (
+                UPDATE servers SET logo_key = $2, updated_at = now()
+                WHERE id IN (SELECT id FROM old)
+            ), q AS (
+                INSERT INTO storage_cleanup_queue (storage_key)
+                SELECT logo_key FROM old
+                WHERE logo_key IS NOT NULL AND logo_key IS DISTINCT FROM $2
+                ON CONFLICT (storage_key) DO NOTHING
+            )
+            SELECT logo_key FROM old
+            "#,
+            server_id.uuid(),
+            key,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)
+    }
 }

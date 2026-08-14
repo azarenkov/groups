@@ -1,5 +1,6 @@
 pub mod attachment;
 pub mod auth;
+pub mod avatar;
 pub mod call;
 pub mod channel;
 pub mod dm;
