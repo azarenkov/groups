@@ -1957,13 +1957,15 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   const containerRef = React.useRef<HTMLButtonElement>(null);
   const urlRef = React.useRef(url);
   urlRef.current = url;
+  const viewerOpenRef = React.useRef(viewerOpen);
+  viewerOpenRef.current = viewerOpen;
 
   React.useEffect(() => {
     return () => releaseImageUrl(attachment.id, urlRef.current);
   }, [attachment.id]);
 
   React.useEffect(() => {
-    if (!isImage || url || visible) return;
+    if (!isImage) return;
     const node = containerRef.current;
     if (!node) return;
     if (typeof IntersectionObserver === "undefined") {
@@ -1972,19 +1974,30 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
     }
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
+        const intersecting = entries.some((e) => e.isIntersecting);
+        if (intersecting) {
           setVisible(true);
-          observer.disconnect();
+        } else {
+          setVisible(false);
+          if (!viewerOpenRef.current && urlRef.current) {
+            releaseImageUrl(attachment.id, urlRef.current);
+            setUrl(null);
+          }
         }
       },
-      { rootMargin: "300px" },
+      { rootMargin: "600px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [attachment.id, isImage, url, visible]);
+  }, [attachment.id, isImage]);
 
   React.useEffect(() => {
     if (!isImage || url || !visible) return;
+    const cached = acquireImageUrl(attachment.id);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     downloadImageUrl(attachment.id)
@@ -2056,7 +2069,13 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
         {viewerOpen && url && (
           <div
             className="image-viewer-overlay"
-            onClick={() => setViewerOpen(false)}
+            onClick={() => {
+              setViewerOpen(false);
+              if (!visible && urlRef.current) {
+                releaseImageUrl(attachment.id, urlRef.current);
+                setUrl(null);
+              }
+            }}
           >
             <img src={url} alt={attachment.fileName} />
           </div>
