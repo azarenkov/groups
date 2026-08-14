@@ -113,7 +113,8 @@ services:
 
   nsfw-detector:
     build:
-      context: backend/nsfw-detector
+      context: .
+      dockerfile: docker/nsfw-detector/Dockerfile
     container_name: rift-nsfw-detector
     restart: unless-stopped
     expose:

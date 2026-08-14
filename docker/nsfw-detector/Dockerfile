@@ -10,7 +10,7 @@ RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1
 
-COPY app.py /app/app.py
+COPY backend/nsfw-detector/app.py /app/app.py
 
 EXPOSE 8000
 
