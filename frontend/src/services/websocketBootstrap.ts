@@ -239,7 +239,15 @@ function dispatch(env: WsEnvelope) {
       const id = asString(d.id);
       const newContent = asString(d.newContent);
       if (id && newContent != null) {
-        useDmPreviewStore.getState().editMessage(id, newContent);
+        useDmPreviewStore
+          .getState()
+          .editMessage(
+            id,
+            newContent,
+            Array.isArray(d.attachments)
+              ? d.attachments.length > 0
+              : undefined,
+          );
       }
       return;
     }

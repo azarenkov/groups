@@ -17,7 +17,11 @@ interface DmPreviewState {
     replace?: boolean,
   ) => void;
   push: (friendId: string, preview: DmPreview) => void;
-  editMessage: (messageId: string, newContent: string) => void;
+  editMessage: (
+    messageId: string,
+    newContent: string,
+    hasAttachments?: boolean,
+  ) => void;
   hasMessage: (messageId: string) => boolean;
   clear: () => void;
 }
@@ -61,7 +65,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
       return { byFriend: { ...s.byFriend, [friendId]: preview } };
     }),
 
-  editMessage: (messageId, newContent) =>
+  editMessage: (messageId, newContent, hasAttachments) =>
     set((s) => {
       const entry = Object.entries(s.byFriend).find(
         ([, p]) => p.messageId === messageId,
@@ -71,7 +75,11 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
       return {
         byFriend: {
           ...s.byFriend,
-          [friendId]: { ...p, content: newContent },
+          [friendId]: {
+            ...p,
+            content: newContent,
+            hasAttachments: hasAttachments ?? p.hasAttachments,
+          },
         },
       };
     }),
