@@ -10,12 +10,24 @@ export interface ChannelMessageHandlers {
     authorName?: string;
     content: string;
     occurredAt: string;
+    attachments?: {
+      id: string;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+    }[];
   }) => void;
   onEdited?: (m: {
     id: string;
     channelId: string;
     newContent: string;
     occurredAt: string;
+    attachments?: {
+      id: string;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+    }[];
   }) => void;
   onDeleted?: (m: {
     id: string;
@@ -62,12 +74,24 @@ export interface DmMessageHandlers {
     inviteServerName?: string;
     callStatus?: string;
     callDurationSeconds?: number;
+    attachments?: {
+      id: string;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+    }[];
   }) => void;
   onEdited?: (m: {
     id: string;
     senderId: string;
     newContent: string;
     occurredAt: string;
+    attachments?: {
+      id: string;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+    }[];
   }) => void;
   onDeleted?: (m: {
     id: string;

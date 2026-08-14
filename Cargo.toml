@@ -30,6 +30,8 @@ async-nats = "0.46"
 rand = "0.10.1"
 jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
 anyhow = "1.0.102"
+rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustls-tls"] }
+actix-multipart = "0.7"
 
 domain = { path = "backend/crates/domain" }
 application = { path = "backend/crates/application" }

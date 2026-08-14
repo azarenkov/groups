@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     dm_message::{DmMessage, repository::DmMessageRepository},
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     message::{MessageError, content::MessageContent},
@@ -30,26 +31,36 @@ pub enum SendDmMessageError {
     Outbox(#[from] OutboxError),
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("Invalid attachments")]
+    InvalidAttachments,
 }
 
-pub struct SendDmMessage<M, F>
+pub struct SendDmMessage<M, F, A>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
+    A: AttachmentRepository,
 {
     dm_repository: Arc<M>,
     friendship_repository: Arc<F>,
+    attachment_repository: Arc<A>,
 }
 
-impl<M, F> SendDmMessage<M, F>
+impl<M, F, A> SendDmMessage<M, F, A>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
+    A: AttachmentRepository,
 {
-    pub fn new(dm_repository: Arc<M>, friendship_repository: Arc<F>) -> Self {
+    pub fn new(
+        dm_repository: Arc<M>,
+        friendship_repository: Arc<F>,
+        attachment_repository: Arc<A>,
+    ) -> Self {
         Self {
             dm_repository,
             friendship_repository,
+            attachment_repository,
         }
     }
 
@@ -68,7 +79,29 @@ where
             return Err(SendDmMessageError::NotFriends);
         }
 
-        let content = MessageContent::new(request.content)?;
+        if request.attachment_ids.len() > 10 {
+            return Err(SendDmMessageError::InvalidAttachments);
+        }
+        let attachments = if request.attachment_ids.is_empty() {
+            Vec::new()
+        } else {
+            let owned = self
+                .attachment_repository
+                .list_unlinked_owned(&request.attachment_ids, &sender_id)
+                .await?;
+            let distinct: std::collections::HashSet<&uuid::Uuid> =
+                request.attachment_ids.iter().collect();
+            if owned.len() != distinct.len() {
+                return Err(SendDmMessageError::InvalidAttachments);
+            }
+            owned
+        };
+
+        let content = if request.attachment_ids.is_empty() {
+            MessageContent::new(request.content)?
+        } else {
+            MessageContent::new_allow_empty(request.content)?
+        };
         let now = Utc::now();
         let mut message = DmMessage::create(sender_id, recipient_id, content, now);
         let request_id = request.ctx.request_id.clone();
@@ -78,8 +111,11 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
         self.dm_repository
-            .save_with_events(&message, &records)
+            .save_with_events(&message, &records, &request.attachment_ids)
             .await?;
-        Ok(SendDmMessageResponse::from(&message))
+
+        let mut response = SendDmMessageResponse::from(&message);
+        response.attachments = attachments;
+        Ok(response)
     }
 }

@@ -100,12 +100,12 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
-        let deleted = self
+        if self
             .server_repository
             .delete_server_by_owner_with_events(&server_id, &owner_id, &records)
-            .await?;
-
-        if !deleted {
+            .await?
+            .is_none()
+        {
             return Ok(false);
         }
 

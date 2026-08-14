@@ -254,8 +254,21 @@ async fn list_channel_messages(
         .execute(data, user_id)
         .await?;
 
-    let response =
-        ListChannelMessagesResponse::new(messages.into_iter().map(MessageResponse::from).collect());
+    let mut items: Vec<MessageResponse> =
+        messages.into_iter().map(MessageResponse::from).collect();
+    let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_channel_messages(&ids)
+        .await?;
+    for a in attachments {
+        if let Some(mid) = a.message_id
+            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
+        {
+            m.attachments.push(a.into());
+        }
+    }
+    let response = ListChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -287,9 +300,21 @@ async fn search_channel_messages(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = SearchChannelMessagesResponse::new(
-        result.items.into_iter().map(MessageResponse::from).collect(),
-    );
+    let mut items: Vec<MessageResponse> =
+        result.items.into_iter().map(MessageResponse::from).collect();
+    let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_channel_messages(&ids)
+        .await?;
+    for a in attachments {
+        if let Some(mid) = a.message_id
+            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
+        {
+            m.attachments.push(a.into());
+        }
+    }
+    let response = SearchChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
@@ -312,6 +337,7 @@ async fn send_channel_message(
         server_id,
         channel_id,
         body.content,
+        body.attachment_ids,
         request_context(&req),
     );
 
@@ -342,6 +368,8 @@ async fn edit_channel_message(
         channel_id,
         message_id,
         body.content,
+        body.add_attachment_ids,
+        body.remove_attachment_ids,
         request_context(&req),
     );
 

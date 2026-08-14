@@ -6,6 +6,7 @@ import { useChannelStore } from "../store/channelStore";
 import { useThemeStore } from "../store/themeStore";
 import { serverAPI } from "../api/server";
 import { callAPI } from "../api/call";
+import { attachmentAPI } from "../api/attachment";
 import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
@@ -210,7 +211,8 @@ const ServersPage: React.FC = () => {
               ? tSidebar("previewCall")
               : p.inviteServerId
                 ? tSidebar("previewInvite")
-                : p.content;
+                : p.content ||
+                  (p.hasAttachments ? tSidebar("previewAttachment") : "");
             lastMessage =
               p.senderId === user?.id
                 ? `${tSidebar("previewYou")} ${body}`
@@ -258,6 +260,7 @@ const ServersPage: React.FC = () => {
       friendshipAPI.setAuthToken(tokens.accessToken);
       dmAPI.setAuthToken(tokens.accessToken);
       callAPI.setAuthToken(tokens.accessToken);
+      attachmentAPI.setAuthToken(tokens.accessToken);
       fetchServers();
       fetchFriends();
     }

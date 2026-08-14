@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM storage_cleanup_queue WHERE storage_key = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d0cc4ff855b52851d9a33dd5ad83e278436d65517bd88005bd822f058051bbb0"
+}

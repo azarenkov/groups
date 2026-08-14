@@ -223,6 +223,7 @@ function dispatch(env: WsEnvelope) {
         content: asString(d.content) ?? "",
         callStatus: asString(d.callStatus) ?? null,
         inviteServerId: asString(d.inviteServerId) ?? null,
+        hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
       if (recipientId !== selfId) return;
@@ -238,7 +239,15 @@ function dispatch(env: WsEnvelope) {
       const id = asString(d.id);
       const newContent = asString(d.newContent);
       if (id && newContent != null) {
-        useDmPreviewStore.getState().editMessage(id, newContent);
+        useDmPreviewStore
+          .getState()
+          .editMessage(
+            id,
+            newContent,
+            Array.isArray(d.attachments)
+              ? d.attachments.length > 0
+              : undefined,
+          );
       }
       return;
     }

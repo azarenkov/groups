@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
-import { ChannelMessage } from "../types/channel";
+import { Attachment, ChannelMessage } from "../types/channel";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -17,6 +17,7 @@ interface DmRow {
   inviteServerName?: string;
   callStatus?: string;
   callDurationSeconds?: number;
+  attachments?: Attachment[];
   createdAt: string;
   editedAt: string | null;
 }
@@ -31,6 +32,7 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   inviteServerName: r.inviteServerName,
   callStatus: r.callStatus,
   callDurationSeconds: r.callDurationSeconds,
+  attachments: r.attachments,
   createdAt: r.createdAt,
   editedAt: r.editedAt,
 });
@@ -105,6 +107,7 @@ class DmAPI {
       content: string;
       callStatus: string | null;
       inviteServerId: string | null;
+      hasAttachments: boolean;
       createdAt: string;
     }[];
   }> {
@@ -112,10 +115,14 @@ class DmAPI {
     return response.data.data;
   }
 
-  async sendMessage(friendId: string, content: string): Promise<ChannelMessage> {
+  async sendMessage(
+    friendId: string,
+    content: string,
+    attachmentIds?: string[],
+  ): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/users/me/dms/${friendId}/messages`,
-      { content },
+      { content, attachmentIds },
     );
     return toChannelMessage(response.data.data);
   }
@@ -144,9 +151,16 @@ class DmAPI {
     );
   }
 
-  async editMessage(messageId: string, content: string): Promise<void> {
+  async editMessage(
+    messageId: string,
+    content: string,
+    addAttachmentIds?: string[],
+    removeAttachmentIds?: string[],
+  ): Promise<void> {
     await this.client.patch(`/v1/users/me/dms/messages/${messageId}`, {
       content,
+      addAttachmentIds: addAttachmentIds ?? [],
+      removeAttachmentIds: removeAttachmentIds ?? [],
     });
   }
 

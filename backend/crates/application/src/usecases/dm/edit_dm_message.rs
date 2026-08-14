@@ -1,7 +1,9 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    attachment::repository::AttachmentRepository,
     dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
     message::{MessageError, content::MessageContent},
     shared::{
@@ -13,8 +15,11 @@ use domain::{
     },
     user::id::UserId,
 };
+use uuid::Uuid;
 
-use crate::dto::requests::dm::edit_dm_message::EditDmMessageRequest;
+use crate::{
+    dto::requests::dm::edit_dm_message::EditDmMessageRequest, ports::file_storage::FileStorage,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum EditDmMessageError {
@@ -28,21 +33,33 @@ pub enum EditDmMessageError {
     Outbox(#[from] OutboxError),
     #[error("Message not found")]
     NotFound,
+    #[error("Invalid attachments")]
+    InvalidAttachments,
 }
 
-pub struct EditDmMessage<M>
+pub struct EditDmMessage<M, A, FS>
 where
     M: DmMessageRepository,
+    A: AttachmentRepository,
+    FS: FileStorage,
 {
     dm_repository: Arc<M>,
+    attachment_repository: Arc<A>,
+    storage: Arc<FS>,
 }
 
-impl<M> EditDmMessage<M>
+impl<M, A, FS> EditDmMessage<M, A, FS>
 where
     M: DmMessageRepository,
+    A: AttachmentRepository,
+    FS: FileStorage,
 {
-    pub fn new(dm_repository: Arc<M>) -> Self {
-        Self { dm_repository }
+    pub fn new(dm_repository: Arc<M>, attachment_repository: Arc<A>, storage: Arc<FS>) -> Self {
+        Self {
+            dm_repository,
+            attachment_repository,
+            storage,
+        }
     }
 
     pub async fn execute(
@@ -65,18 +82,73 @@ where
             return Err(EditDmMessageError::NotFound);
         }
 
-        let new_content = MessageContent::new(request.content)?;
+        let current = self
+            .attachment_repository
+            .list_for_dm_messages(&[message_id.uuid()])
+            .await?;
+        let current_ids: HashSet<Uuid> = current.iter().map(|a| a.id).collect();
+        let remove_ids: HashSet<Uuid> = request.remove_attachment_ids.iter().copied().collect();
+        if !remove_ids.iter().all(|id| current_ids.contains(id)) {
+            return Err(EditDmMessageError::InvalidAttachments);
+        }
+        let add_ids: HashSet<Uuid> = request.add_attachment_ids.iter().copied().collect();
+        if add_ids.iter().any(|id| current_ids.contains(id)) {
+            return Err(EditDmMessageError::InvalidAttachments);
+        }
+        if !add_ids.is_empty() {
+            let owned = self
+                .attachment_repository
+                .list_unlinked_owned(&request.add_attachment_ids, &editor_id)
+                .await?;
+            if owned.len() != add_ids.len() {
+                return Err(EditDmMessageError::InvalidAttachments);
+            }
+        }
+        let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
+        if remaining > 10 {
+            return Err(EditDmMessageError::InvalidAttachments);
+        }
+
+        let new_content = if remaining > 0 {
+            MessageContent::new_allow_empty(request.content)?
+        } else {
+            MessageContent::new(request.content)?
+        };
+        let attachments_changed = !remove_ids.is_empty() || !add_ids.is_empty();
         let now = Utc::now();
-        message.edit(new_content, editor_id, now)?;
+        message.edit_with_options(new_content, editor_id, now, attachments_changed)?;
         let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = message
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
-        self.dm_repository
-            .update_with_events(&message, &records)
-            .await?;
+        let removed_keys = self
+            .dm_repository
+            .update_with_events(
+                &message,
+                &records,
+                &request.add_attachment_ids,
+                &request.remove_attachment_ids,
+            )
+            .await
+            .map_err(|e| match e {
+                RepositoryError::InvalidData(_) => EditDmMessageError::InvalidAttachments,
+                other => EditDmMessageError::Repository(other),
+            })?;
+
+        for key in removed_keys {
+            match self.storage.delete(&key).await {
+                Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {
+                    if let Err(e) = self.attachment_repository.dequeue_cleanup(&key).await {
+                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, %key, "Failed to delete attachment object; cleanup queue will retry");
+                }
+            }
+        }
         Ok(())
     }
 }

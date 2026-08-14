@@ -10,6 +10,7 @@ pub struct SendDmMessageResponse {
     pub content: String,
     pub invite_server_id: Option<Uuid>,
     pub invite_server_name: Option<String>,
+    pub attachments: Vec<domain::attachment::Attachment>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -20,6 +21,7 @@ impl SendDmMessageResponse {
             sender_id: value.sender_id().uuid(),
             recipient_id: value.recipient_id().uuid(),
             content: value.content().as_str().to_string(),
+            attachments: Vec::new(),
             invite_server_id: value.invite_server_id().map(|id| id.uuid()),
             invite_server_name: Some(invite_server_name),
             created_at: value.created_at(),
@@ -34,6 +36,7 @@ impl From<&DmMessage> for SendDmMessageResponse {
             sender_id: value.sender_id().uuid(),
             recipient_id: value.recipient_id().uuid(),
             content: value.content().as_str().to_string(),
+            attachments: Vec::new(),
             invite_server_id: value.invite_server_id().map(|id| id.uuid()),
             invite_server_name: None,
             created_at: value.created_at(),

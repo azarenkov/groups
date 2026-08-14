@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO storage_cleanup_queue (storage_key)\n            SELECT * FROM UNNEST($1::text[])\n            ON CONFLICT (storage_key) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "190147ca749748dfb03f5c56f689e275384080febb823bac6c58e7e40c58cea7"
+}

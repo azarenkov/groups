@@ -567,12 +567,68 @@ impl ServerRepository for PostgresServerRepository {
         server_id: &ServerId,
         owner_id: &UserId,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<Option<Vec<String>>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"SELECT id FROM servers WHERE id = $1 FOR UPDATE"#,
+            server_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"SELECT id FROM channels WHERE server_id = $1 FOR UPDATE"#,
+            server_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            SELECT m.id
+            FROM messages m
+            INNER JOIN channels c ON c.id = m.channel_id
+            WHERE c.server_id = $1
+            FOR UPDATE OF m
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let storage_keys = sqlx::query_scalar!(
+            r#"
+            SELECT a.storage_key
+            FROM attachments a
+            INNER JOIN messages m ON m.id = a.message_id
+            INNER JOIN channels c ON c.id = m.channel_id
+            WHERE c.server_id = $1
+            "#,
+            server_id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT * FROM UNNEST($1::text[])
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            &storage_keys,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
 
         let result = sqlx::query!(
             r#"
@@ -586,14 +642,14 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if result.rows_affected() == 0 {
-            return Ok(false);
+            return Ok(None);
         }
 
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(true)
+        Ok(Some(storage_keys))
     }
 
     async fn find_server_owner(

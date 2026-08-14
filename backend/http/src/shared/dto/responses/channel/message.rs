@@ -16,6 +16,8 @@ pub struct MessageResponse {
     pub content: String,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<crate::shared::dto::responses::attachment::AttachmentResponse>,
 }
 
 impl From<SendChannelMessageResponse> for MessageResponse {
@@ -28,6 +30,11 @@ impl From<SendChannelMessageResponse> for MessageResponse {
             content: value.content,
             created_at: value.created_at,
             edited_at: None,
+            attachments: value
+                .attachments
+                .into_iter()
+                .map(crate::shared::dto::responses::attachment::AttachmentResponse::from)
+                .collect(),
         }
     }
 }
@@ -42,6 +49,7 @@ impl From<ChannelMessageDto> for MessageResponse {
             content: value.content,
             created_at: value.created_at,
             edited_at: value.edited_at,
+            attachments: Vec::new(),
         }
     }
 }

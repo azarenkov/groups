@@ -45,7 +45,12 @@ async fn send_dm_message(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
 
-    let data = SendDmMessageRequest::new(friend_id, body.content, request_context(&req));
+    let data = SendDmMessageRequest::new(
+        friend_id,
+        body.content,
+        body.attachment_ids,
+        request_context(&req),
+    );
 
     let response = app_state
         .send_dm_message_usecase
@@ -120,6 +125,7 @@ struct DmPreviewItem {
     content: String,
     call_status: Option<String>,
     invite_server_id: Option<Uuid>,
+    has_attachments: bool,
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -148,6 +154,7 @@ async fn list_dm_previews(
                 content: p.content,
                 call_status: p.call_status,
                 invite_server_id: p.invite_server_id,
+                has_attachments: p.has_attachments,
                 created_at: p.created_at,
             })
             .collect(),
@@ -179,8 +186,21 @@ async fn list_dm_messages(
         .execute(data, user_id)
         .await?;
 
-    let response =
-        ListDmMessagesResponse::new(messages.into_iter().map(DmMessageResponse::from).collect());
+    let mut items: Vec<DmMessageResponse> =
+        messages.into_iter().map(DmMessageResponse::from).collect();
+    let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_dm_messages(&ids)
+        .await?;
+    for a in attachments {
+        if let Some(mid) = a.dm_message_id
+            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
+        {
+            m.attachments.push(a.into());
+        }
+    }
+    let response = ListDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -198,7 +218,13 @@ async fn edit_dm_message(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
 
-    let data = EditDmMessageRequest::new(message_id, body.content, request_context(&req));
+    let data = EditDmMessageRequest::new(
+        message_id,
+        body.content,
+        body.add_attachment_ids,
+        body.remove_attachment_ids,
+        request_context(&req),
+    );
 
     app_state
         .edit_dm_message_usecase
@@ -252,13 +278,24 @@ async fn search_dm_messages(
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = SearchDmMessagesResponse::new(
-        result
-            .items
-            .into_iter()
-            .map(DmMessageResponse::from)
-            .collect(),
-    );
+    let mut items: Vec<DmMessageResponse> = result
+        .items
+        .into_iter()
+        .map(DmMessageResponse::from)
+        .collect();
+    let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_dm_messages(&ids)
+        .await?;
+    for a in attachments {
+        if let Some(mid) = a.dm_message_id
+            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
+        {
+            m.attachments.push(a.into());
+        }
+    }
+    let response = SearchDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }

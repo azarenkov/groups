@@ -20,6 +20,7 @@ bcrypt = "0.18"
 livekit-api = "0.4.14"
 livekit-protocol = "0.7.1"
 async-nats = { workspace = true }
+rust-s3 = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["net", "time"] }
 lettre = "0.11.21"

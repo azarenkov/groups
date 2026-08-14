@@ -76,7 +76,7 @@ where
             .map(|e| e.to_outbox_record_with_request_id(None))
             .collect::<Result<_, _>>()?;
         self.dm_repository
-            .save_with_events(&message, &records)
+            .save_with_events(&message, &records, &[])
             .await?;
         Ok(())
     }

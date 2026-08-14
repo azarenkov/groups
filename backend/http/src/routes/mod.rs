@@ -29,6 +29,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .configure(friendship::friendship_routes),
                 )
                 .configure(crate::handlers::call::call_routes)
+                .configure(crate::handlers::attachment::attachment_routes)
                 .service(
                     web::scope("/v1")
                         .configure(crate::handlers::read_state::read_state_routes)

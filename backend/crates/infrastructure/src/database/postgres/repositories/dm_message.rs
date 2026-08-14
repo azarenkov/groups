@@ -16,6 +16,7 @@ use domain::{
     user::id::UserId,
 };
 use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
@@ -71,6 +72,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
+        attachment_ids: &[Uuid],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
@@ -95,6 +97,29 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        if !attachment_ids.is_empty() {
+            let linked = sqlx::query!(
+                r#"
+                UPDATE attachments
+                SET dm_message_id = $3
+                WHERE id = ANY($1) AND owner_id = $2
+                  AND message_id IS NULL AND dm_message_id IS NULL
+                  AND deleting_at IS NULL
+                "#,
+                attachment_ids,
+                message.sender_id().uuid(),
+                message.id().uuid(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let distinct: std::collections::HashSet<&Uuid> = attachment_ids.iter().collect();
+            if linked.rows_affected() as usize != distinct.len() {
+                return Err(RepositoryError::InvalidData(
+                    "attachments unavailable".to_string(),
+                ));
+            }
+        }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
@@ -104,7 +129,9 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+        add_attachment_ids: &[Uuid],
+        remove_attachment_ids: &[Uuid],
+    ) -> Result<Vec<String>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -126,21 +153,123 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
+        let mut removed_keys: Vec<String> = Vec::new();
+        if !remove_attachment_ids.is_empty() {
+            removed_keys = sqlx::query_scalar!(
+                r#"
+                DELETE FROM attachments
+                WHERE id = ANY($1) AND dm_message_id = $2
+                RETURNING storage_key
+                "#,
+                remove_attachment_ids,
+                message.id().uuid(),
+            )
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let distinct: std::collections::HashSet<&Uuid> =
+                remove_attachment_ids.iter().collect();
+            if removed_keys.len() != distinct.len() {
+                return Err(RepositoryError::InvalidData(
+                    "attachments unavailable".to_string(),
+                ));
+            }
+            sqlx::query!(
+                r#"
+                INSERT INTO storage_cleanup_queue (storage_key)
+                SELECT * FROM UNNEST($1::text[])
+                ON CONFLICT (storage_key) DO NOTHING
+                "#,
+                &removed_keys,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+        if !add_attachment_ids.is_empty() {
+            let linked = sqlx::query!(
+                r#"
+                UPDATE attachments
+                SET dm_message_id = $3
+                WHERE id = ANY($1) AND owner_id = $2
+                  AND message_id IS NULL AND dm_message_id IS NULL
+                  AND deleting_at IS NULL
+                "#,
+                add_attachment_ids,
+                message.sender_id().uuid(),
+                message.id().uuid(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let distinct: std::collections::HashSet<&Uuid> = add_attachment_ids.iter().collect();
+            if linked.rows_affected() as usize != distinct.len() {
+                return Err(RepositoryError::InvalidData(
+                    "attachments unavailable".to_string(),
+                ));
+            }
+        }
+        let final_count = sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*) AS "count!" FROM attachments WHERE dm_message_id = $1
+            "#,
+            message.id().uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if final_count > 10 || (final_count == 0 && message.content().as_str().is_empty()) {
+            return Err(RepositoryError::InvalidData(
+                "attachments unavailable".to_string(),
+            ));
+        }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(removed_keys)
     }
 
     async fn delete_with_events(
         &self,
         id: &DmMessageId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<Vec<String>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        let locked = sqlx::query_scalar!(
+            r#"SELECT id FROM dm_messages WHERE id = $1 FOR UPDATE"#,
+            id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if locked.is_none() {
+            return Err(RepositoryError::NotFound);
+        }
+
+        let storage_keys = sqlx::query_scalar!(
+            r#"SELECT storage_key FROM attachments WHERE dm_message_id = $1"#,
+            id.uuid(),
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT * FROM UNNEST($1::text[])
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            &storage_keys,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
         let result = sqlx::query!(
             r#"
             DELETE FROM dm_messages WHERE id = $1
@@ -155,7 +284,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(storage_keys)
     }
 
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError> {
@@ -172,7 +301,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         .map_err(map_sqlx_error_to_domain_error)?
         .ok_or(RepositoryError::NotFound)?;
 
-        let content = MessageContent::new(row.content)
+        let content = MessageContent::new_allow_empty(row.content)
             .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
 
         Ok(DmMessage::restore(
@@ -462,6 +591,9 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 m.content AS "content!",
                 m.call_status,
                 m.invite_server_id,
+                EXISTS(
+                    SELECT 1 FROM attachments att WHERE att.dm_message_id = m.id
+                ) AS "has_attachments!",
                 m.created_at AS "created_at!"
             FROM (
                 SELECT
@@ -492,6 +624,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 content: r.content,
                 call_status: r.call_status,
                 invite_server_id: r.invite_server_id,
+                has_attachments: r.has_attachments,
                 created_at: r.created_at,
             })
             .collect())

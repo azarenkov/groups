@@ -121,7 +121,7 @@ pub trait ChannelRepository {
         &self,
         channel_id: &ChannelId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn list_voice_channel_ids_by_server(
         &self,

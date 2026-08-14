@@ -88,6 +88,31 @@ impl RecipientResolver {
         })
     }
 
+    pub async fn attachments_for_message(
+        &self,
+        message_id: Uuid,
+        dm: bool,
+    ) -> Result<Vec<serde_json::Value>, sqlx::Error> {
+        let column = if dm { "dm_message_id" } else { "message_id" };
+        let rows = sqlx::query(&format!(
+            "SELECT id, file_name, content_type, size_bytes FROM attachments WHERE {column} = $1 ORDER BY created_at ASC"
+        ))
+        .bind(message_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.get::<Uuid, _>(0),
+                    "fileName": r.get::<String, _>(1),
+                    "contentType": r.get::<String, _>(2),
+                    "sizeBytes": r.get::<i64, _>(3),
+                })
+            })
+            .collect())
+    }
+
     pub async fn dm_recipient_for(
         &self,
         message_id: Uuid,

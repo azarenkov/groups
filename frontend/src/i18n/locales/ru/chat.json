@@ -60,5 +60,14 @@
     "open": "Открыть",
     "join": "Присоединиться",
     "decline": "Отклонить"
-  }
+  },
+  "attachFile": "Прикрепить файл",
+  "attachmentsUploading": "Файлы ещё загружаются…",
+  "attachmentFailed": "Ошибка загрузки",
+  "linkPreviewShow": "Показать превью изображения",
+  "linkPreviewShowVideo": "Показать превью видео",
+  "editHint": "esc — отменить · enter — сохранить",
+  "editCaptionPlaceholder": "Подпись к файлам (необязательно)",
+  "editRemoveAttachment": "Открепить вложение",
+  "editConfirm": "Сохранить изменения"
 }

@@ -16,19 +16,22 @@ pub trait MessageRepository {
         &self,
         message: &Message,
         events: &[OutboxRecord],
+        attachment_ids: &[uuid::Uuid],
     ) -> Result<(), RepositoryError>;
 
     async fn update_message_with_events(
         &self,
         message: &Message,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+        add_attachment_ids: &[uuid::Uuid],
+        remove_attachment_ids: &[uuid::Uuid],
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn delete_message_with_events(
         &self,
         message_id: &MessageId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn find_message_by_id(
         &self,

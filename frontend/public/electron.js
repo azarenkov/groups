@@ -188,6 +188,22 @@ function createMainWindow() {
 
   mainWindow.loadURL(startURL);
 
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== startURL && !url.startsWith('http://localhost:3000')) {
+      event.preventDefault();
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        shell.openExternal(url);
+      }
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
     closeSplash();
     mainWindow.show();

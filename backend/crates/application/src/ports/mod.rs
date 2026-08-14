@@ -1,3 +1,4 @@
+pub mod file_storage;
 pub mod event_consumer;
 pub mod hasher;
 pub mod mailer;

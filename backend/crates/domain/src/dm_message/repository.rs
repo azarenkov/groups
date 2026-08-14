@@ -21,6 +21,7 @@ pub struct DmConversationPreview {
     pub content: String,
     pub call_status: Option<String>,
     pub invite_server_id: Option<Uuid>,
+    pub has_attachments: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -30,19 +31,22 @@ pub trait DmMessageRepository {
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
+        attachment_ids: &[Uuid],
     ) -> Result<(), RepositoryError>;
 
     async fn update_with_events(
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+        add_attachment_ids: &[Uuid],
+        remove_attachment_ids: &[Uuid],
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn delete_with_events(
         &self,
         id: &DmMessageId,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<Vec<String>, RepositoryError>;
 
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError>;
 

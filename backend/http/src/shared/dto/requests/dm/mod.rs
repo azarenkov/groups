@@ -3,15 +3,23 @@ use uuid::Uuid;
 use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct SendDmMessageBody {
-    #[validate(length(min = 1, max = 2000))]
+    #[validate(length(max = 2000))]
     pub content: String,
+    #[serde(default)]
+    pub attachment_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct EditDmMessageBody {
-    #[validate(length(min = 1, max = 2000))]
+    #[validate(length(max = 2000))]
     pub content: String,
+    #[serde(default)]
+    pub add_attachment_ids: Vec<Uuid>,
+    #[serde(default)]
+    pub remove_attachment_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
