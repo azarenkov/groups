@@ -51,7 +51,8 @@
     "uploadAvatar": "Upload avatar",
     "removeAvatar": "Remove avatar",
     "changeAvatar": "Change avatar",
-    "avatarError": "Failed to update avatar"
+    "avatarError": "Failed to update avatar",
+    "avatarRejected": "This image was rejected by content moderation"
   },
   "profile": {
     "title": "Profile",

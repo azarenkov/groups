@@ -92,7 +92,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
       bustAvatar("server", server.id);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setSaveError(apiErr?.message || t("logoError"));
+      if (apiErr?.code === "IMAGE_CONTENT_REJECTED") {
+        setSaveError(t("logoRejected"));
+      } else {
+        setSaveError(apiErr?.message || t("logoError"));
+      }
     } finally {
       setLogoBusy(false);
     }

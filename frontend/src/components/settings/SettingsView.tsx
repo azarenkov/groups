@@ -121,7 +121,11 @@ function AccountSection() {
       bustAvatar("user", user.id);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setError(apiErr?.message || t("account.avatarError"));
+      if (apiErr?.code === "IMAGE_CONTENT_REJECTED") {
+        setError(t("account.avatarRejected"));
+      } else {
+        setError(apiErr?.message || t("account.avatarError"));
+      }
     } finally {
       setBusy(false);
     }

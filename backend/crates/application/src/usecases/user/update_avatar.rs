@@ -6,7 +6,10 @@ use domain::{
     user::{id::UserId, repository::UserRepository},
 };
 
-use crate::ports::file_storage::{FileStorage, FileStorageError};
+use crate::ports::{
+    file_storage::{FileStorage, FileStorageError},
+    image_moderation::{ImageModeration, ImageModerationError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateUserAvatarError {
@@ -14,30 +17,41 @@ pub enum UpdateUserAvatarError {
     Repository(#[from] RepositoryError),
     #[error("Storage error: {0}")]
     Storage(#[from] FileStorageError),
+    #[error("Moderation error: {0}")]
+    Moderation(#[from] ImageModerationError),
 }
 
-pub struct UpdateUserAvatar<U, A, FS>
+pub struct UpdateUserAvatar<U, A, FS, IM>
 where
     U: UserRepository,
     A: AttachmentRepository,
     FS: FileStorage,
+    IM: ImageModeration,
 {
     user_repository: Arc<U>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
+    moderation: Arc<IM>,
 }
 
-impl<U, A, FS> UpdateUserAvatar<U, A, FS>
+impl<U, A, FS, IM> UpdateUserAvatar<U, A, FS, IM>
 where
     U: UserRepository,
     A: AttachmentRepository,
     FS: FileStorage,
+    IM: ImageModeration,
 {
-    pub fn new(user_repository: Arc<U>, attachment_repository: Arc<A>, storage: Arc<FS>) -> Self {
+    pub fn new(
+        user_repository: Arc<U>,
+        attachment_repository: Arc<A>,
+        storage: Arc<FS>,
+        moderation: Arc<IM>,
+    ) -> Self {
         Self {
             user_repository,
             attachment_repository,
             storage,
+            moderation,
         }
     }
 
@@ -46,6 +60,7 @@ where
         user_id: UserId,
         bytes: Vec<u8>,
     ) -> Result<(), UpdateUserAvatarError> {
+        self.moderation.ensure_allowed(&bytes).await?;
         let key = format!("avatars/{}/{}.png", user_id.uuid(), uuid::Uuid::new_v4());
         self.storage.put(&key, "image/png", bytes).await?;
 

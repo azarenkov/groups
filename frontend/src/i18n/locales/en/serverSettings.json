@@ -55,5 +55,6 @@
   "generate": "Generate link",
   "uploadLogo": "Upload logo",
   "removeLogo": "Remove logo",
-  "logoError": "Failed to update logo"
+  "logoError": "Failed to update logo",
+  "logoRejected": "This image was rejected by content moderation"
 }

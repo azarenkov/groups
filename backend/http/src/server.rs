@@ -70,7 +70,7 @@ use infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     config::{
         google::GoogleOAuthConfig, livekit::LiveKitConfig, minio::MinioConfig,
-        postgres::PostgresConfig,
+        nsfw::NsfwConfig, postgres::PostgresConfig,
     },
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
@@ -87,6 +87,7 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    moderation::nsfw_detector::NsfwDetector,
     storage::minio_storage::MinioStorage,
     voice::{
         livekit_service::{LiveKitService, is_livekit_reachable},
@@ -179,10 +180,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     }
     let list_message_attachments_usecase =
         ListMessageAttachments::new(attachment_repository.clone());
+    let nsfw_config = NsfwConfig::from_env()?;
+    let nsfw_detector = Arc::new(NsfwDetector::new(&nsfw_config));
     let update_user_avatar_usecase = UpdateUserAvatar::new(
         user_repository.clone(),
         attachment_repository.clone(),
         minio_storage.clone(),
+        nsfw_detector.clone(),
     );
     let delete_user_avatar_usecase = DeleteUserAvatar::new(
         user_repository.clone(),
@@ -195,6 +199,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         server_repository.clone(),
         attachment_repository.clone(),
         minio_storage.clone(),
+        nsfw_detector.clone(),
     );
     let get_server_logo_usecase =
         GetServerLogo::new(server_repository.clone(), minio_storage.clone());

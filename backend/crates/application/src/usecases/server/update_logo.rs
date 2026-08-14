@@ -8,7 +8,10 @@ use domain::{
 };
 
 use crate::{
-    ports::file_storage::{FileStorage, FileStorageError},
+    ports::{
+        file_storage::{FileStorage, FileStorageError},
+        image_moderation::{ImageModeration, ImageModerationError},
+    },
     usecases::user::update_avatar::cleanup_object,
 };
 
@@ -18,38 +21,45 @@ pub enum UpdateServerLogoError {
     Repository(#[from] RepositoryError),
     #[error("Storage error: {0}")]
     Storage(#[from] FileStorageError),
+    #[error("Moderation error: {0}")]
+    Moderation(#[from] ImageModerationError),
     #[error("Server not found")]
     ServerNotFound,
     #[error("Not the server owner")]
     NotOwner,
 }
 
-pub struct UpdateServerLogo<S, A, FS>
+pub struct UpdateServerLogo<S, A, FS, IM>
 where
     S: ServerRepository,
     A: AttachmentRepository,
     FS: FileStorage,
+    IM: ImageModeration,
 {
     server_repository: Arc<S>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
+    moderation: Arc<IM>,
 }
 
-impl<S, A, FS> UpdateServerLogo<S, A, FS>
+impl<S, A, FS, IM> UpdateServerLogo<S, A, FS, IM>
 where
     S: ServerRepository,
     A: AttachmentRepository,
     FS: FileStorage,
+    IM: ImageModeration,
 {
     pub fn new(
         server_repository: Arc<S>,
         attachment_repository: Arc<A>,
         storage: Arc<FS>,
+        moderation: Arc<IM>,
     ) -> Self {
         Self {
             server_repository,
             attachment_repository,
             storage,
+            moderation,
         }
     }
 
@@ -70,6 +80,7 @@ where
 
         let new_key = match bytes {
             Some(bytes) => {
+                self.moderation.ensure_allowed(&bytes).await?;
                 let key = format!("logos/{}/{}.png", server_id.uuid(), uuid::Uuid::new_v4());
                 self.storage.put(&key, "image/png", bytes).await?;
                 Some(key)

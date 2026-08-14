@@ -26,6 +26,7 @@ use application::usecases::server::get_logo::GetServerLogoError;
 use application::usecases::server::update_logo::UpdateServerLogoError;
 use application::usecases::user::delete_avatar::DeleteUserAvatarError;
 use application::usecases::user::get_avatar::GetUserAvatarError;
+use application::ports::image_moderation::ImageModerationError;
 use application::usecases::user::update_avatar::UpdateUserAvatarError;
 use application::usecases::attachment::get_attachment::GetAttachmentError;
 use application::usecases::attachment::upload_attachment::UploadAttachmentError;
@@ -2242,23 +2243,51 @@ impl ToHttpStatus for UploadAttachmentError {
     }
 }
 
+impl ToHttpStatus for ImageModerationError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ImageModerationError::Rejected => StatusCode::UNPROCESSABLE_ENTITY,
+            ImageModerationError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ImageModerationError::Rejected => {
+                "Image was rejected by content moderation.".to_string()
+            }
+            ImageModerationError::Unavailable(_) => {
+                "Content moderation is temporarily unavailable. Try again later.".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ImageModerationError::Rejected => "IMAGE_CONTENT_REJECTED",
+            ImageModerationError::Unavailable(_) => "MODERATION_UNAVAILABLE",
+        }
+    }
+}
+
 impl ToHttpStatus for UpdateUserAvatarError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UpdateUserAvatarError::Repository(e) => e.to_http_status(),
             UpdateUserAvatarError::Storage(e) => e.to_http_status(),
+            UpdateUserAvatarError::Moderation(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             UpdateUserAvatarError::Repository(e) => e.to_user_message(),
             UpdateUserAvatarError::Storage(e) => e.to_user_message(),
+            UpdateUserAvatarError::Moderation(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             UpdateUserAvatarError::Repository(e) => e.to_error_code(),
             UpdateUserAvatarError::Storage(e) => e.to_error_code(),
+            UpdateUserAvatarError::Moderation(e) => e.to_error_code(),
         }
     }
 }
@@ -2315,6 +2344,7 @@ impl ToHttpStatus for UpdateServerLogoError {
             UpdateServerLogoError::NotOwner => StatusCode::FORBIDDEN,
             UpdateServerLogoError::Repository(e) => e.to_http_status(),
             UpdateServerLogoError::Storage(e) => e.to_http_status(),
+            UpdateServerLogoError::Moderation(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
@@ -2325,6 +2355,7 @@ impl ToHttpStatus for UpdateServerLogoError {
             }
             UpdateServerLogoError::Repository(e) => e.to_user_message(),
             UpdateServerLogoError::Storage(e) => e.to_user_message(),
+            UpdateServerLogoError::Moderation(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -2333,6 +2364,7 @@ impl ToHttpStatus for UpdateServerLogoError {
             UpdateServerLogoError::NotOwner => "SERVER_NOT_OWNER",
             UpdateServerLogoError::Repository(e) => e.to_error_code(),
             UpdateServerLogoError::Storage(e) => e.to_error_code(),
+            UpdateServerLogoError::Moderation(e) => e.to_error_code(),
         }
     }
 }

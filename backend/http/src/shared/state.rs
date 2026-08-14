@@ -72,6 +72,7 @@ use infrastructure::{
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    moderation::nsfw_detector::NsfwDetector,
     storage::minio_storage::MinioStorage,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
@@ -212,6 +213,7 @@ pub struct AppState {
         PostgresUserRepository,
         PostgresAttachmentRepository,
         MinioStorage,
+        NsfwDetector,
     >,
     pub delete_user_avatar_usecase: DeleteUserAvatar<
         PostgresUserRepository,
@@ -223,6 +225,7 @@ pub struct AppState {
         PostgresServerRepository,
         PostgresAttachmentRepository,
         MinioStorage,
+        NsfwDetector,
     >,
     pub get_server_logo_usecase: GetServerLogo<PostgresServerRepository, MinioStorage>,
     pub edit_dm_message_usecase:
@@ -471,6 +474,7 @@ impl AppState {
             PostgresUserRepository,
             PostgresAttachmentRepository,
             MinioStorage,
+            NsfwDetector,
         >,
         delete_user_avatar_usecase: DeleteUserAvatar<
             PostgresUserRepository,
@@ -482,6 +486,7 @@ impl AppState {
             PostgresServerRepository,
             PostgresAttachmentRepository,
             MinioStorage,
+            NsfwDetector,
         >,
         get_server_logo_usecase: GetServerLogo<PostgresServerRepository, MinioStorage>,
         edit_dm_message_usecase: EditDmMessage<
