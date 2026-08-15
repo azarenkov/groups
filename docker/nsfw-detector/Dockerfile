@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 
 RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('Falconsai/nsfw_image_detection', local_dir='/model')"
 
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('openai/clip-vit-base-patch32', local_dir='/clip')"
+
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1
 
