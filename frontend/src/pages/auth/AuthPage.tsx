@@ -333,11 +333,12 @@ const SignInUp: React.FC<SignInUpProps> = ({
   };
 
   const handleSignUp = async (data: SignUpData) => {
+    const name = data.name.trim();
     try {
       setLoading(true);
       setError(null);
       const response = await authAPI.register(
-        data.name,
+        name,
         data.email,
         data.password,
         locale,
@@ -352,7 +353,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
       const newUserId = decodeAccessToken(response.accessToken)?.sub ?? "";
       useAuthStore.getState().setUser({
         id: newUserId,
-        name: data.name,
+        name,
         email: data.email,
       });
       onAvatarPicked(avatarFile);
