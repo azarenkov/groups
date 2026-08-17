@@ -618,6 +618,19 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        let mut storage_keys = storage_keys;
+        let logo_key = sqlx::query_scalar!(
+            r#"SELECT logo_key FROM servers WHERE id = $1"#,
+            server_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .flatten();
+        if let Some(key) = logo_key {
+            storage_keys.push(key);
+        }
+
         sqlx::query!(
             r#"
             INSERT INTO storage_cleanup_queue (storage_key)

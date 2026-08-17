@@ -2,6 +2,7 @@ import React from "react";
 
 import { userAPI } from "../api/user";
 import { serverAPI } from "../api/server";
+import { ApiError } from "./apiError";
 
 export type AvatarKind = "user" | "server";
 
@@ -10,6 +11,7 @@ const CACHE_LIMIT = 256;
 const cache = new Map<string, string | null>();
 const pending = new Map<string, Promise<void>>();
 const listeners = new Map<string, Set<() => void>>();
+const generations = new Map<string, number>();
 
 const keyFor = (kind: AvatarKind, id: string) => `${kind}:${id}`;
 
@@ -31,36 +33,53 @@ const evictIfNeeded = () => {
 const load = (kind: AvatarKind, id: string) => {
   const key = keyFor(kind, id);
   if (cache.has(key) || pending.has(key)) return;
+  const gen = generations.get(key) ?? 0;
   const promise = (kind === "user"
     ? userAPI.downloadAvatar(id)
     : serverAPI.downloadLogo(id)
   )
     .then((blob) => {
-      cache.set(key, URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      if ((generations.get(key) ?? 0) !== gen) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      cache.set(key, url);
       evictIfNeeded();
     })
-    .catch(() => {
-      cache.set(key, null);
+    .catch((err) => {
+      if ((generations.get(key) ?? 0) !== gen) return;
+      if (err instanceof ApiError && err.status === 404) {
+        cache.set(key, null);
+      }
     })
     .finally(() => {
       pending.delete(key);
+      const stale = (generations.get(key) ?? 0) !== gen;
       notify(key);
+      if (stale && !cache.has(key) && listeners.get(key)?.size) {
+        load(kind, id);
+      }
     });
   pending.set(key, promise);
 };
 
 export const bustAvatar = (kind: AvatarKind, id: string) => {
   const key = keyFor(kind, id);
+  generations.set(key, (generations.get(key) ?? 0) + 1);
   const url = cache.get(key);
   cache.delete(key);
   if (url) URL.revokeObjectURL(url);
-  if (listeners.get(key)?.size) {
+  if (!pending.has(key) && listeners.get(key)?.size) {
     load(kind, id);
   }
   notify(key);
 };
 
 export const clearAvatarCache = () => {
+  for (const key of pending.keys()) {
+    generations.set(key, (generations.get(key) ?? 0) + 1);
+  }
   for (const url of cache.values()) {
     if (url) URL.revokeObjectURL(url);
   }
