@@ -52,6 +52,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
   }, [hasUnverifiedSession, storedUser?.email]);
 
   const onSignedIn = () => navigate("/app");
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
 
   const switchTab = (m: "signin" | "signup") => {
     setMode(m);
@@ -84,6 +85,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
               go2fa={() => setMode("2fa")}
               goVerify={() => setMode("verify-email")}
               goForgot={() => setMode("forgot")}
+              onAvatarPicked={setPendingAvatar}
             />
           )}
           {mode === "forgot" && (
@@ -113,6 +115,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
           )}
           {mode === "verify-email" && (
             <VerifyEmail
+              pendingAvatar={pendingAvatar}
               email={email}
               onVerified={onSignedIn}
               onBack={() => setMode("signup")}
@@ -161,6 +164,7 @@ interface SignInUpProps {
   go2fa: () => void;
   goVerify: () => void;
   goForgot: () => void;
+  onAvatarPicked: (file: File | null) => void;
 }
 
 const AuthTabs: React.FC<{
@@ -198,6 +202,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
   onSignedIn,
   goVerify,
   goForgot,
+  onAvatarPicked,
 }) => {
   const isSignup = mode === "signup";
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
@@ -306,14 +311,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
         name: data.name,
         email: data.email,
       });
-      if (avatarFile) {
-        try {
-          await userAPI.uploadAvatar(avatarFile);
-          if (newUserId) bustAvatar("user", newUserId);
-        } catch (avatarErr) {
-          console.error("[Auth] avatar upload failed:", avatarErr);
-        }
-      }
+      onAvatarPicked(avatarFile);
       try {
         await authAPI.requestVerificationCode();
       } catch (codeErr) {
@@ -884,7 +882,8 @@ const VerifyEmail: React.FC<{
   email: string;
   onVerified: () => void;
   onBack: () => void;
-}> = ({ email, onVerified, onBack }) => {
+  pendingAvatar?: File | null;
+}> = ({ email, onVerified, onBack, pendingAvatar }) => {
   const { t } = useTranslation("auth");
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(30);
@@ -919,6 +918,15 @@ const VerifyEmail: React.FC<{
         } catch (meErr) {
           console.warn("[Auth] fetchMe failed:", meErr);
         }
+        if (pendingAvatar) {
+          try {
+            await userAPI.uploadAvatar(pendingAvatar);
+            const uid = useAuthStore.getState().user?.id;
+            if (uid) bustAvatar("user", uid);
+          } catch (avatarErr) {
+            console.warn("[Auth] avatar upload failed:", avatarErr);
+          }
+        }
         onVerified();
       } catch (err: any) {
         setError(err?.message || t("invalidOrExpiredCode"));
@@ -926,7 +934,7 @@ const VerifyEmail: React.FC<{
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, onVerified, t],
+    [isSubmitting, onVerified, t, pendingAvatar],
   );
 
   useEffect(() => {

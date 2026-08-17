@@ -7,11 +7,13 @@ import { ApiError } from "./apiError";
 export type AvatarKind = "user" | "server";
 
 const CACHE_LIMIT = 256;
+const REVALIDATE_MS = 5 * 60_000;
 
 const cache = new Map<string, string | null>();
 const pending = new Map<string, Promise<void>>();
 const listeners = new Map<string, Set<() => void>>();
 const generations = new Map<string, number>();
+const fetchedAt = new Map<string, number>();
 
 const keyFor = (kind: AvatarKind, id: string) => `${kind}:${id}`;
 
@@ -26,13 +28,20 @@ const evictIfNeeded = () => {
     if (cache.size <= CACHE_LIMIT) break;
     if (listeners.get(key)?.size) continue;
     cache.delete(key);
+    fetchedAt.delete(key);
     if (url) URL.revokeObjectURL(url);
   }
 };
 
 const load = (kind: AvatarKind, id: string) => {
   const key = keyFor(kind, id);
-  if (cache.has(key) || pending.has(key)) return;
+  if (pending.has(key)) return;
+  if (
+    cache.has(key) &&
+    Date.now() - (fetchedAt.get(key) ?? 0) < REVALIDATE_MS
+  ) {
+    return;
+  }
   const gen = generations.get(key) ?? 0;
   const promise = (kind === "user"
     ? userAPI.downloadAvatar(id)
@@ -44,13 +53,21 @@ const load = (kind: AvatarKind, id: string) => {
         URL.revokeObjectURL(url);
         return;
       }
+      const old = cache.get(key);
+      if (old && old !== url) URL.revokeObjectURL(old);
       cache.set(key, url);
+      fetchedAt.set(key, Date.now());
       evictIfNeeded();
     })
     .catch((err) => {
       if ((generations.get(key) ?? 0) !== gen) return;
       if (err instanceof ApiError && err.status === 404) {
+        const old = cache.get(key);
+        if (old) URL.revokeObjectURL(old);
         cache.set(key, null);
+        fetchedAt.set(key, Date.now());
+      } else if (cache.has(key)) {
+        fetchedAt.set(key, Date.now());
       }
     })
     .finally(() => {
@@ -69,6 +86,7 @@ export const bustAvatar = (kind: AvatarKind, id: string) => {
   generations.set(key, (generations.get(key) ?? 0) + 1);
   const url = cache.get(key);
   cache.delete(key);
+  fetchedAt.delete(key);
   if (url) URL.revokeObjectURL(url);
   if (!pending.has(key) && listeners.get(key)?.size) {
     load(kind, id);
@@ -84,6 +102,7 @@ export const clearAvatarCache = () => {
     if (url) URL.revokeObjectURL(url);
   }
   cache.clear();
+  fetchedAt.clear();
 };
 
 export function useAvatarUrl(
