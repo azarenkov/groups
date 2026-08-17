@@ -359,7 +359,18 @@ impl UserRepository for PostgresUserRepository {
         Ok(())
     }
 
-    async fn set_name(&self, user_id: &UserId, name: &UserName) -> Result<(), RepositoryError> {
+    async fn set_name_with_events(
+        &self,
+        user_id: &UserId,
+        name: &UserName,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
         let result = sqlx::query!(
             r#"
                 UPDATE users
@@ -369,13 +380,17 @@ impl UserRepository for PostgresUserRepository {
             user_id.uuid(),
             name.as_str(),
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
+
+        save_outbox_records(&mut tx, events).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 

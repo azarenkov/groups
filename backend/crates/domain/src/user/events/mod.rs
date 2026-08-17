@@ -10,6 +10,7 @@ use crate::{
     user::{
         events::lifecycle::{
             UserEmailVerified, UserLoggedIn, UserLoggedOut, UserPhoneVerified, UserRegistered,
+            UserRenamed,
         },
         id::UserId,
     },
@@ -25,6 +26,7 @@ pub enum UserEvent {
     PhoneVerified(UserPhoneVerified),
     LoggedIn(UserLoggedIn),
     LoggedOut(UserLoggedOut),
+    Renamed(UserRenamed),
 }
 
 impl UserEvent {
@@ -35,6 +37,7 @@ impl UserEvent {
             Self::PhoneVerified(e) => &e.user_id,
             Self::LoggedIn(e) => &e.user_id,
             Self::LoggedOut(e) => &e.user_id,
+            Self::Renamed(e) => &e.user_id,
         }
     }
 
@@ -45,6 +48,7 @@ impl UserEvent {
             Self::PhoneVerified(e) => e.occurred_at,
             Self::LoggedIn(e) => e.occurred_at,
             Self::LoggedOut(e) => e.occurred_at,
+            Self::Renamed(e) => e.occurred_at,
         }
     }
 
@@ -55,6 +59,7 @@ impl UserEvent {
             Self::PhoneVerified(_) => "phone_verified",
             Self::LoggedIn(_) => "logged_in",
             Self::LoggedOut(_) => "logged_out",
+            Self::Renamed(_) => "renamed",
         }
     }
 }

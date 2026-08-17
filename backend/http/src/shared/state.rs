@@ -186,7 +186,8 @@ pub struct AppState {
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
-    pub rename_user_usecase: RenameUser<PostgresUserRepository, NsfwDetector>,
+    pub rename_user_usecase:
+        RenameUser<PostgresUserRepository, PostgresFriendshipRepository, NsfwDetector>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:
@@ -439,7 +440,11 @@ impl AppState {
         search_users_usecase: SearchUsers<PostgresUserRepository>,
         get_me_usecase: GetMe<PostgresUserRepository>,
         update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
-        rename_user_usecase: RenameUser<PostgresUserRepository, NsfwDetector>,
+        rename_user_usecase: RenameUser<
+            PostgresUserRepository,
+            PostgresFriendshipRepository,
+            NsfwDetector,
+        >,
         mark_channel_read_usecase: MarkChannelRead<
             PostgresReadStateRepository,
             PostgresChannelRepository,

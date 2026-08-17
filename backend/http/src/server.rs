@@ -393,6 +393,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let update_user_locale_usecase = UpdateUserLocale::new(user_repository.clone());
     let rename_user_usecase = RenameUser::new(
         user_repository.clone(),
+        friendship_repository.clone(),
         nsfw_detector.clone(),
         reserved_names.clone(),
     );

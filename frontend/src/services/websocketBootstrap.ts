@@ -166,6 +166,18 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "user.renamed": {
+      const userId = asString(d.userId);
+      if (!userId) return;
+      const me = useAuthStore.getState().user;
+      if (me && me.id === userId) {
+        void useAuthStore.getState().fetchMe();
+      } else {
+        void useFriendshipStore.getState().fetchFriends();
+      }
+      return;
+    }
+
     case "channel.participant.joined": {
       const channelId = asString(d.channelId);
       const userId = asString(d.userId);

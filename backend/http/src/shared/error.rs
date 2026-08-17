@@ -2891,6 +2891,7 @@ impl ToHttpStatus for RenameUserError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RenameUserError::Repository(e) => e.to_http_status(),
+            RenameUserError::Outbox(e) => e.to_http_status(),
             RenameUserError::InvalidName(UserNameError::Reserved) => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
@@ -2904,6 +2905,7 @@ impl ToHttpStatus for RenameUserError {
     fn to_user_message(&self) -> String {
         match self {
             RenameUserError::Repository(e) => e.to_user_message(),
+            RenameUserError::Outbox(e) => e.to_user_message(),
             RenameUserError::InvalidName(UserNameError::Reserved)
             | RenameUserError::NameNotAllowed => "This username is not allowed.".to_string(),
             RenameUserError::InvalidName(e) => e.to_string(),
@@ -2917,6 +2919,7 @@ impl ToHttpStatus for RenameUserError {
     fn to_error_code(&self) -> &'static str {
         match self {
             RenameUserError::Repository(e) => e.to_error_code(),
+            RenameUserError::Outbox(e) => e.to_error_code(),
             RenameUserError::InvalidName(UserNameError::Reserved)
             | RenameUserError::NameNotAllowed => "NAME_NOT_ALLOWED",
             RenameUserError::InvalidName(_) => "NAME_INVALID_FORMAT",
