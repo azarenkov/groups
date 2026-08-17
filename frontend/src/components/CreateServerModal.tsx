@@ -25,7 +25,7 @@ interface CreateServerModalProps {
     description?: string,
     accentColor?: string,
     logoFile?: File,
-  ) => Promise<void>;
+  ) => Promise<void | { logoError?: string }>;
   onJoinByCode?: (code: string) => Promise<void>;
 }
 
@@ -50,6 +50,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const logoInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -78,6 +79,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setAccentIdx(0);
     setCode("");
     setError(null);
+    setWarning(null);
     setLogoFile(null);
     setLogoPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -102,12 +104,21 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      await onCreate(
+      const result = await onCreate(
         trimmed,
         description.trim() || undefined,
         accent,
         logoFile ?? undefined,
       );
+      if (result && result.logoError) {
+        setLogoFile(null);
+        setLogoPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        setWarning(result.logoError);
+        return;
+      }
       resetAll();
       onClose();
     } catch (err) {
@@ -166,6 +177,28 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   );
 
   const errorBox = error && <div className="srvm-error">{error}</div>;
+
+  if (warning) {
+    return (
+      <div className="modal-overlay" onMouseDown={handleClose}>
+        <div className="srvm" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="srvm-head">
+            <span className="srvm-head-spacer" />
+            <h4 className="srvm-head-title">{t("createServer.title")}</h4>
+            {closeBtn}
+          </div>
+          <div className="srvm-body">
+            <div className="srvm-error">{warning}</div>
+          </div>
+          <div className="srvm-foot">
+            <button type="button" className="srvm-btn primary" onClick={handleClose}>
+              {t("close", { ns: "common" })}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay" onMouseDown={handleClose}>

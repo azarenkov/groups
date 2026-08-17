@@ -34,6 +34,7 @@ import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
 import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
+import { ApiError } from "../utils/apiError";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import IncomingCallModal from "../components/rift/IncomingCallModal";
@@ -520,14 +521,21 @@ const ServersPage: React.FC = () => {
     description?: string,
     accentColor?: string,
     logoFile?: File,
-  ) => {
+  ): Promise<void | { logoError?: string }> => {
     const server = await createServer(name, description, accentColor);
+    let logoError: string | undefined;
     if (logoFile) {
       try {
         await serverAPI.uploadLogo(server.id, logoFile);
         bustAvatar("server", server.id);
       } catch (err) {
         console.error("[ServersPage] failed to upload server logo:", err);
+        const apiErr = err instanceof ApiError ? err : null;
+        const reason =
+          apiErr?.code === "IMAGE_CONTENT_REJECTED"
+            ? tModals("serverModal.logoRejected")
+            : apiErr?.message || tModals("serverModal.logoUploadGeneric");
+        logoError = tModals("serverModal.logoUploadFailed", { reason });
       }
     }
     try {
@@ -548,6 +556,7 @@ const ServersPage: React.FC = () => {
     setSelectedServer(server.id);
     setSelectedChannel(null);
     setSelectedDm(null);
+    if (logoError) return { logoError };
   };
 
   const handleCreateChannel = async (

@@ -5079,6 +5079,7 @@ textarea.s-input {
   color: var(--danger);
   margin: 8px 0;
 }
+.srvm-head-spacer { width: 32px; flex-shrink: 0; }
 .user-pill .ava .dot,
 .sb-dm-dot,
 .presence {

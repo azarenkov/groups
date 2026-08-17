@@ -103,6 +103,9 @@
     "codeHint": "An invite looks like:",
     "back": "Back",
     "joinCta": "Join",
-    "logoPick": "Server photo (optional)"
+    "logoPick": "Server photo (optional)",
+    "logoRejected": "the image was rejected by content moderation",
+    "logoUploadGeneric": "the upload failed",
+    "logoUploadFailed": "The server was created, but the logo could not be uploaded: {{reason}}. You can add it later in server settings."
   }
 }
