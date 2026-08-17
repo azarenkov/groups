@@ -2,7 +2,7 @@ use actix_multipart::Multipart;
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use domain::{server::id::ServerId, user::id::UserId};
 use futures::StreamExt;
-use image::{ImageFormat, imageops::FilterType};
+use image::{ImageDecoder, ImageFormat, imageops::FilterType};
 use shared::middleware::auth::{AuthToken, RateLimitedAuthToken};
 use uuid::Uuid;
 
@@ -68,9 +68,15 @@ fn normalize_image(bytes: Vec<u8>) -> Result<Vec<u8>, ApiError> {
     limits.max_image_width = Some(MAX_DECODE_DIMENSION);
     limits.max_image_height = Some(MAX_DECODE_DIMENSION);
     reader.limits(limits);
-    let img = reader
-        .decode()
+    let mut decoder = reader
+        .into_decoder()
         .map_err(|_| invalid("AVATAR_INVALID_IMAGE", "Invalid image."))?;
+    let orientation = decoder
+        .orientation()
+        .unwrap_or(image::metadata::Orientation::NoTransforms);
+    let mut img = image::DynamicImage::from_decoder(decoder)
+        .map_err(|_| invalid("AVATAR_INVALID_IMAGE", "Invalid image."))?;
+    img.apply_orientation(orientation);
     let (w, h) = (img.width(), img.height());
     if w < MIN_AVATAR_DIMENSION || h < MIN_AVATAR_DIMENSION {
         return Err(invalid(
@@ -141,12 +147,24 @@ async fn delete_my_avatar(
     Ok(HttpResponse::NoContent().finish())
 }
 
+fn check_image_read_limit(app_state: &AppState, requester: uuid::Uuid) -> Result<(), ApiError> {
+    if app_state.image_read_limiter.check_key(&requester).is_err() {
+        return Err(ApiError::new(
+            "Too many image requests. Slow down.".to_string(),
+            actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+            "IMAGE_RATE_LIMITED",
+        ));
+    }
+    Ok(())
+}
+
 #[get("/{user_id}/avatar")]
 async fn get_user_avatar(
-    _auth_token: AuthToken,
+    auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
+    check_image_read_limit(&app_state, auth_token.id)?;
     let user_id = UserId::new(path.into_inner());
     let stream = app_state.get_user_avatar_usecase.execute(user_id).await?;
     Ok(image_response(stream))
@@ -186,10 +204,11 @@ async fn delete_server_logo(
 
 #[get("/{server_id}/logo")]
 async fn get_server_logo(
-    _auth_token: AuthToken,
+    auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
+    check_image_read_limit(&app_state, auth_token.id)?;
     let server_id = ServerId::new(path.into_inner());
     let stream = app_state.get_server_logo_usecase.execute(server_id).await?;
     Ok(image_response(stream))

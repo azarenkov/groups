@@ -240,6 +240,15 @@ const SignInUp: React.FC<SignInUpProps> = ({
     } catch (meErr) {
       console.warn("[Auth] fetchMe failed:", meErr);
     }
+    if (isSignup && avatarFile) {
+      try {
+        await userAPI.uploadAvatar(avatarFile);
+        const uid = useAuthStore.getState().user?.id;
+        if (uid) bustAvatar("user", uid);
+      } catch (avatarErr) {
+        console.warn("[Auth] avatar upload failed:", avatarErr);
+      }
+    }
     onSignedIn();
   };
 
