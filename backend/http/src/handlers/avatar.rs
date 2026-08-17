@@ -3,7 +3,7 @@ use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use domain::{server::id::ServerId, user::id::UserId};
 use futures::StreamExt;
 use image::{ImageFormat, imageops::FilterType};
-use shared::middleware::auth::RateLimitedAuthToken;
+use shared::middleware::auth::{AuthToken, RateLimitedAuthToken};
 use uuid::Uuid;
 
 use crate::shared::{error::ApiError, state::AppState};
@@ -143,7 +143,7 @@ async fn delete_my_avatar(
 
 #[get("/{user_id}/avatar")]
 async fn get_user_avatar(
-    _auth_token: RateLimitedAuthToken,
+    _auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
@@ -186,7 +186,7 @@ async fn delete_server_logo(
 
 #[get("/{server_id}/logo")]
 async fn get_server_logo(
-    _auth_token: RateLimitedAuthToken,
+    _auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {

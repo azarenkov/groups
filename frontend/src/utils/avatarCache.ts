@@ -120,7 +120,9 @@ export function useAvatarUrl(
     }
     set.add(force);
     load(kind, id);
+    const timer = setInterval(() => load(kind, id), REVALIDATE_MS);
     return () => {
+      clearInterval(timer);
       const cur = listeners.get(key);
       if (cur) {
         cur.delete(force);
