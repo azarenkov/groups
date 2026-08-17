@@ -359,6 +359,26 @@ impl UserRepository for PostgresUserRepository {
         Ok(())
     }
 
+    async fn set_name(&self, user_id: &UserId, name: &UserName) -> Result<(), RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                UPDATE users
+                SET name = $2, updated_at = now()
+                WHERE id = $1
+            "#,
+            user_id.uuid(),
+            name.as_str(),
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(())
+    }
+
     async fn claim_with_oauth(
         &self,
         user_id: &UserId,

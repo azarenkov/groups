@@ -52,6 +52,7 @@ use application::usecases::user::{
     get_me::GetMeError, update_locale::UpdateLocaleError,
 };
 use application::usecases::user::search_users::SearchUsersError;
+use application::usecases::user::rename::RenameUserError;
 use domain::dm_message::DmMessageError;
 use domain::user::name::UserNameError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
@@ -733,6 +734,7 @@ impl ToHttpStatus for GoogleLoginError {
             }
             GoogleLoginError::InvalidName(_) => StatusCode::BAD_REQUEST,
             GoogleLoginError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
+            GoogleLoginError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -759,6 +761,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::InvalidName(UserNameError::Reserved)
             | GoogleLoginError::NameNotAllowed => "This username is not allowed.".to_string(),
             GoogleLoginError::InvalidName(e) => e.to_string(),
+            GoogleLoginError::ModerationUnavailable(_) => {
+                "Username moderation is temporarily unavailable. Try again later.".to_string()
+            }
         }
     }
 
@@ -781,6 +786,7 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::InvalidName(UserNameError::Reserved)
             | GoogleLoginError::NameNotAllowed => "NAME_NOT_ALLOWED",
             GoogleLoginError::InvalidName(_) => "NAME_INVALID_FORMAT",
+            GoogleLoginError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
         }
     }
 }
@@ -921,6 +927,7 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::InvalidName(_) => StatusCode::BAD_REQUEST,
             RegistrationError::NameTaken => StatusCode::CONFLICT,
             RegistrationError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
+            RegistrationError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -934,6 +941,9 @@ impl ToHttpStatus for RegistrationError {
             | RegistrationError::NameNotAllowed => "This username is not allowed.".to_string(),
             RegistrationError::InvalidName(e) => e.to_string(),
             RegistrationError::NameTaken => "This username is already taken".to_string(),
+            RegistrationError::ModerationUnavailable(_) => {
+                "Username moderation is temporarily unavailable. Try again later.".to_string()
+            }
         }
     }
 
@@ -950,6 +960,7 @@ impl ToHttpStatus for RegistrationError {
             | RegistrationError::NameNotAllowed => "NAME_NOT_ALLOWED",
             RegistrationError::InvalidName(_) => "NAME_INVALID_FORMAT",
             RegistrationError::NameTaken => "NAME_TAKEN",
+            RegistrationError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
         }
     }
 }
@@ -2876,6 +2887,45 @@ macro_rules! impl_from_for_api_error {
     };
 }
 
+impl ToHttpStatus for RenameUserError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RenameUserError::Repository(e) => e.to_http_status(),
+            RenameUserError::InvalidName(UserNameError::Reserved) => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            RenameUserError::InvalidName(_) => StatusCode::BAD_REQUEST,
+            RenameUserError::NameTaken => StatusCode::CONFLICT,
+            RenameUserError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
+            RenameUserError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RenameUserError::Repository(e) => e.to_user_message(),
+            RenameUserError::InvalidName(UserNameError::Reserved)
+            | RenameUserError::NameNotAllowed => "This username is not allowed.".to_string(),
+            RenameUserError::InvalidName(e) => e.to_string(),
+            RenameUserError::NameTaken => "This username is already taken".to_string(),
+            RenameUserError::ModerationUnavailable(_) => {
+                "Username moderation is temporarily unavailable. Try again later.".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RenameUserError::Repository(e) => e.to_error_code(),
+            RenameUserError::InvalidName(UserNameError::Reserved)
+            | RenameUserError::NameNotAllowed => "NAME_NOT_ALLOWED",
+            RenameUserError::InvalidName(_) => "NAME_INVALID_FORMAT",
+            RenameUserError::NameTaken => "NAME_TAKEN",
+            RenameUserError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
+        }
+    }
+}
+
 impl_from_for_api_error!(
     CreateChannelError,
     DeleteChannelError,
@@ -2951,6 +3001,7 @@ impl_from_for_api_error!(
     GetUserAvatarError,
     UpdateServerLogoError,
     GetServerLogoError,
+    RenameUserError,
 );
 
 impl From<ValidationErrors> for ApiError {

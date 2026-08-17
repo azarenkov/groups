@@ -7,6 +7,7 @@ import { userAPI } from "../../api/user";
 import { ApiError } from "../../utils/apiError";
 import { UserAvatar } from "../rift/Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
+import { validateUsername, type UsernameIssue } from "../../utils/username";
 
 type Theme = "light" | "dark";
 
@@ -104,11 +105,83 @@ function SettingsRow({ label, hint, children }: SettingsRowProps) {
 
 function AccountSection() {
   const { t } = useTranslation("settings");
+  const { t: tAuth } = useTranslation("auth");
   const user = useAuthStore((s) => s.user);
   const avatarUrl = useAvatarUrl("user", user?.id);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [nameEditing, setNameEditing] = React.useState(false);
+  const [nameValue, setNameValue] = React.useState("");
+  const [nameBusy, setNameBusy] = React.useState(false);
+  const [nameError, setNameError] = React.useState<string | null>(null);
+
+  const usernameIssueMessage = (issue: UsernameIssue): string => {
+    switch (issue) {
+      case "required":
+        return tAuth("displayNameRequired");
+      case "tooShort":
+        return tAuth("displayNameMin");
+      case "tooLong":
+        return tAuth("displayNameMax");
+      case "charset":
+        return tAuth("displayNameInvalid");
+      case "underscoreEdge":
+      case "doubleUnderscore":
+        return tAuth("displayNameUnderscore");
+      case "digitsOnly":
+        return tAuth("displayNameDigits");
+      case "reserved":
+        return tAuth("displayNameReserved");
+    }
+  };
+
+  const startNameEdit = () => {
+    setNameValue(user?.name ?? "");
+    setNameError(null);
+    setNameEditing(true);
+  };
+
+  const cancelNameEdit = () => {
+    setNameEditing(false);
+    setNameError(null);
+  };
+
+  const saveName = async () => {
+    if (!user || nameBusy) return;
+    const next = nameValue.trim();
+    if (next === user.name) {
+      cancelNameEdit();
+      return;
+    }
+    const issue = validateUsername(next);
+    if (issue !== null) {
+      setNameError(usernameIssueMessage(issue));
+      return;
+    }
+    setNameBusy(true);
+    setNameError(null);
+    try {
+      const saved = await userAPI.rename(next);
+      useAuthStore.getState().setUser({ ...user, name: saved });
+      setNameEditing(false);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      if (apiErr?.code === "NAME_TAKEN") {
+        setNameError(tAuth("usernameTaken"));
+      } else if (apiErr?.code === "NAME_NOT_ALLOWED") {
+        setNameError(tAuth("usernameNotAllowed"));
+      } else if (apiErr?.code === "NAME_INVALID_FORMAT") {
+        setNameError(tAuth("usernameInvalid"));
+      } else if (apiErr?.code === "MODERATION_UNAVAILABLE") {
+        setNameError(tAuth("usernameModerationUnavailable"));
+      } else {
+        setNameError(apiErr?.message || t("account.usernameError"));
+      }
+    } finally {
+      setNameBusy(false);
+    }
+  };
 
   const pickFile = () => fileRef.current?.click();
 
@@ -210,9 +283,49 @@ function AccountSection() {
         <SettingsRow label={t("account.displayName")} hint={t("account.displayNameHint")}>
           <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>
-        <SettingsRow label={t("account.username")} hint={t("account.usernameHint")}>
-          <button className="s-btn secondary">{t("actions.edit")}</button>
+        <SettingsRow
+          label={t("account.username")}
+          hint={user?.name ? `@${user.name}` : t("account.usernameHint")}
+        >
+          {nameEditing ? (
+            <>
+              <input
+                className="s-input"
+                style={{ minWidth: 160 }}
+                autoFocus
+                value={nameValue}
+                disabled={nameBusy}
+                onChange={(e) => {
+                  setNameValue(e.target.value);
+                  setNameError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void saveName();
+                  if (e.key === "Escape") cancelNameEdit();
+                }}
+              />
+              <button
+                className="s-btn primary"
+                disabled={nameBusy}
+                onClick={() => void saveName()}
+              >
+                {t("actions.save")}
+              </button>
+              <button
+                className="s-btn secondary"
+                disabled={nameBusy}
+                onClick={cancelNameEdit}
+              >
+                {t("actions.cancel")}
+              </button>
+            </>
+          ) : (
+            <button className="s-btn secondary" onClick={startNameEdit}>
+              {t("actions.edit")}
+            </button>
+          )}
         </SettingsRow>
+        {nameError && <div className="s-error">{nameError}</div>}
         <SettingsRow label={t("account.email")} hint={t("account.emailVerified", { email: "you@example.com" })}>
           <button className="s-btn secondary">{t("actions.edit")}</button>
         </SettingsRow>

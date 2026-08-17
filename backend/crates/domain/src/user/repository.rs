@@ -46,6 +46,7 @@ pub trait UserRepository {
         user_id: &UserId,
         locale: Locale,
     ) -> Result<(), RepositoryError>;
+    async fn set_name(&self, user_id: &UserId, name: &UserName) -> Result<(), RepositoryError>;
     async fn claim_with_oauth(
         &self,
         user_id: &UserId,

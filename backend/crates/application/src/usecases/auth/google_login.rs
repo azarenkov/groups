@@ -56,6 +56,8 @@ pub enum GoogleLoginError {
     InvalidName(#[from] UserNameError),
     #[error("Username is not allowed")]
     NameNotAllowed,
+    #[error("Username moderation unavailable: {0}")]
+    ModerationUnavailable(String),
 }
 
 pub enum GoogleLoginOutcome {
@@ -226,7 +228,7 @@ where
                 return Err(GoogleLoginError::NameNotAllowed);
             }
             Err(TextModerationError::Unavailable(e)) => {
-                tracing::warn!(error = %e, "username moderation unavailable; allowing name");
+                return Err(GoogleLoginError::ModerationUnavailable(e));
             }
         }
 

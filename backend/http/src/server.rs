@@ -30,6 +30,7 @@ use application::usecases::{
     user::{
         delete_avatar::DeleteUserAvatar, get_avatar::GetUserAvatar, get_me::GetMe,
         search_users::SearchUsers, update_avatar::UpdateUserAvatar,
+        rename::RenameUser,
         update_locale::UpdateUserLocale,
     },
     call::{
@@ -390,6 +391,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let search_users_usecase = SearchUsers::new(user_repository.clone());
     let get_me_usecase = GetMe::new(user_repository.clone());
     let update_user_locale_usecase = UpdateUserLocale::new(user_repository.clone());
+    let rename_user_usecase = RenameUser::new(
+        user_repository.clone(),
+        nsfw_detector.clone(),
+        reserved_names.clone(),
+    );
     let read_state_repository = Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
     let mark_channel_read_usecase =
         MarkChannelRead::new(read_state_repository.clone(), channel_repository.clone());
@@ -499,6 +505,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         search_users_usecase,
         get_me_usecase,
         update_user_locale_usecase,
+        rename_user_usecase,
         mark_channel_read_usecase,
         mark_dm_read_usecase,
         get_unread_counts_usecase,

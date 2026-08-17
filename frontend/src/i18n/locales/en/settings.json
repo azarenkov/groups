@@ -23,7 +23,9 @@
     "enable": "Enable",
     "disable": "Disable",
     "delete": "Delete",
-    "editProfile": "Edit profile"
+    "editProfile": "Edit profile",
+    "save": "Save",
+    "cancel": "Cancel"
   },
   "account": {
     "title": "My Account",
@@ -52,7 +54,8 @@
     "removeAvatar": "Remove avatar",
     "changeAvatar": "Change avatar",
     "avatarError": "Failed to update avatar",
-    "avatarRejected": "This image was rejected by content moderation"
+    "avatarRejected": "This image was rejected by content moderation",
+    "usernameError": "Failed to change username"
   },
   "profile": {
     "title": "Profile",
