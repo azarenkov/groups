@@ -47,7 +47,12 @@
     "disableAccount": "Disable Account",
     "disableAccountHint": "Hide your profile and stop notifications. You can reactivate anytime.",
     "deleteAccount": "Delete Account",
-    "deleteAccountHint": "Permanently remove your data. This cannot be undone."
+    "deleteAccountHint": "Permanently remove your data. This cannot be undone.",
+    "uploadAvatar": "Upload avatar",
+    "removeAvatar": "Remove avatar",
+    "changeAvatar": "Change avatar",
+    "avatarError": "Failed to update avatar",
+    "avatarRejected": "This image was rejected by content moderation"
   },
   "profile": {
     "title": "Profile",

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
 import { getLiveKitService, NoiseSuppressionMode } from "../../services/livekit";
-import { colorForId, initialFor } from "../../utils/avatar";
+import { UserAvatar } from "./Avatar";
 
 export interface VoicePillInvite {
   candidates: { id: string; name: string }[];
@@ -353,12 +353,12 @@ const VoicePill: React.FC<VoicePillProps> = ({
                 className={"acb-add-item" + (selected.has(c.id) ? " on" : "")}
                 onClick={() => toggleSelected(c.id)}
               >
-                <span
+                <UserAvatar
+                  userId={c.id}
+                  name={c.name}
                   className="acb-add-ava"
-                  style={{ background: colorForId(c.id) }}
-                >
-                  {initialFor(c.name)}
-                </span>
+                  style={{ display: "inline-flex" }}
+                />
                 <span className="acb-add-name">{c.name}</span>
                 {selected.has(c.id) && <Icon name="check" size={14} />}
               </button>

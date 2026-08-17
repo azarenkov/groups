@@ -2,6 +2,11 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon, { type IconName } from "../rift/Icon";
 import { currentLocale, setLocale } from "../../i18n";
+import { useAuthStore } from "../../store/authStore";
+import { userAPI } from "../../api/user";
+import { ApiError } from "../../utils/apiError";
+import { UserAvatar } from "../rift/Avatar";
+import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 
 type Theme = "light" | "dark";
 
@@ -99,22 +104,106 @@ function SettingsRow({ label, hint, children }: SettingsRowProps) {
 
 function AccountSection() {
   const { t } = useTranslation("settings");
+  const user = useAuthStore((s) => s.user);
+  const avatarUrl = useAvatarUrl("user", user?.id);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const pickFile = () => fileRef.current?.click();
+
+  const handleFile = async (file: File) => {
+    if (!user) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await userAPI.uploadAvatar(file);
+      bustAvatar("user", user.id);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      if (apiErr?.code === "IMAGE_CONTENT_REJECTED") {
+        setError(t("account.avatarRejected"));
+      } else {
+        setError(apiErr?.message || t("account.avatarError"));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!user) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await userAPI.deleteAvatar();
+      bustAvatar("user", user.id);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setError(apiErr?.message || t("account.avatarError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       <h1>{t("account.title")}</h1>
       <p className="lead">{t("account.lead")}</p>
 
       <div className="profile-card">
-        <div className="ava-lg">
-          Y
-          <span className="edit-badge"><Icon name="camera" size={12}/></span>
-        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleFile(f);
+            e.target.value = "";
+          }}
+        />
+        <UserAvatar
+          userId={user?.id}
+          name={user?.name ?? "?"}
+          className="ava-lg"
+          title={t("account.changeAvatar")}
+          style={{ cursor: "pointer" }}
+        >
+          <span
+            className="edit-badge"
+            role="button"
+            tabIndex={0}
+            onClick={pickFile}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") pickFile();
+            }}
+          >
+            <Icon name="camera" size={12} />
+          </span>
+        </UserAvatar>
         <div className="pc-info">
-          <div className="pc-name">{t("account.displayName")}</div>
-          <div className="pc-handle">@you · {t("account.userSince", { date: "Mar 2024" })}</div>
+          <div className="pc-name">{user?.name ?? t("account.displayName")}</div>
+          <div className="pc-handle">{user?.email ?? ""}</div>
         </div>
-        <button className="s-btn secondary">{t("actions.editProfile")}</button>
+        <button
+          className="s-btn secondary"
+          disabled={busy}
+          onClick={pickFile}
+        >
+          {t("account.uploadAvatar")}
+        </button>
+        {avatarUrl && (
+          <button
+            className="s-btn danger"
+            disabled={busy}
+            onClick={() => void handleRemove()}
+          >
+            {t("account.removeAvatar")}
+          </button>
+        )}
       </div>
+      {error && <div className="s-error">{error}</div>}
 
       <div className="s-section">
         <h2>{t("account.accountInformation")}</h2>

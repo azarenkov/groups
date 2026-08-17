@@ -76,4 +76,10 @@ pub trait UserRepository {
         user_id: &UserId,
         email: &Email,
     ) -> Result<(), RepositoryError>;
+    async fn get_avatar_key(&self, user_id: &UserId) -> Result<Option<String>, RepositoryError>;
+    async fn set_avatar_key(
+        &self,
+        user_id: &UserId,
+        key: Option<&str>,
+    ) -> Result<Option<String>, RepositoryError>;
 }

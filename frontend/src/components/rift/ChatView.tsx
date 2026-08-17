@@ -16,7 +16,8 @@ import { useReadReceiptStore } from "../../store/readReceiptStore";
 import { Attachment, ChannelMessage } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
-import { colorForId, glyphFor } from "../../utils/avatar";
+import { colorForId } from "../../utils/avatar";
+import { ServerLogo, UserAvatar } from "./Avatar";
 import {
   ParsedLink,
   URL_REGEX,
@@ -1261,7 +1262,6 @@ const ChatView: React.FC<ChatViewProps> = ({
                     hour: "2-digit",
                     minute: "2-digit",
                   });
-                  const initial = displayName.slice(0, 1).toUpperCase();
                   return (
                     <button
                       key={m.id}
@@ -1269,12 +1269,11 @@ const ChatView: React.FC<ChatViewProps> = ({
                       className="search-result"
                       onClick={() => handleJumpToMessage(m)}
                     >
-                      <div
+                      <UserAvatar
+                        userId={m.authorId}
+                        name={displayName}
                         className="ava"
-                        style={{ background: colorForId(m.authorId) }}
-                      >
-                        {initial}
-                      </div>
+                      />
                       <div className="body">
                         <div className="head">
                           <b>{displayName}</b>
@@ -1563,7 +1562,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return (
       <header className="main-header">
         <span className="ch-ico">
-          <span
+          <UserAvatar
+            userId={dm.friendId}
+            name={dm.name}
             style={{
               width: 20,
               height: 20,
@@ -1576,9 +1577,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               alignItems: "center",
               justifyContent: "center",
             }}
-          >
-            {dm.initials}
-          </span>
+          />
         </span>
         <span className="ch-name">{dm.name}</span>
         <span className="sep" />
@@ -2179,7 +2178,6 @@ const Message: React.FC<MessageProps> = ({
     hour: "2-digit",
     minute: "2-digit",
   });
-  const initial = displayName.slice(0, 1).toUpperCase();
   return (
     <div
       data-msg-id={msg.id}
@@ -2192,9 +2190,7 @@ const Message: React.FC<MessageProps> = ({
         (editing ? " editing" : "")
       }
     >
-      <div className="ava" style={{ background: colorForId(msg.authorId) }}>
-        {initial}
-      </div>
+      <UserAvatar userId={msg.authorId} name={displayName} className="ava" />
       <div className="body">
         {!continued && (
           <div className="head">
@@ -2228,12 +2224,12 @@ const Message: React.FC<MessageProps> = ({
               {i18n.t("invite.label", { ns: "chat" })}
             </div>
             <div className="dm-invite-card-row">
-              <span
+              <ServerLogo
+                serverId={msg.inviteServerId}
+                name={msg.inviteServerName ?? "?"}
                 className="dm-invite-card-glyph"
-                style={{ background: colorForId(msg.inviteServerId) }}
-              >
-                {glyphFor(msg.inviteServerName ?? "?")}
-              </span>
+                style={{ display: "inline-flex" }}
+              />
               <div className="dm-invite-card-info">
                 <div className="dm-invite-card-name">
                   {msg.inviteServerName ??

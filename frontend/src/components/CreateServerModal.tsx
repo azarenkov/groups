@@ -24,7 +24,8 @@ interface CreateServerModalProps {
     name: string,
     description?: string,
     accentColor?: string,
-  ) => Promise<void>;
+    logoFile?: File,
+  ) => Promise<void | { logoError?: string }>;
   onJoinByCode?: (code: string) => Promise<void>;
 }
 
@@ -47,6 +48,10 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -74,6 +79,12 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setAccentIdx(0);
     setCode("");
     setError(null);
+    setWarning(null);
+    setLogoFile(null);
+    setLogoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   };
 
   const handleClose = () => {
@@ -93,7 +104,21 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      await onCreate(trimmed, description.trim() || undefined, accent);
+      const result = await onCreate(
+        trimmed,
+        description.trim() || undefined,
+        accent,
+        logoFile ?? undefined,
+      );
+      if (result && result.logoError) {
+        setLogoFile(null);
+        setLogoPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        setWarning(result.logoError);
+        return;
+      }
       resetAll();
       onClose();
     } catch (err) {
@@ -152,6 +177,28 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   );
 
   const errorBox = error && <div className="srvm-error">{error}</div>;
+
+  if (warning) {
+    return (
+      <div className="modal-overlay" onMouseDown={handleClose}>
+        <div className="srvm" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="srvm-head">
+            <span className="srvm-head-spacer" />
+            <h4 className="srvm-head-title">{t("createServer.title")}</h4>
+            {closeBtn}
+          </div>
+          <div className="srvm-body">
+            <div className="srvm-error">{warning}</div>
+          </div>
+          <div className="srvm-foot">
+            <button type="button" className="srvm-btn primary" onClick={handleClose}>
+              {t("close", { ns: "common" })}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay" onMouseDown={handleClose}>
@@ -218,11 +265,48 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           <div className="srvm-body">
             <p className="srvm-sub">{t("serverModal.createBlurb")}</p>
             <div className="srvm-identity-row">
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setLogoFile(f);
+                    setLogoPreview((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return URL.createObjectURL(f);
+                    });
+                  }
+                  e.target.value = "";
+                }}
+              />
               <div
                 className={"srvm-avatar" + (trimmed ? " named" : "")}
-                style={{ background: accent }}
+                style={{
+                  background: accent,
+                  position: "relative",
+                  cursor: "pointer",
+                }}
+                role="button"
+                tabIndex={0}
+                title={t("serverModal.logoPick")}
+                onClick={() => logoInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    logoInputRef.current?.click();
+                  }
+                }}
               >
                 {initial}
+                {logoPreview && (
+                  <img className="avatar-img" src={logoPreview} alt="" />
+                )}
+                <span className="edit-badge srvm-avatar-badge">
+                  <Icon name="camera" size={11} />
+                </span>
               </div>
               <div className="srvm-field">
                 <label>{t("createServer.nameLabel")}</label>

@@ -101,4 +101,11 @@ pub trait ServerRepository {
         code: &str,
         user_id: &UserId,
     ) -> Result<Option<ServerId>, RepositoryError>;
+    async fn get_logo_key(&self, server_id: &ServerId)
+    -> Result<Option<String>, RepositoryError>;
+    async fn set_logo_key(
+        &self,
+        server_id: &ServerId,
+        key: Option<&str>,
+    ) -> Result<Option<String>, RepositoryError>;
 }

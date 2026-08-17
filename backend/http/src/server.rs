@@ -28,7 +28,9 @@ use application::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     user::{
-        get_me::GetMe, search_users::SearchUsers, update_locale::UpdateUserLocale,
+        delete_avatar::DeleteUserAvatar, get_avatar::GetUserAvatar, get_me::GetMe,
+        search_users::SearchUsers, update_avatar::UpdateUserAvatar,
+        update_locale::UpdateUserLocale,
     },
     call::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
@@ -55,6 +57,7 @@ use application::usecases::{
         invite_codes::{
             CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode,
         },
+        get_logo::GetServerLogo, update_logo::UpdateServerLogo,
         update_server::UpdateServer,
         leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
         get_voice_presence::GetVoicePresence, list_server_channels::ListServerChannels,
@@ -67,7 +70,7 @@ use infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     config::{
         google::GoogleOAuthConfig, livekit::LiveKitConfig, minio::MinioConfig,
-        postgres::PostgresConfig,
+        nsfw::NsfwConfig, postgres::PostgresConfig,
     },
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
@@ -84,6 +87,7 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    moderation::nsfw_detector::NsfwDetector,
     storage::minio_storage::MinioStorage,
     voice::{
         livekit_service::{LiveKitService, is_livekit_reachable},
@@ -155,6 +159,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let upload_attachment_usecase =
         UploadAttachment::new(attachment_repository.clone(), minio_storage.clone());
     let upload_semaphore = Arc::new(tokio::sync::Semaphore::new(8));
+    let image_read_limiter = shared::rate_limiting::create_keyed_limiter(60, 400)
+        .ok_or("Failed to create image read limiter")?;
     let get_attachment_usecase =
         GetAttachment::new(attachment_repository.clone(), minio_storage.clone());
     let delete_attachment_usecase =
@@ -176,6 +182,29 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     }
     let list_message_attachments_usecase =
         ListMessageAttachments::new(attachment_repository.clone());
+    let nsfw_config = NsfwConfig::from_env()?;
+    let nsfw_detector = Arc::new(NsfwDetector::new(&nsfw_config));
+    let update_user_avatar_usecase = UpdateUserAvatar::new(
+        user_repository.clone(),
+        attachment_repository.clone(),
+        minio_storage.clone(),
+        nsfw_detector.clone(),
+    );
+    let delete_user_avatar_usecase = DeleteUserAvatar::new(
+        user_repository.clone(),
+        attachment_repository.clone(),
+        minio_storage.clone(),
+    );
+    let get_user_avatar_usecase =
+        GetUserAvatar::new(user_repository.clone(), minio_storage.clone());
+    let update_server_logo_usecase = UpdateServerLogo::new(
+        server_repository.clone(),
+        attachment_repository.clone(),
+        minio_storage.clone(),
+        nsfw_detector.clone(),
+    );
+    let get_server_logo_usecase =
+        GetServerLogo::new(server_repository.clone(), minio_storage.clone());
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
@@ -473,9 +502,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         send_dm_message_usecase,
         upload_attachment_usecase,
         upload_semaphore,
+        image_read_limiter,
         get_attachment_usecase,
         delete_attachment_usecase,
         list_message_attachments_usecase,
+        update_user_avatar_usecase,
+        delete_user_avatar_usecase,
+        get_user_avatar_usecase,
+        update_server_logo_usecase,
+        get_server_logo_usecase,
         edit_dm_message_usecase,
         delete_dm_message_usecase,
         list_dm_previews_usecase,

@@ -32,6 +32,9 @@ import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
 import { colorForId, initialFor } from "../utils/avatar";
+import { UserAvatar } from "../components/rift/Avatar";
+import { bustAvatar } from "../utils/avatarCache";
+import { ApiError } from "../utils/apiError";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import IncomingCallModal from "../components/rift/IncomingCallModal";
@@ -517,8 +520,24 @@ const ServersPage: React.FC = () => {
     name: string,
     description?: string,
     accentColor?: string,
-  ) => {
+    logoFile?: File,
+  ): Promise<void | { logoError?: string }> => {
     const server = await createServer(name, description, accentColor);
+    let logoError: string | undefined;
+    if (logoFile) {
+      try {
+        await serverAPI.uploadLogo(server.id, logoFile);
+        bustAvatar("server", server.id);
+      } catch (err) {
+        console.error("[ServersPage] failed to upload server logo:", err);
+        const apiErr = err instanceof ApiError ? err : null;
+        const reason =
+          apiErr?.code === "IMAGE_CONTENT_REJECTED"
+            ? tModals("serverModal.logoRejected")
+            : apiErr?.message || tModals("serverModal.logoUploadGeneric");
+        logoError = tModals("serverModal.logoUploadFailed", { reason });
+      }
+    }
     try {
       await createChannel(server.id, "general", "text", "public");
     } catch (err) {
@@ -537,6 +556,7 @@ const ServersPage: React.FC = () => {
     setSelectedServer(server.id);
     setSelectedChannel(null);
     setSelectedDm(null);
+    if (logoError) return { logoError };
   };
 
   const handleCreateChannel = async (
@@ -1163,18 +1183,16 @@ const ServersPage: React.FC = () => {
                         <div className={`voice-stage-orbs ${sizeClass}`}>
                           {previewParticipants.map((p) => (
                             <div key={p.id} className="voice-stage-orb-cell">
-                              <div
+                              <UserAvatar
+                                userId={p.id}
+                                name={p.name}
                                 className="voice-stage-orb"
                                 style={
                                   {
                                     "--orb-color": colorForId(p.id),
                                   } as React.CSSProperties
                                 }
-                              >
-                                <span className="voice-stage-orb-letter">
-                                  {initialFor(p.name)}
-                                </span>
-                              </div>
+                              />
                               <div className="voice-stage-orb-name">
                                 {p.name}
                               </div>

@@ -18,6 +18,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 actix-web = { workspace = true }
 actix-multipart = { workspace = true }
+image = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
 actix-cors = { workspace = true }

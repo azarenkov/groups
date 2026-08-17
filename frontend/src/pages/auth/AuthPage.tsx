@@ -5,6 +5,9 @@ import { Trans, useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
 import { currentLocale } from "../../i18n";
 import { authAPI, TokenPair } from "../../api/auth";
+import { userAPI } from "../../api/user";
+import { bustAvatar } from "../../utils/avatarCache";
+import { ApiError } from "../../utils/apiError";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
@@ -50,6 +53,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
   }, [hasUnverifiedSession, storedUser?.email]);
 
   const onSignedIn = () => navigate("/app");
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
 
   const switchTab = (m: "signin" | "signup") => {
     setMode(m);
@@ -82,6 +86,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
               go2fa={() => setMode("2fa")}
               goVerify={() => setMode("verify-email")}
               goForgot={() => setMode("forgot")}
+              onAvatarPicked={setPendingAvatar}
             />
           )}
           {mode === "forgot" && (
@@ -111,6 +116,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
           )}
           {mode === "verify-email" && (
             <VerifyEmail
+              pendingAvatar={pendingAvatar}
               email={email}
               onVerified={onSignedIn}
               onBack={() => setMode("signup")}
@@ -159,6 +165,7 @@ interface SignInUpProps {
   go2fa: () => void;
   goVerify: () => void;
   goForgot: () => void;
+  onAvatarPicked: (file: File | null) => void;
 }
 
 const AuthTabs: React.FC<{
@@ -196,6 +203,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
   onSignedIn,
   goVerify,
   goForgot,
+  onAvatarPicked,
 }) => {
   const isSignup = mode === "signup";
   const { login, setLoading, setError, error, isLoading } = useAuthStore();
@@ -213,6 +221,9 @@ const SignInUp: React.FC<SignInUpProps> = ({
   const [pendingGoogleToken, setPendingGoogleToken] = useState<string | null>(
     null,
   );
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
   const [googleUsername, setGoogleUsername] = useState("");
 
   const finishGoogleSession = async (response: TokenPair) => {
@@ -229,6 +240,15 @@ const SignInUp: React.FC<SignInUpProps> = ({
       await useAuthStore.getState().fetchMe();
     } catch (meErr) {
       console.warn("[Auth] fetchMe failed:", meErr);
+    }
+    if (isSignup && avatarFile) {
+      try {
+        await userAPI.uploadAvatar(avatarFile);
+        const uid = useAuthStore.getState().user?.id;
+        if (uid) bustAvatar("user", uid);
+      } catch (avatarErr) {
+        console.warn("[Auth] avatar upload failed:", avatarErr);
+      }
     }
     onSignedIn();
   };
@@ -295,11 +315,13 @@ const SignInUp: React.FC<SignInUpProps> = ({
         tokenType: response.tokenType,
         expiresIn: response.expiresIn,
       });
+      const newUserId = decodeAccessToken(response.accessToken)?.sub ?? "";
       useAuthStore.getState().setUser({
-        id: decodeAccessToken(response.accessToken)?.sub ?? "",
+        id: newUserId,
         name: data.name,
         email: data.email,
       });
+      onAvatarPicked(avatarFile);
       try {
         await authAPI.requestVerificationCode();
       } catch (codeErr) {
@@ -438,6 +460,57 @@ const SignInUp: React.FC<SignInUpProps> = ({
       <p className="sub">{isSignup ? t("createSubtitle") : t("signInSubtitle")}</p>
 
       <form onSubmit={submit} autoComplete="off">
+        {isSignup && (
+          <div className="auth-avatar-pick">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setAvatarFile(f);
+                  setAvatarPreview((prev) => {
+                    if (prev) URL.revokeObjectURL(prev);
+                    return URL.createObjectURL(f);
+                  });
+                }
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="auth-avatar-circle"
+              title={t("avatarOptional")}
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="" />
+              ) : (
+                <Icon name="camera" size={18} />
+              )}
+            </button>
+            <div className="auth-avatar-text">
+              <span>{t("avatarOptional")}</span>
+              {avatarFile && (
+                <button
+                  type="button"
+                  className="auth-avatar-clear"
+                  onClick={() => {
+                    setAvatarFile(null);
+                    setAvatarPreview((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return null;
+                    });
+                  }}
+                >
+                  {t("avatarRemove")}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {isSignup && (
           <div className="field">
             <label>{t("displayName")}</label>
@@ -819,12 +892,14 @@ const VerifyEmail: React.FC<{
   email: string;
   onVerified: () => void;
   onBack: () => void;
-}> = ({ email, onVerified, onBack }) => {
+  pendingAvatar?: File | null;
+}> = ({ email, onVerified, onBack, pendingAvatar }) => {
   const { t } = useTranslation("auth");
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -834,7 +909,7 @@ const VerifyEmail: React.FC<{
 
   const submitCode = useCallback(
     async (value: string) => {
-      if (value.length !== 6 || isSubmitting) return;
+      if (value.length !== 6 || isSubmitting || avatarWarning) return;
       setIsSubmitting(true);
       setError("");
       try {
@@ -854,6 +929,22 @@ const VerifyEmail: React.FC<{
         } catch (meErr) {
           console.warn("[Auth] fetchMe failed:", meErr);
         }
+        if (pendingAvatar) {
+          try {
+            await userAPI.uploadAvatar(pendingAvatar);
+            const uid = useAuthStore.getState().user?.id;
+            if (uid) bustAvatar("user", uid);
+          } catch (avatarErr) {
+            console.warn("[Auth] avatar upload failed:", avatarErr);
+            const apiErr = avatarErr instanceof ApiError ? avatarErr : null;
+            const reason =
+              apiErr?.code === "IMAGE_CONTENT_REJECTED"
+                ? t("avatarRejectedReason")
+                : apiErr?.message || t("avatarUploadGenericReason");
+            setAvatarWarning(t("avatarUploadFailed", { reason }));
+            return;
+          }
+        }
         onVerified();
       } catch (err: any) {
         setError(err?.message || t("invalidOrExpiredCode"));
@@ -861,17 +952,34 @@ const VerifyEmail: React.FC<{
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, onVerified, t],
+    [isSubmitting, onVerified, t, pendingAvatar, avatarWarning],
   );
 
   useEffect(() => {
-    if (code.length === 6) {
+    if (code.length === 6 && !avatarWarning) {
       submitCode(code);
     }
-  }, [code, submitCode]);
+  }, [code, submitCode, avatarWarning]);
 
   return (
     <>
+      {avatarWarning ? (
+        <>
+          <div className="auth-hero">
+            <Icon name="camera" size={26} />
+          </div>
+          <h1>{t("verifyTitle")}</h1>
+          <p className="sub">{avatarWarning}</p>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={onVerified}
+          >
+            {t("continue")}
+          </button>
+        </>
+      ) : (
+        <>
       <button type="button" className="auth-back" onClick={onBack}>
         <ArrowLeft /> {t("backToSignIn")}
       </button>
@@ -950,6 +1058,8 @@ const VerifyEmail: React.FC<{
           </button>
         )}
       </div>
+        </>
+      )}
     </>
   );
 };

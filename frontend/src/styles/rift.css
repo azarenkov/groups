@@ -3697,11 +3697,12 @@ textarea.s-input {
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
   flex-shrink: 0;
+  font-size: 56px; font-weight: 600; color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  font-variant-caps: small-caps;
 }
-.voice-stage-orbs.row .voice-stage-orb { width: 96px; height: 96px; }
-.voice-stage-orbs.grid .voice-stage-orb { width: 72px; height: 72px; }
-.voice-stage-orbs.row .voice-stage-orb-letter { font-size: 38px; }
-.voice-stage-orbs.grid .voice-stage-orb-letter { font-size: 28px; }
+.voice-stage-orbs.row .voice-stage-orb { width: 96px; height: 96px; font-size: 38px; }
+.voice-stage-orbs.grid .voice-stage-orb { width: 72px; height: 72px; font-size: 28px; }
 
 .voice-stage-orb-name {
   max-width: 160px;
@@ -3716,11 +3717,6 @@ textarea.s-input {
 .voice-stage-orbs.row .voice-stage-orb-name { font-size: 13px; max-width: 120px; }
 .voice-stage-orbs.grid .voice-stage-orb-name { font-size: 12px; max-width: 96px; }
 
-.voice-stage-orb-letter {
-  font-size: 56px; font-weight: 600; color: #fff;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.25);
-  font-variant-caps: small-caps;
-}
 .voice-stage-orb-ring {
   position: absolute; inset: -8px;
   border-radius: 50%;
@@ -5013,4 +5009,75 @@ textarea.s-input {
   opacity: 0.5;
   cursor: default;
   pointer-events: none;
+}
+.avatar-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.edit-badge {
+  position: absolute;
+  bottom: -2px; right: -2px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  border: 2px solid var(--surface-panel);
+  color: var(--fg-2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.ssv-logo-badge { width: 26px; height: 26px; }
+.srvm-avatar-badge { width: 20px; height: 20px; }
+.ssv-logo-actions {
+  display: flex; gap: 8px;
+  margin-top: 10px;
+}
+.auth-avatar-pick {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.auth-avatar-circle {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--hairline-strong, var(--hairline));
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.auth-avatar-circle:hover { border-color: var(--accent); color: var(--accent); }
+.auth-avatar-circle img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.auth-avatar-text {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.auth-avatar-clear {
+  border: 0; background: transparent; padding: 0;
+  color: var(--danger);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.s-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin: 8px 0;
+}
+.srvm-head-spacer { width: 32px; flex-shrink: 0; }
+.user-pill .ava .dot,
+.sb-dm-dot,
+.presence {
+  z-index: 1;
 }

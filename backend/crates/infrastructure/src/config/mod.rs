@@ -3,4 +3,5 @@ pub mod livekit;
 pub mod mailer;
 pub mod minio;
 pub mod nats;
+pub mod nsfw;
 pub mod postgres;

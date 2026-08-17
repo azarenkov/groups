@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { VideoTileCell } from "./VideoStage";
 import { getLiveKitService, VideoTile } from "../../services/livekit";
-import { colorForId, initialFor } from "../../utils/avatar";
+import { UserAvatar } from "./Avatar";
 
 const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
   id,
@@ -243,11 +243,12 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
             <div className="call-empty-orbs">
               {roster.map((r) => (
                 <div key={r.id} className="call-empty-cell">
-                  <div
+                  <UserAvatar
+                    userId={r.id}
+                    name={r.name}
                     className={"call-empty-orb" + (r.speaking ? " speaking" : "")}
                     style={{ "--orb-color": r.color } as React.CSSProperties}
                   >
-                    {r.initials}
                     {r.muted && (
                       <span className="call-empty-mute">
                         <Icon name="mic-off" size={16} />
@@ -256,7 +257,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                     {!r.isSelf && (
                       <TileVolumeMenu id={r.id} className="call-orb-menu" />
                     )}
-                  </div>
+                  </UserAvatar>
                   <div className="call-empty-name">
                     {r.isSelf ? t("you") : r.name}
                   </div>
@@ -321,12 +322,12 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                         }
                         onClick={() => toggleSelected(c.id)}
                       >
-                        <span
+                        <UserAvatar
+                          userId={c.id}
+                          name={c.name}
                           className="acb-add-ava"
-                          style={{ background: colorForId(c.id) }}
-                        >
-                          {initialFor(c.name)}
-                        </span>
+                          style={{ display: "inline-flex" }}
+                        />
                         <span className="acb-add-name">{c.name}</span>
                         {selected.has(c.id) && <Icon name="check" size={14} />}
                       </button>
@@ -375,9 +376,12 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
               {r.camera ? (
                 <VideoTileCell tile={r.camera} label="" />
               ) : (
-                <div className="cs-tile-ava" style={{ background: r.color }}>
-                  {r.initials}
-                </div>
+                <UserAvatar
+                  userId={r.id}
+                  name={r.name}
+                  className="cs-tile-ava"
+                  style={{ background: r.color }}
+                />
               )}
               <div className={"cs-tile-name" + (r.muted ? " muted" : "")}>
                 <Icon name={r.muted ? "mic-off" : "mic"} size={12} />
