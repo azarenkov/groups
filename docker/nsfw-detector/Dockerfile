@@ -9,6 +9,10 @@ RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(
 
 RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('openai/clip-vit-base-patch32', local_dir='/clip')"
 
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('martin-ha/toxic-comment-model', local_dir='/en-toxicity')"
+
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('cointegrated/rubert-tiny-toxicity', local_dir='/ru-toxicity')"
+
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1
 

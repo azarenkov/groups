@@ -16,7 +16,7 @@ use domain::{
         email::Email,
         events::{UserEvent, lifecycle::UserLoggedIn},
         id::UserId,
-        name::UserName,
+        name::{ReservedNames, UserName, UserNameError},
         repository::UserRepository,
     },
 };
@@ -29,6 +29,7 @@ use crate::{
     ports::{
         hasher::{HashError, Hasher},
         oauth_verifier::{OAuthIdentity, OAuthIdentityVerifier, OAuthProvider, OAuthVerifyError},
+        text_moderation::{TextModeration, TextModerationError},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
 };
@@ -51,6 +52,10 @@ pub enum GoogleLoginError {
     AccountConflict,
     #[error("This username is already taken")]
     UsernameTaken,
+    #[error("Invalid username: {0}")]
+    InvalidName(#[from] UserNameError),
+    #[error("Username is not allowed")]
+    NameNotAllowed,
 }
 
 pub enum GoogleLoginOutcome {
@@ -58,28 +63,32 @@ pub enum GoogleLoginOutcome {
     NeedsUsername,
 }
 
-pub struct GoogleLogin<U, R, I, V, H>
+pub struct GoogleLogin<U, R, I, V, H, TM>
 where
     U: UserRepository,
     R: RefreshTokenRepository,
     I: TokenIssuer,
     V: OAuthIdentityVerifier,
     H: Hasher,
+    TM: TextModeration,
 {
     user_repository: Arc<U>,
     refresh_token_repository: Arc<R>,
     token_issuer: Arc<I>,
     verifier: Arc<V>,
     hasher: Arc<H>,
+    text_moderation: Arc<TM>,
+    reserved_names: Arc<ReservedNames>,
 }
 
-impl<U, R, I, V, H> GoogleLogin<U, R, I, V, H>
+impl<U, R, I, V, H, TM> GoogleLogin<U, R, I, V, H, TM>
 where
     U: UserRepository,
     R: RefreshTokenRepository,
     I: TokenIssuer,
     V: OAuthIdentityVerifier,
     H: Hasher,
+    TM: TextModeration,
 {
     pub fn new(
         user_repository: Arc<U>,
@@ -87,6 +96,8 @@ where
         token_issuer: Arc<I>,
         verifier: Arc<V>,
         hasher: Arc<H>,
+        text_moderation: Arc<TM>,
+        reserved_names: Arc<ReservedNames>,
     ) -> Self {
         Self {
             user_repository,
@@ -94,6 +105,8 @@ where
             token_issuer,
             verifier,
             hasher,
+            text_moderation,
+            reserved_names,
         }
     }
 
@@ -197,7 +210,7 @@ where
             return Err(GoogleLoginError::AccountConflict);
         }
 
-        let username = UserName::new(request.username);
+        let username = UserName::parse(&request.username, &self.reserved_names)?;
         if self
             .user_repository
             .find_by_name(&username)
@@ -205,6 +218,16 @@ where
             .is_some()
         {
             return Err(GoogleLoginError::UsernameTaken);
+        }
+
+        match self.text_moderation.ensure_allowed(username.as_str()).await {
+            Ok(()) => {}
+            Err(TextModerationError::Rejected) => {
+                return Err(GoogleLoginError::NameNotAllowed);
+            }
+            Err(TextModerationError::Unavailable(e)) => {
+                tracing::warn!(error = %e, "username moderation unavailable; allowing name");
+            }
         }
 
         self.register_with_oauth(

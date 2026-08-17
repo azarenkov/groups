@@ -53,6 +53,7 @@ use application::usecases::user::{
 };
 use application::usecases::user::search_users::SearchUsersError;
 use domain::dm_message::DmMessageError;
+use domain::user::name::UserNameError;
 use application::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use application::usecases::server::get_voice_presence::GetVoicePresenceError;
 use application::usecases::channel::update_stream_viewer::UpdateStreamViewerError;
@@ -727,6 +728,11 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
             GoogleLoginError::AccountConflict => StatusCode::CONFLICT,
             GoogleLoginError::UsernameTaken => StatusCode::CONFLICT,
+            GoogleLoginError::InvalidName(UserNameError::Reserved) => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            GoogleLoginError::InvalidName(_) => StatusCode::BAD_REQUEST,
+            GoogleLoginError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
         }
     }
 
@@ -750,6 +756,9 @@ impl ToHttpStatus for GoogleLoginError {
                 "This email is already linked to a different Google account".to_string()
             }
             GoogleLoginError::UsernameTaken => "This username is already taken".to_string(),
+            GoogleLoginError::InvalidName(UserNameError::Reserved)
+            | GoogleLoginError::NameNotAllowed => "This username is not allowed.".to_string(),
+            GoogleLoginError::InvalidName(e) => e.to_string(),
         }
     }
 
@@ -769,6 +778,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
             GoogleLoginError::AccountConflict => "GOOGLE_ACCOUNT_CONFLICT",
             GoogleLoginError::UsernameTaken => "GOOGLE_USERNAME_TAKEN",
+            GoogleLoginError::InvalidName(UserNameError::Reserved)
+            | GoogleLoginError::NameNotAllowed => "NAME_NOT_ALLOWED",
+            GoogleLoginError::InvalidName(_) => "NAME_INVALID_FORMAT",
         }
     }
 }
@@ -903,6 +915,12 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::Hash(e) => e.to_http_status(),
             RegistrationError::Outbox(e) => e.to_http_status(),
             RegistrationError::TokenIssuer(e) => e.to_http_status(),
+            RegistrationError::InvalidName(UserNameError::Reserved) => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            RegistrationError::InvalidName(_) => StatusCode::BAD_REQUEST,
+            RegistrationError::NameTaken => StatusCode::CONFLICT,
+            RegistrationError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
         }
     }
 
@@ -912,6 +930,10 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::Hash(e) => e.to_user_message(),
             RegistrationError::Outbox(e) => e.to_user_message(),
             RegistrationError::TokenIssuer(e) => e.to_user_message(),
+            RegistrationError::InvalidName(UserNameError::Reserved)
+            | RegistrationError::NameNotAllowed => "This username is not allowed.".to_string(),
+            RegistrationError::InvalidName(e) => e.to_string(),
+            RegistrationError::NameTaken => "This username is already taken".to_string(),
         }
     }
 
@@ -924,6 +946,10 @@ impl ToHttpStatus for RegistrationError {
             RegistrationError::Hash(e) => e.to_error_code(),
             RegistrationError::Outbox(e) => e.to_error_code(),
             RegistrationError::TokenIssuer(e) => e.to_error_code(),
+            RegistrationError::InvalidName(UserNameError::Reserved)
+            | RegistrationError::NameNotAllowed => "NAME_NOT_ALLOWED",
+            RegistrationError::InvalidName(_) => "NAME_INVALID_FORMAT",
+            RegistrationError::NameTaken => "NAME_TAKEN",
         }
     }
 }

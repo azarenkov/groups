@@ -10,7 +10,13 @@ use domain::{
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, email::Email, id::UserId, name::UserName, repository::UserRepository},
+    user::{
+        User,
+        email::Email,
+        id::UserId,
+        name::{ReservedNames, UserName, UserNameError},
+        repository::UserRepository,
+    },
 };
 
 
@@ -18,6 +24,7 @@ use crate::{
     dto::requests::auth::register_user::RegisterUserRequest,
     ports::{
         hasher::{HashError, Hasher},
+        text_moderation::{TextModeration, TextModerationError},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
 };
@@ -32,6 +39,12 @@ pub enum RegistrationError {
     Outbox(#[from] OutboxError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
+    #[error("Invalid username: {0}")]
+    InvalidName(#[from] UserNameError),
+    #[error("Username is already taken")]
+    NameTaken,
+    #[error("Username is not allowed")]
+    NameNotAllowed,
 }
 
 pub struct RegisteredUser {
@@ -40,28 +53,40 @@ pub struct RegisteredUser {
     pub tokens: IssuedTokens,
 }
 
-pub struct RegisterUser<T, H, I>
+pub struct RegisterUser<T, H, I, TM>
 where
     T: UserRepository,
     H: Hasher,
     I: TokenIssuer,
+    TM: TextModeration,
 {
     user_repository: Arc<T>,
     hasher: Arc<H>,
     token_issuer: Arc<I>,
+    text_moderation: Arc<TM>,
+    reserved_names: Arc<ReservedNames>,
 }
 
-impl<T, H, I> RegisterUser<T, H, I>
+impl<T, H, I, TM> RegisterUser<T, H, I, TM>
 where
     T: UserRepository,
     H: Hasher,
     I: TokenIssuer,
+    TM: TextModeration,
 {
-    pub fn new(user_repository: Arc<T>, hasher: Arc<H>, token_issuer: Arc<I>) -> Self {
+    pub fn new(
+        user_repository: Arc<T>,
+        hasher: Arc<H>,
+        token_issuer: Arc<I>,
+        text_moderation: Arc<TM>,
+        reserved_names: Arc<ReservedNames>,
+    ) -> Self {
         Self {
             user_repository,
             hasher,
             token_issuer,
+            text_moderation,
+            reserved_names,
         }
     }
 
@@ -69,10 +94,26 @@ where
         &self,
         request: RegisterUserRequest,
     ) -> Result<RegisteredUser, RegistrationError> {
+        let name = UserName::parse(&request.name, &self.reserved_names)?;
+
+        if self.user_repository.find_by_name(&name).await?.is_some() {
+            return Err(RegistrationError::NameTaken);
+        }
+
+        match self.text_moderation.ensure_allowed(name.as_str()).await {
+            Ok(()) => {}
+            Err(TextModerationError::Rejected) => {
+                return Err(RegistrationError::NameNotAllowed);
+            }
+            Err(TextModerationError::Unavailable(e)) => {
+                tracing::warn!(error = %e, "username moderation unavailable; allowing name");
+            }
+        }
+
         let password_hash = PasswordHash::new(self.hasher.hash(&request.password)?);
 
         let mut user = User::create(
-            UserName::new(request.name),
+            name,
             Email::new(request.email),
             password_hash,
             request.client.ip.clone(),

@@ -66,11 +66,12 @@ use application::usecases::{
     },
     webhook::voice::HandleVoiceWebhook,
 };
+use domain::user::name::ReservedNames;
 use infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     config::{
         google::GoogleOAuthConfig, livekit::LiveKitConfig, minio::MinioConfig,
-        nsfw::NsfwConfig, postgres::PostgresConfig,
+        nsfw::NsfwConfig, postgres::PostgresConfig, username::UsernameConfig,
     },
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
@@ -264,10 +265,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_repository.clone(),
         server_repository.clone(),
     );
+    let username_config = UsernameConfig::from_env()?;
+    let reserved_names = Arc::new(ReservedNames::new(username_config.extra_reserved()));
     let register_user_usecase = RegisterUser::new(
         user_repository.clone(),
         hasher.clone(),
         token_issuer.clone(),
+        nsfw_detector.clone(),
+        reserved_names.clone(),
     );
     let issue_verification_code_usecase = IssueVerificationCode::new(
         user_repository.clone(),
@@ -293,6 +298,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         token_issuer.clone(),
         google_token_verifier.clone(),
         hasher.clone(),
+        nsfw_detector.clone(),
+        reserved_names.clone(),
     );
     let confirm_registration_usecase = ConfirmRegistration::new(
         user_repository.clone(),

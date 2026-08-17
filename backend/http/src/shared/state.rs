@@ -145,7 +145,7 @@ pub struct AppState {
     >,
 
     pub register_user_usecase:
-        RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
+        RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer, NsfwDetector>,
     pub issue_verification_code_usecase: IssueVerificationCode<
         PostgresUserRepository,
         PostgresVerificationCodeRepository,
@@ -163,6 +163,7 @@ pub struct AppState {
         JwtTokenIssuer,
         GoogleIdTokenVerifier,
         BcryptHasher,
+        NsfwDetector,
     >,
     pub confirm_registration_usecase: ConfirmRegistration<
         PostgresUserRepository,
@@ -366,6 +367,7 @@ impl AppState {
             PostgresUserRepository,
             BcryptHasher,
             JwtTokenIssuer,
+            NsfwDetector,
         >,
         issue_verification_code_usecase: IssueVerificationCode<
             PostgresUserRepository,
@@ -384,6 +386,7 @@ impl AppState {
             JwtTokenIssuer,
             GoogleIdTokenVerifier,
             BcryptHasher,
+            NsfwDetector,
         >,
         confirm_registration_usecase: ConfirmRegistration<
             PostgresUserRepository,

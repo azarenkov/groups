@@ -209,7 +209,7 @@ impl UserRepository for PostgresUserRepository {
                 phone_verified_at,
                 locale
             FROM users
-            WHERE name = $1
+            WHERE LOWER(name) = LOWER($1)
             "#,
             name.as_str(),
         )

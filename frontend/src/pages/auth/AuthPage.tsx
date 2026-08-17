@@ -8,6 +8,7 @@ import { authAPI, TokenPair } from "../../api/auth";
 import { userAPI } from "../../api/user";
 import { bustAvatar } from "../../utils/avatarCache";
 import { ApiError } from "../../utils/apiError";
+import { validateUsername, UsernameIssue } from "../../utils/username";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
@@ -210,6 +211,36 @@ const SignInUp: React.FC<SignInUpProps> = ({
   const { t } = useTranslation("auth");
   const locale = currentLocale();
 
+  const usernameIssueMessage = (issue: UsernameIssue): string => {
+    switch (issue) {
+      case "required":
+        return t("displayNameRequired");
+      case "tooShort":
+        return t("displayNameMin");
+      case "tooLong":
+        return t("displayNameMax");
+      case "charset":
+        return t("displayNameInvalid");
+      case "underscoreEdge":
+      case "doubleUnderscore":
+        return t("displayNameUnderscore");
+      case "digitsOnly":
+        return t("displayNameDigits");
+      case "reserved":
+        return t("displayNameReserved");
+    }
+  };
+
+  const usernameServerError = (err: any): string | null => {
+    if (!(err instanceof ApiError)) return null;
+    if (err.code === "NAME_TAKEN" || err.code === "GOOGLE_USERNAME_TAKEN") {
+      return t("usernameTaken");
+    }
+    if (err.code === "NAME_NOT_ALLOWED") return t("usernameNotAllowed");
+    if (err.code === "NAME_INVALID_FORMAT") return t("usernameInvalid");
+    return null;
+  };
+
   const signInForm = useForm<SignInData>({
     defaultValues: { email, password: "" },
   });
@@ -329,7 +360,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
       }
       goVerify();
     } catch (err: any) {
-      setError(err.message || t("couldNotRegister"));
+      setError(usernameServerError(err) || err.message || t("couldNotRegister"));
     } finally {
       setLoading(false);
     }
@@ -357,8 +388,9 @@ const SignInUp: React.FC<SignInUpProps> = ({
     e.preventDefault();
     if (!pendingGoogleToken) return;
     const name = googleUsername.trim();
-    if (name.length < 3 || name.length > 15 || !/^[a-zA-Z0-9_]+$/.test(name)) {
-      setError(t("usernameInvalid"));
+    const issue = validateUsername(name);
+    if (issue !== null) {
+      setError(usernameIssueMessage(issue));
       return;
     }
     try {
@@ -372,11 +404,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
       setPendingGoogleToken(null);
       await finishGoogleSession(response);
     } catch (err: any) {
-      if (err.code === "GOOGLE_USERNAME_TAKEN") {
-        setError(t("usernameTaken"));
-      } else {
-        setError(err.message || t("couldNotSignIn"));
-      }
+      setError(usernameServerError(err) || err.message || t("couldNotSignIn"));
     } finally {
       setLoading(false);
     }
@@ -520,10 +548,10 @@ const SignInUp: React.FC<SignInUpProps> = ({
                 type="text"
                 placeholder={t("displayNamePlaceholder")}
                 {...signUpForm.register("name", {
-                  required: t("displayNameRequired"),
-                  minLength: { value: 3, message: t("displayNameMin") },
-                  maxLength: { value: 15, message: t("displayNameMax") },
-                  pattern: { value: /^[a-zA-Z0-9_]+$/, message: t("displayNameInvalid") },
+                  validate: (value: string) => {
+                    const issue = validateUsername(value);
+                    return issue === null || usernameIssueMessage(issue);
+                  },
                 })}
               />
             </div>
