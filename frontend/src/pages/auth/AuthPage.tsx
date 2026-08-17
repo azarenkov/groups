@@ -238,6 +238,9 @@ const SignInUp: React.FC<SignInUpProps> = ({
     }
     if (err.code === "NAME_NOT_ALLOWED") return t("usernameNotAllowed");
     if (err.code === "NAME_INVALID_FORMAT") return t("usernameInvalid");
+    if (err.code === "MODERATION_UNAVAILABLE") {
+      return t("usernameModerationUnavailable");
+    }
     return null;
   };
 
