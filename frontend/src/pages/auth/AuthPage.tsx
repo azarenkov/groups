@@ -7,6 +7,7 @@ import { currentLocale } from "../../i18n";
 import { authAPI, TokenPair } from "../../api/auth";
 import { userAPI } from "../../api/user";
 import { bustAvatar } from "../../utils/avatarCache";
+import { ApiError } from "../../utils/apiError";
 import { isAccessTokenVerified, decodeAccessToken } from "../../utils/jwt";
 import Icon, { Mark } from "../../components/rift/Icon";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher";
@@ -898,6 +899,7 @@ const VerifyEmail: React.FC<{
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -934,6 +936,13 @@ const VerifyEmail: React.FC<{
             if (uid) bustAvatar("user", uid);
           } catch (avatarErr) {
             console.warn("[Auth] avatar upload failed:", avatarErr);
+            const apiErr = avatarErr instanceof ApiError ? avatarErr : null;
+            const reason =
+              apiErr?.code === "IMAGE_CONTENT_REJECTED"
+                ? t("avatarRejectedReason")
+                : apiErr?.message || t("avatarUploadGenericReason");
+            setAvatarWarning(t("avatarUploadFailed", { reason }));
+            return;
           }
         }
         onVerified();
@@ -954,6 +963,23 @@ const VerifyEmail: React.FC<{
 
   return (
     <>
+      {avatarWarning ? (
+        <>
+          <div className="auth-hero">
+            <Icon name="camera" size={26} />
+          </div>
+          <h1>{t("verifyTitle")}</h1>
+          <p className="sub">{avatarWarning}</p>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={onVerified}
+          >
+            {t("continue")}
+          </button>
+        </>
+      ) : (
+        <>
       <button type="button" className="auth-back" onClick={onBack}>
         <ArrowLeft /> {t("backToSignIn")}
       </button>
@@ -1032,6 +1058,8 @@ const VerifyEmail: React.FC<{
           </button>
         )}
       </div>
+        </>
+      )}
     </>
   );
 };

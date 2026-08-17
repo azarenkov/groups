@@ -159,7 +159,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let upload_attachment_usecase =
         UploadAttachment::new(attachment_repository.clone(), minio_storage.clone());
     let upload_semaphore = Arc::new(tokio::sync::Semaphore::new(8));
-    let image_read_limiter = shared::rate_limiting::create_keyed_limiter(30, 120)
+    let image_read_limiter = shared::rate_limiting::create_keyed_limiter(60, 400)
         .ok_or("Failed to create image read limiter")?;
     let get_attachment_usecase =
         GetAttachment::new(attachment_repository.clone(), minio_storage.clone());

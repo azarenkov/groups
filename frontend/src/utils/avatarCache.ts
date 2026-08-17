@@ -68,6 +68,11 @@ const load = (kind: AvatarKind, id: string) => {
         fetchedAt.set(key, Date.now());
       } else if (cache.has(key)) {
         fetchedAt.set(key, Date.now());
+      } else if (err instanceof ApiError && err.status === 429) {
+        const delay = 2000 + Math.random() * 3000;
+        setTimeout(() => {
+          if (listeners.get(key)?.size) load(kind, id);
+        }, delay);
       }
     })
     .finally(() => {

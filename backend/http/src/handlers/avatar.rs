@@ -12,6 +12,7 @@ pub const MAX_AVATAR_BYTES: usize = 8 * 1024 * 1024;
 const MIN_AVATAR_DIMENSION: u32 = 128;
 const AVATAR_SIZE: u32 = 512;
 const MAX_DECODE_DIMENSION: u32 = 8192;
+const MAX_DECODE_ALLOC: u64 = 64 * 1024 * 1024;
 
 async fn read_image_field(payload: &mut Multipart) -> Result<Vec<u8>, ApiError> {
     while let Some(field) = payload.next().await {
@@ -67,6 +68,7 @@ fn normalize_image(bytes: Vec<u8>) -> Result<Vec<u8>, ApiError> {
     let mut limits = image::Limits::default();
     limits.max_image_width = Some(MAX_DECODE_DIMENSION);
     limits.max_image_height = Some(MAX_DECODE_DIMENSION);
+    limits.max_alloc = Some(MAX_DECODE_ALLOC);
     reader.limits(limits);
     let mut decoder = reader
         .into_decoder()
