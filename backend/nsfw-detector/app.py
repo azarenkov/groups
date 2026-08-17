@@ -235,12 +235,22 @@ def dictionary_match(text: str):
     return None
 
 
+def label_scores(raw):
+    if isinstance(raw, dict):
+        return [raw]
+    if isinstance(raw, list):
+        if raw and isinstance(raw[0], list):
+            raw = raw[0]
+        return [r for r in raw if isinstance(r, dict)]
+    return []
+
+
 def toxicity_score(text: str) -> float:
     flat, _ = normalize_text(text)
     cyr = transliterate(flat)
     with inference_lock:
-        en_results = en_toxicity(text[:512])[0]
-        ru_results = ru_toxicity(cyr[:512])[0]
+        en_results = label_scores(en_toxicity(text[:512]))
+        ru_results = label_scores(ru_toxicity(cyr[:512]))
     en_score = next(
         (r["score"] for r in en_results if r["label"] == "toxic"), 0.0
     )

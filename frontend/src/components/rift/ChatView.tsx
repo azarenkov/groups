@@ -29,6 +29,7 @@ import {
   useWsDmMessages,
 } from "../../services/useWebSocketMessages";
 import i18n from "../../i18n";
+import { useUserNamesStore } from "../../store/userNamesStore";
 
 const mergeWithLive = (
   history: ChannelMessage[],
@@ -153,6 +154,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
+  const nameOverrides = useUserNamesStore((s) => s.overrides);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelledUploadsRef = React.useRef<Set<string>>(new Set());
   const pendingFilesRef = React.useRef<PendingFile[]>([]);
@@ -1255,7 +1257,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   const isMine = !!currentUserId && m.authorId === currentUserId;
                   const displayName = isMine
                     ? i18n.t("you", { ns: "chat" })
-                    : (m.authorName ?? m.authorId);
+                    : (nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
                   const time = new Date(m.createdAt).toLocaleString([], {
                     month: "short",
                     day: "numeric",
@@ -1336,7 +1338,7 @@ const ChatView: React.FC<ChatViewProps> = ({
               const isMine = !!currentUserId && m.authorId === currentUserId;
               const displayName = isMine
                 ? "You"
-                : (m.authorName ?? m.authorId);
+                : (nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
               return (
                 <React.Fragment key={m.id}>
                   {newDay && (
