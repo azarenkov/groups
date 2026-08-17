@@ -3697,11 +3697,12 @@ textarea.s-input {
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
   flex-shrink: 0;
+  font-size: 56px; font-weight: 600; color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  font-variant-caps: small-caps;
 }
-.voice-stage-orbs.row .voice-stage-orb { width: 96px; height: 96px; }
-.voice-stage-orbs.grid .voice-stage-orb { width: 72px; height: 72px; }
-.voice-stage-orbs.row .voice-stage-orb-letter { font-size: 38px; }
-.voice-stage-orbs.grid .voice-stage-orb-letter { font-size: 28px; }
+.voice-stage-orbs.row .voice-stage-orb { width: 96px; height: 96px; font-size: 38px; }
+.voice-stage-orbs.grid .voice-stage-orb { width: 72px; height: 72px; font-size: 28px; }
 
 .voice-stage-orb-name {
   max-width: 160px;
@@ -3716,11 +3717,6 @@ textarea.s-input {
 .voice-stage-orbs.row .voice-stage-orb-name { font-size: 13px; max-width: 120px; }
 .voice-stage-orbs.grid .voice-stage-orb-name { font-size: 12px; max-width: 96px; }
 
-.voice-stage-orb-letter {
-  font-size: 56px; font-weight: 600; color: #fff;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.25);
-  font-variant-caps: small-caps;
-}
 .voice-stage-orb-ring {
   position: absolute; inset: -8px;
   border-radius: 50%;

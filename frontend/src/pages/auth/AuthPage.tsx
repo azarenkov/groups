@@ -909,7 +909,7 @@ const VerifyEmail: React.FC<{
 
   const submitCode = useCallback(
     async (value: string) => {
-      if (value.length !== 6 || isSubmitting) return;
+      if (value.length !== 6 || isSubmitting || avatarWarning) return;
       setIsSubmitting(true);
       setError("");
       try {
@@ -952,14 +952,14 @@ const VerifyEmail: React.FC<{
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, onVerified, t, pendingAvatar],
+    [isSubmitting, onVerified, t, pendingAvatar, avatarWarning],
   );
 
   useEffect(() => {
-    if (code.length === 6) {
+    if (code.length === 6 && !avatarWarning) {
       submitCode(code);
     }
-  }, [code, submitCode]);
+  }, [code, submitCode, avatarWarning]);
 
   return (
     <>
