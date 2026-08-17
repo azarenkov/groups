@@ -13,6 +13,7 @@ import {
 } from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
+import { useUserNamesStore } from "../store/userNamesStore";
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
 
@@ -168,7 +169,12 @@ function dispatch(env: WsEnvelope) {
 
     case "user.renamed": {
       const userId = asString(d.userId);
+      const newName = asString(d.name);
       if (!userId) return;
+      if (newName) {
+        useUserNamesStore.getState().setName(userId, newName);
+        useVoicePresenceStore.getState().renameMember(userId, newName);
+      }
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
         void useAuthStore.getState().fetchMe();

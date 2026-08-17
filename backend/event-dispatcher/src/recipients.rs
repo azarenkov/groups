@@ -19,6 +19,21 @@ impl RecipientResolver {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
+    pub async fn shared_server_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT DISTINCT sm2.user_id
+            FROM server_members sm1
+            JOIN server_members sm2 ON sm2.server_id = sm1.server_id
+            WHERE sm1.user_id = $1 AND sm2.user_id <> $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+    }
+
     pub async fn text_channel_recipients(
         &self,
         channel_id: Uuid,

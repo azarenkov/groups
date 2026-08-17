@@ -12,6 +12,7 @@ interface VoicePresenceState {
   byChannel: Record<string, VoicePresenceMember[]>;
   addMember: (channelId: string, member: VoicePresenceMember) => void;
   removeMember: (channelId: string, userId: string) => void;
+  renameMember: (userId: string, name: string) => void;
   setMembers: (channelId: string, members: VoicePresenceMember[]) => void;
   setChannelMute: (
     channelId: string,
@@ -71,6 +72,23 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
     set((state) => ({
       byChannel: { ...state.byChannel, [channelId]: members },
     })),
+
+  renameMember: (userId, name) =>
+    set((state) => {
+      let changed = false;
+      const byChannel: Record<string, VoicePresenceMember[]> = {};
+      for (const [channelId, members] of Object.entries(state.byChannel)) {
+        if (members.some((m) => m.id === userId)) {
+          changed = true;
+          byChannel[channelId] = members.map((m) =>
+            m.id === userId ? { ...m, name } : m,
+          );
+        } else {
+          byChannel[channelId] = members;
+        }
+      }
+      return changed ? { byChannel } : state;
+    }),
 
   setChannelMute: (channelId, userId, isMuted) =>
     set((state) => {

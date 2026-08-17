@@ -594,9 +594,9 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        publisher
-            .publish_to_users(unique(evt.recipients), &envelope)
-            .await?;
+        let peers = resolver.shared_server_peers(evt.user_id).await?;
+        let recipients = unique(evt.recipients.into_iter().chain(peers));
+        publisher.publish_to_users(recipients, &envelope).await?;
         return Ok(());
     }
 
