@@ -255,6 +255,7 @@ where
         let random_secret = uuid::Uuid::new_v4().to_string();
         let password_hash = PasswordHash::new(self.hasher.hash(&random_secret)?);
 
+        let name_check = username.clone();
         let mut user = User::create(
             username,
             email.clone(),
@@ -282,9 +283,20 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<Vec<_>, _>>()?;
 
-        self.user_repository
+        match self
+            .user_repository
             .register_user(&user, &refresh_token, &records)
-            .await?;
+            .await
+        {
+            Ok(()) => {}
+            Err(RepositoryError::AlreadyExists) => {
+                if self.user_repository.find_by_name(&name_check).await?.is_some() {
+                    return Err(GoogleLoginError::UsernameTaken);
+                }
+                return Err(GoogleLoginError::Repository(RepositoryError::AlreadyExists));
+            }
+            Err(e) => return Err(e.into()),
+        }
 
         self.user_repository
             .link_oauth_identity(

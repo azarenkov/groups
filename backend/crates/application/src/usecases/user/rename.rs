@@ -71,7 +71,13 @@ where
             }
         }
 
-        self.user_repository.set_name(&user_id, &name).await?;
+        match self.user_repository.set_name(&user_id, &name).await {
+            Ok(()) => {}
+            Err(RepositoryError::AlreadyExists) => {
+                return Err(RenameUserError::NameTaken);
+            }
+            Err(e) => return Err(e.into()),
+        }
 
         Ok(name.as_str().to_string())
     }

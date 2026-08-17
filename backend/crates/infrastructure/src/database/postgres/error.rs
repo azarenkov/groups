@@ -4,7 +4,9 @@ pub fn map_sqlx_error_to_domain_error(e: sqlx::Error) -> RepositoryError {
     match e {
         sqlx::Error::Database(db_err) => {
             if let Some(constraint) = db_err.constraint()
-                && (constraint.contains("name") || constraint.contains("unique"))
+                && (constraint.contains("name")
+                    || constraint.contains("unique")
+                    || constraint.contains("email"))
             {
                 return RepositoryError::AlreadyExists;
             }

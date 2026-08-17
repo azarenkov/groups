@@ -114,6 +114,7 @@ where
 
         let password_hash = PasswordHash::new(self.hasher.hash(&request.password)?);
 
+        let name_check = name.clone();
         let mut user = User::create(
             name,
             Email::new(request.email),
@@ -143,9 +144,20 @@ where
         let user_id = user.id_ownned();
         let email = user.email().clone();
 
-        self.user_repository
+        match self
+            .user_repository
             .register_user(&user, &refresh_token, &records)
-            .await?;
+            .await
+        {
+            Ok(()) => {}
+            Err(RepositoryError::AlreadyExists) => {
+                if self.user_repository.find_by_name(&name_check).await?.is_some() {
+                    return Err(RegistrationError::NameTaken);
+                }
+                return Err(RegistrationError::Repository(RepositoryError::AlreadyExists));
+            }
+            Err(e) => return Err(e.into()),
+        }
 
         Ok(RegisteredUser {
             user_id,
