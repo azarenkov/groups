@@ -839,7 +839,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, searchOpen, convId]);
+  }, [searchQuery, searchOpen, convId, nameSyncTick]);
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
     if (!messenger || !convId) return;
