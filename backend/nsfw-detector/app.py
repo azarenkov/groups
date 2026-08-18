@@ -158,16 +158,26 @@ RU_BLOCKED = [
     "долбоеб",
 ]
 
-ALLOWLIST = [
-    "scunthorpe",
-    "grape",
-    "drape",
-    "scrape",
-    "baseball",
-    "debat",
-    "ashkenazi",
-    "swank",
-]
+ALLOWLIST = frozenset(
+    [
+        "scunthorpe",
+        "grape",
+        "grapes",
+        "drape",
+        "draper",
+        "drapes",
+        "scrape",
+        "scraper",
+        "baseball",
+        "debate",
+        "debater",
+        "debates",
+        "debating",
+        "ashkenazi",
+        "swank",
+        "swanky",
+    ]
+)
 
 app = FastAPI()
 nsfw_classifier = pipeline("image-classification", model="/model")
@@ -210,8 +220,6 @@ def classify(body: bytes):
 def normalize_text(text: str):
     flat = text.lower().translate(LEET_MAP)
     flat = re.sub(r"[^a-zа-яё]", "", flat)
-    for term in ALLOWLIST:
-        flat = flat.replace(term, "")
     collapsed = re.sub(r"(.)\1+", r"\1", flat)
     return flat, collapsed
 
@@ -224,6 +232,9 @@ def transliterate(latin: str) -> str:
 
 def dictionary_match(text: str):
     flat, collapsed = normalize_text(text)
+    plain = re.sub(r"[^a-zа-яё]", "", text.lower())
+    if flat in ALLOWLIST or collapsed in ALLOWLIST or plain in ALLOWLIST:
+        return None
     cyr_flat = transliterate(flat)
     cyr_collapsed = transliterate(collapsed)
     for root in EN_BLOCKED:

@@ -123,8 +123,16 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }),
   participantRenamed: (userId, userName) =>
     set((s) => {
-      if (!(userId in s.participants)) return s;
-      return { participants: { ...s.participants, [userId]: userName } };
+      const incoming =
+        s.incoming && s.incoming.callerId === userId
+          ? { ...s.incoming, callerName: userName }
+          : s.incoming;
+      const participants =
+        userId in s.participants
+          ? { ...s.participants, [userId]: userName }
+          : s.participants;
+      if (incoming === s.incoming && participants === s.participants) return s;
+      return { incoming, participants };
     }),
   participantLeft: (callId, userId) =>
     set((s) => {
