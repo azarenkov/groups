@@ -173,11 +173,9 @@ function dispatch(env: WsEnvelope) {
       if (!userId) return;
       if (newName) {
         const occurredAt = asString(d.occurredAt);
-        const parsed = occurredAt ? Date.parse(occurredAt) : NaN;
-        const ts = Number.isNaN(parsed) ? Date.now() : parsed;
         const applied = useUserNamesStore
           .getState()
-          .applyRename(userId, newName, ts);
+          .applyRename(userId, newName, occurredAt);
         if (!applied) return;
         useVoicePresenceStore.getState().renameMember(userId, newName);
         useCallStore.getState().participantRenamed(userId, newName);
