@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OutboxRecord {
     pub id: Uuid,
     pub aggregate_id: Uuid,
@@ -15,7 +15,7 @@ pub struct OutboxRecord {
     pub request_id: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AggregateType {
     Channel,
     Server,

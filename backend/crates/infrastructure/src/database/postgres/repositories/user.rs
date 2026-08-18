@@ -388,7 +388,20 @@ impl UserRepository for PostgresUserRepository {
             return Err(RepositoryError::NotFound);
         }
 
-        save_outbox_records(&mut tx, events).await?;
+        let committed_at = chrono::Utc::now();
+        let mut stamped = events.to_vec();
+        for record in &mut stamped {
+            record.occurred_at = committed_at;
+            if let Some(payload) = record.payload.as_object_mut() {
+                payload.insert(
+                    "occurred_at".to_string(),
+                    serde_json::to_value(committed_at)
+                        .map_err(|e| RepositoryError::InvalidData(e.to_string()))?,
+                );
+            }
+        }
+
+        save_outbox_records(&mut tx, &stamped).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())

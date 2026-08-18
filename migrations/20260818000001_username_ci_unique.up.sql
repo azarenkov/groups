@@ -21,7 +21,13 @@ BEGIN
         )
         ORDER BY u.id
     LOOP
-        base := btrim(regexp_replace(left(loser.name, 8), '_+', '_', 'g'), '_');
+        base := btrim(
+            regexp_replace(
+                left(regexp_replace(loser.name, '[^A-Za-z0-9_]', '', 'g'), 8),
+                '_+', '_', 'g'
+            ),
+            '_'
+        );
         IF base = '' THEN
             base := 'user';
         END IF;
