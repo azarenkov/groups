@@ -152,8 +152,8 @@ const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
-  const messagesLenRef = React.useRef(0);
-  messagesLenRef.current = messages.length;
+  const messagesRef = React.useRef<ChannelMessage[]>([]);
+  messagesRef.current = messages;
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
@@ -689,7 +689,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (nameSyncTick === 0 || !messenger || !convId) return;
     let cancelled = false;
     const targetId = convId;
-    const loadedCount = messagesLenRef.current;
+    const oldestLoadedAt = messagesRef.current[0]?.createdAt;
     (async () => {
       try {
         const acc: ChannelMessage[] = [];
@@ -701,7 +701,11 @@ const ChatView: React.FC<ChatViewProps> = ({
           });
           const ordered = [...res.messages].reverse();
           acc.unshift(...ordered);
-          if (res.messages.length < PAGE_LIMIT || acc.length >= loadedCount) {
+          if (
+            res.messages.length < PAGE_LIMIT ||
+            !oldestLoadedAt ||
+            (acc[0] && acc[0].createdAt <= oldestLoadedAt)
+          ) {
             break;
           }
           before = acc[0]?.id;

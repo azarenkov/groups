@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    friendship::repository::FriendshipRepository,
+    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -91,7 +91,11 @@ where
             .friendship_repository
             .list_for_user(&user_id, None)
             .await?;
-        let mut recipients: Vec<UserId> = friends.iter().map(|f| f.friend_id).collect();
+        let mut recipients: Vec<UserId> = friends
+            .iter()
+            .filter(|f| f.status != FriendshipStatus::Declined)
+            .map(|f| f.friend_id)
+            .collect();
         recipients.push(user_id);
 
         let event = UserEvent::Renamed(UserRenamed::record(
