@@ -12,12 +12,12 @@ BEGIN
         SELECT u.id, u.name FROM users u
         WHERE EXISTS (
             SELECT 1 FROM users o
-            WHERE LOWER(o.name) = LOWER(u.name) AND o.id <> u.id
+            WHERE LOWER(o.name COLLATE "C") = LOWER(u.name COLLATE "C") AND o.id <> u.id
         )
         AND u.id NOT IN (
-            SELECT DISTINCT ON (LOWER(name)) id
+            SELECT DISTINCT ON (LOWER(name COLLATE "C")) id
             FROM users
-            ORDER BY LOWER(name), created_at, id
+            ORDER BY LOWER(name COLLATE "C"), created_at, id
         )
         ORDER BY u.id
     LOOP
@@ -34,7 +34,7 @@ BEGIN
             END IF;
             candidate := base || '_' || suffix;
             EXIT WHEN NOT EXISTS (
-                SELECT 1 FROM users WHERE LOWER(name) = LOWER(candidate)
+                SELECT 1 FROM users WHERE LOWER(name COLLATE "C") = LOWER(candidate COLLATE "C")
             );
             attempt := attempt + 1;
         END LOOP;
@@ -42,4 +42,4 @@ BEGIN
     END LOOP;
 END $$;
 
-CREATE UNIQUE INDEX users_name_lower_key ON users (LOWER(name));
+CREATE UNIQUE INDEX users_name_lower_key ON users (LOWER(name COLLATE "C"));

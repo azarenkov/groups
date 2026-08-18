@@ -691,31 +691,37 @@ const ChatView: React.FC<ChatViewProps> = ({
     const targetId = convId;
     const oldestLoadedAt = messagesRef.current[0]?.createdAt;
     (async () => {
-      try {
-        const acc: ChannelMessage[] = [];
-        let before: string | undefined;
-        while (!cancelled && convIdRef.current === targetId) {
-          const res = await messenger.listMessages({
-            limit: PAGE_LIMIT,
-            before,
-          });
-          const ordered = [...res.messages].reverse();
-          acc.unshift(...ordered);
-          if (
-            res.messages.length < PAGE_LIMIT ||
-            !oldestLoadedAt ||
-            (acc[0] && acc[0].createdAt <= oldestLoadedAt)
-          ) {
-            break;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const acc: ChannelMessage[] = [];
+          let before: string | undefined;
+          while (!cancelled && convIdRef.current === targetId) {
+            const res = await messenger.listMessages({
+              limit: PAGE_LIMIT,
+              before,
+            });
+            const ordered = [...res.messages].reverse();
+            acc.unshift(...ordered);
+            if (
+              res.messages.length < PAGE_LIMIT ||
+              !oldestLoadedAt ||
+              (acc[0] && acc[0].createdAt <= oldestLoadedAt)
+            ) {
+              break;
+            }
+            before = acc[0]?.id;
+            if (!before) break;
           }
-          before = acc[0]?.id;
-          if (!before) break;
-        }
-        if (cancelled || acc.length === 0 || convIdRef.current !== targetId) {
+          if (cancelled || acc.length === 0 || convIdRef.current !== targetId) {
+            return;
+          }
+          setMessages((prev) => mergeWithLive(acc, prev));
           return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          if (cancelled || convIdRef.current !== targetId) return;
         }
-        setMessages((prev) => mergeWithLive(acc, prev));
-      } catch {}
+      }
     })();
     return () => {
       cancelled = true;

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale\n            FROM users\n            WHERE LOWER(name) = LOWER($1)\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale\n            FROM users\n            WHERE LOWER(name COLLATE \"C\") = LOWER($1 COLLATE \"C\")\n            ",
   "describe": {
     "columns": [
       {
@@ -66,5 +66,5 @@
       false
     ]
   },
-  "hash": "828d0ed3b681c4036159fc869c5d819a51fd0a4ec96ede54cd4f47457340f0c8"
+  "hash": "23eec65cf7da0c748f136e1798982012193279a5ee8889effb2c492696895697"
 }
