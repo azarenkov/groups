@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
+    friendship::repository::FriendshipRepository,
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -71,10 +71,10 @@ where
     pub async fn execute(&self, user_id: UserId, name: &str) -> Result<String, RenameUserError> {
         let name = UserName::parse(name, &self.reserved_names)?;
 
-        if let Some(existing) = self.user_repository.find_by_name(&name).await? {
-            if existing.id_ownned() != user_id {
-                return Err(RenameUserError::NameTaken);
-            }
+        if let Some(existing) = self.user_repository.find_by_name(&name).await?
+            && existing.id_ownned() != user_id
+        {
+            return Err(RenameUserError::NameTaken);
         }
 
         match self.text_moderation.ensure_allowed(name.as_str()).await {
@@ -89,7 +89,7 @@ where
 
         let friends = self
             .friendship_repository
-            .list_for_user(&user_id, Some(FriendshipStatus::Accepted))
+            .list_for_user(&user_id, None)
             .await?;
         let mut recipients: Vec<UserId> = friends.iter().map(|f| f.friend_id).collect();
         recipients.push(user_id);

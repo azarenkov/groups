@@ -551,6 +551,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   const loadedChannelIdRef = React.useRef<string | null>(null);
   const currentChannelIdRef = React.useRef<string | undefined>();
   const convId = channel?.id ?? dm?.friendId;
+  const convIdRef = React.useRef(convId);
+  convIdRef.current = convId;
   currentChannelIdRef.current = convId;
 
   const isText = !!channel && !!serverId;
@@ -686,12 +688,13 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     if (nameSyncTick === 0 || !messenger || !convId) return;
     let cancelled = false;
+    const targetId = convId;
     const loadedCount = messagesLenRef.current;
     (async () => {
       try {
         const acc: ChannelMessage[] = [];
         let before: string | undefined;
-        while (!cancelled) {
+        while (!cancelled && convIdRef.current === targetId) {
           const res = await messenger.listMessages({
             limit: PAGE_LIMIT,
             before,
@@ -704,7 +707,9 @@ const ChatView: React.FC<ChatViewProps> = ({
           before = acc[0]?.id;
           if (!before) break;
         }
-        if (cancelled || acc.length === 0) return;
+        if (cancelled || acc.length === 0 || convIdRef.current !== targetId) {
+          return;
+        }
         setMessages((prev) => mergeWithLive(acc, prev));
       } catch {}
     })();
