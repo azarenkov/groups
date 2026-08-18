@@ -422,5 +422,7 @@ export function installWsBootstrap() {
   ws.on(dispatch);
   ws.onOpen(() => {
     void useCallStore.getState().rehydrate();
+    useUserNamesStore.getState().clear();
+    void useFriendshipStore.getState().fetchFriends();
   });
 }
