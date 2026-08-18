@@ -38,6 +38,7 @@ interface CallState {
   callAvailable: (peerId: string, callId: string) => void;
   clearJoinable: (peerId: string) => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
+  participantRenamed: (userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
   participantDeclined: (callId: string, userId: string) => void;
   callEnded: (callId: string) => void;
@@ -119,6 +120,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
         participants: { ...s.participants, [userId]: userName },
         ringing: without(s.ringing, userId),
       };
+    }),
+  participantRenamed: (userId, userName) =>
+    set((s) => {
+      if (!(userId in s.participants)) return s;
+      return { participants: { ...s.participants, [userId]: userName } };
     }),
   participantLeft: (callId, userId) =>
     set((s) => {

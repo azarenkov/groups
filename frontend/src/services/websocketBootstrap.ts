@@ -174,6 +174,7 @@ function dispatch(env: WsEnvelope) {
       if (newName) {
         useUserNamesStore.getState().setName(userId, newName);
         useVoicePresenceStore.getState().renameMember(userId, newName);
+        useCallStore.getState().participantRenamed(userId, newName);
       }
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
