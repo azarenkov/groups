@@ -172,7 +172,13 @@ function dispatch(env: WsEnvelope) {
       const newName = asString(d.name);
       if (!userId) return;
       if (newName) {
-        useUserNamesStore.getState().setName(userId, newName);
+        const occurredAt = asString(d.occurredAt);
+        const parsed = occurredAt ? Date.parse(occurredAt) : NaN;
+        const ts = Number.isNaN(parsed) ? Date.now() : parsed;
+        const applied = useUserNamesStore
+          .getState()
+          .applyRename(userId, newName, ts);
+        if (!applied) return;
         useVoicePresenceStore.getState().renameMember(userId, newName);
         useCallStore.getState().participantRenamed(userId, newName);
       }
