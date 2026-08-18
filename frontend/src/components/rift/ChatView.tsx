@@ -152,6 +152,8 @@ const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+  const messagesLenRef = React.useRef(0);
+  messagesLenRef.current = messages.length;
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
@@ -684,14 +686,28 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     if (nameSyncTick === 0 || !messenger || !convId) return;
     let cancelled = false;
-    messenger
-      .listMessages({ limit: PAGE_LIMIT })
-      .then((res) => {
-        if (cancelled) return;
-        const ordered = [...res.messages].reverse();
-        setMessages((prev) => mergeWithLive(ordered, prev));
-      })
-      .catch(() => {});
+    const loadedCount = messagesLenRef.current;
+    (async () => {
+      try {
+        const acc: ChannelMessage[] = [];
+        let before: string | undefined;
+        while (!cancelled) {
+          const res = await messenger.listMessages({
+            limit: PAGE_LIMIT,
+            before,
+          });
+          const ordered = [...res.messages].reverse();
+          acc.unshift(...ordered);
+          if (res.messages.length < PAGE_LIMIT || acc.length >= loadedCount) {
+            break;
+          }
+          before = acc[0]?.id;
+          if (!before) break;
+        }
+        if (cancelled || acc.length === 0) return;
+        setMessages((prev) => mergeWithLive(acc, prev));
+      } catch {}
+    })();
     return () => {
       cancelled = true;
     };
