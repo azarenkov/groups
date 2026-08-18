@@ -155,6 +155,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
+  const nameSyncTick = useUserNamesStore((s) => s.syncTick);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelledUploadsRef = React.useRef<Set<string>>(new Set());
   const pendingFilesRef = React.useRef<PendingFile[]>([]);
@@ -679,6 +680,23 @@ const ChatView: React.FC<ChatViewProps> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convId, isText, isDm]);
+
+  React.useEffect(() => {
+    if (nameSyncTick === 0 || !messenger || !convId) return;
+    let cancelled = false;
+    messenger
+      .listMessages({ limit: PAGE_LIMIT })
+      .then((res) => {
+        if (cancelled) return;
+        const ordered = [...res.messages].reverse();
+        setMessages((prev) => mergeWithLive(ordered, prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameSyncTick]);
 
   React.useEffect(() => {
     if (!bodyRef.current) return;

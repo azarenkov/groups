@@ -234,6 +234,17 @@ const ServersPage: React.FC = () => {
     [friends, onlineUsers, dmPreviews, user?.id, tSidebar],
   );
 
+  useEffect(() => {
+    if (!selectedDm) return;
+    const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
+    if (!fresh || fresh.name === selectedDm.name) return;
+    setSelectedDm((prev) =>
+      prev && prev.id === fresh.id
+        ? { ...prev, name: fresh.name, initials: fresh.initials }
+        : prev,
+    );
+  }, [acceptedFriends, selectedDm]);
+
   const pendingCount = React.useMemo(
     () =>
       friends.filter(

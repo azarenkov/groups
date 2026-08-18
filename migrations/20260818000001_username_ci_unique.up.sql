@@ -3,6 +3,8 @@ DROP INDEX IF EXISTS idx_users_name;
 DO $$
 DECLARE
     loser RECORD;
+    base TEXT;
+    suffix TEXT;
     candidate TEXT;
     attempt INT;
 BEGIN
@@ -19,11 +21,18 @@ BEGIN
         )
         ORDER BY u.id
     LOOP
+        base := btrim(regexp_replace(left(loser.name, 8), '_+', '_', 'g'), '_');
+        IF base = '' THEN
+            base := 'user';
+        END IF;
         attempt := 0;
         LOOP
-            candidate := left(loser.name, 40) || '_'
-                || substr(replace(loser.id::text, '-', ''), 1, 6)
-                || CASE WHEN attempt = 0 THEN '' ELSE '_' || attempt::text END;
+            IF attempt = 0 THEN
+                suffix := substr(replace(loser.id::text, '-', ''), 1, 6);
+            ELSE
+                suffix := substr(md5(loser.id::text || attempt::text), 1, 6);
+            END IF;
+            candidate := base || '_' || suffix;
             EXIT WHEN NOT EXISTS (
                 SELECT 1 FROM users WHERE LOWER(name) = LOWER(candidate)
             );

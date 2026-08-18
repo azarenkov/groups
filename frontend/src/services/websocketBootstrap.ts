@@ -423,6 +423,7 @@ export function installWsBootstrap() {
   ws.onOpen(() => {
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().clear();
+    useUserNamesStore.getState().bumpSyncTick();
     void useFriendshipStore.getState().fetchFriends();
   });
 }

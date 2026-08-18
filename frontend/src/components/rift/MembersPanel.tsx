@@ -16,6 +16,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
   const onlineUsers = usePresenceStore((s) => s.online);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
+  const syncTick = useUserNamesStore((s) => s.syncTick);
   const selfUserId = usePresenceStore((s) => s.selfUserId);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const [loading, setLoading] = useState(false);
@@ -61,7 +62,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
     return () => {
       cancelled = true;
     };
-  }, [serverId, channelId]);
+  }, [serverId, channelId, syncTick]);
 
   const orderedMembers = selfUserId
     ? [...members].sort((a, b) => {
