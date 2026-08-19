@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [http, outbox-worker, notification-service]
+        service: [identity-service, media-service, messaging-service, voice-service, realtime, outbox-worker, notification-service]
 
     steps:
       - name: Checkout Code

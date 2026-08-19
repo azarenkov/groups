@@ -51,6 +51,6 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /rift/target/release/realtime /usr/local/bin/http
+COPY --from=builder /rift/target/release/realtime /usr/local/bin/realtime
 ENTRYPOINT ["realtime"]
 EXPOSE 8083
