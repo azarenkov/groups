@@ -112,6 +112,7 @@ pub struct AppState {
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
     pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
     pub send_dm_message_usecase: SendDmMessage<

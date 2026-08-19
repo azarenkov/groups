@@ -2390,6 +2390,7 @@ impl ToHttpStatus for UpdateServerLogoError {
         match self {
             UpdateServerLogoError::ServerNotFound => StatusCode::NOT_FOUND,
             UpdateServerLogoError::NotOwner => StatusCode::FORBIDDEN,
+            UpdateServerLogoError::OwnerLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
             UpdateServerLogoError::Repository(e) => e.to_http_status(),
             UpdateServerLogoError::Storage(e) => e.to_http_status(),
             UpdateServerLogoError::Moderation(e) => e.to_http_status(),
@@ -2401,6 +2402,9 @@ impl ToHttpStatus for UpdateServerLogoError {
             UpdateServerLogoError::NotOwner => {
                 "Only the server owner can change the logo.".to_string()
             }
+            UpdateServerLogoError::OwnerLookup(_) => {
+                "Server ownership is temporarily unavailable. Try again later.".to_string()
+            }
             UpdateServerLogoError::Repository(e) => e.to_user_message(),
             UpdateServerLogoError::Storage(e) => e.to_user_message(),
             UpdateServerLogoError::Moderation(e) => e.to_user_message(),
@@ -2410,6 +2414,7 @@ impl ToHttpStatus for UpdateServerLogoError {
         match self {
             UpdateServerLogoError::ServerNotFound => "SERVER_NOT_FOUND",
             UpdateServerLogoError::NotOwner => "SERVER_NOT_OWNER",
+            UpdateServerLogoError::OwnerLookup(_) => "OWNER_LOOKUP_UNAVAILABLE",
             UpdateServerLogoError::Repository(e) => e.to_error_code(),
             UpdateServerLogoError::Storage(e) => e.to_error_code(),
             UpdateServerLogoError::Moderation(e) => e.to_error_code(),

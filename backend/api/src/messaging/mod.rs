@@ -4,6 +4,7 @@ pub mod calls;
 pub mod channel;
 pub mod dm;
 pub mod friendship;
+pub mod internal;
 pub mod presence;
 pub mod read_state;
 pub mod routes;

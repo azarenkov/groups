@@ -9,6 +9,7 @@ use crate::{
     ports::{
         file_storage::{FileStorage, FileStorageError},
         image_moderation::{ImageModeration, ImageModerationError},
+        server_owner_lookup::{ServerOwnerLookup, ServerOwnerLookupError},
     },
     usecases::user::update_avatar::cleanup_object,
 };
@@ -25,39 +26,46 @@ pub enum UpdateServerLogoError {
     ServerNotFound,
     #[error("Not the server owner")]
     NotOwner,
+    #[error("Owner lookup unavailable: {0}")]
+    OwnerLookup(#[from] ServerOwnerLookupError),
 }
 
-pub struct UpdateServerLogo<M, A, FS, IM>
+pub struct UpdateServerLogo<M, A, FS, IM, O>
 where
     M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
+    O: ServerOwnerLookup,
 {
     media_repository: Arc<M>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
     moderation: Arc<IM>,
+    owner_lookup: Arc<O>,
 }
 
-impl<M, A, FS, IM> UpdateServerLogo<M, A, FS, IM>
+impl<M, A, FS, IM, O> UpdateServerLogo<M, A, FS, IM, O>
 where
     M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
+    O: ServerOwnerLookup,
 {
     pub fn new(
         media_repository: Arc<M>,
         attachment_repository: Arc<A>,
         storage: Arc<FS>,
         moderation: Arc<IM>,
+        owner_lookup: Arc<O>,
     ) -> Self {
         Self {
             media_repository,
             attachment_repository,
             storage,
             moderation,
+            owner_lookup,
         }
     }
 
@@ -67,11 +75,24 @@ where
         requester_id: UserId,
         bytes: Option<Vec<u8>>,
     ) -> Result<(), UpdateServerLogoError> {
-        let owner = self
-            .media_repository
-            .get_server_owner(&server_id)
-            .await?
-            .ok_or(UpdateServerLogoError::ServerNotFound)?;
+        let owner = match self.media_repository.get_server_owner(&server_id).await? {
+            Some(owner) => owner,
+            None => {
+                let owner = self
+                    .owner_lookup
+                    .find_owner(&server_id)
+                    .await?
+                    .ok_or(UpdateServerLogoError::ServerNotFound)?;
+                if let Err(e) = self
+                    .media_repository
+                    .upsert_server_owner(&server_id, &owner)
+                    .await
+                {
+                    tracing::warn!(error = %e, "Failed to backfill server owner projection");
+                }
+                owner
+            }
+        };
         if owner != requester_id {
             return Err(UpdateServerLogoError::NotOwner);
         }

@@ -12,6 +12,7 @@ use crate::messaging::dm::{
     list_dm_messages, list_dm_previews, search_dm_messages, send_dm_message,
     send_server_invite,
 };
+use crate::messaging::internal::internal_routes;
 use crate::messaging::friendship::{
     accept_friend_request, list_friends, remove_friendship, send_friend_request,
 };
@@ -28,6 +29,7 @@ use crate::shared::health::{livez, readyz};
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(web::resource("/livez").to(livez))
         .service(web::resource("/readyz").to(readyz))
+        .configure(internal_routes)
         .service(
             web::scope("/api")
                 .configure(call_log_routes)

@@ -21,6 +21,7 @@ use infrastructure::{
             attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
         },
     },
+    media_client::owner_lookup::MessagingOwnerClient,
     moderation::nsfw_detector::NsfwDetector,
     storage::minio_storage::MinioStorage,
 };
@@ -102,6 +103,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         minio_storage.clone(),
     );
 
+    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let owner_lookup = Arc::new(MessagingOwnerClient::new(&messaging_internal_url));
     let nsfw_detector = Arc::new(NsfwDetector::new(&nsfw_config));
     let upload_semaphore = Arc::new(tokio::sync::Semaphore::new(8));
     let image_read_limiter = shared::rate_limiting::create_limiter("image-read", 60, 400)
@@ -140,6 +144,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_repository.clone(),
             minio_storage.clone(),
             nsfw_detector.clone(),
+            owner_lookup.clone(),
         ),
         get_server_logo_usecase: GetServerLogo::new(
             media_repository.clone(),

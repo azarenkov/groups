@@ -167,6 +167,20 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "server.memberJoined": {
+      const userId = asString(d.userId);
+      const userName = asString(d.userName);
+      if (!userId || !userName) return;
+      const applied = useUserNamesStore
+        .getState()
+        .applyRename(userId, userName, asString(d.occurredAt));
+      if (applied) {
+        useVoicePresenceStore.getState().renameMember(userId, userName);
+        useCallStore.getState().participantRenamed(userId, userName);
+      }
+      return;
+    }
+
     case "user.renamed": {
       const userId = asString(d.userId);
       const newName = asString(d.name);

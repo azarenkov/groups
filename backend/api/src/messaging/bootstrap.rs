@@ -220,6 +220,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
         ),
         log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
+        server_repository: server_repository.clone(),
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase: SendDmMessage::new(

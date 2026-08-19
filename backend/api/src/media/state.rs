@@ -10,6 +10,7 @@ use infrastructure::{
     database::postgres::repositories::{
         attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
     },
+    media_client::owner_lookup::MessagingOwnerClient,
     moderation::nsfw_detector::NsfwDetector,
     storage::minio_storage::MinioStorage,
 };
@@ -37,6 +38,7 @@ pub struct AppState {
         PostgresAttachmentRepository,
         MinioStorage,
         NsfwDetector,
+        MessagingOwnerClient,
     >,
     pub get_server_logo_usecase: GetServerLogo<PostgresMediaRepository, MinioStorage>,
 }
