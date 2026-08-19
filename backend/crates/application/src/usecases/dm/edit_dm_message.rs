@@ -96,23 +96,6 @@ where
         if add_ids.iter().any(|id| current_ids.contains(id)) {
             return Err(EditDmMessageError::InvalidAttachments);
         }
-        let added_attachments = if add_ids.is_empty() {
-            Vec::new()
-        } else {
-            match self
-                .attachment_claims
-                .claim(&request.add_attachment_ids, &editor_id)
-                .await
-            {
-                Ok(links) => links,
-                Err(AttachmentClaimError::Invalid) => {
-                    return Err(EditDmMessageError::InvalidAttachments);
-                }
-                Err(AttachmentClaimError::Unavailable(e)) => {
-                    return Err(EditDmMessageError::AttachmentsUnavailable(e));
-                }
-            }
-        };
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         if remaining > 10 {
             return Err(EditDmMessageError::InvalidAttachments);
@@ -132,6 +115,23 @@ where
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        let added_attachments = if add_ids.is_empty() {
+            Vec::new()
+        } else {
+            match self
+                .attachment_claims
+                .claim(&request.add_attachment_ids, &editor_id)
+                .await
+            {
+                Ok(links) => links,
+                Err(AttachmentClaimError::Invalid) => {
+                    return Err(EditDmMessageError::InvalidAttachments);
+                }
+                Err(AttachmentClaimError::Unavailable(e)) => {
+                    return Err(EditDmMessageError::AttachmentsUnavailable(e));
+                }
+            }
+        };
         let mut final_attachments: Vec<domain::attachment::AttachmentLink> = current
             .iter()
             .filter(|a| !remove_ids.contains(&a.id))

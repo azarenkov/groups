@@ -132,23 +132,6 @@ where
         if add_ids.iter().any(|id| current_ids.contains(id)) {
             return Err(EditChannelMessageError::InvalidAttachments);
         }
-        let added_attachments = if add_ids.is_empty() {
-            Vec::new()
-        } else {
-            match self
-                .attachment_claims
-                .claim(&request.add_attachment_ids, &editor_id)
-                .await
-            {
-                Ok(links) => links,
-                Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
-                    return Err(EditChannelMessageError::InvalidAttachments);
-                }
-                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
-                    return Err(EditChannelMessageError::AttachmentsUnavailable(e));
-                }
-            }
-        };
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         if remaining > 10 {
             return Err(EditChannelMessageError::InvalidAttachments);
@@ -175,6 +158,23 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+        let added_attachments = if add_ids.is_empty() {
+            Vec::new()
+        } else {
+            match self
+                .attachment_claims
+                .claim(&request.add_attachment_ids, &editor_id)
+                .await
+            {
+                Ok(links) => links,
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
+                    return Err(EditChannelMessageError::InvalidAttachments);
+                }
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    return Err(EditChannelMessageError::AttachmentsUnavailable(e));
+                }
+            }
+        };
         let mut final_attachments: Vec<domain::attachment::AttachmentLink> = current
             .iter()
             .filter(|a| !remove_ids.contains(&a.id))

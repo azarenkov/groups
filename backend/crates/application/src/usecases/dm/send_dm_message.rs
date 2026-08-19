@@ -86,6 +86,20 @@ where
         if request.attachment_ids.len() > 10 {
             return Err(SendDmMessageError::InvalidAttachments);
         }
+        let content = if request.attachment_ids.is_empty() {
+            MessageContent::new(request.content)?
+        } else {
+            MessageContent::new_allow_empty(request.content)?
+        };
+        let now = Utc::now();
+        let mut message = DmMessage::create(sender_id, recipient_id, content, now);
+        let request_id = request.ctx.request_id.clone();
+        let mut records: Vec<OutboxRecord> = message
+            .pull_events()
+            .iter()
+            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
+            .collect::<Result<_, _>>()?;
+
         let attachments = if request.attachment_ids.is_empty() {
             Vec::new()
         } else {
@@ -103,21 +117,6 @@ where
                 }
             }
         };
-
-        let content = if request.attachment_ids.is_empty() {
-            MessageContent::new(request.content)?
-        } else {
-            MessageContent::new_allow_empty(request.content)?
-        };
-        let now = Utc::now();
-        let mut message = DmMessage::create(sender_id, recipient_id, content, now);
-        let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-        let mut records = records;
         crate::usecases::enrichment::inject_field(
             &mut records,
             "attachments",

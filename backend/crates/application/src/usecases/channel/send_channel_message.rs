@@ -124,24 +124,6 @@ where
         if request.attachment_ids.len() > 10 {
             return Err(SendChannelMessageError::InvalidAttachments);
         }
-        let attachments = if request.attachment_ids.is_empty() {
-            Vec::new()
-        } else {
-            match self
-                .attachment_claims
-                .claim(&request.attachment_ids, &author_id)
-                .await
-            {
-                Ok(links) => links,
-                Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
-                    return Err(SendChannelMessageError::InvalidAttachments);
-                }
-                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
-                    return Err(SendChannelMessageError::AttachmentsUnavailable(e));
-                }
-            }
-        };
-
         let content = if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
         } else {
@@ -162,6 +144,24 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+
+        let attachments = if request.attachment_ids.is_empty() {
+            Vec::new()
+        } else {
+            match self
+                .attachment_claims
+                .claim(&request.attachment_ids, &author_id)
+                .await
+            {
+                Ok(links) => links,
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
+                    return Err(SendChannelMessageError::InvalidAttachments);
+                }
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    return Err(SendChannelMessageError::AttachmentsUnavailable(e));
+                }
+            }
+        };
         crate::usecases::enrichment::inject_field(
             &mut records,
             "attachments",

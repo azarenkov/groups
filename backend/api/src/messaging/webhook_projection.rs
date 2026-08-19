@@ -67,7 +67,7 @@ pub fn spawn<T>(
             let opts = SubscribeOptions {
                 consumer_name: "messaging-voice-webhooks".to_string(),
                 subject: format!("{prefix}.channel.>"),
-                start_position: StartPosition::New,
+                start_position: StartPosition::All,
                 max_deliver: Some(5),
                 dlq_subject: Some(format!("{prefix}.dlq.messaging.webhooks")),
             };

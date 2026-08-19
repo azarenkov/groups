@@ -29,7 +29,7 @@ pub fn spawn<P>(
             let opts = SubscribeOptions {
                 consumer_name: consumer_name.to_string(),
                 subject: format!("{prefix}.user.>"),
-                start_position: StartPosition::New,
+                start_position: StartPosition::All,
                 max_deliver: Some(5),
                 dlq_subject: Some(format!("{prefix}.dlq.{consumer_name}")),
             };

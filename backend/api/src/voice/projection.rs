@@ -44,7 +44,7 @@ pub fn spawn<P, E>(
             let opts = SubscribeOptions {
                 consumer_name: "voice-projections".to_string(),
                 subject: format!("{prefix}.user.>"),
-                start_position: StartPosition::New,
+                start_position: StartPosition::All,
                 max_deliver: Some(5),
                 dlq_subject: Some(format!("{prefix}.dlq.voice.projections")),
             };

@@ -40,7 +40,7 @@ pub fn spawn<M, FS>(
             let opts = SubscribeOptions {
                 consumer_name: "media-projection-server".to_string(),
                 subject: format!("{prefix}.server.>"),
-                start_position: StartPosition::New,
+                start_position: StartPosition::All,
                 max_deliver: Some(5),
                 dlq_subject: Some(format!("{prefix}.dlq.media.server")),
             };
