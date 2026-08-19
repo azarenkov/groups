@@ -19,4 +19,10 @@ pub trait AttachmentClaims {
     ) -> Result<Vec<AttachmentLink>, AttachmentClaimError>;
 
     async fn release(&self, ids: &[Uuid]) -> Result<(), AttachmentClaimError>;
+
+    async fn lookup_unclaimed(
+        &self,
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<AttachmentLink>, AttachmentClaimError>;
 }

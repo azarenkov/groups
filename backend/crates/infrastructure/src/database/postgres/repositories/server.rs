@@ -43,6 +43,28 @@ impl PostgresServerRepository {
     pub fn new(pool: Pool<Postgres>) -> Self {
         Self { pool }
     }
+
+    pub async fn has_user_messaging_state(
+        &self,
+        user_id: uuid::Uuid,
+    ) -> Result<bool, RepositoryError> {
+        let row: (bool,) = sqlx::query_as(
+            r#"
+            SELECT
+                EXISTS(SELECT 1 FROM servers WHERE owner_id = $1)
+                OR EXISTS(SELECT 1 FROM server_members WHERE user_id = $1)
+                OR EXISTS(SELECT 1 FROM friendships WHERE user_id = $1)
+                OR EXISTS(SELECT 1 FROM messages WHERE author_id = $1)
+                OR EXISTS(SELECT 1 FROM dm_messages WHERE sender_id = $1)
+                OR EXISTS(SELECT 1 FROM dm_messages WHERE recipient_id = $1)
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.0)
+    }
 }
 
 #[async_trait]

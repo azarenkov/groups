@@ -31,6 +31,7 @@ use crate::{
         oauth_verifier::{OAuthIdentity, OAuthIdentityVerifier, OAuthProvider, OAuthVerifyError},
         text_moderation::{TextModeration, TextModerationError},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
+        user_state_lookup::{UserStateLookup, UserStateLookupError},
     },
 };
 
@@ -58,6 +59,8 @@ pub enum GoogleLoginError {
     NameNotAllowed,
     #[error("Username moderation unavailable: {0}")]
     ModerationUnavailable(String),
+    #[error("User state lookup unavailable: {0}")]
+    StateLookupUnavailable(#[from] UserStateLookupError),
 }
 
 pub enum GoogleLoginOutcome {
@@ -65,7 +68,7 @@ pub enum GoogleLoginOutcome {
     NeedsUsername,
 }
 
-pub struct GoogleLogin<U, R, I, V, H, TM>
+pub struct GoogleLogin<U, R, I, V, H, TM, SL>
 where
     U: UserRepository,
     R: RefreshTokenRepository,
@@ -73,6 +76,7 @@ where
     V: OAuthIdentityVerifier,
     H: Hasher,
     TM: TextModeration,
+    SL: UserStateLookup,
 {
     user_repository: Arc<U>,
     refresh_token_repository: Arc<R>,
@@ -81,9 +85,10 @@ where
     hasher: Arc<H>,
     text_moderation: Arc<TM>,
     reserved_names: Arc<ReservedNames>,
+    user_state_lookup: Arc<SL>,
 }
 
-impl<U, R, I, V, H, TM> GoogleLogin<U, R, I, V, H, TM>
+impl<U, R, I, V, H, TM, SL> GoogleLogin<U, R, I, V, H, TM, SL>
 where
     U: UserRepository,
     R: RefreshTokenRepository,
@@ -91,7 +96,9 @@ where
     V: OAuthIdentityVerifier,
     H: Hasher,
     TM: TextModeration,
+    SL: UserStateLookup,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         user_repository: Arc<U>,
         refresh_token_repository: Arc<R>,
@@ -100,6 +107,7 @@ where
         hasher: Arc<H>,
         text_moderation: Arc<TM>,
         reserved_names: Arc<ReservedNames>,
+        user_state_lookup: Arc<SL>,
     ) -> Self {
         Self {
             user_repository,
@@ -109,6 +117,7 @@ where
             hasher,
             text_moderation,
             reserved_names,
+            user_state_lookup,
         }
     }
 
@@ -157,7 +166,11 @@ where
                         .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
                         .await?;
                 } else {
-                    if self.user_repository.has_inheritable_state(&user_id).await? {
+                    if self
+                        .user_state_lookup
+                        .has_messaging_state(&user_id)
+                        .await?
+                    {
                         return Err(GoogleLoginError::AccountConflict);
                     }
                     let random_secret = uuid::Uuid::new_v4().to_string();

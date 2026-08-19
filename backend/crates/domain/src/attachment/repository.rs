@@ -14,6 +14,12 @@ pub trait AttachmentRepository {
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError>;
 
+    async fn find_unclaimed_owned(
+        &self,
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<Attachment>, RepositoryError>;
+
     async fn claim_owned(
         &self,
         ids: &[Uuid],

@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{HttpResponse, Responder, get, post, web};
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
@@ -93,10 +93,42 @@ async fn release_attachments(
     Ok(HttpResponse::NoContent().finish())
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UnclaimedQuery {
+    owner_id: Uuid,
+}
+
+#[get("/attachments/{attachment_id}/unclaimed")]
+async fn unclaimed_attachment(
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    query: web::Query<UnclaimedQuery>,
+) -> Result<impl Responder, ApiError> {
+    let owner = UserId::new(query.owner_id);
+    match app_state
+        .attachment_repository
+        .find_unclaimed_owned(path.into_inner(), &owner)
+        .await
+        .map_err(ApiError::from)?
+    {
+        Some(a) => Ok(HttpResponse::Ok().json(ClaimedAttachment {
+            id: a.id,
+            file_name: a.file_name,
+            content_type: a.content_type,
+            size_bytes: a.size_bytes,
+            storage_key: a.storage_key,
+            created_at: a.created_at,
+        })),
+        None => Ok(HttpResponse::NotFound().finish()),
+    }
+}
+
 pub fn internal_routes(cfg: &mut actix_web::web::ServiceConfig) {
     cfg.service(
         web::scope("/internal")
             .service(claim_attachments)
-            .service(release_attachments),
+            .service(release_attachments)
+            .service(unclaimed_attachment),
     );
 }

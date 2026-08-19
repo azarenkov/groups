@@ -154,6 +154,7 @@ services:
       NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
       NSFW_THRESHOLD: ${NSFW_THRESHOLD:-0.8}
       RESERVED_USERNAMES: ${RESERVED_USERNAMES:-}
+      MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
     depends_on:
       postgres:
         condition: service_healthy

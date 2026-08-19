@@ -723,6 +723,7 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::InvalidName(_) => StatusCode::BAD_REQUEST,
             GoogleLoginError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
             GoogleLoginError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            GoogleLoginError::StateLookupUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -752,6 +753,9 @@ impl ToHttpStatus for GoogleLoginError {
             GoogleLoginError::ModerationUnavailable(_) => {
                 "Username moderation is temporarily unavailable. Try again later.".to_string()
             }
+            GoogleLoginError::StateLookupUnavailable(_) => {
+                "Account linking is temporarily unavailable. Try again later.".to_string()
+            }
         }
     }
 
@@ -775,6 +779,7 @@ impl ToHttpStatus for GoogleLoginError {
             | GoogleLoginError::NameNotAllowed => "NAME_NOT_ALLOWED",
             GoogleLoginError::InvalidName(_) => "NAME_INVALID_FORMAT",
             GoogleLoginError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
+            GoogleLoginError::StateLookupUnavailable(_) => "STATE_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -2450,6 +2455,7 @@ impl ToHttpStatus for GetAttachmentError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetAttachmentError::NotFound => StatusCode::NOT_FOUND,
+            GetAttachmentError::Claims(_) => StatusCode::SERVICE_UNAVAILABLE,
             GetAttachmentError::Storage(e) => e.to_http_status(),
             GetAttachmentError::Repository(e) => e.to_http_status(),
         }
@@ -2457,6 +2463,9 @@ impl ToHttpStatus for GetAttachmentError {
     fn to_user_message(&self) -> String {
         match self {
             GetAttachmentError::NotFound => "Attachment not found.".to_string(),
+            GetAttachmentError::Claims(_) => {
+                "Attachment service is temporarily unavailable. Try again later.".to_string()
+            }
             GetAttachmentError::Storage(e) => e.to_user_message(),
             GetAttachmentError::Repository(e) => e.to_user_message(),
         }
@@ -2464,6 +2473,7 @@ impl ToHttpStatus for GetAttachmentError {
     fn to_error_code(&self) -> &'static str {
         match self {
             GetAttachmentError::NotFound => "ATTACHMENT_NOT_FOUND",
+            GetAttachmentError::Claims(_) => "ATTACHMENTS_UNAVAILABLE",
             GetAttachmentError::Storage(e) => e.to_error_code(),
             GetAttachmentError::Repository(e) => e.to_error_code(),
         }

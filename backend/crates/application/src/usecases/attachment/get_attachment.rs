@@ -6,7 +6,10 @@ use domain::{
 };
 use uuid::Uuid;
 
-use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
+use crate::ports::{
+    attachment_claims::{AttachmentClaimError, AttachmentClaims},
+    file_storage::{ByteStream, FileStorage, FileStorageError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetAttachmentError {
@@ -16,18 +19,26 @@ pub enum GetAttachmentError {
     Storage(#[from] FileStorageError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("Attachment service unavailable: {0}")]
+    Claims(#[from] AttachmentClaimError),
 }
 
-pub struct GetAttachment<M: MessageRepository, S: FileStorage> {
+pub struct GetAttachment<M: MessageRepository, S: FileStorage, C: AttachmentClaims> {
     message_repository: Arc<M>,
     storage: Arc<S>,
+    attachment_claims: Arc<C>,
 }
 
-impl<M: MessageRepository, S: FileStorage> GetAttachment<M, S> {
-    pub fn new(message_repository: Arc<M>, storage: Arc<S>) -> Self {
+impl<M: MessageRepository, S: FileStorage, C: AttachmentClaims> GetAttachment<M, S, C> {
+    pub fn new(
+        message_repository: Arc<M>,
+        storage: Arc<S>,
+        attachment_claims: Arc<C>,
+    ) -> Self {
         Self {
             message_repository,
             storage,
+            attachment_claims,
         }
     }
 
@@ -36,11 +47,18 @@ impl<M: MessageRepository, S: FileStorage> GetAttachment<M, S> {
         attachment_id: Uuid,
         user_id: UserId,
     ) -> Result<(AttachmentLink, ByteStream), GetAttachmentError> {
-        let link = self
+        let link = match self
             .message_repository
             .find_attachment_for_user(attachment_id, &user_id)
             .await?
-            .ok_or(GetAttachmentError::NotFound)?;
+        {
+            Some(link) => link,
+            None => self
+                .attachment_claims
+                .lookup_unclaimed(attachment_id, &user_id)
+                .await?
+                .ok_or(GetAttachmentError::NotFound)?,
+        };
 
         let stream = self.storage.get_stream(&link.storage_key).await?;
         Ok((link, stream))

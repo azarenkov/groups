@@ -79,6 +79,37 @@ impl AttachmentClaims for MediaClaimsClient {
         }
     }
 
+    async fn lookup_unclaimed(
+        &self,
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<AttachmentLink>, AttachmentClaimError> {
+        let response = self
+            .client
+            .get(format!(
+                "{}/internal/attachments/{}/unclaimed?ownerId={}",
+                self.base_url,
+                id,
+                owner_id.uuid()
+            ))
+            .send()
+            .await
+            .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
+        match response.status().as_u16() {
+            200 => {
+                let dto: ClaimedAttachmentDto = response
+                    .json()
+                    .await
+                    .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
+                Ok(Some(AttachmentLink::from(dto)))
+            }
+            404 => Ok(None),
+            status => Err(AttachmentClaimError::Unavailable(format!(
+                "unclaimed lookup returned status {status}"
+            ))),
+        }
+    }
+
     async fn release(&self, ids: &[Uuid]) -> Result<(), AttachmentClaimError> {
         let response = self
             .client

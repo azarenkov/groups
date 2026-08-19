@@ -194,6 +194,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         get_attachment_usecase: GetAttachment::new(
             message_repository.clone(),
             minio_storage.clone(),
+            attachment_claims.clone(),
         ),
         send_friend_request_usecase: SendFriendRequest::new(
             friendship_repository.clone(),

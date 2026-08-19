@@ -96,7 +96,8 @@ pub struct AppState {
     >,
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
-    pub get_attachment_usecase: GetAttachment<PostgresMessageRepository, MinioStorage>,
+    pub get_attachment_usecase:
+        GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
     pub send_friend_request_usecase:
         SendFriendRequest<PostgresFriendshipRepository, PostgresUserProfileRepository>,
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipRepository>,

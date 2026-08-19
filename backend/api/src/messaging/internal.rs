@@ -31,6 +31,29 @@ async fn server_owner(
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StateResponse {
+    has_state: bool,
+}
+
+#[get("/users/{user_id}/has-state")]
+async fn user_has_state(
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, ApiError> {
+    let has_state = app_state
+        .server_repository
+        .has_user_messaging_state(path.into_inner())
+        .await
+        .map_err(ApiError::from)?;
+    Ok(HttpResponse::Ok().json(StateResponse { has_state }))
+}
+
 pub fn internal_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/internal").service(server_owner));
+    cfg.service(
+        web::scope("/internal")
+            .service(server_owner)
+            .service(user_has_state),
+    );
 }

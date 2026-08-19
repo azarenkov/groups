@@ -126,6 +126,38 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         }))
     }
 
+    async fn find_unclaimed_owned(
+        &self,
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<Attachment>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
+            FROM attachments
+            WHERE id = $1 AND owner_id = $2
+              AND claimed_at IS NULL AND deleting_at IS NULL
+            "#,
+            id,
+            owner_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.map(|r| {
+            row_to_attachment(
+                r.id,
+                r.owner_id,
+                r.file_name,
+                r.content_type,
+                r.size_bytes,
+                r.storage_key,
+                r.created_at,
+            )
+        }))
+    }
+
     async fn claim_owned(
         &self,
         ids: &[Uuid],

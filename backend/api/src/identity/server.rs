@@ -28,6 +28,7 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    media_client::user_state::MessagingStateClient,
     moderation::nsfw_detector::NsfwDetector,
 };
 use shared::{
@@ -69,6 +70,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         );
     }
     let google_token_verifier = Arc::new(GoogleIdTokenVerifier::new(google_audiences));
+    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let user_state_lookup = Arc::new(MessagingStateClient::new(&messaging_internal_url));
 
     let app_state = web::Data::new(AppState {
         register_user_usecase: RegisterUser::new(
@@ -97,6 +101,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             hasher.clone(),
             nsfw_detector.clone(),
             reserved_names.clone(),
+            user_state_lookup.clone(),
         ),
         confirm_registration_usecase: ConfirmRegistration::new(
             user_repository.clone(),

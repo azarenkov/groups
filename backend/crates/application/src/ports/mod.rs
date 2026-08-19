@@ -9,6 +9,7 @@ pub mod oauth_verifier;
 pub mod outbox_publisher;
 pub mod outbox_writer;
 pub mod server_owner_lookup;
+pub mod user_state_lookup;
 pub mod token_issuer;
 pub mod voice_service;
 pub mod voice_webhook_verifier;

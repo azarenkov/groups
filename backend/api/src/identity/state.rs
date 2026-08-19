@@ -16,6 +16,7 @@ use infrastructure::{
         verification_code::PostgresVerificationCodeRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    media_client::user_state::MessagingStateClient,
     moderation::nsfw_detector::NsfwDetector,
 };
 
@@ -40,6 +41,7 @@ pub struct AppState {
         GoogleIdTokenVerifier,
         BcryptHasher,
         NsfwDetector,
+        MessagingStateClient,
     >,
     pub confirm_registration_usecase: ConfirmRegistration<
         PostgresUserRepository,
