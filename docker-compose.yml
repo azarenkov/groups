@@ -147,6 +147,8 @@ services:
         required: false
       - path: env/http.env
         required: false
+      - path: env/identity-service.env
+        required: false
     environment:
       NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
       NSFW_THRESHOLD: ${NSFW_THRESHOLD:-0.8}
@@ -178,6 +180,8 @@ services:
       - path: env/nats.env
         required: false
       - path: env/http.env
+        required: false
+      - path: env/media-service.env
         required: false
     environment:
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
@@ -218,6 +222,8 @@ services:
         required: false
       - path: env/http.env
         required: false
+      - path: env/messaging-service.env
+        required: false
     environment:
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
@@ -257,6 +263,8 @@ services:
       - path: env/nats.env
         required: false
       - path: env/http.env
+        required: false
+      - path: env/voice-service.env
         required: false
     depends_on:
       postgres:
@@ -341,6 +349,8 @@ services:
       - path: env/nats.env
         required: false
       - path: env/http.env
+        required: false
+      - path: env/realtime.env
         required: false
       - path: env/websocket.env
         required: false

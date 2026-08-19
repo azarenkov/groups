@@ -24,9 +24,19 @@ pub struct PostgresConfig {
     idle_timeout_seconds: u64,
     #[serde(rename = "postgres_max_lifetime_seconds")]
     max_lifetime_seconds: u64,
+    #[serde(rename = "postgres_run_migrations", default = "default_run_migrations")]
+    run_migrations: bool,
+}
+
+fn default_run_migrations() -> bool {
+    true
 }
 
 impl PostgresConfig {
+    pub fn run_migrations(&self) -> bool {
+        self.run_migrations
+    }
+
     pub fn from_env() -> Result<Self, envy::Error> {
         dotenv::dotenv().ok();
         envy::from_env::<PostgresConfig>()
