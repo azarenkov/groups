@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
@@ -50,16 +51,24 @@ impl RecipientResolver {
         Ok(row.map(|r| r.get::<String, _>(0)))
     }
 
-    pub async fn upsert_user_name(&self, user_id: Uuid, name: &str) -> Result<(), sqlx::Error> {
+    pub async fn upsert_user_name(
+        &self,
+        user_id: Uuid,
+        name: &str,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            INSERT INTO realtime_user_names (user_id, name)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO UPDATE SET name = EXCLUDED.name
+            INSERT INTO realtime_user_names (user_id, name, updated_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id) DO UPDATE
+                SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at
+                WHERE realtime_user_names.updated_at <= EXCLUDED.updated_at
             "#,
         )
         .bind(user_id)
         .bind(name)
+        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())

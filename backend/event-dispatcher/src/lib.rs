@@ -12,12 +12,14 @@ mod config;
 mod consumer;
 mod dispatch;
 mod envelope;
+mod projection_catchup;
 mod publisher;
 mod recipients;
 
 use crate::{
     config::DispatcherConfig,
     consumer::{ConsumerSpec, run_consumer},
+    projection_catchup::{CatchupSpec, run_catchup},
     publisher::Publisher,
     recipients::RecipientResolver,
 };
@@ -71,6 +73,30 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let rx = shutdown_rx.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
             run_consumer(jetstream, spec, resolver, publisher, rx).await;
+        }));
+    }
+
+    let prefix = nats_cfg.subject_prefix.trim_end_matches('.').to_string();
+    let catchup_specs = vec![
+        CatchupSpec {
+            stream: cfg.dispatcher_user_stream.clone(),
+            consumer_name: format!("{}-projection-user", cfg.dispatcher_consumer_prefix),
+            filter_subject: format!("{prefix}.user.>"),
+            dlq_subject: format!("{prefix}.dlq.realtime.projection_user"),
+        },
+        CatchupSpec {
+            stream: cfg.dispatcher_server_stream.clone(),
+            consumer_name: format!("{}-projection-server", cfg.dispatcher_consumer_prefix),
+            filter_subject: format!("{prefix}.server.>"),
+            dlq_subject: format!("{prefix}.dlq.realtime.projection_server"),
+        },
+    ];
+    for spec in catchup_specs {
+        let jetstream = jetstream.clone();
+        let resolver = resolver.clone();
+        let rx = shutdown_rx.clone();
+        consumer_handles.push(actix_web::rt::spawn(async move {
+            run_catchup(jetstream, spec, resolver, rx).await;
         }));
     }
 

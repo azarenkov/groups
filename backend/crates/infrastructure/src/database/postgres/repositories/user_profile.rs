@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use domain::{
     shared::repository::error::RepositoryError, user::id::UserId,
     user_profile::UserProfileRepository,
@@ -54,17 +55,25 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         Ok(row.map(|r| UserId::new(r.get::<uuid::Uuid, _>(0))))
     }
 
-    async fn upsert_name(&self, user_id: &UserId, name: &str) -> Result<(), RepositoryError> {
+    async fn upsert_name(
+        &self,
+        user_id: &UserId,
+        name: &str,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError> {
         sqlx::query(&format!(
             r#"
-            INSERT INTO {} (user_id, name)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO UPDATE SET name = EXCLUDED.name
+            INSERT INTO {table} (user_id, name, updated_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id) DO UPDATE
+                SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at
+                WHERE {table}.updated_at <= EXCLUDED.updated_at
             "#,
-            self.table
+            table = self.table
         ))
         .bind(user_id.uuid())
         .bind(name)
+        .bind(occurred_at)
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;

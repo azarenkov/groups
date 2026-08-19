@@ -13,6 +13,7 @@ use uuid::Uuid;
 struct UserNameDto {
     user_id: Uuid,
     name: String,
+    occurred_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,7 +96,7 @@ where
         match serde_json::from_slice::<UserNameDto>(payload) {
             Ok(evt) => {
                 profiles
-                    .upsert_name(&UserId::new(evt.user_id), &evt.name)
+                    .upsert_name(&UserId::new(evt.user_id), &evt.name, evt.occurred_at)
                     .await?;
             }
             Err(e) => {

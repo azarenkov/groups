@@ -609,7 +609,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".user.renamed") {
         let evt: UserRenamedDto = serde_json::from_slice(payload)?;
-        resolver.upsert_user_name(evt.user_id, &evt.name).await?;
+        resolver.upsert_user_name(evt.user_id, &evt.name, evt.occurred_at).await?;
         let envelope = Envelope::new(
             "user.renamed",
             json!({
@@ -635,7 +635,9 @@ pub async fn dispatch(
         if event_type == "registered"
             && let Some(name) = &evt.name
         {
-            resolver.upsert_user_name(evt.user_id, name).await?;
+            resolver
+                .upsert_user_name(evt.user_id, name, evt.occurred_at)
+                .await?;
         }
         let envelope = Envelope::new(
             match event_type {
