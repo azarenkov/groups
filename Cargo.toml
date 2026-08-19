@@ -25,6 +25,7 @@ tracing-log = "0.2"
 actix-web = "4.13.0"
 actix-cors = "0.7.1"
 validator = { version = "0.21", features = ["derive"] }
+redis = { version = "0.32", features = ["tokio-comp", "connection-manager", "script"] }
 tokio = "1.50.0"
 async-nats = "0.46"
 rand = "0.10.1"

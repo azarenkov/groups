@@ -150,11 +150,14 @@ services:
       - path: env/identity-service.env
         required: false
     environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
       NSFW_THRESHOLD: ${NSFW_THRESHOLD:-0.8}
       RESERVED_USERNAMES: ${RESERVED_USERNAMES:-}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test:
@@ -184,6 +187,7 @@ services:
       - path: env/media-service.env
         required: false
     environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
@@ -192,6 +196,8 @@ services:
       NSFW_THRESHOLD: ${NSFW_THRESHOLD:-0.8}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -225,6 +231,7 @@ services:
       - path: env/messaging-service.env
         required: false
     environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
@@ -232,6 +239,8 @@ services:
       MEDIA_INTERNAL_URL: ${MEDIA_INTERNAL_URL:-http://media-service:8080}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       nats:
         condition: service_healthy
@@ -266,8 +275,12 @@ services:
         required: false
       - path: env/voice-service.env
         required: false
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       livekit:
         condition: service_healthy

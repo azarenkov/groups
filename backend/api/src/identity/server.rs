@@ -33,7 +33,7 @@ use infrastructure::{
 use shared::{
     health::Readiness,
     middleware::request_id::RequestIdMiddleware,
-    rate_limiting::{config::RateLimitingConfig, create_rate_limiter},
+    rate_limiting::config::RateLimitingConfig,
 };
 
 use crate::{config::ServerConfig, identity::routes, identity::state::AppState};
@@ -120,8 +120,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         trust_forwarded_headers: server_config.trust_forwarded_headers,
     });
 
-    let rate_limiter = create_rate_limiter(rate_limiting_config)
-        .ok_or("Failed to create rate limiter: invalid parameters")?;
+    let rate_limiter =
+        shared::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
+            .await
+            .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);
 
     let readiness = Readiness::builder()

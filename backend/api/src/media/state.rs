@@ -17,7 +17,7 @@ use infrastructure::{
 pub struct AppState {
     pub upload_attachment_usecase: UploadAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub upload_semaphore: std::sync::Arc<tokio::sync::Semaphore>,
-    pub image_read_limiter: std::sync::Arc<shared::rate_limiting::UserRateLimiter>,
+    pub image_read_limiter: shared::rate_limiting::KeyedRateLimiter,
     pub delete_attachment_usecase: DeleteAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub attachment_repository: std::sync::Arc<PostgresAttachmentRepository>,
     pub update_user_avatar_usecase: UpdateUserAvatar<

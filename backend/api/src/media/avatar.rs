@@ -150,8 +150,11 @@ async fn delete_my_avatar(
     Ok(HttpResponse::NoContent().finish())
 }
 
-fn check_image_read_limit(app_state: &AppState, requester: uuid::Uuid) -> Result<(), ApiError> {
-    if app_state.image_read_limiter.check_key(&requester).is_err() {
+async fn check_image_read_limit(
+    app_state: &AppState,
+    requester: uuid::Uuid,
+) -> Result<(), ApiError> {
+    if !app_state.image_read_limiter.check_key(&requester).await {
         return Err(ApiError::new(
             "Too many image requests. Slow down.".to_string(),
             actix_web::http::StatusCode::TOO_MANY_REQUESTS,
@@ -167,7 +170,7 @@ async fn get_user_avatar(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
-    check_image_read_limit(&app_state, auth_token.id)?;
+    check_image_read_limit(&app_state, auth_token.id).await?;
     let user_id = UserId::new(path.into_inner());
     let stream = app_state.get_user_avatar_usecase.execute(user_id).await?;
     Ok(image_response(stream))
@@ -211,7 +214,7 @@ async fn get_server_logo(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
-    check_image_read_limit(&app_state, auth_token.id)?;
+    check_image_read_limit(&app_state, auth_token.id).await?;
     let server_id = ServerId::new(path.into_inner());
     let stream = app_state.get_server_logo_usecase.execute(server_id).await?;
     Ok(image_response(stream))
