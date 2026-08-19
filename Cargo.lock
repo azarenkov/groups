@@ -304,6 +304,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "api"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-multipart",
+ "actix-web",
+ "application",
+ "async-nats",
+ "chrono",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "image",
+ "infrastructure",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+]
+
+[[package]]
 name = "application"
 version = "0.1.0"
 dependencies = [
@@ -1519,32 +1545,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "windows-link",
-]
-
-[[package]]
-name = "http"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-multipart",
- "actix-web",
- "application",
- "async-nats",
- "chrono",
- "domain",
- "dotenv",
- "envy",
- "futures",
- "image",
- "infrastructure",
- "serde",
- "serde_json",
- "shared",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
- "validator",
 ]
 
 [[package]]
@@ -3038,6 +3038,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "498cd0dc59d73224351ee52a95fee0f1a617a2eae0e7d9d720cc622c73a54186"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "realtime"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "event-dispatcher",
+ "shared",
+ "tokio",
+ "websocket",
 ]
 
 [[package]]

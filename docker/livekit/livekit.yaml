@@ -5,7 +5,7 @@ bind_addresses:
 webhook:
   api_key: rift-server
   urls:
-    - http://http:8080/api/webhook/livekit
+    - http://voice-service:8080/api/webhook/livekit
 
 room:
   auto_create: false

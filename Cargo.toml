@@ -5,8 +5,8 @@ members = [
     "backend/crates/application",
     "backend/crates/infrastructure",
     "backend/crates/shared",
-    "backend/http",
-    "backend/outbox-worker", "backend/notification-service", "backend/websocket", "backend/event-dispatcher", "backend/livekit-pooler"]
+    "backend/api",
+    "backend/outbox-worker", "backend/notification-service", "backend/websocket", "backend/event-dispatcher", "backend/realtime", "backend/livekit-pooler"]
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
