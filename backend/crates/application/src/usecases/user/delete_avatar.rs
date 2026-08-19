@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use domain::{
     attachment::repository::AttachmentRepository,
+    media::repository::MediaRepository,
     shared::repository::error::RepositoryError,
-    user::{id::UserId, repository::UserRepository},
+    user::id::UserId,
 };
 
 use crate::{
@@ -19,33 +20,33 @@ pub enum DeleteUserAvatarError {
     Storage(#[from] FileStorageError),
 }
 
-pub struct DeleteUserAvatar<U, A, FS>
+pub struct DeleteUserAvatar<M, A, FS>
 where
-    U: UserRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
 {
-    user_repository: Arc<U>,
+    media_repository: Arc<M>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
 }
 
-impl<U, A, FS> DeleteUserAvatar<U, A, FS>
+impl<M, A, FS> DeleteUserAvatar<M, A, FS>
 where
-    U: UserRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
 {
-    pub fn new(user_repository: Arc<U>, attachment_repository: Arc<A>, storage: Arc<FS>) -> Self {
+    pub fn new(media_repository: Arc<M>, attachment_repository: Arc<A>, storage: Arc<FS>) -> Self {
         Self {
-            user_repository,
+            media_repository,
             attachment_repository,
             storage,
         }
     }
 
     pub async fn execute(&self, user_id: UserId) -> Result<(), DeleteUserAvatarError> {
-        let old = self.user_repository.set_avatar_key(&user_id, None).await?;
+        let old = self.media_repository.set_user_avatar_key(&user_id, None).await?;
         if let Some(old_key) = old {
             cleanup_object(&*self.storage, &*self.attachment_repository, &old_key).await;
         }

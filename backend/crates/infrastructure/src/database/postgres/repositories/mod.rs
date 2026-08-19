@@ -3,6 +3,7 @@ pub mod call;
 pub mod channel;
 pub mod dm_message;
 pub mod friendship;
+pub mod media;
 pub mod message;
 pub mod outbox_record;
 pub mod read_state;

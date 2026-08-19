@@ -19,8 +19,7 @@ use infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            attachment::PostgresAttachmentRepository, server::PostgresServerRepository,
-            user::PostgresUserRepository,
+            attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
         },
     },
     moderation::nsfw_detector::NsfwDetector,
@@ -45,8 +44,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
 
-    let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
-    let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
+    let media_repository = Arc::new(PostgresMediaRepository::new(postgres_pool.clone()));
     let attachment_repository =
         Arc::new(PostgresAttachmentRepository::new(postgres_pool.clone()));
 
@@ -92,6 +90,19 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         });
     }
 
+    let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
+    let nats_jetstream =
+        infrastructure::messaging::nats::connection::create_jetstream(&nats_config).await?;
+    let server_stream = std::env::var("MEDIA_SERVER_STREAM")
+        .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
+    crate::media::projection::spawn(
+        nats_jetstream,
+        nats_config.subject_prefix.clone(),
+        server_stream,
+        media_repository.clone(),
+        minio_storage.clone(),
+    );
+
     let nsfw_detector = Arc::new(NsfwDetector::new(&nsfw_config));
     let upload_semaphore = Arc::new(tokio::sync::Semaphore::new(8));
     let image_read_limiter = shared::rate_limiting::create_keyed_limiter(60, 400)
@@ -116,28 +127,28 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_repository.clone(),
         ),
         update_user_avatar_usecase: UpdateUserAvatar::new(
-            user_repository.clone(),
+            media_repository.clone(),
             attachment_repository.clone(),
             minio_storage.clone(),
             nsfw_detector.clone(),
         ),
         delete_user_avatar_usecase: DeleteUserAvatar::new(
-            user_repository.clone(),
+            media_repository.clone(),
             attachment_repository.clone(),
             minio_storage.clone(),
         ),
         get_user_avatar_usecase: GetUserAvatar::new(
-            user_repository.clone(),
+            media_repository.clone(),
             minio_storage.clone(),
         ),
         update_server_logo_usecase: UpdateServerLogo::new(
-            server_repository.clone(),
+            media_repository.clone(),
             attachment_repository.clone(),
             minio_storage.clone(),
             nsfw_detector.clone(),
         ),
         get_server_logo_usecase: GetServerLogo::new(
-            server_repository.clone(),
+            media_repository.clone(),
             minio_storage.clone(),
         ),
     });

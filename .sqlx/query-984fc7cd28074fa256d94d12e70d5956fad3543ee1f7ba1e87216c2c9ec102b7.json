@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT logo_key FROM servers WHERE id = $1",
+  "query": "SELECT storage_key FROM media_server_logos WHERE server_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "logo_key",
+        "name": "storage_key",
         "type_info": "Text"
       }
     ],
@@ -15,8 +15,8 @@
       ]
     },
     "nullable": [
-      true
+      false
     ]
   },
-  "hash": "9246033213359bb811b0283b3448af2d438521597ff60dc9130fcf799733889d"
+  "hash": "984fc7cd28074fa256d94d12e70d5956fad3543ee1f7ba1e87216c2c9ec102b7"
 }

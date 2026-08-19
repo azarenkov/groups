@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use domain::{
-    shared::repository::error::RepositoryError,
-    user::{id::UserId, repository::UserRepository},
+    media::repository::MediaRepository, shared::repository::error::RepositoryError,
+    user::id::UserId,
 };
 
 use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
@@ -17,36 +17,32 @@ pub enum GetUserAvatarError {
     NotFound,
 }
 
-pub struct GetUserAvatar<U, FS>
+pub struct GetUserAvatar<M, FS>
 where
-    U: UserRepository,
+    M: MediaRepository,
     FS: FileStorage,
 {
-    user_repository: Arc<U>,
+    media_repository: Arc<M>,
     storage: Arc<FS>,
 }
 
-impl<U, FS> GetUserAvatar<U, FS>
+impl<M, FS> GetUserAvatar<M, FS>
 where
-    U: UserRepository,
+    M: MediaRepository,
     FS: FileStorage,
 {
-    pub fn new(user_repository: Arc<U>, storage: Arc<FS>) -> Self {
+    pub fn new(media_repository: Arc<M>, storage: Arc<FS>) -> Self {
         Self {
-            user_repository,
+            media_repository,
             storage,
         }
     }
 
     pub async fn execute(&self, user_id: UserId) -> Result<ByteStream, GetUserAvatarError> {
         let key = self
-            .user_repository
-            .get_avatar_key(&user_id)
-            .await
-            .map_err(|e| match e {
-                RepositoryError::NotFound => GetUserAvatarError::NotFound,
-                other => GetUserAvatarError::Repository(other),
-            })?
+            .media_repository
+            .get_user_avatar_key(&user_id)
+            .await?
             .ok_or(GetUserAvatarError::NotFound)?;
         self.storage.get_stream(&key).await.map_err(|e| match e {
             FileStorageError::NotFound => GetUserAvatarError::NotFound,

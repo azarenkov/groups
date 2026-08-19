@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
 use domain::{
-    attachment::repository::AttachmentRepository,
-    server::{id::ServerId, repository::ServerRepository},
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
+    attachment::repository::AttachmentRepository, media::repository::MediaRepository,
+    server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId,
 };
 
 use crate::{
@@ -29,34 +27,34 @@ pub enum UpdateServerLogoError {
     NotOwner,
 }
 
-pub struct UpdateServerLogo<S, A, FS, IM>
+pub struct UpdateServerLogo<M, A, FS, IM>
 where
-    S: ServerRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
 {
-    server_repository: Arc<S>,
+    media_repository: Arc<M>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
     moderation: Arc<IM>,
 }
 
-impl<S, A, FS, IM> UpdateServerLogo<S, A, FS, IM>
+impl<M, A, FS, IM> UpdateServerLogo<M, A, FS, IM>
 where
-    S: ServerRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
 {
     pub fn new(
-        server_repository: Arc<S>,
+        media_repository: Arc<M>,
         attachment_repository: Arc<A>,
         storage: Arc<FS>,
         moderation: Arc<IM>,
     ) -> Self {
         Self {
-            server_repository,
+            media_repository,
             attachment_repository,
             storage,
             moderation,
@@ -70,8 +68,8 @@ where
         bytes: Option<Vec<u8>>,
     ) -> Result<(), UpdateServerLogoError> {
         let owner = self
-            .server_repository
-            .find_server_owner(&server_id)
+            .media_repository
+            .get_server_owner(&server_id)
             .await?
             .ok_or(UpdateServerLogoError::ServerNotFound)?;
         if owner != requester_id {
@@ -89,8 +87,8 @@ where
         };
 
         let old = match self
-            .server_repository
-            .set_logo_key(&server_id, new_key.as_deref())
+            .media_repository
+            .set_server_logo_key(&server_id, new_key.as_deref())
             .await
         {
             Ok(old) => old,

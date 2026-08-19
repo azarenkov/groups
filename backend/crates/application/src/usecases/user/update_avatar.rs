@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use domain::{
     attachment::repository::AttachmentRepository,
+    media::repository::MediaRepository,
     shared::repository::error::RepositoryError,
-    user::{id::UserId, repository::UserRepository},
+    user::id::UserId,
 };
 
 use crate::ports::{
@@ -21,34 +22,34 @@ pub enum UpdateUserAvatarError {
     Moderation(#[from] ImageModerationError),
 }
 
-pub struct UpdateUserAvatar<U, A, FS, IM>
+pub struct UpdateUserAvatar<M, A, FS, IM>
 where
-    U: UserRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
 {
-    user_repository: Arc<U>,
+    media_repository: Arc<M>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
     moderation: Arc<IM>,
 }
 
-impl<U, A, FS, IM> UpdateUserAvatar<U, A, FS, IM>
+impl<M, A, FS, IM> UpdateUserAvatar<M, A, FS, IM>
 where
-    U: UserRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
 {
     pub fn new(
-        user_repository: Arc<U>,
+        media_repository: Arc<M>,
         attachment_repository: Arc<A>,
         storage: Arc<FS>,
         moderation: Arc<IM>,
     ) -> Self {
         Self {
-            user_repository,
+            media_repository,
             attachment_repository,
             storage,
             moderation,
@@ -64,7 +65,7 @@ where
         let key = format!("avatars/{}/{}.png", user_id.uuid(), uuid::Uuid::new_v4());
         self.storage.put(&key, "image/png", bytes).await?;
 
-        let old = match self.user_repository.set_avatar_key(&user_id, Some(&key)).await {
+        let old = match self.media_repository.set_user_avatar_key(&user_id, Some(&key)).await {
             Ok(old) => old,
             Err(e) => {
                 if let Err(qe) = self

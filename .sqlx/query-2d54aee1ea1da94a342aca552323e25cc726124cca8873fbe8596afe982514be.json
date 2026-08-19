@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH old AS (\n                    SELECT server_id, storage_key FROM media_server_logos\n                    WHERE server_id = $1 FOR UPDATE\n                ), ins AS (\n                    INSERT INTO media_server_logos (server_id, storage_key)\n                    VALUES ($1, $2)\n                    ON CONFLICT (server_id) DO UPDATE SET storage_key = EXCLUDED.storage_key\n                ), q AS (\n                    INSERT INTO storage_cleanup_queue (storage_key)\n                    SELECT storage_key FROM old\n                    WHERE storage_key IS DISTINCT FROM $2\n                    ON CONFLICT (storage_key) DO NOTHING\n                )\n                SELECT storage_key FROM old\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2d54aee1ea1da94a342aca552323e25cc726124cca8873fbe8596afe982514be"
+}

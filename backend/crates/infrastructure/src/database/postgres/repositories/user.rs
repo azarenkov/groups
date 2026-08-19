@@ -559,43 +559,4 @@ impl UserRepository for PostgresUserRepository {
         Ok(())
     }
 
-    async fn get_avatar_key(&self, user_id: &UserId) -> Result<Option<String>, RepositoryError> {
-        sqlx::query_scalar!(
-            r#"SELECT avatar_key FROM users WHERE id = $1"#,
-            user_id.uuid(),
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .ok_or(RepositoryError::NotFound)
-    }
-
-    async fn set_avatar_key(
-        &self,
-        user_id: &UserId,
-        key: Option<&str>,
-    ) -> Result<Option<String>, RepositoryError> {
-        sqlx::query_scalar!(
-            r#"
-            WITH old AS (
-                SELECT id, avatar_key FROM users WHERE id = $1 FOR UPDATE
-            ), upd AS (
-                UPDATE users SET avatar_key = $2, updated_at = now()
-                WHERE id IN (SELECT id FROM old)
-            ), q AS (
-                INSERT INTO storage_cleanup_queue (storage_key)
-                SELECT avatar_key FROM old
-                WHERE avatar_key IS NOT NULL AND avatar_key IS DISTINCT FROM $2
-                ON CONFLICT (storage_key) DO NOTHING
-            )
-            SELECT avatar_key FROM old
-            "#,
-            user_id.uuid(),
-            key,
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .ok_or(RepositoryError::NotFound)
-    }
 }

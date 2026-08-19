@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT avatar_key FROM users WHERE id = $1",
+  "query": "SELECT storage_key FROM media_user_avatars WHERE user_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "avatar_key",
+        "name": "storage_key",
         "type_info": "Text"
       }
     ],
@@ -15,8 +15,8 @@
       ]
     },
     "nullable": [
-      true
+      false
     ]
   },
-  "hash": "bdd75baeb613b5b2cfcf47eac5d73ac008045e808fd01841a678e03afc60bb91"
+  "hash": "7a5637e7c25774eb8a0649024d4548aaf067d73ee1b337f917d63c7973bc4eeb"
 }
