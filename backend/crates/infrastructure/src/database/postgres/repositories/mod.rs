@@ -10,4 +10,5 @@ pub mod read_state;
 pub mod refresh_token;
 pub mod server;
 pub mod user;
+pub mod user_profile;
 pub mod verification_code;

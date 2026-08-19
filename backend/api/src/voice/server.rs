@@ -24,7 +24,7 @@ use infrastructure::{
         repositories::{
             call::PostgresCallRepository, channel::PostgresChannelRepository,
             dm_message::PostgresDmMessageRepository,
-            friendship::PostgresFriendshipRepository, user::PostgresUserRepository,
+            friendship::PostgresFriendshipRepository, user_profile::PostgresUserProfileRepository,
         },
     },
     voice::{
@@ -53,10 +53,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let call_repository = Arc::new(PostgresCallRepository::new(postgres_pool.clone()));
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
-    let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
+    let user_repository = Arc::new(PostgresUserProfileRepository::voice(postgres_pool.clone()));
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
+
+    let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
+    let nats_jetstream =
+        infrastructure::messaging::nats::connection::create_jetstream(&nats_config).await?;
+    let user_stream = std::env::var("VOICE_USER_STREAM")
+        .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    crate::shared::user_projection::spawn(
+        nats_jetstream,
+        nats_config.subject_prefix.clone(),
+        user_stream,
+        "voice-user-profiles",
+        user_repository.clone(),
+    );
 
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));

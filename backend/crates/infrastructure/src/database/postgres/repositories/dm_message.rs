@@ -337,7 +337,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.call_status, m.call_duration_seconds,
                            m.created_at, m.edited_at
                     FROM dm_messages m
-                    INNER JOIN users u ON u.id = m.sender_id
+                    INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN servers s ON s.id = m.invite_server_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
@@ -381,7 +381,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.call_status, m.call_duration_seconds,
                            m.created_at, m.edited_at
                     FROM dm_messages m
-                    INNER JOIN users u ON u.id = m.sender_id
+                    INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN servers s ON s.id = m.invite_server_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
@@ -425,7 +425,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                        m.call_status, m.call_duration_seconds,
                        m.created_at, m.edited_at
                 FROM dm_messages m
-                INNER JOIN users u ON u.id = m.sender_id
+                INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                 LEFT JOIN servers s ON s.id = m.invite_server_id
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
@@ -492,7 +492,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    m.call_status, m.call_duration_seconds,
                    m.created_at, m.edited_at
             FROM dm_messages m
-            INNER JOIN users u ON u.id = m.sender_id
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             LEFT JOIN servers s ON s.id = m.invite_server_id
             WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)

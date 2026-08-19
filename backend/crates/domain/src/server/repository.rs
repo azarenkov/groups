@@ -9,7 +9,7 @@ use crate::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
-    user::{User, id::UserId},
+    user::{id::UserId, name::UserName},
 };
 
 #[async_trait]
@@ -29,7 +29,7 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<User>, RepositoryError>;
+    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError>;
     async fn find_member_ids_by_server_id(
         &self,
         server_id: &ServerId,

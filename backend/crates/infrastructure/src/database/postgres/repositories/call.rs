@@ -397,7 +397,7 @@ impl CallRepository for PostgresCallRepository {
             r#"
             SELECT p.user_id, u.name AS user_name
             FROM call_participants p
-            INNER JOIN users u ON u.id = p.user_id
+            INNER JOIN voice_user_profiles u ON u.user_id = p.user_id
             WHERE p.call_id = $1 AND p.status = 'joined'
             "#,
             call_id,

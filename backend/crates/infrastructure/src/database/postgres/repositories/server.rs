@@ -18,7 +18,7 @@ use domain::{
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, id::UserId},
+    user::{id::UserId, name::UserName},
 };
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
@@ -26,7 +26,7 @@ use uuid::Uuid;
 use crate::database::postgres::{
     dto::{
         channel::ChannelDto, kind::ChannelKindDto, muted_participant::MutedParticipantDto,
-        server::ServerDto, user::UserDto, visibility::ChannelVisibilityDto,
+        server::ServerDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
     repositories::{
@@ -154,7 +154,7 @@ impl ServerRepository for PostgresServerRepository {
         &self,
         server_id: &ServerId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<User>, RepositoryError> {
+    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError> {
         let total = sqlx::query!(
             r#"
                 SELECT COUNT(*) as "count!"
@@ -168,12 +168,11 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?
         .count;
 
-        let users = sqlx::query_as!(
-            UserDto,
+        let users = sqlx::query!(
             r#"
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale
-                FROM users u
-                INNER JOIN server_members sm ON sm.user_id = u.id
+                SELECT u.user_id, u.name
+                FROM messaging_user_profiles u
+                INNER JOIN server_members sm ON sm.user_id = u.user_id
                 WHERE sm.server_id = $1
                 ORDER BY sm.joined_at ASC
                 LIMIT $2 OFFSET $3
@@ -186,7 +185,10 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        let items = users.into_iter().map(|dto| dto.into()).collect();
+        let items = users
+            .into_iter()
+            .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+            .collect();
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
@@ -760,7 +762,7 @@ impl ServerRepository for PostgresServerRepository {
                 i.expires_at, i.created_at,
                 u.name AS "creator_name?"
             FROM server_invite_codes i
-            LEFT JOIN users u ON u.id = i.created_by
+            LEFT JOIN messaging_user_profiles u ON u.user_id = i.created_by
             WHERE i.server_id = $1
               AND i.revoked_at IS NULL
               AND (i.expires_at IS NULL OR i.expires_at > now())

@@ -270,7 +270,7 @@ impl FriendshipRepository for PostgresFriendshipRepository {
                         u.name AS friend_name,
                         f.created_at, f.updated_at
                     FROM friendships f
-                    INNER JOIN users u ON u.id = f.friend_id
+                    INNER JOIN messaging_user_profiles u ON u.user_id = f.friend_id
                     WHERE f.user_id = $1 AND f.status = $2
                     ORDER BY f.updated_at DESC
                     "#,
@@ -299,7 +299,7 @@ impl FriendshipRepository for PostgresFriendshipRepository {
                     u.name AS friend_name,
                     f.created_at, f.updated_at
                 FROM friendships f
-                INNER JOIN users u ON u.id = f.friend_id
+                INNER JOIN messaging_user_profiles u ON u.user_id = f.friend_id
                 WHERE f.user_id = $1
                 ORDER BY f.updated_at DESC
                 "#,

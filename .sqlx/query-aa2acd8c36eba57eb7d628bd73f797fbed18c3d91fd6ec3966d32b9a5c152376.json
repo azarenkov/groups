@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                i.code, i.server_id, i.created_by, i.max_uses, i.uses,\n                i.expires_at, i.created_at,\n                u.name AS \"creator_name?\"\n            FROM server_invite_codes i\n            LEFT JOIN users u ON u.id = i.created_by\n            WHERE i.server_id = $1\n              AND i.revoked_at IS NULL\n              AND (i.expires_at IS NULL OR i.expires_at > now())\n              AND (i.max_uses IS NULL OR i.uses < i.max_uses)\n            ORDER BY i.created_at DESC\n            ",
+  "query": "\n            SELECT\n                i.code, i.server_id, i.created_by, i.max_uses, i.uses,\n                i.expires_at, i.created_at,\n                u.name AS \"creator_name?\"\n            FROM server_invite_codes i\n            LEFT JOIN messaging_user_profiles u ON u.user_id = i.created_by\n            WHERE i.server_id = $1\n              AND i.revoked_at IS NULL\n              AND (i.expires_at IS NULL OR i.expires_at > now())\n              AND (i.max_uses IS NULL OR i.uses < i.max_uses)\n            ORDER BY i.created_at DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -41,7 +41,7 @@
       {
         "ordinal": 7,
         "name": "creator_name?",
-        "type_info": "Varchar"
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -60,5 +60,5 @@
       false
     ]
   },
-  "hash": "b266449c51c3b2d822865ee63255145a0caa39d42f76409354d422949f12867c"
+  "hash": "aa2acd8c36eba57eb7d628bd73f797fbed18c3d91fd6ec3966d32b9a5c152376"
 }

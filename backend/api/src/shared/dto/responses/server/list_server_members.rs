@@ -1,4 +1,4 @@
-use domain::user::User;
+use domain::user::{id::UserId, name::UserName};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -9,7 +9,7 @@ pub struct ListServerMembersResponse {
 }
 
 impl ListServerMembersResponse {
-    pub fn new(users: Vec<User>) -> Self {
+    pub fn new(users: Vec<(UserId, UserName)>) -> Self {
         Self {
             members: users.into_iter().map(MemberResponse::from).collect(),
         }
@@ -23,11 +23,11 @@ pub struct MemberResponse {
     pub name: String,
 }
 
-impl From<User> for MemberResponse {
-    fn from(value: User) -> Self {
+impl From<(UserId, UserName)> for MemberResponse {
+    fn from((id, name): (UserId, UserName)) -> Self {
         Self {
-            id: value.id().uuid(),
-            name: value.name().as_str().to_string(),
+            id: id.uuid(),
+            name: name.as_str().to_string(),
         }
     }
 }

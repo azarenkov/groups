@@ -48,7 +48,7 @@ use infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
-            user::PostgresUserRepository,
+            user_profile::PostgresUserProfileRepository,
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
@@ -80,7 +80,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let message_repository = Arc::new(PostgresMessageRepository::new(postgres_pool.clone()));
-    let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
+    let user_repository = Arc::new(PostgresUserProfileRepository::messaging(postgres_pool.clone()));
     let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
@@ -96,6 +96,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
+
+    let user_stream = std::env::var("MESSAGING_USER_STREAM")
+        .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    crate::shared::user_projection::spawn(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        user_stream,
+        "messaging-user-profiles",
+        user_repository.clone(),
+    );
 
     let nats_core = nats_jetstream.client().clone();
     let presence_preference_subject = format!(

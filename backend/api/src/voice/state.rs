@@ -11,7 +11,7 @@ use infrastructure::{
     database::postgres::repositories::{
         call::PostgresCallRepository, channel::PostgresChannelRepository,
         dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
-        user::PostgresUserRepository,
+        user_profile::PostgresUserProfileRepository,
     },
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
@@ -21,19 +21,19 @@ pub struct AppState {
         PostgresCallRepository,
         LiveKitService,
         PostgresFriendshipRepository,
-        PostgresUserRepository,
+        PostgresUserProfileRepository,
     >,
     pub accept_call_usecase:
-        AcceptCall<PostgresCallRepository, LiveKitService, PostgresUserRepository>,
+        AcceptCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
     pub decline_call_usecase: DeclineCall<PostgresCallRepository>,
     pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
     pub add_call_participants_usecase:
         AddCallParticipants<PostgresCallRepository, PostgresFriendshipRepository>,
     pub get_active_call_usecase:
-        GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserRepository>,
+        GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
     pub get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,
     pub join_call_usecase:
-        JoinCall<PostgresCallRepository, LiveKitService, PostgresUserRepository>,
+        JoinCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
     pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub handle_livekit_webhook_usecase: HandleVoiceWebhook<
         LiveKitWebhookReceiver,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,\n                       m.content, m.created_at, m.edited_at\n                FROM messages m\n                INNER JOIN users u ON u.id = m.author_id\n                WHERE m.channel_id = $1\n                ORDER BY m.created_at DESC, m.id DESC\n                LIMIT $2\n                ",
+  "query": "\n                    SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,\n                           m.content, m.created_at, m.edited_at\n                    FROM messages m\n                    INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id\n                    WHERE m.channel_id = $1\n                      AND (m.created_at, m.id) > ($2, $3)\n                    ORDER BY m.created_at ASC, m.id ASC\n                    LIMIT $4\n                    ",
   "describe": {
     "columns": [
       {
@@ -21,7 +21,7 @@
       {
         "ordinal": 3,
         "name": "author_name",
-        "type_info": "Varchar"
+        "type_info": "Text"
       },
       {
         "ordinal": 4,
@@ -42,6 +42,8 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Timestamptz",
+        "Uuid",
         "Int8"
       ]
     },
@@ -55,5 +57,5 @@
       true
     ]
   },
-  "hash": "c3fbd2dbc36effd971b3ec3416c3acff04a5762234779e01ddf656b96a6bd1cf"
+  "hash": "abd20693b6885ac4cff85e8325f592f50e41de1f895955c38e4a2dd91b24e572"
 }

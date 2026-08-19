@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,\n                   m.content, m.created_at, m.edited_at\n            FROM messages m\n            INNER JOIN users u ON u.id = m.author_id\n            WHERE m.channel_id = $1\n              AND m.search_tsv @@ plainto_tsquery('simple', $2)\n            ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,\n                     m.created_at DESC, m.id DESC\n            LIMIT $3 OFFSET $4\n            ",
+  "query": "\n            SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,\n                   m.content, m.created_at, m.edited_at\n            FROM messages m\n            INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id\n            WHERE m.channel_id = $1\n              AND m.search_tsv @@ plainto_tsquery('simple', $2)\n            ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,\n                     m.created_at DESC, m.id DESC\n            LIMIT $3 OFFSET $4\n            ",
   "describe": {
     "columns": [
       {
@@ -21,7 +21,7 @@
       {
         "ordinal": 3,
         "name": "author_name",
-        "type_info": "Varchar"
+        "type_info": "Text"
       },
       {
         "ordinal": 4,
@@ -57,5 +57,5 @@
       true
     ]
   },
-  "hash": "ba618988d50b26e4f23b4aa1b1e85315214972d814e4ad4a12965c5cf11bd653"
+  "hash": "472d90c6717b144cd15dd9eb7bbd88ecad5598574006ac5e0990e414e2d1994a"
 }

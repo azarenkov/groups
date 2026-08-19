@@ -1,4 +1,4 @@
-use domain::user::User;
+use domain::user::{id::UserId, name::UserName};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -7,11 +7,11 @@ pub struct ChannelParticipantDto {
     pub name: String,
 }
 
-impl From<User> for ChannelParticipantDto {
-    fn from(user: User) -> Self {
+impl From<(UserId, UserName)> for ChannelParticipantDto {
+    fn from((id, name): (UserId, UserName)) -> Self {
         Self {
-            id: user.id().uuid(),
-            name: user.name().as_str().to_string(),
+            id: id.uuid(),
+            name: name.as_str().to_string(),
         }
     }
 }

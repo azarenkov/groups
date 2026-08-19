@@ -40,7 +40,7 @@ use infrastructure::{
         attachment::PostgresAttachmentRepository, channel::PostgresChannelRepository,
         dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
         message::PostgresMessageRepository, read_state::PostgresReadStateRepository,
-        server::PostgresServerRepository, user::PostgresUserRepository,
+        server::PostgresServerRepository, user_profile::PostgresUserProfileRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     storage::minio_storage::MinioStorage,
@@ -53,11 +53,11 @@ pub struct AppState {
     pub join_voice_channel_usecase: JoinVoiceChannel<
         LiveKitService,
         PostgresChannelRepository,
-        PostgresUserRepository,
+        PostgresUserProfileRepository,
         BcryptHasher,
     >,
-    pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserRepository>,
-    pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserRepository>,
+    pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
+    pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
     pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
     pub list_channel_participants_usecase:
         ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
@@ -95,7 +95,7 @@ pub struct AppState {
     >,
     pub list_message_attachments_usecase: ListMessageAttachments<PostgresAttachmentRepository>,
     pub send_friend_request_usecase:
-        SendFriendRequest<PostgresFriendshipRepository, PostgresUserRepository>,
+        SendFriendRequest<PostgresFriendshipRepository, PostgresUserProfileRepository>,
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipRepository>,
     pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,

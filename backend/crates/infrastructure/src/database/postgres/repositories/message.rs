@@ -333,7 +333,7 @@ impl MessageRepository for PostgresMessageRepository {
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
                            m.content, m.created_at, m.edited_at
                     FROM messages m
-                    INNER JOIN users u ON u.id = m.author_id
+                    INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) < ($2, $3)
                     ORDER BY m.created_at DESC, m.id DESC
@@ -356,7 +356,7 @@ impl MessageRepository for PostgresMessageRepository {
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
                            m.content, m.created_at, m.edited_at
                     FROM messages m
-                    INNER JOIN users u ON u.id = m.author_id
+                    INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) > ($2, $3)
                     ORDER BY m.created_at ASC, m.id ASC
@@ -379,7 +379,7 @@ impl MessageRepository for PostgresMessageRepository {
                 SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
                        m.content, m.created_at, m.edited_at
                 FROM messages m
-                INNER JOIN users u ON u.id = m.author_id
+                INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
                 ORDER BY m.created_at DESC, m.id DESC
                 LIMIT $2
@@ -422,7 +422,7 @@ impl MessageRepository for PostgresMessageRepository {
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
                    m.content, m.created_at, m.edited_at
             FROM messages m
-            INNER JOIN users u ON u.id = m.author_id
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
               AND m.search_tsv @@ plainto_tsquery('simple', $2)
             ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,

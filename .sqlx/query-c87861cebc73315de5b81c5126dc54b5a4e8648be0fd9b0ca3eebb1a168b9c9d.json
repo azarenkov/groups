@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT p.user_id, u.name AS user_name\n            FROM call_participants p\n            INNER JOIN users u ON u.id = p.user_id\n            WHERE p.call_id = $1 AND p.status = 'joined'\n            ",
+  "query": "\n            SELECT p.user_id, u.name AS user_name\n            FROM call_participants p\n            INNER JOIN voice_user_profiles u ON u.user_id = p.user_id\n            WHERE p.call_id = $1 AND p.status = 'joined'\n            ",
   "describe": {
     "columns": [
       {
@@ -11,7 +11,7 @@
       {
         "ordinal": 1,
         "name": "user_name",
-        "type_info": "Varchar"
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "18b461ad9f7815a2fcca6bfe30ca362281ffc4315bd5f0f39cedead13a87267b"
+  "hash": "c87861cebc73315de5b81c5126dc54b5a4e8648be0fd9b0ca3eebb1a168b9c9d"
 }

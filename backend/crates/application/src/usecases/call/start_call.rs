@@ -7,7 +7,7 @@ use domain::{
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     server::id::ServerId,
     shared::repository::error::RepositoryError,
-    user::{id::UserId, repository::UserRepository},
+    user::{id::UserId},
 };
 use uuid::Uuid;
 
@@ -42,7 +42,7 @@ where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipRepository,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
@@ -55,7 +55,7 @@ where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipRepository,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     pub fn new(
         call_repository: Arc<C>,
@@ -99,11 +99,12 @@ where
             return Err(StartCallError::NoRecipients);
         }
 
-        let caller = self
-            .user_repository
-            .find_by_id(&caller_id)
-            .await?
-            .ok_or(StartCallError::UserNotFound)?;
+        let caller_name = domain::user::name::UserName::new(
+            self.user_repository
+                .get_name(&caller_id)
+                .await?
+                .ok_or(StartCallError::UserNotFound)?,
+        );
 
         let call_id = Uuid::new_v4();
         let room = ChannelId::new(call_id);
@@ -113,12 +114,12 @@ where
 
         let token = self
             .voice_service
-            .create_token(&caller_id, caller.name(), &room)
+            .create_token(&caller_id, &caller_name, &room)
             .await?;
 
         let participants = vec![CallParticipantView {
             user_id: UserId::new(caller_id.uuid()),
-            user_name: caller.name().as_str().to_string(),
+            user_name: caller_name.as_str().to_string(),
         }];
 
         self.call_repository
