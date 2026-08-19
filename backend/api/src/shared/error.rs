@@ -2049,6 +2049,7 @@ impl ToHttpStatus for LeaveServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LeaveServerError::Repository(e) => e.to_http_status(),
+            LeaveServerError::Outbox(e) => e.to_http_status(),
             LeaveServerError::NotMember => StatusCode::NOT_FOUND,
             LeaveServerError::OwnerCannotLeave => StatusCode::CONFLICT,
         }
@@ -2056,6 +2057,7 @@ impl ToHttpStatus for LeaveServerError {
     fn to_user_message(&self) -> String {
         match self {
             LeaveServerError::Repository(e) => e.to_user_message(),
+            LeaveServerError::Outbox(e) => e.to_user_message(),
             LeaveServerError::NotMember => {
                 "You are not a member of this server".to_string()
             }
@@ -2067,6 +2069,7 @@ impl ToHttpStatus for LeaveServerError {
     fn to_error_code(&self) -> &'static str {
         match self {
             LeaveServerError::Repository(e) => e.to_error_code(),
+            LeaveServerError::Outbox(e) => e.to_error_code(),
             LeaveServerError::NotMember => "SERVER_NOT_MEMBER",
             LeaveServerError::OwnerCannotLeave => "SERVER_OWNER_CANNOT_LEAVE",
         }

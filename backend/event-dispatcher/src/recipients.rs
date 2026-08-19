@@ -12,19 +12,27 @@ impl RecipientResolver {
     }
 
     pub async fn server_members(&self, server_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query("SELECT user_id FROM server_members WHERE server_id = $1")
-            .bind(server_id)
-            .fetch_all(&self.pool)
-            .await?;
+        let rows =
+            sqlx::query("SELECT user_id FROM realtime_server_members WHERE server_id = $1")
+                .bind(server_id)
+                .fetch_all(&self.pool)
+                .await?;
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    pub async fn shared_server_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+    pub async fn friends_and_server_peers(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
+            SELECT friend_id AS user_id
+            FROM realtime_friend_edges
+            WHERE user_id = $1
+            UNION
             SELECT DISTINCT sm2.user_id
-            FROM server_members sm1
-            JOIN server_members sm2 ON sm2.server_id = sm1.server_id
+            FROM realtime_server_members sm1
+            INNER JOIN realtime_server_members sm2 ON sm2.server_id = sm1.server_id
             WHERE sm1.user_id = $1 AND sm2.user_id <> $1
             "#,
         )
@@ -34,122 +42,98 @@ impl RecipientResolver {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    pub async fn text_channel_recipients(
-        &self,
-        channel_id: Uuid,
-    ) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query(
-            "SELECT user_id FROM channel_text_participants WHERE channel_id = $1",
-        )
-        .bind(channel_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
-    }
-
     pub async fn user_name(&self, user_id: Uuid) -> Result<Option<String>, sqlx::Error> {
-        let row = sqlx::query("SELECT name FROM users WHERE id = $1")
+        let row = sqlx::query("SELECT name FROM realtime_user_names WHERE user_id = $1")
             .bind(user_id)
             .fetch_optional(&self.pool)
             .await?;
         Ok(row.map(|r| r.get::<String, _>(0)))
     }
 
-    pub async fn dm_call_for(
-        &self,
-        message_id: Uuid,
-    ) -> Result<Option<(String, Option<i32>)>, sqlx::Error> {
-        let row = sqlx::query(
+    pub async fn upsert_user_name(&self, user_id: Uuid, name: &str) -> Result<(), sqlx::Error> {
+        sqlx::query(
             r#"
-            SELECT call_status, call_duration_seconds
-            FROM dm_messages
-            WHERE id = $1
+            INSERT INTO realtime_user_names (user_id, name)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id) DO UPDATE SET name = EXCLUDED.name
             "#,
         )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
+        .bind(user_id)
+        .bind(name)
+        .execute(&self.pool)
         .await?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let status: Option<String> = row.get(0);
-        let duration: Option<i32> = row.get(1);
-        Ok(status.map(|s| (s, duration)))
+        Ok(())
     }
 
-    pub async fn dm_invite_for(
-        &self,
-        message_id: Uuid,
-    ) -> Result<Option<(Uuid, String)>, sqlx::Error> {
-        let row = sqlx::query(
+    pub async fn add_friend_edge(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
             r#"
-            SELECT m.invite_server_id, s.name
-            FROM dm_messages m
-            LEFT JOIN servers s ON s.id = m.invite_server_id
-            WHERE m.id = $1
+            INSERT INTO realtime_friend_edges (user_id, friend_id)
+            VALUES ($1, $2), ($2, $1)
+            ON CONFLICT DO NOTHING
             "#,
         )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
+        .bind(a)
+        .bind(b)
+        .execute(&self.pool)
         .await?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let server_id: Option<Uuid> = row.get(0);
-        let server_name: Option<String> = row.get(1);
-        Ok(match (server_id, server_name) {
-            (Some(id), Some(name)) => Some((id, name)),
-            _ => None,
-        })
+        Ok(())
     }
 
-    pub async fn attachments_for_message(
-        &self,
-        message_id: Uuid,
-        dm: bool,
-    ) -> Result<Vec<serde_json::Value>, sqlx::Error> {
-        let column = if dm { "dm_message_id" } else { "message_id" };
-        let rows = sqlx::query(&format!(
-            "SELECT id, file_name, content_type, size_bytes FROM attachments WHERE {column} = $1 ORDER BY created_at ASC"
-        ))
-        .bind(message_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows
-            .into_iter()
-            .map(|r| {
-                serde_json::json!({
-                    "id": r.get::<Uuid, _>(0),
-                    "fileName": r.get::<String, _>(1),
-                    "contentType": r.get::<String, _>(2),
-                    "sizeBytes": r.get::<i64, _>(3),
-                })
-            })
-            .collect())
-    }
-
-    pub async fn dm_recipient_for(
-        &self,
-        message_id: Uuid,
-        sender_id: Uuid,
-    ) -> Result<Option<Uuid>, sqlx::Error> {
-        let row = sqlx::query(
-            "SELECT sender_id, recipient_id FROM dm_messages WHERE id = $1",
+    pub async fn remove_friend_edge(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            DELETE FROM realtime_friend_edges
+            WHERE (user_id = $1 AND friend_id = $2)
+               OR (user_id = $2 AND friend_id = $1)
+            "#,
         )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
+        .bind(a)
+        .bind(b)
+        .execute(&self.pool)
         .await?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let s: Uuid = row.get(0);
-        let r: Uuid = row.get(1);
-        if s == sender_id {
-            Ok(Some(r))
-        } else if r == sender_id {
-            Ok(Some(s))
-        } else {
-            Ok(Some(r))
-        }
+        Ok(())
+    }
+
+    pub async fn add_server_member(
+        &self,
+        server_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_server_members (server_id, user_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(server_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn remove_server_member(
+        &self,
+        server_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "DELETE FROM realtime_server_members WHERE server_id = $1 AND user_id = $2",
+        )
+        .bind(server_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn remove_server(&self, server_id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query("DELETE FROM realtime_server_members WHERE server_id = $1")
+            .bind(server_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 }

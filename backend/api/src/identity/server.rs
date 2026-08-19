@@ -23,7 +23,6 @@ use infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            friendship::PostgresFriendshipRepository,
             refresh_token::PostgresRefreshTokenRepository, user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
         },
@@ -57,8 +56,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     ));
     let refresh_token_repository =
         Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
-    let friendship_repository =
-        Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
     let token_issuer = Arc::new(JwtTokenIssuer::new(server_config.jwt_secret.clone()));
@@ -117,7 +114,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         update_user_locale_usecase: UpdateUserLocale::new(user_repository.clone()),
         rename_user_usecase: RenameUser::new(
             user_repository.clone(),
-            friendship_repository.clone(),
             nsfw_detector.clone(),
             reserved_names.clone(),
         ),

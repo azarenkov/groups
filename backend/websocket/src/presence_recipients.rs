@@ -11,8 +11,6 @@ impl PresenceRecipientResolver {
         Self { pool }
     }
 
-    /// Returns the set of user_ids that should learn about presence changes for
-    /// the given user: accepted friends + members of any server they share.
     pub async fn interested_in(
         &self,
         user_id: Uuid,
@@ -21,12 +19,12 @@ impl PresenceRecipientResolver {
             r#"
             SELECT user_id FROM (
                 SELECT friend_id AS user_id
-                FROM friendships
-                WHERE user_id = $1 AND status = 'accepted'
+                FROM realtime_friend_edges
+                WHERE user_id = $1
                 UNION
                 SELECT DISTINCT sm2.user_id AS user_id
-                FROM server_members sm1
-                INNER JOIN server_members sm2 ON sm2.server_id = sm1.server_id
+                FROM realtime_server_members sm1
+                INNER JOIN realtime_server_members sm2 ON sm2.server_id = sm1.server_id
                 WHERE sm1.user_id = $1 AND sm2.user_id <> $1
             ) AS interested
             "#,

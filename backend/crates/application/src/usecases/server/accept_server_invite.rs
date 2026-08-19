@@ -70,11 +70,19 @@ where
         message.record_invite_deleted(Utc::now());
 
         let request_id = ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = message
+        let mut records: Vec<OutboxRecord> = message
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        let member_event = domain::server::events::ServerEvent::MemberJoined(
+            domain::server::events::lifecycle::ServerMemberJoined::record(
+                server_id,
+                requester_id,
+                Utc::now(),
+            ),
+        );
+        records.push(member_event.to_outbox_record_with_request_id(request_id.clone())?);
 
         self.server_repository
             .accept_invite(&message_id, &server_id, &requester_id, &records)

@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 
+use domain::shared::outbox::to_outbox::ToOutboxRecord;
 use domain::{
     channel::{
         Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
@@ -430,6 +431,7 @@ impl ServerRepository for PostgresServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
@@ -544,6 +546,7 @@ impl ServerRepository for PostgresServerRepository {
             ));
         }
         save_outbox_records(&mut tx, &viewer_events).await?;
+        save_outbox_records(&mut tx, events).await?;
 
         sqlx::query!(
             r#"
@@ -876,6 +879,18 @@ impl ServerRepository for PostgresServerRepository {
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+            let member_event = domain::server::events::ServerEvent::MemberJoined(
+                domain::server::events::lifecycle::ServerMemberJoined::record(
+                    ServerId::new(invite.server_id),
+                    UserId::new(user_id.uuid()),
+                    chrono::Utc::now(),
+                ),
+            );
+            let record = member_event
+                .to_outbox_record()
+                .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
+            save_outbox_records(&mut tx, &[record]).await?;
         }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;

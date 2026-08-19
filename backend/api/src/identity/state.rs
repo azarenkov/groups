@@ -12,7 +12,6 @@ use application::usecases::{
 use infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::repositories::{
-        friendship::PostgresFriendshipRepository,
         refresh_token::PostgresRefreshTokenRepository, user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
     },
@@ -53,7 +52,6 @@ pub struct AppState {
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
-    pub rename_user_usecase:
-        RenameUser<PostgresUserRepository, PostgresFriendshipRepository, NsfwDetector>,
+    pub rename_user_usecase: RenameUser<PostgresUserRepository, NsfwDetector>,
     pub trust_forwarded_headers: bool,
 }

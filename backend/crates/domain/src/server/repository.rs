@@ -50,6 +50,7 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
     async fn delete_server_by_owner_with_events(
         &self,

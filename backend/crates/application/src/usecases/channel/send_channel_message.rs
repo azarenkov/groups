@@ -158,6 +158,11 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "attachments",
+            crate::usecases::enrichment::attachments_value(&attachments),
+        );
 
         self.message_repository
             .save_message_with_events(&message, &records, &request.attachment_ids)

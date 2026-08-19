@@ -124,11 +124,21 @@ where
         }
 
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = channel
+        let mut records: Vec<OutboxRecord> = channel
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        let mut recipient_ids = self
+            .channel_repository
+            .list_text_channel_member_ids(&channel_id)
+            .await?;
+        recipient_ids.push(requester_id);
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "recipient_ids",
+            crate::usecases::enrichment::recipient_ids_value(&recipient_ids),
+        );
 
         self.channel_repository
             .join_text_with_events(&channel, &requester_id, &records)

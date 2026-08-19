@@ -110,6 +110,12 @@ where
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        let mut records = records;
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "attachments",
+            crate::usecases::enrichment::attachments_value(&attachments),
+        );
         self.dm_repository
             .save_with_events(&message, &records, &request.attachment_ids)
             .await?;

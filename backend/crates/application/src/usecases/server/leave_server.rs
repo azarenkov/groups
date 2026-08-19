@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use domain::shared::outbox::to_outbox::ToOutboxRecord;
+
 use domain::{
     channel::repository::ChannelRepository,
     server::{id::ServerId, repository::ServerRepository},
@@ -11,6 +13,8 @@ use crate::ports::voice_service::VoiceService;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LeaveServerError {
+    #[error("Outbox error: {0}")]
+    Outbox(#[from] domain::shared::outbox::to_outbox::OutboxError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("You are not a member of this server")]
@@ -63,9 +67,17 @@ where
             .list_voice_channel_ids_by_server(&server_id)
             .await?;
 
+        let member_event = domain::server::events::ServerEvent::MemberLeft(
+            domain::server::events::lifecycle::ServerMemberLeft::record(
+                server_id,
+                user_id,
+                chrono::Utc::now(),
+            ),
+        );
+        let member_records = vec![member_event.to_outbox_record()?];
         let removed = self
             .server_repository
-            .remove_server_member(&server_id, &user_id)
+            .remove_server_member(&server_id, &user_id, &member_records)
             .await?;
         if !removed {
             return Err(LeaveServerError::NotMember);

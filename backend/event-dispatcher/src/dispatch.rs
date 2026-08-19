@@ -29,10 +29,7 @@ pub async fn dispatch(
 ) -> Result<(), DispatchError> {
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
-        let invite = resolver.dm_invite_for(evt.message_id).await?;
-        let call = resolver.dm_call_for(evt.message_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
-        let attachments = resolver.attachments_for_message(evt.message_id, true).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
             json!({
@@ -42,11 +39,11 @@ pub async fn dispatch(
                 "recipientId": evt.recipient_id,
                 "content": evt.content,
                 "occurredAt": evt.occurred_at,
-                "inviteServerId": invite.as_ref().map(|i| i.0),
-                "inviteServerName": invite.as_ref().map(|i| i.1.clone()),
-                "callStatus": call.as_ref().map(|c| c.0.clone()),
-                "callDurationSeconds": call.as_ref().and_then(|c| c.1),
-                "attachments": attachments,
+                "inviteServerId": evt.invite_server_id,
+                "inviteServerName": evt.invite_server_name,
+                "callStatus": evt.call_status,
+                "callDurationSeconds": evt.call_duration_seconds,
+                "attachments": evt.attachments.unwrap_or_else(|| json!([])),
             }),
         );
         publisher
@@ -58,10 +55,9 @@ pub async fn dispatch(
     if ends_with(subject, ".dm_message.edited") {
         let evt: DmEdited = serde_json::from_slice(payload)?;
         let mut recipients: Vec<Uuid> = vec![evt.sender_id];
-        if let Some(rid) = resolver.dm_recipient_for(evt.message_id, evt.sender_id).await? {
+        if let Some(rid) = evt.recipient_id {
             recipients.push(rid);
         }
-        let attachments = resolver.attachments_for_message(evt.message_id, true).await?;
         let envelope = Envelope::new(
             "dm_message.edited",
             json!({
@@ -69,7 +65,7 @@ pub async fn dispatch(
                 "senderId": evt.sender_id,
                 "newContent": evt.new_content,
                 "occurredAt": evt.occurred_at,
-                "attachments": attachments,
+                "attachments": evt.attachments.unwrap_or_else(|| json!([])),
             }),
         );
         publisher.publish_to_users(unique(recipients), &envelope).await?;
@@ -126,13 +122,9 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.sent") {
         let evt: ChannelMsgSent = serde_json::from_slice(payload)?;
-        let recipients = if !evt.recipient_ids.is_empty() {
-            evt.recipient_ids.clone()
-        } else {
-            resolver.text_channel_recipients(evt.channel_id).await?
-        };
+        let recipients = evt.recipient_ids.clone();
         let author_name = resolver.user_name(evt.author_id).await?;
-        let attachments = resolver.attachments_for_message(evt.message_id, false).await?;
+        let attachments = evt.attachments.clone().unwrap_or_else(|| json!([]));
         let envelope = Envelope::new(
             "message.sent",
             json!({
@@ -151,12 +143,8 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.edited") {
         let evt: ChannelMsgEdited = serde_json::from_slice(payload)?;
-        let recipients = if !evt.recipient_ids.is_empty() {
-            evt.recipient_ids.clone()
-        } else {
-            resolver.text_channel_recipients(evt.channel_id).await?
-        };
-        let attachments = resolver.attachments_for_message(evt.message_id, false).await?;
+        let recipients = evt.recipient_ids.clone();
+        let attachments = evt.attachments.clone().unwrap_or_else(|| json!([]));
         let envelope = Envelope::new(
             "message.edited",
             json!({
@@ -173,11 +161,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".message.deleted") {
         let evt: ChannelMsgDeleted = serde_json::from_slice(payload)?;
-        let recipients = if !evt.recipient_ids.is_empty() {
-            evt.recipient_ids.clone()
-        } else {
-            resolver.text_channel_recipients(evt.channel_id).await?
-        };
+        let recipients = evt.recipient_ids.clone();
         let envelope = Envelope::new(
             "message.deleted",
             json!({
@@ -376,7 +360,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".channel.text.joined") {
         let evt: TextJoinedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.text_channel_recipients(evt.channel_id).await?;
+        let recipients = evt.recipient_ids.clone();
         let envelope = Envelope::new(
             "channel.text.joined",
             json!({
@@ -392,6 +376,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".server.created") {
         let evt: ServerCreatedDto = serde_json::from_slice(payload)?;
+        resolver.add_server_member(evt.server_id, evt.owner_id).await?;
         let envelope = Envelope::new(
             "server.created",
             json!({
@@ -440,6 +425,40 @@ pub async fn dispatch(
         publisher
             .publish_to_users(unique(recipients), &envelope)
             .await?;
+        resolver.remove_server(evt.server_id).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".server.member_joined") {
+        let evt: ServerMemberDto = serde_json::from_slice(payload)?;
+        resolver.add_server_member(evt.server_id, evt.user_id).await?;
+        let recipients = resolver.server_members(evt.server_id).await?;
+        let envelope = Envelope::new(
+            "server.memberJoined",
+            json!({
+                "serverId": evt.server_id,
+                "userId": evt.user_id,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".server.member_left") {
+        let evt: ServerMemberDto = serde_json::from_slice(payload)?;
+        let mut recipients = resolver.server_members(evt.server_id).await?;
+        recipients.push(evt.user_id);
+        resolver.remove_server_member(evt.server_id, evt.user_id).await?;
+        let envelope = Envelope::new(
+            "server.memberLeft",
+            json!({
+                "serverId": evt.server_id,
+                "userId": evt.user_id,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
     }
 
@@ -554,6 +573,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".user.request_accepted") {
         let evt: FriendRequestAcceptedDto = serde_json::from_slice(payload)?;
+        resolver.add_friend_edge(evt.accepter_id, evt.sender_id).await?;
         let envelope = Envelope::new(
             "friendship.requestAccepted",
             json!({
@@ -570,6 +590,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".user.removed") {
         let evt: FriendshipRemovedDto = serde_json::from_slice(payload)?;
+        resolver.remove_friend_edge(evt.user_id, evt.other_id).await?;
         let envelope = Envelope::new(
             "friendship.removed",
             json!({
@@ -586,6 +607,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".user.renamed") {
         let evt: UserRenamedDto = serde_json::from_slice(payload)?;
+        resolver.upsert_user_name(evt.user_id, &evt.name).await?;
         let envelope = Envelope::new(
             "user.renamed",
             json!({
@@ -594,9 +616,9 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        let peers = resolver.shared_server_peers(evt.user_id).await?;
-        let recipients = unique(evt.recipients.into_iter().chain(peers));
-        publisher.publish_to_users(recipients, &envelope).await?;
+        let mut recipients = resolver.friends_and_server_peers(evt.user_id).await?;
+        recipients.push(evt.user_id);
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
     }
 
@@ -608,6 +630,11 @@ pub async fn dispatch(
     {
         let evt: UserLifecycleDto = serde_json::from_slice(payload)?;
         let event_type = subject.rsplit('.').next().unwrap_or("event");
+        if event_type == "registered"
+            && let Some(name) = &evt.name
+        {
+            resolver.upsert_user_name(evt.user_id, name).await?;
+        }
         let envelope = Envelope::new(
             match event_type {
                 "registered" => "user.registered",
@@ -653,6 +680,16 @@ struct DmSent {
     recipient_id: Uuid,
     content: Value,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    invite_server_id: Option<Uuid>,
+    #[serde(default)]
+    invite_server_name: Option<String>,
+    #[serde(default)]
+    call_status: Option<String>,
+    #[serde(default)]
+    call_duration_seconds: Option<i32>,
+    #[serde(default)]
+    attachments: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -661,6 +698,10 @@ struct DmEdited {
     sender_id: Uuid,
     new_content: Value,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    recipient_id: Option<Uuid>,
+    #[serde(default)]
+    attachments: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -695,6 +736,8 @@ struct ChannelMsgSent {
     occurred_at: DateTime<Utc>,
     #[serde(default)]
     recipient_ids: Vec<Uuid>,
+    #[serde(default)]
+    attachments: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -705,6 +748,8 @@ struct ChannelMsgEdited {
     occurred_at: DateTime<Utc>,
     #[serde(default)]
     recipient_ids: Vec<Uuid>,
+    #[serde(default)]
+    attachments: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -814,6 +859,15 @@ struct TextJoinedDto {
     server_id: Uuid,
     user_id: Uuid,
     joined_at: DateTime<Utc>,
+    #[serde(default)]
+    recipient_ids: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
+struct ServerMemberDto {
+    server_id: Uuid,
+    user_id: Uuid,
+    occurred_at: DateTime<Utc>,
 }
 
 #[derive(Deserialize)]
@@ -875,7 +929,6 @@ struct FriendshipRemovedDto {
 struct UserRenamedDto {
     user_id: Uuid,
     name: String,
-    recipients: Vec<Uuid>,
     occurred_at: DateTime<Utc>,
 }
 
@@ -883,4 +936,6 @@ struct UserRenamedDto {
 struct UserLifecycleDto {
     user_id: Uuid,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    name: Option<String>,
 }

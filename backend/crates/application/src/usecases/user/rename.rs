@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -36,33 +35,28 @@ pub enum RenameUserError {
     ModerationUnavailable(String),
 }
 
-pub struct RenameUser<U, F, TM>
+pub struct RenameUser<U, TM>
 where
     U: UserRepository,
-    F: FriendshipRepository,
     TM: TextModeration,
 {
     user_repository: Arc<U>,
-    friendship_repository: Arc<F>,
     text_moderation: Arc<TM>,
     reserved_names: Arc<ReservedNames>,
 }
 
-impl<U, F, TM> RenameUser<U, F, TM>
+impl<U, TM> RenameUser<U, TM>
 where
     U: UserRepository,
-    F: FriendshipRepository,
     TM: TextModeration,
 {
     pub fn new(
         user_repository: Arc<U>,
-        friendship_repository: Arc<F>,
         text_moderation: Arc<TM>,
         reserved_names: Arc<ReservedNames>,
     ) -> Self {
         Self {
             user_repository,
-            friendship_repository,
             text_moderation,
             reserved_names,
         }
@@ -87,23 +81,7 @@ where
             }
         }
 
-        let friends = self
-            .friendship_repository
-            .list_for_user(&user_id, None)
-            .await?;
-        let mut recipients: Vec<UserId> = friends
-            .iter()
-            .filter(|f| f.status != FriendshipStatus::Declined)
-            .map(|f| f.friend_id)
-            .collect();
-        recipients.push(user_id);
-
-        let event = UserEvent::Renamed(UserRenamed::record(
-            user_id,
-            name.clone(),
-            recipients,
-            Utc::now(),
-        ));
+        let event = UserEvent::Renamed(UserRenamed::record(user_id, name.clone(), Utc::now()));
         let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
 
         match self

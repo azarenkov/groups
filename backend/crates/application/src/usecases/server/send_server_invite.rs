@@ -119,11 +119,21 @@ where
             DmMessage::create_server_invite(sender_id, friend_id, server_id, content, now);
 
         let request_id = ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = message
+        let mut records: Vec<OutboxRecord> = message
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "invite_server_id",
+            serde_json::json!(server_id.uuid()),
+        );
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "invite_server_name",
+            serde_json::json!(server_name.clone()),
+        );
         match self
             .dm_repository
             .save_with_events(&message, &records, &[])

@@ -95,7 +95,9 @@ where
         if add_ids.iter().any(|id| current_ids.contains(id)) {
             return Err(EditDmMessageError::InvalidAttachments);
         }
-        if !add_ids.is_empty() {
+        let added_attachments = if add_ids.is_empty() {
+            Vec::new()
+        } else {
             let owned = self
                 .attachment_repository
                 .list_unlinked_owned(&request.add_attachment_ids, &editor_id)
@@ -103,7 +105,8 @@ where
             if owned.len() != add_ids.len() {
                 return Err(EditDmMessageError::InvalidAttachments);
             }
-        }
+            owned
+        };
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         if remaining > 10 {
             return Err(EditDmMessageError::InvalidAttachments);
@@ -118,11 +121,28 @@ where
         let now = Utc::now();
         message.edit_with_options(new_content, editor_id, now, attachments_changed)?;
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = message
+        let mut records: Vec<OutboxRecord> = message
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        let mut final_attachments: Vec<domain::attachment::Attachment> = current
+            .iter()
+            .filter(|a| !remove_ids.contains(&a.id))
+            .cloned()
+            .collect();
+        final_attachments.extend(added_attachments);
+        final_attachments.sort_by_key(|a| a.created_at);
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "attachments",
+            crate::usecases::enrichment::attachments_value(&final_attachments),
+        );
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "recipient_id",
+            serde_json::json!(message.recipient_id().uuid()),
+        );
         let removed_keys = self
             .dm_repository
             .update_with_events(
