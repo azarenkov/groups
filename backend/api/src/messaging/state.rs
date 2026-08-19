@@ -1,5 +1,6 @@
 use application::usecases::{
     attachment::list_message_attachments::ListMessageAttachments,
+    call::log_call::LogCall,
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         delete_channel_message::DeleteChannelMessage,
@@ -108,6 +109,7 @@ pub struct AppState {
         GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
+    pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
     pub send_dm_message_usecase: SendDmMessage<

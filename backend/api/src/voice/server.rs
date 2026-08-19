@@ -7,13 +7,7 @@ use application::usecases::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
         decline_call::DeclineCall, get_active_call::GetActiveCall,
         get_active_call_with::GetActiveCallWith, join_call::JoinCall, leave_call::LeaveCall,
-        log_call::LogCall, start_call::StartCall,
-    },
-    channel::{
-        abort_voice_connection::AbortVoiceConnection,
-        join_voice_connection::JoinVoiceConnection,
-        leave_voice_connection::LeaveVoiceConnection,
-        track_media_connection::TrackMediaConnection,
+        start_call::StartCall,
     },
     webhook::voice::HandleVoiceWebhook,
 };
@@ -22,9 +16,9 @@ use infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            call::PostgresCallRepository, channel::PostgresChannelRepository,
-            dm_message::PostgresDmMessageRepository,
-            friendship::PostgresFriendshipRepository, user_profile::PostgresUserProfileRepository,
+            call::PostgresCallRepository, friend_edges::PostgresFriendEdgeRepository,
+            outbox_writer::PostgresOutboxWriter,
+            user_profile::PostgresUserProfileRepository,
         },
     },
     voice::{
@@ -52,32 +46,26 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_url = livekit_config.url().to_string();
 
     let call_repository = Arc::new(PostgresCallRepository::new(postgres_pool.clone()));
-    let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
+    let outbox_writer = Arc::new(PostgresOutboxWriter::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserProfileRepository::voice(postgres_pool.clone()));
     let friendship_repository =
-        Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
-    let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
+        Arc::new(PostgresFriendEdgeRepository::voice(postgres_pool.clone()));
 
     let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
         infrastructure::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let user_stream = std::env::var("VOICE_USER_STREAM")
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
-    crate::shared::user_projection::spawn(
+    crate::voice::projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),
         user_stream,
-        "voice-user-profiles",
         user_repository.clone(),
+        friendship_repository.clone(),
     );
 
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
-
-    let join_voice_connection_usecase = JoinVoiceConnection::new(channel_repository.clone());
-    let abort_voice_connection_usecase = AbortVoiceConnection::new(channel_repository.clone());
-    let leave_voice_connection_usecase = LeaveVoiceConnection::new(channel_repository.clone());
-    let track_media_connection_usecase = TrackMediaConnection::new(channel_repository.clone());
 
     let app_state = web::Data::new(AppState {
         start_call_usecase: StartCall::new(
@@ -108,14 +96,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             livekit_service.clone(),
             user_repository.clone(),
         ),
-        log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         handle_livekit_webhook_usecase: HandleVoiceWebhook::new(
             livekit_webhook_receiver.clone(),
-            join_voice_connection_usecase,
-            abort_voice_connection_usecase,
-            leave_voice_connection_usecase,
-            track_media_connection_usecase,
             call_repository.clone(),
+            outbox_writer.clone(),
         ),
     });
 

@@ -4,7 +4,6 @@ use chrono::Utc;
 use domain::{
     call::repository::{CallParticipantView, CallRepository},
     channel::{id::ChannelId, token::ChannelToken},
-    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     server::id::ServerId,
     shared::repository::error::RepositoryError,
     user::{id::UserId},
@@ -41,7 +40,7 @@ pub struct StartCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
-    F: FriendshipRepository,
+    F: domain::friend_edges::FriendEdgeRepository,
     U: domain::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
@@ -54,7 +53,7 @@ impl<C, V, F, U> StartCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
-    F: FriendshipRepository,
+    F: domain::friend_edges::FriendEdgeRepository,
     U: domain::user_profile::UserProfileRepository,
 {
     pub fn new(
@@ -86,11 +85,11 @@ where
             if invitee == caller_id {
                 continue;
             }
-            let pair = self
+            if !self
                 .friendship_repository
-                .find_pair(&caller_id, &invitee)
-                .await?;
-            if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
+                .are_friends(&caller_id, &invitee)
+                .await?
+            {
                 return Err(StartCallError::NotFriends);
             }
             invitees.push(invitee);

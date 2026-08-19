@@ -3,14 +3,14 @@ use application::usecases::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
         decline_call::DeclineCall, get_active_call::GetActiveCall,
         get_active_call_with::GetActiveCallWith, join_call::JoinCall, leave_call::LeaveCall,
-        log_call::LogCall, start_call::StartCall,
+        start_call::StartCall,
     },
     webhook::voice::HandleVoiceWebhook,
 };
 use infrastructure::{
     database::postgres::repositories::{
-        call::PostgresCallRepository, channel::PostgresChannelRepository,
-        dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
+        call::PostgresCallRepository,
+        friend_edges::PostgresFriendEdgeRepository, outbox_writer::PostgresOutboxWriter,
         user_profile::PostgresUserProfileRepository,
     },
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
@@ -20,7 +20,7 @@ pub struct AppState {
     pub start_call_usecase: StartCall<
         PostgresCallRepository,
         LiveKitService,
-        PostgresFriendshipRepository,
+        PostgresFriendEdgeRepository,
         PostgresUserProfileRepository,
     >,
     pub accept_call_usecase:
@@ -28,16 +28,15 @@ pub struct AppState {
     pub decline_call_usecase: DeclineCall<PostgresCallRepository>,
     pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
     pub add_call_participants_usecase:
-        AddCallParticipants<PostgresCallRepository, PostgresFriendshipRepository>,
+        AddCallParticipants<PostgresCallRepository, PostgresFriendEdgeRepository>,
     pub get_active_call_usecase:
         GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
     pub get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,
     pub join_call_usecase:
         JoinCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
-    pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub handle_livekit_webhook_usecase: HandleVoiceWebhook<
         LiveKitWebhookReceiver,
-        PostgresChannelRepository,
         PostgresCallRepository,
+        PostgresOutboxWriter,
     >,
 }

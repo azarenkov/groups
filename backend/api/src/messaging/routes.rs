@@ -1,5 +1,6 @@
 use actix_web::web;
 
+use crate::messaging::calls::call_log_routes;
 use crate::messaging::channel::{
     create_channel, delete_channel, delete_channel_message, edit_channel_message,
     join_text_channel, join_voice_channel, list_channel_messages, list_channel_participants,
@@ -28,6 +29,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(web::resource("/readyz").to(readyz))
         .service(
             web::scope("/api")
+                .configure(call_log_routes)
                 .service(
                     web::scope("/v1/servers")
                         .service(create_server)

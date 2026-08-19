@@ -4,6 +4,7 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     attachment::list_message_attachments::ListMessageAttachments,
+    call::log_call::LogCall,
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         delete_channel_message::DeleteChannelMessage,
@@ -96,6 +97,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
+
+    let channel_stream = std::env::var("MESSAGING_CHANNEL_STREAM")
+        .unwrap_or_else(|_| "RIFT_CHANNEL_EVENTS".to_string());
+    crate::messaging::webhook_projection::spawn(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        channel_stream,
+        channel_repository.clone(),
+    );
 
     let user_stream = std::env::var("MESSAGING_USER_STREAM")
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
@@ -203,6 +213,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             read_state_repository.clone(),
             channel_repository.clone(),
         ),
+        log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase: SendDmMessage::new(

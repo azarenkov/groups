@@ -23,14 +23,6 @@ struct AddParticipantsBody {
     recipient_ids: Vec<Uuid>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LogCallBody {
-    recipient_id: Uuid,
-    status: String,
-    duration_seconds: Option<i32>,
-}
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CallParticipantDto {
@@ -167,22 +159,6 @@ async fn active_call_with(
     Ok(HttpResponse::Ok().json(ApiResponse::success(ActiveCallWithResponse { call_id })))
 }
 
-#[post("/log")]
-async fn log_call(
-    _req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    body: web::Json<LogCallBody>,
-) -> Result<impl Responder, ApiError> {
-    let sender_id = UserId::new(auth_token.id);
-    let body = body.into_inner();
-    app_state
-        .log_call_usecase
-        .execute(sender_id, body.recipient_id, body.status, body.duration_seconds)
-        .await?;
-    Ok(HttpResponse::NoContent().finish())
-}
-
 #[post("/{call_id}/join")]
 async fn join_call(
     _req: HttpRequest,
@@ -272,7 +248,6 @@ pub fn call_routes(cfg: &mut web::ServiceConfig) {
             .service(start_call)
             .service(get_active_call)
             .service(active_call_with)
-            .service(log_call)
             .service(join_call)
             .service(accept_call)
             .service(decline_call)

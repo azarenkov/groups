@@ -600,10 +600,6 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
-            HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_http_status(),
-            HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_http_status(),
-            HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_http_status(),
-            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_http_status(),
             HandleVoiceWebhookError::Call(e) => e.to_http_status(),
         }
     }
@@ -611,10 +607,6 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     fn to_user_message(&self) -> String {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
-            HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_user_message(),
-            HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_user_message(),
-            HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_user_message(),
-            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_user_message(),
             HandleVoiceWebhookError::Call(e) => e.to_user_message(),
         }
     }
@@ -622,10 +614,6 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     fn to_error_code(&self) -> &'static str {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_error_code(),
-            HandleVoiceWebhookError::JoinVoiceConnection(e) => e.to_error_code(),
-            HandleVoiceWebhookError::AbortVoiceConnection(e) => e.to_error_code(),
-            HandleVoiceWebhookError::LeaveVoiceConnection(e) => e.to_error_code(),
-            HandleVoiceWebhookError::TrackMediaConnection(e) => e.to_error_code(),
             HandleVoiceWebhookError::Call(e) => e.to_error_code(),
         }
     }
