@@ -242,6 +242,7 @@ where
                 tracing::warn!("Missing track fields; dropping webhook event");
                 return Ok(());
             };
+            let occurred_at = evt.occurred_at;
             let result = track_uc
                 .execute(TrackMediaConnectionRequest {
                     channel_id: evt.channel_id,
@@ -249,7 +250,7 @@ where
                     session_id: evt.session_id,
                     source: media_source,
                     published,
-                    occurred_at: evt.occurred_at,
+                    occurred_at,
                     inbox_source: source,
                     inbox_external_id: evt.inbox_external_id,
                     ctx,
@@ -257,12 +258,26 @@ where
                 .await;
             match result {
                 Ok(_) => Ok(()),
+                Err(TrackMediaConnectionError::Domain(
+                    domain::channel::ChannelError::ParticipantNotJoined,
+                )) => {
+                    let expired = Utc::now().signed_duration_since(occurred_at)
+                        >= chrono::Duration::seconds(TRACK_JOIN_GRACE_SECS);
+                    if expired {
+                        tracing::info!("Dropping track webhook that never saw its join");
+                        Ok(())
+                    } else {
+                        Err("track event arrived before participant join; will retry".into())
+                    }
+                }
                 Err(e) if is_track_stale(&e) => Ok(()),
                 Err(e) => Err(e.into()),
             }
         }
     }
 }
+
+const TRACK_JOIN_GRACE_SECS: i64 = 10;
 
 fn is_track_stale(e: &TrackMediaConnectionError) -> bool {
     matches!(
