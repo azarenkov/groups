@@ -92,8 +92,6 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             content_type,
             size_bytes: bytes.len() as i64,
             storage_key,
-            message_id: None,
-            dm_message_id: None,
             created_at: Utc::now(),
         };
 

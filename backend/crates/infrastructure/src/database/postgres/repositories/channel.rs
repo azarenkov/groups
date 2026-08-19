@@ -299,10 +299,13 @@ impl ChannelRepository for PostgresChannelRepository {
 
         let storage_keys = sqlx::query_scalar!(
             r#"
-            SELECT a.storage_key
-            FROM attachments a
-            INNER JOIN messages m ON m.id = a.message_id
-            WHERE m.channel_id = $1
+            WITH removed AS (
+                DELETE FROM message_attachments a
+                USING messages m
+                WHERE m.id = a.message_id AND m.channel_id = $1
+                RETURNING a.storage_key
+            )
+            SELECT storage_key AS "storage_key!" FROM removed
             "#,
             channel_id.uuid(),
         )

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    attachment::repository::AttachmentRepository,
     dm_message::{DmMessage, repository::DmMessageRepository},
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     message::{MessageError, content::MessageContent},
@@ -16,9 +15,12 @@ use domain::{
     user::id::UserId,
 };
 
-use crate::dto::{
-    requests::dm::send_dm_message::SendDmMessageRequest,
-    responses::dm::send_dm_message::SendDmMessageResponse,
+use crate::{
+    dto::{
+        requests::dm::send_dm_message::SendDmMessageRequest,
+        responses::dm::send_dm_message::SendDmMessageResponse,
+    },
+    ports::attachment_claims::{AttachmentClaimError, AttachmentClaims},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -33,34 +35,36 @@ pub enum SendDmMessageError {
     NotFriends,
     #[error("Invalid attachments")]
     InvalidAttachments,
+    #[error("Attachment service unavailable: {0}")]
+    AttachmentsUnavailable(String),
 }
 
 pub struct SendDmMessage<M, F, A>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
-    A: AttachmentRepository,
+    A: AttachmentClaims,
 {
     dm_repository: Arc<M>,
     friendship_repository: Arc<F>,
-    attachment_repository: Arc<A>,
+    attachment_claims: Arc<A>,
 }
 
 impl<M, F, A> SendDmMessage<M, F, A>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
-    A: AttachmentRepository,
+    A: AttachmentClaims,
 {
     pub fn new(
         dm_repository: Arc<M>,
         friendship_repository: Arc<F>,
-        attachment_repository: Arc<A>,
+        attachment_claims: Arc<A>,
     ) -> Self {
         Self {
             dm_repository,
             friendship_repository,
-            attachment_repository,
+            attachment_claims,
         }
     }
 
@@ -85,16 +89,19 @@ where
         let attachments = if request.attachment_ids.is_empty() {
             Vec::new()
         } else {
-            let owned = self
-                .attachment_repository
-                .list_unlinked_owned(&request.attachment_ids, &sender_id)
-                .await?;
-            let distinct: std::collections::HashSet<&uuid::Uuid> =
-                request.attachment_ids.iter().collect();
-            if owned.len() != distinct.len() {
-                return Err(SendDmMessageError::InvalidAttachments);
+            match self
+                .attachment_claims
+                .claim(&request.attachment_ids, &sender_id)
+                .await
+            {
+                Ok(links) => links,
+                Err(AttachmentClaimError::Invalid) => {
+                    return Err(SendDmMessageError::InvalidAttachments);
+                }
+                Err(AttachmentClaimError::Unavailable(e)) => {
+                    return Err(SendDmMessageError::AttachmentsUnavailable(e));
+                }
             }
-            owned
         };
 
         let content = if request.attachment_ids.is_empty() {
@@ -114,11 +121,20 @@ where
         crate::usecases::enrichment::inject_field(
             &mut records,
             "attachments",
-            crate::usecases::enrichment::attachments_value(&attachments),
+            crate::usecases::enrichment::attachment_links_value(&attachments),
         );
-        self.dm_repository
-            .save_with_events(&message, &records, &request.attachment_ids)
-            .await?;
+        if let Err(e) = self
+            .dm_repository
+            .save_with_events(&message, &records, &attachments)
+            .await
+        {
+            if !request.attachment_ids.is_empty()
+                && let Err(re) = self.attachment_claims.release(&request.attachment_ids).await
+            {
+                tracing::warn!(error = %re, "Failed to release attachment claims after send failure");
+            }
+            return Err(e.into());
+        }
 
         let mut response = SendDmMessageResponse::from(&message);
         response.attachments = attachments;

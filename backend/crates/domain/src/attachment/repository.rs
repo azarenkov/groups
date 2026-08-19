@@ -14,15 +14,15 @@ pub trait AttachmentRepository {
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError>;
 
-    async fn list_for_messages(
+    async fn claim_owned(
         &self,
-        message_ids: &[Uuid],
+        ids: &[Uuid],
+        owner_id: &UserId,
     ) -> Result<Vec<Attachment>, RepositoryError>;
 
-    async fn list_for_dm_messages(
-        &self,
-        dm_message_ids: &[Uuid],
-    ) -> Result<Vec<Attachment>, RepositoryError>;
+    async fn release_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError>;
+
+    async fn delete_by_storage_keys(&self, keys: &[String]) -> Result<(), RepositoryError>;
 
     async fn claim_unlinked(
         &self,
@@ -45,22 +45,4 @@ pub trait AttachmentRepository {
     async fn claim_orphan(&self, id: Uuid) -> Result<Option<String>, RepositoryError>;
 
     async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError>;
-
-    async fn has_for_message(
-        &self,
-        message_id: Uuid,
-        dm: bool,
-    ) -> Result<bool, RepositoryError>;
-
-    async fn can_access(
-        &self,
-        attachment_id: Uuid,
-        user_id: &UserId,
-    ) -> Result<bool, RepositoryError>;
-
-    async fn list_unlinked_owned(
-        &self,
-        ids: &[Uuid],
-        owner_id: &UserId,
-    ) -> Result<Vec<Attachment>, RepositoryError>;
 }

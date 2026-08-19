@@ -259,13 +259,11 @@ async fn list_channel_messages(
     let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
     let attachments = app_state
         .list_message_attachments_usecase
-        .for_channel_messages(&ids)
+        .for_messages(&ids)
         .await?;
-    for a in attachments {
-        if let Some(mid) = a.message_id
-            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
-        {
-            m.attachments.push(a.into());
+    for (mid, link) in attachments {
+        if let Some(m) = items.iter_mut().find(|m| m.id == mid) {
+            m.attachments.push(link.into());
         }
     }
     let response = ListChannelMessagesResponse::new(items);
@@ -305,13 +303,11 @@ async fn search_channel_messages(
     let ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
     let attachments = app_state
         .list_message_attachments_usecase
-        .for_channel_messages(&ids)
+        .for_messages(&ids)
         .await?;
-    for a in attachments {
-        if let Some(mid) = a.message_id
-            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
-        {
-            m.attachments.push(a.into());
+    for (mid, link) in attachments {
+        if let Some(m) = items.iter_mut().find(|m| m.id == mid) {
+            m.attachments.push(link.into());
         }
     }
     let response = SearchChannelMessagesResponse::new(items);

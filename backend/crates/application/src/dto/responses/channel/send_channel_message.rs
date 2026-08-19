@@ -8,7 +8,7 @@ pub struct SendChannelMessageResponse {
     pub channel_id: Uuid,
     pub author_id: Uuid,
     pub content: String,
-    pub attachments: Vec<domain::attachment::Attachment>,
+    pub attachments: Vec<domain::attachment::AttachmentLink>,
     pub created_at: DateTime<Utc>,
 }
 

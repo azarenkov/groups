@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE attachments\n            SET deleting_at = now()\n            WHERE id = $1 AND claimed_at IS NULL AND deleting_at IS NULL\n            RETURNING storage_key\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2505bfe56526b0dbe7c75d02ebcd1d84f07981b5dcb5e4c7166f77c33a689aac"
+}

@@ -1,5 +1,6 @@
 use actix_web::web;
 
+use crate::messaging::attachments::attachment_routes;
 use crate::messaging::calls::call_log_routes;
 use crate::messaging::channel::{
     create_channel, delete_channel, delete_channel_message, edit_channel_message,
@@ -30,6 +31,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(
             web::scope("/api")
                 .configure(call_log_routes)
+                .configure(attachment_routes)
                 .service(
                     web::scope("/v1/servers")
                         .service(create_server)

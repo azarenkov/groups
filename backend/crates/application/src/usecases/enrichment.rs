@@ -1,5 +1,5 @@
 use domain::{
-    attachment::{Attachment, AttachmentSnapshot},
+    attachment::{Attachment, AttachmentLink, AttachmentSnapshot},
     shared::outbox::outbox_record::OutboxRecord,
     user::id::UserId,
 };
@@ -23,6 +23,15 @@ pub fn recipient_ids_value(recipient_ids: &[UserId]) -> Value {
 }
 
 pub fn attachments_value(attachments: &[Attachment]) -> Value {
+    json!(
+        attachments
+            .iter()
+            .map(AttachmentSnapshot::from)
+            .collect::<Vec<_>>()
+    )
+}
+
+pub fn attachment_links_value(attachments: &[AttachmentLink]) -> Value {
     json!(
         attachments
             .iter()

@@ -1,4 +1,5 @@
 pub mod bootstrap;
+pub mod attachments;
 pub mod calls;
 pub mod channel;
 pub mod dm;

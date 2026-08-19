@@ -1,5 +1,7 @@
 use application::usecases::{
-    attachment::list_message_attachments::ListMessageAttachments,
+    attachment::{
+        get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
+    },
     call::log_call::LogCall,
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
@@ -38,12 +40,13 @@ use application::usecases::{
 };
 use infrastructure::{
     database::postgres::repositories::{
-        attachment::PostgresAttachmentRepository, channel::PostgresChannelRepository,
+        channel::PostgresChannelRepository,
         dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
         message::PostgresMessageRepository, read_state::PostgresReadStateRepository,
         server::PostgresServerRepository, user_profile::PostgresUserProfileRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    media_client::claims::MediaClaimsClient,
     storage::minio_storage::MinioStorage,
     voice::livekit_service::LiveKitService,
 };
@@ -68,21 +71,18 @@ pub struct AppState {
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
-        PostgresAttachmentRepository,
+        MediaClaimsClient,
     >,
     pub edit_channel_message_usecase: EditChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
-        PostgresAttachmentRepository,
-        MinioStorage,
+        MediaClaimsClient,
     >,
     pub delete_channel_message_usecase: DeleteChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
-        PostgresAttachmentRepository,
-        MinioStorage,
     >,
     pub list_channel_messages_usecase: ListChannelMessages<
         PostgresMessageRepository,
@@ -94,7 +94,9 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresServerRepository,
     >,
-    pub list_message_attachments_usecase: ListMessageAttachments<PostgresAttachmentRepository>,
+    pub list_message_attachments_usecase:
+        ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
+    pub get_attachment_usecase: GetAttachment<PostgresMessageRepository, MinioStorage>,
     pub send_friend_request_usecase:
         SendFriendRequest<PostgresFriendshipRepository, PostgresUserProfileRepository>,
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipRepository>,
@@ -115,15 +117,10 @@ pub struct AppState {
     pub send_dm_message_usecase: SendDmMessage<
         PostgresDmMessageRepository,
         PostgresFriendshipRepository,
-        PostgresAttachmentRepository,
+        MediaClaimsClient,
     >,
-    pub edit_dm_message_usecase:
-        EditDmMessage<PostgresDmMessageRepository, PostgresAttachmentRepository, MinioStorage>,
-    pub delete_dm_message_usecase: DeleteDmMessage<
-        PostgresDmMessageRepository,
-        PostgresAttachmentRepository,
-        MinioStorage,
-    >,
+    pub edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository, MediaClaimsClient>,
+    pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase:
         ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,

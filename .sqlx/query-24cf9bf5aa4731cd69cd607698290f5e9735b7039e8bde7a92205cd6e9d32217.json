@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT COUNT(*) AS \"count!\" FROM attachments WHERE message_id = $1\n            ",
+  "query": "\n            SELECT COUNT(*) AS \"count!\" FROM dm_message_attachments WHERE dm_message_id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "029b56fb22d8e8e76d5284bfa2d7826bc93e551d2904c95c0eaeeb47dd4407cd"
+  "hash": "24cf9bf5aa4731cd69cd607698290f5e9735b7039e8bde7a92205cd6e9d32217"
 }

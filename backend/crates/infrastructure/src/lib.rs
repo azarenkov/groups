@@ -3,6 +3,7 @@ pub mod config;
 pub mod database;
 pub mod hasher;
 pub mod mailer;
+pub mod media_client;
 pub mod messaging;
 pub mod moderation;
 pub mod outbox;

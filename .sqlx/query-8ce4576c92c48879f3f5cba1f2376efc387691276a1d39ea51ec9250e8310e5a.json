@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT storage_key FROM attachments WHERE dm_message_id = $1",
+  "query": "\n            DELETE FROM message_attachments WHERE message_id = $1\n            RETURNING storage_key\n            ",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "8b16d81ce79c1e59fe4d4d31280af21f103eb0c28cf0efd7b89bb393fe5b362b"
+  "hash": "8ce4576c92c48879f3f5cba1f2376efc387691276a1d39ea51ec9250e8310e5a"
 }

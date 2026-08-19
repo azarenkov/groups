@@ -3,7 +3,9 @@ use std::{error::Error, sync::Arc};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
-    attachment::list_message_attachments::ListMessageAttachments,
+    attachment::{
+        get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
+    },
     call::log_call::LogCall,
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
@@ -45,7 +47,7 @@ use infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            attachment::PostgresAttachmentRepository, channel::PostgresChannelRepository,
+            channel::PostgresChannelRepository,
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
@@ -53,6 +55,7 @@ use infrastructure::{
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
+    media_client::claims::MediaClaimsClient,
     storage::minio_storage::MinioStorage,
     voice::livekit_service::{LiveKitService, is_livekit_reachable},
 };
@@ -88,8 +91,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let read_state_repository =
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
-    let attachment_repository =
-        Arc::new(PostgresAttachmentRepository::new(postgres_pool.clone()));
+    let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://media-service:8080".to_string());
+    let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
 
     let minio_storage = Arc::new(
         MinioStorage::new(&minio_config)
@@ -160,21 +164,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
-            attachment_repository.clone(),
+            attachment_claims.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
-            attachment_repository.clone(),
-            minio_storage.clone(),
+            attachment_claims.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
-            attachment_repository.clone(),
-            minio_storage.clone(),
         ),
         list_channel_messages_usecase: ListChannelMessages::new(
             message_repository.clone(),
@@ -187,7 +188,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_repository.clone(),
         ),
         list_message_attachments_usecase: ListMessageAttachments::new(
-            attachment_repository.clone(),
+            message_repository.clone(),
+            dm_repository.clone(),
+        ),
+        get_attachment_usecase: GetAttachment::new(
+            message_repository.clone(),
+            minio_storage.clone(),
         ),
         send_friend_request_usecase: SendFriendRequest::new(
             friendship_repository.clone(),
@@ -219,18 +225,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         send_dm_message_usecase: SendDmMessage::new(
             dm_repository.clone(),
             friendship_repository.clone(),
-            attachment_repository.clone(),
+            attachment_claims.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),
-            attachment_repository.clone(),
-            minio_storage.clone(),
+            attachment_claims.clone(),
         ),
-        delete_dm_message_usecase: DeleteDmMessage::new(
-            dm_repository.clone(),
-            attachment_repository.clone(),
-            minio_storage.clone(),
-        ),
+        delete_dm_message_usecase: DeleteDmMessage::new(dm_repository.clone()),
         list_dm_previews_usecase: ListDmPreviews::new(dm_repository.clone()),
         list_dm_messages_usecase: ListDmMessages::new(
             dm_repository.clone(),

@@ -10,7 +10,7 @@ pub struct SendDmMessageResponse {
     pub content: String,
     pub invite_server_id: Option<Uuid>,
     pub invite_server_name: Option<String>,
-    pub attachments: Vec<domain::attachment::Attachment>,
+    pub attachments: Vec<domain::attachment::AttachmentLink>,
     pub created_at: DateTime<Utc>,
 }
 

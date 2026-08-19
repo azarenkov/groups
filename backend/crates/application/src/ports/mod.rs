@@ -1,6 +1,7 @@
 pub mod file_storage;
 pub mod image_moderation;
 pub mod text_moderation;
+pub mod attachment_claims;
 pub mod event_consumer;
 pub mod hasher;
 pub mod mailer;

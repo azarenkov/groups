@@ -193,11 +193,9 @@ async fn list_dm_messages(
         .list_message_attachments_usecase
         .for_dm_messages(&ids)
         .await?;
-    for a in attachments {
-        if let Some(mid) = a.dm_message_id
-            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
-        {
-            m.attachments.push(a.into());
+    for (mid, link) in attachments {
+        if let Some(m) = items.iter_mut().find(|m| m.id == mid) {
+            m.attachments.push(link.into());
         }
     }
     let response = ListDmMessagesResponse::new(items);
@@ -288,11 +286,9 @@ async fn search_dm_messages(
         .list_message_attachments_usecase
         .for_dm_messages(&ids)
         .await?;
-    for a in attachments {
-        if let Some(mid) = a.dm_message_id
-            && let Some(m) = items.iter_mut().find(|m| m.id == mid)
-        {
-            m.attachments.push(a.into());
+    for (mid, link) in attachments {
+        if let Some(m) = items.iter_mut().find(|m| m.id == mid) {
+            m.attachments.push(link.into());
         }
     }
     let response = SearchDmMessagesResponse::new(items);

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id\n            FROM attachments\n            WHERE claimed_at IS NULL\n              AND deleting_at IS NULL\n              AND created_at < now() - ($1 || ' hours')::interval\n            ORDER BY created_at ASC\n            LIMIT $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d784b210fd73c5511a394a52416e264b856b2cc8d406d022410681c3a3d95d34"
+}

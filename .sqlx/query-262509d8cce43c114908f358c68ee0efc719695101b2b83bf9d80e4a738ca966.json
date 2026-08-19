@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key,\n                   message_id, dm_message_id, created_at\n            FROM attachments\n            WHERE id = $1\n            ",
+  "query": "\n            UPDATE attachments\n            SET claimed_at = now()\n            WHERE id = ANY($1) AND owner_id = $2\n              AND claimed_at IS NULL AND deleting_at IS NULL\n            RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -35,22 +35,13 @@
       },
       {
         "ordinal": 6,
-        "name": "message_id",
-        "type_info": "Uuid"
-      },
-      {
-        "ordinal": 7,
-        "name": "dm_message_id",
-        "type_info": "Uuid"
-      },
-      {
-        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "UuidArray",
         "Uuid"
       ]
     },
@@ -61,10 +52,8 @@
       false,
       false,
       false,
-      true,
-      true,
       false
     ]
   },
-  "hash": "c3459095edc8aaf5e3815398951a696a31745208c0aab41312502285a5a8d6e8"
+  "hash": "262509d8cce43c114908f358c68ee0efc719695101b2b83bf9d80e4a738ca966"
 }

@@ -51,6 +51,13 @@ impl<R: AttachmentRepository, S: FileStorage> CleanupOrphanAttachments<R, S> {
                 for key in keys {
                     match self.storage.delete(&key).await {
                         Ok(()) | Err(FileStorageError::NotFound) => {
+                            if let Err(e) = self
+                                .repository
+                                .delete_by_storage_keys(std::slice::from_ref(&key))
+                                .await
+                            {
+                                tracing::warn!(error = %e, %key, "Failed to delete attachment row for cleaned object");
+                            }
                             if let Err(e) = self.repository.dequeue_cleanup(&key).await {
                                 tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
                             }

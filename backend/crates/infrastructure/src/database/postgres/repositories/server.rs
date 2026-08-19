@@ -611,11 +611,13 @@ impl ServerRepository for PostgresServerRepository {
 
         let storage_keys = sqlx::query_scalar!(
             r#"
-            SELECT a.storage_key
-            FROM attachments a
-            INNER JOIN messages m ON m.id = a.message_id
-            INNER JOIN channels c ON c.id = m.channel_id
-            WHERE c.server_id = $1
+            WITH removed AS (
+                DELETE FROM message_attachments a
+                USING messages m, channels c
+                WHERE m.id = a.message_id AND c.id = m.channel_id AND c.server_id = $1
+                RETURNING a.storage_key
+            )
+            SELECT storage_key AS "storage_key!" FROM removed
             "#,
             server_id.uuid(),
         )

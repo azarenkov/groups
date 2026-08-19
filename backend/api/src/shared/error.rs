@@ -1623,6 +1623,7 @@ impl ToHttpStatus for SendChannelMessageError {
             SendChannelMessageError::ChannelNotFound => StatusCode::NOT_FOUND,
             SendChannelMessageError::NotTextChannel => StatusCode::BAD_REQUEST,
             SendChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
+            SendChannelMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -1642,6 +1643,9 @@ impl ToHttpStatus for SendChannelMessageError {
             SendChannelMessageError::InvalidAttachments => {
                 "One or more attachments are invalid.".to_string()
             }
+            SendChannelMessageError::AttachmentsUnavailable(_) => {
+                "Attachment service is temporarily unavailable. Try again later.".to_string()
+            }
             SendChannelMessageError::NotTextChannel => {
                 "Channel does not support text".to_string()
             }
@@ -1658,6 +1662,7 @@ impl ToHttpStatus for SendChannelMessageError {
             SendChannelMessageError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             SendChannelMessageError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             SendChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
+            SendChannelMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendChannelMessageError::NotTextChannel => "CHANNEL_NOT_TEXT",
         }
     }
@@ -1672,6 +1677,7 @@ impl ToHttpStatus for EditChannelMessageError {
             EditChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
             EditChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
             EditChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
+            EditChannelMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -1687,6 +1693,9 @@ impl ToHttpStatus for EditChannelMessageError {
             EditChannelMessageError::InvalidAttachments => {
                 "Attachments are invalid or unavailable".to_string()
             }
+            EditChannelMessageError::AttachmentsUnavailable(_) => {
+                "Attachment service is temporarily unavailable. Try again later.".to_string()
+            }
         }
     }
 
@@ -1698,6 +1707,7 @@ impl ToHttpStatus for EditChannelMessageError {
             EditChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
             EditChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
             EditChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
+            EditChannelMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
         }
     }
 }
@@ -1960,6 +1970,7 @@ impl ToHttpStatus for SendDmMessageError {
             SendDmMessageError::Outbox(e) => e.to_http_status(),
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
+            SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1969,6 +1980,9 @@ impl ToHttpStatus for SendDmMessageError {
             SendDmMessageError::Outbox(e) => e.to_user_message(),
             SendDmMessageError::InvalidAttachments => {
                 "One or more attachments are invalid.".to_string()
+            }
+            SendDmMessageError::AttachmentsUnavailable(_) => {
+                "Attachment service is temporarily unavailable. Try again later.".to_string()
             }
             SendDmMessageError::NotFriends => {
                 "You can only DM users who are your friends".to_string()
@@ -1981,6 +1995,7 @@ impl ToHttpStatus for SendDmMessageError {
             SendDmMessageError::Domain(e) => e.to_error_code(),
             SendDmMessageError::Outbox(e) => e.to_error_code(),
             SendDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
+            SendDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
         }
     }
@@ -2158,6 +2173,7 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Outbox(e) => e.to_http_status(),
             EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
             EditDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
+            EditDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -2170,6 +2186,9 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::InvalidAttachments => {
                 "Attachments are invalid or unavailable".to_string()
             }
+            EditDmMessageError::AttachmentsUnavailable(_) => {
+                "Attachment service is temporarily unavailable. Try again later.".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -2180,6 +2199,7 @@ impl ToHttpStatus for EditDmMessageError {
             EditDmMessageError::Outbox(e) => e.to_error_code(),
             EditDmMessageError::NotFound => "DM_NOT_FOUND",
             EditDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
+            EditDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
         }
     }
 }
@@ -2425,7 +2445,6 @@ impl ToHttpStatus for GetAttachmentError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetAttachmentError::NotFound => StatusCode::NOT_FOUND,
-            GetAttachmentError::Forbidden => StatusCode::FORBIDDEN,
             GetAttachmentError::Storage(e) => e.to_http_status(),
             GetAttachmentError::Repository(e) => e.to_http_status(),
         }
@@ -2433,9 +2452,6 @@ impl ToHttpStatus for GetAttachmentError {
     fn to_user_message(&self) -> String {
         match self {
             GetAttachmentError::NotFound => "Attachment not found.".to_string(),
-            GetAttachmentError::Forbidden => {
-                "You do not have access to this attachment.".to_string()
-            }
             GetAttachmentError::Storage(e) => e.to_user_message(),
             GetAttachmentError::Repository(e) => e.to_user_message(),
         }
@@ -2443,7 +2459,6 @@ impl ToHttpStatus for GetAttachmentError {
     fn to_error_code(&self) -> &'static str {
         match self {
             GetAttachmentError::NotFound => "ATTACHMENT_NOT_FOUND",
-            GetAttachmentError::Forbidden => "ATTACHMENT_FORBIDDEN",
             GetAttachmentError::Storage(e) => e.to_error_code(),
             GetAttachmentError::Repository(e) => e.to_error_code(),
         }
@@ -2996,6 +3011,7 @@ impl_from_for_api_error!(
     UpdateServerLogoError,
     GetServerLogoError,
     RenameUserError,
+    domain::shared::repository::error::RepositoryError,
 );
 
 impl From<ValidationErrors> for ApiError {

@@ -5,7 +5,6 @@ use actix_web::{App, HttpServer, middleware::Logger, web};
 use application::usecases::{
     attachment::{
         cleanup_orphans::CleanupOrphanAttachments, delete_attachment::DeleteAttachment,
-        get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
         upload_attachment::UploadAttachment,
     },
     server::{get_logo::GetServerLogo, update_logo::UpdateServerLogo},
@@ -115,17 +114,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         upload_semaphore,
         image_read_limiter,
-        get_attachment_usecase: GetAttachment::new(
-            attachment_repository.clone(),
-            minio_storage.clone(),
-        ),
         delete_attachment_usecase: DeleteAttachment::new(
             attachment_repository.clone(),
             minio_storage.clone(),
         ),
-        list_message_attachments_usecase: ListMessageAttachments::new(
-            attachment_repository.clone(),
-        ),
+        attachment_repository: attachment_repository.clone(),
         update_user_avatar_usecase: UpdateUserAvatar::new(
             media_repository.clone(),
             attachment_repository.clone(),

@@ -1,5 +1,5 @@
 use actix_multipart::Multipart;
-use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use actix_web::{HttpResponse, Responder, delete, post, web};
 use application::usecases::attachment::upload_attachment::MAX_ATTACHMENT_BYTES;
 use domain::user::id::UserId;
 use futures::StreamExt;
@@ -74,56 +74,6 @@ async fn upload_attachment(
     Err(ApiError::bad_request("missing file field".to_string()))
 }
 
-#[get("/{attachment_id}")]
-async fn download_attachment(
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
-    let attachment_id = path.into_inner();
-    let user_id = UserId::new(auth_token.id);
-
-    let (attachment, stream) = app_state
-        .get_attachment_usecase
-        .execute(attachment_id, user_id)
-        .await?;
-
-    let inline = attachment.content_type.starts_with("image/");
-    let ascii_name: String = attachment
-        .file_name
-        .chars()
-        .map(|c| {
-            if c.is_ascii() && c != '"' && c != '\\' && !c.is_ascii_control() {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let encoded_name: String = attachment
-        .file_name
-        .bytes()
-        .map(|b| {
-            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
-                (b as char).to_string()
-            } else {
-                format!("%{b:02X}")
-            }
-        })
-        .collect();
-    let kind = if inline { "inline" } else { "attachment" };
-    let disposition =
-        format!("{kind}; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded_name}");
-
-    let body = stream.map(|chunk| chunk.map(web::Bytes::from));
-    Ok(HttpResponse::Ok()
-        .content_type(attachment.content_type)
-        .insert_header(("Content-Disposition", disposition))
-        .insert_header(("X-Content-Type-Options", "nosniff"))
-        .insert_header(("Cache-Control", "private, no-store"))
-        .streaming(body))
-}
-
 #[delete("/{attachment_id}")]
 async fn delete_attachment(
     auth_token: RateLimitedAuthToken,
@@ -145,7 +95,6 @@ pub fn attachment_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/v1/attachments")
             .service(upload_attachment)
-            .service(download_attachment)
             .service(delete_attachment),
     );
 }
