@@ -46,6 +46,12 @@ pub trait UserRepository {
         user_id: &UserId,
         locale: Locale,
     ) -> Result<(), RepositoryError>;
+    async fn set_name_with_events(
+        &self,
+        user_id: &UserId,
+        name: &UserName,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError>;
     async fn claim_with_oauth(
         &self,
         user_id: &UserId,

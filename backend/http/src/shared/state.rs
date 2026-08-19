@@ -32,6 +32,7 @@ use application::usecases::{
     user::{
         delete_avatar::DeleteUserAvatar, get_avatar::GetUserAvatar, get_me::GetMe,
         search_users::SearchUsers, update_avatar::UpdateUserAvatar,
+        rename::RenameUser,
         update_locale::UpdateUserLocale,
     },
     channel::{
@@ -145,7 +146,7 @@ pub struct AppState {
     >,
 
     pub register_user_usecase:
-        RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer>,
+        RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer, NsfwDetector>,
     pub issue_verification_code_usecase: IssueVerificationCode<
         PostgresUserRepository,
         PostgresVerificationCodeRepository,
@@ -163,6 +164,7 @@ pub struct AppState {
         JwtTokenIssuer,
         GoogleIdTokenVerifier,
         BcryptHasher,
+        NsfwDetector,
     >,
     pub confirm_registration_usecase: ConfirmRegistration<
         PostgresUserRepository,
@@ -184,6 +186,8 @@ pub struct AppState {
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
+    pub rename_user_usecase:
+        RenameUser<PostgresUserRepository, PostgresFriendshipRepository, NsfwDetector>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:
@@ -366,6 +370,7 @@ impl AppState {
             PostgresUserRepository,
             BcryptHasher,
             JwtTokenIssuer,
+            NsfwDetector,
         >,
         issue_verification_code_usecase: IssueVerificationCode<
             PostgresUserRepository,
@@ -384,6 +389,7 @@ impl AppState {
             JwtTokenIssuer,
             GoogleIdTokenVerifier,
             BcryptHasher,
+            NsfwDetector,
         >,
         confirm_registration_usecase: ConfirmRegistration<
             PostgresUserRepository,
@@ -434,6 +440,11 @@ impl AppState {
         search_users_usecase: SearchUsers<PostgresUserRepository>,
         get_me_usecase: GetMe<PostgresUserRepository>,
         update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
+        rename_user_usecase: RenameUser<
+            PostgresUserRepository,
+            PostgresFriendshipRepository,
+            NsfwDetector,
+        >,
         mark_channel_read_usecase: MarkChannelRead<
             PostgresReadStateRepository,
             PostgresChannelRepository,
@@ -577,6 +588,7 @@ impl AppState {
             search_users_usecase,
             get_me_usecase,
             update_user_locale_usecase,
+            rename_user_usecase,
             mark_channel_read_usecase,
             mark_dm_read_usecase,
             get_unread_counts_usecase,

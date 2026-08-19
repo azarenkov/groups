@@ -26,6 +26,7 @@ import { ws } from "../services/websocket";
 import { setActiveChatView } from "../services/websocketBootstrap";
 import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
+import { useUserNamesStore } from "../store/userNamesStore";
 import { useDmPreviewStore } from "../store/dmPreviewStore";
 import { useCallStore } from "../store/callStore";
 import { userAPI } from "../api/user";
@@ -201,6 +202,7 @@ const ServersPage: React.FC = () => {
   const [sidebarQuery, setSidebarQuery] = useState("");
 
   const onlineUsers = usePresenceStore((s) => s.online);
+  const nameOverrides = useUserNamesStore((s) => s.overrides);
   const dmPreviews = useDmPreviewStore((s) => s.byFriend);
   const acceptedFriends: MockDirect[] = React.useMemo(
     () =>
@@ -233,6 +235,17 @@ const ServersPage: React.FC = () => {
         }),
     [friends, onlineUsers, dmPreviews, user?.id, tSidebar],
   );
+
+  useEffect(() => {
+    if (!selectedDm) return;
+    const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
+    if (!fresh || fresh.name === selectedDm.name) return;
+    setSelectedDm((prev) =>
+      prev && prev.id === fresh.id
+        ? { ...prev, name: fresh.name, initials: fresh.initials }
+        : prev,
+    );
+  }, [acceptedFriends, selectedDm]);
 
   const pendingCount = React.useMemo(
     () =>
@@ -988,12 +1001,16 @@ const ServersPage: React.FC = () => {
                     initials: initialFor(userName),
                     color: colorForId(user?.id || "you"),
                   },
-                  ...voiceParticipants.map((p) => ({
-                    id: p.identity,
-                    name: p.name || p.identity,
-                    initials: initialFor(p.name || p.identity),
-                    color: colorForId(p.identity),
-                  })),
+                  ...voiceParticipants.map((p) => {
+                    const name =
+                      nameOverrides[p.identity] ?? (p.name || p.identity);
+                    return {
+                      id: p.identity,
+                      name,
+                      initials: initialFor(name),
+                      color: colorForId(p.identity),
+                    };
+                  }),
                 ]
               : []
           }

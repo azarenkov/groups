@@ -209,7 +209,7 @@ impl UserRepository for PostgresUserRepository {
                 phone_verified_at,
                 locale
             FROM users
-            WHERE name = $1
+            WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C")
             "#,
             name.as_str(),
         )
@@ -356,6 +356,54 @@ impl UserRepository for PostgresUserRepository {
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
+        Ok(())
+    }
+
+    async fn set_name_with_events(
+        &self,
+        user_id: &UserId,
+        name: &UserName,
+        events: &[OutboxRecord],
+    ) -> Result<(), RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let result = sqlx::query!(
+            r#"
+                UPDATE users
+                SET name = $2, updated_at = now()
+                WHERE id = $1
+            "#,
+            user_id.uuid(),
+            name.as_str(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        let committed_at = chrono::Utc::now();
+        let mut stamped = events.to_vec();
+        for record in &mut stamped {
+            record.occurred_at = committed_at;
+            if let Some(payload) = record.payload.as_object_mut() {
+                payload.insert(
+                    "occurred_at".to_string(),
+                    serde_json::to_value(committed_at)
+                        .map_err(|e| RepositoryError::InvalidData(e.to_string()))?,
+                );
+            }
+        }
+
+        save_outbox_records(&mut tx, &stamped).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 

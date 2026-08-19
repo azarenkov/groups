@@ -584,6 +584,22 @@ pub async fn dispatch(
         return Ok(());
     }
 
+    if ends_with(subject, ".user.renamed") {
+        let evt: UserRenamedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "user.renamed",
+            json!({
+                "userId": evt.user_id,
+                "name": evt.name,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        let peers = resolver.shared_server_peers(evt.user_id).await?;
+        let recipients = unique(evt.recipients.into_iter().chain(peers));
+        publisher.publish_to_users(recipients, &envelope).await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".user.registered")
         || ends_with(subject, ".user.email_verified")
         || ends_with(subject, ".user.phone_verified")
@@ -852,6 +868,14 @@ struct FriendRequestAcceptedDto {
 struct FriendshipRemovedDto {
     user_id: Uuid,
     other_id: Uuid,
+    occurred_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct UserRenamedDto {
+    user_id: Uuid,
+    name: String,
+    recipients: Vec<Uuid>,
     occurred_at: DateTime<Utc>,
 }
 

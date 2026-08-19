@@ -29,6 +29,7 @@ import {
   useWsDmMessages,
 } from "../../services/useWebSocketMessages";
 import i18n from "../../i18n";
+import { useUserNamesStore } from "../../store/userNamesStore";
 
 const mergeWithLive = (
   history: ChannelMessage[],
@@ -151,8 +152,12 @@ const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+  const messagesRef = React.useRef<ChannelMessage[]>([]);
+  messagesRef.current = messages;
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
+  const nameOverrides = useUserNamesStore((s) => s.overrides);
+  const nameSyncTick = useUserNamesStore((s) => s.syncTick);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelledUploadsRef = React.useRef<Set<string>>(new Set());
   const pendingFilesRef = React.useRef<PendingFile[]>([]);
@@ -546,6 +551,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   const loadedChannelIdRef = React.useRef<string | null>(null);
   const currentChannelIdRef = React.useRef<string | undefined>();
   const convId = channel?.id ?? dm?.friendId;
+  const convIdRef = React.useRef(convId);
+  convIdRef.current = convId;
   currentChannelIdRef.current = convId;
 
   const isText = !!channel && !!serverId;
@@ -679,6 +686,50 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [convId, isText, isDm]);
 
   React.useEffect(() => {
+    if (nameSyncTick === 0 || !messenger || !convId) return;
+    let cancelled = false;
+    const targetId = convId;
+    const oldestLoadedAt = messagesRef.current[0]?.createdAt;
+    (async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const acc: ChannelMessage[] = [];
+          let before: string | undefined;
+          while (!cancelled && convIdRef.current === targetId) {
+            const res = await messenger.listMessages({
+              limit: PAGE_LIMIT,
+              before,
+            });
+            const ordered = [...res.messages].reverse();
+            acc.unshift(...ordered);
+            if (
+              res.messages.length < PAGE_LIMIT ||
+              !oldestLoadedAt ||
+              (acc[0] && acc[0].createdAt <= oldestLoadedAt)
+            ) {
+              break;
+            }
+            before = acc[0]?.id;
+            if (!before) break;
+          }
+          if (cancelled || acc.length === 0 || convIdRef.current !== targetId) {
+            return;
+          }
+          setMessages((prev) => mergeWithLive(acc, prev));
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          if (cancelled || convIdRef.current !== targetId) return;
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameSyncTick]);
+
+  React.useEffect(() => {
     if (!bodyRef.current) return;
     if (skipNextAutoScrollRef.current) {
       skipNextAutoScrollRef.current = false;
@@ -803,7 +854,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, searchOpen, convId]);
+  }, [searchQuery, searchOpen, convId, nameSyncTick]);
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
     if (!messenger || !convId) return;
@@ -1255,7 +1306,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   const isMine = !!currentUserId && m.authorId === currentUserId;
                   const displayName = isMine
                     ? i18n.t("you", { ns: "chat" })
-                    : (m.authorName ?? m.authorId);
+                    : (nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
                   const time = new Date(m.createdAt).toLocaleString([], {
                     month: "short",
                     day: "numeric",
@@ -1336,7 +1387,7 @@ const ChatView: React.FC<ChatViewProps> = ({
               const isMine = !!currentUserId && m.authorId === currentUserId;
               const displayName = isMine
                 ? "You"
-                : (m.authorName ?? m.authorId);
+                : (nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
               return (
                 <React.Fragment key={m.id}>
                   {newDay && (

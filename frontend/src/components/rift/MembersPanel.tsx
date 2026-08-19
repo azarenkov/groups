@@ -4,6 +4,7 @@ import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
 import { UserAvatar } from "./Avatar";
 import { usePresenceStore } from "../../store/presenceStore";
+import { useUserNamesStore } from "../../store/userNamesStore";
 
 interface MembersPanelProps {
   serverId: string;
@@ -14,6 +15,8 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
   const onlineUsers = usePresenceStore((s) => s.online);
+  const nameOverrides = useUserNamesStore((s) => s.overrides);
+  const syncTick = useUserNamesStore((s) => s.syncTick);
   const selfUserId = usePresenceStore((s) => s.selfUserId);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const [loading, setLoading] = useState(false);
@@ -59,7 +62,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
     return () => {
       cancelled = true;
     };
-  }, [serverId, channelId]);
+  }, [serverId, channelId, syncTick]);
 
   const orderedMembers = selfUserId
     ? [...members].sort((a, b) => {
@@ -85,12 +88,13 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
       {orderedMembers.map((m) => {
         const isSelf = m.id === selfUserId;
         const isOnline = isSelf ? selfOnline : !!onlineUsers[m.id];
+        const displayName = nameOverrides[m.id] ?? m.name;
         const statusLabel = isOnline
           ? t("common:online")
           : t("common:offline");
         return (
           <div key={m.id} className="member-row">
-            <UserAvatar userId={m.id} name={m.name} className="ava">
+            <UserAvatar userId={m.id} name={displayName} className="ava">
               <span
                 className={"presence " + (isOnline ? "online" : "offline")}
                 title={statusLabel}
@@ -99,7 +103,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
             </UserAvatar>
             <div className="info">
               <div className="name">
-                {m.name}
+                {displayName}
                 {isSelf && <span className="member-you">{t("you")}</span>}
               </div>
               <div className="role">{statusLabel}</div>

@@ -9,6 +9,7 @@ import { ApiError } from "../../utils/apiError";
 import { colorForId } from "../../utils/avatar";
 import { ServerLogo, UserAvatar } from "./Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
+import { useUserNamesStore } from "../../store/userNamesStore";
 import type { Friendship } from "../../types/friendship";
 import type { InviteCode, Server } from "../../types/server";
 
@@ -117,6 +118,8 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   };
 
   const [members, setMembers] = React.useState<{ id: string; name: string }[]>([]);
+  const nameOverrides = useUserNamesStore((s) => s.overrides);
+  const nameSyncTick = useUserNamesStore((s) => s.syncTick);
   const [invitedIds, setInvitedIds] = React.useState<Set<string>>(new Set());
   const [inviteQuery, setInviteQuery] = React.useState("");
   const [invitePending, setInvitePending] = React.useState<string | null>(null);
@@ -214,7 +217,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [server.id]);
+  }, [server.id, nameSyncTick]);
 
   const memberIds = React.useMemo(
     () => new Set(members.map((m) => m.id)),
@@ -296,10 +299,17 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     (f) => invitedIds.has(f.friendId) && !memberIds.has(f.friendId),
   );
 
+  const effectiveMembers = React.useMemo(
+    () =>
+      members.map((m) =>
+        nameOverrides[m.id] ? { ...m, name: nameOverrides[m.id] } : m,
+      ),
+    [members, nameOverrides],
+  );
   const memberQ = memberQuery.trim().toLowerCase();
   const visibleMembers = memberQ
-    ? members.filter((m) => m.name.toLowerCase().includes(memberQ))
-    : members;
+    ? effectiveMembers.filter((m) => m.name.toLowerCase().includes(memberQ))
+    : effectiveMembers;
 
   return (
     <div className="settings-overlay">

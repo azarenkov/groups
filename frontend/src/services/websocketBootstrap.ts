@@ -13,6 +13,7 @@ import {
 } from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
+import { useUserNamesStore } from "../store/userNamesStore";
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
 
@@ -163,6 +164,28 @@ function dispatch(env: WsEnvelope) {
     case "friendship.requestAccepted":
     case "friendship.removed": {
       void useFriendshipStore.getState().fetchFriends();
+      return;
+    }
+
+    case "user.renamed": {
+      const userId = asString(d.userId);
+      const newName = asString(d.name);
+      if (!userId) return;
+      if (newName) {
+        const occurredAt = asString(d.occurredAt);
+        const applied = useUserNamesStore
+          .getState()
+          .applyRename(userId, newName, occurredAt);
+        if (!applied) return;
+        useVoicePresenceStore.getState().renameMember(userId, newName);
+        useCallStore.getState().participantRenamed(userId, newName);
+      }
+      const me = useAuthStore.getState().user;
+      if (me && me.id === userId) {
+        void useAuthStore.getState().fetchMe();
+      } else {
+        void useFriendshipStore.getState().fetchFriends();
+      }
       return;
     }
 
@@ -403,5 +426,14 @@ export function installWsBootstrap() {
   ws.on(dispatch);
   ws.onOpen(() => {
     void useCallStore.getState().rehydrate();
+    useUserNamesStore.getState().bumpSyncTick();
+    void useFriendshipStore
+      .getState()
+      .fetchFriends()
+      .then(() => {
+        if (useFriendshipStore.getState().error === null) {
+          useUserNamesStore.getState().clear();
+        }
+      });
   });
 }

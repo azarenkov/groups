@@ -132,3 +132,29 @@ impl UserLoggedOut {
         }
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct UserRenamed {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub name: UserName,
+    pub recipients: Vec<UserId>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserRenamed {
+    pub fn record(
+        user_id: UserId,
+        name: UserName,
+        recipients: Vec<UserId>,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            name,
+            recipients,
+            occurred_at: now,
+        }
+    }
+}

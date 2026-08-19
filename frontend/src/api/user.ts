@@ -79,6 +79,11 @@ class UserAPI {
     await this.client.delete("/v1/users/me/avatar");
   }
 
+  async rename(name: string): Promise<string> {
+    const response = await this.client.patch("/v1/users/me/name", { name });
+    return response.data.data.name;
+  }
+
   async downloadAvatar(userId: string): Promise<Blob> {
     const response = await this.client.get(`/v1/users/${userId}/avatar`, {
       responseType: "blob",

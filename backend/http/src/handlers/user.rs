@@ -103,3 +103,29 @@ async fn update_me_locale(
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateNameBody {
+    pub name: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateNameResponse {
+    pub name: String,
+}
+
+#[patch("/me/name")]
+async fn update_me_name(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<UpdateNameBody>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let name = app_state
+        .rename_user_usecase
+        .execute(user_id, &body.name)
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateNameResponse { name })))
+}
