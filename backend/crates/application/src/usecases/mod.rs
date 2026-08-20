@@ -1,4 +1,5 @@
 pub mod attachment;
+pub mod enrichment;
 pub mod auth;
 pub mod call;
 pub mod channel;

@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    attachment::repository::AttachmentRepository,
     channel::{id::ChannelId, repository::ChannelRepository},
     message::{
         MessageError, content::MessageContent, id::MessageId, repository::MessageRepository,
@@ -20,10 +19,7 @@ use domain::{
 };
 use uuid::Uuid;
 
-use crate::{
-    dto::requests::channel::edit_channel_message::EditChannelMessageRequest,
-    ports::file_storage::FileStorage,
-};
+use crate::dto::requests::channel::edit_channel_message::EditChannelMessageRequest;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EditChannelMessageError {
@@ -39,44 +35,41 @@ pub enum EditChannelMessageError {
     MessageNotFound,
     #[error("Invalid attachments")]
     InvalidAttachments,
+    #[error("Attachment service unavailable: {0}")]
+    AttachmentsUnavailable(String),
 }
 
-pub struct EditChannelMessage<M, C, S, A, FS>
+pub struct EditChannelMessage<M, C, S, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
-    A: AttachmentRepository,
-    FS: FileStorage,
+    A: crate::ports::attachment_claims::AttachmentClaims,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
-    attachment_repository: Arc<A>,
-    storage: Arc<FS>,
+    attachment_claims: Arc<A>,
 }
 
-impl<M, C, S, A, FS> EditChannelMessage<M, C, S, A, FS>
+impl<M, C, S, A> EditChannelMessage<M, C, S, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
-    A: AttachmentRepository,
-    FS: FileStorage,
+    A: crate::ports::attachment_claims::AttachmentClaims,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
-        attachment_repository: Arc<A>,
-        storage: Arc<FS>,
+        attachment_claims: Arc<A>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
-            attachment_repository,
-            storage,
+            attachment_claims,
         }
     }
 
@@ -123,10 +116,13 @@ where
             return Err(EditChannelMessageError::MessageNotFound);
         }
 
-        let current = self
-            .attachment_repository
-            .list_for_messages(&[message_id.uuid()])
-            .await?;
+        let current: Vec<domain::attachment::AttachmentLink> = self
+            .message_repository
+            .list_attachment_links_for_messages(&[message_id.uuid()])
+            .await?
+            .into_iter()
+            .map(|(_, link)| link)
+            .collect();
         let current_ids: HashSet<Uuid> = current.iter().map(|a| a.id).collect();
         let remove_ids: HashSet<Uuid> = request.remove_attachment_ids.iter().copied().collect();
         if !remove_ids.iter().all(|id| current_ids.contains(id)) {
@@ -135,15 +131,6 @@ where
         let add_ids: HashSet<Uuid> = request.add_attachment_ids.iter().copied().collect();
         if add_ids.iter().any(|id| current_ids.contains(id)) {
             return Err(EditChannelMessageError::InvalidAttachments);
-        }
-        if !add_ids.is_empty() {
-            let owned = self
-                .attachment_repository
-                .list_unlinked_owned(&request.add_attachment_ids, &editor_id)
-                .await?;
-            if owned.len() != add_ids.len() {
-                return Err(EditChannelMessageError::InvalidAttachments);
-            }
         }
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         if remaining > 10 {
@@ -171,32 +158,77 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+        let claim_token = uuid::Uuid::new_v4();
+        let added_attachments = if add_ids.is_empty() {
+            Vec::new()
+        } else {
+            match self
+                .attachment_claims
+                .claim(&request.add_attachment_ids, &editor_id, claim_token)
+                .await
+            {
+                Ok(links) => links,
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
+                    return Err(EditChannelMessageError::InvalidAttachments);
+                }
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    if let Err(re) = self
+                        .attachment_claims
+                        .release(&request.add_attachment_ids, claim_token)
+                        .await
+                    {
+                        tracing::warn!(error = %re, "Failed to release attachments after ambiguous claim failure");
+                    }
+                    return Err(EditChannelMessageError::AttachmentsUnavailable(e));
+                }
+            }
+        };
+        let mut final_attachments: Vec<domain::attachment::AttachmentLink> = current
+            .iter()
+            .filter(|a| !remove_ids.contains(&a.id))
+            .cloned()
+            .collect();
+        final_attachments.extend(added_attachments.clone());
+        final_attachments.sort_by_key(|a| a.created_at);
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "attachments",
+            crate::usecases::enrichment::attachment_links_value(&final_attachments),
+        );
 
-        let removed_keys = self
+        if let Err(e) = self
             .message_repository
             .update_message_with_events(
                 &message,
                 &records,
-                &request.add_attachment_ids,
+                &added_attachments,
                 &request.remove_attachment_ids,
             )
             .await
-            .map_err(|e| match e {
-                RepositoryError::InvalidData(_) => EditChannelMessageError::InvalidAttachments,
-                other => EditChannelMessageError::Repository(other),
-            })?;
-
-        for key in removed_keys {
-            match self.storage.delete(&key).await {
-                Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {
-                    if let Err(e) = self.attachment_repository.dequeue_cleanup(&key).await {
-                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
+        {
+            if !request.add_attachment_ids.is_empty() {
+                match self.message_repository.linked_attachment_subset(&request.add_attachment_ids).await {
+                    Ok(linked) if linked.is_empty() => {
+                        if let Err(re) = self
+                            .attachment_claims
+                            .release(&request.add_attachment_ids, claim_token)
+                            .await
+                        {
+                            tracing::warn!(error = %re, "Failed to release attachment claims after edit failure");
+                        }
+                    }
+                    Ok(_) => {
+                        tracing::warn!("Attachment links present after ambiguous commit failure; retaining claims");
+                    }
+                    Err(le) => {
+                        tracing::warn!(error = %le, "Link reconciliation failed after commit failure; retaining claims");
                     }
                 }
-                Err(e) => {
-                    tracing::warn!(error = %e, %key, "Failed to delete attachment object; cleanup queue will retry");
-                }
             }
+            return Err(match e {
+                RepositoryError::InvalidData(_) => EditChannelMessageError::InvalidAttachments,
+                other => EditChannelMessageError::Repository(other),
+            });
         }
 
         Ok(())

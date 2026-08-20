@@ -130,11 +130,11 @@ services:
       retries: 5
       start_period: 60s
 
-  http:
+  identity-service:
     build:
       context: .
-      dockerfile: docker/http/Dockerfile
-    container_name: rift-http
+      dockerfile: docker/identity-service/Dockerfile
+    container_name: rift-identity-service
     restart: unless-stopped
     expose:
       - "8080"
@@ -147,14 +147,139 @@ services:
         required: false
       - path: env/http.env
         required: false
+      - path: env/identity-service.env
+        required: false
     environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
+      NSFW_THRESHOLD: ${NSFW_THRESHOLD:-0.8}
+      RESERVED_USERNAMES: ${RESERVED_USERNAMES:-}
+      MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  media-service:
+    build:
+      context: .
+      dockerfile: docker/media-service/Dockerfile
+    container_name: rift-media-service
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - rift-network
+    env_file:
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/http.env
+        required: false
+      - path: env/media-service.env
+        required: false
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rift-minio-secret}
       NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
       NSFW_THRESHOLD: ${NSFW_THRESHOLD:-0.8}
-      RESERVED_USERNAMES: ${RESERVED_USERNAMES:-}
+      MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  messaging-service:
+    build:
+      context: .
+      dockerfile: docker/messaging-service/Dockerfile
+    container_name: rift-messaging-service
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - rift-network
+    env_file:
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/http.env
+        required: false
+      - path: env/messaging-service.env
+        required: false
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rift-minio-secret}
+      MEDIA_INTERNAL_URL: ${MEDIA_INTERNAL_URL:-http://media-service:8080}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  voice-service:
+    build:
+      context: .
+      dockerfile: docker/voice-service/Dockerfile
+    container_name: rift-voice-service
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - rift-network
+    env_file:
+      - path: env/postgres.env
+        required: false
+      - path: env/nats.env
+        required: false
+      - path: env/http.env
+        required: false
+      - path: env/voice-service.env
+        required: false
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,8 +288,6 @@ services:
       livekit:
         condition: service_healthy
       nats:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     healthcheck:
       test:
@@ -226,11 +349,11 @@ services:
       retries: 3
       start_period: 30s
 
-  websocket:
+  realtime:
     build:
       context: .
-      dockerfile: docker/websocket/Dockerfile
-    container_name: rift-websocket
+      dockerfile: docker/realtime/Dockerfile
+    container_name: rift-realtime
     restart: unless-stopped
     expose:
       - "8083"
@@ -243,33 +366,9 @@ services:
         required: false
       - path: env/http.env
         required: false
+      - path: env/realtime.env
+        required: false
       - path: env/websocket.env
-        required: false
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
-
-  event-dispatcher:
-    build:
-      context: .
-      dockerfile: docker/event-dispatcher/Dockerfile
-    container_name: rift-event-dispatcher
-    restart: unless-stopped
-    networks:
-      - rift-network
-    env_file:
-      - path: env/postgres.env
-        required: false
-      - path: env/nats.env
         required: false
       - path: env/event-dispatcher.env
         required: false
@@ -280,7 +379,7 @@ services:
         condition: service_healthy
     healthcheck:
       test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8085/readyz || exit 1"]
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -324,7 +423,15 @@ services:
     networks:
       - rift-network
     depends_on:
-      http:
+      identity-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+      messaging-service:
+        condition: service_healthy
+      voice-service:
+        condition: service_healthy
+      realtime:
         condition: service_healthy
       livekit:
         condition: service_healthy

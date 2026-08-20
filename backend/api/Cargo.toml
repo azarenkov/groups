@@ -1,0 +1,46 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tracing = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+application = { workspace = true }
+domain = { workspace = true }
+infrastructure = { workspace = true }
+shared = { workspace = true }
+dotenv = { workspace = true }
+envy = { workspace = true }
+serde = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+actix-web = { workspace = true }
+actix-multipart = { workspace = true }
+image = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
+actix-cors = { workspace = true }
+async-nats = { workspace = true }
+validator = { workspace = true }
+
+[lib]
+name = "api"
+path = "src/lib.rs"
+
+[[bin]]
+name = "identity-service"
+path = "src/bin/identity_service.rs"
+
+[[bin]]
+name = "media-service"
+path = "src/bin/media_service.rs"
+
+[[bin]]
+name = "messaging-service"
+path = "src/bin/messaging_service.rs"
+
+[[bin]]
+name = "voice-service"
+path = "src/bin/voice_service.rs"

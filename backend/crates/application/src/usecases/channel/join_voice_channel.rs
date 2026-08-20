@@ -3,7 +3,7 @@ use std::sync::Arc;
 use domain::{
     channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
     shared::{outbox::to_outbox::OutboxError, repository::error::RepositoryError},
-    user::{id::UserId, repository::UserRepository},
+    user::{id::UserId, name::UserName},
 };
 
 use crate::{
@@ -46,7 +46,7 @@ pub struct JoinVoiceChannel<T, U, R, H>
 where
     T: VoiceService,
     U: ChannelRepository,
-    R: UserRepository,
+    R: domain::user_profile::UserProfileRepository,
     H: Hasher,
 {
     voice_service: Arc<T>,
@@ -59,7 +59,7 @@ impl<T, U, R, H> JoinVoiceChannel<T, U, R, H>
 where
     T: VoiceService,
     U: ChannelRepository,
-    R: UserRepository,
+    R: domain::user_profile::UserProfileRepository,
     H: Hasher,
 {
     pub fn new(
@@ -105,11 +105,12 @@ where
             }
         }
 
-        let user = self
-            .user_repository
-            .find_by_id(&user_id)
-            .await?
-            .ok_or(JoinVoiceChannelError::UserNotFound)?;
+        let user_name = UserName::new(
+            self.user_repository
+                .get_name(&user_id)
+                .await?
+                .ok_or(JoinVoiceChannelError::UserNotFound)?,
+        );
 
         self.voice_service
             .create_voice_channel(channel.id(), channel.server_id())
@@ -117,7 +118,7 @@ where
 
         let channel_token = self
             .voice_service
-            .create_token(&user_id, user.name(), channel.id())
+            .create_token(&user_id, &user_name, channel.id())
             .await?;
 
         let response =

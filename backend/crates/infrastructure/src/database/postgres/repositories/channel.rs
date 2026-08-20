@@ -21,14 +21,14 @@ use domain::{
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, id::UserId},
+    user::{id::UserId, name::UserName},
 };
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
     dto::{
         channel::ChannelDto, kind::ChannelKindDto, muted_participant::MutedParticipantDto,
-        user::UserDto, visibility::ChannelVisibilityDto,
+        visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
     repositories::outbox_record::save_outbox_records,
@@ -299,10 +299,13 @@ impl ChannelRepository for PostgresChannelRepository {
 
         let storage_keys = sqlx::query_scalar!(
             r#"
-            SELECT a.storage_key
-            FROM attachments a
-            INNER JOIN messages m ON m.id = a.message_id
-            WHERE m.channel_id = $1
+            WITH removed AS (
+                DELETE FROM message_attachments a
+                USING messages m
+                WHERE m.id = a.message_id AND m.channel_id = $1
+                RETURNING a.storage_key
+            )
+            SELECT storage_key AS "storage_key!" FROM removed
             "#,
             channel_id.uuid(),
         )
@@ -435,7 +438,7 @@ impl ChannelRepository for PostgresChannelRepository {
         server_id: &ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<User>, RepositoryError> {
+    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError> {
         let kind_row = sqlx::query!(
             r#"
             SELECT kind AS "kind: ChannelKindDto"
@@ -466,17 +469,16 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?
             .count;
 
-            let users = sqlx::query_as!(
-                UserDto,
+            let users = sqlx::query!(
                 r#"
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale
-                FROM users u
+                SELECT u.user_id, u.name
+                FROM messaging_user_profiles u
                 INNER JOIN (
                     SELECT user_id, MIN(joined_at) AS first_joined_at
                     FROM channel_voice_participants
                     WHERE channel_id = $1
                     GROUP BY user_id
-                ) p ON p.user_id = u.id
+                ) p ON p.user_id = u.user_id
                 ORDER BY p.first_joined_at ASC
                 LIMIT $2 OFFSET $3
                 "#,
@@ -488,7 +490,10 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-            let items = users.into_iter().map(|dto| dto.into()).collect();
+            let items = users
+                .into_iter()
+                .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+                .collect();
             return Ok(PaginatedResult::new(items, total, pagination));
         }
 
@@ -506,12 +511,11 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?
             .count;
 
-            let users = sqlx::query_as!(
-                UserDto,
+            let users = sqlx::query!(
                 r#"
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale
-                FROM users u
-                INNER JOIN channel_text_participants p ON p.user_id = u.id
+                SELECT u.user_id, u.name
+                FROM messaging_user_profiles u
+                INNER JOIN channel_text_participants p ON p.user_id = u.user_id
                 WHERE p.channel_id = $1
                 ORDER BY p.joined_at ASC
                 LIMIT $2 OFFSET $3
@@ -524,7 +528,10 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-            let items = users.into_iter().map(|dto| dto.into()).collect();
+            let items = users
+                .into_iter()
+                .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+                .collect();
             return Ok(PaginatedResult::new(items, total, pagination));
         }
 
@@ -585,7 +592,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 ) AS "is_muted!"
             FROM channel_voice_participants cvp
             INNER JOIN channels c ON c.id = cvp.channel_id
-            INNER JOIN users u ON u.id = cvp.user_id
+            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id
             WHERE c.server_id = $1
             GROUP BY cvp.channel_id, cvp.user_id, u.name
             "#,

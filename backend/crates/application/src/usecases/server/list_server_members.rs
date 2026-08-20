@@ -6,7 +6,7 @@ use domain::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
-    user::{User, id::UserId},
+    user::{id::UserId, name::UserName},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -37,7 +37,7 @@ where
         server_id: ServerId,
         requester_id: UserId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<User>, ListServerMembersError> {
+    ) -> Result<PaginatedResult<(UserId, UserName)>, ListServerMembersError> {
         let is_member = self
             .server_repository
             .is_server_member(&server_id, &requester_id)

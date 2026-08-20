@@ -2,24 +2,127 @@ use std::sync::Arc;
 
 use domain::attachment::repository::AttachmentRepository;
 
-use crate::ports::file_storage::{FileStorage, FileStorageError};
+use crate::ports::{
+    attachment_links_lookup::AttachmentLinksLookup,
+    file_storage::{FileStorage, FileStorageError},
+};
 
-pub struct CleanupOrphanAttachments<R: AttachmentRepository, S: FileStorage> {
+pub struct CleanupOrphanAttachments<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
+{
     repository: Arc<R>,
     storage: Arc<S>,
+    links_lookup: Arc<L>,
+    stale_claim_cursor: std::sync::Mutex<Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>>,
 }
 
-impl<R: AttachmentRepository, S: FileStorage> CleanupOrphanAttachments<R, S> {
-    pub fn new(repository: Arc<R>, storage: Arc<S>) -> Self {
+impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
+    CleanupOrphanAttachments<R, S, L>
+{
+    pub fn new(repository: Arc<R>, storage: Arc<S>, links_lookup: Arc<L>) -> Self {
         Self {
             repository,
             storage,
+            links_lookup,
+            stale_claim_cursor: std::sync::Mutex::new(None),
         }
     }
 
+    fn store_stale_claim_cursor(
+        &self,
+        cursor: Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>,
+    ) {
+        if let Ok(mut slot) = self.stale_claim_cursor.lock() {
+            *slot = cursor;
+        }
+    }
+
+    async fn reconcile_stale_claims(&self) {
+        const PAGE_SIZE: i64 = 500;
+        const MAX_PAGES: usize = 20;
+        let mut cursor = match self.stale_claim_cursor.lock() {
+            Ok(slot) => *slot,
+            Err(_) => None,
+        };
+        for _ in 0..MAX_PAGES {
+            let page = match self.repository.list_stale_claims(2, PAGE_SIZE, cursor).await {
+                Ok(rows) => rows,
+                Err(e) => {
+                    tracing::warn!(error = %e, "Stale claim query failed");
+                    self.store_stale_claim_cursor(cursor);
+                    return;
+                }
+            };
+            let Some(last) = page.last() else {
+                self.store_stale_claim_cursor(None);
+                return;
+            };
+            let prev_cursor = cursor;
+            cursor = Some((last.1, last.0));
+            let page_len = page.len();
+            let ids: Vec<uuid::Uuid> = page.iter().map(|(id, _)| *id).collect();
+            let linked: std::collections::HashSet<uuid::Uuid> =
+                match self.links_lookup.linked_subset(&ids).await {
+                    Ok(linked) => linked.into_iter().collect(),
+                    Err(e) => {
+                        tracing::warn!(error = %e, "Linked attachment lookup failed; will retry next sweep");
+                        self.store_stale_claim_cursor(prev_cursor);
+                        return;
+                    }
+                };
+            let orphaned: Vec<uuid::Uuid> = ids
+                .into_iter()
+                .filter(|id| !linked.contains(id))
+                .collect();
+            if !orphaned.is_empty() {
+                match self.repository.release_claims(&orphaned).await {
+                    Ok(()) => {
+                        tracing::info!(count = orphaned.len(), "Released stale attachment claims");
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "Failed to release stale attachment claims");
+                    }
+                }
+            }
+            if (page_len as i64) < PAGE_SIZE {
+                self.store_stale_claim_cursor(None);
+                return;
+            }
+        }
+        self.store_stale_claim_cursor(cursor);
+    }
+
     pub async fn run_once(&self) {
+        self.reconcile_stale_claims().await;
+
         match self.repository.list_orphans_older_than(24, 1000).await {
             Ok(orphans) => {
+                let orphans = if orphans.is_empty() {
+                    orphans
+                } else {
+                    match self.links_lookup.linked_subset(&orphans).await {
+                        Ok(linked) => {
+                            let linked: std::collections::HashSet<uuid::Uuid> =
+                                linked.into_iter().collect();
+                            if !linked.is_empty() {
+                                let to_restore: Vec<uuid::Uuid> =
+                                    linked.iter().copied().collect();
+                                match self.repository.restore_claims(&to_restore).await {
+                                    Ok(()) => {
+                                        tracing::warn!(count = to_restore.len(), "Restored claims for linked attachments found unclaimed");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(error = %e, "Failed to restore claims for linked attachments");
+                                    }
+                                }
+                            }
+                            orphans.into_iter().filter(|id| !linked.contains(id)).collect()
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "Linked attachment lookup failed; skipping orphan deletion this sweep");
+                            Vec::new()
+                        }
+                    }
+                };
                 for id in orphans {
                     let key = match self.repository.claim_orphan(id).await {
                         Ok(Some(key)) => key,
@@ -51,8 +154,19 @@ impl<R: AttachmentRepository, S: FileStorage> CleanupOrphanAttachments<R, S> {
                 for key in keys {
                     match self.storage.delete(&key).await {
                         Ok(()) | Err(FileStorageError::NotFound) => {
-                            if let Err(e) = self.repository.dequeue_cleanup(&key).await {
-                                tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
+                            match self
+                                .repository
+                                .delete_by_storage_keys(std::slice::from_ref(&key))
+                                .await
+                            {
+                                Ok(()) => {
+                                    if let Err(e) = self.repository.dequeue_cleanup(&key).await {
+                                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = %e, %key, "Failed to delete attachment row for cleaned object; will retry");
+                                }
                             }
                         }
                         Err(e) => {

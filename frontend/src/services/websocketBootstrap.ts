@@ -95,26 +95,18 @@ function dispatch(env: WsEnvelope) {
     case "server.deleted": {
       const id = asString(d.id);
       if (!id) return;
-      const serverState = useServerStore.getState();
-      const channelState = useChannelStore.getState();
-      const voiceState = useVoicePresenceStore.getState();
-      const unreadState = useUnreadStore.getState();
-      const channelIds = (channelState.channelsByServer[id] ?? []).map((c) => c.id);
-      for (const cid of channelIds) {
-        voiceState.clearChannel(cid);
-        unreadState.resetChannel(cid);
+      purgeServerLocally(id);
+      return;
+    }
+
+    case "server.memberLeft": {
+      const serverId = asString(d.serverId);
+      const userId = asString(d.userId);
+      if (!serverId || !userId) return;
+      const me = useAuthStore.getState().user;
+      if (me && me.id === userId) {
+        purgeServerLocally(serverId);
       }
-      if (
-        channelState.selectedChannelId &&
-        channelIds.includes(channelState.selectedChannelId)
-      ) {
-        channelState.setSelectedChannel(null);
-      }
-      channelState.clearChannels(id);
-      if (serverState.selectedServerId === id) {
-        serverState.setSelectedServer(null);
-      }
-      serverState.removeServer(id);
       return;
     }
 
@@ -164,6 +156,21 @@ function dispatch(env: WsEnvelope) {
     case "friendship.requestAccepted":
     case "friendship.removed": {
       void useFriendshipStore.getState().fetchFriends();
+      return;
+    }
+
+    case "server.memberJoined": {
+      const userId = asString(d.userId);
+      const userName = asString(d.userName);
+      const userNameUpdatedAt = asString(d.userNameUpdatedAt);
+      if (!userId || !userName || !userNameUpdatedAt) return;
+      const applied = useUserNamesStore
+        .getState()
+        .applyRename(userId, userName, userNameUpdatedAt);
+      if (applied) {
+        useVoicePresenceStore.getState().renameMember(userId, userName);
+        useCallStore.getState().participantRenamed(userId, userName);
+      }
       return;
     }
 
@@ -418,6 +425,29 @@ function dispatch(env: WsEnvelope) {
     default:
       return;
   }
+}
+
+function purgeServerLocally(id: string) {
+  const serverState = useServerStore.getState();
+  const channelState = useChannelStore.getState();
+  const voiceState = useVoicePresenceStore.getState();
+  const unreadState = useUnreadStore.getState();
+  const channelIds = (channelState.channelsByServer[id] ?? []).map((c) => c.id);
+  for (const cid of channelIds) {
+    voiceState.clearChannel(cid);
+    unreadState.resetChannel(cid);
+  }
+  if (
+    channelState.selectedChannelId &&
+    channelIds.includes(channelState.selectedChannelId)
+  ) {
+    channelState.setSelectedChannel(null);
+  }
+  channelState.clearChannels(id);
+  if (serverState.selectedServerId === id) {
+    serverState.setSelectedServer(null);
+  }
+  serverState.removeServer(id);
 }
 
 export function installWsBootstrap() {

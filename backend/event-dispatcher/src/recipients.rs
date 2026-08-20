@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
@@ -12,20 +13,29 @@ impl RecipientResolver {
     }
 
     pub async fn server_members(&self, server_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query("SELECT user_id FROM server_members WHERE server_id = $1")
-            .bind(server_id)
-            .fetch_all(&self.pool)
-            .await?;
+        let rows =
+            sqlx::query("SELECT user_id FROM realtime_server_members WHERE server_id = $1 AND NOT removed")
+                .bind(server_id)
+                .fetch_all(&self.pool)
+                .await?;
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    pub async fn shared_server_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+    pub async fn friends_and_server_peers(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
+            SELECT friend_id AS user_id
+            FROM realtime_friend_edges
+            WHERE user_id = $1 AND NOT removed AND NOT pending
+            UNION
             SELECT DISTINCT sm2.user_id
-            FROM server_members sm1
-            JOIN server_members sm2 ON sm2.server_id = sm1.server_id
-            WHERE sm1.user_id = $1 AND sm2.user_id <> $1
+            FROM realtime_server_members sm1
+            INNER JOIN realtime_server_members sm2
+                ON sm2.server_id = sm1.server_id AND NOT sm2.removed
+            WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             "#,
         )
         .bind(user_id)
@@ -34,122 +44,202 @@ impl RecipientResolver {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    pub async fn text_channel_recipients(
+    pub async fn user_name_versioned(
         &self,
-        channel_id: Uuid,
-    ) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query(
-            "SELECT user_id FROM channel_text_participants WHERE channel_id = $1",
+        user_id: Uuid,
+    ) -> Result<Option<(String, DateTime<Utc>)>, sqlx::Error> {
+        let row = sqlx::query(
+            "SELECT name, updated_at FROM realtime_user_names WHERE user_id = $1",
         )
-        .bind(channel_id)
-        .fetch_all(&self.pool)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
         .await?;
-        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+        Ok(row.map(|r| (r.get::<String, _>(0), r.get::<DateTime<Utc>, _>(1))))
     }
 
     pub async fn user_name(&self, user_id: Uuid) -> Result<Option<String>, sqlx::Error> {
-        let row = sqlx::query("SELECT name FROM users WHERE id = $1")
+        let row = sqlx::query("SELECT name FROM realtime_user_names WHERE user_id = $1")
             .bind(user_id)
             .fetch_optional(&self.pool)
             .await?;
         Ok(row.map(|r| r.get::<String, _>(0)))
     }
 
-    pub async fn dm_call_for(
+    pub async fn upsert_user_name(
         &self,
-        message_id: Uuid,
-    ) -> Result<Option<(String, Option<i32>)>, sqlx::Error> {
-        let row = sqlx::query(
+        user_id: Uuid,
+        name: &str,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
             r#"
-            SELECT call_status, call_duration_seconds
-            FROM dm_messages
-            WHERE id = $1
+            INSERT INTO realtime_user_names (user_id, name, updated_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id) DO UPDATE
+                SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at
+                WHERE realtime_user_names.updated_at <= EXCLUDED.updated_at
             "#,
         )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
+        .bind(user_id)
+        .bind(name)
+        .bind(occurred_at)
+        .execute(&self.pool)
         .await?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let status: Option<String> = row.get(0);
-        let duration: Option<i32> = row.get(1);
-        Ok(status.map(|s| (s, duration)))
+        Ok(())
     }
 
-    pub async fn dm_invite_for(
+    pub async fn add_friend_edge(
         &self,
-        message_id: Uuid,
-    ) -> Result<Option<(Uuid, String)>, sqlx::Error> {
-        let row = sqlx::query(
+        a: Uuid,
+        b: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        self.upsert_friend_edge(a, b, false, false, occurred_at).await
+    }
+
+    pub async fn add_pending_friend_edge(
+        &self,
+        a: Uuid,
+        b: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        self.upsert_friend_edge(a, b, false, true, occurred_at).await
+    }
+
+    pub async fn remove_friend_edge(
+        &self,
+        a: Uuid,
+        b: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        self.upsert_friend_edge(a, b, true, false, occurred_at).await
+    }
+
+    async fn upsert_friend_edge(
+        &self,
+        a: Uuid,
+        b: Uuid,
+        removed: bool,
+        pending: bool,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
             r#"
-            SELECT m.invite_server_id, s.name
-            FROM dm_messages m
-            LEFT JOIN servers s ON s.id = m.invite_server_id
-            WHERE m.id = $1
+            INSERT INTO realtime_friend_edges (user_id, friend_id, removed, pending, updated_at)
+            VALUES ($1, $2, $3, $4, $5), ($2, $1, $3, $4, $5)
+            ON CONFLICT (user_id, friend_id) DO UPDATE
+                SET removed = EXCLUDED.removed,
+                    pending = EXCLUDED.pending,
+                    updated_at = EXCLUDED.updated_at
+                WHERE realtime_friend_edges.updated_at <= EXCLUDED.updated_at
             "#,
         )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
+        .bind(a)
+        .bind(b)
+        .bind(removed)
+        .bind(pending)
+        .bind(occurred_at)
+        .execute(&self.pool)
         .await?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let server_id: Option<Uuid> = row.get(0);
-        let server_name: Option<String> = row.get(1);
-        Ok(match (server_id, server_name) {
-            (Some(id), Some(name)) => Some((id, name)),
-            _ => None,
-        })
+        Ok(())
     }
 
-    pub async fn attachments_for_message(
-        &self,
-        message_id: Uuid,
-        dm: bool,
-    ) -> Result<Vec<serde_json::Value>, sqlx::Error> {
-        let column = if dm { "dm_message_id" } else { "message_id" };
-        let rows = sqlx::query(&format!(
-            "SELECT id, file_name, content_type, size_bytes FROM attachments WHERE {column} = $1 ORDER BY created_at ASC"
-        ))
-        .bind(message_id)
+    pub async fn rename_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT friend_id AS user_id
+            FROM realtime_friend_edges
+            WHERE user_id = $1 AND NOT removed
+            UNION
+            SELECT DISTINCT sm2.user_id
+            FROM realtime_server_members sm1
+            INNER JOIN realtime_server_members sm2
+                ON sm2.server_id = sm1.server_id AND NOT sm2.removed
+            WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
+            "#,
+        )
+        .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows
-            .into_iter()
-            .map(|r| {
-                serde_json::json!({
-                    "id": r.get::<Uuid, _>(0),
-                    "fileName": r.get::<String, _>(1),
-                    "contentType": r.get::<String, _>(2),
-                    "sizeBytes": r.get::<i64, _>(3),
-                })
-            })
-            .collect())
+        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    pub async fn dm_recipient_for(
+    pub async fn add_server_member(
         &self,
-        message_id: Uuid,
-        sender_id: Uuid,
-    ) -> Result<Option<Uuid>, sqlx::Error> {
-        let row = sqlx::query(
-            "SELECT sender_id, recipient_id FROM dm_messages WHERE id = $1",
+        server_id: Uuid,
+        user_id: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_server_members (server_id, user_id, removed, updated_at)
+            SELECT $1, $2, FALSE, $3
+            WHERE NOT EXISTS (
+                SELECT 1 FROM realtime_deleted_servers WHERE server_id = $1
+            )
+            ON CONFLICT (server_id, user_id) DO UPDATE
+                SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
+                WHERE realtime_server_members.updated_at <= EXCLUDED.updated_at
+            "#,
         )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
+        .bind(server_id)
+        .bind(user_id)
+        .bind(occurred_at)
+        .execute(&self.pool)
         .await?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let s: Uuid = row.get(0);
-        let r: Uuid = row.get(1);
-        if s == sender_id {
-            Ok(Some(r))
-        } else if r == sender_id {
-            Ok(Some(s))
-        } else {
-            Ok(Some(r))
-        }
+        Ok(())
+    }
+
+    pub async fn remove_server_member(
+        &self,
+        server_id: Uuid,
+        user_id: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_server_members (server_id, user_id, removed, updated_at)
+            VALUES ($1, $2, TRUE, $3)
+            ON CONFLICT (server_id, user_id) DO UPDATE
+                SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
+                WHERE realtime_server_members.updated_at <= EXCLUDED.updated_at
+            "#,
+        )
+        .bind(server_id)
+        .bind(user_id)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn remove_server(
+        &self,
+        server_id: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_deleted_servers (server_id, deleted_at)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(server_id)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            r#"
+            UPDATE realtime_server_members
+            SET removed = TRUE, updated_at = $2
+            WHERE server_id = $1 AND updated_at <= $2
+            "#,
+        )
+        .bind(server_id)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 }

@@ -3,30 +3,23 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use domain::{
     call::repository::CallRepository,
-    channel::{events::participant::MediaSource, repository::ChannelRepository},
-    shared::repository::error::RepositoryError,
+    channel::events::participant::MediaSource,
+    shared::{
+        outbox::outbox_record::{AggregateType, OutboxRecord},
+        repository::error::RepositoryError,
+    },
     user::id::UserId,
 };
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    dto::{
-        context::RequestContext,
-        requests::channel::{
-            abort_voice_connection::AbortVoiceConnectionRequest,
-            join_voice_connection::JoinVoiceConnectionRequest,
-            leave_voice_connection::LeaveVoiceConnectionRequest,
-            track_media_connection::TrackMediaConnectionRequest,
+    dto::context::RequestContext,
+    ports::{
+        outbox_writer::OutboxWriter,
+        voice_webhook_verifier::{
+            VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError, WebhookSource,
         },
-    },
-    ports::voice_webhook_verifier::{
-        VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError, WebhookSource,
-    },
-    usecases::channel::{
-        abort_voice_connection::{AbortVoiceConnection, AbortVoiceConnectionError},
-        join_voice_connection::{JoinVoiceConnection, JoinVoiceConnectionError},
-        leave_voice_connection::{LeaveVoiceConnection, LeaveVoiceConnectionError},
-        track_media_connection::{TrackMediaConnection, TrackMediaConnectionError},
     },
 };
 
@@ -34,53 +27,32 @@ use crate::{
 pub enum HandleVoiceWebhookError {
     #[error("Webhook verifier error: {0}")]
     Verifier(#[from] VoiceWebhookVerifierError),
-    #[error("Join voice connection error: {0}")]
-    JoinVoiceConnection(#[from] JoinVoiceConnectionError),
-    #[error("Abort voice connection error: {0}")]
-    AbortVoiceConnection(#[from] AbortVoiceConnectionError),
-    #[error("Leave voice connection error: {0}")]
-    LeaveVoiceConnection(#[from] LeaveVoiceConnectionError),
-    #[error("Track media connection error: {0}")]
-    TrackMediaConnection(#[from] TrackMediaConnectionError),
     #[error("Call repository error: {0}")]
     Call(#[from] RepositoryError),
 }
 
-pub struct HandleVoiceWebhook<V, T, C>
+pub struct HandleVoiceWebhook<V, C, O>
 where
     V: VoiceWebhookVerifier,
-    T: ChannelRepository,
     C: CallRepository,
+    O: OutboxWriter,
 {
     verifier: Arc<V>,
-    join_voice_connection: JoinVoiceConnection<T>,
-    abort_voice_connection: AbortVoiceConnection<T>,
-    leave_voice_connection: LeaveVoiceConnection<T>,
-    track_media_connection: TrackMediaConnection<T>,
     call_repository: Arc<C>,
+    outbox_writer: Arc<O>,
 }
 
-impl<V, T, C> HandleVoiceWebhook<V, T, C>
+impl<V, C, O> HandleVoiceWebhook<V, C, O>
 where
     V: VoiceWebhookVerifier,
-    T: ChannelRepository,
     C: CallRepository,
+    O: OutboxWriter,
 {
-    pub fn new(
-        verifier: Arc<V>,
-        join_voice_connection: JoinVoiceConnection<T>,
-        abort_voice_connection: AbortVoiceConnection<T>,
-        leave_voice_connection: LeaveVoiceConnection<T>,
-        track_media_connection: TrackMediaConnection<T>,
-        call_repository: Arc<C>,
-    ) -> Self {
+    pub fn new(verifier: Arc<V>, call_repository: Arc<C>, outbox_writer: Arc<O>) -> Self {
         Self {
             verifier,
-            join_voice_connection,
-            abort_voice_connection,
-            leave_voice_connection,
-            track_media_connection,
             call_repository,
+            outbox_writer,
         }
     }
 
@@ -115,32 +87,20 @@ where
                 {
                     return Ok(());
                 }
-                let result = self
-                    .join_voice_connection
-                    .execute(JoinVoiceConnectionRequest {
-                        channel_id,
-                        user_id,
-                        session_id,
-                        occurred_at,
-                        inbox_source: source,
-                        inbox_external_id: external_id.clone(),
-                        ctx: ctx.clone(),
-                    })
-                    .await;
-
-                if let Err(e) = result {
-                    if is_join_stale(&e) {
-                        tracing::info!(
-                            channel_id = %channel_id,
-                            user_id = %user_id,
-                            external_id = %external_id,
-                            error = ?e,
-                            "Skipping stale ParticipantJoined webhook",
-                        );
-                    } else {
-                        return Err(e.into());
-                    }
-                }
+                self.forward(
+                    "webhook_joined",
+                    channel_id,
+                    json!({
+                        "channel_id": channel_id,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                    }),
+                    occurred_at,
+                    source,
+                    &external_id,
+                    &ctx,
+                )
+                .await?;
             }
             VoiceWebhookEvent::ParticipantConnectionAborted {
                 channel_id,
@@ -161,33 +121,21 @@ where
                 {
                     return Ok(());
                 }
-                let result = self
-                    .abort_voice_connection
-                    .execute(AbortVoiceConnectionRequest {
-                        channel_id,
-                        user_id,
-                        session_id,
-                        reason,
-                        occurred_at,
-                        inbox_source: source,
-                        inbox_external_id: external_id.clone(),
-                        ctx: ctx.clone(),
-                    })
-                    .await;
-
-                if let Err(e) = result {
-                    if is_abort_stale(&e) {
-                        tracing::info!(
-                            channel_id = %channel_id,
-                            user_id = %user_id,
-                            external_id = %external_id,
-                            error = ?e,
-                            "Skipping stale ParticipantConnectionAborted webhook",
-                        );
-                    } else {
-                        return Err(e.into());
-                    }
-                }
+                self.forward(
+                    "webhook_aborted",
+                    channel_id,
+                    json!({
+                        "channel_id": channel_id,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "reason": reason,
+                    }),
+                    occurred_at,
+                    source,
+                    &external_id,
+                    &ctx,
+                )
+                .await?;
             }
             VoiceWebhookEvent::ParticipantLeft {
                 channel_id,
@@ -208,33 +156,21 @@ where
                 {
                     return Ok(());
                 }
-                let result = self
-                    .leave_voice_connection
-                    .execute(LeaveVoiceConnectionRequest {
-                        channel_id,
-                        user_id,
-                        session_id,
-                        reason,
-                        occurred_at,
-                        inbox_source: source,
-                        inbox_external_id: external_id.clone(),
-                        ctx: ctx.clone(),
-                    })
-                    .await;
-
-                if let Err(e) = result {
-                    if is_leave_stale(&e) {
-                        tracing::info!(
-                            channel_id = %channel_id,
-                            user_id = %user_id,
-                            external_id = %external_id,
-                            error = ?e,
-                            "Skipping stale ParticipantLeft webhook",
-                        );
-                    } else {
-                        return Err(e.into());
-                    }
-                }
+                self.forward(
+                    "webhook_left",
+                    channel_id,
+                    json!({
+                        "channel_id": channel_id,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "reason": reason,
+                    }),
+                    occurred_at,
+                    source,
+                    &external_id,
+                    &ctx,
+                )
+                .await?;
             }
             VoiceWebhookEvent::TrackPublished {
                 channel_id,
@@ -242,7 +178,7 @@ where
                 session_id,
                 source: media_source,
             } => {
-                self.handle_track(
+                self.forward_track(
                     channel_id,
                     user_id,
                     session_id,
@@ -250,8 +186,8 @@ where
                     true,
                     occurred_at,
                     source,
-                    external_id,
-                    ctx,
+                    &external_id,
+                    &ctx,
                 )
                 .await?;
             }
@@ -261,7 +197,7 @@ where
                 session_id,
                 source: media_source,
             } => {
-                self.handle_track(
+                self.forward_track(
                     channel_id,
                     user_id,
                     session_id,
@@ -269,8 +205,8 @@ where
                     false,
                     occurred_at,
                     source,
-                    external_id,
-                    ctx,
+                    &external_id,
+                    &ctx,
                 )
                 .await?;
             }
@@ -281,99 +217,67 @@ where
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn handle_track(
+    async fn forward_track(
         &self,
         channel_id: Uuid,
         user_id: Uuid,
         session_id: String,
-        source: MediaSource,
+        media_source: MediaSource,
         published: bool,
         occurred_at: DateTime<Utc>,
-        inbox_source: WebhookSource,
-        external_id: String,
-        ctx: RequestContext,
+        source: WebhookSource,
+        external_id: &str,
+        ctx: &RequestContext,
     ) -> Result<(), HandleVoiceWebhookError> {
         if self.call_repository.is_call_room(channel_id).await? {
             return Ok(());
         }
+        self.forward(
+            "webhook_track",
+            channel_id,
+            json!({
+                "channel_id": channel_id,
+                "user_id": user_id,
+                "session_id": session_id,
+                "media_source": media_source,
+                "published": published,
+            }),
+            occurred_at,
+            source,
+            external_id,
+            ctx,
+        )
+        .await
+    }
 
-        let result = self
-            .track_media_connection
-            .execute(TrackMediaConnectionRequest {
-                channel_id,
-                user_id,
-                session_id,
-                source,
-                published,
-                occurred_at,
-                inbox_source,
-                inbox_external_id: external_id.clone(),
-                ctx,
-            })
-            .await;
-
-        if let Err(e) = result {
-            let is_pre_join_race = matches!(
-                &e,
-                TrackMediaConnectionError::Domain(
-                    domain::channel::ChannelError::ParticipantNotJoined,
-                )
-            );
-
-            let give_up = if is_pre_join_race {
-                Utc::now().signed_duration_since(occurred_at)
-                    >= chrono::Duration::seconds(TRACK_JOIN_GRACE_SECS)
-            } else {
-                is_track_stale(&e)
-            };
-
-            if give_up {
-                tracing::info!(
-                    channel_id = %channel_id,
-                    user_id = %user_id,
-                    external_id = %external_id,
-                    error = ?e,
-                    "Skipping stale track media webhook",
-                );
-            } else {
-                return Err(e.into());
-            }
+    #[allow(clippy::too_many_arguments)]
+    async fn forward(
+        &self,
+        event_type: &str,
+        channel_id: Uuid,
+        mut payload: serde_json::Value,
+        occurred_at: DateTime<Utc>,
+        source: WebhookSource,
+        external_id: &str,
+        ctx: &RequestContext,
+    ) -> Result<(), HandleVoiceWebhookError> {
+        if let serde_json::Value::Object(obj) = &mut payload {
+            obj.insert("occurred_at".to_string(), json!(occurred_at));
+            obj.insert("inbox_source".to_string(), json!(source.as_str()));
+            obj.insert("inbox_external_id".to_string(), json!(external_id));
         }
-
+        let record = OutboxRecord {
+            id: Uuid::new_v4(),
+            aggregate_id: channel_id,
+            aggregate_type: AggregateType::Channel,
+            parent_id: None,
+            parent_type: None,
+            event_type: event_type.to_string(),
+            payload,
+            occurred_at,
+            request_id: ctx.request_id.clone(),
+        };
+        self.outbox_writer.save(&[record]).await?;
         Ok(())
     }
-}
-
-const TRACK_JOIN_GRACE_SECS: i64 = 10;
-
-fn is_track_stale(e: &TrackMediaConnectionError) -> bool {
-    matches!(
-        e,
-        TrackMediaConnectionError::Repository(RepositoryError::NotFound)
-            | TrackMediaConnectionError::Domain(_)
-    )
-}
-
-fn is_join_stale(e: &JoinVoiceConnectionError) -> bool {
-    matches!(
-        e,
-        JoinVoiceConnectionError::Repository(RepositoryError::NotFound)
-            | JoinVoiceConnectionError::Domain(_)
-    )
-}
-
-fn is_abort_stale(e: &AbortVoiceConnectionError) -> bool {
-    matches!(
-        e,
-        AbortVoiceConnectionError::Repository(RepositoryError::NotFound)
-            | AbortVoiceConnectionError::Domain(_)
-    )
-}
-
-fn is_leave_stale(e: &LeaveVoiceConnectionError) -> bool {
-    matches!(
-        e,
-        LeaveVoiceConnectionError::Repository(RepositoryError::NotFound)
-            | LeaveVoiceConnectionError::Domain(_)
-    )
 }

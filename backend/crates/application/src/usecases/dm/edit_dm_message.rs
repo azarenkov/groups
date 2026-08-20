@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    attachment::repository::AttachmentRepository,
     dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
     message::{MessageError, content::MessageContent},
     shared::{
@@ -18,7 +17,8 @@ use domain::{
 use uuid::Uuid;
 
 use crate::{
-    dto::requests::dm::edit_dm_message::EditDmMessageRequest, ports::file_storage::FileStorage,
+    dto::requests::dm::edit_dm_message::EditDmMessageRequest,
+    ports::attachment_claims::{AttachmentClaimError, AttachmentClaims},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -35,30 +35,28 @@ pub enum EditDmMessageError {
     NotFound,
     #[error("Invalid attachments")]
     InvalidAttachments,
+    #[error("Attachment service unavailable: {0}")]
+    AttachmentsUnavailable(String),
 }
 
-pub struct EditDmMessage<M, A, FS>
+pub struct EditDmMessage<M, A>
 where
     M: DmMessageRepository,
-    A: AttachmentRepository,
-    FS: FileStorage,
+    A: AttachmentClaims,
 {
     dm_repository: Arc<M>,
-    attachment_repository: Arc<A>,
-    storage: Arc<FS>,
+    attachment_claims: Arc<A>,
 }
 
-impl<M, A, FS> EditDmMessage<M, A, FS>
+impl<M, A> EditDmMessage<M, A>
 where
     M: DmMessageRepository,
-    A: AttachmentRepository,
-    FS: FileStorage,
+    A: AttachmentClaims,
 {
-    pub fn new(dm_repository: Arc<M>, attachment_repository: Arc<A>, storage: Arc<FS>) -> Self {
+    pub fn new(dm_repository: Arc<M>, attachment_claims: Arc<A>) -> Self {
         Self {
             dm_repository,
-            attachment_repository,
-            storage,
+            attachment_claims,
         }
     }
 
@@ -82,10 +80,13 @@ where
             return Err(EditDmMessageError::NotFound);
         }
 
-        let current = self
-            .attachment_repository
-            .list_for_dm_messages(&[message_id.uuid()])
-            .await?;
+        let current: Vec<domain::attachment::AttachmentLink> = self
+            .dm_repository
+            .list_attachment_links_for_dm_messages(&[message_id.uuid()])
+            .await?
+            .into_iter()
+            .map(|(_, link)| link)
+            .collect();
         let current_ids: HashSet<Uuid> = current.iter().map(|a| a.id).collect();
         let remove_ids: HashSet<Uuid> = request.remove_attachment_ids.iter().copied().collect();
         if !remove_ids.iter().all(|id| current_ids.contains(id)) {
@@ -94,15 +95,6 @@ where
         let add_ids: HashSet<Uuid> = request.add_attachment_ids.iter().copied().collect();
         if add_ids.iter().any(|id| current_ids.contains(id)) {
             return Err(EditDmMessageError::InvalidAttachments);
-        }
-        if !add_ids.is_empty() {
-            let owned = self
-                .attachment_repository
-                .list_unlinked_owned(&request.add_attachment_ids, &editor_id)
-                .await?;
-            if owned.len() != add_ids.len() {
-                return Err(EditDmMessageError::InvalidAttachments);
-            }
         }
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         if remaining > 10 {
@@ -118,36 +110,86 @@ where
         let now = Utc::now();
         message.edit_with_options(new_content, editor_id, now, attachments_changed)?;
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = message
+        let mut records: Vec<OutboxRecord> = message
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
-        let removed_keys = self
+        let claim_token = uuid::Uuid::new_v4();
+        let added_attachments = if add_ids.is_empty() {
+            Vec::new()
+        } else {
+            match self
+                .attachment_claims
+                .claim(&request.add_attachment_ids, &editor_id, claim_token)
+                .await
+            {
+                Ok(links) => links,
+                Err(AttachmentClaimError::Invalid) => {
+                    return Err(EditDmMessageError::InvalidAttachments);
+                }
+                Err(AttachmentClaimError::Unavailable(e)) => {
+                    if let Err(re) = self
+                        .attachment_claims
+                        .release(&request.add_attachment_ids, claim_token)
+                        .await
+                    {
+                        tracing::warn!(error = %re, "Failed to release attachments after ambiguous claim failure");
+                    }
+                    return Err(EditDmMessageError::AttachmentsUnavailable(e));
+                }
+            }
+        };
+        let mut final_attachments: Vec<domain::attachment::AttachmentLink> = current
+            .iter()
+            .filter(|a| !remove_ids.contains(&a.id))
+            .cloned()
+            .collect();
+        final_attachments.extend(added_attachments.clone());
+        final_attachments.sort_by_key(|a| a.created_at);
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "attachments",
+            crate::usecases::enrichment::attachment_links_value(&final_attachments),
+        );
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "recipient_id",
+            serde_json::json!(message.recipient_id().uuid()),
+        );
+        if let Err(e) = self
             .dm_repository
             .update_with_events(
                 &message,
                 &records,
-                &request.add_attachment_ids,
+                &added_attachments,
                 &request.remove_attachment_ids,
             )
             .await
-            .map_err(|e| match e {
-                RepositoryError::InvalidData(_) => EditDmMessageError::InvalidAttachments,
-                other => EditDmMessageError::Repository(other),
-            })?;
-
-        for key in removed_keys {
-            match self.storage.delete(&key).await {
-                Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {
-                    if let Err(e) = self.attachment_repository.dequeue_cleanup(&key).await {
-                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
+        {
+            if !request.add_attachment_ids.is_empty() {
+                match self.dm_repository.linked_attachment_subset(&request.add_attachment_ids).await {
+                    Ok(linked) if linked.is_empty() => {
+                        if let Err(re) = self
+                            .attachment_claims
+                            .release(&request.add_attachment_ids, claim_token)
+                            .await
+                        {
+                            tracing::warn!(error = %re, "Failed to release attachment claims after edit failure");
+                        }
+                    }
+                    Ok(_) => {
+                        tracing::warn!("Attachment links present after ambiguous commit failure; retaining claims");
+                    }
+                    Err(le) => {
+                        tracing::warn!(error = %le, "Link reconciliation failed after commit failure; retaining claims");
                     }
                 }
-                Err(e) => {
-                    tracing::warn!(error = %e, %key, "Failed to delete attachment object; cleanup queue will retry");
-                }
             }
+            return Err(match e {
+                RepositoryError::InvalidData(_) => EditDmMessageError::InvalidAttachments,
+                other => EditDmMessageError::Repository(other),
+            });
         }
         Ok(())
     }

@@ -68,13 +68,24 @@ where
 
         let content = MessageContent::new("call".to_string())?;
         let now = Utc::now();
+        let status_snapshot = status.clone();
         let mut message =
             DmMessage::create_call(sender_id, recipient_id, status, duration_seconds, content, now);
-        let records: Vec<OutboxRecord> = message
+        let mut records: Vec<OutboxRecord> = message
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(None))
             .collect::<Result<_, _>>()?;
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "call_status",
+            serde_json::json!(status_snapshot),
+        );
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "call_duration_seconds",
+            serde_json::json!(duration_seconds),
+        );
         self.dm_repository
             .save_with_events(&message, &records, &[])
             .await?;

@@ -14,15 +14,35 @@ pub trait AttachmentRepository {
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError>;
 
-    async fn list_for_messages(
+    async fn find_unclaimed_owned(
         &self,
-        message_ids: &[Uuid],
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<Attachment>, RepositoryError>;
+
+    async fn claim_owned(
+        &self,
+        ids: &[Uuid],
+        owner_id: &UserId,
+        claim_token: Uuid,
     ) -> Result<Vec<Attachment>, RepositoryError>;
 
-    async fn list_for_dm_messages(
+    async fn release_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError>;
+
+    async fn release_claims_by_token(
         &self,
-        dm_message_ids: &[Uuid],
-    ) -> Result<Vec<Attachment>, RepositoryError>;
+        ids: &[Uuid],
+        claim_token: Uuid,
+    ) -> Result<(), RepositoryError>;
+
+    async fn list_stale_claims(
+        &self,
+        hours: i64,
+        limit: i64,
+        after: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
+    ) -> Result<Vec<(Uuid, chrono::DateTime<chrono::Utc>)>, RepositoryError>;
+
+    async fn delete_by_storage_keys(&self, keys: &[String]) -> Result<(), RepositoryError>;
 
     async fn claim_unlinked(
         &self,
@@ -36,6 +56,8 @@ pub trait AttachmentRepository {
 
     async fn dequeue_cleanup(&self, key: &str) -> Result<(), RepositoryError>;
 
+    async fn restore_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError>;
+
     async fn list_orphans_older_than(
         &self,
         hours: i64,
@@ -45,22 +67,4 @@ pub trait AttachmentRepository {
     async fn claim_orphan(&self, id: Uuid) -> Result<Option<String>, RepositoryError>;
 
     async fn delete_orphan_row(&self, id: Uuid) -> Result<(), RepositoryError>;
-
-    async fn has_for_message(
-        &self,
-        message_id: Uuid,
-        dm: bool,
-    ) -> Result<bool, RepositoryError>;
-
-    async fn can_access(
-        &self,
-        attachment_id: Uuid,
-        user_id: &UserId,
-    ) -> Result<bool, RepositoryError>;
-
-    async fn list_unlinked_owned(
-        &self,
-        ids: &[Uuid],
-        owner_id: &UserId,
-    ) -> Result<Vec<Attachment>, RepositoryError>;
 }

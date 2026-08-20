@@ -10,7 +10,7 @@ use domain::{
         },
         repository::error::RepositoryError,
     },
-    user::{id::UserId, repository::UserRepository},
+    user::{id::UserId},
 };
 
 use crate::dto::requests::channel::mute_channel::MuteChannelRequest;
@@ -35,7 +35,7 @@ pub enum MuteChannelError {
 pub struct MuteChannel<C, U>
 where
     C: ChannelRepository,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     channel_repository: Arc<C>,
     user_repository: Arc<U>,
@@ -44,7 +44,7 @@ where
 impl<C, U> MuteChannel<C, U>
 where
     C: ChannelRepository,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     pub fn new(channel_repository: Arc<C>, user_repository: Arc<U>) -> Self {
         Self {
@@ -75,7 +75,7 @@ where
         }
 
         self.user_repository
-            .find_by_id(&target)
+            .get_name(&target)
             .await?
             .ok_or(MuteChannelError::TargetUserNotFound)?;
 

@@ -15,6 +15,14 @@ impl WebhookSource {
             Self::LiveKitPooler => "livekit_pooler",
         }
     }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "livekit" => Some(Self::LiveKit),
+            "livekit_pooler" => Some(Self::LiveKitPooler),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]

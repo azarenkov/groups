@@ -3,12 +3,14 @@ use std::sync::Arc;
 use chrono::Utc;
 use domain::{
     call::repository::CallRepository,
-    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     shared::repository::error::RepositoryError,
     user::id::UserId,
 };
 
-use crate::dto::requests::call::add_participants::AddCallParticipantsRequest;
+use crate::{
+    dto::requests::call::add_participants::AddCallParticipantsRequest,
+    ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AddCallParticipantsError {
@@ -20,12 +22,14 @@ pub enum AddCallParticipantsError {
     NotFriends,
     #[error("No recipients specified")]
     NoRecipients,
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
 pub struct AddCallParticipants<C, F>
 where
     C: CallRepository,
-    F: FriendshipRepository,
+    F: FriendshipLookup,
 {
     call_repository: Arc<C>,
     friendship_repository: Arc<F>,
@@ -34,7 +38,7 @@ where
 impl<C, F> AddCallParticipants<C, F>
 where
     C: CallRepository,
-    F: FriendshipRepository,
+    F: FriendshipLookup,
 {
     pub fn new(call_repository: Arc<C>, friendship_repository: Arc<F>) -> Self {
         Self {
@@ -62,11 +66,11 @@ where
             if invitee == caller_id {
                 continue;
             }
-            let pair = self
+            if !self
                 .friendship_repository
-                .find_pair(&caller_id, &invitee)
-                .await?;
-            if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
+                .are_friends(&caller_id, &invitee)
+                .await?
+            {
                 return Err(AddCallParticipantsError::NotFriends);
             }
             invitees.push(invitee);

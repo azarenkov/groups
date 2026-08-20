@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    attachment::repository::AttachmentRepository,
     channel::{id::ChannelId, repository::ChannelRepository},
     message::{MessageError, id::MessageId, repository::MessageRepository},
     server::{id::ServerId, repository::ServerRepository},
@@ -16,10 +15,7 @@ use domain::{
     user::id::UserId,
 };
 
-use crate::{
-    dto::requests::channel::delete_channel_message::DeleteChannelMessageRequest,
-    ports::file_storage::FileStorage,
-};
+use crate::dto::requests::channel::delete_channel_message::DeleteChannelMessageRequest;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteChannelMessageError {
@@ -35,42 +31,32 @@ pub enum DeleteChannelMessageError {
     MessageNotFound,
 }
 
-pub struct DeleteChannelMessage<M, C, S, A, FS>
+pub struct DeleteChannelMessage<M, C, S>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
-    A: AttachmentRepository,
-    FS: FileStorage,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
-    attachment_repository: Arc<A>,
-    storage: Arc<FS>,
 }
 
-impl<M, C, S, A, FS> DeleteChannelMessage<M, C, S, A, FS>
+impl<M, C, S> DeleteChannelMessage<M, C, S>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
-    A: AttachmentRepository,
-    FS: FileStorage,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
-        attachment_repository: Arc<A>,
-        storage: Arc<FS>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
-            attachment_repository,
-            storage,
         }
     }
 
@@ -135,22 +121,9 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
-        let storage_keys = self
-            .message_repository
+        self.message_repository
             .delete_message_with_events(&message_id, &records)
             .await?;
-        for key in storage_keys {
-            match self.storage.delete(&key).await {
-                Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {
-                    if let Err(e) = self.attachment_repository.dequeue_cleanup(&key).await {
-                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, %key, "Failed to delete attachment object; cleanup queue will retry");
-                }
-            }
-        }
 
         Ok(())
     }

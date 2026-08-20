@@ -4,7 +4,7 @@ use domain::{
     call::repository::{CallParticipantView, CallRepository},
     channel::{id::ChannelId, token::ChannelToken},
     shared::repository::error::RepositoryError,
-    user::{id::UserId, repository::UserRepository},
+    user::{id::UserId},
 };
 use uuid::Uuid;
 
@@ -31,7 +31,7 @@ pub struct GetActiveCall<C, V, U>
 where
     C: CallRepository,
     V: VoiceService,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
@@ -42,7 +42,7 @@ impl<C, V, U> GetActiveCall<C, V, U>
 where
     C: CallRepository,
     V: VoiceService,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     pub fn new(call_repository: Arc<C>, voice_service: Arc<V>, user_repository: Arc<U>) -> Self {
         Self {
@@ -61,16 +61,17 @@ where
             None => return Ok(None),
         };
 
-        let user = self
-            .user_repository
-            .find_by_id(&user_id)
-            .await?
-            .ok_or(GetActiveCallError::UserNotFound)?;
+        let user_name = domain::user::name::UserName::new(
+            self.user_repository
+                .get_name(&user_id)
+                .await?
+                .ok_or(GetActiveCallError::UserNotFound)?,
+        );
 
         let room = ChannelId::new(call_id);
         let token = self
             .voice_service
-            .create_token(&user_id, user.name(), &room)
+            .create_token(&user_id, &user_name, &room)
             .await?;
 
         let participants = self.call_repository.list_active(call_id).await?;

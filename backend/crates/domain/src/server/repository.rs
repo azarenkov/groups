@@ -9,7 +9,7 @@ use crate::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
-    user::{User, id::UserId},
+    user::{id::UserId, name::UserName},
 };
 
 #[async_trait]
@@ -29,7 +29,7 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<User>, RepositoryError>;
+    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError>;
     async fn find_member_ids_by_server_id(
         &self,
         server_id: &ServerId,
@@ -50,6 +50,7 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
     async fn delete_server_by_owner_with_events(
         &self,
@@ -101,11 +102,5 @@ pub trait ServerRepository {
         code: &str,
         user_id: &UserId,
     ) -> Result<Option<ServerId>, RepositoryError>;
-    async fn get_logo_key(&self, server_id: &ServerId)
-    -> Result<Option<String>, RepositoryError>;
-    async fn set_logo_key(
-        &self,
-        server_id: &ServerId,
-        key: Option<&str>,
-    ) -> Result<Option<String>, RepositoryError>;
+
 }

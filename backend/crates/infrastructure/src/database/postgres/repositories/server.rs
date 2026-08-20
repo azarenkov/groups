@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 
+use domain::shared::outbox::to_outbox::ToOutboxRecord;
 use domain::{
     channel::{
         Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
@@ -17,7 +18,7 @@ use domain::{
         repository::error::RepositoryError,
         value_objects::password_hash::PasswordHash,
     },
-    user::{User, id::UserId},
+    user::{id::UserId, name::UserName},
 };
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
@@ -25,7 +26,7 @@ use uuid::Uuid;
 use crate::database::postgres::{
     dto::{
         channel::ChannelDto, kind::ChannelKindDto, muted_participant::MutedParticipantDto,
-        server::ServerDto, user::UserDto, visibility::ChannelVisibilityDto,
+        server::ServerDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
     repositories::{
@@ -41,6 +42,28 @@ pub struct PostgresServerRepository {
 impl PostgresServerRepository {
     pub fn new(pool: Pool<Postgres>) -> Self {
         Self { pool }
+    }
+
+    pub async fn has_user_messaging_state(
+        &self,
+        user_id: uuid::Uuid,
+    ) -> Result<bool, RepositoryError> {
+        let row: (bool,) = sqlx::query_as(
+            r#"
+            SELECT
+                EXISTS(SELECT 1 FROM servers WHERE owner_id = $1)
+                OR EXISTS(SELECT 1 FROM server_members WHERE user_id = $1)
+                OR EXISTS(SELECT 1 FROM friendships WHERE user_id = $1)
+                OR EXISTS(SELECT 1 FROM messages WHERE author_id = $1)
+                OR EXISTS(SELECT 1 FROM dm_messages WHERE sender_id = $1)
+                OR EXISTS(SELECT 1 FROM dm_messages WHERE recipient_id = $1)
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.0)
     }
 }
 
@@ -153,7 +176,7 @@ impl ServerRepository for PostgresServerRepository {
         &self,
         server_id: &ServerId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<User>, RepositoryError> {
+    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError> {
         let total = sqlx::query!(
             r#"
                 SELECT COUNT(*) as "count!"
@@ -167,12 +190,11 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?
         .count;
 
-        let users = sqlx::query_as!(
-            UserDto,
+        let users = sqlx::query!(
             r#"
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at, u.updated_at, u.email_verified_at, u.phone_verified_at, u.locale
-                FROM users u
-                INNER JOIN server_members sm ON sm.user_id = u.id
+                SELECT u.user_id, u.name
+                FROM messaging_user_profiles u
+                INNER JOIN server_members sm ON sm.user_id = u.user_id
                 WHERE sm.server_id = $1
                 ORDER BY sm.joined_at ASC
                 LIMIT $2 OFFSET $3
@@ -185,7 +207,10 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        let items = users.into_iter().map(|dto| dto.into()).collect();
+        let items = users
+            .into_iter()
+            .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+            .collect();
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
@@ -430,6 +455,7 @@ impl ServerRepository for PostgresServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
@@ -544,6 +570,7 @@ impl ServerRepository for PostgresServerRepository {
             ));
         }
         save_outbox_records(&mut tx, &viewer_events).await?;
+        save_outbox_records(&mut tx, events).await?;
 
         sqlx::query!(
             r#"
@@ -606,30 +633,19 @@ impl ServerRepository for PostgresServerRepository {
 
         let storage_keys = sqlx::query_scalar!(
             r#"
-            SELECT a.storage_key
-            FROM attachments a
-            INNER JOIN messages m ON m.id = a.message_id
-            INNER JOIN channels c ON c.id = m.channel_id
-            WHERE c.server_id = $1
+            WITH removed AS (
+                DELETE FROM message_attachments a
+                USING messages m, channels c
+                WHERE m.id = a.message_id AND c.id = m.channel_id AND c.server_id = $1
+                RETURNING a.storage_key
+            )
+            SELECT storage_key AS "storage_key!" FROM removed
             "#,
             server_id.uuid(),
         )
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-
-        let mut storage_keys = storage_keys;
-        let logo_key = sqlx::query_scalar!(
-            r#"SELECT logo_key FROM servers WHERE id = $1"#,
-            server_id.uuid(),
-        )
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .flatten();
-        if let Some(key) = logo_key {
-            storage_keys.push(key);
-        }
 
         sqlx::query!(
             r#"
@@ -770,7 +786,7 @@ impl ServerRepository for PostgresServerRepository {
                 i.expires_at, i.created_at,
                 u.name AS "creator_name?"
             FROM server_invite_codes i
-            LEFT JOIN users u ON u.id = i.created_by
+            LEFT JOIN messaging_user_profiles u ON u.user_id = i.created_by
             WHERE i.server_id = $1
               AND i.revoked_at IS NULL
               AND (i.expires_at IS NULL OR i.expires_at > now())
@@ -876,6 +892,18 @@ impl ServerRepository for PostgresServerRepository {
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+            let member_event = domain::server::events::ServerEvent::MemberJoined(
+                domain::server::events::lifecycle::ServerMemberJoined::record(
+                    ServerId::new(invite.server_id),
+                    UserId::new(user_id.uuid()),
+                    chrono::Utc::now(),
+                ),
+            );
+            let record = member_event
+                .to_outbox_record()
+                .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
+            save_outbox_records(&mut tx, &[record]).await?;
         }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
@@ -918,46 +946,4 @@ impl ServerRepository for PostgresServerRepository {
         Ok(true)
     }
 
-    async fn get_logo_key(
-        &self,
-        server_id: &ServerId,
-    ) -> Result<Option<String>, RepositoryError> {
-        sqlx::query_scalar!(
-            r#"SELECT logo_key FROM servers WHERE id = $1"#,
-            server_id.uuid(),
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .ok_or(RepositoryError::NotFound)
-    }
-
-    async fn set_logo_key(
-        &self,
-        server_id: &ServerId,
-        key: Option<&str>,
-    ) -> Result<Option<String>, RepositoryError> {
-        sqlx::query_scalar!(
-            r#"
-            WITH old AS (
-                SELECT id, logo_key FROM servers WHERE id = $1 FOR UPDATE
-            ), upd AS (
-                UPDATE servers SET logo_key = $2, updated_at = now()
-                WHERE id IN (SELECT id FROM old)
-            ), q AS (
-                INSERT INTO storage_cleanup_queue (storage_key)
-                SELECT logo_key FROM old
-                WHERE logo_key IS NOT NULL AND logo_key IS DISTINCT FROM $2
-                ON CONFLICT (storage_key) DO NOTHING
-            )
-            SELECT logo_key FROM old
-            "#,
-            server_id.uuid(),
-            key,
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .ok_or(RepositoryError::NotFound)
-    }
 }

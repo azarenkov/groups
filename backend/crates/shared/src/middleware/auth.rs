@@ -1,5 +1,5 @@
 use std::future::{Ready, ready};
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 
 use actix_web::{
     Error as ActixWebError, FromRequest, HttpRequest, dev::Payload,
@@ -11,7 +11,7 @@ use actix_web::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{middleware::jwt::validation::validate_access_token, rate_limiting::UserRateLimiter};
+use crate::{middleware::jwt::validation::validate_access_token, rate_limiting::KeyedRateLimiter};
 
 static JWT_SECRET: LazyLock<String> =
     LazyLock::new(|| std::env::var("JWT_SECRET").expect("JWT_SECRET must be set"));
@@ -37,28 +37,24 @@ impl FromRequest for AuthToken {
 
 impl FromRequest for RateLimitedAuthToken {
     type Error = ActixWebError;
-    type Future = Ready<Result<Self, Self::Error>>;
+    type Future = futures::future::LocalBoxFuture<'static, Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let (id, verified) = match authenticate(req) {
-            Ok(v) => v,
-            Err(e) => return ready(Err(e)),
-        };
-        if !verified {
-            return ready(Err(ErrorForbidden("Email not verified")));
-        }
-        let limiter = match req.app_data::<web::Data<Arc<UserRateLimiter>>>() {
-            Some(l) => l,
-            None => {
-                return ready(Err(ErrorInternalServerError(
-                    "Rate limiter not configured",
-                )));
+        let auth_result = authenticate(req);
+        let limiter = req.app_data::<web::Data<KeyedRateLimiter>>().cloned();
+        Box::pin(async move {
+            let (id, verified) = auth_result?;
+            if !verified {
+                return Err(ErrorForbidden("Email not verified"));
             }
-        };
-        match limiter.check_key(&id) {
-            Ok(_) => ready(Ok(RateLimitedAuthToken { id })),
-            Err(_) => ready(Err(ErrorTooManyRequests("Too Many Requests"))),
-        }
+            let limiter = limiter
+                .ok_or_else(|| ErrorInternalServerError("Rate limiter not configured"))?;
+            if limiter.check_key(&id).await {
+                Ok(RateLimitedAuthToken { id })
+            } else {
+                Err(ErrorTooManyRequests("Too Many Requests"))
+            }
+        })
     }
 }
 

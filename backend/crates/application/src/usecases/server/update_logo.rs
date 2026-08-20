@@ -1,16 +1,15 @@
 use std::sync::Arc;
 
 use domain::{
-    attachment::repository::AttachmentRepository,
-    server::{id::ServerId, repository::ServerRepository},
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
+    attachment::repository::AttachmentRepository, media::repository::MediaRepository,
+    server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId,
 };
 
 use crate::{
     ports::{
         file_storage::{FileStorage, FileStorageError},
         image_moderation::{ImageModeration, ImageModerationError},
+        server_owner_lookup::{ServerOwnerLookup, ServerOwnerLookupError},
     },
     usecases::user::update_avatar::cleanup_object,
 };
@@ -27,39 +26,46 @@ pub enum UpdateServerLogoError {
     ServerNotFound,
     #[error("Not the server owner")]
     NotOwner,
+    #[error("Owner lookup unavailable: {0}")]
+    OwnerLookup(#[from] ServerOwnerLookupError),
 }
 
-pub struct UpdateServerLogo<S, A, FS, IM>
+pub struct UpdateServerLogo<M, A, FS, IM, O>
 where
-    S: ServerRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
+    O: ServerOwnerLookup,
 {
-    server_repository: Arc<S>,
+    media_repository: Arc<M>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
     moderation: Arc<IM>,
+    owner_lookup: Arc<O>,
 }
 
-impl<S, A, FS, IM> UpdateServerLogo<S, A, FS, IM>
+impl<M, A, FS, IM, O> UpdateServerLogo<M, A, FS, IM, O>
 where
-    S: ServerRepository,
+    M: MediaRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
+    O: ServerOwnerLookup,
 {
     pub fn new(
-        server_repository: Arc<S>,
+        media_repository: Arc<M>,
         attachment_repository: Arc<A>,
         storage: Arc<FS>,
         moderation: Arc<IM>,
+        owner_lookup: Arc<O>,
     ) -> Self {
         Self {
-            server_repository,
+            media_repository,
             attachment_repository,
             storage,
             moderation,
+            owner_lookup,
         }
     }
 
@@ -69,11 +75,24 @@ where
         requester_id: UserId,
         bytes: Option<Vec<u8>>,
     ) -> Result<(), UpdateServerLogoError> {
-        let owner = self
-            .server_repository
-            .find_server_owner(&server_id)
-            .await?
-            .ok_or(UpdateServerLogoError::ServerNotFound)?;
+        let owner = match self.media_repository.get_server_owner(&server_id).await? {
+            Some(owner) => owner,
+            None => {
+                let owner = self
+                    .owner_lookup
+                    .find_owner(&server_id)
+                    .await?
+                    .ok_or(UpdateServerLogoError::ServerNotFound)?;
+                if let Err(e) = self
+                    .media_repository
+                    .upsert_server_owner(&server_id, &owner, chrono::Utc::now())
+                    .await
+                {
+                    tracing::warn!(error = %e, "Failed to backfill server owner projection");
+                }
+                owner
+            }
+        };
         if owner != requester_id {
             return Err(UpdateServerLogoError::NotOwner);
         }
@@ -89,8 +108,8 @@ where
         };
 
         let old = match self
-            .server_repository
-            .set_logo_key(&server_id, new_key.as_deref())
+            .media_repository
+            .set_server_logo_key(&server_id, new_key.as_deref())
             .await
         {
             Ok(old) => old,
@@ -105,7 +124,10 @@ where
                     }
                     cleanup_object(&*self.storage, &*self.attachment_repository, &key).await;
                 }
-                return Err(e.into());
+                return Err(match e {
+                    RepositoryError::NotFound => UpdateServerLogoError::ServerNotFound,
+                    e => e.into(),
+                });
             }
         };
 

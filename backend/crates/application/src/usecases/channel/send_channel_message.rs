@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    attachment::repository::AttachmentRepository,
     channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
     message::{
         Message, MessageError, content::MessageContent, repository::MessageRepository,
@@ -43,6 +42,8 @@ pub enum SendChannelMessageError {
     NotTextChannel,
     #[error("Invalid attachments")]
     InvalidAttachments,
+    #[error("Attachment service unavailable: {0}")]
+    AttachmentsUnavailable(String),
 }
 
 pub struct SendChannelMessage<M, C, S, A>
@@ -50,12 +51,12 @@ where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
-    A: AttachmentRepository,
+    A: crate::ports::attachment_claims::AttachmentClaims,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
-    attachment_repository: Arc<A>,
+    attachment_claims: Arc<A>,
 }
 
 impl<M, C, S, A> SendChannelMessage<M, C, S, A>
@@ -63,19 +64,19 @@ where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
-    A: AttachmentRepository,
+    A: crate::ports::attachment_claims::AttachmentClaims,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
-        attachment_repository: Arc<A>,
+        attachment_claims: Arc<A>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
-            attachment_repository,
+            attachment_claims,
         }
     }
 
@@ -123,21 +124,6 @@ where
         if request.attachment_ids.len() > 10 {
             return Err(SendChannelMessageError::InvalidAttachments);
         }
-        let attachments = if request.attachment_ids.is_empty() {
-            Vec::new()
-        } else {
-            let owned = self
-                .attachment_repository
-                .list_unlinked_owned(&request.attachment_ids, &author_id)
-                .await?;
-            let distinct: std::collections::HashSet<&uuid::Uuid> =
-                request.attachment_ids.iter().collect();
-            if owned.len() != distinct.len() {
-                return Err(SendChannelMessageError::InvalidAttachments);
-            }
-            owned
-        };
-
         let content = if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
         } else {
@@ -159,9 +145,60 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
-        self.message_repository
-            .save_message_with_events(&message, &records, &request.attachment_ids)
-            .await?;
+        let claim_token = uuid::Uuid::new_v4();
+        let attachments = if request.attachment_ids.is_empty() {
+            Vec::new()
+        } else {
+            match self
+                .attachment_claims
+                .claim(&request.attachment_ids, &author_id, claim_token)
+                .await
+            {
+                Ok(links) => links,
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
+                    return Err(SendChannelMessageError::InvalidAttachments);
+                }
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    if let Err(re) = self.attachment_claims.release(&request.attachment_ids, claim_token).await
+                    {
+                        tracing::warn!(error = %re, "Failed to release attachments after ambiguous claim failure");
+                    }
+                    return Err(SendChannelMessageError::AttachmentsUnavailable(e));
+                }
+            }
+        };
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "attachments",
+            crate::usecases::enrichment::attachment_links_value(&attachments),
+        );
+
+        if let Err(e) = self
+            .message_repository
+            .save_message_with_events(&message, &records, &attachments)
+            .await
+        {
+            if !request.attachment_ids.is_empty() {
+                match self.message_repository.linked_attachment_subset(&request.attachment_ids).await {
+                    Ok(linked) if linked.is_empty() => {
+                        if let Err(re) = self
+                            .attachment_claims
+                            .release(&request.attachment_ids, claim_token)
+                            .await
+                        {
+                            tracing::warn!(error = %re, "Failed to release attachment claims after send failure");
+                        }
+                    }
+                    Ok(_) => {
+                        tracing::warn!("Attachment links present after ambiguous commit failure; retaining claims");
+                    }
+                    Err(le) => {
+                        tracing::warn!(error = %le, "Link reconciliation failed after commit failure; retaining claims");
+                    }
+                }
+            }
+            return Err(e.into());
+        }
 
         let mut response = SendChannelMessageResponse::from(&message);
         response.attachments = attachments;

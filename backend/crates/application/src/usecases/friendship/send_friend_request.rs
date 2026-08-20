@@ -13,7 +13,7 @@ use domain::{
         },
         repository::error::RepositoryError,
     },
-    user::{id::UserId, name::UserName, repository::UserRepository},
+    user::{id::UserId, name::UserName},
 };
 
 use crate::dto::requests::friendship::send_friend_request::SendFriendRequestRequest;
@@ -43,7 +43,7 @@ pub enum SendFriendRequestError {
 pub struct SendFriendRequest<F, U>
 where
     F: FriendshipRepository,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     friendship_repository: Arc<F>,
     user_repository: Arc<U>,
@@ -52,7 +52,7 @@ where
 impl<F, U> SendFriendRequest<F, U>
 where
     F: FriendshipRepository,
-    U: UserRepository,
+    U: domain::user_profile::UserProfileRepository,
 {
     pub fn new(friendship_repository: Arc<F>, user_repository: Arc<U>) -> Self {
         Self {
@@ -72,12 +72,11 @@ where
         }
         let username = UserName::new(trimmed.to_string());
 
-        let target = self
+        let target_id = self
             .user_repository
-            .find_by_name(&username)
+            .find_user_by_name(username.as_str())
             .await?
             .ok_or(SendFriendRequestError::UserNotFound)?;
-        let target_id = *target.id();
 
         if target_id == sender_id {
             return Err(SendFriendRequestError::SelfTarget);

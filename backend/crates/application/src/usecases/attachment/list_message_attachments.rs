@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use domain::{
-    attachment::{Attachment, repository::AttachmentRepository},
-    shared::repository::error::RepositoryError,
+    attachment::AttachmentLink, dm_message::repository::DmMessageRepository,
+    message::repository::MessageRepository, shared::repository::error::RepositoryError,
 };
 use uuid::Uuid;
 
@@ -12,32 +12,50 @@ pub enum ListMessageAttachmentsError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct ListMessageAttachments<R: AttachmentRepository> {
-    repository: Arc<R>,
+pub struct ListMessageAttachments<M, D>
+where
+    M: MessageRepository,
+    D: DmMessageRepository,
+{
+    message_repository: Arc<M>,
+    dm_repository: Arc<D>,
 }
 
-impl<R: AttachmentRepository> ListMessageAttachments<R> {
-    pub fn new(repository: Arc<R>) -> Self {
-        Self { repository }
+impl<M, D> ListMessageAttachments<M, D>
+where
+    M: MessageRepository,
+    D: DmMessageRepository,
+{
+    pub fn new(message_repository: Arc<M>, dm_repository: Arc<D>) -> Self {
+        Self {
+            message_repository,
+            dm_repository,
+        }
     }
 
-    pub async fn for_channel_messages(
+    pub async fn for_messages(
         &self,
         message_ids: &[Uuid],
-    ) -> Result<Vec<Attachment>, ListMessageAttachmentsError> {
+    ) -> Result<Vec<(Uuid, AttachmentLink)>, ListMessageAttachmentsError> {
         if message_ids.is_empty() {
             return Ok(Vec::new());
         }
-        Ok(self.repository.list_for_messages(message_ids).await?)
+        Ok(self
+            .message_repository
+            .list_attachment_links_for_messages(message_ids)
+            .await?)
     }
 
     pub async fn for_dm_messages(
         &self,
         dm_message_ids: &[Uuid],
-    ) -> Result<Vec<Attachment>, ListMessageAttachmentsError> {
+    ) -> Result<Vec<(Uuid, AttachmentLink)>, ListMessageAttachmentsError> {
         if dm_message_ids.is_empty() {
             return Ok(Vec::new());
         }
-        Ok(self.repository.list_for_dm_messages(dm_message_ids).await?)
+        Ok(self
+            .dm_repository
+            .list_attachment_links_for_dm_messages(dm_message_ids)
+            .await?)
     }
 }

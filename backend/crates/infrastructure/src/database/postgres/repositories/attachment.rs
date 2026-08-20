@@ -19,7 +19,6 @@ impl PostgresAttachmentRepository {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn row_to_attachment(
     id: Uuid,
     owner_id: Uuid,
@@ -27,8 +26,6 @@ fn row_to_attachment(
     content_type: String,
     size_bytes: i64,
     storage_key: String,
-    message_id: Option<Uuid>,
-    dm_message_id: Option<Uuid>,
     created_at: chrono::DateTime<chrono::Utc>,
 ) -> Attachment {
     Attachment {
@@ -38,8 +35,6 @@ fn row_to_attachment(
         content_type,
         size_bytes,
         storage_key,
-        message_id,
-        dm_message_id,
         created_at,
     }
 }
@@ -70,7 +65,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             r#"
             SELECT COUNT(*) AS "count!", COALESCE(SUM(size_bytes), 0)::BIGINT AS "bytes!"
             FROM attachments
-            WHERE owner_id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+            WHERE owner_id = $1 AND claimed_at IS NULL
               AND deleting_at IS NULL
             "#,
             a.owner_id,
@@ -108,8 +103,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key,
-                   message_id, dm_message_id, created_at
+            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
             FROM attachments
             WHERE id = $1
             "#,
@@ -127,32 +121,77 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                 r.content_type,
                 r.size_bytes,
                 r.storage_key,
-                r.message_id,
-                r.dm_message_id,
                 r.created_at,
             )
         }))
     }
 
-    async fn list_for_messages(
+    async fn find_unclaimed_owned(
         &self,
-        message_ids: &[Uuid],
+        id: Uuid,
+        owner_id: &UserId,
+    ) -> Result<Option<Attachment>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
+            FROM attachments
+            WHERE id = $1 AND owner_id = $2
+              AND claimed_at IS NULL AND deleting_at IS NULL
+            "#,
+            id,
+            owner_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(row.map(|r| {
+            row_to_attachment(
+                r.id,
+                r.owner_id,
+                r.file_name,
+                r.content_type,
+                r.size_bytes,
+                r.storage_key,
+                r.created_at,
+            )
+        }))
+    }
+
+    async fn claim_owned(
+        &self,
+        ids: &[Uuid],
+        owner_id: &UserId,
+        claim_token: Uuid,
     ) -> Result<Vec<Attachment>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
-            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key,
-                   message_id, dm_message_id, created_at
-            FROM attachments
-            WHERE message_id = ANY($1)
-            ORDER BY created_at ASC
+            UPDATE attachments
+            SET claimed_at = now(), claim_token = $3
+            WHERE id = ANY($1) AND owner_id = $2
+              AND claimed_at IS NULL AND deleting_at IS NULL
+            RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
             "#,
-            message_ids,
+            ids,
+            owner_id.uuid(),
+            claim_token,
         )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(rows
+        let distinct: std::collections::HashSet<&Uuid> = ids.iter().collect();
+        if rows.len() != distinct.len() {
+            let claimed: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+            if !claimed.is_empty() {
+                let _ = self.release_claims_by_token(&claimed, claim_token).await;
+            }
+            return Err(RepositoryError::InvalidData(
+                "attachments unavailable".to_string(),
+            ));
+        }
+
+        let mut attachments: Vec<Attachment> = rows
             .into_iter()
             .map(|r| {
                 row_to_attachment(
@@ -162,12 +201,58 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                     r.content_type,
                     r.size_bytes,
                     r.storage_key,
-                    r.message_id,
-                    r.dm_message_id,
                     r.created_at,
                 )
             })
-            .collect())
+            .collect();
+        attachments.sort_by_key(|a| a.created_at);
+        Ok(attachments)
+    }
+
+    async fn release_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            UPDATE attachments
+            SET claimed_at = NULL, claim_token = NULL
+            WHERE id = ANY($1)
+            "#,
+            ids,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn release_claims_by_token(
+        &self,
+        ids: &[Uuid],
+        claim_token: Uuid,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            UPDATE attachments
+            SET claimed_at = NULL, claim_token = NULL
+            WHERE id = ANY($1) AND claim_token = $2
+            "#,
+            ids,
+            claim_token,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn delete_by_storage_keys(&self, keys: &[String]) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"DELETE FROM attachments WHERE storage_key = ANY($1)"#,
+            keys,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
     }
 
     async fn claim_unlinked(
@@ -180,7 +265,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             UPDATE attachments
             SET deleting_at = now()
             WHERE id = $1 AND owner_id = $2
-              AND message_id IS NULL AND dm_message_id IS NULL
+              AND claimed_at IS NULL
             RETURNING storage_key
             "#,
             id,
@@ -193,9 +278,6 @@ impl AttachmentRepository for PostgresAttachmentRepository {
     }
 
     async fn enqueue_cleanup(&self, keys: &[String]) -> Result<(), RepositoryError> {
-        if keys.is_empty() {
-            return Ok(());
-        }
         sqlx::query!(
             r#"
             INSERT INTO storage_cleanup_queue (storage_key)
@@ -208,6 +290,38 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
+    }
+
+    async fn list_stale_claims(
+        &self,
+        hours: i64,
+        limit: i64,
+        after: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
+    ) -> Result<Vec<(Uuid, chrono::DateTime<chrono::Utc>)>, RepositoryError> {
+        let (after_at, after_id) = match after {
+            Some((at, id)) => (Some(at), Some(id)),
+            None => (None, None),
+        };
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, claimed_at AS "claimed_at!"
+            FROM attachments
+            WHERE claimed_at IS NOT NULL
+              AND deleting_at IS NULL
+              AND claimed_at < now() - ($1 || ' hours')::interval
+              AND ($3::timestamptz IS NULL OR (claimed_at, id) > ($3, $4))
+            ORDER BY claimed_at ASC, id ASC
+            LIMIT $2
+            "#,
+            hours.to_string(),
+            limit,
+            after_at,
+            after_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|r| (r.id, r.claimed_at)).collect())
     }
 
     async fn list_cleanup_queue(&self, limit: i64) -> Result<Vec<String>, RepositoryError> {
@@ -236,6 +350,21 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(())
     }
 
+    async fn restore_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            UPDATE attachments
+            SET claimed_at = now(), deleting_at = NULL
+            WHERE id = ANY($1) AND claimed_at IS NULL
+            "#,
+            ids,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn list_orphans_older_than(
         &self,
         hours: i64,
@@ -245,12 +374,13 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             r#"
             SELECT id
             FROM attachments
-            WHERE message_id IS NULL AND dm_message_id IS NULL
-              AND created_at < now() - make_interval(hours => $1::int)
+            WHERE claimed_at IS NULL
+              AND (deleting_at IS NULL OR deleting_at < now() - interval '1 hour')
+              AND created_at < now() - ($1 || ' hours')::interval
             ORDER BY created_at ASC
             LIMIT $2
             "#,
-            hours as i32,
+            hours.to_string(),
             limit,
         )
         .fetch_all(&self.pool)
@@ -264,7 +394,8 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             r#"
             UPDATE attachments
             SET deleting_at = now()
-            WHERE id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+            WHERE id = $1 AND claimed_at IS NULL
+              AND (deleting_at IS NULL OR deleting_at < now() - interval '1 hour')
             RETURNING storage_key
             "#,
             id,
@@ -279,7 +410,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         sqlx::query!(
             r#"
             DELETE FROM attachments
-            WHERE id = $1 AND message_id IS NULL AND dm_message_id IS NULL
+            WHERE id = $1 AND claimed_at IS NULL
             "#,
             id,
         )
@@ -287,155 +418,5 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
-    }
-
-    async fn has_for_message(
-        &self,
-        message_id: Uuid,
-        dm: bool,
-    ) -> Result<bool, RepositoryError> {
-        let row = if dm {
-            sqlx::query_scalar!(
-                r#"SELECT EXISTS(SELECT 1 FROM attachments WHERE dm_message_id = $1) AS "exists!""#,
-                message_id,
-            )
-            .fetch_one(&self.pool)
-            .await
-        } else {
-            sqlx::query_scalar!(
-                r#"SELECT EXISTS(SELECT 1 FROM attachments WHERE message_id = $1) AS "exists!""#,
-                message_id,
-            )
-            .fetch_one(&self.pool)
-            .await
-        };
-        row.map_err(map_sqlx_error_to_domain_error)
-    }
-
-    async fn can_access(
-        &self,
-        attachment_id: Uuid,
-        user_id: &UserId,
-    ) -> Result<bool, RepositoryError> {
-        let row = sqlx::query!(
-            r#"
-            SELECT EXISTS(
-                SELECT 1
-                FROM attachments a
-                LEFT JOIN messages m ON m.id = a.message_id
-                LEFT JOIN channels c ON c.id = m.channel_id
-                LEFT JOIN channel_text_participants p
-                    ON p.channel_id = m.channel_id AND p.user_id = $2
-                LEFT JOIN server_members sm
-                    ON sm.server_id = c.server_id AND sm.user_id = $2
-                LEFT JOIN dm_messages d ON d.id = a.dm_message_id
-                WHERE a.id = $1
-                  AND (
-                    (
-                        a.owner_id = $2
-                        AND a.message_id IS NULL
-                        AND a.dm_message_id IS NULL
-                        AND a.deleting_at IS NULL
-                    )
-                    OR p.user_id IS NOT NULL
-                    OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
-                    OR (
-                        (d.sender_id = $2 OR d.recipient_id = $2)
-                        AND EXISTS(
-                            SELECT 1 FROM friendships f
-                            WHERE f.user_id = $2
-                              AND f.friend_id = CASE
-                                  WHEN d.sender_id = $2 THEN d.recipient_id
-                                  ELSE d.sender_id
-                              END
-                              AND f.status = 'accepted'
-                        )
-                    )
-                  )
-            ) AS "exists!"
-            "#,
-            attachment_id,
-            user_id.uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.exists)
-    }
-
-    async fn list_unlinked_owned(
-        &self,
-        ids: &[Uuid],
-        owner_id: &UserId,
-    ) -> Result<Vec<Attachment>, RepositoryError> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key,
-                   message_id, dm_message_id, created_at
-            FROM attachments
-            WHERE id = ANY($1) AND owner_id = $2
-              AND message_id IS NULL AND dm_message_id IS NULL
-              AND deleting_at IS NULL
-            ORDER BY created_at ASC
-            "#,
-            ids,
-            owner_id.uuid(),
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(rows
-            .into_iter()
-            .map(|r| {
-                row_to_attachment(
-                    r.id,
-                    r.owner_id,
-                    r.file_name,
-                    r.content_type,
-                    r.size_bytes,
-                    r.storage_key,
-                    r.message_id,
-                    r.dm_message_id,
-                    r.created_at,
-                )
-            })
-            .collect())
-    }
-
-    async fn list_for_dm_messages(
-        &self,
-        dm_message_ids: &[Uuid],
-    ) -> Result<Vec<Attachment>, RepositoryError> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key,
-                   message_id, dm_message_id, created_at
-            FROM attachments
-            WHERE dm_message_id = ANY($1)
-            ORDER BY created_at ASC
-            "#,
-            dm_message_ids,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(rows
-            .into_iter()
-            .map(|r| {
-                row_to_attachment(
-                    r.id,
-                    r.owner_id,
-                    r.file_name,
-                    r.content_type,
-                    r.size_bytes,
-                    r.storage_key,
-                    r.message_id,
-                    r.dm_message_id,
-                    r.created_at,
-                )
-            })
-            .collect())
     }
 }

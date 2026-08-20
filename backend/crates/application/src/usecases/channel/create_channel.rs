@@ -101,12 +101,18 @@ where
             now,
         )?;
 
+        let member_ids = self
+            .server_repository
+            .find_member_ids_by_server_id(&server_id)
+            .await?;
+
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = channel
+        let mut records: Vec<OutboxRecord> = channel
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
         self.channel_repository
             .save_channel_with_events(&channel, &records)

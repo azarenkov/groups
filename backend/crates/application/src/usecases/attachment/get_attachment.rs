@@ -1,36 +1,44 @@
 use std::sync::Arc;
 
 use domain::{
-    attachment::{Attachment, repository::AttachmentRepository},
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
+    attachment::AttachmentLink, message::repository::MessageRepository,
+    shared::repository::error::RepositoryError, user::id::UserId,
 };
 use uuid::Uuid;
 
-use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
+use crate::ports::{
+    attachment_claims::{AttachmentClaimError, AttachmentClaims},
+    file_storage::{ByteStream, FileStorage, FileStorageError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetAttachmentError {
     #[error("Attachment not found")]
     NotFound,
-    #[error("You do not have access to this attachment")]
-    Forbidden,
     #[error("Storage error: {0}")]
     Storage(#[from] FileStorageError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("Attachment service unavailable: {0}")]
+    Claims(#[from] AttachmentClaimError),
 }
 
-pub struct GetAttachment<R: AttachmentRepository, S: FileStorage> {
-    repository: Arc<R>,
+pub struct GetAttachment<M: MessageRepository, S: FileStorage, C: AttachmentClaims> {
+    message_repository: Arc<M>,
     storage: Arc<S>,
+    attachment_claims: Arc<C>,
 }
 
-impl<R: AttachmentRepository, S: FileStorage> GetAttachment<R, S> {
-    pub fn new(repository: Arc<R>, storage: Arc<S>) -> Self {
+impl<M: MessageRepository, S: FileStorage, C: AttachmentClaims> GetAttachment<M, S, C> {
+    pub fn new(
+        message_repository: Arc<M>,
+        storage: Arc<S>,
+        attachment_claims: Arc<C>,
+    ) -> Self {
         Self {
-            repository,
+            message_repository,
             storage,
+            attachment_claims,
         }
     }
 
@@ -38,19 +46,21 @@ impl<R: AttachmentRepository, S: FileStorage> GetAttachment<R, S> {
         &self,
         attachment_id: Uuid,
         user_id: UserId,
-    ) -> Result<(Attachment, ByteStream), GetAttachmentError> {
-        let attachment = self
-            .repository
-            .find_by_id(attachment_id)
+    ) -> Result<(AttachmentLink, ByteStream), GetAttachmentError> {
+        let link = match self
+            .message_repository
+            .find_attachment_for_user(attachment_id, &user_id)
             .await?
-            .ok_or(GetAttachmentError::NotFound)?;
+        {
+            Some(link) => link,
+            None => self
+                .attachment_claims
+                .lookup_unclaimed(attachment_id, &user_id)
+                .await?
+                .ok_or(GetAttachmentError::NotFound)?,
+        };
 
-        let allowed = self.repository.can_access(attachment_id, &user_id).await?;
-        if !allowed {
-            return Err(GetAttachmentError::Forbidden);
-        }
-
-        let stream = self.storage.get_stream(&attachment.storage_key).await?;
-        Ok((attachment, stream))
+        let stream = self.storage.get_stream(&link.storage_key).await?;
+        Ok((link, stream))
     }
 }

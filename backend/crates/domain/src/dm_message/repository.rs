@@ -31,22 +31,32 @@ pub trait DmMessageRepository {
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
-        attachment_ids: &[Uuid],
+        attachments: &[crate::attachment::AttachmentLink],
     ) -> Result<(), RepositoryError>;
 
     async fn update_with_events(
         &self,
         message: &DmMessage,
         events: &[OutboxRecord],
-        add_attachment_ids: &[Uuid],
+        add_attachments: &[crate::attachment::AttachmentLink],
         remove_attachment_ids: &[Uuid],
-    ) -> Result<Vec<String>, RepositoryError>;
+    ) -> Result<(), RepositoryError>;
 
     async fn delete_with_events(
         &self,
         id: &DmMessageId,
         events: &[OutboxRecord],
-    ) -> Result<Vec<String>, RepositoryError>;
+    ) -> Result<(), RepositoryError>;
+
+    async fn linked_attachment_subset(
+        &self,
+        attachment_ids: &[uuid::Uuid],
+    ) -> Result<Vec<uuid::Uuid>, RepositoryError>;
+
+    async fn list_attachment_links_for_dm_messages(
+        &self,
+        dm_message_ids: &[Uuid],
+    ) -> Result<Vec<(Uuid, crate::attachment::AttachmentLink)>, RepositoryError>;
 
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError>;
 

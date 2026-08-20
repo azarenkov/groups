@@ -90,3 +90,41 @@ impl ServerUpdated {
         }
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct ServerMemberJoined {
+    pub id: EventId,
+    pub server_id: ServerId,
+    pub user_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ServerMemberJoined {
+    pub fn record(server_id: ServerId, user_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            server_id,
+            user_id,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ServerMemberLeft {
+    pub id: EventId,
+    pub server_id: ServerId,
+    pub user_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ServerMemberLeft {
+    pub fn record(server_id: ServerId, user_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            server_id,
+            user_id,
+            occurred_at: now,
+        }
+    }
+}

@@ -47,6 +47,8 @@ export type WsEventType =
   | "server.created"
   | "server.updated"
   | "server.deleted"
+  | "server.memberJoined"
+  | "server.memberLeft"
   | "friendship.requestSent"
   | "friendship.requestAccepted"
   | "friendship.removed"

@@ -6,7 +6,7 @@ use crate::{
     user::id::UserId,
 };
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LeaveReason {
     ClientInitiated,
@@ -17,14 +17,14 @@ pub enum LeaveReason {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MediaSource {
     Camera,
     Screen,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionAbortReason {
     SignalClose,

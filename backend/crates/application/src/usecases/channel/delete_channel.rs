@@ -3,6 +3,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use domain::{
     channel::{ChannelError, repository::ChannelRepository},
+    server::repository::ServerRepository,
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -33,24 +34,32 @@ pub enum DeleteChannelError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteChannel<C, V>
+pub struct DeleteChannel<C, V, S>
 where
     C: ChannelRepository,
     V: VoiceService,
+    S: ServerRepository,
 {
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
+    server_repository: Arc<S>,
 }
 
-impl<C, V> DeleteChannel<C, V>
+impl<C, V, S> DeleteChannel<C, V, S>
 where
     C: ChannelRepository,
     V: VoiceService,
+    S: ServerRepository,
 {
-    pub fn new(channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
+    pub fn new(
+        channel_repository: Arc<C>,
+        voice_service: Arc<V>,
+        server_repository: Arc<S>,
+    ) -> Self {
         Self {
             channel_repository,
             voice_service,
+            server_repository,
         }
     }
 
@@ -79,12 +88,18 @@ where
             other => DeleteChannelError::Domain(other),
         })?;
 
+        let member_ids = self
+            .server_repository
+            .find_member_ids_by_server_id(&server_id)
+            .await?;
+
         let request_id = ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = channel
+        let mut records: Vec<OutboxRecord> = channel
             .pull_events()
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
+        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
         self.channel_repository
             .delete_channel_with_events(&channel_id, &records)

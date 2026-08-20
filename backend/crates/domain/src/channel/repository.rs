@@ -13,7 +13,7 @@ use crate::{
         pagination::{PaginatedResult, Pagination},
         repository::error::RepositoryError,
     },
-    user::{User, id::UserId},
+    user::{id::UserId, name::UserName},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -133,7 +133,7 @@ pub trait ChannelRepository {
         server_id: &crate::server::id::ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<User>, RepositoryError>;
+    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError>;
 
     async fn join_text_with_events(
         &self,

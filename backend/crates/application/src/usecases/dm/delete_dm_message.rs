@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
-    attachment::repository::AttachmentRepository,
     dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
     shared::{
         outbox::{
@@ -14,10 +13,7 @@ use domain::{
     user::id::UserId,
 };
 
-use crate::{
-    dto::requests::dm::delete_dm_message::DeleteDmMessageRequest,
-    ports::file_storage::FileStorage,
-};
+use crate::dto::requests::dm::delete_dm_message::DeleteDmMessageRequest;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteDmMessageError {
@@ -31,33 +27,19 @@ pub enum DeleteDmMessageError {
     NotFound,
 }
 
-pub struct DeleteDmMessage<M, A, S>
+pub struct DeleteDmMessage<M>
 where
     M: DmMessageRepository,
-    A: AttachmentRepository,
-    S: FileStorage,
 {
     dm_repository: Arc<M>,
-    attachment_repository: Arc<A>,
-    storage: Arc<S>,
 }
 
-impl<M, A, S> DeleteDmMessage<M, A, S>
+impl<M> DeleteDmMessage<M>
 where
     M: DmMessageRepository,
-    A: AttachmentRepository,
-    S: FileStorage,
 {
-    pub fn new(
-        dm_repository: Arc<M>,
-        attachment_repository: Arc<A>,
-        storage: Arc<S>,
-    ) -> Self {
-        Self {
-            dm_repository,
-            attachment_repository,
-            storage,
-        }
+    pub fn new(dm_repository: Arc<M>) -> Self {
+        Self { dm_repository }
     }
 
     pub async fn execute(
@@ -88,22 +70,9 @@ where
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
-        let storage_keys = self
-            .dm_repository
+        self.dm_repository
             .delete_with_events(&message_id, &records)
             .await?;
-        for key in storage_keys {
-            match self.storage.delete(&key).await {
-                Ok(()) | Err(crate::ports::file_storage::FileStorageError::NotFound) => {
-                    if let Err(e) = self.attachment_repository.dequeue_cleanup(&key).await {
-                        tracing::warn!(error = %e, %key, "Failed to dequeue cleaned attachment");
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, %key, "Failed to delete attachment object; cleanup queue will retry");
-                }
-            }
-        }
         Ok(())
     }
 }

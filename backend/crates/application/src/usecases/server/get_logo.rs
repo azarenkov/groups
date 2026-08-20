@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::{
-    server::{id::ServerId, repository::ServerRepository},
+    media::repository::MediaRepository, server::id::ServerId,
     shared::repository::error::RepositoryError,
 };
 
@@ -19,29 +19,29 @@ pub enum GetServerLogoError {
 
 pub struct GetServerLogo<S, FS>
 where
-    S: ServerRepository,
+    S: MediaRepository,
     FS: FileStorage,
 {
-    server_repository: Arc<S>,
+    media_repository: Arc<S>,
     storage: Arc<FS>,
 }
 
 impl<S, FS> GetServerLogo<S, FS>
 where
-    S: ServerRepository,
+    S: MediaRepository,
     FS: FileStorage,
 {
-    pub fn new(server_repository: Arc<S>, storage: Arc<FS>) -> Self {
+    pub fn new(media_repository: Arc<S>, storage: Arc<FS>) -> Self {
         Self {
-            server_repository,
+            media_repository,
             storage,
         }
     }
 
     pub async fn execute(&self, server_id: ServerId) -> Result<ByteStream, GetServerLogoError> {
         let key = self
-            .server_repository
-            .get_logo_key(&server_id)
+            .media_repository
+            .get_server_logo_key(&server_id)
             .await
             .map_err(|e| match e {
                 RepositoryError::NotFound => GetServerLogoError::NotFound,
