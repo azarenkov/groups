@@ -101,29 +101,42 @@ impl MediaRepository for PostgresMediaRepository {
         key: Option<&str>,
     ) -> Result<Option<String>, RepositoryError> {
         match key {
-            Some(key) => sqlx::query_scalar!(
-                r#"
-                WITH old AS (
-                    SELECT server_id, storage_key FROM media_server_logos
-                    WHERE server_id = $1 FOR UPDATE
-                ), ins AS (
-                    INSERT INTO media_server_logos (server_id, storage_key)
-                    VALUES ($1, $2)
-                    ON CONFLICT (server_id) DO UPDATE SET storage_key = EXCLUDED.storage_key
-                ), q AS (
-                    INSERT INTO storage_cleanup_queue (storage_key)
-                    SELECT storage_key FROM old
-                    WHERE storage_key IS DISTINCT FROM $2
-                    ON CONFLICT (storage_key) DO NOTHING
+            Some(key) => {
+                let row = sqlx::query!(
+                    r#"
+                    WITH live AS (
+                        SELECT server_id FROM media_server_owners
+                        WHERE server_id = $1 AND deleted_at IS NULL
+                        FOR UPDATE
+                    ), old AS (
+                        SELECT server_id, storage_key FROM media_server_logos
+                        WHERE server_id = $1 AND EXISTS (SELECT 1 FROM live)
+                        FOR UPDATE
+                    ), ins AS (
+                        INSERT INTO media_server_logos (server_id, storage_key)
+                        SELECT server_id, $2 FROM live
+                        ON CONFLICT (server_id) DO UPDATE SET storage_key = EXCLUDED.storage_key
+                    ), q AS (
+                        INSERT INTO storage_cleanup_queue (storage_key)
+                        SELECT storage_key FROM old
+                        WHERE storage_key IS DISTINCT FROM $2
+                        ON CONFLICT (storage_key) DO NOTHING
+                    )
+                    SELECT
+                        EXISTS(SELECT 1 FROM live) AS "live!",
+                        (SELECT storage_key FROM old) AS old_key
+                    "#,
+                    server_id.uuid(),
+                    key,
                 )
-                SELECT storage_key FROM old
-                "#,
-                server_id.uuid(),
-                key,
-            )
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(map_sqlx_error_to_domain_error),
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                if !row.live {
+                    return Err(RepositoryError::NotFound);
+                }
+                Ok(row.old_key)
+            }
             None => sqlx::query_scalar!(
                 r#"
                 WITH old AS (
@@ -197,22 +210,6 @@ impl MediaRepository for PostgresMediaRepository {
 
         sqlx::query!(
             r#"
-            WITH old AS (
-                DELETE FROM media_server_logos WHERE server_id = $1
-                RETURNING storage_key
-            )
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT storage_key FROM old
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            server_id.uuid(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
             INSERT INTO media_server_owners (server_id, owner_id, updated_at, deleted_at)
             VALUES ($1, $2, $3, $3)
             ON CONFLICT (server_id) DO UPDATE
@@ -222,6 +219,22 @@ impl MediaRepository for PostgresMediaRepository {
             server_id.uuid(),
             owner_id.uuid(),
             occurred_at,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+            WITH old AS (
+                DELETE FROM media_server_logos WHERE server_id = $1
+                RETURNING storage_key
+            )
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT storage_key FROM old
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            server_id.uuid(),
         )
         .execute(&mut *tx)
         .await

@@ -124,7 +124,10 @@ where
                     }
                     cleanup_object(&*self.storage, &*self.attachment_repository, &key).await;
                 }
-                return Err(e.into());
+                return Err(match e {
+                    RepositoryError::NotFound => UpdateServerLogoError::ServerNotFound,
+                    e => e.into(),
+                });
             }
         };
 
