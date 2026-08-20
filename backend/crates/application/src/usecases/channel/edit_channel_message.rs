@@ -171,6 +171,13 @@ where
                     return Err(EditChannelMessageError::InvalidAttachments);
                 }
                 Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    if let Err(re) = self
+                        .attachment_claims
+                        .release(&request.add_attachment_ids)
+                        .await
+                    {
+                        tracing::warn!(error = %re, "Failed to release attachments after ambiguous claim failure");
+                    }
                     return Err(EditChannelMessageError::AttachmentsUnavailable(e));
                 }
             }

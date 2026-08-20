@@ -128,6 +128,13 @@ where
                     return Err(EditDmMessageError::InvalidAttachments);
                 }
                 Err(AttachmentClaimError::Unavailable(e)) => {
+                    if let Err(re) = self
+                        .attachment_claims
+                        .release(&request.add_attachment_ids)
+                        .await
+                    {
+                        tracing::warn!(error = %re, "Failed to release attachments after ambiguous claim failure");
+                    }
                     return Err(EditDmMessageError::AttachmentsUnavailable(e));
                 }
             }

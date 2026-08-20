@@ -1,6 +1,6 @@
-use actix_web::{HttpResponse, Responder, get, web};
+use actix_web::{HttpResponse, Responder, get, post, web};
 use domain::server::{id::ServerId, repository::ServerRepository};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::messaging::state::AppState;
@@ -50,10 +50,36 @@ async fn user_has_state(
     Ok(HttpResponse::Ok().json(StateResponse { has_state }))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LinkedQuery {
+    attachment_ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LinkedResponse {
+    linked_ids: Vec<Uuid>,
+}
+
+#[post("/attachments/linked")]
+async fn linked_attachments(
+    app_state: web::Data<AppState>,
+    body: web::Json<LinkedQuery>,
+) -> Result<impl Responder, ApiError> {
+    let linked_ids = app_state
+        .message_repository
+        .linked_attachment_subset(&body.attachment_ids)
+        .await
+        .map_err(ApiError::from)?;
+    Ok(HttpResponse::Ok().json(LinkedResponse { linked_ids }))
+}
+
 pub fn internal_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/internal")
             .service(server_owner)
-            .service(user_has_state),
+            .service(user_has_state)
+            .service(linked_attachments),
     );
 }

@@ -223,33 +223,13 @@ impl AttachmentRepository for PostgresAttachmentRepository {
     }
 
     async fn delete_by_storage_keys(&self, keys: &[String]) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
         sqlx::query!(
             r#"DELETE FROM attachments WHERE storage_key = ANY($1)"#,
             keys,
         )
-        .execute(&mut *tx)
+        .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT * FROM UNNEST($1::text[])
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            keys,
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 
@@ -290,6 +270,30 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(())
     }
 
+    async fn list_stale_claims(
+        &self,
+        hours: i64,
+        limit: i64,
+    ) -> Result<Vec<Uuid>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"
+            SELECT id
+            FROM attachments
+            WHERE claimed_at IS NOT NULL
+              AND deleting_at IS NULL
+              AND claimed_at < now() - ($1 || ' hours')::interval
+            ORDER BY claimed_at ASC
+            LIMIT $2
+            "#,
+            hours.to_string(),
+            limit,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows)
+    }
+
     async fn list_cleanup_queue(&self, limit: i64) -> Result<Vec<String>, RepositoryError> {
         let rows = sqlx::query_scalar!(
             r#"
@@ -326,7 +330,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             SELECT id
             FROM attachments
             WHERE claimed_at IS NULL
-              AND deleting_at IS NULL
+              AND (deleting_at IS NULL OR deleting_at < now() - interval '1 hour')
               AND created_at < now() - ($1 || ' hours')::interval
             ORDER BY created_at ASC
             LIMIT $2
@@ -345,7 +349,8 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             r#"
             UPDATE attachments
             SET deleting_at = now()
-            WHERE id = $1 AND claimed_at IS NULL AND deleting_at IS NULL
+            WHERE id = $1 AND claimed_at IS NULL
+              AND (deleting_at IS NULL OR deleting_at < now() - interval '1 hour')
             RETURNING storage_key
             "#,
             id,

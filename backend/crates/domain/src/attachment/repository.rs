@@ -28,6 +28,12 @@ pub trait AttachmentRepository {
 
     async fn release_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError>;
 
+    async fn list_stale_claims(
+        &self,
+        hours: i64,
+        limit: i64,
+    ) -> Result<Vec<Uuid>, RepositoryError>;
+
     async fn delete_by_storage_keys(&self, keys: &[String]) -> Result<(), RepositoryError>;
 
     async fn claim_unlinked(
