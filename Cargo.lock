@@ -330,26 +330,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "application"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "domain",
- "futures",
- "identity",
- "media",
- "messaging",
- "platform",
- "serde_json",
- "shared",
- "thiserror 2.0.18",
- "tracing",
- "uuid",
- "voice",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -743,9 +723,9 @@ dependencies = [
 name = "contracts"
 version = "0.1.0"
 dependencies = [
- "application",
  "chrono",
  "domain",
+ "messaging",
  "serde",
  "serde_json",
  "uuid",
@@ -1175,7 +1155,6 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "anyhow",
- "application",
  "async-nats",
  "chrono",
  "contracts",
@@ -1183,7 +1162,7 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
- "infrastructure",
+ "platform",
  "serde",
  "serde_json",
  "shared",
@@ -1995,42 +1974,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "infrastructure"
-version = "0.1.0"
-dependencies = [
- "application",
- "async-nats",
- "async-trait",
- "bcrypt",
- "chrono",
- "contracts",
- "domain",
- "dotenv",
- "envy",
- "futures",
- "identity",
- "jsonwebtoken 10.3.0",
- "lettre",
- "livekit-api",
- "livekit-protocol",
- "media",
- "messaging",
- "platform",
- "reqwest",
- "rust-s3",
- "serde",
- "serde_json",
- "shared",
- "sqlx",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "urlencoding",
- "uuid",
- "voice",
-]
-
-[[package]]
 name = "inout"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2248,13 +2191,14 @@ name = "livekit-pooler"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "application",
  "chrono",
+ "contracts",
  "domain",
  "dotenv",
  "envy",
- "infrastructure",
  "livekit-api",
+ "messaging",
+ "platform",
  "serde",
  "shared",
  "sqlx",
@@ -2565,13 +2509,12 @@ name = "notification-service"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "application",
  "async-nats",
  "domain",
  "dotenv",
  "envy",
  "futures",
- "infrastructure",
+ "platform",
  "serde",
  "serde_json",
  "shared",
@@ -2730,12 +2673,11 @@ name = "outbox-worker"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "application",
  "async-nats",
  "domain",
  "dotenv",
  "envy",
- "infrastructure",
+ "platform",
  "serde",
  "shared",
  "thiserror 2.0.18",
@@ -3276,6 +3218,7 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "event-dispatcher",
+ "platform",
  "shared",
  "tokio",
  "websocket",
@@ -4943,8 +4886,8 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
- "infrastructure",
  "jsonwebtoken 10.3.0",
+ "platform",
  "serde",
  "serde_json",
  "shared",

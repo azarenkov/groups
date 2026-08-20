@@ -5,9 +5,9 @@ edition = "2024"
 
 [dependencies]
 contracts = { workspace = true }
-application = { workspace = true }
+platform = { workspace = true }
 domain = { workspace = true }
-infrastructure = { workspace = true }
+
 shared = { workspace = true }
 
 tracing = { workspace = true }

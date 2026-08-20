@@ -5,7 +5,6 @@ use platform::config::nsfw::NsfwConfig;
 pub struct NsfwDetector {
     client: reqwest::Client,
     url: Option<String>,
-    threshold: f64,
 }
 
 impl NsfwDetector {
@@ -26,7 +25,6 @@ impl NsfwDetector {
                 .build()
                 .unwrap_or_default(),
             url,
-            threshold: config.threshold,
         }
     }
 }

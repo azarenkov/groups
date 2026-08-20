@@ -21,29 +21,6 @@ impl RecipientResolver {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    pub async fn friends_and_server_peers(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query(
-            r#"
-            SELECT friend_id AS user_id
-            FROM realtime_friend_edges
-            WHERE user_id = $1 AND NOT removed AND NOT pending
-            UNION
-            SELECT DISTINCT sm2.user_id
-            FROM realtime_server_members sm1
-            INNER JOIN realtime_server_members sm2
-                ON sm2.server_id = sm1.server_id AND NOT sm2.removed
-            WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
-            "#,
-        )
-        .bind(user_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
-    }
-
     pub async fn user_name_versioned(
         &self,
         user_id: Uuid,

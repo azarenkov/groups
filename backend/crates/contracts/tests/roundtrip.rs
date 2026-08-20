@@ -267,11 +267,11 @@ fn message_events_match_contracts_with_enrichment() {
         now,
     ));
     let mut records = vec![sent.to_outbox_record().unwrap()];
-    application::usecases::channel::recipients::inject_recipient_ids(
+    messaging::usecases::channel::recipients::inject_recipient_ids(
         &mut records,
         &[author_id, peer_id],
     );
-    application::usecases::enrichment::inject_field(
+    messaging::usecases::enrichment::inject_field(
         &mut records,
         "attachments",
         serde_json::json!([]),
@@ -319,7 +319,7 @@ fn dm_events_match_contracts() {
         now,
     ));
     let mut records = vec![edited.to_outbox_record().unwrap()];
-    application::usecases::enrichment::inject_field(
+    messaging::usecases::enrichment::inject_field(
         &mut records,
         "recipient_id",
         serde_json::json!(recipient_id.uuid()),

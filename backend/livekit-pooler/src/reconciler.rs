@@ -4,7 +4,8 @@ use std::{
     time::Duration,
 };
 
-use application::{
+use contracts::events::webhook::WebhookSource;
+use messaging::{
     dto::{
         context::RequestContext,
         requests::channel::{
@@ -12,7 +13,7 @@ use application::{
             track_media_connection::TrackMediaConnectionRequest,
         },
     },
-    ports::voice_webhook_verifier::WebhookSource,
+    
     usecases::channel::{
         abort_voice_connection::AbortVoiceConnection,
         track_media_connection::TrackMediaConnection,
@@ -321,7 +322,7 @@ where
                     abort_failed += 1;
                     let stale_not_found = matches!(
                         &e,
-                        application::usecases::channel::abort_voice_connection::AbortVoiceConnectionError::Repository(
+                        messaging::usecases::channel::abort_voice_connection::AbortVoiceConnectionError::Repository(
                             RepositoryError::NotFound,
                         ),
                     );

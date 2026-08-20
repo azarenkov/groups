@@ -8,8 +8,6 @@ members = [
     "backend/crates/messaging",
     "backend/crates/voice",
     "backend/crates/domain",
-    "backend/crates/application",
-    "backend/crates/infrastructure",
     "backend/crates/shared",
     "backend/services/api-common",
     "backend/services/identity-service",
@@ -53,6 +51,4 @@ messaging = { path = "backend/crates/messaging" }
 voice = { path = "backend/crates/voice" }
 api-common = { path = "backend/services/api-common" }
 domain = { path = "backend/crates/domain" }
-application = { path = "backend/crates/application" }
-infrastructure = { path = "backend/crates/infrastructure" }
 shared = { path = "backend/crates/shared" }
