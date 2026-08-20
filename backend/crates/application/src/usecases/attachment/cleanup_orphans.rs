@@ -12,6 +12,7 @@ pub struct CleanupOrphanAttachments<R: AttachmentRepository, S: FileStorage, L: 
     repository: Arc<R>,
     storage: Arc<S>,
     links_lookup: Arc<L>,
+    stale_claim_cursor: std::sync::Mutex<Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>>,
 }
 
 impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
@@ -22,24 +23,40 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
             repository,
             storage,
             links_lookup,
+            stale_claim_cursor: std::sync::Mutex::new(None),
+        }
+    }
+
+    fn store_stale_claim_cursor(
+        &self,
+        cursor: Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>,
+    ) {
+        if let Ok(mut slot) = self.stale_claim_cursor.lock() {
+            *slot = cursor;
         }
     }
 
     async fn reconcile_stale_claims(&self) {
         const PAGE_SIZE: i64 = 500;
         const MAX_PAGES: usize = 20;
-        let mut cursor: Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)> = None;
+        let mut cursor = match self.stale_claim_cursor.lock() {
+            Ok(slot) => *slot,
+            Err(_) => None,
+        };
         for _ in 0..MAX_PAGES {
             let page = match self.repository.list_stale_claims(2, PAGE_SIZE, cursor).await {
                 Ok(rows) => rows,
                 Err(e) => {
                     tracing::warn!(error = %e, "Stale claim query failed");
+                    self.store_stale_claim_cursor(cursor);
                     return;
                 }
             };
             let Some(last) = page.last() else {
+                self.store_stale_claim_cursor(None);
                 return;
             };
+            let prev_cursor = cursor;
             cursor = Some((last.1, last.0));
             let page_len = page.len();
             let ids: Vec<uuid::Uuid> = page.iter().map(|(id, _)| *id).collect();
@@ -48,6 +65,7 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                     Ok(linked) => linked.into_iter().collect(),
                     Err(e) => {
                         tracing::warn!(error = %e, "Linked attachment lookup failed; will retry next sweep");
+                        self.store_stale_claim_cursor(prev_cursor);
                         return;
                     }
                 };
@@ -66,9 +84,11 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                 }
             }
             if (page_len as i64) < PAGE_SIZE {
+                self.store_stale_claim_cursor(None);
                 return;
             }
         }
+        self.store_stale_claim_cursor(cursor);
     }
 
     pub async fn run_once(&self) {
