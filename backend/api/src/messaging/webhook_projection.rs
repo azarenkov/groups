@@ -21,32 +21,22 @@ use application::{
         track_media_connection::{TrackMediaConnection, TrackMediaConnectionError},
     },
 };
-use chrono::{DateTime, Utc};
 use domain::{
     channel::events::participant::{ConnectionAbortReason, LeaveReason, MediaSource},
     channel::repository::ChannelRepository,
     shared::repository::error::RepositoryError,
 };
+use chrono::Utc;
 use futures::StreamExt;
-use infrastructure::messaging::nats::consumer::NatsEventConsumer;
-use serde::Deserialize;
-use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
-struct WebhookEventDto {
-    channel_id: Uuid,
-    user_id: Uuid,
-    session_id: String,
-    occurred_at: DateTime<Utc>,
-    inbox_source: String,
-    inbox_external_id: String,
-    #[serde(default)]
-    reason: Option<serde_json::Value>,
-    #[serde(default)]
-    media_source: Option<MediaSource>,
-    #[serde(default)]
-    published: Option<bool>,
+fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
+    match source {
+        MediaSourceV1::Camera => MediaSource::Camera,
+        MediaSourceV1::Screen => MediaSource::Screen,
+    }
 }
+use infrastructure::messaging::nats::consumer::NatsEventConsumer;
+use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto};
 
 pub fn spawn<T>(
     jetstream: async_nats::jetstream::Context,
@@ -248,7 +238,7 @@ where
                     channel_id: evt.channel_id,
                     user_id: evt.user_id,
                     session_id: evt.session_id,
-                    source: media_source,
+                    source: to_domain_media_source(media_source),
                     published,
                     occurred_at,
                     inbox_source: source,

@@ -55,12 +55,7 @@ struct PresencePayload {
     online: bool,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PresencePreferenceMessage {
-    user_id: Uuid,
-    appear_offline: bool,
-}
+use contracts::realtime::PresencePreferenceV1 as PresencePreferenceMessage;
 
 impl ConnectionManager {
     pub fn new(

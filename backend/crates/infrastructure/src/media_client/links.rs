@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use application::ports::attachment_links_lookup::{
     AttachmentLinksLookup, AttachmentLinksLookupError,
 };
-use serde::Deserialize;
+use contracts::internal::attachments::{LinkedRequestV1, LinkedResponseV1};
 use uuid::Uuid;
 
 pub struct MessagingLinksClient {
@@ -22,12 +22,6 @@ impl MessagingLinksClient {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LinkedDto {
-    linked_ids: Vec<Uuid>,
-}
-
 #[async_trait]
 impl AttachmentLinksLookup for MessagingLinksClient {
     async fn linked_subset(
@@ -37,7 +31,9 @@ impl AttachmentLinksLookup for MessagingLinksClient {
         let response = self
             .client
             .post(format!("{}/internal/attachments/linked", self.base_url))
-            .json(&serde_json::json!({ "attachmentIds": ids }))
+            .json(&LinkedRequestV1 {
+                attachment_ids: ids.to_vec(),
+            })
             .send()
             .await
             .map_err(|e| AttachmentLinksLookupError::Unavailable(e.to_string()))?;
@@ -47,7 +43,7 @@ impl AttachmentLinksLookup for MessagingLinksClient {
                 response.status()
             )));
         }
-        let dto: LinkedDto = response
+        let dto: LinkedResponseV1 = response
             .json()
             .await
             .map_err(|e| AttachmentLinksLookupError::Unavailable(e.to_string()))?;

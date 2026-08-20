@@ -1,60 +1,17 @@
 use application::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
-use chrono::{DateTime, Utc};
+use contracts::events::{
+    friendship::{
+        FriendRequestAcceptedV1 as FriendAcceptedDto, FriendRequestSentV1 as FriendRequestSentDto,
+        FriendshipRemovedV1 as FriendRemovedDto,
+    },
+    server::{ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerIdDto,
+        ServerMemberV1 as ServerMemberDto},
+    user::UserLifecycleV1 as UserNameDto,
+};
 use futures::StreamExt;
 use infrastructure::messaging::nats::consumer::NatsEventConsumer;
-use serde::Deserialize;
-use uuid::Uuid;
 
 use crate::recipients::RecipientResolver;
-
-#[derive(Debug, Deserialize)]
-struct UserNameDto {
-    user_id: Uuid,
-    #[serde(default)]
-    name: Option<String>,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct FriendRequestSentDto {
-    sender_id: Uuid,
-    receiver_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct FriendAcceptedDto {
-    accepter_id: Uuid,
-    sender_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct FriendRemovedDto {
-    user_id: Uuid,
-    other_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ServerMemberDto {
-    server_id: Uuid,
-    user_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ServerCreatedDto {
-    server_id: Uuid,
-    owner_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ServerIdDto {
-    server_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
 
 pub struct CatchupSpec {
     pub stream: String,

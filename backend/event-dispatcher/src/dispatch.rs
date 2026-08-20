@@ -1,8 +1,35 @@
+use contracts::events::{
+    call::CallEventV1 as CallEventDto,
+    channel::{
+        ChannelCreatedV1 as ChannelCreatedDto, ChannelDeletedV1 as ChannelDeletedDto,
+        ChannelRenamedV1 as ChannelRenamedDto,
+        ParticipantConnectionAbortedV1 as ParticipantConnectionAbortedDto,
+        ParticipantJoinedV1 as ParticipantSimple, ParticipantLeftV1 as ParticipantLeftDto,
+        ParticipantMediaV1 as ParticipantMediaDto, ParticipantMutedV1 as ParticipantMutedDto,
+        ParticipantUnmutedV1 as ParticipantUnmutedDto, StreamViewersV1 as StreamViewersDto,
+        TextChannelJoinedV1 as TextJoinedDto,
+    },
+    dm_message::{
+        DmMessageDeletedV1 as DmDeleted, DmMessageEditedV1 as DmEdited,
+        DmMessageSentV1 as DmSent, DmReadV1 as DmReadDto,
+    },
+    friendship::{
+        FriendRequestAcceptedV1 as FriendRequestAcceptedDto,
+        FriendRequestSentV1 as FriendRequestSentDto, FriendshipRemovedV1 as FriendshipRemovedDto,
+    },
+    message::{
+        ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
+        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto,
+    },
+    server::{
+        ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerDeletedDto,
+        ServerMemberV1 as ServerMemberDto, ServerUpdatedV1 as ServerUpdatedDto,
+    },
+    user::{UserLifecycleV1 as UserLifecycleDto, UserRenamedV1 as UserRenamedDto},
+};
 use std::collections::HashSet;
 
-use chrono::{DateTime, Utc};
-use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
@@ -687,275 +714,4 @@ fn ends_with(subject: &str, suffix: &str) -> bool {
 fn unique<I: IntoIterator<Item = Uuid>>(iter: I) -> Vec<Uuid> {
     let mut seen = HashSet::new();
     iter.into_iter().filter(|u| seen.insert(*u)).collect()
-}
-
-#[derive(Deserialize)]
-struct DmSent {
-    message_id: Uuid,
-    sender_id: Uuid,
-    recipient_id: Uuid,
-    content: Value,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    invite_server_id: Option<Uuid>,
-    #[serde(default)]
-    invite_server_name: Option<String>,
-    #[serde(default)]
-    call_status: Option<String>,
-    #[serde(default)]
-    call_duration_seconds: Option<i32>,
-    #[serde(default)]
-    attachments: Option<Value>,
-}
-
-#[derive(Deserialize)]
-struct DmEdited {
-    message_id: Uuid,
-    sender_id: Uuid,
-    new_content: Value,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    recipient_id: Option<Uuid>,
-    #[serde(default)]
-    attachments: Option<Value>,
-}
-
-#[derive(Deserialize)]
-struct DmDeleted {
-    message_id: Uuid,
-    sender_id: Uuid,
-    recipient_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct DmReadDto {
-    reader_id: Uuid,
-    read_at: DateTime<Utc>,
-    recipients: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-struct ChannelReadDto {
-    channel_id: Uuid,
-    reader_id: Uuid,
-    read_at: DateTime<Utc>,
-    recipients: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-struct ChannelMsgSent {
-    message_id: Uuid,
-    channel_id: Uuid,
-    author_id: Uuid,
-    content: Value,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    recipient_ids: Vec<Uuid>,
-    #[serde(default)]
-    attachments: Option<Value>,
-}
-
-#[derive(Deserialize)]
-struct ChannelMsgEdited {
-    message_id: Uuid,
-    channel_id: Uuid,
-    new_content: Value,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    recipient_ids: Vec<Uuid>,
-    #[serde(default)]
-    attachments: Option<Value>,
-}
-
-#[derive(Deserialize)]
-struct ChannelMsgDeleted {
-    message_id: Uuid,
-    channel_id: Uuid,
-    deleted_by: Uuid,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    recipient_ids: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-struct ChannelCreatedDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    owner_id: Uuid,
-    name: Value,
-    kind: Value,
-    visibility: Value,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    recipient_ids: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-struct ChannelRenamedDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    old_name: Value,
-    new_name: Value,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ChannelDeletedDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    deleted_by: Uuid,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    recipient_ids: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-struct ParticipantSimple {
-    channel_id: Uuid,
-    server_id: Uuid,
-    user_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ParticipantLeftDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    user_id: Uuid,
-    reason: Value,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ParticipantMutedDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    user_id: Uuid,
-    muted_by: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ParticipantUnmutedDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    user_id: Uuid,
-    unmuted_by: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ParticipantMediaDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    user_id: Uuid,
-    source: String,
-    enabled: bool,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct StreamViewersDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    streamer_id: Uuid,
-    count: i64,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ParticipantConnectionAbortedDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    user_id: Uuid,
-    reason: Value,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct TextJoinedDto {
-    channel_id: Uuid,
-    server_id: Uuid,
-    user_id: Uuid,
-    joined_at: DateTime<Utc>,
-    #[serde(default)]
-    recipient_ids: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-struct ServerMemberDto {
-    server_id: Uuid,
-    user_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ServerCreatedDto {
-    server_id: Uuid,
-    owner_id: Uuid,
-    name: Value,
-    description: Option<Value>,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ServerUpdatedDto {
-    server_id: Uuid,
-    name: Value,
-    description: Option<Value>,
-    member_ids: Vec<Uuid>,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct ServerDeletedDto {
-    server_id: Uuid,
-    owner_id: Uuid,
-    #[serde(default)]
-    member_ids: Option<Vec<Uuid>>,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct CallEventDto {
-    call_id: Uuid,
-    actor_id: Uuid,
-    recipients: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-struct FriendRequestSentDto {
-    sender_id: Uuid,
-    receiver_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct FriendRequestAcceptedDto {
-    accepter_id: Uuid,
-    sender_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct FriendshipRemovedDto {
-    user_id: Uuid,
-    other_id: Uuid,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct UserRenamedDto {
-    user_id: Uuid,
-    name: String,
-    occurred_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-struct UserLifecycleDto {
-    user_id: Uuid,
-    occurred_at: DateTime<Utc>,
-    #[serde(default)]
-    name: Option<String>,
 }

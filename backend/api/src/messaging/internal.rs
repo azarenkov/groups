@@ -1,21 +1,20 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
+use contracts::internal::{
+    attachments::{LinkedRequestV1, LinkedResponseV1},
+    friendships::FriendsResponseV1,
+    servers::OwnerResponseV1,
+    users::StateResponseV1,
+};
 use domain::{
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     message::repository::MessageRepository,
     server::{id::ServerId, repository::ServerRepository},
     user::id::UserId,
 };
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::messaging::state::AppState;
 use crate::shared::error::ApiError;
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct OwnerResponse {
-    owner_id: Uuid,
-}
 
 #[get("/servers/{server_id}/owner")]
 async fn server_owner(
@@ -29,17 +28,11 @@ async fn server_owner(
         .await
         .map_err(ApiError::from)?
     {
-        Some(owner) => Ok(HttpResponse::Ok().json(OwnerResponse {
+        Some(owner) => Ok(HttpResponse::Ok().json(OwnerResponseV1 {
             owner_id: owner.uuid(),
         })),
         None => Ok(HttpResponse::NotFound().finish()),
     }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct StateResponse {
-    has_state: bool,
 }
 
 #[get("/users/{user_id}/has-state")]
@@ -52,13 +45,7 @@ async fn user_has_state(
         .has_user_messaging_state(path.into_inner())
         .await
         .map_err(ApiError::from)?;
-    Ok(HttpResponse::Ok().json(StateResponse { has_state }))
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FriendsResponse {
-    friends: bool,
+    Ok(HttpResponse::Ok().json(StateResponseV1 { has_state }))
 }
 
 #[get("/friendships/{a}/{b}")]
@@ -73,32 +60,20 @@ async fn friendship_pair(
         .await
         .map_err(ApiError::from)?;
     let friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
-    Ok(HttpResponse::Ok().json(FriendsResponse { friends }))
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LinkedQuery {
-    attachment_ids: Vec<Uuid>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LinkedResponse {
-    linked_ids: Vec<Uuid>,
+    Ok(HttpResponse::Ok().json(FriendsResponseV1 { friends }))
 }
 
 #[post("/attachments/linked")]
 async fn linked_attachments(
     app_state: web::Data<AppState>,
-    body: web::Json<LinkedQuery>,
+    body: web::Json<LinkedRequestV1>,
 ) -> Result<impl Responder, ApiError> {
     let linked_ids = app_state
         .message_repository
         .linked_attachment_subset(&body.attachment_ids)
         .await
         .map_err(ApiError::from)?;
-    Ok(HttpResponse::Ok().json(LinkedResponse { linked_ids }))
+    Ok(HttpResponse::Ok().json(LinkedResponseV1 { linked_ids }))
 }
 
 pub fn internal_routes(cfg: &mut web::ServiceConfig) {

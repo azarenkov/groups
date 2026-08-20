@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use application::ports::attachment_claims::{AttachmentClaimError, AttachmentClaims};
-use chrono::{DateTime, Utc};
+use contracts::internal::attachments::{ClaimRequestV1, ClaimedAttachmentV1, ReleaseRequestV1};
 use domain::{attachment::AttachmentLink, user::id::UserId};
-use serde::Deserialize;
 use uuid::Uuid;
 
 pub struct MediaClaimsClient {
@@ -22,27 +21,14 @@ impl MediaClaimsClient {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ClaimedAttachmentDto {
-    id: Uuid,
-    file_name: String,
-    content_type: String,
-    size_bytes: i64,
-    storage_key: String,
-    created_at: DateTime<Utc>,
-}
-
-impl From<ClaimedAttachmentDto> for AttachmentLink {
-    fn from(d: ClaimedAttachmentDto) -> Self {
-        Self {
-            id: d.id,
-            file_name: d.file_name,
-            content_type: d.content_type,
-            size_bytes: d.size_bytes,
-            storage_key: d.storage_key,
-            created_at: d.created_at,
-        }
+fn to_link(d: ClaimedAttachmentV1) -> AttachmentLink {
+    AttachmentLink {
+        id: d.id,
+        file_name: d.file_name,
+        content_type: d.content_type,
+        size_bytes: d.size_bytes,
+        storage_key: d.storage_key,
+        created_at: d.created_at,
     }
 }
 
@@ -57,22 +43,22 @@ impl AttachmentClaims for MediaClaimsClient {
         let response = self
             .client
             .post(format!("{}/internal/attachments/claim", self.base_url))
-            .json(&serde_json::json!({
-                "attachmentIds": ids,
-                "ownerId": owner_id.uuid(),
-                "claimToken": claim_token,
-            }))
+            .json(&ClaimRequestV1 {
+                attachment_ids: ids.to_vec(),
+                owner_id: owner_id.uuid(),
+                claim_token,
+            })
             .send()
             .await
             .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
 
         match response.status().as_u16() {
             200 => {
-                let items: Vec<ClaimedAttachmentDto> = response
+                let items: Vec<ClaimedAttachmentV1> = response
                     .json()
                     .await
                     .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
-                Ok(items.into_iter().map(AttachmentLink::from).collect())
+                Ok(items.into_iter().map(to_link).collect())
             }
             422 => Err(AttachmentClaimError::Invalid),
             status => Err(AttachmentClaimError::Unavailable(format!(
@@ -99,11 +85,11 @@ impl AttachmentClaims for MediaClaimsClient {
             .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
         match response.status().as_u16() {
             200 => {
-                let dto: ClaimedAttachmentDto = response
+                let dto: ClaimedAttachmentV1 = response
                     .json()
                     .await
                     .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
-                Ok(Some(AttachmentLink::from(dto)))
+                Ok(Some(to_link(dto)))
             }
             404 => Ok(None),
             status => Err(AttachmentClaimError::Unavailable(format!(
@@ -116,7 +102,10 @@ impl AttachmentClaims for MediaClaimsClient {
         let response = self
             .client
             .post(format!("{}/internal/attachments/release", self.base_url))
-            .json(&serde_json::json!({ "attachmentIds": ids, "claimToken": claim_token }))
+            .json(&ReleaseRequestV1 {
+                attachment_ids: ids.to_vec(),
+                claim_token,
+            })
             .send()
             .await
             .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;

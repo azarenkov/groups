@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, Responder, post, web};
+use contracts::realtime::PresencePreferenceV1;
 use serde::Deserialize;
 use shared::middleware::auth::RateLimitedAuthToken;
 
@@ -18,10 +19,10 @@ async fn set_presence(
     body: web::Json<PresenceBody>,
 ) -> Result<impl Responder, ApiError> {
     let user_id = auth_token.id;
-    let payload = serde_json::to_vec(&serde_json::json!({
-        "userId": user_id,
-        "appearOffline": body.appear_offline,
-    }))
+    let payload = serde_json::to_vec(&PresencePreferenceV1 {
+        user_id,
+        appear_offline: body.appear_offline,
+    })
     .unwrap_or_default();
 
     app_state

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use application::ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError};
 use domain::user::id::UserId;
-use serde::Deserialize;
+use contracts::internal::friendships::FriendsResponseV1;
 
 pub struct MessagingFriendshipClient {
     client: reqwest::Client,
@@ -18,12 +18,6 @@ impl MessagingFriendshipClient {
             base_url: base_url.trim_end_matches('/').to_string(),
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct FriendsResponse {
-    friends: bool,
 }
 
 #[async_trait]
@@ -46,7 +40,7 @@ impl FriendshipLookup for MessagingFriendshipClient {
                 response.status()
             )));
         }
-        let body: FriendsResponse = response
+        let body: FriendsResponseV1 = response
             .json()
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;

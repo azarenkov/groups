@@ -9,22 +9,9 @@ use domain::{
 };
 use futures::StreamExt;
 use infrastructure::messaging::nats::consumer::NatsEventConsumer;
-use serde::Deserialize;
-use uuid::Uuid;
-
-#[derive(Debug, Deserialize)]
-struct ServerOwnerDto {
-    server_id: Uuid,
-    owner_id: Uuid,
-    occurred_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ServerDeletedDto {
-    server_id: Uuid,
-    owner_id: Uuid,
-    occurred_at: chrono::DateTime<chrono::Utc>,
-}
+use contracts::events::server::{
+    ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
+};
 
 pub fn spawn<M, FS>(
     jetstream: async_nats::jetstream::Context,

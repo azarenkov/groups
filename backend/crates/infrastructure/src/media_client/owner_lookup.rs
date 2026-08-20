@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use application::ports::server_owner_lookup::{ServerOwnerLookup, ServerOwnerLookupError};
 use domain::{server::id::ServerId, user::id::UserId};
-use serde::Deserialize;
-use uuid::Uuid;
+use contracts::internal::servers::OwnerResponseV1;
 
 pub struct MessagingOwnerClient {
     client: reqwest::Client,
@@ -19,12 +18,6 @@ impl MessagingOwnerClient {
             base_url: base_url.trim_end_matches('/').to_string(),
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct OwnerDto {
-    owner_id: Uuid,
 }
 
 #[async_trait]
@@ -45,7 +38,7 @@ impl ServerOwnerLookup for MessagingOwnerClient {
             .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
         match response.status().as_u16() {
             200 => {
-                let dto: OwnerDto = response
+                let dto: OwnerResponseV1 = response
                     .json()
                     .await
                     .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
