@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use application::ports::voice_service::{VoiceService, VoiceServiceError};
+use crate::ports::voice_service::{VoiceService, VoiceServiceError};
 use async_trait::async_trait;
 
 use domain::{

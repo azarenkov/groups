@@ -1,4 +1,4 @@
-use application::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
+use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
 use async_trait::async_trait;
 use futures::StreamExt;
 use s3::{Bucket, Region, creds::Credentials};

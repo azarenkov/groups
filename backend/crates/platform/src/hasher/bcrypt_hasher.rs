@@ -1,4 +1,4 @@
-use application::ports::hasher::{HashError, Hasher};
+use crate::ports::hasher::{HashError, Hasher};
 use async_trait::async_trait;
 use bcrypt::{DEFAULT_COST, hash, verify};
 

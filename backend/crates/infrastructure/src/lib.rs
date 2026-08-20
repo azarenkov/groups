@@ -1,11 +1,11 @@
 pub mod auth;
-pub mod config;
+pub use platform::config;
 pub mod database;
-pub mod hasher;
-pub mod mailer;
+pub use platform::hasher;
+pub use platform::mailer;
 pub mod media_client;
-pub mod messaging;
+pub use platform::messaging;
 pub mod moderation;
-pub mod outbox;
-pub mod storage;
+pub use platform::outbox;
+pub use platform::storage;
 pub mod voice;

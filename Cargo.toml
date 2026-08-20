@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "backend/crates/contracts",
+    "backend/crates/platform",
     "backend/crates/domain",
     "backend/crates/application",
     "backend/crates/infrastructure",
@@ -37,6 +38,7 @@ actix-multipart = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 
 contracts = { path = "backend/crates/contracts" }
+platform = { path = "backend/crates/platform" }
 domain = { path = "backend/crates/domain" }
 application = { path = "backend/crates/application" }
 infrastructure = { path = "backend/crates/infrastructure" }

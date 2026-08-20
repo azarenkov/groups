@@ -1,4 +1,4 @@
-pub mod connection;
+pub use platform::database::postgres::connection;
 pub mod dto;
-pub mod error;
+pub use platform::database::postgres::error;
 pub mod repositories;

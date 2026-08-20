@@ -1,4 +1,4 @@
-use application::ports::outbox_publisher::{OutboxPublisher, OutboxPublisherError};
+use crate::ports::outbox_publisher::{OutboxPublisher, OutboxPublisherError};
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
 use domain::shared::outbox::outbox_record::OutboxRecord;

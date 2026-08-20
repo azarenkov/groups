@@ -1,4 +1,4 @@
-pub mod aggregate_type;
+pub use platform::database::postgres::dto::aggregate_type;
 pub mod channel;
 pub mod friendship_status;
 pub mod kind;

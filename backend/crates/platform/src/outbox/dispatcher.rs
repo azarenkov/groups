@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use application::ports::outbox_publisher::OutboxPublisher;
+use crate::ports::outbox_publisher::OutboxPublisher;
 use chrono::{Duration, Utc};
 use domain::shared::{
     outbox::outbox_record::{AggregateType, OutboxRecord},

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use application::ports::outbox_writer::OutboxWriter;
+use crate::ports::outbox_writer::OutboxWriter;
 use domain::shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError};
 use sqlx::{Pool, Postgres};
 
