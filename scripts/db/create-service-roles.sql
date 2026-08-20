@@ -39,8 +39,8 @@ GRANT USAGE ON SCHEMA public TO identity_svc, media_svc, messaging_svc, voice_sv
 GRANT ALL ON public.outbox TO identity_svc, media_svc, messaging_svc, voice_svc, realtime_svc;
 GRANT ALL ON public.storage_cleanup_queue TO media_svc, messaging_svc;
 
-ALTER ROLE identity_svc IN DATABASE rift SET search_path TO identity, public;
-ALTER ROLE media_svc IN DATABASE rift SET search_path TO media, public;
-ALTER ROLE messaging_svc IN DATABASE rift SET search_path TO messaging, public;
-ALTER ROLE voice_svc IN DATABASE rift SET search_path TO voice, public;
-ALTER ROLE realtime_svc IN DATABASE rift SET search_path TO realtime, public;
+SELECT format('ALTER ROLE identity_svc IN DATABASE %I SET search_path TO identity, public', current_database()) \gexec
+SELECT format('ALTER ROLE media_svc IN DATABASE %I SET search_path TO media, public', current_database()) \gexec
+SELECT format('ALTER ROLE messaging_svc IN DATABASE %I SET search_path TO messaging, public', current_database()) \gexec
+SELECT format('ALTER ROLE voice_svc IN DATABASE %I SET search_path TO voice, public', current_database()) \gexec
+SELECT format('ALTER ROLE realtime_svc IN DATABASE %I SET search_path TO realtime, public', current_database()) \gexec
