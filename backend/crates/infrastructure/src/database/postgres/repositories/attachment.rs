@@ -274,24 +274,32 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         &self,
         hours: i64,
         limit: i64,
-    ) -> Result<Vec<Uuid>, RepositoryError> {
-        let rows = sqlx::query_scalar!(
+        after: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
+    ) -> Result<Vec<(Uuid, chrono::DateTime<chrono::Utc>)>, RepositoryError> {
+        let (after_at, after_id) = match after {
+            Some((at, id)) => (Some(at), Some(id)),
+            None => (None, None),
+        };
+        let rows = sqlx::query!(
             r#"
-            SELECT id
+            SELECT id, claimed_at AS "claimed_at!"
             FROM attachments
             WHERE claimed_at IS NOT NULL
               AND deleting_at IS NULL
               AND claimed_at < now() - ($1 || ' hours')::interval
-            ORDER BY claimed_at ASC
+              AND ($3::timestamptz IS NULL OR (claimed_at, id) > ($3, $4))
+            ORDER BY claimed_at ASC, id ASC
             LIMIT $2
             "#,
             hours.to_string(),
             limit,
+            after_at,
+            after_id,
         )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows)
+        Ok(rows.into_iter().map(|r| (r.id, r.claimed_at)).collect())
     }
 
     async fn list_cleanup_queue(&self, limit: i64) -> Result<Vec<String>, RepositoryError> {

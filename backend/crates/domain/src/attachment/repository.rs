@@ -32,7 +32,8 @@ pub trait AttachmentRepository {
         &self,
         hours: i64,
         limit: i64,
-    ) -> Result<Vec<Uuid>, RepositoryError>;
+        after: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
+    ) -> Result<Vec<(Uuid, chrono::DateTime<chrono::Utc>)>, RepositoryError>;
 
     async fn delete_by_storage_keys(&self, keys: &[String]) -> Result<(), RepositoryError>;
 
