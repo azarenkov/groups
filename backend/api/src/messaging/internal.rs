@@ -1,6 +1,7 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use domain::{
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
+    message::repository::MessageRepository,
     server::{id::ServerId, repository::ServerRepository},
     user::id::UserId,
 };

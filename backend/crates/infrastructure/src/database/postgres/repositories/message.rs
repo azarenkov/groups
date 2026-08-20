@@ -55,10 +55,16 @@ impl PostgresMessageRepository {
         .ok_or(RepositoryError::NotFound)
     }
 }
-impl PostgresMessageRepository {
-    pub async fn linked_attachment_subset(
+struct MessageCursor {
+    id: uuid::Uuid,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[async_trait]
+impl MessageRepository for PostgresMessageRepository {
+    async fn linked_attachment_subset(
         &self,
-        ids: &[Uuid],
+        attachment_ids: &[Uuid],
     ) -> Result<Vec<Uuid>, RepositoryError> {
         let rows = sqlx::query_scalar!(
             r#"
@@ -68,23 +74,14 @@ impl PostgresMessageRepository {
             SELECT attachment_id AS "attachment_id!" FROM dm_message_attachments
             WHERE attachment_id = ANY($1)
             "#,
-            ids,
+            attachment_ids,
         )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(rows)
     }
-}
 
-
-struct MessageCursor {
-    id: uuid::Uuid,
-    created_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[async_trait]
-impl MessageRepository for PostgresMessageRepository {
     async fn save_message_with_events(
         &self,
         message: &Message,

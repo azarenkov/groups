@@ -178,10 +178,24 @@ where
             .save_message_with_events(&message, &records, &attachments)
             .await
         {
-            if !request.attachment_ids.is_empty()
-                && let Err(re) = self.attachment_claims.release(&request.attachment_ids, claim_token).await
-            {
-                tracing::warn!(error = %re, "Failed to release attachment claims after send failure");
+            if !request.attachment_ids.is_empty() {
+                match self.message_repository.linked_attachment_subset(&request.attachment_ids).await {
+                    Ok(linked) if linked.is_empty() => {
+                        if let Err(re) = self
+                            .attachment_claims
+                            .release(&request.attachment_ids, claim_token)
+                            .await
+                        {
+                            tracing::warn!(error = %re, "Failed to release attachment claims after send failure");
+                        }
+                    }
+                    Ok(_) => {
+                        tracing::warn!("Attachment links present after ambiguous commit failure; retaining claims");
+                    }
+                    Err(le) => {
+                        tracing::warn!(error = %le, "Link reconciliation failed after commit failure; retaining claims");
+                    }
+                }
             }
             return Err(e.into());
         }

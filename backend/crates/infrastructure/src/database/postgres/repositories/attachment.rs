@@ -350,6 +350,21 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(())
     }
 
+    async fn restore_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            UPDATE attachments
+            SET claimed_at = now(), deleting_at = NULL
+            WHERE id = ANY($1) AND claimed_at IS NULL
+            "#,
+            ids,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn list_orphans_older_than(
         &self,
         hours: i64,

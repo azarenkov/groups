@@ -56,6 +56,8 @@ pub trait AttachmentRepository {
 
     async fn dequeue_cleanup(&self, key: &str) -> Result<(), RepositoryError>;
 
+    async fn restore_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError>;
+
     async fn list_orphans_older_than(
         &self,
         hours: i64,

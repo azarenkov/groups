@@ -69,6 +69,26 @@ struct MessageCursor {
 
 #[async_trait]
 impl DmMessageRepository for PostgresDmMessageRepository {
+    async fn linked_attachment_subset(
+        &self,
+        attachment_ids: &[uuid::Uuid],
+    ) -> Result<Vec<uuid::Uuid>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"
+            SELECT attachment_id AS "attachment_id!" FROM message_attachments
+            WHERE attachment_id = ANY($1)
+            UNION
+            SELECT attachment_id AS "attachment_id!" FROM dm_message_attachments
+            WHERE attachment_id = ANY($1)
+            "#,
+            attachment_ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows)
+    }
+
     async fn save_with_events(
         &self,
         message: &DmMessage,

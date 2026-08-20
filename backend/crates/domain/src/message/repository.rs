@@ -46,6 +46,11 @@ pub trait MessageRepository {
         user_id: &UserId,
     ) -> Result<Option<AttachmentLink>, RepositoryError>;
 
+    async fn linked_attachment_subset(
+        &self,
+        attachment_ids: &[uuid::Uuid],
+    ) -> Result<Vec<uuid::Uuid>, RepositoryError>;
+
     async fn find_message_by_id(
         &self,
         message_id: &MessageId,

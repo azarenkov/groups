@@ -167,13 +167,24 @@ where
             )
             .await
         {
-            if !request.add_attachment_ids.is_empty()
-                && let Err(re) = self
-                    .attachment_claims
-                    .release(&request.add_attachment_ids, claim_token)
-                    .await
-            {
-                tracing::warn!(error = %re, "Failed to release attachment claims after edit failure");
+            if !request.add_attachment_ids.is_empty() {
+                match self.dm_repository.linked_attachment_subset(&request.add_attachment_ids).await {
+                    Ok(linked) if linked.is_empty() => {
+                        if let Err(re) = self
+                            .attachment_claims
+                            .release(&request.add_attachment_ids, claim_token)
+                            .await
+                        {
+                            tracing::warn!(error = %re, "Failed to release attachment claims after edit failure");
+                        }
+                    }
+                    Ok(_) => {
+                        tracing::warn!("Attachment links present after ambiguous commit failure; retaining claims");
+                    }
+                    Err(le) => {
+                        tracing::warn!(error = %le, "Link reconciliation failed after commit failure; retaining claims");
+                    }
+                }
             }
             return Err(match e {
                 RepositoryError::InvalidData(_) => EditDmMessageError::InvalidAttachments,

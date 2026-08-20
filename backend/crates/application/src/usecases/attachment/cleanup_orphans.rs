@@ -96,6 +96,33 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
 
         match self.repository.list_orphans_older_than(24, 1000).await {
             Ok(orphans) => {
+                let orphans = if orphans.is_empty() {
+                    orphans
+                } else {
+                    match self.links_lookup.linked_subset(&orphans).await {
+                        Ok(linked) => {
+                            let linked: std::collections::HashSet<uuid::Uuid> =
+                                linked.into_iter().collect();
+                            if !linked.is_empty() {
+                                let to_restore: Vec<uuid::Uuid> =
+                                    linked.iter().copied().collect();
+                                match self.repository.restore_claims(&to_restore).await {
+                                    Ok(()) => {
+                                        tracing::warn!(count = to_restore.len(), "Restored claims for linked attachments found unclaimed");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(error = %e, "Failed to restore claims for linked attachments");
+                                    }
+                                }
+                            }
+                            orphans.into_iter().filter(|id| !linked.contains(id)).collect()
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "Linked attachment lookup failed; skipping orphan deletion this sweep");
+                            Vec::new()
+                        }
+                    }
+                };
                 for id in orphans {
                     let key = match self.repository.claim_orphan(id).await {
                         Ok(Some(key)) => key,

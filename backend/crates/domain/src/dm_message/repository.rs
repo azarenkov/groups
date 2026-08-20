@@ -48,6 +48,11 @@ pub trait DmMessageRepository {
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
 
+    async fn linked_attachment_subset(
+        &self,
+        attachment_ids: &[uuid::Uuid],
+    ) -> Result<Vec<uuid::Uuid>, RepositoryError>;
+
     async fn list_attachment_links_for_dm_messages(
         &self,
         dm_message_ids: &[Uuid],
