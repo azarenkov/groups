@@ -22,7 +22,7 @@ use infrastructure::{
         },
     },
     media_client::{links::MessagingLinksClient, owner_lookup::MessagingOwnerClient},
-    moderation::nsfw_detector::NsfwDetector,
+    moderation::nsfw_image::NsfwDetector,
     storage::minio_storage::MinioStorage,
 };
 use shared::{

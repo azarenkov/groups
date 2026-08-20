@@ -11,7 +11,7 @@ use infrastructure::{
         attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
     },
     media_client::owner_lookup::MessagingOwnerClient,
-    moderation::nsfw_detector::NsfwDetector,
+    moderation::nsfw_image::NsfwDetector,
     storage::minio_storage::MinioStorage,
 };
 

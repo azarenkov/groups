@@ -8,6 +8,12 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 domain = { workspace = true }
 platform = { workspace = true }
+shared = { workspace = true }
+identity = { workspace = true }
+media = { workspace = true }
+messaging = { workspace = true }
+voice = { workspace = true }
+
 futures = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

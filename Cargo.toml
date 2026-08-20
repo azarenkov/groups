@@ -3,6 +3,10 @@ resolver = "3"
 members = [
     "backend/crates/contracts",
     "backend/crates/platform",
+    "backend/crates/identity",
+    "backend/crates/media",
+    "backend/crates/messaging",
+    "backend/crates/voice",
     "backend/crates/domain",
     "backend/crates/application",
     "backend/crates/infrastructure",
@@ -39,6 +43,10 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 
 contracts = { path = "backend/crates/contracts" }
 platform = { path = "backend/crates/platform" }
+identity = { path = "backend/crates/identity" }
+media = { path = "backend/crates/media" }
+messaging = { path = "backend/crates/messaging" }
+voice = { path = "backend/crates/voice" }
 domain = { path = "backend/crates/domain" }
 application = { path = "backend/crates/application" }
 infrastructure = { path = "backend/crates/infrastructure" }

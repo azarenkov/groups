@@ -338,11 +338,16 @@ dependencies = [
  "chrono",
  "domain",
  "futures",
+ "identity",
+ "media",
+ "messaging",
  "platform",
  "serde_json",
+ "shared",
  "thiserror 2.0.18",
  "tracing",
  "uuid",
+ "voice",
 ]
 
 [[package]]
@@ -1877,6 +1882,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "identity"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bcrypt",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "jsonwebtoken 10.3.0",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "idna"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1955,10 +1983,13 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
+ "identity",
  "jsonwebtoken 10.3.0",
  "lettre",
  "livekit-api",
  "livekit-protocol",
+ "media",
+ "messaging",
  "platform",
  "reqwest",
  "rust-s3",
@@ -1971,6 +2002,7 @@ dependencies = [
  "tracing",
  "urlencoding",
  "uuid",
+ "voice",
 ]
 
 [[package]]
@@ -2309,10 +2341,53 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
+name = "media"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
+
+[[package]]
+name = "messaging"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bcrypt",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "mime"
@@ -4555,6 +4630,29 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "voice"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "livekit-api",
+ "livekit-protocol",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "want"

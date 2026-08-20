@@ -7,6 +7,11 @@ edition = "2024"
 contracts = { workspace = true }
 domain = { workspace = true }
 platform = { workspace = true }
+identity = { workspace = true }
+media = { workspace = true }
+messaging = { workspace = true }
+voice = { workspace = true }
+
 application = { workspace = true }
 shared = { workspace = true }
 serde = { workspace = true }
