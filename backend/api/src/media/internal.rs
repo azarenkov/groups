@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
-use chrono::{DateTime, Utc};
+use contracts::internal::attachments::{ClaimRequestV1, ClaimedAttachmentV1, ReleaseRequestV1};
 use domain::user::id::UserId;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use domain::attachment::repository::AttachmentRepository;
@@ -9,36 +9,10 @@ use domain::attachment::repository::AttachmentRepository;
 use crate::media::state::AppState;
 use crate::shared::error::ApiError;
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ClaimBody {
-    attachment_ids: Vec<Uuid>,
-    owner_id: Uuid,
-    claim_token: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ReleaseBody {
-    attachment_ids: Vec<Uuid>,
-    claim_token: Uuid,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ClaimedAttachment {
-    id: Uuid,
-    file_name: String,
-    content_type: String,
-    size_bytes: i64,
-    storage_key: String,
-    created_at: DateTime<Utc>,
-}
-
 #[post("/attachments/claim")]
 async fn claim_attachments(
     app_state: web::Data<AppState>,
-    body: web::Json<ClaimBody>,
+    body: web::Json<ClaimRequestV1>,
 ) -> Result<impl Responder, ApiError> {
     let body = body.into_inner();
     if body.attachment_ids.is_empty() || body.attachment_ids.len() > 10 {
@@ -55,9 +29,9 @@ async fn claim_attachments(
         .await
     {
         Ok(attachments) => {
-            let items: Vec<ClaimedAttachment> = attachments
+            let items: Vec<ClaimedAttachmentV1> = attachments
                 .into_iter()
-                .map(|a| ClaimedAttachment {
+                .map(|a| ClaimedAttachmentV1 {
                     id: a.id,
                     file_name: a.file_name,
                     content_type: a.content_type,
@@ -82,7 +56,7 @@ async fn claim_attachments(
 #[post("/attachments/release")]
 async fn release_attachments(
     app_state: web::Data<AppState>,
-    body: web::Json<ReleaseBody>,
+    body: web::Json<ReleaseRequestV1>,
 ) -> Result<impl Responder, ApiError> {
     let body = body.into_inner();
     if !body.attachment_ids.is_empty() {
@@ -114,7 +88,7 @@ async fn unclaimed_attachment(
         .await
         .map_err(ApiError::from)?
     {
-        Some(a) => Ok(HttpResponse::Ok().json(ClaimedAttachment {
+        Some(a) => Ok(HttpResponse::Ok().json(ClaimedAttachmentV1 {
             id: a.id,
             file_name: a.file_name,
             content_type: a.content_type,

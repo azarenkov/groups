@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use application::ports::user_state_lookup::{UserStateLookup, UserStateLookupError};
 use domain::user::id::UserId;
-use serde::Deserialize;
+use contracts::internal::users::StateResponseV1;
 
 pub struct MessagingStateClient {
     client: reqwest::Client,
@@ -18,12 +18,6 @@ impl MessagingStateClient {
             base_url: base_url.trim_end_matches('/').to_string(),
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StateDto {
-    has_state: bool,
 }
 
 #[async_trait]
@@ -48,7 +42,7 @@ impl UserStateLookup for MessagingStateClient {
                 response.status()
             )));
         }
-        let dto: StateDto = response
+        let dto: StateResponseV1 = response
             .json()
             .await
             .map_err(|e| UserStateLookupError::Unavailable(e.to_string()))?;

@@ -313,6 +313,7 @@ dependencies = [
  "application",
  "async-nats",
  "chrono",
+ "contracts",
  "domain",
  "dotenv",
  "envy",
@@ -731,6 +732,18 @@ dependencies = [
  "getrandom 0.2.17",
  "once_cell",
  "tiny-keccak",
+]
+
+[[package]]
+name = "contracts"
+version = "0.1.0"
+dependencies = [
+ "application",
+ "chrono",
+ "domain",
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -1160,6 +1173,7 @@ dependencies = [
  "application",
  "async-nats",
  "chrono",
+ "contracts",
  "domain",
  "dotenv",
  "envy",
@@ -1935,6 +1949,7 @@ dependencies = [
  "async-trait",
  "bcrypt",
  "chrono",
+ "contracts",
  "domain",
  "dotenv",
  "envy",
@@ -4691,6 +4706,7 @@ dependencies = [
  "actix-web",
  "actix-ws",
  "async-nats",
+ "contracts",
  "dashmap",
  "dotenv",
  "envy",

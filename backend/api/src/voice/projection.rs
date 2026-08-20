@@ -4,15 +4,7 @@ use application::ports::event_consumer::{EventConsumer, StartPosition, Subscribe
 use domain::{user::id::UserId, user_profile::UserProfileRepository};
 use futures::StreamExt;
 use infrastructure::messaging::nats::consumer::NatsEventConsumer;
-use serde::Deserialize;
-use uuid::Uuid;
-
-#[derive(Debug, Deserialize)]
-struct UserNameDto {
-    user_id: Uuid,
-    name: String,
-    occurred_at: chrono::DateTime<chrono::Utc>,
-}
+use contracts::events::user::UserNameV1 as UserNameDto;
 
 pub fn spawn<P>(
     jetstream: async_nats::jetstream::Context,
