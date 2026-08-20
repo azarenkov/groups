@@ -52,6 +52,7 @@ impl AttachmentClaims for MediaClaimsClient {
         &self,
         ids: &[Uuid],
         owner_id: &UserId,
+        claim_token: Uuid,
     ) -> Result<Vec<AttachmentLink>, AttachmentClaimError> {
         let response = self
             .client
@@ -59,6 +60,7 @@ impl AttachmentClaims for MediaClaimsClient {
             .json(&serde_json::json!({
                 "attachmentIds": ids,
                 "ownerId": owner_id.uuid(),
+                "claimToken": claim_token,
             }))
             .send()
             .await
@@ -110,11 +112,11 @@ impl AttachmentClaims for MediaClaimsClient {
         }
     }
 
-    async fn release(&self, ids: &[Uuid]) -> Result<(), AttachmentClaimError> {
+    async fn release(&self, ids: &[Uuid], claim_token: Uuid) -> Result<(), AttachmentClaimError> {
         let response = self
             .client
             .post(format!("{}/internal/attachments/release", self.base_url))
-            .json(&serde_json::json!({ "attachmentIds": ids }))
+            .json(&serde_json::json!({ "attachmentIds": ids, "claimToken": claim_token }))
             .send()
             .await
             .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;

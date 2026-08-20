@@ -62,7 +62,8 @@ pub struct AppState {
     >,
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
-    pub delete_channel_usecase: DeleteChannel<PostgresChannelRepository, LiveKitService>,
+    pub delete_channel_usecase:
+        DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerRepository>,
     pub list_channel_participants_usecase:
         ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
     pub join_text_channel_usecase:

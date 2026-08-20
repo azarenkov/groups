@@ -162,17 +162,19 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         &self,
         ids: &[Uuid],
         owner_id: &UserId,
+        claim_token: Uuid,
     ) -> Result<Vec<Attachment>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
             UPDATE attachments
-            SET claimed_at = now()
+            SET claimed_at = now(), claim_token = $3
             WHERE id = ANY($1) AND owner_id = $2
               AND claimed_at IS NULL AND deleting_at IS NULL
             RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
             "#,
             ids,
             owner_id.uuid(),
+            claim_token,
         )
         .fetch_all(&self.pool)
         .await
@@ -182,7 +184,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         if rows.len() != distinct.len() {
             let claimed: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
             if !claimed.is_empty() {
-                let _ = self.release_claims(&claimed).await;
+                let _ = self.release_claims_by_token(&claimed, claim_token).await;
             }
             return Err(RepositoryError::InvalidData(
                 "attachments unavailable".to_string(),
@@ -211,10 +213,30 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         sqlx::query!(
             r#"
             UPDATE attachments
-            SET claimed_at = NULL
+            SET claimed_at = NULL, claim_token = NULL
             WHERE id = ANY($1)
             "#,
             ids,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn release_claims_by_token(
+        &self,
+        ids: &[Uuid],
+        claim_token: Uuid,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            UPDATE attachments
+            SET claimed_at = NULL, claim_token = NULL
+            WHERE id = ANY($1) AND claim_token = $2
+            "#,
+            ids,
+            claim_token,
         )
         .execute(&self.pool)
         .await

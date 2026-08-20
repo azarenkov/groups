@@ -177,7 +177,11 @@ pub async fn dispatch(
 
     if ends_with(subject, ".channel.created") {
         let evt: ChannelCreatedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = if evt.recipient_ids.is_empty() {
+            resolver.server_members(evt.server_id).await?
+        } else {
+            evt.recipient_ids.clone()
+        };
         let envelope = Envelope::new(
             "channel.created",
             json!({
@@ -213,7 +217,11 @@ pub async fn dispatch(
 
     if ends_with(subject, ".channel.deleted") {
         let evt: ChannelDeletedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = if evt.recipient_ids.is_empty() {
+            resolver.server_members(evt.server_id).await?
+        } else {
+            evt.recipient_ids.clone()
+        };
         let envelope = Envelope::new(
             "channel.deleted",
             json!({
@@ -775,6 +783,8 @@ struct ChannelCreatedDto {
     kind: Value,
     visibility: Value,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    recipient_ids: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -792,6 +802,8 @@ struct ChannelDeletedDto {
     server_id: Uuid,
     deleted_by: Uuid,
     occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    recipient_ids: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]

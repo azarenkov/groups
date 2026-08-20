@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE attachments\n            SET claimed_at = now()\n            WHERE id = ANY($1) AND owner_id = $2\n              AND claimed_at IS NULL AND deleting_at IS NULL\n            RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at\n            ",
+  "query": "\n            UPDATE attachments\n            SET claimed_at = now(), claim_token = $3\n            WHERE id = ANY($1) AND owner_id = $2\n              AND claimed_at IS NULL AND deleting_at IS NULL\n            RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -42,6 +42,7 @@
     "parameters": {
       "Left": [
         "UuidArray",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -55,5 +56,5 @@
       false
     ]
   },
-  "hash": "262509d8cce43c114908f358c68ee0efc719695101b2b83bf9d80e4a738ca966"
+  "hash": "56cff1e7ef4941a7301049de68daef63d233efa4bc052a67ed9ede941efff59c"
 }

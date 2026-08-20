@@ -150,6 +150,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         delete_channel_usecase: DeleteChannel::new(
             channel_repository.clone(),
             livekit_service.clone(),
+            server_repository.clone(),
         ),
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),

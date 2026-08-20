@@ -158,12 +158,13 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+        let claim_token = uuid::Uuid::new_v4();
         let added_attachments = if add_ids.is_empty() {
             Vec::new()
         } else {
             match self
                 .attachment_claims
-                .claim(&request.add_attachment_ids, &editor_id)
+                .claim(&request.add_attachment_ids, &editor_id, claim_token)
                 .await
             {
                 Ok(links) => links,
@@ -173,7 +174,7 @@ where
                 Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
                     if let Err(re) = self
                         .attachment_claims
-                        .release(&request.add_attachment_ids)
+                        .release(&request.add_attachment_ids, claim_token)
                         .await
                     {
                         tracing::warn!(error = %re, "Failed to release attachments after ambiguous claim failure");
@@ -208,7 +209,7 @@ where
             if !request.add_attachment_ids.is_empty()
                 && let Err(re) = self
                     .attachment_claims
-                    .release(&request.add_attachment_ids)
+                    .release(&request.add_attachment_ids, claim_token)
                     .await
             {
                 tracing::warn!(error = %re, "Failed to release attachment claims after edit failure");

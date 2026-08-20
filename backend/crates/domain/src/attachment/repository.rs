@@ -24,9 +24,16 @@ pub trait AttachmentRepository {
         &self,
         ids: &[Uuid],
         owner_id: &UserId,
+        claim_token: Uuid,
     ) -> Result<Vec<Attachment>, RepositoryError>;
 
     async fn release_claims(&self, ids: &[Uuid]) -> Result<(), RepositoryError>;
+
+    async fn release_claims_by_token(
+        &self,
+        ids: &[Uuid],
+        claim_token: Uuid,
+    ) -> Result<(), RepositoryError>;
 
     async fn list_stale_claims(
         &self,

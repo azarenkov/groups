@@ -14,12 +14,14 @@ use crate::shared::error::ApiError;
 struct ClaimBody {
     attachment_ids: Vec<Uuid>,
     owner_id: Uuid,
+    claim_token: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReleaseBody {
     attachment_ids: Vec<Uuid>,
+    claim_token: Uuid,
 }
 
 #[derive(Debug, Serialize)]
@@ -49,7 +51,7 @@ async fn claim_attachments(
     let owner = UserId::new(body.owner_id);
     match app_state
         .attachment_repository
-        .claim_owned(&body.attachment_ids, &owner)
+        .claim_owned(&body.attachment_ids, &owner, body.claim_token)
         .await
     {
         Ok(attachments) => {
@@ -86,7 +88,7 @@ async fn release_attachments(
     if !body.attachment_ids.is_empty() {
         app_state
             .attachment_repository
-            .release_claims(&body.attachment_ids)
+            .release_claims_by_token(&body.attachment_ids, body.claim_token)
             .await
             .map_err(ApiError::from)?;
     }
