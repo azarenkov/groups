@@ -441,13 +441,14 @@ pub async fn dispatch(
         let evt: ServerMemberDto = serde_json::from_slice(payload)?;
         resolver.add_server_member(evt.server_id, evt.user_id, evt.occurred_at).await?;
         let recipients = resolver.server_members(evt.server_id).await?;
-        let user_name = resolver.user_name(evt.user_id).await?;
+        let user_name = resolver.user_name_versioned(evt.user_id).await?;
         let envelope = Envelope::new(
             "server.memberJoined",
             json!({
                 "serverId": evt.server_id,
                 "userId": evt.user_id,
-                "userName": user_name,
+                "userName": user_name.as_ref().map(|(name, _)| name.clone()),
+                "userNameUpdatedAt": user_name.as_ref().map(|(_, at)| *at),
                 "occurredAt": evt.occurred_at,
             }),
         );

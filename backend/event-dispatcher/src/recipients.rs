@@ -44,6 +44,19 @@ impl RecipientResolver {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
+    pub async fn user_name_versioned(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<(String, DateTime<Utc>)>, sqlx::Error> {
+        let row = sqlx::query(
+            "SELECT name, updated_at FROM realtime_user_names WHERE user_id = $1",
+        )
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| (r.get::<String, _>(0), r.get::<DateTime<Utc>, _>(1))))
+    }
+
     pub async fn user_name(&self, user_id: Uuid) -> Result<Option<String>, sqlx::Error> {
         let row = sqlx::query("SELECT name FROM realtime_user_names WHERE user_id = $1")
             .bind(user_id)

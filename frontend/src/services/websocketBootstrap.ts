@@ -170,10 +170,11 @@ function dispatch(env: WsEnvelope) {
     case "server.memberJoined": {
       const userId = asString(d.userId);
       const userName = asString(d.userName);
-      if (!userId || !userName) return;
+      const userNameUpdatedAt = asString(d.userNameUpdatedAt);
+      if (!userId || !userName || !userNameUpdatedAt) return;
       const applied = useUserNamesStore
         .getState()
-        .applyRename(userId, userName, asString(d.occurredAt));
+        .applyRename(userId, userName, userNameUpdatedAt);
       if (applied) {
         useVoicePresenceStore.getState().renameMember(userId, userName);
         useCallStore.getState().participantRenamed(userId, userName);
