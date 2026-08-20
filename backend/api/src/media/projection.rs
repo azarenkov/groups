@@ -16,11 +16,14 @@ use uuid::Uuid;
 struct ServerOwnerDto {
     server_id: Uuid,
     owner_id: Uuid,
+    occurred_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Deserialize)]
-struct ServerIdDto {
+struct ServerDeletedDto {
     server_id: Uuid,
+    owner_id: Uuid,
+    occurred_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub fn spawn<M, FS>(
@@ -92,15 +95,21 @@ where
     if subject.ends_with(".server.created") {
         let evt: ServerOwnerDto = serde_json::from_slice(payload)?;
         media_repository
-            .upsert_server_owner(&ServerId::new(evt.server_id), &UserId::new(evt.owner_id))
+            .upsert_server_owner(
+                &ServerId::new(evt.server_id),
+                &UserId::new(evt.owner_id),
+                evt.occurred_at,
+            )
             .await?;
         return Ok(());
     }
     if subject.ends_with(".server.deleted") {
-        let evt: ServerIdDto = serde_json::from_slice(payload)?;
+        let evt: ServerDeletedDto = serde_json::from_slice(payload)?;
         let server_id = ServerId::new(evt.server_id);
         let logo_key = media_repository.get_server_logo_key(&server_id).await?;
-        media_repository.remove_server_media(&server_id).await?;
+        media_repository
+            .remove_server_media(&server_id, &UserId::new(evt.owner_id), evt.occurred_at)
+            .await?;
         if let Some(key) = logo_key {
             match storage.delete(&key).await {
                 Ok(()) | Err(FileStorageError::NotFound) => {}

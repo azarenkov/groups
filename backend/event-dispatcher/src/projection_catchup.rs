@@ -19,29 +19,34 @@ struct UserNameDto {
 struct FriendAcceptedDto {
     accepter_id: Uuid,
     sender_id: Uuid,
+    occurred_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
 struct FriendRemovedDto {
     user_id: Uuid,
     other_id: Uuid,
+    occurred_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ServerMemberDto {
     server_id: Uuid,
     user_id: Uuid,
+    occurred_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ServerCreatedDto {
     server_id: Uuid,
     owner_id: Uuid,
+    occurred_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ServerIdDto {
     server_id: Uuid,
+    occurred_at: DateTime<Utc>,
 }
 
 pub struct CatchupSpec {
@@ -129,40 +134,46 @@ async fn apply(
     if subject.ends_with(".user.request_accepted") {
         if let Ok(evt) = serde_json::from_slice::<FriendAcceptedDto>(payload) {
             resolver
-                .add_friend_edge(evt.accepter_id, evt.sender_id)
+                .add_friend_edge(evt.accepter_id, evt.sender_id, evt.occurred_at)
                 .await?;
         }
         return Ok(());
     }
     if subject.ends_with(".user.removed") {
         if let Ok(evt) = serde_json::from_slice::<FriendRemovedDto>(payload) {
-            resolver.remove_friend_edge(evt.user_id, evt.other_id).await?;
+            resolver
+                .remove_friend_edge(evt.user_id, evt.other_id, evt.occurred_at)
+                .await?;
         }
         return Ok(());
     }
     if subject.ends_with(".server.created") {
         if let Ok(evt) = serde_json::from_slice::<ServerCreatedDto>(payload) {
-            resolver.add_server_member(evt.server_id, evt.owner_id).await?;
+            resolver
+                .add_server_member(evt.server_id, evt.owner_id, evt.occurred_at)
+                .await?;
         }
         return Ok(());
     }
     if subject.ends_with(".server.member_joined") {
         if let Ok(evt) = serde_json::from_slice::<ServerMemberDto>(payload) {
-            resolver.add_server_member(evt.server_id, evt.user_id).await?;
+            resolver
+                .add_server_member(evt.server_id, evt.user_id, evt.occurred_at)
+                .await?;
         }
         return Ok(());
     }
     if subject.ends_with(".server.member_left") {
         if let Ok(evt) = serde_json::from_slice::<ServerMemberDto>(payload) {
             resolver
-                .remove_server_member(evt.server_id, evt.user_id)
+                .remove_server_member(evt.server_id, evt.user_id, evt.occurred_at)
                 .await?;
         }
         return Ok(());
     }
     if subject.ends_with(".server.deleted") {
         if let Ok(evt) = serde_json::from_slice::<ServerIdDto>(payload) {
-            resolver.remove_server(evt.server_id).await?;
+            resolver.remove_server(evt.server_id, evt.occurred_at).await?;
         }
         return Ok(());
     }

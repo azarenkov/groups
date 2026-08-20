@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use crate::{
     server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId,
@@ -32,6 +33,12 @@ pub trait MediaRepository {
         &self,
         server_id: &ServerId,
         owner_id: &UserId,
+        occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
-    async fn remove_server_media(&self, server_id: &ServerId) -> Result<(), RepositoryError>;
+    async fn remove_server_media(
+        &self,
+        server_id: &ServerId,
+        owner_id: &UserId,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError>;
 }

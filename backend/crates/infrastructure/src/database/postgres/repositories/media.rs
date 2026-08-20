@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use domain::{
     media::repository::MediaRepository, server::id::ServerId,
     shared::repository::error::RepositoryError, user::id::UserId,
@@ -148,7 +149,7 @@ impl MediaRepository for PostgresMediaRepository {
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError> {
         let owner = sqlx::query_scalar!(
-            r#"SELECT owner_id FROM media_server_owners WHERE server_id = $1"#,
+            r#"SELECT owner_id FROM media_server_owners WHERE server_id = $1 AND deleted_at IS NULL"#,
             server_id.uuid(),
         )
         .fetch_optional(&self.pool)
@@ -161,15 +162,20 @@ impl MediaRepository for PostgresMediaRepository {
         &self,
         server_id: &ServerId,
         owner_id: &UserId,
+        occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-            INSERT INTO media_server_owners (server_id, owner_id)
-            VALUES ($1, $2)
-            ON CONFLICT (server_id) DO UPDATE SET owner_id = EXCLUDED.owner_id
+            INSERT INTO media_server_owners (server_id, owner_id, updated_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (server_id) DO UPDATE
+                SET owner_id = EXCLUDED.owner_id, updated_at = EXCLUDED.updated_at
+                WHERE media_server_owners.deleted_at IS NULL
+                  AND media_server_owners.updated_at <= EXCLUDED.updated_at
             "#,
             server_id.uuid(),
             owner_id.uuid(),
+            occurred_at,
         )
         .execute(&self.pool)
         .await
@@ -177,7 +183,12 @@ impl MediaRepository for PostgresMediaRepository {
         Ok(())
     }
 
-    async fn remove_server_media(&self, server_id: &ServerId) -> Result<(), RepositoryError> {
+    async fn remove_server_media(
+        &self,
+        server_id: &ServerId,
+        owner_id: &UserId,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -201,8 +212,16 @@ impl MediaRepository for PostgresMediaRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         sqlx::query!(
-            r#"DELETE FROM media_server_owners WHERE server_id = $1"#,
+            r#"
+            INSERT INTO media_server_owners (server_id, owner_id, updated_at, deleted_at)
+            VALUES ($1, $2, $3, $3)
+            ON CONFLICT (server_id) DO UPDATE
+                SET deleted_at = EXCLUDED.deleted_at,
+                    updated_at = GREATEST(media_server_owners.updated_at, EXCLUDED.updated_at)
+            "#,
             server_id.uuid(),
+            owner_id.uuid(),
+            occurred_at,
         )
         .execute(&mut *tx)
         .await

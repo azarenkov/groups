@@ -376,7 +376,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".server.created") {
         let evt: ServerCreatedDto = serde_json::from_slice(payload)?;
-        resolver.add_server_member(evt.server_id, evt.owner_id).await?;
+        resolver.add_server_member(evt.server_id, evt.owner_id, evt.occurred_at).await?;
         let envelope = Envelope::new(
             "server.created",
             json!({
@@ -425,13 +425,13 @@ pub async fn dispatch(
         publisher
             .publish_to_users(unique(recipients), &envelope)
             .await?;
-        resolver.remove_server(evt.server_id).await?;
+        resolver.remove_server(evt.server_id, evt.occurred_at).await?;
         return Ok(());
     }
 
     if ends_with(subject, ".server.member_joined") {
         let evt: ServerMemberDto = serde_json::from_slice(payload)?;
-        resolver.add_server_member(evt.server_id, evt.user_id).await?;
+        resolver.add_server_member(evt.server_id, evt.user_id, evt.occurred_at).await?;
         let recipients = resolver.server_members(evt.server_id).await?;
         let user_name = resolver.user_name(evt.user_id).await?;
         let envelope = Envelope::new(
@@ -451,7 +451,7 @@ pub async fn dispatch(
         let evt: ServerMemberDto = serde_json::from_slice(payload)?;
         let mut recipients = resolver.server_members(evt.server_id).await?;
         recipients.push(evt.user_id);
-        resolver.remove_server_member(evt.server_id, evt.user_id).await?;
+        resolver.remove_server_member(evt.server_id, evt.user_id, evt.occurred_at).await?;
         let envelope = Envelope::new(
             "server.memberLeft",
             json!({
@@ -575,7 +575,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".user.request_accepted") {
         let evt: FriendRequestAcceptedDto = serde_json::from_slice(payload)?;
-        resolver.add_friend_edge(evt.accepter_id, evt.sender_id).await?;
+        resolver.add_friend_edge(evt.accepter_id, evt.sender_id, evt.occurred_at).await?;
         let envelope = Envelope::new(
             "friendship.requestAccepted",
             json!({
@@ -592,7 +592,7 @@ pub async fn dispatch(
 
     if ends_with(subject, ".user.removed") {
         let evt: FriendshipRemovedDto = serde_json::from_slice(payload)?;
-        resolver.remove_friend_edge(evt.user_id, evt.other_id).await?;
+        resolver.remove_friend_edge(evt.user_id, evt.other_id, evt.occurred_at).await?;
         let envelope = Envelope::new(
             "friendship.removed",
             json!({

@@ -85,7 +85,7 @@ where
                     .ok_or(UpdateServerLogoError::ServerNotFound)?;
                 if let Err(e) = self
                     .media_repository
-                    .upsert_server_owner(&server_id, &owner)
+                    .upsert_server_owner(&server_id, &owner, chrono::Utc::now())
                     .await
                 {
                     tracing::warn!(error = %e, "Failed to backfill server owner projection");

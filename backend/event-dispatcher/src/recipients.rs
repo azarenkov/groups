@@ -14,7 +14,7 @@ impl RecipientResolver {
 
     pub async fn server_members(&self, server_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows =
-            sqlx::query("SELECT user_id FROM realtime_server_members WHERE server_id = $1")
+            sqlx::query("SELECT user_id FROM realtime_server_members WHERE server_id = $1 AND NOT removed")
                 .bind(server_id)
                 .fetch_all(&self.pool)
                 .await?;
@@ -29,12 +29,13 @@ impl RecipientResolver {
             r#"
             SELECT friend_id AS user_id
             FROM realtime_friend_edges
-            WHERE user_id = $1
+            WHERE user_id = $1 AND NOT removed
             UNION
             SELECT DISTINCT sm2.user_id
             FROM realtime_server_members sm1
-            INNER JOIN realtime_server_members sm2 ON sm2.server_id = sm1.server_id
-            WHERE sm1.user_id = $1 AND sm2.user_id <> $1
+            INNER JOIN realtime_server_members sm2
+                ON sm2.server_id = sm1.server_id AND NOT sm2.removed
+            WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             "#,
         )
         .bind(user_id)
@@ -74,31 +75,44 @@ impl RecipientResolver {
         Ok(())
     }
 
-    pub async fn add_friend_edge(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"
-            INSERT INTO realtime_friend_edges (user_id, friend_id)
-            VALUES ($1, $2), ($2, $1)
-            ON CONFLICT DO NOTHING
-            "#,
-        )
-        .bind(a)
-        .bind(b)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+    pub async fn add_friend_edge(
+        &self,
+        a: Uuid,
+        b: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        self.upsert_friend_edge(a, b, false, occurred_at).await
     }
 
-    pub async fn remove_friend_edge(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
+    pub async fn remove_friend_edge(
+        &self,
+        a: Uuid,
+        b: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        self.upsert_friend_edge(a, b, true, occurred_at).await
+    }
+
+    async fn upsert_friend_edge(
+        &self,
+        a: Uuid,
+        b: Uuid,
+        removed: bool,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            DELETE FROM realtime_friend_edges
-            WHERE (user_id = $1 AND friend_id = $2)
-               OR (user_id = $2 AND friend_id = $1)
+            INSERT INTO realtime_friend_edges (user_id, friend_id, removed, updated_at)
+            VALUES ($1, $2, $3, $4), ($2, $1, $3, $4)
+            ON CONFLICT (user_id, friend_id) DO UPDATE
+                SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
+                WHERE realtime_friend_edges.updated_at <= EXCLUDED.updated_at
             "#,
         )
         .bind(a)
         .bind(b)
+        .bind(removed)
+        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -108,16 +122,23 @@ impl RecipientResolver {
         &self,
         server_id: Uuid,
         user_id: Uuid,
+        occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            INSERT INTO realtime_server_members (server_id, user_id)
-            VALUES ($1, $2)
-            ON CONFLICT DO NOTHING
+            INSERT INTO realtime_server_members (server_id, user_id, removed, updated_at)
+            SELECT $1, $2, FALSE, $3
+            WHERE NOT EXISTS (
+                SELECT 1 FROM realtime_deleted_servers WHERE server_id = $1
+            )
+            ON CONFLICT (server_id, user_id) DO UPDATE
+                SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
+                WHERE realtime_server_members.updated_at <= EXCLUDED.updated_at
             "#,
         )
         .bind(server_id)
         .bind(user_id)
+        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -127,22 +148,52 @@ impl RecipientResolver {
         &self,
         server_id: Uuid,
         user_id: Uuid,
+        occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "DELETE FROM realtime_server_members WHERE server_id = $1 AND user_id = $2",
+            r#"
+            INSERT INTO realtime_server_members (server_id, user_id, removed, updated_at)
+            VALUES ($1, $2, TRUE, $3)
+            ON CONFLICT (server_id, user_id) DO UPDATE
+                SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
+                WHERE realtime_server_members.updated_at <= EXCLUDED.updated_at
+            "#,
         )
         .bind(server_id)
         .bind(user_id)
+        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
-    pub async fn remove_server(&self, server_id: Uuid) -> Result<(), sqlx::Error> {
-        sqlx::query("DELETE FROM realtime_server_members WHERE server_id = $1")
-            .bind(server_id)
-            .execute(&self.pool)
-            .await?;
+    pub async fn remove_server(
+        &self,
+        server_id: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_deleted_servers (server_id, deleted_at)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(server_id)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            r#"
+            UPDATE realtime_server_members
+            SET removed = TRUE, updated_at = $2
+            WHERE server_id = $1 AND updated_at <= $2
+            "#,
+        )
+        .bind(server_id)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 }

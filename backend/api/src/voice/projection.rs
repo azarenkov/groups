@@ -20,12 +20,14 @@ struct UserNameDto {
 struct FriendAcceptedDto {
     accepter_id: Uuid,
     sender_id: Uuid,
+    occurred_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Deserialize)]
 struct FriendRemovedDto {
     user_id: Uuid,
     other_id: Uuid,
+    occurred_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub fn spawn<P, E>(
@@ -109,7 +111,11 @@ where
         match serde_json::from_slice::<FriendAcceptedDto>(payload) {
             Ok(evt) => {
                 edges
-                    .add_edge(&UserId::new(evt.accepter_id), &UserId::new(evt.sender_id))
+                    .add_edge(
+                        &UserId::new(evt.accepter_id),
+                        &UserId::new(evt.sender_id),
+                        evt.occurred_at,
+                    )
                     .await?;
             }
             Err(e) => {
@@ -122,7 +128,11 @@ where
         match serde_json::from_slice::<FriendRemovedDto>(payload) {
             Ok(evt) => {
                 edges
-                    .remove_edge(&UserId::new(evt.user_id), &UserId::new(evt.other_id))
+                    .remove_edge(
+                        &UserId::new(evt.user_id),
+                        &UserId::new(evt.other_id),
+                        evt.occurred_at,
+                    )
                     .await?;
             }
             Err(e) => {

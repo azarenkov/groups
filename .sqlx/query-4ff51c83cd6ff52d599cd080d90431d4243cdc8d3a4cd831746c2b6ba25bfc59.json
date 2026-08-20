@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT owner_id FROM media_server_owners WHERE server_id = $1",
+  "query": "SELECT owner_id FROM media_server_owners WHERE server_id = $1 AND deleted_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "a7cdafd9de34f5e5c0d13d7e21f983344daba513c73ef96c424f12ea24cc9f1b"
+  "hash": "4ff51c83cd6ff52d599cd080d90431d4243cdc8d3a4cd831746c2b6ba25bfc59"
 }
