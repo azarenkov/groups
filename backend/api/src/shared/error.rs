@@ -1234,6 +1234,7 @@ impl ToHttpStatus for StartCallError {
             StartCallError::NoRecipients => StatusCode::BAD_REQUEST,
             StartCallError::NotFriends => StatusCode::FORBIDDEN,
             StartCallError::UserNotFound => StatusCode::NOT_FOUND,
+            StartCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1243,6 +1244,9 @@ impl ToHttpStatus for StartCallError {
             StartCallError::NoRecipients => "No recipients specified".to_string(),
             StartCallError::NotFriends => "You can only call your friends".to_string(),
             StartCallError::UserNotFound => "User not found".to_string(),
+            StartCallError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1252,6 +1256,7 @@ impl ToHttpStatus for StartCallError {
             StartCallError::NoRecipients => "CALL_NO_RECIPIENTS",
             StartCallError::NotFriends => "CALL_NOT_FRIENDS",
             StartCallError::UserNotFound => "USER_NOT_FOUND",
+            StartCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -1422,6 +1427,7 @@ impl ToHttpStatus for AddCallParticipantsError {
             AddCallParticipantsError::NotParticipant => StatusCode::FORBIDDEN,
             AddCallParticipantsError::NotFriends => StatusCode::FORBIDDEN,
             AddCallParticipantsError::NoRecipients => StatusCode::BAD_REQUEST,
+            AddCallParticipantsError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1434,6 +1440,9 @@ impl ToHttpStatus for AddCallParticipantsError {
                 "You can only invite your friends".to_string()
             }
             AddCallParticipantsError::NoRecipients => "No recipients specified".to_string(),
+            AddCallParticipantsError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1442,6 +1451,7 @@ impl ToHttpStatus for AddCallParticipantsError {
             AddCallParticipantsError::NotParticipant => "CALL_NOT_PARTICIPANT",
             AddCallParticipantsError::NotFriends => "CALL_NOT_FRIENDS",
             AddCallParticipantsError::NoRecipients => "CALL_NO_RECIPIENTS",
+            AddCallParticipantsError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }

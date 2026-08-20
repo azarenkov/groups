@@ -20,7 +20,7 @@ impl PresenceRecipientResolver {
             SELECT user_id FROM (
                 SELECT friend_id AS user_id
                 FROM realtime_friend_edges
-                WHERE user_id = $1 AND NOT removed
+                WHERE user_id = $1 AND NOT removed AND NOT pending
                 UNION
                 SELECT DISTINCT sm2.user_id AS user_id
                 FROM realtime_server_members sm1

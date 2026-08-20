@@ -224,6 +224,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         server_repository: server_repository.clone(),
         message_repository: message_repository.clone(),
+        friendship_repository: friendship_repository.clone(),
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase: SendDmMessage::new(

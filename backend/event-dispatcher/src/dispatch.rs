@@ -567,6 +567,9 @@ pub async fn dispatch(
 
     if ends_with(subject, ".user.request_sent") {
         let evt: FriendRequestSentDto = serde_json::from_slice(payload)?;
+        resolver
+            .add_pending_friend_edge(evt.sender_id, evt.receiver_id, evt.occurred_at)
+            .await?;
         let envelope = Envelope::new(
             "friendship.requestSent",
             json!({
@@ -626,7 +629,7 @@ pub async fn dispatch(
                 "occurredAt": evt.occurred_at,
             }),
         );
-        let mut recipients = resolver.friends_and_server_peers(evt.user_id).await?;
+        let mut recipients = resolver.rename_recipients(evt.user_id).await?;
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());

@@ -1,4 +1,5 @@
 pub mod file_storage;
+pub mod friendship_lookup;
 pub mod image_moderation;
 pub mod text_moderation;
 pub mod attachment_claims;

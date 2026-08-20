@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use application::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
-use domain::{
-    friend_edges::FriendEdgeRepository, user::id::UserId, user_profile::UserProfileRepository,
-};
+use domain::{user::id::UserId, user_profile::UserProfileRepository};
 use futures::StreamExt;
 use infrastructure::messaging::nats::consumer::NatsEventConsumer;
 use serde::Deserialize;
@@ -16,29 +14,13 @@ struct UserNameDto {
     occurred_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
-struct FriendAcceptedDto {
-    accepter_id: Uuid,
-    sender_id: Uuid,
-    occurred_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-struct FriendRemovedDto {
-    user_id: Uuid,
-    other_id: Uuid,
-    occurred_at: chrono::DateTime<chrono::Utc>,
-}
-
-pub fn spawn<P, E>(
+pub fn spawn<P>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
     profiles: Arc<P>,
-    edges: Arc<E>,
 ) where
     P: UserProfileRepository + Send + Sync + 'static,
-    E: FriendEdgeRepository + Send + Sync + 'static,
 {
     actix_web::rt::spawn(async move {
         let prefix = subject_prefix.trim_end_matches('.').to_string();
@@ -57,7 +39,7 @@ pub fn spawn<P, E>(
                     while let Some(msg) = messages.next().await {
                         match msg {
                             Ok(m) => {
-                                match handle(&m.subject, &m.payload, &*profiles, &*edges).await {
+                                match handle(&m.subject, &m.payload, &*profiles).await {
                                     Ok(()) => {
                                         if let Err(e) = m.ack().await {
                                             tracing::warn!(error = %e, "Voice projection ack failed");
@@ -84,15 +66,13 @@ pub fn spawn<P, E>(
     });
 }
 
-async fn handle<P, E>(
+async fn handle<P>(
     subject: &str,
     payload: &[u8],
     profiles: &P,
-    edges: &E,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     P: UserProfileRepository + Send + Sync,
-    E: FriendEdgeRepository + Send + Sync,
 {
     if subject.ends_with(".user.registered") || subject.ends_with(".user.renamed") {
         match serde_json::from_slice::<UserNameDto>(payload) {
@@ -103,40 +83,6 @@ where
             }
             Err(e) => {
                 tracing::warn!(error = %e, %subject, "Malformed user event; dropping");
-            }
-        }
-        return Ok(());
-    }
-    if subject.ends_with(".user.request_accepted") {
-        match serde_json::from_slice::<FriendAcceptedDto>(payload) {
-            Ok(evt) => {
-                edges
-                    .add_edge(
-                        &UserId::new(evt.accepter_id),
-                        &UserId::new(evt.sender_id),
-                        evt.occurred_at,
-                    )
-                    .await?;
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, %subject, "Malformed friendship event; dropping");
-            }
-        }
-        return Ok(());
-    }
-    if subject.ends_with(".user.removed") {
-        match serde_json::from_slice::<FriendRemovedDto>(payload) {
-            Ok(evt) => {
-                edges
-                    .remove_edge(
-                        &UserId::new(evt.user_id),
-                        &UserId::new(evt.other_id),
-                        evt.occurred_at,
-                    )
-                    .await?;
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, %subject, "Malformed friendship event; dropping");
             }
         }
         return Ok(());

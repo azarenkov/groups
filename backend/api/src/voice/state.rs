@@ -9,10 +9,10 @@ use application::usecases::{
 };
 use infrastructure::{
     database::postgres::repositories::{
-        call::PostgresCallRepository,
-        friend_edges::PostgresFriendEdgeRepository, outbox_writer::PostgresOutboxWriter,
+        call::PostgresCallRepository, outbox_writer::PostgresOutboxWriter,
         user_profile::PostgresUserProfileRepository,
     },
+    media_client::friendship::MessagingFriendshipClient,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
 
@@ -20,7 +20,7 @@ pub struct AppState {
     pub start_call_usecase: StartCall<
         PostgresCallRepository,
         LiveKitService,
-        PostgresFriendEdgeRepository,
+        MessagingFriendshipClient,
         PostgresUserProfileRepository,
     >,
     pub accept_call_usecase:
@@ -28,7 +28,7 @@ pub struct AppState {
     pub decline_call_usecase: DeclineCall<PostgresCallRepository>,
     pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
     pub add_call_participants_usecase:
-        AddCallParticipants<PostgresCallRepository, PostgresFriendEdgeRepository>,
+        AddCallParticipants<PostgresCallRepository, MessagingFriendshipClient>,
     pub get_active_call_usecase:
         GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
     pub get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,

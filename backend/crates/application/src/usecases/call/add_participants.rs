@@ -7,7 +7,10 @@ use domain::{
     user::id::UserId,
 };
 
-use crate::dto::requests::call::add_participants::AddCallParticipantsRequest;
+use crate::{
+    dto::requests::call::add_participants::AddCallParticipantsRequest,
+    ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AddCallParticipantsError {
@@ -19,12 +22,14 @@ pub enum AddCallParticipantsError {
     NotFriends,
     #[error("No recipients specified")]
     NoRecipients,
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
 pub struct AddCallParticipants<C, F>
 where
     C: CallRepository,
-    F: domain::friend_edges::FriendEdgeRepository,
+    F: FriendshipLookup,
 {
     call_repository: Arc<C>,
     friendship_repository: Arc<F>,
@@ -33,7 +38,7 @@ where
 impl<C, F> AddCallParticipants<C, F>
 where
     C: CallRepository,
-    F: domain::friend_edges::FriendEdgeRepository,
+    F: FriendshipLookup,
 {
     pub fn new(call_repository: Arc<C>, friendship_repository: Arc<F>) -> Self {
         Self {

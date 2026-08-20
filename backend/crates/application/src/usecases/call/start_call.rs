@@ -12,7 +12,10 @@ use uuid::Uuid;
 
 use crate::{
     dto::requests::call::start_call::StartCallRequest,
-    ports::voice_service::{VoiceService, VoiceServiceError},
+    ports::{
+        friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+        voice_service::{VoiceService, VoiceServiceError},
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -27,6 +30,8 @@ pub enum StartCallError {
     NotFriends,
     #[error("User not found")]
     UserNotFound,
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
 pub struct StartCallResult {
@@ -40,7 +45,7 @@ pub struct StartCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
-    F: domain::friend_edges::FriendEdgeRepository,
+    F: FriendshipLookup,
     U: domain::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
@@ -53,7 +58,7 @@ impl<C, V, F, U> StartCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
-    F: domain::friend_edges::FriendEdgeRepository,
+    F: FriendshipLookup,
     U: domain::user_profile::UserProfileRepository,
 {
     pub fn new(

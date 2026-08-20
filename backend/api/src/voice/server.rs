@@ -13,11 +13,11 @@ use application::usecases::{
 };
 use infrastructure::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
+    media_client::friendship::MessagingFriendshipClient,
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            call::PostgresCallRepository, friend_edges::PostgresFriendEdgeRepository,
-            outbox_writer::PostgresOutboxWriter,
+            call::PostgresCallRepository, outbox_writer::PostgresOutboxWriter,
             user_profile::PostgresUserProfileRepository,
         },
     },
@@ -48,8 +48,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let call_repository = Arc::new(PostgresCallRepository::new(postgres_pool.clone()));
     let outbox_writer = Arc::new(PostgresOutboxWriter::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserProfileRepository::voice(postgres_pool.clone()));
-    let friendship_repository =
-        Arc::new(PostgresFriendEdgeRepository::voice(postgres_pool.clone()));
+    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let friendship_lookup = Arc::new(MessagingFriendshipClient::new(&messaging_internal_url));
 
     let nats_config = infrastructure::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
@@ -61,7 +62,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         user_stream,
         user_repository.clone(),
-        friendship_repository.clone(),
     );
 
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
@@ -71,7 +71,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         start_call_usecase: StartCall::new(
             call_repository.clone(),
             livekit_service.clone(),
-            friendship_repository.clone(),
+            friendship_lookup.clone(),
             user_repository.clone(),
         ),
         accept_call_usecase: AcceptCall::new(
@@ -83,7 +83,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         leave_call_usecase: LeaveCall::new(call_repository.clone()),
         add_call_participants_usecase: AddCallParticipants::new(
             call_repository.clone(),
-            friendship_repository.clone(),
+            friendship_lookup.clone(),
         ),
         get_active_call_usecase: GetActiveCall::new(
             call_repository.clone(),

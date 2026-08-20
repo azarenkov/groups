@@ -16,6 +16,13 @@ struct UserNameDto {
 }
 
 #[derive(Debug, Deserialize)]
+struct FriendRequestSentDto {
+    sender_id: Uuid,
+    receiver_id: Uuid,
+    occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
 struct FriendAcceptedDto {
     accepter_id: Uuid,
     sender_id: Uuid,
@@ -127,6 +134,14 @@ async fn apply(
         {
             resolver
                 .upsert_user_name(evt.user_id, name, evt.occurred_at)
+                .await?;
+        }
+        return Ok(());
+    }
+    if subject.ends_with(".user.request_sent") {
+        if let Ok(evt) = serde_json::from_slice::<FriendRequestSentDto>(payload) {
+            resolver
+                .add_pending_friend_edge(evt.sender_id, evt.receiver_id, evt.occurred_at)
                 .await?;
         }
         return Ok(());

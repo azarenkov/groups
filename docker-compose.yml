@@ -279,6 +279,7 @@ services:
         required: false
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
     depends_on:
       postgres:
         condition: service_healthy

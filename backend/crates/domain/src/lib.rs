@@ -2,7 +2,6 @@ pub mod attachment;
 pub mod call;
 pub mod channel;
 pub mod dm_message;
-pub mod friend_edges;
 pub mod friendship;
 pub mod media;
 pub mod message;

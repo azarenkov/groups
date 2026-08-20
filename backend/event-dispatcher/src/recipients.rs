@@ -29,7 +29,7 @@ impl RecipientResolver {
             r#"
             SELECT friend_id AS user_id
             FROM realtime_friend_edges
-            WHERE user_id = $1 AND NOT removed
+            WHERE user_id = $1 AND NOT removed AND NOT pending
             UNION
             SELECT DISTINCT sm2.user_id
             FROM realtime_server_members sm1
@@ -81,7 +81,16 @@ impl RecipientResolver {
         b: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        self.upsert_friend_edge(a, b, false, occurred_at).await
+        self.upsert_friend_edge(a, b, false, false, occurred_at).await
+    }
+
+    pub async fn add_pending_friend_edge(
+        &self,
+        a: Uuid,
+        b: Uuid,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        self.upsert_friend_edge(a, b, false, true, occurred_at).await
     }
 
     pub async fn remove_friend_edge(
@@ -90,7 +99,7 @@ impl RecipientResolver {
         b: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        self.upsert_friend_edge(a, b, true, occurred_at).await
+        self.upsert_friend_edge(a, b, true, false, occurred_at).await
     }
 
     async fn upsert_friend_edge(
@@ -98,24 +107,48 @@ impl RecipientResolver {
         a: Uuid,
         b: Uuid,
         removed: bool,
+        pending: bool,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            INSERT INTO realtime_friend_edges (user_id, friend_id, removed, updated_at)
-            VALUES ($1, $2, $3, $4), ($2, $1, $3, $4)
+            INSERT INTO realtime_friend_edges (user_id, friend_id, removed, pending, updated_at)
+            VALUES ($1, $2, $3, $4, $5), ($2, $1, $3, $4, $5)
             ON CONFLICT (user_id, friend_id) DO UPDATE
-                SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
+                SET removed = EXCLUDED.removed,
+                    pending = EXCLUDED.pending,
+                    updated_at = EXCLUDED.updated_at
                 WHERE realtime_friend_edges.updated_at <= EXCLUDED.updated_at
             "#,
         )
         .bind(a)
         .bind(b)
         .bind(removed)
+        .bind(pending)
         .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    pub async fn rename_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT friend_id AS user_id
+            FROM realtime_friend_edges
+            WHERE user_id = $1 AND NOT removed
+            UNION
+            SELECT DISTINCT sm2.user_id
+            FROM realtime_server_members sm1
+            INNER JOIN realtime_server_members sm2
+                ON sm2.server_id = sm1.server_id AND NOT sm2.removed
+            WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
     pub async fn add_server_member(

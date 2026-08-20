@@ -1,5 +1,9 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
-use domain::server::{id::ServerId, repository::ServerRepository};
+use domain::{
+    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
+    server::{id::ServerId, repository::ServerRepository},
+    user::id::UserId,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -50,6 +54,27 @@ async fn user_has_state(
     Ok(HttpResponse::Ok().json(StateResponse { has_state }))
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FriendsResponse {
+    friends: bool,
+}
+
+#[get("/friendships/{a}/{b}")]
+async fn friendship_pair(
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let (a, b) = path.into_inner();
+    let pair = app_state
+        .friendship_repository
+        .find_pair(&UserId::new(a), &UserId::new(b))
+        .await
+        .map_err(ApiError::from)?;
+    let friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
+    Ok(HttpResponse::Ok().json(FriendsResponse { friends }))
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LinkedQuery {
@@ -80,6 +105,7 @@ pub fn internal_routes(cfg: &mut web::ServiceConfig) {
         web::scope("/internal")
             .service(server_owner)
             .service(user_has_state)
+            .service(friendship_pair)
             .service(linked_attachments),
     );
 }
