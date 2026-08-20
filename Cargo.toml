@@ -11,7 +11,11 @@ members = [
     "backend/crates/application",
     "backend/crates/infrastructure",
     "backend/crates/shared",
-    "backend/api",
+    "backend/services/api-common",
+    "backend/services/identity-service",
+    "backend/services/media-service",
+    "backend/services/messaging-service",
+    "backend/services/voice-service",
     "backend/outbox-worker", "backend/notification-service", "backend/websocket", "backend/event-dispatcher", "backend/realtime", "backend/livekit-pooler"]
 
 [workspace.dependencies]
@@ -47,6 +51,7 @@ identity = { path = "backend/crates/identity" }
 media = { path = "backend/crates/media" }
 messaging = { path = "backend/crates/messaging" }
 voice = { path = "backend/crates/voice" }
+api-common = { path = "backend/services/api-common" }
 domain = { path = "backend/crates/domain" }
 application = { path = "backend/crates/application" }
 infrastructure = { path = "backend/crates/infrastructure" }

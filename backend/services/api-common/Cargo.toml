@@ -1,0 +1,29 @@
+[package]
+name = "api-common"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "api_common"
+
+[dependencies]
+contracts = { workspace = true }
+domain = { workspace = true }
+platform = { workspace = true }
+shared = { workspace = true }
+identity = { workspace = true }
+media = { workspace = true }
+messaging = { workspace = true }
+voice = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+futures = { workspace = true }
+actix-web = { workspace = true }
+async-nats = { workspace = true }
+validator = { workspace = true }
+envy = { workspace = true }
+dotenv = { workspace = true }

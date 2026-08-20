@@ -304,13 +304,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "api"
+name = "api-common"
 version = "0.1.0"
 dependencies = [
- "actix-cors",
- "actix-multipart",
  "actix-web",
- "application",
  "async-nats",
  "chrono",
  "contracts",
@@ -318,16 +315,18 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
- "image",
- "infrastructure",
+ "identity",
+ "media",
+ "messaging",
+ "platform",
  "serde",
  "serde_json",
  "shared",
  "thiserror 2.0.18",
- "tokio",
  "tracing",
  "uuid",
  "validator",
+ "voice",
 ]
 
 [[package]]
@@ -1905,6 +1904,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "identity-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "identity",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+]
+
+[[package]]
 name = "idna"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2362,6 +2387,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "media-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-multipart",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "image",
+ "media",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2387,6 +2440,33 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "messaging-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-multipart",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "messaging",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
 ]
 
 [[package]]
@@ -4652,6 +4732,32 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "voice-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+ "voice",
 ]
 
 [[package]]
