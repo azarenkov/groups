@@ -28,12 +28,12 @@ impl AttachmentLinksLookup for MessagingLinksClient {
         &self,
         ids: &[Uuid],
     ) -> Result<Vec<Uuid>, AttachmentLinksLookupError> {
-        let response = self
-            .client
+        let response = super::with_request_id(
+            self.client
             .post(format!("{}/internal/attachments/linked", self.base_url))
             .json(&LinkedRequestV1 {
                 attachment_ids: ids.to_vec(),
-            })
+            }))
             .send()
             .await
             .map_err(|e| AttachmentLinksLookupError::Unavailable(e.to_string()))?;

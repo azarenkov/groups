@@ -4,6 +4,7 @@ use platform::ports::event_consumer::{
     EventConsumer, StartPosition, SubscribeOptions,
 };
 use futures::StreamExt;
+use tracing::Instrument;
 use platform::messaging::nats::consumer::NatsEventConsumer;
 
 use crate::{
@@ -59,16 +60,25 @@ pub async fn run_consumer(
                             match msg {
                                 Some(Ok(m)) => {
                                     let subject = m.subject.clone();
-                                    match dispatch(&subject, &m.payload, &resolver, &publisher).await {
-                                        Ok(_) => {
-                                            if let Err(e) = m.ack().await {
-                                                tracing::warn!(error = %e, %subject, "Failed to ack message");
+                                    let span = tracing::info_span!(
+                                        "event",
+                                        request_id = ?m.request_id,
+                                        subject = %subject,
+                                    );
+                                    async {
+                                        match dispatch(&subject, &m.payload, &resolver, &publisher).await {
+                                            Ok(_) => {
+                                                if let Err(e) = m.ack().await {
+                                                    tracing::warn!(error = %e, %subject, "Failed to ack message");
+                                                }
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!(error = %e, %subject, "Dispatch failed; not acking, JetStream will redeliver");
                                             }
                                         }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, %subject, "Dispatch failed; not acking, JetStream will redeliver");
-                                        }
                                     }
+                                    .instrument(span)
+                                    .await;
                                 }
                                 Some(Err(e)) => {
                                     tracing::error!(error = %e, stream = %spec.stream, "Consumer stream error");

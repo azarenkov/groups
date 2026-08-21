@@ -8,6 +8,7 @@ use domain::{
     media::repository::MediaRepository, server::id::ServerId, user::id::UserId,
 };
 use futures::StreamExt;
+use tracing::Instrument;
 use media::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::server::{
     ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
@@ -40,18 +41,27 @@ pub fn spawn<M, FS>(
                     while let Some(msg) = messages.next().await {
                         match msg {
                             Ok(m) => {
-                                match handle(&m.subject, &m.payload, &*media_repository, &*storage)
-                                    .await
-                                {
-                                    Ok(()) => {
-                                        if let Err(e) = m.ack().await {
-                                            tracing::warn!(error = %e, "Media projection ack failed");
+                                let span = tracing::info_span!(
+                                    "event",
+                                    request_id = ?m.request_id,
+                                    subject = %m.subject,
+                                );
+                                async {
+                                    match handle(&m.subject, &m.payload, &*media_repository, &*storage)
+                                        .await
+                                    {
+                                        Ok(()) => {
+                                            if let Err(e) = m.ack().await {
+                                                tracing::warn!(error = %e, "Media projection ack failed");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, "Media projection handler failed; message will be redelivered");
                                         }
                                     }
-                                    Err(e) => {
-                                        tracing::warn!(error = %e, "Media projection handler failed; message will be redelivered");
-                                    }
                                 }
+                                .instrument(span)
+                                .await;
                             }
                             Err(e) => {
                                 tracing::warn!(error = %e, "Media projection stream error");

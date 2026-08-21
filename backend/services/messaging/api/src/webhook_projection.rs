@@ -25,6 +25,7 @@ use domain::{
 };
 use chrono::Utc;
 use futures::StreamExt;
+use tracing::Instrument;
 
 fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
     match source {
@@ -69,20 +70,35 @@ pub fn spawn<T>(
                                     let _ = m.ack().await;
                                     continue;
                                 };
-                                match apply(
-                                    kind, &m.payload, &join_uc, &abort_uc, &leave_uc, &track_uc,
-                                )
-                                .await
-                                {
-                                    Ok(()) => {
-                                        if let Err(e) = m.ack().await {
-                                            tracing::warn!(error = %e, "Webhook projection ack failed");
+                                let span = tracing::info_span!(
+                                    "event",
+                                    request_id = ?m.request_id,
+                                    subject = %m.subject,
+                                );
+                                async {
+                                    match apply(
+                                        kind,
+                                        &m.payload,
+                                        m.request_id.clone(),
+                                        &join_uc,
+                                        &abort_uc,
+                                        &leave_uc,
+                                        &track_uc,
+                                    )
+                                    .await
+                                    {
+                                        Ok(()) => {
+                                            if let Err(e) = m.ack().await {
+                                                tracing::warn!(error = %e, "Webhook projection ack failed");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, subject = %m.subject, "Webhook projection failed; message will be redelivered");
                                         }
                                     }
-                                    Err(e) => {
-                                        tracing::warn!(error = %e, subject = %m.subject, "Webhook projection failed; message will be redelivered");
-                                    }
                                 }
+                                .instrument(span)
+                                .await;
                             }
                             Err(e) => {
                                 tracing::warn!(error = %e, "Webhook projection stream error");
@@ -125,6 +141,7 @@ fn webhook_kind(subject: &str) -> Option<WebhookKind> {
 async fn apply<T>(
     kind: WebhookKind,
     payload: &[u8],
+    request_id: Option<String>,
     join_uc: &JoinVoiceConnection<T>,
     abort_uc: &AbortVoiceConnection<T>,
     leave_uc: &LeaveVoiceConnection<T>,
@@ -144,7 +161,7 @@ where
         tracing::warn!(source = %evt.inbox_source, "Unknown webhook source; dropping");
         return Ok(());
     };
-    let ctx = RequestContext { request_id: None };
+    let ctx = RequestContext { request_id };
 
     match kind {
         WebhookKind::Joined => {

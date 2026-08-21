@@ -3,6 +3,7 @@ use std::sync::Arc;
 use platform::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use domain::{user::id::UserId, user_profile::UserProfileRepository};
 use futures::StreamExt;
+use tracing::Instrument;
 use platform::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::user::UserNameV1 as UserNameDto;
 
@@ -38,27 +39,36 @@ pub fn spawn<P>(
                                     let _ = m.ack().await;
                                     continue;
                                 }
-                                match serde_json::from_slice::<UserNameDto>(&m.payload) {
-                                    Ok(evt) => {
-                                        match repository
-                                            .upsert_name(&UserId::new(evt.user_id), &evt.name, evt.occurred_at)
-                                            .await
-                                        {
-                                            Ok(()) => {
-                                                if let Err(e) = m.ack().await {
-                                                    tracing::warn!(error = %e, "Profile projection ack failed");
+                                let span = tracing::info_span!(
+                                    "event",
+                                    request_id = ?m.request_id,
+                                    subject = %m.subject,
+                                );
+                                async {
+                                    match serde_json::from_slice::<UserNameDto>(&m.payload) {
+                                        Ok(evt) => {
+                                            match repository
+                                                .upsert_name(&UserId::new(evt.user_id), &evt.name, evt.occurred_at)
+                                                .await
+                                            {
+                                                Ok(()) => {
+                                                    if let Err(e) = m.ack().await {
+                                                        tracing::warn!(error = %e, "Profile projection ack failed");
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!(error = %e, "Profile projection upsert failed; message will be redelivered");
                                                 }
                                             }
-                                            Err(e) => {
-                                                tracing::warn!(error = %e, "Profile projection upsert failed; message will be redelivered");
-                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, subject = %m.subject, "Malformed user event; dropping");
+                                            let _ = m.ack().await;
                                         }
                                     }
-                                    Err(e) => {
-                                        tracing::warn!(error = %e, subject = %m.subject, "Malformed user event; dropping");
-                                        let _ = m.ack().await;
-                                    }
                                 }
+                                .instrument(span)
+                                .await;
                             }
                             Err(e) => {
                                 tracing::warn!(error = %e, "Profile projection stream error");

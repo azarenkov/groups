@@ -23,14 +23,14 @@ impl MessagingFriendshipClient {
 #[async_trait]
 impl FriendshipLookup for MessagingFriendshipClient {
     async fn are_friends(&self, a: &UserId, b: &UserId) -> Result<bool, FriendshipLookupError> {
-        let response = self
-            .client
+        let response = super::with_request_id(
+            self.client
             .get(format!(
                 "{}/internal/friendships/{}/{}",
                 self.base_url,
                 a.uuid(),
                 b.uuid()
-            ))
+            )))
             .send()
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;

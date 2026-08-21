@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      libs: ${{ steps.filter.outputs.libs }}
+      identity: ${{ steps.filter.outputs.identity }}
+      media: ${{ steps.filter.outputs.media }}
+      messaging: ${{ steps.filter.outputs.messaging }}
+      voice: ${{ steps.filter.outputs.voice }}
+      realtime: ${{ steps.filter.outputs.realtime }}
+      notification: ${{ steps.filter.outputs.notification }}
+      workers: ${{ steps.filter.outputs.workers }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            libs:
+              - 'backend/libs/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.sqlx/**'
+              - 'migrations/**'
+              - '.cargo/**'
+            identity:
+              - 'backend/services/identity/**'
+            media:
+              - 'backend/services/media/**'
+            messaging:
+              - 'backend/services/messaging/**'
+            voice:
+              - 'backend/services/voice/**'
+            realtime:
+              - 'backend/services/realtime/**'
+            notification:
+              - 'backend/services/notification/**'
+            workers:
+              - 'backend/workers/**'
+
+  full:
+    needs: changes
+    if: needs.changes.outputs.libs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace -- -D warnings
+      - run: cargo test --workspace
+
+  service:
+    needs: changes
+    if: needs.changes.outputs.libs != 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: identity
+            changed: ${{ needs.changes.outputs.identity }}
+            packages: -p identity -p identity-service
+          - name: media
+            changed: ${{ needs.changes.outputs.media }}
+            packages: -p media -p media-service
+          - name: messaging
+            changed: ${{ needs.changes.outputs.messaging }}
+            packages: -p messaging -p messaging-service -p contracts -p livekit-pooler
+          - name: voice
+            changed: ${{ needs.changes.outputs.voice }}
+            packages: -p voice -p voice-service
+          - name: realtime
+            changed: ${{ needs.changes.outputs.realtime }}
+            packages: -p event-dispatcher -p websocket -p realtime
+          - name: notification
+            changed: ${{ needs.changes.outputs.notification }}
+            packages: -p notification-service
+          - name: workers
+            changed: ${{ needs.changes.outputs.workers }}
+            packages: -p outbox-worker -p livekit-pooler
+    steps:
+      - name: Skip unchanged
+        if: matrix.changed != 'true'
+        run: echo "no changes for ${{ matrix.name }}"
+      - uses: actions/checkout@v4
+        if: matrix.changed == 'true'
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.changed == 'true'
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        if: matrix.changed == 'true'
+        with:
+          key: ${{ matrix.name }}
+      - name: Clippy
+        if: matrix.changed == 'true'
+        run: cargo clippy ${{ matrix.packages }} -- -D warnings
+      - name: Test
+        if: matrix.changed == 'true'
+        run: cargo test ${{ matrix.packages }}
