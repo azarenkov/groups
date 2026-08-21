@@ -1,20 +1,20 @@
 [workspace]
 resolver = "3"
 members = [
-    "backend/crates/contracts",
-    "backend/crates/platform",
-    "backend/crates/identity",
-    "backend/crates/media",
-    "backend/crates/messaging",
-    "backend/crates/voice",
-    "backend/crates/domain",
-    "backend/crates/shared",
-    "backend/services/api-common",
-    "backend/services/identity-service",
-    "backend/services/media-service",
-    "backend/services/messaging-service",
-    "backend/services/voice-service",
-    "backend/outbox-worker", "backend/notification-service", "backend/websocket", "backend/event-dispatcher", "backend/realtime", "backend/livekit-pooler"]
+    "backend/libs/contracts",
+    "backend/libs/platform",
+    "backend/services/identity/core",
+    "backend/services/media/core",
+    "backend/services/messaging/core",
+    "backend/services/voice/core",
+    "backend/libs/domain",
+    "backend/libs/shared",
+    "backend/libs/api-common",
+    "backend/services/identity/api",
+    "backend/services/media/api",
+    "backend/services/messaging/api",
+    "backend/services/voice/api",
+    "backend/workers/outbox-worker", "backend/services/notification", "backend/services/realtime/websocket", "backend/services/realtime/event-dispatcher", "backend/services/realtime/bin", "backend/workers/livekit-pooler"]
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -43,12 +43,12 @@ rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustl
 actix-multipart = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 
-contracts = { path = "backend/crates/contracts" }
-platform = { path = "backend/crates/platform" }
-identity = { path = "backend/crates/identity" }
-media = { path = "backend/crates/media" }
-messaging = { path = "backend/crates/messaging" }
-voice = { path = "backend/crates/voice" }
-api-common = { path = "backend/services/api-common" }
-domain = { path = "backend/crates/domain" }
-shared = { path = "backend/crates/shared" }
+contracts = { path = "backend/libs/contracts" }
+platform = { path = "backend/libs/platform" }
+identity = { path = "backend/services/identity/core" }
+media = { path = "backend/services/media/core" }
+messaging = { path = "backend/services/messaging/core" }
+voice = { path = "backend/services/voice/core" }
+api-common = { path = "backend/libs/api-common" }
+domain = { path = "backend/libs/domain" }
+shared = { path = "backend/libs/shared" }

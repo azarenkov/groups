@@ -1,4 +1,3 @@
-use domain::channel::token::ChannelToken;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -6,15 +5,6 @@ use serde::Serialize;
 pub struct JoinVoiceChannelResponse {
     pub token: String,
     pub url: String,
-}
-
-impl JoinVoiceChannelResponse {
-    pub fn new(token: ChannelToken, url: String) -> Self {
-        Self {
-            token: token.as_str().to_owned(),
-            url,
-        }
-    }
 }
 
 impl From<messaging::dto::responses::channel::join_voice_channel::JoinVoiceChannelResponse>
