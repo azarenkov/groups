@@ -3,7 +3,7 @@ name: Release Services
 on:
   push:
     branches: [main]
-    tags: ["v*", "*-v*"]
+    tags: ["v[0-9]*", "*-v[0-9]*"]
   workflow_dispatch:
 
 env:
@@ -97,8 +97,9 @@ jobs:
         run: |
           BUILD=false
           case "${{ github.ref }}" in
-            refs/tags/v*) BUILD=true ;;
-            refs/tags/${{ matrix.service }}-v*) BUILD=true ;;
+            refs/tags/${{ matrix.service }}-v[0-9]*) BUILD=true ;;
+            refs/tags/*-v[0-9]*) BUILD=false ;;
+            refs/tags/v[0-9]*) BUILD=true ;;
             refs/heads/*)
               if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ needs.changes.outputs[matrix.service] }}" = "true" ]; then
                 BUILD=true
