@@ -26,13 +26,13 @@ impl ServerOwnerLookup for MessagingOwnerClient {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, ServerOwnerLookupError> {
-        let response = self
-            .client
+        let response = super::with_request_id(
+            self.client
             .get(format!(
                 "{}/internal/servers/{}/owner",
                 self.base_url,
                 server_id.uuid()
-            ))
+            )))
             .send()
             .await
             .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;

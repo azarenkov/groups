@@ -25,6 +25,7 @@ use domain::{
 };
 use chrono::Utc;
 use futures::StreamExt;
+use tracing::Instrument;
 
 fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
     match source {
@@ -72,6 +73,11 @@ pub fn spawn<T>(
                                 match apply(
                                     kind, &m.payload, &join_uc, &abort_uc, &leave_uc, &track_uc,
                                 )
+                                .instrument(tracing::info_span!(
+                                    "event",
+                                    request_id = ?m.request_id,
+                                    subject = %m.subject,
+                                ))
                                 .await
                                 {
                                     Ok(()) => {

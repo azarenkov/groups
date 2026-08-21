@@ -26,13 +26,13 @@ impl UserStateLookup for MessagingStateClient {
         &self,
         user_id: &UserId,
     ) -> Result<bool, UserStateLookupError> {
-        let response = self
-            .client
+        let response = super::with_request_id(
+            self.client
             .get(format!(
                 "{}/internal/users/{}/has-state",
                 self.base_url,
                 user_id.uuid()
-            ))
+            )))
             .send()
             .await
             .map_err(|e| UserStateLookupError::Unavailable(e.to_string()))?;

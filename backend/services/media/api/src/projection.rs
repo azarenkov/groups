@@ -8,6 +8,7 @@ use domain::{
     media::repository::MediaRepository, server::id::ServerId, user::id::UserId,
 };
 use futures::StreamExt;
+use tracing::Instrument;
 use media::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::server::{
     ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
@@ -41,6 +42,12 @@ pub fn spawn<M, FS>(
                         match msg {
                             Ok(m) => {
                                 match handle(&m.subject, &m.payload, &*media_repository, &*storage)
+                                    
+                                    .instrument(tracing::info_span!(
+                                        "event",
+                                        request_id = ?m.request_id,
+                                        subject = %m.subject,
+                                    ))
                                     .await
                                 {
                                     Ok(()) => {

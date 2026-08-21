@@ -40,14 +40,14 @@ impl AttachmentClaims for MediaClaimsClient {
         owner_id: &UserId,
         claim_token: Uuid,
     ) -> Result<Vec<AttachmentLink>, AttachmentClaimError> {
-        let response = self
-            .client
+        let response = super::with_request_id(
+            self.client
             .post(format!("{}/internal/attachments/claim", self.base_url))
             .json(&ClaimRequestV1 {
                 attachment_ids: ids.to_vec(),
                 owner_id: owner_id.uuid(),
                 claim_token,
-            })
+            }))
             .send()
             .await
             .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
@@ -72,14 +72,14 @@ impl AttachmentClaims for MediaClaimsClient {
         id: Uuid,
         owner_id: &UserId,
     ) -> Result<Option<AttachmentLink>, AttachmentClaimError> {
-        let response = self
-            .client
+        let response = super::with_request_id(
+            self.client
             .get(format!(
                 "{}/internal/attachments/{}/unclaimed?ownerId={}",
                 self.base_url,
                 id,
                 owner_id.uuid()
-            ))
+            )))
             .send()
             .await
             .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
@@ -99,13 +99,13 @@ impl AttachmentClaims for MediaClaimsClient {
     }
 
     async fn release(&self, ids: &[Uuid], claim_token: Uuid) -> Result<(), AttachmentClaimError> {
-        let response = self
-            .client
+        let response = super::with_request_id(
+            self.client
             .post(format!("{}/internal/attachments/release", self.base_url))
             .json(&ReleaseRequestV1 {
                 attachment_ids: ids.to_vec(),
                 claim_token,
-            })
+            }))
             .send()
             .await
             .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;

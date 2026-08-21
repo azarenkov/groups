@@ -9,6 +9,7 @@ use contracts::events::{
     user::UserLifecycleV1 as UserNameDto,
 };
 use futures::StreamExt;
+use tracing::Instrument;
 use platform::messaging::nats::consumer::NatsEventConsumer;
 
 use crate::recipients::RecipientResolver;
@@ -51,7 +52,13 @@ pub async fn run_catchup(
                         msg = messages.next() => {
                             match msg {
                                 Some(Ok(m)) => {
-                                    match apply(&m.subject, &m.payload, &resolver).await {
+                                    match apply(&m.subject, &m.payload, &resolver)
+                                        .instrument(tracing::info_span!(
+                                            "event",
+                                            request_id = ?m.request_id,
+                                            subject = %m.subject,
+                                        ))
+                                        .await {
                                         Ok(()) => {
                                             if let Err(e) = m.ack().await {
                                                 tracing::warn!(error = %e, "Projection catch-up ack failed");

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use platform::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use domain::{user::id::UserId, user_profile::UserProfileRepository};
 use futures::StreamExt;
+use tracing::Instrument;
 use platform::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::user::UserNameV1 as UserNameDto;
 
@@ -42,6 +43,11 @@ pub fn spawn<P>(
                                     Ok(evt) => {
                                         match repository
                                             .upsert_name(&UserId::new(evt.user_id), &evt.name, evt.occurred_at)
+                                            .instrument(tracing::info_span!(
+                                                "event",
+                                                request_id = ?m.request_id,
+                                                subject = %m.subject,
+                                            ))
                                             .await
                                         {
                                             Ok(()) => {

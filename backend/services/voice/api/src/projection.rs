@@ -3,6 +3,7 @@ use std::sync::Arc;
 use voice::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use domain::{user::id::UserId, user_profile::UserProfileRepository};
 use futures::StreamExt;
+use tracing::Instrument;
 use voice::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::user::UserNameV1 as UserNameDto;
 
@@ -31,7 +32,13 @@ pub fn spawn<P>(
                     while let Some(msg) = messages.next().await {
                         match msg {
                             Ok(m) => {
-                                match handle(&m.subject, &m.payload, &*profiles).await {
+                                match handle(&m.subject, &m.payload, &*profiles)
+                                    .instrument(tracing::info_span!(
+                                        "event",
+                                        request_id = ?m.request_id,
+                                        subject = %m.subject,
+                                    ))
+                                    .await {
                                     Ok(()) => {
                                         if let Err(e) = m.ack().await {
                                             tracing::warn!(error = %e, "Voice projection ack failed");

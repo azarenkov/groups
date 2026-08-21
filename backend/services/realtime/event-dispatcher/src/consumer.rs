@@ -4,6 +4,7 @@ use platform::ports::event_consumer::{
     EventConsumer, StartPosition, SubscribeOptions,
 };
 use futures::StreamExt;
+use tracing::Instrument;
 use platform::messaging::nats::consumer::NatsEventConsumer;
 
 use crate::{
@@ -59,7 +60,15 @@ pub async fn run_consumer(
                             match msg {
                                 Some(Ok(m)) => {
                                     let subject = m.subject.clone();
-                                    match dispatch(&subject, &m.payload, &resolver, &publisher).await {
+                                    let span = tracing::info_span!(
+                                        "event",
+                                        request_id = ?m.request_id,
+                                        subject = %subject,
+                                    );
+                                    match dispatch(&subject, &m.payload, &resolver, &publisher)
+                                        .instrument(span)
+                                        .await
+                                    {
                                         Ok(_) => {
                                             if let Err(e) = m.ack().await {
                                                 tracing::warn!(error = %e, %subject, "Failed to ack message");
