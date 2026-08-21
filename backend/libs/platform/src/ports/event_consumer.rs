@@ -20,7 +20,7 @@ pub struct SubscribeOptions {
     pub dlq_subject: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum StartPosition {
     New,
     All,

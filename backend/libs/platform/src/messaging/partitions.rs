@@ -1,0 +1,85 @@
+use uuid::Uuid;
+
+pub fn partition_for(key: Uuid, partitions: u32) -> u32 {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in key.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    (hash % partitions.max(1) as u64) as u32
+}
+
+pub fn partition_token(partition: u32) -> String {
+    format!("p{partition}")
+}
+
+pub fn is_partition_token(token: &str) -> bool {
+    token.len() > 1
+        && token.starts_with('p')
+        && token[1..].bytes().all(|b| b.is_ascii_digit())
+}
+
+pub fn normalize_subject(subject: &str) -> String {
+    if !subject.split('.').any(is_partition_token) {
+        return subject.to_string();
+    }
+    subject
+        .split('.')
+        .filter(|t| !is_partition_token(t))
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn partition_is_deterministic_and_bounded() {
+        let key = Uuid::parse_str("0b410a13-a242-46dc-ba1e-cf8692f61af3").unwrap();
+        let p1 = partition_for(key, 16);
+        let p2 = partition_for(key, 16);
+        assert_eq!(p1, p2);
+        assert!(p1 < 16);
+        assert_eq!(partition_for(key, 1), 0);
+    }
+
+    #[test]
+    fn partitions_spread_across_buckets() {
+        let mut seen = std::collections::HashSet::new();
+        for i in 0..64u128 {
+            let key = Uuid::from_u128(i * 7919);
+            seen.insert(partition_for(key, 16));
+        }
+        assert!(seen.len() > 8);
+    }
+
+    #[test]
+    fn normalize_strips_partition_token() {
+        assert_eq!(
+            normalize_subject("rift.events.user.p3.renamed"),
+            "rift.events.user.renamed",
+        );
+        assert_eq!(
+            normalize_subject("rift.events.channel.p15.participant.joined"),
+            "rift.events.channel.participant.joined",
+        );
+        assert_eq!(
+            normalize_subject("rift.events.user.renamed"),
+            "rift.events.user.renamed",
+        );
+        assert_eq!(
+            normalize_subject("rift.events.dlq.media.server"),
+            "rift.events.dlq.media.server",
+        );
+    }
+
+    #[test]
+    fn partition_tokens_are_recognized() {
+        assert!(is_partition_token("p0"));
+        assert!(is_partition_token("p15"));
+        assert!(!is_partition_token("p"));
+        assert!(!is_partition_token("participant"));
+        assert!(!is_partition_token("user"));
+    }
+}

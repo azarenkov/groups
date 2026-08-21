@@ -1,3 +1,4 @@
+use crate::messaging::partitions::{partition_for, partition_token};
 use crate::ports::outbox_publisher::{OutboxPublisher, OutboxPublisherError};
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
@@ -9,24 +10,33 @@ const REQUEST_ID_HEADER: &str = "X-Request-Id";
 pub struct NatsOutboxPublisher {
     jetstream: Context,
     subject_prefix: String,
+    partitions: u32,
 }
 
 impl NatsOutboxPublisher {
-    pub fn new(jetstream: Context, subject_prefix: String) -> Self {
+    pub fn new(jetstream: Context, subject_prefix: String, partitions: u32) -> Self {
         Self {
             jetstream,
             subject_prefix,
+            partitions,
         }
     }
 
     fn subject_for(&self, record: &OutboxRecord) -> String {
-        format!(
-            "{}.{}.{}",
-            self.subject_prefix,
-            record.aggregate_type.as_str(),
-            record.event_type,
-        )
+        partitioned_subject(&self.subject_prefix, record, self.partitions)
     }
+}
+
+pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32) -> String {
+    let key = record.parent_id.unwrap_or(record.aggregate_id);
+    let partition = partition_for(key, partitions);
+    format!(
+        "{}.{}.{}.{}",
+        prefix,
+        record.aggregate_type.as_str(),
+        partition_token(partition),
+        record.event_type,
+    )
 }
 
 #[async_trait]
@@ -53,5 +63,55 @@ impl OutboxPublisher for NatsOutboxPublisher {
             .map_err(|e| OutboxPublisherError::Ack(e.to_string()))?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use domain::shared::outbox::outbox_record::{AggregateType, OutboxRecord};
+    use uuid::Uuid;
+
+    fn record(parent_id: Option<Uuid>) -> OutboxRecord {
+        OutboxRecord {
+            id: Uuid::from_u128(1),
+            aggregate_id: Uuid::from_u128(2),
+            aggregate_type: AggregateType::Message,
+            parent_id,
+            parent_type: None,
+            event_type: "sent".to_string(),
+            payload: serde_json::json!({}),
+            occurred_at: chrono::DateTime::from_timestamp(0, 0).unwrap(),
+            request_id: None,
+        }
+    }
+
+    #[test]
+    fn subject_carries_partition_from_parent_key() {
+        let parent = Uuid::from_u128(42);
+        let a = subject_of(record(Some(parent)));
+        let b = subject_of(record(Some(parent)));
+        assert_eq!(a, b);
+        let parts: Vec<&str> = a.split('.').collect();
+        assert_eq!(parts[0..2], ["rift", "events"]);
+        assert_eq!(parts[2], "message");
+        assert!(crate::messaging::partitions::is_partition_token(parts[3]));
+        assert_eq!(parts[4], "sent");
+        assert_eq!(
+            crate::messaging::partitions::normalize_subject(&a),
+            "rift.events.message.sent",
+        );
+    }
+
+    #[test]
+    fn different_keys_can_land_in_different_partitions() {
+        let mut subjects = std::collections::HashSet::new();
+        for i in 0..32u128 {
+            subjects.insert(subject_of(record(Some(Uuid::from_u128(i)))));
+        }
+        assert!(subjects.len() > 4);
+    }
+
+    fn subject_of(record: OutboxRecord) -> String {
+        super::partitioned_subject("rift.events", &record, 16)
     }
 }

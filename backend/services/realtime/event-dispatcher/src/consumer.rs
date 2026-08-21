@@ -18,6 +18,7 @@ pub struct ConsumerSpec {
     pub filter_subject: String,
     pub dlq_subject: String,
     pub max_deliver: u32,
+    pub start_position: StartPosition,
 }
 
 pub async fn run_consumer(
@@ -38,7 +39,7 @@ pub async fn run_consumer(
         let opts = SubscribeOptions {
             consumer_name: spec.consumer_name.clone(),
             subject: spec.filter_subject.clone(),
-            start_position: StartPosition::New,
+            start_position: spec.start_position,
             max_deliver: Some(spec.max_deliver),
             dlq_subject: Some(spec.dlq_subject.clone()),
         };

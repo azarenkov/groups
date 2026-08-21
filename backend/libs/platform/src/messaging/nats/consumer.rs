@@ -114,7 +114,8 @@ impl EventConsumer for NatsEventConsumer {
                                 .as_ref()
                                 .and_then(|h| h.get("X-Request-Id"))
                                 .map(|v| v.as_str().to_string());
-                            let subject = msg.subject.to_string();
+                            let subject =
+                                crate::messaging::partitions::normalize_subject(msg.subject.as_str());
                             let ack_fn: Box<
                                 dyn FnOnce() -> BoxFuture<
                                         'static,
