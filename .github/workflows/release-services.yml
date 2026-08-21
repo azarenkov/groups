@@ -15,6 +15,9 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     if: github.ref_type == 'branch'
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       identity-service: ${{ steps.filter.outputs.identity-service }}
       media-service: ${{ steps.filter.outputs.media-service }}
