@@ -38,6 +38,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.sqlx/**'
+              - 'migrations/**'
             identity-service:
               - *shared
               - 'backend/services/identity/**'
