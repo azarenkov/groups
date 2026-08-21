@@ -70,25 +70,30 @@ pub fn spawn<T>(
                                     let _ = m.ack().await;
                                     continue;
                                 };
-                                match apply(
-                                    kind, &m.payload, &join_uc, &abort_uc, &leave_uc, &track_uc,
-                                )
-                                .instrument(tracing::info_span!(
+                                let span = tracing::info_span!(
                                     "event",
                                     request_id = ?m.request_id,
                                     subject = %m.subject,
-                                ))
-                                .await
-                                {
-                                    Ok(()) => {
-                                        if let Err(e) = m.ack().await {
-                                            tracing::warn!(error = %e, "Webhook projection ack failed");
+                                );
+                                async {
+                                    match apply(
+                                        kind, &m.payload, &join_uc, &abort_uc, &leave_uc,
+                                        &track_uc,
+                                    )
+                                    .await
+                                    {
+                                        Ok(()) => {
+                                            if let Err(e) = m.ack().await {
+                                                tracing::warn!(error = %e, "Webhook projection ack failed");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, subject = %m.subject, "Webhook projection failed; message will be redelivered");
                                         }
                                     }
-                                    Err(e) => {
-                                        tracing::warn!(error = %e, subject = %m.subject, "Webhook projection failed; message will be redelivered");
-                                    }
                                 }
+                                .instrument(span)
+                                .await;
                             }
                             Err(e) => {
                                 tracing::warn!(error = %e, "Webhook projection stream error");

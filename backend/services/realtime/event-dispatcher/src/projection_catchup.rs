@@ -52,22 +52,25 @@ pub async fn run_catchup(
                         msg = messages.next() => {
                             match msg {
                                 Some(Ok(m)) => {
-                                    match apply(&m.subject, &m.payload, &resolver)
-                                        .instrument(tracing::info_span!(
-                                            "event",
-                                            request_id = ?m.request_id,
-                                            subject = %m.subject,
-                                        ))
-                                        .await {
-                                        Ok(()) => {
-                                            if let Err(e) = m.ack().await {
-                                                tracing::warn!(error = %e, "Projection catch-up ack failed");
+                                    let span = tracing::info_span!(
+                                        "event",
+                                        request_id = ?m.request_id,
+                                        subject = %m.subject,
+                                    );
+                                    async {
+                                        match apply(&m.subject, &m.payload, &resolver).await {
+                                            Ok(()) => {
+                                                if let Err(e) = m.ack().await {
+                                                    tracing::warn!(error = %e, "Projection catch-up ack failed");
+                                                }
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!(error = %e, "Projection catch-up failed; message will be redelivered");
                                             }
                                         }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, "Projection catch-up failed; message will be redelivered");
-                                        }
                                     }
+                                    .instrument(span)
+                                    .await;
                                 }
                                 Some(Err(e)) => {
                                     tracing::warn!(error = %e, "Projection catch-up stream error");

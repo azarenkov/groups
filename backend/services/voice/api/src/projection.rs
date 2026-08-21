@@ -32,22 +32,25 @@ pub fn spawn<P>(
                     while let Some(msg) = messages.next().await {
                         match msg {
                             Ok(m) => {
-                                match handle(&m.subject, &m.payload, &*profiles)
-                                    .instrument(tracing::info_span!(
-                                        "event",
-                                        request_id = ?m.request_id,
-                                        subject = %m.subject,
-                                    ))
-                                    .await {
-                                    Ok(()) => {
-                                        if let Err(e) = m.ack().await {
-                                            tracing::warn!(error = %e, "Voice projection ack failed");
+                                let span = tracing::info_span!(
+                                    "event",
+                                    request_id = ?m.request_id,
+                                    subject = %m.subject,
+                                );
+                                async {
+                                    match handle(&m.subject, &m.payload, &*profiles).await {
+                                        Ok(()) => {
+                                            if let Err(e) = m.ack().await {
+                                                tracing::warn!(error = %e, "Voice projection ack failed");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, "Voice projection failed; message will be redelivered");
                                         }
                                     }
-                                    Err(e) => {
-                                        tracing::warn!(error = %e, "Voice projection failed; message will be redelivered");
-                                    }
                                 }
+                                .instrument(span)
+                                .await;
                             }
                             Err(e) => {
                                 tracing::warn!(error = %e, "Voice projection stream error");
