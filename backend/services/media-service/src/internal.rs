@@ -7,7 +7,7 @@ use uuid::Uuid;
 use domain::attachment::repository::AttachmentRepository;
 
 use crate::state::AppState;
-use api_common::error::ApiError;
+use shared::api_error::ApiError;
 
 #[post("/attachments/claim")]
 async fn claim_attachments(

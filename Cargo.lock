@@ -315,9 +315,6 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
- "identity",
- "media",
- "messaging",
  "platform",
  "serde",
  "serde_json",
@@ -326,7 +323,6 @@ dependencies = [
  "tracing",
  "uuid",
  "validator",
- "voice",
 ]
 
 [[package]]
@@ -2869,6 +2865,7 @@ dependencies = [
  "rust-s3",
  "serde",
  "serde_json",
+ "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
@@ -3767,6 +3764,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "chrono",
+ "domain",
  "dotenv",
  "envy",
  "futures",
@@ -3774,11 +3772,13 @@ dependencies = [
  "jsonwebtoken 10.3.0",
  "redis",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-log",
  "tracing-subscriber",
  "uuid",
+ "validator",
 ]
 
 [[package]]

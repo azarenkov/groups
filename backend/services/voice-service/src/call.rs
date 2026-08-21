@@ -8,8 +8,9 @@ use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;
-use api_common::{
-    context::request_context, dto::responses::ApiResponse, error::ApiError, };
+use api_common::{context::request_context};
+use api_common::dto::responses::ApiResponse;
+use shared::api_error::ApiError;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

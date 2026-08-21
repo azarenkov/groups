@@ -9,10 +9,9 @@ use uuid::Uuid;
 const MAX_FILE_NAME_BYTES: usize = 255;
 
 use crate::state::AppState;
-use api_common::{
-    dto::responses::{ApiResponse, attachment::AttachmentResponse},
-    error::ApiError,
-    };
+use api_common::dto::responses::ApiResponse;
+use api_common::dto::responses::attachment::AttachmentResponse;
+use shared::api_error::ApiError;
 
 #[post("")]
 async fn upload_attachment(

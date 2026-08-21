@@ -6,28 +6,10 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::state::AppState;
-use api_common::{
-    context::request_context,
-    dto::{
-        pagination::{PaginationMeta, PaginationQuery},
-        requests::server::{
-            create_server::CreateServerRequestBody,
-            update_server::UpdateServerRequestBody,
-        },
-        responses::{
-            ApiResponse,
-            server::{
-                create_server::CreateServerResponse,
-                invite_codes::{InviteCodeResponse, ListInviteCodesResponse},
-                list_sent_server_invites::ListSentServerInvitesResponse,
-                list_server_channels::ListServerChannelsResponse,
-                list_server_members::ListServerMembersResponse,
-                list_servers_by_user::ListServersByUserResponse,
-            },
-        },
-    },
-    error::ApiError,
-    };
+use api_common::{context::request_context};
+use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
+use crate::dto::{requests::server::{ create_server::CreateServerRequestBody, update_server::UpdateServerRequestBody, }, responses::server::{ create_server::CreateServerResponse, invite_codes::{InviteCodeResponse, ListInviteCodesResponse}, list_sent_server_invites::ListSentServerInvitesResponse, list_server_channels::ListServerChannelsResponse, list_server_members::ListServerMembersResponse, list_servers_by_user::ListServersByUserResponse, }};
+use shared::api_error::ApiError;
 
 #[post("")]
 async fn create_server(

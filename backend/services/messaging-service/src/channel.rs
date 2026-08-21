@@ -19,32 +19,10 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::state::AppState;
-use api_common::{
-    context::request_context,
-    dto::{
-        pagination::{PaginationMeta, PaginationQuery},
-        requests::channel::{
-            create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody,
-            join_text_channel::JoinTextChannelRequestBody,
-            join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody,
-            search_messages::SearchMessagesQuery,
-            send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody,
-        },
-        responses::{
-            ApiResponse,
-            channel::{
-                create_channel::CreateChannelResponse,
-                join_voice_channel::JoinVoiceChannelResponse,
-                list_channel_participants::ListChannelParticipantsResponse,
-                message::{
-                    ListChannelMessagesResponse, MessageResponse,
-                    SearchChannelMessagesResponse,
-                },
-            },
-        },
-    },
-    error::ApiError,
-    };
+use api_common::{context::request_context};
+use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
+use crate::dto::{requests::channel::{ create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody, join_text_channel::JoinTextChannelRequestBody, join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody, search_messages::SearchMessagesQuery, send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody, }, responses::channel::{ create_channel::CreateChannelResponse, join_voice_channel::JoinVoiceChannelResponse, list_channel_participants::ListChannelParticipantsResponse, message::{ ListChannelMessagesResponse, MessageResponse, SearchChannelMessagesResponse, }, }};
+use shared::api_error::ApiError;
 
 #[post("/{server_id}/channels")]
 async fn create_channel(

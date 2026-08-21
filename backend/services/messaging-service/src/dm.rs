@@ -13,24 +13,10 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::state::AppState;
-use api_common::{
-    context::request_context,
-    dto::{
-        pagination::PaginationMeta,
-        requests::dm::{
-            EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody,
-            SendServerInviteBody,
-        },
-        responses::{
-            ApiResponse,
-            dm::{
-                AcceptServerInviteResponse, DmMessageResponse, ListDmMessagesResponse,
-                SearchDmMessagesResponse,
-            },
-        },
-    },
-    error::ApiError,
-    };
+use api_common::{context::request_context};
+use api_common::dto::{pagination::PaginationMeta, responses::ApiResponse};
+use crate::dto::{requests::dm::{ EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody, SendServerInviteBody, }, responses::dm::{ AcceptServerInviteResponse, DmMessageResponse, ListDmMessagesResponse, SearchDmMessagesResponse, }};
+use shared::api_error::ApiError;
 
 #[post("/me/dms/{friend_id}/messages")]
 async fn send_dm_message(

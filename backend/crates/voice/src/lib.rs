@@ -1,3 +1,4 @@
+pub mod http_errors;
 pub mod database;
 pub mod dto;
 pub mod media_client;

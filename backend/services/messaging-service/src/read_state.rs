@@ -6,8 +6,8 @@ use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;
-use api_common::{
-    dto::responses::ApiResponse, error::ApiError, };
+use api_common::dto::responses::ApiResponse;
+use shared::api_error::ApiError;
 
 #[post("/channels/{channel_id}/read")]
 async fn mark_channel_read(

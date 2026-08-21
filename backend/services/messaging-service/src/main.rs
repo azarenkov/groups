@@ -1,3 +1,4 @@
+mod dto;
 mod bootstrap;
 mod attachments;
 mod calls;

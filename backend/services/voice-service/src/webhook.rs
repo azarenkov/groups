@@ -1,7 +1,8 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, http, post, web};
 
 use crate::state::AppState;
-use api_common::{context::request_context, error::ApiError};
+use api_common::{context::request_context};
+use shared::api_error::ApiError;
 
 #[post("/livekit")]
 async fn livekit_webhook(

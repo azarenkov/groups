@@ -4,7 +4,7 @@ use serde::Deserialize;
 use shared::middleware::auth::RateLimitedAuthToken;
 
 use crate::state::AppState;
-use api_common::{error::ApiError};
+use shared::api_error::ApiError;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

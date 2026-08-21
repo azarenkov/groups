@@ -25,7 +25,7 @@ pub struct DmMessageResponse {
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attachments: Vec<crate::dto::responses::attachment::AttachmentResponse>,
+    pub attachments: Vec<api_common::dto::responses::attachment::AttachmentResponse>,
 }
 
 impl From<SendDmMessageResponse> for DmMessageResponse {
@@ -45,7 +45,7 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
             attachments: value
                 .attachments
                 .into_iter()
-                .map(crate::dto::responses::attachment::AttachmentResponse::from)
+                .map(api_common::dto::responses::attachment::AttachmentResponse::from)
                 .collect(),
         }
     }

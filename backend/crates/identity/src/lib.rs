@@ -1,3 +1,4 @@
+pub mod http_errors;
 pub mod auth;
 pub mod database;
 pub mod dto;

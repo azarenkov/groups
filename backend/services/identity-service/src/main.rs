@@ -1,3 +1,4 @@
+mod dto;
 mod auth;
 mod routes;
 mod server;

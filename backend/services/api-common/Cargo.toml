@@ -11,10 +11,6 @@ contracts = { workspace = true }
 domain = { workspace = true }
 platform = { workspace = true }
 shared = { workspace = true }
-identity = { workspace = true }
-media = { workspace = true }
-messaging = { workspace = true }
-voice = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

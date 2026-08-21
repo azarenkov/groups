@@ -6,24 +6,10 @@ use shared::middleware::auth::AuthToken;
 use validator::Validate;
 
 use crate::state::AppState;
-use api_common::{
-    client::extract_client_context,
-    context::request_context,
-    dto::{
-        requests::auth::{
-            confirm_registration::ConfirmRegistrationRequestBody,
-            google_complete::GoogleCompleteRequestBody, google_login::GoogleLoginRequestBody,
-            login::LoginUserRequestBody, logout::LogoutRequestBody,
-            refresh_token::RefreshTokenRequestBody, registration::RegisterUserRequestBody,
-            request_verification_code::RequestVerificationCodeRequestBody,
-        },
-        responses::{
-            ApiResponse,
-            auth::{google::GoogleAuthResponse, token_pair::TokenPairResponse},
-        },
-    },
-    error::ApiError,
-    };
+use api_common::{client::extract_client_context, context::request_context};
+use api_common::dto::{responses::ApiResponse};
+use crate::dto::{requests::auth::{ confirm_registration::ConfirmRegistrationRequestBody, google_complete::GoogleCompleteRequestBody, google_login::GoogleLoginRequestBody, login::LoginUserRequestBody, logout::LogoutRequestBody, refresh_token::RefreshTokenRequestBody, registration::RegisterUserRequestBody, request_verification_code::RequestVerificationCodeRequestBody, }, responses::auth::{google::GoogleAuthResponse, token_pair::TokenPairResponse}};
+use shared::api_error::ApiError;
 
 #[post("/register")]
 async fn register_user(

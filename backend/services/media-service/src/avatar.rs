@@ -7,7 +7,7 @@ use shared::middleware::auth::{AuthToken, RateLimitedAuthToken};
 use uuid::Uuid;
 
 use crate::state::AppState;
-use api_common::{error::ApiError};
+use shared::api_error::ApiError;
 
 pub const MAX_AVATAR_BYTES: usize = 8 * 1024 * 1024;
 const MIN_AVATAR_DIMENSION: u32 = 128;

@@ -10,19 +10,10 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::state::AppState;
-use api_common::{
-    context::request_context,
-    dto::{
-        requests::friendship::{ListFriendsQuery, SendFriendRequestBody},
-        responses::{
-            ApiResponse,
-            friendship::{
-                FriendshipResponse, ListFriendshipsResponse, parse_status,
-            },
-        },
-    },
-    error::ApiError,
-    };
+use api_common::{context::request_context};
+use api_common::dto::{responses::ApiResponse};
+use crate::dto::{requests::friendship::{ListFriendsQuery, SendFriendRequestBody}, responses::friendship::{ FriendshipResponse, ListFriendshipsResponse, parse_status, }};
+use shared::api_error::ApiError;
 
 #[post("/me/friends")]
 async fn send_friend_request(
