@@ -27,6 +27,7 @@ jobs:
       outbox-worker: ${{ steps.filter.outputs.outbox-worker }}
       notification-service: ${{ steps.filter.outputs.notification-service }}
       livekit-pooler: ${{ steps.filter.outputs.livekit-pooler }}
+      nsfw-detector: ${{ steps.filter.outputs.nsfw-detector }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -72,6 +73,9 @@ jobs:
               - 'backend/services/messaging/core/**'
               - 'backend/workers/livekit-pooler/**'
               - 'docker/livekit-pooler/**'
+            nsfw-detector:
+              - 'backend/nsfw-detector/**'
+              - 'docker/nsfw-detector/**'
 
   build-and-push:
     runs-on: ubuntu-latest
@@ -84,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [identity-service, media-service, messaging-service, voice-service, realtime, outbox-worker, notification-service, livekit-pooler]
+        service: [identity-service, media-service, messaging-service, voice-service, realtime, outbox-worker, notification-service, livekit-pooler, nsfw-detector]
 
     steps:
       - name: Decide whether to build
