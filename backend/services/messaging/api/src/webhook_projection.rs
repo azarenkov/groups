@@ -77,7 +77,12 @@ pub fn spawn<T>(
                                 );
                                 async {
                                     match apply(
-                                        kind, &m.payload, &join_uc, &abort_uc, &leave_uc,
+                                        kind,
+                                        &m.payload,
+                                        m.request_id.clone(),
+                                        &join_uc,
+                                        &abort_uc,
+                                        &leave_uc,
                                         &track_uc,
                                     )
                                     .await
@@ -136,6 +141,7 @@ fn webhook_kind(subject: &str) -> Option<WebhookKind> {
 async fn apply<T>(
     kind: WebhookKind,
     payload: &[u8],
+    request_id: Option<String>,
     join_uc: &JoinVoiceConnection<T>,
     abort_uc: &AbortVoiceConnection<T>,
     leave_uc: &LeaveVoiceConnection<T>,
@@ -155,7 +161,7 @@ where
         tracing::warn!(source = %evt.inbox_source, "Unknown webhook source; dropping");
         return Ok(());
     };
-    let ctx = RequestContext { request_id: None };
+    let ctx = RequestContext { request_id };
 
     match kind {
         WebhookKind::Joined => {

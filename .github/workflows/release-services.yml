@@ -40,6 +40,7 @@ jobs:
               - 'Cargo.lock'
               - '.sqlx/**'
               - 'migrations/**'
+              - '.cargo/**'
             identity-service:
               - *shared
               - 'backend/services/identity/**'
