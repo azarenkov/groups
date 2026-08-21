@@ -1,0 +1,30 @@
+[package]
+name = "voice-service"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "voice-service"
+path = "src/main.rs"
+
+[dependencies]
+api-common = { workspace = true }
+contracts = { workspace = true }
+domain = { workspace = true }
+platform = { workspace = true }
+shared = { workspace = true }
+voice = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+async-nats = { workspace = true }
+validator = { workspace = true }
+dotenv = { workspace = true }
+envy = { workspace = true }

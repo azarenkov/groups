@@ -1,12 +1,12 @@
 use std::{error::Error, sync::Arc};
 
-use application::ports::{
+use platform::ports::{
     event_consumer::{ConsumedMessage, EventConsumer, StartPosition, SubscribeOptions},
     mailer::Mailer,
 };
 use domain::verification::events::VerificationEvent;
 use futures::StreamExt;
-use infrastructure::{
+use platform::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
     messaging::nats::{

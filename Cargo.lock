@@ -304,13 +304,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "api"
+name = "api-common"
 version = "0.1.0"
 dependencies = [
- "actix-cors",
- "actix-multipart",
  "actix-web",
- "application",
  "async-nats",
  "chrono",
  "contracts",
@@ -318,30 +315,14 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
- "image",
- "infrastructure",
+ "platform",
  "serde",
  "serde_json",
  "shared",
  "thiserror 2.0.18",
- "tokio",
  "tracing",
  "uuid",
  "validator",
-]
-
-[[package]]
-name = "application"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "domain",
- "futures",
- "serde_json",
- "thiserror 2.0.18",
- "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -738,9 +719,9 @@ dependencies = [
 name = "contracts"
 version = "0.1.0"
 dependencies = [
- "application",
  "chrono",
  "domain",
+ "messaging",
  "serde",
  "serde_json",
  "uuid",
@@ -1170,7 +1151,6 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "anyhow",
- "application",
  "async-nats",
  "chrono",
  "contracts",
@@ -1178,7 +1158,7 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
- "infrastructure",
+ "platform",
  "serde",
  "serde_json",
  "shared",
@@ -1876,6 +1856,55 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "identity"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bcrypt",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "jsonwebtoken 10.3.0",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "identity-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "identity",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+]
+
+[[package]]
 name = "idna"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1938,37 +1967,6 @@ dependencies = [
  "hashbrown 0.16.1",
  "serde",
  "serde_core",
-]
-
-[[package]]
-name = "infrastructure"
-version = "0.1.0"
-dependencies = [
- "application",
- "async-nats",
- "async-trait",
- "bcrypt",
- "chrono",
- "contracts",
- "domain",
- "dotenv",
- "envy",
- "futures",
- "jsonwebtoken 10.3.0",
- "lettre",
- "livekit-api",
- "livekit-protocol",
- "reqwest",
- "rust-s3",
- "serde",
- "serde_json",
- "shared",
- "sqlx",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "urlencoding",
- "uuid",
 ]
 
 [[package]]
@@ -2189,13 +2187,14 @@ name = "livekit-pooler"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "application",
  "chrono",
+ "contracts",
  "domain",
  "dotenv",
  "envy",
- "infrastructure",
  "livekit-api",
+ "messaging",
+ "platform",
  "serde",
  "shared",
  "sqlx",
@@ -2307,10 +2306,108 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
+name = "media"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "media-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-multipart",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "image",
+ "media",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
+
+[[package]]
+name = "messaging"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bcrypt",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "messaging-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-multipart",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "messaging",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+]
 
 [[package]]
 name = "mime"
@@ -2408,13 +2505,12 @@ name = "notification-service"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "application",
  "async-nats",
  "domain",
  "dotenv",
  "envy",
  "futures",
- "infrastructure",
+ "platform",
  "serde",
  "serde_json",
  "shared",
@@ -2573,12 +2669,11 @@ name = "outbox-worker"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "application",
  "async-nats",
  "domain",
  "dotenv",
  "envy",
- "infrastructure",
+ "platform",
  "serde",
  "shared",
  "thiserror 2.0.18",
@@ -2751,6 +2846,33 @@ name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
+
+[[package]]
+name = "platform"
+version = "0.1.0"
+dependencies = [
+ "async-nats",
+ "async-trait",
+ "bcrypt",
+ "chrono",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "lettre",
+ "livekit-api",
+ "livekit-protocol",
+ "rust-s3",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "urlencoding",
+ "uuid",
+]
 
 [[package]]
 name = "png"
@@ -3093,6 +3215,7 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "event-dispatcher",
+ "platform",
  "shared",
  "tokio",
  "websocket",
@@ -3641,6 +3764,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "chrono",
+ "domain",
  "dotenv",
  "envy",
  "futures",
@@ -3648,11 +3772,13 @@ dependencies = [
  "jsonwebtoken 10.3.0",
  "redis",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-log",
  "tracing-subscriber",
  "uuid",
+ "validator",
 ]
 
 [[package]]
@@ -4529,6 +4655,55 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "voice"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "livekit-api",
+ "livekit-protocol",
+ "platform",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "voice-service"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "api-common",
+ "async-nats",
+ "chrono",
+ "contracts",
+ "domain",
+ "dotenv",
+ "envy",
+ "futures",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "validator",
+ "voice",
+]
+
+[[package]]
 name = "want"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4711,8 +4886,8 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
- "infrastructure",
  "jsonwebtoken 10.3.0",
+ "platform",
  "serde",
  "serde_json",
  "shared",

@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use infrastructure::{
+use platform::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},

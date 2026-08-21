@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
-use application::ports::outbox_publisher::OutboxPublisher;
-use infrastructure::{
+use platform::ports::outbox_publisher::OutboxPublisher;
+use platform::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::{

@@ -11,4 +11,4 @@ chrono = { workspace = true }
 
 [dev-dependencies]
 domain = { workspace = true }
-application = { workspace = true }
+messaging = { workspace = true }
