@@ -65,7 +65,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-    remove_legacy_consumers(&jetstream, &cfg).await;
+    drain_and_remove_legacy(&jetstream, &cfg, &nats_cfg.subject_prefix, &resolver, &publisher)
+        .await;
 
     let mut consumer_handles = Vec::new();
     {
@@ -123,26 +124,149 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) async fn remove_legacy_consumers(
-    jetstream: &async_nats::jetstream::Context,
-    cfg: &DispatcherConfig,
-) {
+fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String, String)> {
     let consumer_prefix = &cfg.dispatcher_consumer_prefix;
-    let legacy = [
-        (cfg.dispatcher_user_stream.clone(), format!("{consumer_prefix}-user")),
-        (cfg.dispatcher_channel_stream.clone(), format!("{consumer_prefix}-channel")),
-        (cfg.dispatcher_message_stream.clone(), format!("{consumer_prefix}-message")),
+    vec![
+        (
+            cfg.dispatcher_user_stream.clone(),
+            format!("{consumer_prefix}-user"),
+            "user".to_string(),
+        ),
+        (
+            cfg.dispatcher_channel_stream.clone(),
+            format!("{consumer_prefix}-channel"),
+            "channel".to_string(),
+        ),
+        (
+            cfg.dispatcher_message_stream.clone(),
+            format!("{consumer_prefix}-message"),
+            "message".to_string(),
+        ),
         (
             cfg.dispatcher_dm_message_stream.clone(),
             format!("{consumer_prefix}-dm-message"),
+            "dm_message".to_string(),
         ),
-        (cfg.dispatcher_server_stream.clone(), format!("{consumer_prefix}-server")),
-    ];
-    for (stream_name, consumer_name) in legacy {
-        if let Ok(stream) = jetstream.get_stream(&stream_name).await
+        (
+            cfg.dispatcher_server_stream.clone(),
+            format!("{consumer_prefix}-server"),
+            "server".to_string(),
+        ),
+    ]
+}
+
+async fn drain_and_remove_legacy(
+    jetstream: &async_nats::jetstream::Context,
+    cfg: &DispatcherConfig,
+    subject_prefix: &str,
+    resolver: &RecipientResolver,
+    publisher: &Publisher,
+) {
+    let prefix = subject_prefix.trim_end_matches('.');
+    for (stream_name, consumer_name, domain) in legacy_consumers(cfg) {
+        let Ok(mut stream) = jetstream.get_stream(&stream_name).await else {
+            continue;
+        };
+        let Ok(info) = stream.consumer_info(&consumer_name).await else {
+            continue;
+        };
+        if info.num_pending > 0 || info.num_ack_pending > 0 {
+            drain_legacy_backlog(&stream, &info, prefix, &domain, resolver, publisher).await;
+        }
+        if stream.delete_consumer(&consumer_name).await.is_ok() {
+            tracing::info!(%stream_name, %consumer_name, "Removed legacy dispatcher consumer");
+        }
+    }
+}
+
+async fn drain_legacy_backlog(
+    stream: &async_nats::jetstream::stream::Stream,
+    info: &async_nats::jetstream::consumer::Info,
+    prefix: &str,
+    domain: &str,
+    resolver: &RecipientResolver,
+    publisher: &Publisher,
+) {
+    use async_nats::jetstream::consumer::{AckPolicy, DeliverPolicy, pull};
+    use futures::StreamExt;
+
+    let start_sequence = info.ack_floor.stream_sequence + 1;
+    let filter = format!("{prefix}.{domain}.>");
+    let drain_consumer = match stream
+        .create_consumer(pull::Config {
+            deliver_policy: DeliverPolicy::ByStartSequence { start_sequence },
+            filter_subject: filter,
+            ack_policy: AckPolicy::Explicit,
+            inactive_threshold: std::time::Duration::from_secs(30),
+            ..Default::default()
+        })
+        .await
+    {
+        Ok(consumer) => consumer,
+        Err(e) => {
+            tracing::warn!(error = %e, domain, "Failed to create legacy drain consumer");
+            return;
+        }
+    };
+
+    let mut drained: u64 = 0;
+    loop {
+        let batch = drain_consumer
+            .fetch()
+            .max_messages(200)
+            .expires(std::time::Duration::from_secs(2))
+            .messages()
+            .await;
+        let mut batch = match batch {
+            Ok(batch) => batch,
+            Err(e) => {
+                tracing::warn!(error = %e, domain, "Legacy drain fetch failed");
+                break;
+            }
+        };
+        let mut received = 0usize;
+        while let Some(message) = batch.next().await {
+            let Ok(message) = message else { break };
+            received += 1;
+            let subject = message.subject.to_string();
+            let partitioned = subject
+                .split('.')
+                .any(platform::messaging::partitions::is_partition_token);
+            if !partitioned {
+                if let Err(e) = dispatch::dispatch(&subject, &message.payload, resolver, publisher).await
+                {
+                    tracing::warn!(error = %e, %subject, "Legacy drain dispatch failed; skipping");
+                } else {
+                    drained += 1;
+                }
+            }
+            let _ = message.ack().await;
+        }
+        if received == 0 {
+            break;
+        }
+    }
+    if drained > 0 {
+        tracing::info!(domain, drained, "Drained legacy dispatcher backlog");
+    }
+}
+
+pub(crate) async fn remove_idle_legacy_consumers(
+    jetstream: &async_nats::jetstream::Context,
+    cfg: &DispatcherConfig,
+) {
+    for (stream_name, consumer_name, _) in legacy_consumers(cfg) {
+        let Ok(mut stream) = jetstream.get_stream(&stream_name).await else {
+            continue;
+        };
+        let Ok(info) = stream.consumer_info(&consumer_name).await else {
+            continue;
+        };
+        if info.num_pending == 0
+            && info.num_ack_pending == 0
             && stream.delete_consumer(&consumer_name).await.is_ok()
         {
-            tracing::info!(%stream_name, %consumer_name, "Removed legacy dispatcher consumer");
+            tracing::info!(%stream_name, %consumer_name, "Removed idle legacy dispatcher consumer");
         }
     }
 }

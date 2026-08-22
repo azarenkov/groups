@@ -57,7 +57,7 @@ pub async fn run_partitioned(
     let mut ticks: u64 = 0;
     loop {
         if ticks.is_multiple_of(6) {
-            crate::remove_legacy_consumers(&jetstream, &cfg).await;
+            crate::remove_idle_legacy_consumers(&jetstream, &cfg).await;
         }
         ticks += 1;
         tick(
