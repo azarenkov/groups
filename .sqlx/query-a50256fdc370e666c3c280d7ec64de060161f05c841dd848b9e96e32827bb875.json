@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.channel_id, c.server_id, COUNT(*) AS \"count!\"\n            FROM messages m\n            INNER JOIN channels c ON c.id = m.channel_id\n            INNER JOIN channel_text_participants p\n                ON p.channel_id = m.channel_id AND p.user_id = $1\n            LEFT JOIN channel_read_state r\n                ON r.channel_id = m.channel_id AND r.user_id = $1\n            LEFT JOIN notification_preferences np\n                ON np.user_id = $1\n               AND np.scope_type = 'channel'\n               AND np.scope_id = m.channel_id\n            WHERE m.created_at > COALESCE(r.last_read_at, p.joined_at)\n              AND m.author_id <> $1\n              AND COALESCE(np.level, 'all') <> 'none'\n              AND (\n                  COALESCE(np.level, 'all') <> 'mentions'\n                  OR $1 = ANY(m.mentions)\n              )\n            GROUP BY m.channel_id, c.server_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "server_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "a50256fdc370e666c3c280d7ec64de060161f05c841dd848b9e96e32827bb875"
+}

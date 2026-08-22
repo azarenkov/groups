@@ -170,11 +170,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
               AND COALESCE(np.level, 'all') <> 'none'
               AND (
                   COALESCE(np.level, 'all') <> 'mentions'
-                  OR m.content ~* (
-                      '(^|[^a-z0-9_@])@'
-                      || (SELECT name FROM messaging_user_profiles WHERE user_id = $1)
-                      || '([^a-z0-9_]|$)'
-                  )
+                  OR $1 = ANY(m.mentions)
               )
             GROUP BY m.channel_id, c.server_id
             "#,

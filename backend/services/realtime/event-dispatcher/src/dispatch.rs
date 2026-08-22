@@ -162,6 +162,7 @@ pub async fn dispatch(
                 "content": evt.content,
                 "occurredAt": evt.occurred_at,
                 "attachments": attachments,
+                "mentions": evt.mentions,
             }),
         );
         publisher.publish_to_users(unique(recipients), &envelope).await?;

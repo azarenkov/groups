@@ -238,9 +238,10 @@ function dispatch(env: WsEnvelope) {
       if (level === "none") return;
       if (level === "mentions") {
         const myName = useAuthStore.getState().user?.name;
-        if (!myName || !mentionsUser(asString(d.content) ?? "", myName)) {
-          return;
-        }
+        const mentioned = Array.isArray(d.mentions)
+          ? !!selfId && d.mentions.includes(selfId)
+          : !!myName && mentionsUser(asString(d.content) ?? "", myName);
+        if (!mentioned) return;
       }
       const byServer = useChannelStore.getState().channelsByServer;
       let serverId: string | undefined;

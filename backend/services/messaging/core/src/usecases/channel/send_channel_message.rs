@@ -137,6 +137,19 @@ where
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
+        let mention_names =
+            crate::usecases::channel::mentions::mention_names(message.content().as_str());
+        let mentions: Vec<uuid::Uuid> = if mention_names.is_empty() {
+            Vec::new()
+        } else {
+            self.channel_repository
+                .text_member_ids_by_names(&channel_id, &mention_names)
+                .await?
+                .into_iter()
+                .map(|id| id.uuid())
+                .collect()
+        };
+
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = message
             .pull_events()
@@ -144,6 +157,11 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+        crate::usecases::enrichment::inject_field(
+            &mut records,
+            "mentions",
+            serde_json::json!(mentions),
+        );
 
         let claim_token = uuid::Uuid::new_v4();
         let attachments = if request.attachment_ids.is_empty() {
@@ -175,7 +193,7 @@ where
 
         if let Err(e) = self
             .message_repository
-            .save_message_with_events(&message, &records, &attachments)
+            .save_message_with_events(&message, &records, &attachments, &mentions)
             .await
         {
             if !request.attachment_ids.is_empty() {

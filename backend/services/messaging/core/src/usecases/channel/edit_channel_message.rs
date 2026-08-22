@@ -151,6 +151,19 @@ where
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
+        let mention_names =
+            crate::usecases::channel::mentions::mention_names(message.content().as_str());
+        let mentions: Vec<Uuid> = if mention_names.is_empty() {
+            Vec::new()
+        } else {
+            self.channel_repository
+                .text_member_ids_by_names(&channel_id, &mention_names)
+                .await?
+                .into_iter()
+                .map(|id| id.uuid())
+                .collect()
+        };
+
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = message
             .pull_events()
@@ -203,6 +216,7 @@ where
                 &records,
                 &added_attachments,
                 &request.remove_attachment_ids,
+                &mentions,
             )
             .await
         {

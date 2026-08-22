@@ -60,20 +60,24 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     },
 
     setChannelLevel: async (channelId, level) => {
+      const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (channelSeqs[channelId] = (channelSeqs[channelId] ?? 0) + 1);
       const prev = get().channelLevels[channelId];
       set((s) => ({
         channelLevels: { ...s.channelLevels, [channelId]: level },
       }));
+      const current = () =>
+        channelSeqs[channelId] === seq &&
+        useAuthStore.getState().user?.id === sessionUserId;
       await enqueueWrite(`channel:${channelId}`, async () => {
-        if (channelSeqs[channelId] !== seq) return;
+        if (!current()) return;
         try {
           await userAPI.setNotificationPreference("channel", channelId, level);
-          if (channelSeqs[channelId] === seq) {
+          if (current()) {
             void refetchUnread().catch(() => {});
           }
         } catch (e) {
-          if (channelSeqs[channelId] === seq) {
+          if (current()) {
             set((s) => {
               const next = { ...s.channelLevels };
               if (prev === undefined) delete next[channelId];
@@ -87,18 +91,22 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     },
 
     setDmLevel: async (friendId, level) => {
+      const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (dmSeqs[friendId] = (dmSeqs[friendId] ?? 0) + 1);
       const prev = get().dmLevels[friendId];
       set((s) => ({ dmLevels: { ...s.dmLevels, [friendId]: level } }));
+      const current = () =>
+        dmSeqs[friendId] === seq &&
+        useAuthStore.getState().user?.id === sessionUserId;
       await enqueueWrite(`dm:${friendId}`, async () => {
-        if (dmSeqs[friendId] !== seq) return;
+        if (!current()) return;
         try {
           await userAPI.setNotificationPreference("dm", friendId, level);
-          if (dmSeqs[friendId] === seq) {
+          if (current()) {
             void refetchUnread().catch(() => {});
           }
         } catch (e) {
-          if (dmSeqs[friendId] === seq) {
+          if (current()) {
             set((s) => {
               const next = { ...s.dmLevels };
               if (prev === undefined) delete next[friendId];

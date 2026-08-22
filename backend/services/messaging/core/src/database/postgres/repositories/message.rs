@@ -87,6 +87,7 @@ impl MessageRepository for PostgresMessageRepository {
         message: &Message,
         events: &[OutboxRecord],
         attachments: &[AttachmentLink],
+        mentions: &[uuid::Uuid],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
@@ -96,8 +97,8 @@ impl MessageRepository for PostgresMessageRepository {
 
         sqlx::query!(
             r#"
-            INSERT INTO messages (id, channel_id, author_id, content, created_at, edited_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO messages (id, channel_id, author_id, content, created_at, edited_at, mentions)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
             message.id().uuid(),
             message.channel_id().uuid(),
@@ -105,6 +106,7 @@ impl MessageRepository for PostgresMessageRepository {
             message.content().as_str(),
             message.created_at(),
             message.edited_at(),
+            mentions,
         )
         .execute(&mut *tx)
         .await
@@ -124,6 +126,7 @@ impl MessageRepository for PostgresMessageRepository {
         events: &[OutboxRecord],
         add_attachments: &[AttachmentLink],
         remove_attachment_ids: &[uuid::Uuid],
+        mentions: &[uuid::Uuid],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
             .pool
@@ -134,12 +137,13 @@ impl MessageRepository for PostgresMessageRepository {
         let result = sqlx::query!(
             r#"
             UPDATE messages
-            SET content = $2, edited_at = $3
+            SET content = $2, edited_at = $3, mentions = $4
             WHERE id = $1
             "#,
             message.id().uuid(),
             message.content().as_str(),
             message.edited_at(),
+            mentions,
         )
         .execute(&mut *tx)
         .await

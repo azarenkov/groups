@@ -153,6 +153,12 @@ pub trait ChannelRepository {
         channel_id: &ChannelId,
     ) -> Result<Vec<UserId>, RepositoryError>;
 
+    async fn text_member_ids_by_names(
+        &self,
+        channel_id: &ChannelId,
+        lowercase_names: &[String],
+    ) -> Result<Vec<UserId>, RepositoryError>;
+
     async fn list_voice_presence_for_server(
         &self,
         server_id: &crate::server::id::ServerId,

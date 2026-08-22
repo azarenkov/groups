@@ -782,6 +782,31 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(rows.into_iter().map(|r| UserId::new(r.user_id)).collect())
     }
 
+    async fn text_member_ids_by_names(
+        &self,
+        channel_id: &ChannelId,
+        lowercase_names: &[String],
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        if lowercase_names.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query!(
+            r#"
+            SELECT p.user_id
+            FROM channel_text_participants p
+            INNER JOIN messaging_user_profiles up ON up.user_id = p.user_id
+            WHERE p.channel_id = $1 AND lower(up.name) = ANY($2)
+            "#,
+            channel_id.uuid(),
+            lowercase_names,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows.into_iter().map(|r| UserId::new(r.user_id)).collect())
+    }
+
     async fn find_channel_by_id(&self, id: &ChannelId) -> Result<Channel, RepositoryError> {
         let dto = sqlx::query_as!(
             ChannelDto,

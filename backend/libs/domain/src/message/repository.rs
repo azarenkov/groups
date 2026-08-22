@@ -19,6 +19,7 @@ pub trait MessageRepository {
         message: &Message,
         events: &[OutboxRecord],
         attachments: &[AttachmentLink],
+        mentions: &[uuid::Uuid],
     ) -> Result<(), RepositoryError>;
 
     async fn update_message_with_events(
@@ -27,6 +28,7 @@ pub trait MessageRepository {
         events: &[OutboxRecord],
         add_attachments: &[AttachmentLink],
         remove_attachment_ids: &[uuid::Uuid],
+        mentions: &[uuid::Uuid],
     ) -> Result<(), RepositoryError>;
 
     async fn delete_message_with_events(

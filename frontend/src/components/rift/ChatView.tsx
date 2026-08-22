@@ -549,6 +549,13 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [participants, setParticipants] = React.useState<ChannelParticipant[]>([]);
   const participantsChannelRef = React.useRef<string | null>(null);
 
+  const channelMemberCount = useReadReceiptStore((s) =>
+    channel ? Object.keys(s.channelReads[channel.id] ?? {}).length : 0,
+  );
+  React.useEffect(() => {
+    participantsChannelRef.current = null;
+  }, [channelMemberCount]);
+
   const ensureParticipants = React.useCallback(() => {
     if (!channel || !serverId) return;
     if (participantsChannelRef.current === channel.id) return;
