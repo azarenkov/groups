@@ -179,7 +179,7 @@ async fn drain_and_remove_legacy(
                     continue;
                 }
             };
-            drain_legacy_backlog(
+            let drained = drain_legacy_backlog(
                 &stream,
                 &info,
                 end_sequence,
@@ -189,6 +189,10 @@ async fn drain_and_remove_legacy(
                 publisher,
             )
             .await;
+            if !drained {
+                tracing::warn!(%stream_name, %consumer_name, "Legacy drain incomplete; keeping consumer for retry");
+                continue;
+            }
         }
         if stream.delete_consumer(&consumer_name).await.is_ok() {
             tracing::info!(%stream_name, %consumer_name, "Removed legacy dispatcher consumer");
@@ -204,7 +208,7 @@ async fn drain_legacy_backlog(
     domain: &str,
     resolver: &RecipientResolver,
     publisher: &Publisher,
-) {
+) -> bool {
     use async_nats::jetstream::consumer::{AckPolicy, DeliverPolicy, pull};
     use futures::StreamExt;
 
@@ -223,7 +227,7 @@ async fn drain_legacy_backlog(
         Ok(consumer) => consumer,
         Err(e) => {
             tracing::warn!(error = %e, domain, "Failed to create legacy drain consumer");
-            return;
+            return false;
         }
     };
 
@@ -239,13 +243,15 @@ async fn drain_legacy_backlog(
             Ok(batch) => batch,
             Err(e) => {
                 tracing::warn!(error = %e, domain, "Legacy drain fetch failed");
-                break;
+                return false;
             }
         };
         let mut received = 0usize;
         let mut reached_end = false;
         while let Some(message) = batch.next().await {
-            let Ok(message) = message else { break };
+            let Ok(message) = message else {
+                return false;
+            };
             received += 1;
             let sequence = message.info().map(|i| i.stream_sequence).unwrap_or(0);
             if sequence > end_sequence {
@@ -277,6 +283,7 @@ async fn drain_legacy_backlog(
     if drained > 0 {
         tracing::info!(domain, drained, "Drained legacy dispatcher backlog");
     }
+    true
 }
 
 pub(crate) async fn remove_idle_legacy_consumers(
