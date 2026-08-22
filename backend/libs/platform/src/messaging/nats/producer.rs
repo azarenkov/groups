@@ -2,7 +2,8 @@ use crate::messaging::partitions::{partition_for, partition_token};
 use crate::ports::outbox_publisher::{OutboxPublisher, OutboxPublisherError};
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
-use domain::shared::outbox::outbox_record::OutboxRecord;
+use domain::shared::outbox::outbox_record::{AggregateType, OutboxRecord};
+use uuid::Uuid;
 
 const MSG_ID_HEADER: &str = "Nats-Msg-Id";
 const REQUEST_ID_HEADER: &str = "X-Request-Id";
@@ -28,7 +29,7 @@ impl NatsOutboxPublisher {
 }
 
 pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32) -> String {
-    let key = record.parent_id.unwrap_or(record.aggregate_id);
+    let key = partition_key(record);
     let partition = partition_for(key, partitions);
     format!(
         "{}.{}.{}.{}",
@@ -37,6 +38,34 @@ pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32)
         partition_token(partition),
         record.event_type,
     )
+}
+
+fn partition_key(record: &OutboxRecord) -> Uuid {
+    if matches!(record.aggregate_type, AggregateType::DmMessage)
+        && let (Some(a), Some(b)) = (
+            payload_uuid(record, "sender_id"),
+            payload_uuid(record, "recipient_id"),
+        )
+    {
+        return conversation_key(a, b);
+    }
+    record.parent_id.unwrap_or(record.aggregate_id)
+}
+
+fn payload_uuid(record: &OutboxRecord, field: &str) -> Option<Uuid> {
+    record
+        .payload
+        .get(field)
+        .and_then(|v| v.as_str())
+        .and_then(|s| Uuid::parse_str(s).ok())
+}
+
+fn conversation_key(a: Uuid, b: Uuid) -> Uuid {
+    let mut bytes = [0u8; 16];
+    for (i, byte) in bytes.iter_mut().enumerate() {
+        *byte = a.as_bytes()[i] ^ b.as_bytes()[i];
+    }
+    Uuid::from_bytes(bytes)
 }
 
 #[async_trait]
@@ -100,6 +129,33 @@ mod tests {
             crate::messaging::partitions::normalize_subject(&a),
             "rift.events.message.sent",
         );
+    }
+
+    #[test]
+    fn dm_messages_partition_by_conversation_pair() {
+        let a = Uuid::from_u128(11);
+        let b = Uuid::from_u128(22);
+        let mut forward = record(Some(b));
+        forward.aggregate_type = AggregateType::DmMessage;
+        forward.payload = serde_json::json!({
+            "sender_id": a.to_string(),
+            "recipient_id": b.to_string(),
+        });
+        let mut backward = record(Some(a));
+        backward.aggregate_type = AggregateType::DmMessage;
+        backward.payload = serde_json::json!({
+            "sender_id": b.to_string(),
+            "recipient_id": a.to_string(),
+        });
+        assert_eq!(subject_of(forward), subject_of(backward));
+    }
+
+    #[test]
+    fn dm_without_pair_falls_back_to_parent() {
+        let mut rec = record(Some(Uuid::from_u128(5)));
+        rec.aggregate_type = AggregateType::DmMessage;
+        let subject = subject_of(rec);
+        assert!(subject.starts_with("rift.events.dm_message."));
     }
 
     #[test]

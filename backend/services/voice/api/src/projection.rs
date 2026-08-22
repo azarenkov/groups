@@ -25,6 +25,7 @@ pub fn spawn<P>(
                 start_position: StartPosition::All,
                 max_deliver: Some(5),
                 dlq_subject: Some(format!("{prefix}.dlq.voice.projections")),
+                extra_subjects: vec![],
             };
             match consumer.subscribe(opts).await {
                 Ok(mut messages) => {

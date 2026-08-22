@@ -36,11 +36,18 @@ pub async fn run_partitioned(
     mut shutdown: watch::Receiver<bool>,
 ) {
     let instance = uuid::Uuid::new_v4().to_string();
-    let store = match ensure_bucket(&jetstream).await {
-        Ok(store) => store,
-        Err(e) => {
-            tracing::error!(error = %e, "Failed to open partition lease bucket; dispatcher idle");
-            let _ = shutdown.changed().await;
+    let store = loop {
+        match ensure_bucket(&jetstream).await {
+            Ok(store) => break store,
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to open partition lease bucket; retrying");
+            }
+        }
+        tokio::select! {
+            _ = shutdown.changed() => return,
+            _ = tokio::time::sleep(TICK) => {}
+        }
+        if *shutdown.borrow() {
             return;
         }
     };
@@ -71,7 +78,7 @@ pub async fn run_partitioned(
     }
 
     for (partition, state) in owned.drain() {
-        release(&store, partition, state).await;
+        release(&store, partition, state, true).await;
     }
     let _ = store.purge(format!("{MEMBER_PREFIX}{instance}")).await;
     tracing::info!(%instance, "Partition manager stopped");
@@ -128,18 +135,6 @@ async fn tick(
         members[partition as usize % members.len()] == instance
     };
 
-    let released: Vec<u32> = owned
-        .keys()
-        .copied()
-        .filter(|p| !assigned(*p))
-        .collect();
-    for partition in released {
-        if let Some(state) = owned.remove(&partition) {
-            tracing::info!(partition, "Releasing partition after rebalance");
-            release(store, partition, state).await;
-        }
-    }
-
     for partition in 0..partitions {
         let key = format!("{PART_PREFIX}{partition}");
         if let Some(state) = owned.get_mut(&partition) {
@@ -151,7 +146,7 @@ async fn tick(
                 Err(e) => {
                     tracing::warn!(partition, error = %e, "Lease renewal failed; releasing partition");
                     if let Some(state) = owned.remove(&partition) {
-                        stop_partition(state).await;
+                        drain_in_background(store, partition, state, false);
                     }
                 }
             }
@@ -169,6 +164,18 @@ async fn tick(
                 jetstream, cfg, subject_prefix, partition, revision, resolver, publisher,
             );
             owned.insert(partition, state);
+        }
+    }
+
+    let released: Vec<u32> = owned
+        .keys()
+        .copied()
+        .filter(|p| !assigned(*p))
+        .collect();
+    for partition in released {
+        if let Some(state) = owned.remove(&partition) {
+            tracing::info!(partition, "Releasing partition after rebalance");
+            drain_in_background(store, partition, state, true);
         }
     }
 }
@@ -219,9 +226,23 @@ async fn stop_partition(state: OwnedPartition) {
     }
 }
 
-async fn release(store: &kv::Store, partition: u32, state: OwnedPartition) {
+fn drain_in_background(store: &kv::Store, partition: u32, state: OwnedPartition, purge: bool) {
+    let store = store.clone();
+    actix_web::rt::spawn(async move {
+        release(&store, partition, state, purge).await;
+    });
+}
+
+async fn release(store: &kv::Store, partition: u32, state: OwnedPartition, purge: bool) {
+    let revision = state.revision;
     stop_partition(state).await;
-    let _ = store.purge(format!("{PART_PREFIX}{partition}")).await;
+    if purge
+        && let Err(e) = store
+            .purge_expect_revision(format!("{PART_PREFIX}{partition}"), Some(revision))
+            .await
+    {
+        tracing::debug!(partition, error = %e, "Lease purge skipped; key already re-owned or expired");
+    }
 }
 
 fn partition_specs(

@@ -42,6 +42,7 @@ pub async fn run_consumer(
             start_position: spec.start_position,
             max_deliver: Some(spec.max_deliver),
             dlq_subject: Some(spec.dlq_subject.clone()),
+            extra_subjects: vec![],
         };
 
         match event_consumer.subscribe(opts).await {

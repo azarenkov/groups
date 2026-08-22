@@ -18,6 +18,7 @@ pub struct SubscribeOptions {
     pub start_position: StartPosition,
     pub max_deliver: Option<u32>,
     pub dlq_subject: Option<String>,
+    pub extra_subjects: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
