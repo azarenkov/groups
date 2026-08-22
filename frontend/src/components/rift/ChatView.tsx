@@ -570,7 +570,10 @@ const ChatView: React.FC<ChatViewProps> = ({
           all.push(...res.participants);
           totalPages = res.pagination?.totalPages ?? 1;
           page += 1;
-        } while (page <= totalPages && page <= 4);
+        } while (
+          page <= totalPages &&
+          participantsChannelRef.current === channelId
+        );
         if (participantsChannelRef.current === channelId) {
           setParticipants(all);
         }

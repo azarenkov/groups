@@ -19,6 +19,9 @@ function isLevel(v: string): v is NotifLevel {
   return v === "all" || v === "mentions" || v === "none";
 }
 
+const channelSeqs: Record<string, number> = {};
+const dmSeqs: Record<string, number> = {};
+
 export const useNotificationPrefsStore = create<NotificationPrefsState>()(
   (set, get) => ({
     channelLevels: {},
@@ -40,6 +43,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     },
 
     setChannelLevel: async (channelId, level) => {
+      const seq = (channelSeqs[channelId] = (channelSeqs[channelId] ?? 0) + 1);
       const prev = get().channelLevels[channelId];
       set((s) => ({
         channelLevels: { ...s.channelLevels, [channelId]: level },
@@ -48,34 +52,43 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         await userAPI.setNotificationPreference("channel", channelId, level);
         void refetchUnread().catch(() => {});
       } catch (e) {
-        set((s) => {
-          const next = { ...s.channelLevels };
-          if (prev === undefined) delete next[channelId];
-          else next[channelId] = prev;
-          return { channelLevels: next };
-        });
+        if (channelSeqs[channelId] === seq) {
+          set((s) => {
+            const next = { ...s.channelLevels };
+            if (prev === undefined) delete next[channelId];
+            else next[channelId] = prev;
+            return { channelLevels: next };
+          });
+        }
         throw e;
       }
     },
 
     setDmLevel: async (friendId, level) => {
+      const seq = (dmSeqs[friendId] = (dmSeqs[friendId] ?? 0) + 1);
       const prev = get().dmLevels[friendId];
       set((s) => ({ dmLevels: { ...s.dmLevels, [friendId]: level } }));
       try {
         await userAPI.setNotificationPreference("dm", friendId, level);
         void refetchUnread().catch(() => {});
       } catch (e) {
-        set((s) => {
-          const next = { ...s.dmLevels };
-          if (prev === undefined) delete next[friendId];
-          else next[friendId] = prev;
-          return { dmLevels: next };
-        });
+        if (dmSeqs[friendId] === seq) {
+          set((s) => {
+            const next = { ...s.dmLevels };
+            if (prev === undefined) delete next[friendId];
+            else next[friendId] = prev;
+            return { dmLevels: next };
+          });
+        }
         throw e;
       }
     },
 
-    clearAll: () => set({ channelLevels: {}, dmLevels: {} }),
+    clearAll: () => {
+      for (const k of Object.keys(channelSeqs)) delete channelSeqs[k];
+      for (const k of Object.keys(dmSeqs)) delete dmSeqs[k];
+      set({ channelLevels: {}, dmLevels: {} });
+    },
   }),
 );
 

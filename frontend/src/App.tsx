@@ -47,6 +47,16 @@ const App: React.FC = () => {
       let cancelled = false;
       void (async () => {
         try {
+          const { useNotificationPrefsStore } = await import(
+            "./store/notificationPrefsStore"
+          );
+          if (cancelled) return;
+          await useNotificationPrefsStore
+            .getState()
+            .load()
+            .catch((err) =>
+              console.warn("[App] failed to load notification prefs:", err),
+            );
           const { refetchUnread } = await import("./store/unreadStore");
           if (cancelled) return;
           await refetchUnread();
@@ -63,18 +73,6 @@ const App: React.FC = () => {
           useDmPreviewStore.getState().setAll(res.previews);
         } catch (err) {
           if (!cancelled) console.warn("[App] failed to load dm previews:", err);
-        }
-      })();
-      void (async () => {
-        try {
-          const { useNotificationPrefsStore } = await import(
-            "./store/notificationPrefsStore"
-          );
-          if (cancelled) return;
-          await useNotificationPrefsStore.getState().load();
-        } catch (err) {
-          if (!cancelled)
-            console.warn("[App] failed to load notification prefs:", err);
         }
       })();
       return () => {
