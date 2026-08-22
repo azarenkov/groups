@@ -73,12 +73,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let cfg_clone = cfg.clone();
         let prefix = nats_cfg.subject_prefix.clone();
         let partitions = nats_cfg.event_partitions;
+        let replicas = nats_cfg.replicas;
         let resolver = resolver.clone();
         let publisher = publisher.clone();
         let rx = shutdown_rx.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
             run_partitioned(
-                jetstream, cfg_clone, prefix, partitions, resolver, publisher, rx,
+                jetstream, cfg_clone, prefix, partitions, replicas, resolver, publisher, rx,
             )
             .await;
         }));

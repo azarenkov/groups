@@ -31,13 +31,14 @@ pub async fn run_partitioned(
     cfg: DispatcherConfig,
     subject_prefix: String,
     partitions: u32,
+    replicas: usize,
     resolver: RecipientResolver,
     publisher: Publisher,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let instance = uuid::Uuid::new_v4().to_string();
     let store = loop {
-        match ensure_bucket(&jetstream).await {
+        match ensure_bucket(&jetstream, replicas).await {
             Ok(store) => break store,
             Err(e) => {
                 tracing::warn!(error = %e, "Failed to open partition lease bucket; retrying");
@@ -91,11 +92,15 @@ pub async fn run_partitioned(
     tracing::info!(%instance, "Partition manager stopped");
 }
 
-async fn ensure_bucket(jetstream: &Context) -> Result<kv::Store, async_nats::Error> {
+async fn ensure_bucket(
+    jetstream: &Context,
+    replicas: usize,
+) -> Result<kv::Store, async_nats::Error> {
     let config = kv::Config {
         bucket: BUCKET.to_string(),
         max_age: LEASE_TTL,
         history: 1,
+        num_replicas: replicas,
         ..Default::default()
     };
     match jetstream.create_key_value(config).await {
