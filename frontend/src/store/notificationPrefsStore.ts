@@ -22,6 +22,7 @@ function isLevel(v: string): v is NotifLevel {
 const channelSeqs: Record<string, number> = {};
 const dmSeqs: Record<string, number> = {};
 const writeQueues: Record<string, Promise<void>> = {};
+let sessionGen = 0;
 
 function enqueueWrite(key: string, task: () => Promise<void>): Promise<void> {
   const next = (writeQueues[key] ?? Promise.resolve()).then(task, task);
@@ -35,10 +36,16 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     dmLevels: {},
 
     load: async () => {
+      const gen = sessionGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       if (!sessionUserId) return;
       const { preferences } = await userAPI.getNotificationPreferences();
-      if (useAuthStore.getState().user?.id !== sessionUserId) return;
+      if (
+        sessionGen !== gen ||
+        useAuthStore.getState().user?.id !== sessionUserId
+      ) {
+        return;
+      }
       const channelLevels: Record<string, NotifLevel> = {};
       const dmLevels: Record<string, NotifLevel> = {};
       for (const p of preferences) {
@@ -60,6 +67,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     },
 
     setChannelLevel: async (channelId, level) => {
+      const gen = sessionGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (channelSeqs[channelId] = (channelSeqs[channelId] ?? 0) + 1);
       const prev = get().channelLevels[channelId];
@@ -67,6 +75,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         channelLevels: { ...s.channelLevels, [channelId]: level },
       }));
       const current = () =>
+        sessionGen === gen &&
         channelSeqs[channelId] === seq &&
         useAuthStore.getState().user?.id === sessionUserId;
       await enqueueWrite(`channel:${channelId}`, async () => {
@@ -91,11 +100,13 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     },
 
     setDmLevel: async (friendId, level) => {
+      const gen = sessionGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (dmSeqs[friendId] = (dmSeqs[friendId] ?? 0) + 1);
       const prev = get().dmLevels[friendId];
       set((s) => ({ dmLevels: { ...s.dmLevels, [friendId]: level } }));
       const current = () =>
+        sessionGen === gen &&
         dmSeqs[friendId] === seq &&
         useAuthStore.getState().user?.id === sessionUserId;
       await enqueueWrite(`dm:${friendId}`, async () => {
@@ -120,6 +131,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     },
 
     clearAll: () => {
+      sessionGen += 1;
       for (const k of Object.keys(channelSeqs)) delete channelSeqs[k];
       for (const k of Object.keys(dmSeqs)) delete dmSeqs[k];
       for (const k of Object.keys(writeQueues)) delete writeQueues[k];

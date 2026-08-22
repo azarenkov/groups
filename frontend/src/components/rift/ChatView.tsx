@@ -1661,8 +1661,11 @@ const ChatView: React.FC<ChatViewProps> = ({
               }
             }}
             onBlur={() => setMentionQuery(null)}
-            onClick={(e) =>
-              updateMentionQuery(text, e.currentTarget.selectionStart)
+            onSelect={(e) =>
+              updateMentionQuery(
+                e.currentTarget.value,
+                e.currentTarget.selectionStart,
+              )
             }
             onPaste={(e) => {
               const files = Array.from(e.clipboardData?.files ?? []);
