@@ -605,9 +605,10 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (!mentionQuery) return [];
     const q = mentionQuery.query.toLowerCase();
     return participants
+      .map((p) => ({ ...p, name: nameOverrides[p.id] ?? p.name }))
       .filter((p) => p.name.toLowerCase().startsWith(q))
       .slice(0, 8);
-  }, [mentionQuery, participants]);
+  }, [mentionQuery, participants, nameOverrides]);
 
   const applyMention = React.useCallback(
     (name: string) => {

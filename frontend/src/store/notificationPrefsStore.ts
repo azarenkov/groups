@@ -21,6 +21,13 @@ function isLevel(v: string): v is NotifLevel {
 
 const channelSeqs: Record<string, number> = {};
 const dmSeqs: Record<string, number> = {};
+const writeQueues: Record<string, Promise<void>> = {};
+
+function enqueueWrite(key: string, task: () => Promise<void>): Promise<void> {
+  const next = (writeQueues[key] ?? Promise.resolve()).then(task, task);
+  writeQueues[key] = next.catch(() => {});
+  return next;
+}
 
 export const useNotificationPrefsStore = create<NotificationPrefsState>()(
   (set, get) => ({
@@ -39,7 +46,17 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         if (p.scopeType === "channel") channelLevels[p.scopeId] = p.level;
         else if (p.scopeType === "dm") dmLevels[p.scopeId] = p.level;
       }
-      set({ channelLevels, dmLevels });
+      set((s) => {
+        for (const key of Object.keys(channelSeqs)) {
+          if (s.channelLevels[key] === undefined) delete channelLevels[key];
+          else channelLevels[key] = s.channelLevels[key];
+        }
+        for (const key of Object.keys(dmSeqs)) {
+          if (s.dmLevels[key] === undefined) delete dmLevels[key];
+          else dmLevels[key] = s.dmLevels[key];
+        }
+        return { channelLevels, dmLevels };
+      });
     },
 
     setChannelLevel: async (channelId, level) => {
@@ -48,45 +65,56 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       set((s) => ({
         channelLevels: { ...s.channelLevels, [channelId]: level },
       }));
-      try {
-        await userAPI.setNotificationPreference("channel", channelId, level);
-        void refetchUnread().catch(() => {});
-      } catch (e) {
-        if (channelSeqs[channelId] === seq) {
-          set((s) => {
-            const next = { ...s.channelLevels };
-            if (prev === undefined) delete next[channelId];
-            else next[channelId] = prev;
-            return { channelLevels: next };
-          });
+      await enqueueWrite(`channel:${channelId}`, async () => {
+        if (channelSeqs[channelId] !== seq) return;
+        try {
+          await userAPI.setNotificationPreference("channel", channelId, level);
+          if (channelSeqs[channelId] === seq) {
+            void refetchUnread().catch(() => {});
+          }
+        } catch (e) {
+          if (channelSeqs[channelId] === seq) {
+            set((s) => {
+              const next = { ...s.channelLevels };
+              if (prev === undefined) delete next[channelId];
+              else next[channelId] = prev;
+              return { channelLevels: next };
+            });
+          }
+          throw e;
         }
-        throw e;
-      }
+      });
     },
 
     setDmLevel: async (friendId, level) => {
       const seq = (dmSeqs[friendId] = (dmSeqs[friendId] ?? 0) + 1);
       const prev = get().dmLevels[friendId];
       set((s) => ({ dmLevels: { ...s.dmLevels, [friendId]: level } }));
-      try {
-        await userAPI.setNotificationPreference("dm", friendId, level);
-        void refetchUnread().catch(() => {});
-      } catch (e) {
-        if (dmSeqs[friendId] === seq) {
-          set((s) => {
-            const next = { ...s.dmLevels };
-            if (prev === undefined) delete next[friendId];
-            else next[friendId] = prev;
-            return { dmLevels: next };
-          });
+      await enqueueWrite(`dm:${friendId}`, async () => {
+        if (dmSeqs[friendId] !== seq) return;
+        try {
+          await userAPI.setNotificationPreference("dm", friendId, level);
+          if (dmSeqs[friendId] === seq) {
+            void refetchUnread().catch(() => {});
+          }
+        } catch (e) {
+          if (dmSeqs[friendId] === seq) {
+            set((s) => {
+              const next = { ...s.dmLevels };
+              if (prev === undefined) delete next[friendId];
+              else next[friendId] = prev;
+              return { dmLevels: next };
+            });
+          }
+          throw e;
         }
-        throw e;
-      }
+      });
     },
 
     clearAll: () => {
       for (const k of Object.keys(channelSeqs)) delete channelSeqs[k];
       for (const k of Object.keys(dmSeqs)) delete dmSeqs[k];
+      for (const k of Object.keys(writeQueues)) delete writeQueues[k];
       set({ channelLevels: {}, dmLevels: {} });
     },
   }),
