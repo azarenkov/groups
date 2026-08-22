@@ -164,7 +164,7 @@ async fn drain_and_remove_legacy(
 ) {
     let prefix = subject_prefix.trim_end_matches('.');
     for (stream_name, consumer_name, domain) in legacy_consumers(cfg) {
-        let Ok(mut stream) = jetstream.get_stream(&stream_name).await else {
+        let Ok(stream) = jetstream.get_stream(&stream_name).await else {
             continue;
         };
         let Ok(info) = stream.consumer_info(&consumer_name).await else {
@@ -256,7 +256,7 @@ pub(crate) async fn remove_idle_legacy_consumers(
     cfg: &DispatcherConfig,
 ) {
     for (stream_name, consumer_name, _) in legacy_consumers(cfg) {
-        let Ok(mut stream) = jetstream.get_stream(&stream_name).await else {
+        let Ok(stream) = jetstream.get_stream(&stream_name).await else {
             continue;
         };
         let Ok(info) = stream.consumer_info(&consumer_name).await else {
