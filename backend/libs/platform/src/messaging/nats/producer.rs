@@ -49,6 +49,11 @@ fn partition_key(record: &OutboxRecord) -> Uuid {
     {
         return conversation_key(a, b);
     }
+    if matches!(record.aggregate_type, AggregateType::User)
+        && let Some(parent) = record.parent_id
+    {
+        return conversation_key(record.aggregate_id, parent);
+    }
     record.parent_id.unwrap_or(record.aggregate_id)
 }
 
@@ -148,6 +153,21 @@ mod tests {
             "recipient_id": a.to_string(),
         });
         assert_eq!(subject_of(forward), subject_of(backward));
+    }
+
+    #[test]
+    fn friendship_events_partition_by_pair() {
+        let a = Uuid::from_u128(7);
+        let b = Uuid::from_u128(9);
+        let mut sent = record(Some(b));
+        sent.aggregate_type = AggregateType::User;
+        sent.aggregate_id = a;
+        sent.event_type = "request_sent".to_string();
+        let mut accepted = record(Some(a));
+        accepted.aggregate_type = AggregateType::User;
+        accepted.aggregate_id = b;
+        accepted.event_type = "request_sent".to_string();
+        assert_eq!(subject_of(sent), subject_of(accepted));
     }
 
     #[test]

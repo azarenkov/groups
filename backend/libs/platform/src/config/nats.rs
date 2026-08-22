@@ -19,7 +19,9 @@ pub struct NatsConfig {
 impl NatsConfig {
     pub fn from_env() -> Result<Self, envy::Error> {
         dotenv::dotenv().ok();
-        envy::from_env::<NatsConfig>()
+        let mut config = envy::from_env::<NatsConfig>()?;
+        config.event_partitions = config.event_partitions.max(1);
+        Ok(config)
     }
 
     pub fn url(&self) -> &str {

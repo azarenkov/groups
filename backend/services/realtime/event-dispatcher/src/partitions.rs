@@ -54,7 +54,12 @@ pub async fn run_partitioned(
     tracing::info!(%instance, partitions, "Partition manager started");
 
     let mut owned: HashMap<u32, OwnedPartition> = HashMap::new();
+    let mut ticks: u64 = 0;
     loop {
+        if ticks.is_multiple_of(6) {
+            crate::remove_legacy_consumers(&jetstream, &cfg).await;
+        }
+        ticks += 1;
         tick(
             &jetstream,
             &store,

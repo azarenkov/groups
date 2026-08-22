@@ -123,7 +123,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn remove_legacy_consumers(
+pub(crate) async fn remove_legacy_consumers(
     jetstream: &async_nats::jetstream::Context,
     cfg: &DispatcherConfig,
 ) {
