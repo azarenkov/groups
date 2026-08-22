@@ -1,6 +1,8 @@
 import { create } from "zustand";
 
 import { userAPI } from "../api/user";
+import { useAuthStore } from "./authStore";
+import { refetchUnread } from "./unreadStore";
 
 export type NotifLevel = "all" | "mentions" | "none";
 
@@ -23,7 +25,10 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     dmLevels: {},
 
     load: async () => {
+      const sessionUserId = useAuthStore.getState().user?.id;
+      if (!sessionUserId) return;
       const { preferences } = await userAPI.getNotificationPreferences();
+      if (useAuthStore.getState().user?.id !== sessionUserId) return;
       const channelLevels: Record<string, NotifLevel> = {};
       const dmLevels: Record<string, NotifLevel> = {};
       for (const p of preferences) {
@@ -41,6 +46,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       }));
       try {
         await userAPI.setNotificationPreference("channel", channelId, level);
+        void refetchUnread().catch(() => {});
       } catch (e) {
         set((s) => {
           const next = { ...s.channelLevels };
@@ -57,6 +63,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       set((s) => ({ dmLevels: { ...s.dmLevels, [friendId]: level } }));
       try {
         await userAPI.setNotificationPreference("dm", friendId, level);
+        void refetchUnread().catch(() => {});
       } catch (e) {
         set((s) => {
           const next = { ...s.dmLevels };

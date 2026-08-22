@@ -552,14 +552,34 @@ const ChatView: React.FC<ChatViewProps> = ({
   const ensureParticipants = React.useCallback(() => {
     if (!channel || !serverId) return;
     if (participantsChannelRef.current === channel.id) return;
-    participantsChannelRef.current = channel.id;
+    const channelId = channel.id;
+    participantsChannelRef.current = channelId;
     setParticipants([]);
-    void channelAPI
-      .listParticipants(serverId, channel.id, 1, 100)
-      .then((res) => setParticipants(res.participants))
-      .catch(() => {
-        participantsChannelRef.current = null;
-      });
+    void (async () => {
+      try {
+        const all: ChannelParticipant[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          const res = await channelAPI.listParticipants(
+            serverId,
+            channelId,
+            page,
+            50,
+          );
+          all.push(...res.participants);
+          totalPages = res.pagination?.totalPages ?? 1;
+          page += 1;
+        } while (page <= totalPages && page <= 4);
+        if (participantsChannelRef.current === channelId) {
+          setParticipants(all);
+        }
+      } catch {
+        if (participantsChannelRef.current === channelId) {
+          participantsChannelRef.current = null;
+        }
+      }
+    })();
   }, [channel, serverId]);
 
   const updateMentionQuery = React.useCallback(

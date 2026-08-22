@@ -1,5 +1,8 @@
 import { create } from "zustand";
 
+import { userAPI } from "../api/user";
+import { useAuthStore } from "./authStore";
+
 interface UnreadState {
   byChannel: Record<string, number>;
   byDm: Record<string, number>;
@@ -73,3 +76,19 @@ export const useUnreadStore = create<UnreadState>()((set, get) => ({
     return total;
   },
 }));
+
+export async function refetchUnread(): Promise<void> {
+  const sessionUserId = useAuthStore.getState().user?.id;
+  if (!sessionUserId) return;
+  const u = await userAPI.getUnread();
+  if (useAuthStore.getState().user?.id !== sessionUserId) return;
+  const channels: Record<string, number> = {};
+  const channelToServer: Record<string, string> = {};
+  for (const c of u.channels) {
+    channels[c.channelId] = c.count;
+    channelToServer[c.channelId] = c.serverId;
+  }
+  const dms: Record<string, number> = {};
+  for (const d of u.dms) dms[d.friendId] = d.count;
+  useUnreadStore.getState().setAll(channels, dms, channelToServer);
+}
