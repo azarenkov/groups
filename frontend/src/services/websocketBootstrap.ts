@@ -65,6 +65,19 @@ function asString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+const UNREAD_REFETCH_DELAY_MS = 1000;
+let unreadRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleUnreadRefetch() {
+  if (unreadRefetchTimer) return;
+  unreadRefetchTimer = setTimeout(() => {
+    unreadRefetchTimer = null;
+    void import("../store/unreadStore").then(({ refetchUnread }) =>
+      refetchUnread().catch(() => {}),
+    );
+  }, UNREAD_REFETCH_DELAY_MS);
+}
+
 function dispatch(env: WsEnvelope) {
   const d = env.data as Record<string, unknown>;
   switch (env.type) {
@@ -252,6 +265,15 @@ function dispatch(env: WsEnvelope) {
         }
       }
       useUnreadStore.getState().bumpChannel(channelId, serverId);
+      return;
+    }
+
+    case "message.edited": {
+      const channelId = asString(d.channelId);
+      if (!channelId) return;
+      if (activeChannelView === channelId) return;
+      if (channelNotifLevel(channelId) !== "mentions") return;
+      scheduleUnreadRefetch();
       return;
     }
 
