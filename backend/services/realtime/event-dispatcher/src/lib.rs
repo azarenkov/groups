@@ -65,7 +65,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-    drain_and_remove_legacy(&jetstream, &cfg, &resolver, &publisher).await;
+    remove_legacy_consumers(&jetstream, &cfg).await;
 
     let mut consumer_handles = Vec::new();
     {
@@ -149,117 +149,16 @@ fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String)> {
     ]
 }
 
-pub(crate) async fn drain_and_remove_legacy(
+async fn remove_legacy_consumers(
     jetstream: &async_nats::jetstream::Context,
     cfg: &DispatcherConfig,
-    resolver: &RecipientResolver,
-    publisher: &Publisher,
 ) {
     for (stream_name, consumer_name) in legacy_consumers(cfg) {
-        let Ok(stream) = jetstream.get_stream(&stream_name).await else {
-            continue;
-        };
-        let Ok(info) = stream.consumer_info(&consumer_name).await else {
-            continue;
-        };
-        if info.num_pending > 0 || info.num_ack_pending > 0 {
-            let mut stream = stream.clone();
-            let end_sequence = match stream.info().await {
-                Ok(stream_info) => stream_info.state.last_sequence,
-                Err(e) => {
-                    tracing::warn!(error = %e, %stream_name, "Stream info unavailable; skipping legacy drain");
-                    continue;
-                }
-            };
-            let drained = drain_legacy_backlog(
-                &stream,
-                &consumer_name,
-                end_sequence,
-                resolver,
-                publisher,
-            )
-            .await;
-            if !drained {
-                tracing::warn!(%stream_name, %consumer_name, "Legacy drain incomplete; keeping consumer for retry");
-                continue;
-            }
-        }
-        if stream.delete_consumer(&consumer_name).await.is_ok() {
+        if let Ok(stream) = jetstream.get_stream(&stream_name).await
+            && stream.delete_consumer(&consumer_name).await.is_ok()
+        {
             tracing::info!(%stream_name, %consumer_name, "Removed legacy dispatcher consumer");
         }
     }
-}
-
-async fn drain_legacy_backlog(
-    stream: &async_nats::jetstream::stream::Stream,
-    consumer_name: &str,
-    end_sequence: u64,
-    resolver: &RecipientResolver,
-    publisher: &Publisher,
-) -> bool {
-    use async_nats::jetstream::consumer::pull;
-    use futures::StreamExt;
-
-    let drain_consumer = match stream.get_consumer::<pull::Config>(consumer_name).await {
-        Ok(consumer) => consumer,
-        Err(e) => {
-            tracing::warn!(error = %e, consumer_name, "Failed to attach legacy drain consumer");
-            return false;
-        }
-    };
-
-    let mut drained: u64 = 0;
-    loop {
-        let batch = drain_consumer
-            .fetch()
-            .max_messages(200)
-            .expires(std::time::Duration::from_secs(2))
-            .messages()
-            .await;
-        let mut batch = match batch {
-            Ok(batch) => batch,
-            Err(e) => {
-                tracing::warn!(error = %e, consumer_name, "Legacy drain fetch failed");
-                return false;
-            }
-        };
-        let mut received = 0usize;
-        let mut reached_end = false;
-        while let Some(message) = batch.next().await {
-            let Ok(message) = message else {
-                return false;
-            };
-            received += 1;
-            let sequence = message.info().map(|i| i.stream_sequence).unwrap_or(0);
-            if sequence > end_sequence {
-                reached_end = true;
-                break;
-            }
-            let subject = message.subject.to_string();
-            let partitioned = subject
-                .split('.')
-                .any(platform::messaging::partitions::is_partition_token);
-            if !partitioned {
-                if let Err(e) = dispatch::dispatch(&subject, &message.payload, resolver, publisher).await
-                {
-                    tracing::warn!(error = %e, %subject, "Legacy drain dispatch failed; keeping backlog for retry");
-                    return false;
-                }
-                drained += 1;
-            }
-            let _ = message.ack().await;
-            if sequence == end_sequence {
-                reached_end = true;
-                break;
-            }
-        }
-        if reached_end || received == 0 {
-            break;
-        }
-    }
-    if drained > 0 {
-        tracing::info!(consumer_name, drained, "Drained legacy dispatcher backlog");
-    }
-    true
 }
 

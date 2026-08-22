@@ -54,25 +54,7 @@ pub async fn run_partitioned(
     tracing::info!(%instance, partitions, "Partition manager started");
 
     let mut owned: HashMap<u32, OwnedPartition> = HashMap::new();
-    let mut ticks: u64 = 0;
-    let mut legacy_maintenance: Option<actix_web::rt::task::JoinHandle<()>> = None;
     loop {
-        if ticks.is_multiple_of(6)
-            && owned.contains_key(&0)
-            && legacy_maintenance
-                .as_ref()
-                .map(|h| h.is_finished())
-                .unwrap_or(true)
-        {
-            let jetstream = jetstream.clone();
-            let cfg = cfg.clone();
-            let resolver = resolver.clone();
-            let publisher = publisher.clone();
-            legacy_maintenance = Some(actix_web::rt::spawn(async move {
-                crate::drain_and_remove_legacy(&jetstream, &cfg, &resolver, &publisher).await;
-            }));
-        }
-        ticks += 1;
         tick(
             &jetstream,
             &store,
@@ -95,9 +77,6 @@ pub async fn run_partitioned(
         }
     }
 
-    if let Some(handle) = legacy_maintenance.take() {
-        handle.abort();
-    }
     let draining: Vec<(u32, OwnedPartition)> = owned.drain().collect();
     for (_, state) in &draining {
         let _ = state.shutdown.send(true);
