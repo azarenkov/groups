@@ -56,8 +56,15 @@ pub async fn run_partitioned(
     let mut owned: HashMap<u32, OwnedPartition> = HashMap::new();
     let mut ticks: u64 = 0;
     loop {
-        if ticks.is_multiple_of(6) {
-            crate::remove_idle_legacy_consumers(&jetstream, &cfg).await;
+        if ticks.is_multiple_of(6) && owned.contains_key(&0) {
+            crate::drain_and_remove_legacy(
+                &jetstream,
+                &cfg,
+                &subject_prefix,
+                &resolver,
+                &publisher,
+            )
+            .await;
         }
         ticks += 1;
         tick(

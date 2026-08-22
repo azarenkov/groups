@@ -155,7 +155,7 @@ fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String, String)> {
     ]
 }
 
-async fn drain_and_remove_legacy(
+pub(crate) async fn drain_and_remove_legacy(
     jetstream: &async_nats::jetstream::Context,
     cfg: &DispatcherConfig,
     subject_prefix: &str,
@@ -265,10 +265,10 @@ async fn drain_legacy_backlog(
             if !partitioned {
                 if let Err(e) = dispatch::dispatch(&subject, &message.payload, resolver, publisher).await
                 {
-                    tracing::warn!(error = %e, %subject, "Legacy drain dispatch failed; skipping");
-                } else {
-                    drained += 1;
+                    tracing::warn!(error = %e, %subject, "Legacy drain dispatch failed; keeping backlog for retry");
+                    return false;
                 }
+                drained += 1;
             }
             let _ = message.ack().await;
             if sequence == end_sequence {
@@ -286,22 +286,3 @@ async fn drain_legacy_backlog(
     true
 }
 
-pub(crate) async fn remove_idle_legacy_consumers(
-    jetstream: &async_nats::jetstream::Context,
-    cfg: &DispatcherConfig,
-) {
-    for (stream_name, consumer_name, _) in legacy_consumers(cfg) {
-        let Ok(stream) = jetstream.get_stream(&stream_name).await else {
-            continue;
-        };
-        let Ok(info) = stream.consumer_info(&consumer_name).await else {
-            continue;
-        };
-        if info.num_pending == 0
-            && info.num_ack_pending == 0
-            && stream.delete_consumer(&consumer_name).await.is_ok()
-        {
-            tracing::info!(%stream_name, %consumer_name, "Removed idle legacy dispatcher consumer");
-        }
-    }
-}
