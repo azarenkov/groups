@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct DispatcherConfig {
     #[serde(default = "default_health_port")]
     pub dispatcher_health_port: u16,

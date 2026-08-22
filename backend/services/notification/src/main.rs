@@ -56,6 +56,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     let filter_subject = format!("{}.user.verification.issued", nats_config.subject_prefix);
+    let partitioned_filter_subject = format!(
+        "{}.user.*.verification.issued",
+        nats_config.subject_prefix
+    );
     let dlq_subject = format!(
         "{}.dlq.user.verification.issued",
         nats_config.subject_prefix
@@ -70,6 +74,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             start_position: StartPosition::New,
             max_deliver: Some(notification_config.notification_max_deliver),
             dlq_subject: Some(dlq_subject.clone()),
+            extra_subjects: vec![partitioned_filter_subject],
         })
         .await?;
 

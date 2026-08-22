@@ -58,6 +58,7 @@ pub fn spawn<T>(
                 start_position: StartPosition::All,
                 max_deliver: Some(5),
                 dlq_subject: Some(format!("{prefix}.dlq.messaging.webhooks")),
+                extra_subjects: vec![],
             };
             match consumer.subscribe(opts).await {
                 Ok(mut messages) => {

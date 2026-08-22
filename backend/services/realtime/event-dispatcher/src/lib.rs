@@ -12,13 +12,14 @@ mod config;
 mod consumer;
 mod dispatch;
 mod envelope;
+mod partitions;
 mod projection_catchup;
 mod publisher;
 mod recipients;
 
 use crate::{
     config::DispatcherConfig,
-    consumer::{ConsumerSpec, run_consumer},
+    partitions::run_partitioned,
     projection_catchup::{CatchupSpec, run_catchup},
     publisher::Publisher,
     recipients::RecipientResolver,
@@ -64,15 +65,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-    let consumer_specs = build_consumer_specs(&cfg, &nats_cfg.subject_prefix);
+    remove_legacy_consumers(&jetstream, &cfg).await;
+
     let mut consumer_handles = Vec::new();
-    for spec in consumer_specs {
+    {
         let jetstream = jetstream.clone();
+        let cfg_clone = cfg.clone();
+        let prefix = nats_cfg.subject_prefix.clone();
+        let partitions = nats_cfg.event_partitions;
+        let replicas = nats_cfg.replicas;
         let resolver = resolver.clone();
         let publisher = publisher.clone();
         let rx = shutdown_rx.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
-            run_consumer(jetstream, spec, resolver, publisher, rx).await;
+            run_partitioned(
+                jetstream, cfg_clone, prefix, partitions, replicas, resolver, publisher, rx,
+            )
+            .await;
         }));
     }
 
@@ -115,46 +124,42 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn build_consumer_specs(cfg: &DispatcherConfig, prefix: &str) -> Vec<ConsumerSpec> {
-    let prefix = prefix.trim_end_matches('.');
+fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String)> {
     let consumer_prefix = &cfg.dispatcher_consumer_prefix;
-    let max_deliver = cfg.dispatcher_max_deliver;
-    let dlq = |kind: &str| format!("{prefix}.dlq.realtime.{kind}");
     vec![
-        ConsumerSpec {
-            stream: cfg.dispatcher_user_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-user"),
-            filter_subject: format!("{prefix}.user.>"),
-            dlq_subject: dlq("user"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.dispatcher_channel_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-channel"),
-            filter_subject: format!("{prefix}.channel.>"),
-            dlq_subject: dlq("channel"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.dispatcher_message_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-message"),
-            filter_subject: format!("{prefix}.message.>"),
-            dlq_subject: dlq("message"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.dispatcher_dm_message_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-dm-message"),
-            filter_subject: format!("{prefix}.dm_message.>"),
-            dlq_subject: dlq("dm_message"),
-            max_deliver,
-        },
-        ConsumerSpec {
-            stream: cfg.dispatcher_server_stream.clone(),
-            consumer_name: format!("{consumer_prefix}-server"),
-            filter_subject: format!("{prefix}.server.>"),
-            dlq_subject: dlq("server"),
-            max_deliver,
-        },
+        (
+            cfg.dispatcher_user_stream.clone(),
+            format!("{consumer_prefix}-user"),
+        ),
+        (
+            cfg.dispatcher_channel_stream.clone(),
+            format!("{consumer_prefix}-channel"),
+        ),
+        (
+            cfg.dispatcher_message_stream.clone(),
+            format!("{consumer_prefix}-message"),
+        ),
+        (
+            cfg.dispatcher_dm_message_stream.clone(),
+            format!("{consumer_prefix}-dm-message"),
+        ),
+        (
+            cfg.dispatcher_server_stream.clone(),
+            format!("{consumer_prefix}-server"),
+        ),
     ]
 }
+
+async fn remove_legacy_consumers(
+    jetstream: &async_nats::jetstream::Context,
+    cfg: &DispatcherConfig,
+) {
+    for (stream_name, consumer_name) in legacy_consumers(cfg) {
+        if let Ok(stream) = jetstream.get_stream(&stream_name).await
+            && stream.delete_consumer(&consumer_name).await.is_ok()
+        {
+            tracing::info!(%stream_name, %consumer_name, "Removed legacy dispatcher consumer");
+        }
+    }
+}
+

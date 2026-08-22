@@ -54,6 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let publisher = Arc::new(NatsOutboxPublisher::new(
         jetstream,
         nats_config.subject_prefix.clone(),
+        nats_config.event_partitions,
     ));
     let dispatcher = Arc::new(OutboxDispatcher::new(
         pool,

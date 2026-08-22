@@ -12,17 +12,25 @@ pub struct NatsConfig {
     pub stream_hot_max_bytes: i64,
     #[serde(rename = "nats_stream_cold_max_bytes", default = "default_cold_max_bytes")]
     pub stream_cold_max_bytes: i64,
+    #[serde(rename = "event_partitions", default = "default_event_partitions")]
+    pub event_partitions: u32,
 }
 
 impl NatsConfig {
     pub fn from_env() -> Result<Self, envy::Error> {
         dotenv::dotenv().ok();
-        envy::from_env::<NatsConfig>()
+        let mut config = envy::from_env::<NatsConfig>()?;
+        config.event_partitions = config.event_partitions.max(1);
+        Ok(config)
     }
 
     pub fn url(&self) -> &str {
         &self.url
     }
+}
+
+fn default_event_partitions() -> u32 {
+    16
 }
 
 fn default_hot_max_bytes() -> i64 {

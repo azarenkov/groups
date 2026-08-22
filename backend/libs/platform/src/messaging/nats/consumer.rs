@@ -38,6 +38,7 @@ impl EventConsumer for NatsEventConsumer {
             start_position,
             max_deliver,
             dlq_subject,
+            extra_subjects,
         } = opts;
         let deliver_policy = match start_position {
             StartPosition::New => DeliverPolicy::New,
@@ -54,6 +55,7 @@ impl EventConsumer for NatsEventConsumer {
                 &stream_name,
                 &consumer_name,
                 subject,
+                extra_subjects,
                 deliver_policy,
                 max_deliver_i64,
             )
@@ -114,7 +116,8 @@ impl EventConsumer for NatsEventConsumer {
                                 .as_ref()
                                 .and_then(|h| h.get("X-Request-Id"))
                                 .map(|v| v.as_str().to_string());
-                            let subject = msg.subject.to_string();
+                            let subject =
+                                crate::messaging::partitions::normalize_subject(msg.subject.as_str());
                             let ack_fn: Box<
                                 dyn FnOnce() -> BoxFuture<
                                         'static,
@@ -148,21 +151,28 @@ async fn create_durable_consumer(
     stream_name: &str,
     consumer_name: &str,
     filter_subject: String,
+    extra_subjects: Vec<String>,
     deliver_policy: DeliverPolicy,
     max_deliver: i64,
 ) -> Result<Consumer<pull::Config>, async_nats::Error> {
     let stream = jetstream.get_stream(stream_name).await?;
 
-    let consumer = stream
-        .create_consumer(pull::Config {
-            durable_name: Some(consumer_name.to_string()),
-            filter_subject,
-            ack_policy: AckPolicy::Explicit,
-            deliver_policy,
-            max_deliver,
-            ..Default::default()
-        })
-        .await?;
+    let mut config = pull::Config {
+        durable_name: Some(consumer_name.to_string()),
+        ack_policy: AckPolicy::Explicit,
+        deliver_policy,
+        max_deliver,
+        ..Default::default()
+    };
+    if extra_subjects.is_empty() {
+        config.filter_subject = filter_subject;
+    } else {
+        let mut subjects = vec![filter_subject];
+        subjects.extend(extra_subjects);
+        config.filter_subjects = subjects;
+    }
+
+    let consumer = stream.create_consumer(config).await?;
 
     Ok(consumer)
 }
