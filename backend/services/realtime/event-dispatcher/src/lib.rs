@@ -65,8 +65,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-    drain_and_remove_legacy(&jetstream, &cfg, &nats_cfg.subject_prefix, &resolver, &publisher)
-        .await;
+    drain_and_remove_legacy(&jetstream, &cfg, &resolver, &publisher).await;
 
     let mut consumer_handles = Vec::new();
     {
@@ -124,33 +123,28 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String, String)> {
+fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String)> {
     let consumer_prefix = &cfg.dispatcher_consumer_prefix;
     vec![
         (
             cfg.dispatcher_user_stream.clone(),
             format!("{consumer_prefix}-user"),
-            "user".to_string(),
         ),
         (
             cfg.dispatcher_channel_stream.clone(),
             format!("{consumer_prefix}-channel"),
-            "channel".to_string(),
         ),
         (
             cfg.dispatcher_message_stream.clone(),
             format!("{consumer_prefix}-message"),
-            "message".to_string(),
         ),
         (
             cfg.dispatcher_dm_message_stream.clone(),
             format!("{consumer_prefix}-dm-message"),
-            "dm_message".to_string(),
         ),
         (
             cfg.dispatcher_server_stream.clone(),
             format!("{consumer_prefix}-server"),
-            "server".to_string(),
         ),
     ]
 }
@@ -158,12 +152,10 @@ fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String, String)> {
 pub(crate) async fn drain_and_remove_legacy(
     jetstream: &async_nats::jetstream::Context,
     cfg: &DispatcherConfig,
-    subject_prefix: &str,
     resolver: &RecipientResolver,
     publisher: &Publisher,
 ) {
-    let prefix = subject_prefix.trim_end_matches('.');
-    for (stream_name, consumer_name, domain) in legacy_consumers(cfg) {
+    for (stream_name, consumer_name) in legacy_consumers(cfg) {
         let Ok(stream) = jetstream.get_stream(&stream_name).await else {
             continue;
         };
@@ -181,10 +173,8 @@ pub(crate) async fn drain_and_remove_legacy(
             };
             let drained = drain_legacy_backlog(
                 &stream,
-                &info,
+                &consumer_name,
                 end_sequence,
-                prefix,
-                &domain,
                 resolver,
                 publisher,
             )
@@ -202,31 +192,18 @@ pub(crate) async fn drain_and_remove_legacy(
 
 async fn drain_legacy_backlog(
     stream: &async_nats::jetstream::stream::Stream,
-    info: &async_nats::jetstream::consumer::Info,
+    consumer_name: &str,
     end_sequence: u64,
-    prefix: &str,
-    domain: &str,
     resolver: &RecipientResolver,
     publisher: &Publisher,
 ) -> bool {
-    use async_nats::jetstream::consumer::{AckPolicy, DeliverPolicy, pull};
+    use async_nats::jetstream::consumer::pull;
     use futures::StreamExt;
 
-    let start_sequence = info.ack_floor.stream_sequence + 1;
-    let filter = format!("{prefix}.{domain}.>");
-    let drain_consumer = match stream
-        .create_consumer(pull::Config {
-            deliver_policy: DeliverPolicy::ByStartSequence { start_sequence },
-            filter_subject: filter,
-            ack_policy: AckPolicy::Explicit,
-            inactive_threshold: std::time::Duration::from_secs(30),
-            ..Default::default()
-        })
-        .await
-    {
+    let drain_consumer = match stream.get_consumer::<pull::Config>(consumer_name).await {
         Ok(consumer) => consumer,
         Err(e) => {
-            tracing::warn!(error = %e, domain, "Failed to create legacy drain consumer");
+            tracing::warn!(error = %e, consumer_name, "Failed to attach legacy drain consumer");
             return false;
         }
     };
@@ -242,7 +219,7 @@ async fn drain_legacy_backlog(
         let mut batch = match batch {
             Ok(batch) => batch,
             Err(e) => {
-                tracing::warn!(error = %e, domain, "Legacy drain fetch failed");
+                tracing::warn!(error = %e, consumer_name, "Legacy drain fetch failed");
                 return false;
             }
         };
@@ -281,7 +258,7 @@ async fn drain_legacy_backlog(
         }
     }
     if drained > 0 {
-        tracing::info!(domain, drained, "Drained legacy dispatcher backlog");
+        tracing::info!(consumer_name, drained, "Drained legacy dispatcher backlog");
     }
     true
 }
