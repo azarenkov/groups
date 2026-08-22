@@ -75,6 +75,18 @@ const App: React.FC = () => {
           if (!cancelled) console.warn("[App] failed to load dm previews:", err);
         }
       })();
+      void (async () => {
+        try {
+          const { useNotificationPrefsStore } = await import(
+            "./store/notificationPrefsStore"
+          );
+          if (cancelled) return;
+          await useNotificationPrefsStore.getState().load();
+        } catch (err) {
+          if (!cancelled)
+            console.warn("[App] failed to load notification prefs:", err);
+        }
+      })();
       return () => {
         cancelled = true;
         ws.disconnect();
@@ -86,6 +98,10 @@ const App: React.FC = () => {
     );
     void import("./store/presenceStore").then(({ usePresenceStore }) =>
       usePresenceStore.getState().clearAll(),
+    );
+    void import("./store/notificationPrefsStore").then(
+      ({ useNotificationPrefsStore }) =>
+        useNotificationPrefsStore.getState().clearAll(),
     );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 

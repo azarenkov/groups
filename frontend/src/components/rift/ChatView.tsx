@@ -30,6 +30,10 @@ import {
 } from "../../services/useWebSocketMessages";
 import i18n from "../../i18n";
 import { useUserNamesStore } from "../../store/userNamesStore";
+import { useAuthStore } from "../../store/authStore";
+import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
+import { MENTION_REGEX, activeMentionQuery } from "../../utils/mentions";
+import type { ChannelParticipant } from "../../types/channel";
 
 const mergeWithLive = (
   history: ChannelMessage[],
@@ -536,6 +540,69 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const composerRef = React.useRef<HTMLInputElement>(null);
   const wasSendingRef = React.useRef(false);
+
+  const [mentionQuery, setMentionQuery] = React.useState<{
+    query: string;
+    start: number;
+  } | null>(null);
+  const [mentionIndex, setMentionIndex] = React.useState(0);
+  const [participants, setParticipants] = React.useState<ChannelParticipant[]>([]);
+  const participantsChannelRef = React.useRef<string | null>(null);
+
+  const ensureParticipants = React.useCallback(() => {
+    if (!channel || !serverId) return;
+    if (participantsChannelRef.current === channel.id) return;
+    participantsChannelRef.current = channel.id;
+    setParticipants([]);
+    void channelAPI
+      .listParticipants(serverId, channel.id, 1, 100)
+      .then((res) => setParticipants(res.participants))
+      .catch(() => {
+        participantsChannelRef.current = null;
+      });
+  }, [channel, serverId]);
+
+  const updateMentionQuery = React.useCallback(
+    (value: string, caret: number | null) => {
+      if (!channel) {
+        setMentionQuery(null);
+        return;
+      }
+      const q = activeMentionQuery(value, caret ?? value.length);
+      setMentionQuery(q);
+      if (q) {
+        setMentionIndex(0);
+        ensureParticipants();
+      }
+    },
+    [channel, ensureParticipants],
+  );
+
+  const mentionSuggestions = React.useMemo(() => {
+    if (!mentionQuery) return [];
+    const q = mentionQuery.query.toLowerCase();
+    return participants
+      .filter((p) => p.name.toLowerCase().startsWith(q))
+      .slice(0, 8);
+  }, [mentionQuery, participants]);
+
+  const applyMention = React.useCallback(
+    (name: string) => {
+      if (!mentionQuery) return;
+      const el = composerRef.current;
+      const caret = el?.selectionStart ?? text.length;
+      const next =
+        text.slice(0, mentionQuery.start) + "@" + name + " " + text.slice(caret);
+      setText(next);
+      setMentionQuery(null);
+      const pos = mentionQuery.start + name.length + 2;
+      requestAnimationFrame(() => {
+        el?.focus();
+        el?.setSelectionRange(pos, pos);
+      });
+    },
+    [mentionQuery, text],
+  );
 
   React.useEffect(() => {
     if (wasSendingRef.current && !sending) {
@@ -1495,6 +1562,42 @@ const ChatView: React.FC<ChatViewProps> = ({
           >
             <Icon name="paperclip" size={17} />
           </button>
+          {mentionQuery && mentionSuggestions.length > 0 && (
+            <div className="mention-pop">
+              {mentionSuggestions.map((p, i) => (
+                <button
+                  type="button"
+                  key={p.id}
+                  className={
+                    "mention-pop-item" + (i === mentionIndex ? " active" : "")
+                  }
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    applyMention(p.name);
+                  }}
+                  onMouseEnter={() => setMentionIndex(i)}
+                >
+                  <UserAvatar
+                    userId={p.id}
+                    name={p.name}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      background: colorForId(p.id),
+                      color: "#fff",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  />
+                  <span className="mention-pop-name">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <input
             ref={composerRef}
             placeholder={placeholder}
@@ -1502,7 +1605,34 @@ const ChatView: React.FC<ChatViewProps> = ({
             onChange={(e) => {
               setText(e.target.value);
               if (composerError) setComposerError(null);
+              updateMentionQuery(e.target.value, e.target.selectionStart);
             }}
+            onKeyDown={(e) => {
+              if (!mentionQuery || mentionSuggestions.length === 0) return;
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setMentionIndex((i) => (i + 1) % mentionSuggestions.length);
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setMentionIndex(
+                  (i) =>
+                    (i - 1 + mentionSuggestions.length) %
+                    mentionSuggestions.length,
+                );
+              } else if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                const pick =
+                  mentionSuggestions[mentionIndex] ?? mentionSuggestions[0];
+                applyMention(pick.name);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setMentionQuery(null);
+              }
+            }}
+            onBlur={() => setMentionQuery(null)}
+            onClick={(e) =>
+              updateMentionQuery(text, e.currentTarget.selectionStart)
+            }
             onPaste={(e) => {
               const files = Array.from(e.clipboardData?.files ?? []);
               if (files.length > 0) {
@@ -1566,9 +1696,78 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
-  const [notifLevel, setNotifLevel] = React.useState<"all" | "mentions" | "none">("all");
+  const notifLevel = useNotificationPrefsStore((s) =>
+    dm
+      ? (s.dmLevels[dm.friendId] ?? "all")
+      : channel
+        ? (s.channelLevels[channel.id] ?? "all")
+        : "all",
+  );
   const bellRef = React.useRef<HTMLDivElement>(null);
   const bellButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  const applyNotifLevel = (level: "all" | "mentions" | "none") => {
+    const prefs = useNotificationPrefsStore.getState();
+    const action = dm
+      ? level !== "mentions" && prefs.setDmLevel(dm.friendId, level)
+      : channel
+        ? prefs.setChannelLevel(channel.id, level)
+        : null;
+    if (action) {
+      action.catch((e) =>
+        console.warn("[notifications] failed to save preference:", e),
+      );
+    }
+    setBellOpen(false);
+  };
+
+  const bellPopover = (
+    title: string,
+    options: {
+      k: "all" | "mentions" | "none";
+      ttl: string;
+      sub: string;
+    }[],
+  ) => (
+    <div className="popover-wrap" ref={bellRef}>
+      <button
+        ref={bellButtonRef}
+        type="button"
+        className={"icon-btn" + (bellOpen ? " on" : "")}
+        title={i18n.t("notifications.bell", { ns: "chat" })}
+        onClick={() => setBellOpen((o) => !o)}
+      >
+        <Icon name="bell" size={15} />
+        {notifLevel !== "all" && (
+          <span
+            className="nb-dot"
+            style={{ background: notifLevel === "none" ? "#ff453a" : "#ff9f0a" }}
+          />
+        )}
+      </button>
+      {bellOpen && (
+        <div className="popover" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="pop-head">{title}</div>
+          {options.map((opt) => (
+            <button
+              type="button"
+              key={opt.k}
+              className="pop-item"
+              onClick={() => applyNotifLevel(opt.k)}
+            >
+              <span className="check">
+                {notifLevel === opt.k && <Icon name="check" size={14} />}
+              </span>
+              <span className="body">
+                <div className="ttl">{opt.ttl}</div>
+                <div className="sub">{opt.sub}</div>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   React.useEffect(() => {
     if (!bellOpen) return;
@@ -1657,6 +1856,13 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           >
             <Icon name="phone" size={16} />
           </button>
+          {bellPopover(
+            i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),
+            [
+              { k: "all", ttl: i18n.t("notifications.all", { ns: "chat" }), sub: i18n.t("notifications.allHint", { ns: "chat" }) },
+              { k: "none", ttl: i18n.t("notifications.nothing", { ns: "chat" }), sub: i18n.t("notifications.dmNothingHint", { ns: "chat" }) },
+            ],
+          )}
           {onToggleSearch && (
             <button
               type="button"
@@ -1700,53 +1906,14 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         </>
       )}
       <div className="right">
-        <div className="popover-wrap" ref={bellRef}>
-          <button
-            ref={bellButtonRef}
-            type="button"
-            className={"icon-btn" + (bellOpen ? " on" : "")}
-            title={i18n.t("settings", { ns: "sidebar" })}
-            onClick={() => setBellOpen((o) => !o)}
-          >
-            <Icon name="bell" size={15} />
-            {notifLevel !== "all" && (
-              <span
-                className="nb-dot"
-                style={{ background: notifLevel === "none" ? "#ff453a" : "#ff9f0a" }}
-              />
-            )}
-          </button>
-          {bellOpen && (
-            <div className="popover" onMouseDown={(e) => e.stopPropagation()}>
-              <div className="pop-head">{i18n.t("notifications.title", { ns: "chat", channel: channel.name })}</div>
-              {(
-                [
-                  { k: "all", ttl: i18n.t("notifications.all", { ns: "chat" }), sub: i18n.t("notifications.allHint", { ns: "chat" }) },
-                  { k: "mentions", ttl: i18n.t("notifications.mentions", { ns: "chat" }), sub: i18n.t("notifications.mentionsHint", { ns: "chat" }) },
-                  { k: "none", ttl: i18n.t("notifications.nothing", { ns: "chat" }), sub: i18n.t("notifications.nothingHint", { ns: "chat" }) },
-                ] as const
-              ).map((opt) => (
-                <button
-                  type="button"
-                  key={opt.k}
-                  className="pop-item"
-                  onClick={() => {
-                    setNotifLevel(opt.k);
-                    setBellOpen(false);
-                  }}
-                >
-                  <span className="check">
-                    {notifLevel === opt.k && <Icon name="check" size={14} />}
-                  </span>
-                  <span className="body">
-                    <div className="ttl">{opt.ttl}</div>
-                    <div className="sub">{opt.sub}</div>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {bellPopover(
+          i18n.t("notifications.title", { ns: "chat", channel: channel.name }),
+          [
+            { k: "all", ttl: i18n.t("notifications.all", { ns: "chat" }), sub: i18n.t("notifications.allHint", { ns: "chat" }) },
+            { k: "mentions", ttl: i18n.t("notifications.mentions", { ns: "chat" }), sub: i18n.t("notifications.mentionsHint", { ns: "chat" }) },
+            { k: "none", ttl: i18n.t("notifications.nothing", { ns: "chat" }), sub: i18n.t("notifications.nothingHint", { ns: "chat" }) },
+          ],
+        )}
         {onToggleMembers && (
           <button
             type="button"
@@ -1782,13 +1949,41 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   );
 };
 
+const renderMentions = (
+  text: string,
+  keyPrefix: string,
+): React.ReactNode[] => {
+  const selfName = useAuthStore.getState().user?.name?.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  for (const match of text.matchAll(MENTION_REGEX)) {
+    const start = (match.index ?? 0) + match[1].length;
+    const name = match[2];
+    if (start > last) parts.push(text.slice(last, start));
+    const isSelf = !!selfName && name.toLowerCase() === selfName;
+    parts.push(
+      <span
+        key={`${keyPrefix}m${i++}`}
+        className={"msg-mention" + (isSelf ? " self" : "")}
+      >
+        @{name}
+      </span>,
+    );
+    last = start + name.length + 1;
+  }
+  if (parts.length === 0) return [text];
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+};
+
 const renderWithLinks = (text: string): React.ReactNode => {
   const parts: React.ReactNode[] = [];
   let last = 0;
   let i = 0;
   for (const match of text.matchAll(URL_REGEX)) {
     const idx = match.index ?? 0;
-    if (idx > last) parts.push(text.slice(last, idx));
+    if (idx > last) parts.push(...renderMentions(text.slice(last, idx), `s${i}`));
     parts.push(
       <a
         key={`l${i++}`}
@@ -1802,8 +1997,8 @@ const renderWithLinks = (text: string): React.ReactNode => {
     );
     last = idx + match[0].length;
   }
-  if (parts.length === 0) return text;
-  if (last < text.length) parts.push(text.slice(last));
+  if (parts.length === 0) return renderMentions(text, "t");
+  if (last < text.length) parts.push(...renderMentions(text.slice(last), "e"));
   return parts;
 };
 

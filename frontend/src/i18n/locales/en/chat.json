@@ -50,7 +50,10 @@
     "mentions": "@mentions only",
     "mentionsHint": "Only when someone @mentions you",
     "nothing": "Nothing",
-    "nothingHint": "Channel is muted"
+    "nothingHint": "Channel is muted",
+    "bell": "Notification settings",
+    "dmTitle": "Notifications for {{name}}",
+    "dmNothingHint": "Direct messages are muted"
   },
   "invite": {
     "label": "Server invite",

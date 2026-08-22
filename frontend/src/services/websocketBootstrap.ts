@@ -14,6 +14,11 @@ import {
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
+import {
+  channelNotifLevel,
+  dmNotifLevel,
+} from "../store/notificationPrefsStore";
+import { mentionsUser } from "../utils/mentions";
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
 
@@ -229,6 +234,14 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
+      const level = channelNotifLevel(channelId);
+      if (level === "none") return;
+      if (level === "mentions") {
+        const myName = useAuthStore.getState().user?.name;
+        if (!myName || !mentionsUser(asString(d.content) ?? "", myName)) {
+          return;
+        }
+      }
       const byServer = useChannelStore.getState().channelsByServer;
       let serverId: string | undefined;
       for (const [sid, chans] of Object.entries(byServer)) {
@@ -261,6 +274,7 @@ function dispatch(env: WsEnvelope) {
         throttleMarkDmRead(senderId);
         return;
       }
+      if (dmNotifLevel(senderId) === "none") return;
       useUnreadStore.getState().bumpDm(senderId);
       return;
     }

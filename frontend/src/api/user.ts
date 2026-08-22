@@ -125,6 +125,25 @@ class UserAPI {
   async setAppearOffline(appearOffline: boolean): Promise<void> {
     await this.client.post("/v1/me/presence", { appearOffline });
   }
+
+  async getNotificationPreferences(): Promise<{
+    preferences: { scopeType: string; scopeId: string; level: string }[];
+  }> {
+    const response = await this.client.get("/v1/notifications/preferences");
+    return response.data.data;
+  }
+
+  async setNotificationPreference(
+    scopeType: "channel" | "dm",
+    scopeId: string,
+    level: "all" | "mentions" | "none",
+  ): Promise<void> {
+    await this.client.put("/v1/notifications/preferences", {
+      scopeType,
+      scopeId,
+      level,
+    });
+  }
 }
 
 export const userAPI = new UserAPI();

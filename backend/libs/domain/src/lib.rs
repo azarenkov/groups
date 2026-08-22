@@ -5,6 +5,7 @@ pub mod dm_message;
 pub mod friendship;
 pub mod media;
 pub mod message;
+pub mod notification;
 pub mod read_state;
 pub mod refresh_token;
 pub mod server;

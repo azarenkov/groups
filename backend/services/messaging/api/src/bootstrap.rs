@@ -26,6 +26,10 @@ use messaging::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    notification::{
+        list_notification_preferences::ListNotificationPreferences,
+        set_notification_preference::SetNotificationPreference,
+    },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
@@ -50,6 +54,7 @@ use messaging::{
             channel::PostgresChannelRepository,
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
+            notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
             user_profile::PostgresUserProfileRepository,
         },
@@ -92,6 +97,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
     let read_state_repository =
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
+    let notification_preference_repository = Arc::new(
+        PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
+    );
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
     let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
@@ -222,6 +230,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         get_channel_read_receipts_usecase: GetChannelReadReceipts::new(
             read_state_repository.clone(),
             channel_repository.clone(),
+        ),
+        list_notification_preferences_usecase: ListNotificationPreferences::new(
+            notification_preference_repository.clone(),
+        ),
+        set_notification_preference_usecase: SetNotificationPreference::new(
+            notification_preference_repository.clone(),
+            channel_repository.clone(),
+            friendship_repository.clone(),
         ),
         log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         server_repository: server_repository.clone(),

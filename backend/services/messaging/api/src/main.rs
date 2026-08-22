@@ -6,6 +6,7 @@ mod channel;
 mod dm;
 mod friendship;
 mod internal;
+mod notifications;
 mod presence;
 mod read_state;
 mod routes;
