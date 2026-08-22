@@ -82,9 +82,16 @@ pub async fn run_partitioned(
         }
     }
 
-    for (partition, state) in owned.drain() {
-        release(&store, partition, state, true).await;
+    let draining: Vec<(u32, OwnedPartition)> = owned.drain().collect();
+    for (_, state) in &draining {
+        let _ = state.shutdown.send(true);
     }
+    futures::future::join_all(
+        draining
+            .into_iter()
+            .map(|(partition, state)| release(&store, partition, state, true)),
+    )
+    .await;
     let _ = store.purge(format!("{MEMBER_PREFIX}{instance}")).await;
     tracing::info!(%instance, "Partition manager stopped");
 }

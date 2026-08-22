@@ -171,7 +171,24 @@ async fn drain_and_remove_legacy(
             continue;
         };
         if info.num_pending > 0 || info.num_ack_pending > 0 {
-            drain_legacy_backlog(&stream, &info, prefix, &domain, resolver, publisher).await;
+            let mut stream = stream.clone();
+            let end_sequence = match stream.info().await {
+                Ok(stream_info) => stream_info.state.last_sequence,
+                Err(e) => {
+                    tracing::warn!(error = %e, %stream_name, "Stream info unavailable; skipping legacy drain");
+                    continue;
+                }
+            };
+            drain_legacy_backlog(
+                &stream,
+                &info,
+                end_sequence,
+                prefix,
+                &domain,
+                resolver,
+                publisher,
+            )
+            .await;
         }
         if stream.delete_consumer(&consumer_name).await.is_ok() {
             tracing::info!(%stream_name, %consumer_name, "Removed legacy dispatcher consumer");
@@ -182,6 +199,7 @@ async fn drain_and_remove_legacy(
 async fn drain_legacy_backlog(
     stream: &async_nats::jetstream::stream::Stream,
     info: &async_nats::jetstream::consumer::Info,
+    end_sequence: u64,
     prefix: &str,
     domain: &str,
     resolver: &RecipientResolver,
@@ -225,9 +243,15 @@ async fn drain_legacy_backlog(
             }
         };
         let mut received = 0usize;
+        let mut reached_end = false;
         while let Some(message) = batch.next().await {
             let Ok(message) = message else { break };
             received += 1;
+            let sequence = message.info().map(|i| i.stream_sequence).unwrap_or(0);
+            if sequence > end_sequence {
+                reached_end = true;
+                break;
+            }
             let subject = message.subject.to_string();
             let partitioned = subject
                 .split('.')
@@ -241,8 +265,12 @@ async fn drain_legacy_backlog(
                 }
             }
             let _ = message.ack().await;
+            if sequence == end_sequence {
+                reached_end = true;
+                break;
+            }
         }
-        if received == 0 {
+        if reached_end || received == 0 {
             break;
         }
     }
