@@ -229,8 +229,13 @@ impl Channel {
         Ok(())
     }
 
-    pub fn delete(&mut self, deleted_by: UserId, now: DateTime<Utc>) -> Result<(), ChannelError> {
-        if self.owner_id != deleted_by {
+    pub fn delete(
+        &mut self,
+        deleted_by: UserId,
+        can_override: bool,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        if self.owner_id != deleted_by && !can_override {
             return Err(ChannelError::NotOwner);
         }
 

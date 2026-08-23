@@ -7,6 +7,7 @@ use domain::{
         events::{ServerEvent, lifecycle::ServerUpdated},
         name::ServerName,
         repository::ServerRepository,
+        role::{PERM_MANAGE_SERVER, ServerRoleRepository, has_permission},
     },
     shared::{
         outbox::{
@@ -42,19 +43,25 @@ impl From<RepositoryError> for UpdateServerError {
     }
 }
 
-pub struct UpdateServer<S>
+pub struct UpdateServer<S, R>
 where
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<S> UpdateServer<S>
+impl<S, R> UpdateServer<S, R>
 where
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
-    pub fn new(server_repository: Arc<S>) -> Self {
-        Self { server_repository }
+    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
+        Self {
+            server_repository,
+            role_repository,
+        }
     }
 
     pub async fn execute(&self, request: UpdateServerRequest) -> Result<(), UpdateServerError> {
@@ -73,7 +80,14 @@ where
             .ok_or(UpdateServerError::ServerNotFound)?;
 
         if actual_owner.uuid() != owner_id.uuid() {
-            return Err(UpdateServerError::NotOwner);
+            let perms = self
+                .role_repository
+                .user_permissions(&server_id, &owner_id)
+                .await
+                .map_err(UpdateServerError::Repository)?;
+            if !has_permission(perms, PERM_MANAGE_SERVER) {
+                return Err(UpdateServerError::NotOwner);
+            }
         }
 
         let member_ids = self

@@ -172,6 +172,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             livekit_service.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),
@@ -200,6 +201,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         list_channel_messages_usecase: ListChannelMessages::new(
             message_repository.clone(),
@@ -321,7 +323,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             livekit_service.clone(),
         ),
-        update_server_usecase: UpdateServer::new(server_repository.clone()),
+        update_server_usecase: UpdateServer::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
         create_invite_code_usecase: CreateInviteCode::new(server_repository.clone()),
         list_invite_codes_usecase: ListInviteCodes::new(server_repository.clone()),
         revoke_invite_code_usecase: RevokeInviteCode::new(server_repository.clone()),

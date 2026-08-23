@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    server::role::{PERM_MANAGE_CHANNELS, ServerRoleRepository, has_permission},
     channel::{ChannelError, repository::ChannelRepository},
     server::repository::ServerRepository,
     shared::{
@@ -34,32 +35,37 @@ pub enum DeleteChannelError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteChannel<C, V, S>
+pub struct DeleteChannel<C, V, S, R>
 where
     C: ChannelRepository,
     V: VoiceService,
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<C, V, S> DeleteChannel<C, V, S>
+impl<C, V, S, R> DeleteChannel<C, V, S, R>
 where
     C: ChannelRepository,
     V: VoiceService,
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
     pub fn new(
         channel_repository: Arc<C>,
         voice_service: Arc<V>,
         server_repository: Arc<S>,
+        role_repository: Arc<R>,
     ) -> Self {
         Self {
             channel_repository,
             voice_service,
             server_repository,
+            role_repository,
         }
     }
 
@@ -83,7 +89,22 @@ where
         let now = Utc::now();
         let supports_voice = channel.supports_voice();
 
-        channel.delete(deleted_by, now).map_err(|e| match e {
+        let can_override = if channel.owner_id() == &deleted_by {
+            false
+        } else {
+            let server_owner = self
+                .server_repository
+                .find_server_owner(&server_id)
+                .await?;
+            server_owner.as_ref() == Some(&deleted_by)
+                || has_permission(
+                    self.role_repository
+                        .user_permissions(&server_id, &deleted_by)
+                        .await?,
+                    PERM_MANAGE_CHANNELS,
+                )
+        };
+        channel.delete(deleted_by, can_override, now).map_err(|e| match e {
             ChannelError::NotOwner => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;

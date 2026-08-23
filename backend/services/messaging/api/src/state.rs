@@ -75,8 +75,12 @@ pub struct AppState {
     >,
     pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
     pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
-    pub delete_channel_usecase:
-        DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerRepository>,
+    pub delete_channel_usecase: DeleteChannel<
+        PostgresChannelRepository,
+        LiveKitService,
+        PostgresServerRepository,
+        PostgresServerRoleRepository,
+    >,
     pub list_channel_participants_usecase:
         ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
     pub join_text_channel_usecase:
@@ -99,6 +103,7 @@ pub struct AppState {
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
+        PostgresServerRoleRepository,
     >,
     pub list_channel_messages_usecase: ListChannelMessages<
         PostgresMessageRepository,
@@ -172,7 +177,8 @@ pub struct AppState {
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase:
         DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
-    pub update_server_usecase: UpdateServer<PostgresServerRepository>,
+    pub update_server_usecase:
+        UpdateServer<PostgresServerRepository, PostgresServerRoleRepository>,
     pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
     pub list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
     pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,

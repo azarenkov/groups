@@ -108,6 +108,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     ? userPermissions(rolesData, currentUserId)
     : 0;
   const canManageRoles = isOwner || (myPerms & PERM_MANAGE_ROLES) !== 0;
+  const canManageServer = isOwner || (myPerms & PERM_MANAGE_SERVER) !== 0;
 
   const ROLE_COLORS = [
     "#5865f2", "#3ba55c", "#faa61a", "#ed4245", "#eb459e", "#9b59b6", "#00b0f4", "#8e8e93",
@@ -536,11 +537,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                   className="ssv-hero-ava"
                   style={{
                     background: accent,
-                    cursor: isOwner ? "pointer" : undefined,
+                    cursor: canManageServer ? "pointer" : undefined,
                   }}
-                  title={isOwner ? t("uploadLogo") : undefined}
+                  title={canManageServer ? t("uploadLogo") : undefined}
                 >
-                  {isOwner && (
+                  {canManageServer && (
                     <span
                       className="edit-badge ssv-logo-badge"
                       role="button"
@@ -556,7 +557,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                     </span>
                   )}
                 </ServerLogo>
-                {isOwner && (
+                {canManageServer && (
                   <div className="ssv-logo-actions">
                     <button
                       type="button"
@@ -595,12 +596,12 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 className="ssv-input ssv-textarea"
                 value={description}
                 maxLength={300}
-                disabled={!isOwner}
+                disabled={!canManageServer}
                 onChange={(e) => setDescription(e.target.value)}
               />
               <div className="ssv-hint">{t("descriptionHint")}</div>
               {saveError && <div className="ssv-error">{saveError}</div>}
-              {isOwner && (
+              {canManageServer && (
                 <div className="ssv-actions">
                   <button
                     type="button"
