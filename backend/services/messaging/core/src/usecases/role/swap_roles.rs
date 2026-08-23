@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
 use domain::{
-    server::{id::ServerId, repository::ServerRepository, role::ServerRoleRepository},
+    server::{
+        id::ServerId,
+        repository::ServerRepository,
+        role::{AssignOutcome, ServerRoleRepository},
+    },
     user::id::UserId,
 };
 use uuid::Uuid;
@@ -50,15 +54,28 @@ impl<S: ServerRepository, R: ServerRoleRepository> SwapRoles<S, R> {
         .await?;
         ensure_below(&height, a.position)?;
         ensure_below(&height, b.position)?;
+        let owner = self.server_repository.find_server_owner(&server_id).await?;
+        let delegated = if owner.as_ref() == Some(&actor) {
+            None
+        } else {
+            Some(&actor)
+        };
         let members = recipients(self.server_repository.as_ref(), &server_id).await?;
         let event = roles_changed_event(&server_id, &members);
-        let swapped = self
+        match self
             .role_repository
-            .swap_positions(&server_id, role_a, role_b, std::slice::from_ref(&event))
-            .await?;
-        if !swapped {
-            return Err(RoleError::RoleNotFound);
+            .swap_positions(
+                &server_id,
+                role_a,
+                role_b,
+                delegated,
+                std::slice::from_ref(&event),
+            )
+            .await?
+        {
+            AssignOutcome::Assigned => Ok(()),
+            AssignOutcome::NotFound => Err(RoleError::RoleNotFound),
+            AssignOutcome::Denied => Err(RoleError::HierarchyViolation),
         }
-        Ok(())
     }
 }

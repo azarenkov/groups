@@ -55,15 +55,17 @@ pub trait ServerRoleRepository {
     async fn update_role(
         &self,
         role: &ServerRole,
+        delegated_actor: Option<&crate::user::id::UserId>,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<bool, crate::shared::repository::error::RepositoryError>;
+    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
 
     async fn delete_role(
         &self,
         server_id: &crate::server::id::ServerId,
         role_id: Uuid,
+        delegated_actor: Option<&crate::user::id::UserId>,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<bool, crate::shared::repository::error::RepositoryError>;
+    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
 
     async fn assign_role(
         &self,
@@ -79,16 +81,18 @@ pub trait ServerRoleRepository {
         server_id: &crate::server::id::ServerId,
         user_id: &crate::user::id::UserId,
         role_id: Uuid,
+        delegated_actor: Option<&crate::user::id::UserId>,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<bool, crate::shared::repository::error::RepositoryError>;
+    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
 
     async fn swap_positions(
         &self,
         server_id: &crate::server::id::ServerId,
         role_a: Uuid,
         role_b: Uuid,
+        delegated_actor: Option<&crate::user::id::UserId>,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<bool, crate::shared::repository::error::RepositoryError>;
+    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
 
     async fn member_role_ids(
         &self,

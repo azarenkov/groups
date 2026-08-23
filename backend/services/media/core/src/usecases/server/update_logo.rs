@@ -94,7 +94,13 @@ where
             }
         };
         if owner != requester_id {
-            return Err(UpdateServerLogoError::NotOwner);
+            let allowed = self
+                .owner_lookup
+                .can_manage(&server_id, &requester_id)
+                .await?;
+            if !allowed {
+                return Err(UpdateServerLogoError::NotOwner);
+            }
         }
 
         let new_key = match bytes {

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use crate::ports::server_owner_lookup::{ServerOwnerLookup, ServerOwnerLookupError};
 use domain::{server::id::ServerId, user::id::UserId};
-use contracts::internal::servers::OwnerResponseV1;
+use contracts::internal::servers::{CanManageResponseV1, OwnerResponseV1};
 
 pub struct MessagingOwnerClient {
     client: reqwest::Client,
@@ -49,5 +49,34 @@ impl ServerOwnerLookup for MessagingOwnerClient {
                 "owner endpoint returned status {status}"
             ))),
         }
+    }
+
+    async fn can_manage(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<bool, ServerOwnerLookupError> {
+        let response = super::with_request_id(
+            self.client.get(format!(
+                "{}/internal/servers/{}/can-manage/{}",
+                self.base_url,
+                server_id.uuid(),
+                user_id.uuid(),
+            )),
+        )
+        .send()
+        .await
+        .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
+        if response.status().as_u16() != 200 {
+            return Err(ServerOwnerLookupError::Unavailable(format!(
+                "status {}",
+                response.status()
+            )));
+        }
+        let body: CanManageResponseV1 = response
+            .json()
+            .await
+            .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
+        Ok(body.allowed)
     }
 }

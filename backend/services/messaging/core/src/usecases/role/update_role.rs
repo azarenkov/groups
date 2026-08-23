@@ -4,7 +4,7 @@ use domain::{
     server::{
         id::ServerId,
         repository::ServerRepository,
-        role::{PERM_ALL, ServerRole, ServerRoleRepository},
+        role::{AssignOutcome, PERM_ALL, ServerRole, ServerRoleRepository},
     },
     user::id::UserId,
 };
@@ -74,15 +74,22 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
             permissions: permissions & PERM_ALL,
             ..existing
         };
+        let owner = self.server_repository.find_server_owner(&server_id).await?;
+        let delegated = if owner.as_ref() == Some(&actor) {
+            None
+        } else {
+            Some(&actor)
+        };
         let members = recipients(self.server_repository.as_ref(), &server_id).await?;
         let event = roles_changed_event(&server_id, &members);
-        let updated = self
+        match self
             .role_repository
-            .update_role(&role, std::slice::from_ref(&event))
-            .await?;
-        if !updated {
-            return Err(RoleError::RoleNotFound);
+            .update_role(&role, delegated, std::slice::from_ref(&event))
+            .await?
+        {
+            AssignOutcome::Assigned => Ok(()),
+            AssignOutcome::NotFound => Err(RoleError::RoleNotFound),
+            AssignOutcome::Denied => Err(RoleError::HierarchyViolation),
         }
-        Ok(())
     }
 }

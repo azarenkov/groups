@@ -14,6 +14,60 @@ use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
 };
 
+struct ActorState {
+    top: Option<i32>,
+    perms: i64,
+}
+
+async fn lock_server(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    server_id: &ServerId,
+) -> Result<(), RepositoryError> {
+    sqlx::query!(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+        server_id.uuid().to_string(),
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
+async fn actor_state(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    server_id: &ServerId,
+    actor: &UserId,
+) -> Result<ActorState, RepositoryError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"
+        FROM server_member_roles mr
+        INNER JOIN server_roles r ON r.id = mr.role_id
+        INNER JOIN server_members m
+            ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+        WHERE mr.server_id = $1 AND mr.user_id = $2
+        "#,
+        server_id.uuid(),
+        actor.uuid(),
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(ActorState {
+        top: row.top,
+        perms: row.perms.unwrap_or(0),
+    })
+}
+
+fn delegated_ok(state: &ActorState, positions: &[i32], added_perms: i64) -> bool {
+    use domain::server::role::{PERM_MANAGE_ROLES, has_permission};
+    if !has_permission(state.perms, PERM_MANAGE_ROLES) {
+        return false;
+    }
+    let Some(top) = state.top else { return false };
+    positions.iter().all(|p| *p < top) && added_perms & !state.perms == 0
+}
+
 pub struct PostgresServerRoleRepository {
     pool: Pool<Postgres>,
 }
@@ -123,14 +177,38 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
     async fn update_role(
         &self,
         role: &ServerRole,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<AssignOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        let result = sqlx::query!(
+        let server_id = ServerId::new(role.server_id);
+        lock_server(&mut tx, &server_id).await?;
+        let existing = sqlx::query!(
+            r#"
+            SELECT position, permissions FROM server_roles
+            WHERE id = $1 AND server_id = $2
+            "#,
+            role.id,
+            role.server_id,
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(existing) = existing else {
+            return Ok(AssignOutcome::NotFound);
+        };
+        if let Some(actor) = delegated_actor {
+            let state = actor_state(&mut tx, &server_id, actor).await?;
+            let added = role.permissions & !existing.permissions;
+            if !delegated_ok(&state, &[existing.position], added) {
+                return Ok(AssignOutcome::Denied);
+            }
+        }
+        sqlx::query!(
             r#"
             UPDATE server_roles
             SET name = $3, color = $4, permissions = $5
@@ -145,26 +223,45 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if result.rows_affected() == 0 {
-            return Ok(false);
-        }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(AssignOutcome::Assigned)
     }
 
     async fn delete_role(
         &self,
         server_id: &ServerId,
         role_id: Uuid,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<AssignOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        let result = sqlx::query!(
+        lock_server(&mut tx, server_id).await?;
+        let existing = sqlx::query!(
+            r#"
+            SELECT position FROM server_roles
+            WHERE id = $1 AND server_id = $2
+            "#,
+            role_id,
+            server_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(existing) = existing else {
+            return Ok(AssignOutcome::NotFound);
+        };
+        if let Some(actor) = delegated_actor {
+            let state = actor_state(&mut tx, server_id, actor).await?;
+            if !delegated_ok(&state, &[existing.position], 0) {
+                return Ok(AssignOutcome::Denied);
+            }
+        }
+        sqlx::query!(
             r#"
             DELETE FROM server_roles
             WHERE id = $1 AND server_id = $2
@@ -175,12 +272,9 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if result.rows_affected() == 0 {
-            return Ok(false);
-        }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(AssignOutcome::Assigned)
     }
 
     async fn assign_role(
@@ -269,13 +363,35 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         server_id: &ServerId,
         user_id: &UserId,
         role_id: Uuid,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<AssignOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_server(&mut tx, server_id).await?;
+        let existing = sqlx::query!(
+            r#"
+            SELECT position FROM server_roles
+            WHERE id = $1 AND server_id = $2
+            "#,
+            role_id,
+            server_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(existing) = existing else {
+            return Ok(AssignOutcome::NotFound);
+        };
+        if let Some(actor) = delegated_actor {
+            let state = actor_state(&mut tx, server_id, actor).await?;
+            if !delegated_ok(&state, &[existing.position], 0) {
+                return Ok(AssignOutcome::Denied);
+            }
+        }
         let result = sqlx::query!(
             r#"
             DELETE FROM server_member_roles
@@ -289,11 +405,11 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if result.rows_affected() == 0 {
-            return Ok(false);
+            return Ok(AssignOutcome::NotFound);
         }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(AssignOutcome::Assigned)
     }
 
     async fn swap_positions(
@@ -301,13 +417,37 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         server_id: &ServerId,
         role_a: Uuid,
         role_b: Uuid,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<AssignOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_server(&mut tx, server_id).await?;
+        if let Some(actor) = delegated_actor {
+            let rows = sqlx::query!(
+                r#"
+                SELECT position FROM server_roles
+                WHERE server_id = $1 AND id = ANY(ARRAY[$2, $3]::uuid[])
+                "#,
+                server_id.uuid(),
+                role_a,
+                role_b,
+            )
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if rows.len() != 2 {
+                return Ok(AssignOutcome::NotFound);
+            }
+            let positions: Vec<i32> = rows.iter().map(|r| r.position).collect();
+            let state = actor_state(&mut tx, server_id, actor).await?;
+            if !delegated_ok(&state, &positions, 0) {
+                return Ok(AssignOutcome::Denied);
+            }
+        }
         let result = sqlx::query!(
             r#"
             UPDATE server_roles AS r
@@ -324,11 +464,11 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if result.rows_affected() != 2 {
-            return Ok(false);
+            return Ok(AssignOutcome::NotFound);
         }
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(AssignOutcome::Assigned)
     }
 
     async fn member_role_ids(

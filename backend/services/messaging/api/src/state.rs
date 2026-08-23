@@ -160,6 +160,7 @@ pub struct AppState {
     >,
     pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
+    pub server_role_repository: std::sync::Arc<PostgresServerRoleRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
     pub nats_core: async_nats::Client,
