@@ -31,6 +31,7 @@ import {
 import i18n from "../../i18n";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
+import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { MENTION_REGEX, activeMentionQuery } from "../../utils/mentions";
 import type { ChannelParticipant } from "../../types/channel";
@@ -617,10 +618,11 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (!mentionQuery) return [];
     const q = mentionQuery.query.toLowerCase();
     return participants
+      .filter((p) => p.id !== currentUserId)
       .map((p) => ({ ...p, name: nameOverrides[p.id] ?? p.name }))
       .filter((p) => p.name.toLowerCase().startsWith(q))
       .slice(0, 8);
-  }, [mentionQuery, participants, nameOverrides]);
+  }, [mentionQuery, participants, nameOverrides, currentUserId]);
 
   const applyMention = React.useCallback(
     (name: string) => {
@@ -732,6 +734,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     setMentionIndex(0);
     setParticipants([]);
     participantsChannelRef.current = null;
+    setPullDistance(0);
+    pullStartYRef.current = null;
+    wheelPullRef.current = 0;
     setPendingFiles((prev) => {
       for (const p of prev) {
         if (!inFlightSendRef.current.has(p.localId)) discardPendingFile(p);
@@ -915,6 +920,98 @@ const ChatView: React.FC<ChatViewProps> = ({
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
     }
+  };
+
+  const PULL_THRESHOLD = 64;
+  const PULL_MAX = 96;
+  const [pullDistance, setPullDistance] = React.useState(0);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const pullStartYRef = React.useRef<number | null>(null);
+  const wheelPullRef = React.useRef(0);
+  const wheelResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const refreshingRef = React.useRef(false);
+  refreshingRef.current = refreshing;
+
+  const triggerPullRefresh = React.useCallback(async () => {
+    if (refreshingRef.current || !messenger) {
+      setPullDistance(0);
+      return;
+    }
+    setRefreshing(true);
+    setPullDistance(PULL_THRESHOLD);
+    const started = Date.now();
+    try {
+      await refreshHistoryAfterJoin();
+      void refetchUnread().catch(() => {});
+    } finally {
+      const wait = Math.max(0, 650 - (Date.now() - started));
+      setTimeout(() => {
+        setRefreshing(false);
+        setPullDistance(0);
+        wheelPullRef.current = 0;
+      }, wait);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messenger]);
+
+  const onPullTouchStart = (e: React.TouchEvent) => {
+    if (refreshingRef.current) return;
+    const b = bodyRef.current;
+    pullStartYRef.current =
+      b && b.scrollTop <= 0 ? e.touches[0].clientY : null;
+  };
+
+  const onPullTouchMove = (e: React.TouchEvent) => {
+    if (refreshingRef.current || pullStartYRef.current === null) return;
+    const b = bodyRef.current;
+    if (!b || b.scrollTop > 0) {
+      pullStartYRef.current = null;
+      setPullDistance(0);
+      return;
+    }
+    const dy = e.touches[0].clientY - pullStartYRef.current;
+    setPullDistance(dy > 0 ? Math.min(dy * 0.45, PULL_MAX) : 0);
+  };
+
+  const onPullTouchEnd = () => {
+    if (refreshingRef.current) return;
+    pullStartYRef.current = null;
+    if (pullDistance >= PULL_THRESHOLD) {
+      void triggerPullRefresh();
+    } else {
+      setPullDistance(0);
+    }
+  };
+
+  const onPullWheel = (e: React.WheelEvent) => {
+    if (refreshingRef.current) return;
+    const b = bodyRef.current;
+    if (!b || b.scrollTop > 0 || e.deltaY >= 0) {
+      if (wheelPullRef.current !== 0 && b && b.scrollTop > 0) {
+        wheelPullRef.current = 0;
+        setPullDistance(0);
+      }
+      return;
+    }
+    wheelPullRef.current = Math.min(
+      wheelPullRef.current - e.deltaY * 0.4,
+      PULL_MAX,
+    );
+    setPullDistance(wheelPullRef.current);
+    if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current);
+    if (wheelPullRef.current >= PULL_THRESHOLD) {
+      void triggerPullRefresh();
+      return;
+    }
+    wheelResetTimerRef.current = setTimeout(() => {
+      wheelResetTimerRef.current = null;
+      if (!refreshingRef.current) {
+        wheelPullRef.current = 0;
+        setPullDistance(0);
+      }
+    }, 400);
   };
 
   React.useEffect(() => {
@@ -1363,9 +1460,41 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
       <div
+        className="chat-body-wrap"
+        style={callMode ? { display: "none" } : undefined}
+      >
+      <div
+        className={"pull-refresh" + (refreshing ? " refreshing" : "")}
+        style={{
+          opacity: refreshing ? 1 : Math.min(pullDistance / PULL_THRESHOLD, 1),
+          transform: `translateX(-50%) translateY(${
+            (refreshing ? PULL_THRESHOLD : pullDistance) - 44
+          }px) scale(${
+            refreshing
+              ? 1
+              : 0.6 + 0.4 * Math.min(pullDistance / PULL_THRESHOLD, 1)
+          })`,
+        }}
+      >
+        <span
+          className="pull-refresh-icon"
+          style={
+            refreshing
+              ? undefined
+              : { transform: `rotate(${pullDistance * 2.5}deg)` }
+          }
+        >
+          <Icon name="refresh" size={15} />
+        </span>
+      </div>
+      <div
         className={"chat-body" + (dragOver ? " drag-over" : "")}
         ref={bodyRef}
         onScroll={handleScroll}
+        onTouchStart={onPullTouchStart}
+        onTouchMove={onPullTouchMove}
+        onTouchEnd={onPullTouchEnd}
+        onWheel={onPullWheel}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes("Files")) {
             e.preventDefault();
@@ -1380,7 +1509,13 @@ const ChatView: React.FC<ChatViewProps> = ({
             addFiles(e.dataTransfer.files);
           }
         }}
-        style={callMode ? { display: "none" } : undefined}
+        style={{
+          transform: `translateY(${pullDistance}px)`,
+          transition:
+            pullStartYRef.current !== null
+              ? "none"
+              : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
       >
         {searchOpen && searchInput.trim().length > 0 ? (
           <div className="search-results">
@@ -1545,6 +1680,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             })}
           </div>
         )}
+      </div>
       </div>
       {!callMode && (
       <form className="composer" onSubmit={handleSend}>
