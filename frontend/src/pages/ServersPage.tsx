@@ -389,7 +389,26 @@ const ServersPage: React.FC = () => {
     onTextChannelActive && !!activeTextChannel && !!membersOpenById[activeTextChannel.id];
 
   const callStageShown = useCallStore((s) => !!s.activeCallId && s.focused);
-  const chatHidden = settingsOpen || !!serverSettings || (callStageShown && !selectedDm);
+  const [windowFocused, setWindowFocused] = useState(
+    () => typeof document === "undefined" || document.hasFocus(),
+  );
+  useEffect(() => {
+    const update = () =>
+      setWindowFocused(document.hasFocus() && !document.hidden);
+    window.addEventListener("focus", update);
+    window.addEventListener("blur", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.removeEventListener("focus", update);
+      window.removeEventListener("blur", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
+  const chatHidden =
+    !windowFocused ||
+    settingsOpen ||
+    !!serverSettings ||
+    (callStageShown && !selectedDm);
   const visibleTextChannelId =
     !chatHidden && onTextChannelActive && activeTextChannel
       ? activeTextChannel.id
