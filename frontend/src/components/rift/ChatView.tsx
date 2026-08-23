@@ -2582,6 +2582,26 @@ const Message: React.FC<MessageProps> = ({
   onOpenInviteServer,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
+  const [copied, setCopied] = React.useState(false);
+  const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  React.useEffect(
+    () => () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
+  const handleCopy = () => {
+    void navigator.clipboard
+      .writeText(msg.content)
+      .then(() => {
+        setCopied(true);
+        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = setTimeout(() => setCopied(false), 1200);
+      })
+      .catch((e) => console.warn("[ChatView] copy failed:", e));
+  };
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
     hour: "2-digit",
@@ -2856,6 +2876,18 @@ const Message: React.FC<MessageProps> = ({
             onClick={onDelete}
           >
             <Icon name="trash" size={13} />
+          </button>
+        </div>
+      )}
+      {!isMine && !editing && !msg.inviteServerId && msg.content.length > 0 && (
+        <div className="msg-actions">
+          <button
+            type="button"
+            className="icon-btn"
+            title={i18n.t("copyMessage", { ns: "chat" })}
+            onClick={handleCopy}
+          >
+            <Icon name={copied ? "check" : "copy"} size={13} />
           </button>
         </div>
       )}
