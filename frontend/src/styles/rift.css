@@ -206,7 +206,9 @@ body.electron .sb-nav {
   top: 7px; left: 84px;
   margin: 0;
   z-index: 45;
+  transition: left var(--dur-base, 200ms) var(--ease-standard, ease);
 }
+body.electron.electron-fullscreen .sb-nav { left: 10px; }
 .sb-nav-btn {
   width: 28px; height: 26px;
   display: inline-flex; align-items: center; justify-content: center;

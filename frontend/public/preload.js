@@ -25,4 +25,11 @@ contextBridge.exposeInMainWorld('electron', {
   },
   pickScreenShareSource: (requestId, sourceId) =>
     ipcRenderer.send('screen-share:picked', { requestId, sourceId }),
+
+  isFullscreen: () => ipcRenderer.invoke('window:is-fullscreen'),
+  onFullscreenChange: (callback) => {
+    const handler = (_event, value) => callback(!!value);
+    ipcRenderer.on('window:fullscreen', handler);
+    return () => ipcRenderer.removeListener('window:fullscreen', handler);
+  },
 });

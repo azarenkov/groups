@@ -36,7 +36,13 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (window.electron) document.body.classList.add("electron");
+    if (!window.electron) return;
+    document.body.classList.add("electron");
+    const apply = (v: boolean) =>
+      document.body.classList.toggle("electron-fullscreen", v);
+    void window.electron.isFullscreen?.().then(apply).catch(() => {});
+    const off = window.electron.onFullscreenChange?.(apply);
+    return () => off?.();
   }, []);
 
   const hasAccessToken = !!tokens?.accessToken;

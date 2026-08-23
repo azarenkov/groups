@@ -255,6 +255,14 @@ function createMainWindow() {
     }
   });
 
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow?.webContents.send('window:fullscreen', true);
+  });
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow?.webContents.send('window:fullscreen', false);
+  });
+  ipcMain.handle('window:is-fullscreen', () => mainWindow?.isFullScreen() ?? false);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
