@@ -585,7 +585,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 className="ssv-input"
                 value={name}
                 maxLength={20}
-                disabled={!isOwner}
+                disabled={!canManageServer}
                 onChange={(e) => {
                   setName(e.target.value);
                   setSaveError(null);
