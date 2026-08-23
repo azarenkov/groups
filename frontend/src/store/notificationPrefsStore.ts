@@ -26,12 +26,71 @@ const channelPersisted: Record<string, NotifLevel> = {};
 const dmPersisted: Record<string, NotifLevel> = {};
 const writeQueues: Record<string, Promise<void>> = {};
 const pendingWrites: Record<string, number> = {};
+const deferredRemote: Record<string, boolean> = {};
 let sessionGen = 0;
 
 function enqueueWrite(key: string, task: () => Promise<void>): Promise<void> {
   const next = (writeQueues[key] ?? Promise.resolve()).then(task, task);
   writeQueues[key] = next.catch(() => {});
   return next;
+}
+
+function settleWrite(key: string, scopeType: "channel" | "dm", scopeId: string) {
+  pendingWrites[key] = Math.max(0, (pendingWrites[key] ?? 1) - 1);
+  if (pendingWrites[key] === 0 && deferredRemote[key]) {
+    delete deferredRemote[key];
+    void reconcileScope(scopeType, scopeId);
+  }
+}
+
+async function reconcileScope(
+  scopeType: "channel" | "dm",
+  scopeId: string,
+): Promise<void> {
+  const gen = sessionGen;
+  const sessionUserId = useAuthStore.getState().user?.id;
+  if (!sessionUserId) return;
+  try {
+    const { preferences } = await userAPI.getNotificationPreferences();
+    if (
+      sessionGen !== gen ||
+      useAuthStore.getState().user?.id !== sessionUserId
+    ) {
+      return;
+    }
+    const key = `${scopeType}:${scopeId}`;
+    if ((pendingWrites[key] ?? 0) > 0) {
+      deferredRemote[key] = true;
+      return;
+    }
+    const found = preferences.find(
+      (p) => p.scopeType === scopeType && p.scopeId === scopeId,
+    );
+    const level =
+      found && isLevel(found.level) ? found.level : undefined;
+    if (scopeType === "channel") {
+      if (level === undefined) delete channelPersisted[scopeId];
+      else channelPersisted[scopeId] = level;
+      useNotificationPrefsStore.setState((s) => {
+        const next = { ...s.channelLevels };
+        if (level === undefined) delete next[scopeId];
+        else next[scopeId] = level;
+        return { channelLevels: next };
+      });
+    } else {
+      if (level === undefined) delete dmPersisted[scopeId];
+      else dmPersisted[scopeId] = level;
+      useNotificationPrefsStore.setState((s) => {
+        const next = { ...s.dmLevels };
+        if (level === undefined) delete next[scopeId];
+        else next[scopeId] = level;
+        return { dmLevels: next };
+      });
+    }
+    void refetchUnread().catch(() => {});
+  } catch {
+    return;
+  }
 }
 
 export const useNotificationPrefsStore = create<NotificationPrefsState>()(
@@ -110,7 +169,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
           }
           throw e;
         } finally {
-          pendingWrites[key] = Math.max(0, (pendingWrites[key] ?? 1) - 1);
+          settleWrite(key, "channel", channelId);
         }
       });
     },
@@ -147,7 +206,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
           }
           throw e;
         } finally {
-          pendingWrites[key] = Math.max(0, (pendingWrites[key] ?? 1) - 1);
+          settleWrite(key, "dm", friendId);
         }
       });
     },
@@ -155,7 +214,10 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
     applyRemote: (scopeType, scopeId, level) => {
       if (!isLevel(level)) return;
       if (scopeType !== "channel" && scopeType !== "dm") return;
-      if ((pendingWrites[`${scopeType}:${scopeId}`] ?? 0) > 0) return;
+      if ((pendingWrites[`${scopeType}:${scopeId}`] ?? 0) > 0) {
+        deferredRemote[`${scopeType}:${scopeId}`] = true;
+        return;
+      }
       if (scopeType === "channel") {
         channelPersisted[scopeId] = level;
         set((s) => ({
@@ -175,6 +237,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       for (const k of Object.keys(dmPersisted)) delete dmPersisted[k];
       for (const k of Object.keys(writeQueues)) delete writeQueues[k];
       for (const k of Object.keys(pendingWrites)) delete pendingWrites[k];
+      for (const k of Object.keys(deferredRemote)) delete deferredRemote[k];
       set({ channelLevels: {}, dmLevels: {} });
     },
   }),
