@@ -448,14 +448,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     const accent = server.accentColor ?? colorForId(server.id);
     return (
       <div className="sb-view sb-server-page">
-        <button
-          type="button"
-          className="sb-back"
-          onClick={() => setOpenServerId(null)}
-        >
-          <Icon name="chev-left" size={14} />
-          <span>{t("tabServers")}</span>
-        </button>
         <div className="sb-server-head">
           <ServerLogo
             serverId={server.id}
@@ -687,7 +679,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button
           type="button"
           className={"sb-seg-btn" + (tab === "servers" ? " active" : "")}
-          onClick={() => setTab("servers")}
+          onClick={() =>
+            tab === "servers" && openServerId
+              ? setOpenServerId(null)
+              : setTab("servers")
+          }
         >
           <svg
             width="15"
