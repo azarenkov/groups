@@ -405,10 +405,7 @@ const ServersPage: React.FC = () => {
     };
   }, []);
   const chatHidden =
-    !windowFocused ||
-    settingsOpen ||
-    !!serverSettings ||
-    (callStageShown && !selectedDm);
+    !windowFocused || settingsOpen || !!serverSettings || callStageShown;
   const visibleTextChannelId =
     !chatHidden && onTextChannelActive && activeTextChannel
       ? activeTextChannel.id
