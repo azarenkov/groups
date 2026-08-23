@@ -6,7 +6,7 @@ use domain::{
 };
 use uuid::Uuid;
 
-use super::{RoleError, actor_height, ensure_below, ensure_manage_roles, recipients, roles_changed_event};
+use super::{RoleError, actor_grantable_permissions, actor_height, ensure_below, ensure_grantable, ensure_manage_roles, recipients, roles_changed_event};
 
 pub struct AssignRole<S: ServerRepository, R: ServerRoleRepository> {
     server_repository: Arc<S>,
@@ -50,6 +50,14 @@ impl<S: ServerRepository, R: ServerRoleRepository> AssignRole<S, R> {
         )
         .await?;
         ensure_below(&height, target_role.position)?;
+        let grantable = actor_grantable_permissions(
+            self.server_repository.as_ref(),
+            self.role_repository.as_ref(),
+            &server_id,
+            &actor,
+        )
+        .await?;
+        ensure_grantable(target_role.permissions, grantable)?;
         let members = recipients(self.server_repository.as_ref(), &server_id).await?;
         let event = roles_changed_event(&server_id, &members);
         let assigned = self
