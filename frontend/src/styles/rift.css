@@ -2554,7 +2554,7 @@ body.electron .titlebar { padding-left: 84px; }
 }
 
 .settings-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: var(--surface-canvas);
   display: flex;

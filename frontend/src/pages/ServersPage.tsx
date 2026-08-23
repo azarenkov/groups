@@ -839,7 +839,6 @@ const ServersPage: React.FC = () => {
 
   return (
     <div className="win">
-      {!settingsOpen && !serverSettings && (
       <div className="titlebar">
         <div className="traffic">
           <i />
@@ -872,7 +871,6 @@ const ServersPage: React.FC = () => {
           </button>
         </div>
       </div>
-      )}
 
       <div className="body-area">
         <Sidebar
