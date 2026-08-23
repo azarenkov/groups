@@ -494,6 +494,18 @@ impl ServerRepository for PostgresServerRepository {
 
         sqlx::query!(
             r#"
+                DELETE FROM server_member_roles
+                WHERE server_id = $1 AND user_id = $2
+            "#,
+            server_id.uuid(),
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
                 DELETE FROM channel_voice_participants
                 WHERE user_id = $1
                   AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)

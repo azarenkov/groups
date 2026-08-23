@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT user_id, role_id\n            FROM server_member_roles\n            WHERE server_id = $1\n            ",
+  "query": "\n            SELECT mr.user_id, mr.role_id\n            FROM server_member_roles mr\n            INNER JOIN server_members m\n                ON m.server_id = mr.server_id AND m.user_id = mr.user_id\n            WHERE mr.server_id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "7a709f3a403bf1b1617670daba73fd3f43ac7ba85a8737475fd2d9338fed4a0c"
+  "hash": "7f9f92a0cd794eaaa73c8dffbf8fade3967f3628b6f1329e9075074b8c8fb96f"
 }

@@ -10,7 +10,7 @@ use domain::{
 };
 use uuid::Uuid;
 
-use super::{RoleError, actor_height, ensure_below, ensure_manage_roles, recipients, roles_changed_event, validate_role_input};
+use super::{RoleError, actor_grantable_permissions, actor_height, ensure_below, ensure_grantable, ensure_manage_roles, recipients, roles_changed_event, validate_role_input};
 
 pub struct UpdateRole<S: ServerRepository, R: ServerRoleRepository> {
     server_repository: Arc<S>,
@@ -62,6 +62,17 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
         if let Some(p) = position {
             ensure_below(&height, p)?;
         }
+        let grantable = actor_grantable_permissions(
+            self.server_repository.as_ref(),
+            self.role_repository.as_ref(),
+            &server_id,
+            &actor,
+        )
+        .await?;
+        ensure_grantable(
+            (permissions & PERM_ALL) & !existing.permissions,
+            grantable,
+        )?;
         let role = ServerRole {
             name: name.trim().to_string(),
             color,

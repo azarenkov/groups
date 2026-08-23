@@ -236,9 +236,11 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
     ) -> Result<Vec<(Uuid, Uuid)>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
-            SELECT user_id, role_id
-            FROM server_member_roles
-            WHERE server_id = $1
+            SELECT mr.user_id, mr.role_id
+            FROM server_member_roles mr
+            INNER JOIN server_members m
+                ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+            WHERE mr.server_id = $1
             "#,
             server_id.uuid(),
         )
@@ -258,6 +260,8 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             SELECT bit_or(r.permissions) AS "perms"
             FROM server_member_roles mr
             INNER JOIN server_roles r ON r.id = mr.role_id
+            INNER JOIN server_members m
+                ON m.server_id = mr.server_id AND m.user_id = mr.user_id
             WHERE mr.server_id = $1 AND mr.user_id = $2
             "#,
             server_id.uuid(),

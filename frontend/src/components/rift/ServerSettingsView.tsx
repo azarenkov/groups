@@ -559,11 +559,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                   className="ssv-hero-ava"
                   style={{
                     background: accent,
-                    cursor: canManageServer ? "pointer" : undefined,
+                    cursor: isOwner ? "pointer" : undefined,
                   }}
-                  title={canManageServer ? t("uploadLogo") : undefined}
+                  title={isOwner ? t("uploadLogo") : undefined}
                 >
-                  {canManageServer && (
+                  {isOwner && (
                     <span
                       className="edit-badge ssv-logo-badge"
                       role="button"
@@ -579,7 +579,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                     </span>
                   )}
                 </ServerLogo>
-                {canManageServer && (
+                {isOwner && (
                   <div className="ssv-logo-actions">
                     <button
                       type="button"

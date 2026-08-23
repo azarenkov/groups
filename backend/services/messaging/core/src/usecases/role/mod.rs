@@ -145,3 +145,27 @@ pub fn ensure_below(height: &ActorHeight, role_position: i32) -> Result<(), Role
         _ => Err(RoleError::HierarchyViolation),
     }
 }
+
+pub async fn actor_grantable_permissions<S, R>(
+    server_repository: &S,
+    role_repository: &R,
+    server_id: &ServerId,
+    user_id: &UserId,
+) -> Result<i64, RoleError>
+where
+    S: ServerRepository,
+    R: role::ServerRoleRepository,
+{
+    let owner = server_repository.find_server_owner(server_id).await?;
+    if owner.as_ref() == Some(user_id) {
+        return Ok(role::PERM_ALL);
+    }
+    Ok(role_repository.user_permissions(server_id, user_id).await?)
+}
+
+pub fn ensure_grantable(requested: i64, grantable: i64) -> Result<(), RoleError> {
+    if requested & !grantable != 0 {
+        return Err(RoleError::NotAllowed);
+    }
+    Ok(())
+}

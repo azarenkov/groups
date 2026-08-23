@@ -12,8 +12,8 @@ use domain::{
 use uuid::Uuid;
 
 use super::{
-    ActorHeight, MAX_ROLES_PER_SERVER, RoleError, actor_height, ensure_manage_roles, recipients,
-    roles_changed_event, validate_role_input,
+    ActorHeight, MAX_ROLES_PER_SERVER, RoleError, actor_grantable_permissions, actor_height,
+    ensure_grantable, ensure_manage_roles, recipients, roles_changed_event, validate_role_input,
 };
 
 pub struct CreateRole<S: ServerRepository, R: ServerRoleRepository> {
@@ -45,6 +45,14 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
         )
         .await?;
         validate_role_input(&name, &color)?;
+        let grantable = actor_grantable_permissions(
+            self.server_repository.as_ref(),
+            self.role_repository.as_ref(),
+            &server_id,
+            &actor,
+        )
+        .await?;
+        ensure_grantable(permissions & PERM_ALL, grantable)?;
         let existing = self.role_repository.list_roles(&server_id).await?;
         if existing.len() >= MAX_ROLES_PER_SERVER {
             return Err(RoleError::InvalidData);
