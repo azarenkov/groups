@@ -38,7 +38,7 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
     ) -> Result<Vec<StoredNotificationPreference>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
-            SELECT scope_type, scope_id, level, updated_at
+            SELECT scope_type, scope_id, level, version
             FROM notification_preferences
             WHERE user_id = $1
             "#,
@@ -57,7 +57,7 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
                         scope_id: row.scope_id,
                         level: NotificationLevel::parse(&row.level)?,
                     },
-                    updated_at: row.updated_at,
+                    version: row.version,
                 })
             })
             .collect())
@@ -67,20 +67,23 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
         &self,
         user_id: &UserId,
         preference: &NotificationPreference,
-    ) -> Result<chrono::DateTime<chrono::Utc>, RepositoryError> {
+    ) -> Result<i64, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        let updated_at = sqlx::query_scalar!(
+        let row = sqlx::query!(
             r#"
             INSERT INTO notification_preferences (user_id, scope_type, scope_id, level, updated_at)
             VALUES ($1, $2, $3, $4, now())
             ON CONFLICT (user_id, scope_type, scope_id)
-            DO UPDATE SET level = EXCLUDED.level, updated_at = EXCLUDED.updated_at
-            RETURNING updated_at
+            DO UPDATE SET
+                level = EXCLUDED.level,
+                updated_at = EXCLUDED.updated_at,
+                version = notification_preferences.version + 1
+            RETURNING updated_at, version
             "#,
             user_id.uuid(),
             preference.scope.as_str(),
@@ -103,15 +106,15 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
                 "scope_type": preference.scope.as_str(),
                 "scope_id": preference.scope_id,
                 "level": preference.level.as_str(),
-                "updated_at": updated_at,
+                "version": row.version,
                 "recipients": [user_id.uuid()],
             }),
-            occurred_at: updated_at,
+            occurred_at: row.updated_at,
             request_id: None,
         };
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(updated_at)
+        Ok(row.version)
     }
 }

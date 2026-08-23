@@ -131,7 +131,7 @@ class UserAPI {
       scopeType: string;
       scopeId: string;
       level: string;
-      updatedAt?: string;
+      version?: number;
     }[];
   }> {
     const response = await this.client.get("/v1/notifications/preferences");
@@ -142,13 +142,13 @@ class UserAPI {
     scopeType: "channel" | "dm",
     scopeId: string,
     level: "all" | "mentions" | "none",
-  ): Promise<string | undefined> {
+  ): Promise<number | undefined> {
     const response = await this.client.put("/v1/notifications/preferences", {
       scopeType,
       scopeId,
       level,
     });
-    return response.data?.data?.updatedAt;
+    return response.data?.data?.version;
   }
 }
 

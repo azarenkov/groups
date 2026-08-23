@@ -143,8 +143,8 @@ pub async fn dispatch(
             "scopeId": evt.scope_id,
             "level": evt.level,
         });
-        if let Some(updated_at) = evt.updated_at {
-            data["updatedAt"] = json!(updated_at);
+        if let Some(version) = evt.version {
+            data["version"] = json!(version);
         }
         let envelope = Envelope::new("notification_preference.updated", data);
         publisher

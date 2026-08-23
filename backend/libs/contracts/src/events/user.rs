@@ -31,7 +31,7 @@ pub struct NotificationPreferenceUpdatedV1 {
     pub scope_id: Uuid,
     pub level: String,
     #[serde(default)]
-    pub updated_at: Option<DateTime<Utc>>,
+    pub version: Option<i64>,
     #[serde(default)]
     pub recipients: Vec<Uuid>,
 }

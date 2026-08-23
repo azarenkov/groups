@@ -51,7 +51,7 @@ impl<R: NotificationPreferenceRepository, C: ChannelRepository, F: FriendshipRep
         scope: NotificationScope,
         scope_id: Uuid,
         level: NotificationLevel,
-    ) -> Result<chrono::DateTime<chrono::Utc>, SetNotificationPreferenceError> {
+    ) -> Result<i64, SetNotificationPreferenceError> {
         match scope {
             NotificationScope::Channel => {
                 let channel_id = ChannelId::new(scope_id);
@@ -81,7 +81,7 @@ impl<R: NotificationPreferenceRepository, C: ChannelRepository, F: FriendshipRep
                 }
             }
         }
-        let updated_at = self
+        let version = self
             .repo
             .set_preference(
                 &user_id,
@@ -92,6 +92,6 @@ impl<R: NotificationPreferenceRepository, C: ChannelRepository, F: FriendshipRep
                 },
             )
             .await?;
-        Ok(updated_at)
+        Ok(version)
     }
 }

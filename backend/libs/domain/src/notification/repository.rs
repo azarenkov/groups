@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{
@@ -18,7 +17,7 @@ pub struct NotificationPreference {
 #[derive(Debug, Clone)]
 pub struct StoredNotificationPreference {
     pub preference: NotificationPreference,
-    pub updated_at: DateTime<Utc>,
+    pub version: i64,
 }
 
 #[async_trait]
@@ -32,5 +31,5 @@ pub trait NotificationPreferenceRepository {
         &self,
         user_id: &UserId,
         preference: &NotificationPreference,
-    ) -> Result<DateTime<Utc>, RepositoryError>;
+    ) -> Result<i64, RepositoryError>;
 }

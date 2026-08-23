@@ -410,7 +410,12 @@ function dispatch(env: WsEnvelope) {
       if (!scopeType || !scopeId || !level) return;
       useNotificationPrefsStore
         .getState()
-        .applyRemote(scopeType, scopeId, level, asString(d.updatedAt));
+        .applyRemote(
+          scopeType,
+          scopeId,
+          level,
+          typeof d.version === "number" ? d.version : undefined,
+        );
       scheduleUnreadRefetch();
       return;
     }
