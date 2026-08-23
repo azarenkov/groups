@@ -40,19 +40,9 @@ const App: React.FC = () => {
     document.body.classList.add("electron");
     const apply = (v: boolean) =>
       document.body.classList.toggle("electron-fullscreen", v);
-    const guess = () =>
-      apply(
-        window.outerWidth >= window.screen.width - 2 &&
-          window.outerHeight >= window.screen.availHeight - 2,
-      );
-    guess();
-    window.addEventListener("resize", guess);
     void window.electron.isFullscreen?.().then(apply).catch(() => {});
     const off = window.electron.onFullscreenChange?.(apply);
-    return () => {
-      window.removeEventListener("resize", guess);
-      off?.();
-    };
+    return () => off?.();
   }, []);
 
   const hasAccessToken = !!tokens?.accessToken;
