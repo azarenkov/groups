@@ -26,10 +26,6 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onAddFriend: () => void;
   onOpenPending: () => void;
-  canGoBack: boolean;
-  canGoForward: boolean;
-  onGoBack: () => void;
-  onGoForward: () => void;
   pendingCount: number;
   onCreateServer: () => void;
   onJoinServer: () => void;
@@ -84,10 +80,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onAddFriend,
   onOpenPending,
-  canGoBack,
-  canGoForward,
-  onGoBack,
-  onGoForward,
   pendingCount,
   onCreateServer,
   onJoinServer,
@@ -104,11 +96,44 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetStatus,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
-  const [tab, setTab] = React.useState<"dms" | "servers">(
-    selectedChannelId ? "servers" : "dms",
-  );
-  const [openServerId, setOpenServerId] = React.useState<string | null>(null);
+  type Screen = { tab: "dms" | "servers"; server: string | null };
+  const initialScreen: Screen = { tab: selectedChannelId ? "servers" : "dms", server: null };
+  const [screen, setScreen] = React.useState<Screen>(initialScreen);
+  const historyRef = React.useRef<Screen[]>([initialScreen]);
+  const historyIdxRef = React.useRef(0);
+  const [navState, setNavState] = React.useState({ back: false, forward: false });
+  const tab = screen.tab;
+  const openServerId = screen.tab === "servers" ? screen.server : null;
   const openServer = servers.find((s) => s.id === openServerId) ?? null;
+
+  const syncNavState = () => {
+    setNavState({
+      back: historyIdxRef.current > 0,
+      forward: historyIdxRef.current < historyRef.current.length - 1,
+    });
+  };
+  const navigateTo = (next: Screen) => {
+    const cur = historyRef.current[historyIdxRef.current];
+    if (cur && cur.tab === next.tab && cur.server === next.server) return;
+    const hist = historyRef.current.slice(0, historyIdxRef.current + 1);
+    hist.push(next);
+    if (hist.length > 50) hist.shift();
+    historyRef.current = hist;
+    historyIdxRef.current = hist.length - 1;
+    setScreen(next);
+    syncNavState();
+  };
+  const goHistory = (delta: -1 | 1) => {
+    const idx = historyIdxRef.current + delta;
+    if (idx < 0 || idx >= historyRef.current.length) return;
+    historyIdxRef.current = idx;
+    setScreen(historyRef.current[idx]);
+    syncNavState();
+  };
+  const setTab = (next: "dms" | "servers") =>
+    navigateTo({ tab: next, server: next === "servers" ? openServerId : null });
+  const setOpenServerId = (id: string | null) =>
+    navigateTo({ tab: "servers", server: id });
   const prevSelection = React.useRef({
     dm: selectedDmId,
     channel: selectedChannelId,
@@ -570,27 +595,26 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="sb">
-      <div className="sb-top">
-        <div className="sb-nav">
-          <button
-            type="button"
-            className="sb-nav-btn"
-            title={t("common:back")}
-            disabled={!canGoBack}
-            onClick={onGoBack}
-          >
-            <Icon name="chev-left" size={15} />
-          </button>
-          <button
-            type="button"
-            className="sb-nav-btn"
-            title={t("common:forward")}
-            disabled={!canGoForward}
-            onClick={onGoForward}
-          >
-            <Icon name="chev-left" size={15} className="flip-x" />
-          </button>
-        </div>
+      <div className="sb-nav">
+        <button
+          type="button"
+          className="sb-nav-btn"
+          title={t("common:back")}
+          disabled={!navState.back}
+          onClick={() => goHistory(-1)}
+        >
+          <Icon name="chev-left" size={15} />
+        </button>
+        <button
+          type="button"
+          className="sb-nav-btn"
+          title={t("common:forward")}
+          disabled={!navState.forward}
+          onClick={() => goHistory(1)}
+        >
+          <Icon name="chev-left" size={15} className="flip-x" />
+        </button>
+      </div>
       <div className="sb-search">
         <Icon name="search" size={14} />
         <input
@@ -622,7 +646,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         ) : (
           <kbd>⌘K</kbd>
         )}
-      </div>
       </div>
 
       <div className={"sb-seg " + tab}>
