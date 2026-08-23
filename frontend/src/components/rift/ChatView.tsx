@@ -909,9 +909,11 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const refreshHistoryAfterJoin = async () => {
     if (!messenger) return;
+    const requestConvId = convIdRef.current;
     reseedChannelReads();
     try {
       const res = await messenger.listMessages({ limit: PAGE_LIMIT });
+      if (convIdRef.current !== requestConvId) return;
       const ordered = [...res.messages].reverse();
       setMessages((prev) => mergeWithLive(ordered, prev));
       setHasMore(res.messages.length >= PAGE_LIMIT);
