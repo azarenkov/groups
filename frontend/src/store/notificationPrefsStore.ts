@@ -34,6 +34,11 @@ const activeWrites: Record<string, number> = {};
 const deferredRemote: Record<string, boolean> = {};
 const remoteVersions: Record<string, number> = {};
 let sessionGen = 0;
+let prefsLoaded = false;
+
+export function notificationPrefsLoaded(): boolean {
+  return prefsLoaded;
+}
 
 function advanceRemoteVersion(key: string, version: number | undefined): void {
   if (typeof version !== "number" || !Number.isFinite(version)) return;
@@ -187,6 +192,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         }
         return { channelLevels, dmLevels };
       });
+      prefsLoaded = true;
     },
 
     setChannelLevel: async (channelId, level) => {
@@ -312,6 +318,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
 
     clearAll: () => {
       sessionGen += 1;
+      prefsLoaded = false;
       for (const k of Object.keys(channelSeqs)) delete channelSeqs[k];
       for (const k of Object.keys(dmSeqs)) delete dmSeqs[k];
       for (const k of Object.keys(channelPersisted)) delete channelPersisted[k];
