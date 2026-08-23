@@ -4224,7 +4224,10 @@ textarea.s-input {
   margin-bottom: 24px;
 }
 .ssv-input:disabled { color: var(--fg-3); }
-.ssv-input:focus { box-shadow: inset 0 0 0 1px var(--accent); }
+.ssv-input:focus,
+.ssv-input:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
+.ssv-create-password:focus,
+.ssv-create-password:focus-visible { outline: none; }
 .ssv-textarea {
   min-height: 84px;
   padding: 12px 14px;
