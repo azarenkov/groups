@@ -64,5 +64,7 @@
   "kindText": "Text",
   "kindVoice": "Voice",
   "privateChannel": "Private",
-  "deleteChannel": "Delete channel"
+  "deleteChannel": "Delete channel",
+  "createChannelHint": "Text or voice, public or password-protected",
+  "channelList": "Channels ({{count}})"
 }

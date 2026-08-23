@@ -494,15 +494,27 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
               <p className="lead">
                 {t("channelsLead", { count: channels.length, server: server.name })}
               </p>
-              <div className="ssv-actions" style={{ marginTop: 0, marginBottom: 16 }}>
-                <button
-                  type="button"
-                  className="ssv-btn primary"
-                  onClick={onCreateChannel}
-                >
-                  <Icon name="plus" size={14} />
-                  {t("createChannel")}
-                </button>
+              <div className="ssv-invite-card">
+                <div className="ssv-invite-head">
+                  <Icon name="hash" size={16} />
+                  <span>{t("createChannel")}</span>
+                </div>
+                <div className="ssv-invite-row">
+                  <div className="ssv-invite-code">
+                    <span className="dim">{t("createChannelHint")}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="ssv-btn primary"
+                    onClick={onCreateChannel}
+                  >
+                    <Icon name="plus" size={14} />
+                    {t("createChannel")}
+                  </button>
+                </div>
+              </div>
+              <div className="ssv-section-label">
+                {t("channelList", { count: channels.length })}
               </div>
               <div className="ssv-card">
                 {channels.length === 0 && (

@@ -64,5 +64,7 @@
   "kindText": "Текстовый",
   "kindVoice": "Голосовой",
   "privateChannel": "Приватный",
-  "deleteChannel": "Удалить канал"
+  "deleteChannel": "Удалить канал",
+  "createChannelHint": "Текстовый или голосовой, публичный или по паролю",
+  "channelList": "Каналы ({{count}})"
 }
