@@ -9,7 +9,6 @@ import { callAPI } from "../api/call";
 import { attachmentAPI } from "../api/attachment";
 import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
-import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
@@ -52,12 +51,7 @@ import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
 import { qualityClass, qualityLabel } from "../utils/quality";
-import {
-  Channel,
-  ChannelKind,
-  ChannelParticipant,
-  ChannelVisibility,
-} from "../types/channel";
+import { Channel, ChannelParticipant } from "../types/channel";
 import { Server } from "../types/server";
 import {
   type MockDirect,
@@ -127,8 +121,6 @@ const ServersPage: React.FC = () => {
   const [serverModalView, setServerModalView] = useState<
     "choose" | "create" | "join"
   >("choose");
-  const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
-  const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
@@ -528,23 +520,6 @@ const ServersPage: React.FC = () => {
     setSelectedChannel(null);
     setSelectedDm(null);
     if (logoError) return { logoError };
-  };
-
-  const handleCreateChannel = async (
-    name: string,
-    kind: ChannelKind,
-    visibility: ChannelVisibility,
-    password?: string,
-  ) => {
-    if (channelModalServerId) {
-      await createChannel(
-        channelModalServerId,
-        name,
-        kind,
-        visibility,
-        password,
-      );
-    }
   };
 
   const handleDeleteServer = async () => {
@@ -1041,8 +1016,7 @@ const ServersPage: React.FC = () => {
               <NoTextChannel
                 serverName={selectedServer?.name ?? ""}
                 onCreate={() => {
-                  setChannelModalServerId(selectedServer?.id ?? null);
-                  setIsChannelModalOpen(true);
+                  if (selectedServer) setServerSettings(selectedServer);
                 }}
               />
             ) : (
@@ -1140,10 +1114,9 @@ const ServersPage: React.FC = () => {
                 name: server.name,
               });
             }}
-            onCreateChannel={() => {
-              setChannelModalServerId(serverSettings.id);
-              setIsChannelModalOpen(true);
-            }}
+            onCreateChannel={(name, kind, visibility, password) =>
+              createChannel(serverSettings.id, name, kind, visibility, password)
+            }
             onDeleteChannel={(channel) =>
               setDeleteConfirm({
                 type: "channel",
@@ -1174,15 +1147,6 @@ const ServersPage: React.FC = () => {
           setSelectedChannel(null);
           setSelectedDm(null);
         }}
-      />
-
-      <CreateChannelModal
-        isOpen={isChannelModalOpen}
-        onClose={() => {
-          setIsChannelModalOpen(false);
-          setChannelModalServerId(null);
-        }}
-        onCreate={handleCreateChannel}
       />
 
       <PasswordPromptModal

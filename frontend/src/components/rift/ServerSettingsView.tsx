@@ -12,7 +12,7 @@ import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import type { Friendship } from "../../types/friendship";
 import type { InviteCode, Server } from "../../types/server";
-import type { Channel } from "../../types/channel";
+import type { Channel, ChannelKind, ChannelVisibility } from "../../types/channel";
 
 type SectionId = "overview" | "channels" | "invites" | "members" | "danger";
 
@@ -64,7 +64,12 @@ interface ServerSettingsViewProps {
   currentUserId?: string;
   onClose: () => void;
   onDeleteServer: (server: Server) => void;
-  onCreateChannel: () => void;
+  onCreateChannel: (
+    name: string,
+    kind: ChannelKind,
+    visibility: ChannelVisibility,
+    password?: string,
+  ) => Promise<void>;
   onDeleteChannel: (channel: Channel) => void;
 }
 
@@ -78,9 +83,46 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   onCreateChannel,
   onDeleteChannel,
 }) => {
-  const { t } = useTranslation(["serverSettings", "common"]);
+  const { t } = useTranslation(["serverSettings", "common", "modals"]);
   const [section, setSection] = React.useState<SectionId>("overview");
   const isOwner = currentUserId === server.ownerId;
+
+  const [newChName, setNewChName] = React.useState("");
+  const [newChKind, setNewChKind] = React.useState<ChannelKind>("text");
+  const [newChVisibility, setNewChVisibility] =
+    React.useState<ChannelVisibility>("public");
+  const [newChPassword, setNewChPassword] = React.useState("");
+  const [newChBusy, setNewChBusy] = React.useState(false);
+  const [newChError, setNewChError] = React.useState<string | null>(null);
+
+  const submitNewChannel = async () => {
+    const name = newChName.trim();
+    if (!name) {
+      setNewChError(t("channelNameRequired"));
+      return;
+    }
+    if (newChVisibility === "private" && !newChPassword.trim()) {
+      setNewChError(t("channelPasswordRequired"));
+      return;
+    }
+    setNewChBusy(true);
+    setNewChError(null);
+    try {
+      await onCreateChannel(
+        name,
+        newChKind,
+        newChVisibility,
+        newChVisibility === "private" ? newChPassword : undefined,
+      );
+      setNewChName("");
+      setNewChPassword("");
+      setNewChVisibility("public");
+    } catch (e) {
+      setNewChError(e instanceof ApiError ? e.message : t("common:error"));
+    } finally {
+      setNewChBusy(false);
+    }
+  };
 
   const [name, setName] = React.useState(server.name);
   const [description, setDescription] = React.useState(server.description ?? "");
@@ -494,23 +536,81 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
               <p className="lead">
                 {t("channelsLead", { count: channels.length, server: server.name })}
               </p>
-              <div className="ssv-invite-card">
+              <form
+                className="ssv-invite-card"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submitNewChannel();
+                }}
+              >
                 <div className="ssv-invite-head">
                   <Icon name="hash" size={16} />
                   <span>{t("createChannel")}</span>
                 </div>
                 <div className="ssv-invite-row">
-                  <div className="ssv-create-hint">{t("createChannelHint")}</div>
+                  <input
+                    className="ssv-input ssv-create-input"
+                    placeholder={t("modals:createChannel.namePlaceholder")}
+                    value={newChName}
+                    maxLength={100}
+                    disabled={newChBusy}
+                    onChange={(e) => {
+                      setNewChName(e.target.value);
+                      setNewChError(null);
+                    }}
+                  />
                   <button
-                    type="button"
+                    type="submit"
                     className="ssv-btn primary"
-                    onClick={onCreateChannel}
+                    disabled={newChBusy}
                   >
                     <Icon name="plus" size={14} />
                     {t("createChannel")}
                   </button>
                 </div>
-              </div>
+                <div className="ssv-invite-opts">
+                  <label className="ssv-invite-opt">
+                    <span className="ssv-invite-opt-label">{t("channelKind")}</span>
+                    <select
+                      value={newChKind}
+                      disabled={newChBusy}
+                      onChange={(e) => setNewChKind(e.target.value as ChannelKind)}
+                    >
+                      <option value="text">{t("kindText")}</option>
+                      <option value="voice">{t("kindVoice")}</option>
+                    </select>
+                  </label>
+                  <label className="ssv-invite-opt">
+                    <span className="ssv-invite-opt-label">{t("channelVisibility")}</span>
+                    <select
+                      value={newChVisibility}
+                      disabled={newChBusy}
+                      onChange={(e) =>
+                        setNewChVisibility(e.target.value as ChannelVisibility)
+                      }
+                    >
+                      <option value="public">{t("modals:createChannel.public")}</option>
+                      <option value="private">{t("modals:createChannel.private")}</option>
+                    </select>
+                  </label>
+                  {newChVisibility === "private" && (
+                    <label className="ssv-invite-opt">
+                      <span className="ssv-invite-opt-label">{t("channelPassword")}</span>
+                      <input
+                        className="ssv-create-password"
+                        type="password"
+                        value={newChPassword}
+                        disabled={newChBusy}
+                        onChange={(e) => {
+                          setNewChPassword(e.target.value);
+                          setNewChError(null);
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                {newChError && <div className="ssv-error">{newChError}</div>}
+              </form>
               <div className="ssv-section-label">
                 {t("channelList", { count: channels.length })}
               </div>

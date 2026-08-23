@@ -4325,12 +4325,13 @@ textarea.s-input {
   white-space: nowrap;
 }
 .ssv-tag.owner { background: var(--accent-tint-2); color: var(--accent); }
-.ssv-create-hint {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  color: var(--fg-3);
-  line-height: 1.4;
+.ssv-create-input { flex: 1; min-width: 0; margin: 0; }
+.ssv-create-password {
+  border: 0; background: transparent; outline: none;
+  font: inherit; font-size: 15px; font-weight: 600;
+  color: var(--fg-1);
+  padding: 0;
+  width: 100%;
 }
 .ssv-channel-ico {
   width: 36px; height: 36px; border-radius: 10px;
