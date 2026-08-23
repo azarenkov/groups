@@ -11,7 +11,7 @@ async fn resolve_users(
     body: web::Json<ResolveUsersRequestV1>,
 ) -> Result<impl Responder, ApiError> {
     let body = body.into_inner();
-    if body.names.is_empty() || body.names.len() > 50 {
+    if body.names.is_empty() || body.names.len() > 500 {
         return Err(ApiError::bad_request("Invalid names".to_string()));
     }
     let names: Vec<String> = body

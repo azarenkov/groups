@@ -45,7 +45,6 @@ where
             }
         }
     }
-    mentions.truncate(50);
     Ok(mentions)
 }
 
