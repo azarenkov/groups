@@ -108,6 +108,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(true);
         setError(null);
         activeChannelRef.current = { serverId, channelId };
+        moderatorLockedRef.current = false;
 
         console.log(
           `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
@@ -125,6 +126,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
         activeChannelRef.current = null;
+        moderatorLockedRef.current = false;
         setError(err instanceof Error ? err.message : "Failed to join channel");
         setIsConnecting(false);
         throw err;
@@ -178,6 +180,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     }
   }, []);
 
+  const moderatorLockedRef = useRef(false);
   useEffect(() => {
     const onModeratorMute = (e: Event) => {
       const detail = (e as CustomEvent<{ channelId?: string }>).detail;
@@ -187,16 +190,46 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       }
       serviceRef.current?.setMicrophoneMuted(true);
       setIsMuted(true);
+      moderatorLockedRef.current = true;
+    };
+    const onModeratorUnmute = (e: Event) => {
+      const detail = (e as CustomEvent<{ channelId?: string }>).detail;
+      const active = activeChannelRef.current;
+      if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
+        return;
+      }
+      moderatorLockedRef.current = false;
     };
     window.addEventListener("rift:moderator-mute", onModeratorMute);
-    return () =>
+    window.addEventListener("rift:moderator-unmute", onModeratorUnmute);
+    return () => {
       window.removeEventListener("rift:moderator-mute", onModeratorMute);
+      window.removeEventListener("rift:moderator-unmute", onModeratorUnmute);
+    };
   }, []);
 
   const toggleMute = useCallback(() => {
     const service = serviceRef.current;
     if (!service) return;
     const next = !isMutedRef.current;
+    if (!next && moderatorLockedRef.current) {
+      const active = activeChannelRef.current;
+      const auth = useAuthStore.getState();
+      const userId =
+        auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+      if (!active || !userId) return;
+      channelAPI
+        .unmute(active.serverId, active.channelId, userId)
+        .then(() => {
+          moderatorLockedRef.current = false;
+          serviceRef.current?.setMicrophoneMuted(false);
+          setIsMuted(false);
+        })
+        .catch((err) => {
+          console.warn("[useLiveKit] moderator mute is still active:", err);
+        });
+      return;
+    }
     service.setMicrophoneMuted(next);
     setIsMuted(next);
 

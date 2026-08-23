@@ -57,13 +57,41 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
     async fn create_role(
         &self,
         role: &ServerRole,
+        actor_top: Option<i32>,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<ServerRole, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            role.server_id.to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let taken: Vec<i32> = sqlx::query_scalar!(
+            r#"
+            SELECT position FROM server_roles WHERE server_id = $1
+            "#,
+            role.server_id,
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let position = match actor_top {
+            None => taken.iter().copied().max().unwrap_or(0) + 1,
+            Some(top) => {
+                let set: std::collections::HashSet<i32> = taken.into_iter().collect();
+                let mut candidate = top - 1;
+                while set.contains(&candidate) {
+                    candidate -= 1;
+                }
+                candidate
+            }
+        };
         sqlx::query!(
             r#"
             INSERT INTO server_roles (id, server_id, name, color, permissions, position, created_at)
@@ -74,7 +102,7 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             role.name,
             role.color,
             role.permissions,
-            role.position,
+            position,
             role.created_at,
         )
         .execute(&mut *tx)
@@ -82,7 +110,10 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(ServerRole {
+            position,
+            ..role.clone()
+        })
     }
 
     async fn update_role(

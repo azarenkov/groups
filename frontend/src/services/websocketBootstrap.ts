@@ -517,10 +517,13 @@ function dispatch(env: WsEnvelope) {
         .getState()
         .setChannelMute(channelId, userId, isMuted);
       const selfId = useAuthStore.getState().user?.id;
-      const mutedBy = asString(d.mutedBy);
-      if (isMuted && userId === selfId && mutedBy && mutedBy !== selfId) {
+      const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);
+      if (userId === selfId && mutedBy && mutedBy !== selfId) {
         window.dispatchEvent(
-          new CustomEvent("rift:moderator-mute", { detail: { channelId } }),
+          new CustomEvent(
+            isMuted ? "rift:moderator-mute" : "rift:moderator-unmute",
+            { detail: { channelId } },
+          ),
         );
       }
       return;

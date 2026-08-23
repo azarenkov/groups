@@ -64,19 +64,13 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
             &actor,
         )
         .await?;
-        let position = match height {
-            ActorHeight::Owner => existing.iter().map(|r| r.position).max().unwrap_or(0) + 1,
+        let actor_top = match height {
+            ActorHeight::Owner => None,
             ActorHeight::Position(top) => {
                 if top == i32::MIN {
                     return Err(RoleError::HierarchyViolation);
                 }
-                let taken: std::collections::HashSet<i32> =
-                    existing.iter().map(|r| r.position).collect();
-                let mut candidate = top - 1;
-                while taken.contains(&candidate) {
-                    candidate -= 1;
-                }
-                candidate
+                Some(top)
             }
         };
         let role = ServerRole {
@@ -85,14 +79,15 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
             name: name.trim().to_string(),
             color,
             permissions: permissions & PERM_ALL,
-            position,
+            position: 0,
             created_at: Utc::now(),
         };
         let members = recipients(self.server_repository.as_ref(), &server_id).await?;
         let event = roles_changed_event(&server_id, &members);
-        self.role_repository
-            .create_role(&role, std::slice::from_ref(&event))
+        let created = self
+            .role_repository
+            .create_role(&role, actor_top, std::slice::from_ref(&event))
             .await?;
-        Ok(role)
+        Ok(created)
     }
 }
