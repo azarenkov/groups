@@ -398,6 +398,12 @@ const ServersPage: React.FC = () => {
   useEffect(() => {
     if (visibleDmId) {
       setActiveChatView({ kind: "dm", id: visibleDmId });
+      if ((useUnreadStore.getState().byDm[visibleDmId] ?? 0) > 0) {
+        useUnreadStore.getState().resetDm(visibleDmId);
+        userAPI.markDmRead(visibleDmId).catch((err) => {
+          console.warn("[read-state] mark dm read failed:", err);
+        });
+      }
     } else if (visibleTextChannelId) {
       setActiveChatView({ kind: "channel", id: visibleTextChannelId });
       if ((useUnreadStore.getState().byChannel[visibleTextChannelId] ?? 0) > 0) {

@@ -172,15 +172,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     prevSelection.current = { dm: selectedDmId, channel: selectedChannelId };
   }, [selectedDmId, selectedChannelId]);
+  const channelsByServerRef = React.useRef(channelsByServer);
+  channelsByServerRef.current = channelsByServer;
   React.useEffect(() => {
     if (!selectedChannelId) return;
-    for (const [sid, list] of Object.entries(channelsByServer)) {
+    for (const [sid, list] of Object.entries(channelsByServerRef.current)) {
       if (list.some((c) => c.id === selectedChannelId)) {
         setOpenServerId(sid);
         return;
       }
     }
-  }, [selectedChannelId, channelsByServer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChannelId]);
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
   const statusMenuRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
