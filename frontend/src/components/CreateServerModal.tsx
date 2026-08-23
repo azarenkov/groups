@@ -383,7 +383,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
                 autoFocus
                 className="srvm-code-input"
                 value={code}
-                placeholder="x7Kd9m"
+                placeholder="rift.server/x7Kd9m"
                 disabled={joining}
                 onChange={(e) => setCode(e.target.value)}
                 onKeyDown={(e) => {
