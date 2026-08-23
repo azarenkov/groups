@@ -27,6 +27,8 @@ const dmPersisted: Record<string, NotifLevel> = {};
 const writeQueues: Record<string, Promise<void>> = {};
 const pendingWrites: Record<string, number> = {};
 const deferredRemote: Record<string, boolean> = {};
+const writtenScopes = new Set<string>();
+const remoteTouched = new Set<string>();
 let sessionGen = 0;
 
 function enqueueWrite(key: string, task: () => Promise<void>): Promise<void> {
@@ -68,6 +70,7 @@ async function reconcileScope(
     );
     const level =
       found && isLevel(found.level) ? found.level : undefined;
+    remoteTouched.add(key);
     if (scopeType === "channel") {
       if (level === undefined) delete channelPersisted[scopeId];
       else channelPersisted[scopeId] = level;
@@ -116,18 +119,31 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         if (p.scopeType === "channel") channelLevels[p.scopeId] = p.level;
         else if (p.scopeType === "dm") dmLevels[p.scopeId] = p.level;
       }
+      const preserveChannel = new Set(Object.keys(channelSeqs));
+      const preserveDm = new Set(Object.keys(dmSeqs));
+      for (const key of remoteTouched) {
+        if (key.startsWith("channel:")) {
+          preserveChannel.add(key.slice("channel:".length));
+        } else if (key.startsWith("dm:")) {
+          preserveDm.add(key.slice("dm:".length));
+        }
+      }
       for (const [k, v] of Object.entries(channelLevels)) {
-        if (channelSeqs[k] === undefined) channelPersisted[k] = v;
+        if (!writtenScopes.has(`channel:${k}`) && !remoteTouched.has(`channel:${k}`)) {
+          channelPersisted[k] = v;
+        }
       }
       for (const [k, v] of Object.entries(dmLevels)) {
-        if (dmSeqs[k] === undefined) dmPersisted[k] = v;
+        if (!writtenScopes.has(`dm:${k}`) && !remoteTouched.has(`dm:${k}`)) {
+          dmPersisted[k] = v;
+        }
       }
       set((s) => {
-        for (const key of Object.keys(channelSeqs)) {
+        for (const key of preserveChannel) {
           if (s.channelLevels[key] === undefined) delete channelLevels[key];
           else channelLevels[key] = s.channelLevels[key];
         }
-        for (const key of Object.keys(dmSeqs)) {
+        for (const key of preserveDm) {
           if (s.dmLevels[key] === undefined) delete dmLevels[key];
           else dmLevels[key] = s.dmLevels[key];
         }
@@ -152,7 +168,10 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         pendingWrites[key] = (pendingWrites[key] ?? 0) + 1;
         try {
           await userAPI.setNotificationPreference("channel", channelId, level);
-          if (sessionGen === gen) channelPersisted[channelId] = level;
+          if (sessionGen === gen) {
+            channelPersisted[channelId] = level;
+            writtenScopes.add(key);
+          }
           if (current()) {
             void refetchUnread().catch(() => {});
           }
@@ -189,7 +208,10 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         pendingWrites[key] = (pendingWrites[key] ?? 0) + 1;
         try {
           await userAPI.setNotificationPreference("dm", friendId, level);
-          if (sessionGen === gen) dmPersisted[friendId] = level;
+          if (sessionGen === gen) {
+            dmPersisted[friendId] = level;
+            writtenScopes.add(key);
+          }
           if (current()) {
             void refetchUnread().catch(() => {});
           }
@@ -218,6 +240,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         deferredRemote[`${scopeType}:${scopeId}`] = true;
         return;
       }
+      remoteTouched.add(`${scopeType}:${scopeId}`);
       if (scopeType === "channel") {
         channelPersisted[scopeId] = level;
         set((s) => ({
@@ -238,6 +261,8 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       for (const k of Object.keys(writeQueues)) delete writeQueues[k];
       for (const k of Object.keys(pendingWrites)) delete pendingWrites[k];
       for (const k of Object.keys(deferredRemote)) delete deferredRemote[k];
+      writtenScopes.clear();
+      remoteTouched.clear();
       set({ channelLevels: {}, dmLevels: {} });
     },
   }),
