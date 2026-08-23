@@ -158,80 +158,70 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     }
   };
 
-  const patchRole = async (
-    roleId: string,
-    name: string,
-    color: string,
-    permissions: number,
-  ) => {
-    try {
-      await serverAPI.updateRole(server.id, roleId, name, color, permissions);
-      setRolePermsDraft((prev) => {
-        if (prev[roleId] !== permissions) return prev;
-        const next = { ...prev };
-        delete next[roleId];
-        return next;
-      });
-      refreshRoles();
-    } catch (e) {
-      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
-      setRolePermsDraft((prev) => {
-        const next = { ...prev };
-        delete next[roleId];
-        return next;
-      });
-      refreshRoles();
-    }
-  };
 
-  const permWriteChainsRef = React.useRef<Record<string, Promise<void>>>({});
-  const permLatestRef = React.useRef<Record<string, number>>({});
-  const permSentRef = React.useRef<Record<string, number | undefined>>({});
+  type RoleDraft = { name: string; color: string; permissions: number };
+  const roleWriteChainsRef = React.useRef<Record<string, Promise<void>>>({});
+  const roleLatestRef = React.useRef<Record<string, RoleDraft>>({});
+  const roleSentRef = React.useRef<Record<string, string | undefined>>({});
+
+  const enqueueRoleEdit = (
+    role: { id: string; name: string; color: string; permissions: number },
+    patch: Partial<RoleDraft>,
+  ) => {
+    const base = roleLatestRef.current[role.id] ?? {
+      name: role.name,
+      color: role.color,
+      permissions: role.permissions,
+    };
+    const next = { ...base, ...patch };
+    roleLatestRef.current[role.id] = next;
+    setRolePermsDraft((prev) => ({ ...prev, [role.id]: next.permissions }));
+    const chain = roleWriteChainsRef.current[role.id] ?? Promise.resolve();
+    roleWriteChainsRef.current[role.id] = chain.then(async () => {
+      const target = roleLatestRef.current[role.id];
+      if (!target) return;
+      const key = JSON.stringify(target);
+      if (roleSentRef.current[role.id] === key) return;
+      try {
+        await serverAPI.updateRole(
+          server.id,
+          role.id,
+          target.name,
+          target.color,
+          target.permissions,
+        );
+        roleSentRef.current[role.id] = key;
+        setRolePermsDraft((cur) => {
+          if (cur[role.id] !== target.permissions) return cur;
+          const nextDraft = { ...cur };
+          delete nextDraft[role.id];
+          return nextDraft;
+        });
+        refreshRoles();
+      } catch (e) {
+        setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+        delete roleLatestRef.current[role.id];
+        setRolePermsDraft((cur) => {
+          const nextDraft = { ...cur };
+          delete nextDraft[role.id];
+          return nextDraft;
+        });
+        refreshRoles();
+      }
+    });
+  };
 
   const toggleRolePerm = (
     role: { id: string; name: string; color: string; permissions: number },
     bit: number,
     checked: boolean,
   ) => {
-    setRolePermsDraft((prev) => {
-      const base =
-        permLatestRef.current[role.id] ?? prev[role.id] ?? role.permissions;
-      const next = checked ? base | bit : base & ~bit;
-      permLatestRef.current[role.id] = next;
-      const chain = permWriteChainsRef.current[role.id] ?? Promise.resolve();
-      permWriteChainsRef.current[role.id] = chain.then(async () => {
-        const target = permLatestRef.current[role.id];
-        if (target === undefined || permSentRef.current[role.id] === target) {
-          return;
-        }
-        try {
-          await serverAPI.updateRole(
-            server.id,
-            role.id,
-            role.name,
-            role.color,
-            target,
-          );
-          permSentRef.current[role.id] = target;
-          setRolePermsDraft((cur) => {
-            if (cur[role.id] !== target) return cur;
-            const nextDraft = { ...cur };
-            delete nextDraft[role.id];
-            return nextDraft;
-          });
-          refreshRoles();
-        } catch (e) {
-          setRoleError(e instanceof ApiError ? e.message : t("common:error"));
-          delete permLatestRef.current[role.id];
-          setRolePermsDraft((cur) => {
-            const nextDraft = { ...cur };
-            delete nextDraft[role.id];
-            return nextDraft;
-          });
-          refreshRoles();
-        }
-      });
-      return { ...prev, [role.id]: next };
+    const base =
+      roleLatestRef.current[role.id]?.permissions ??
+      rolePermsDraft[role.id] ??
+      role.permissions;
+    enqueueRoleEdit(role, {
+      permissions: checked ? base | bit : base & ~bit,
     });
   };
 
@@ -1002,9 +992,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                                   "ssv-role-color" + (role.color === c ? " on" : "")
                                 }
                                 style={{ background: c }}
-                                onClick={() =>
-                                  void patchRole(role.id, role.name, c, role.permissions)
-                                }
+                                onClick={() => enqueueRoleEdit(role, { color: c })}
                               />
                             ))}
                           </div>

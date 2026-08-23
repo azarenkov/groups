@@ -133,7 +133,7 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         let result = sqlx::query!(
             r#"
             UPDATE server_roles
-            SET name = $3, color = $4, permissions = $5, position = $6
+            SET name = $3, color = $4, permissions = $5
             WHERE id = $1 AND server_id = $2
             "#,
             role.id,
@@ -141,7 +141,6 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             role.name,
             role.color,
             role.permissions,
-            role.position,
         )
         .execute(&mut *tx)
         .await

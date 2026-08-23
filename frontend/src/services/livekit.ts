@@ -179,6 +179,7 @@ export class LiveKitService {
     token: string,
     url: string,
     roomName?: string,
+    startMuted?: boolean,
   ): Promise<void> {
     if (this.isConnecting) {
       console.log("[LiveKitService] Connection already in progress, skipping");
@@ -219,7 +220,9 @@ export class LiveKitService {
         this.addParticipant(participant);
       });
 
-      await this.enableMicrophone();
+      if (!startMuted) {
+        await this.enableMicrophone();
+      }
 
       this.isConnecting = false;
       this.onConnectionStateChange?.(true);

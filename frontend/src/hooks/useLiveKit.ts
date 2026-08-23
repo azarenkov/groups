@@ -120,13 +120,16 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
-        await service.connect(response.token, response.url, channelId);
-
         if (response.muted) {
           moderatorLockedRef.current = true;
-          service.setMicrophoneMuted(true);
           setIsMuted(true);
         }
+        await service.connect(
+          response.token,
+          response.url,
+          channelId,
+          !!response.muted,
+        );
 
         setIsConnecting(false);
       } catch (err) {

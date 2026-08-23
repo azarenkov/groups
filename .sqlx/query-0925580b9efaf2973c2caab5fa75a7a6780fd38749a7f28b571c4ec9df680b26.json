@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE server_roles\n            SET name = $3, color = $4, permissions = $5\n            WHERE id = $1 AND server_id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0925580b9efaf2973c2caab5fa75a7a6780fd38749a7f28b571c4ec9df680b26"
+}
