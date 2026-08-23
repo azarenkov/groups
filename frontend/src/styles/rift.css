@@ -638,6 +638,29 @@ body.electron .titlebar { padding-left: 84px; }
   color: var(--fg-2);
 }
 .sb-add-row.secondary:hover .sb-add-row-ico { color: var(--fg-1); }
+.sb-add-row-badge {
+  margin-left: auto;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ff453a;
+  color: #fff;
+  font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+body.electron .sb { padding-top: 38px; }
+body.electron .sb-search { -webkit-app-region: drag; }
+body.electron .sb-search input,
+body.electron .sb-search button { -webkit-app-region: no-drag; }
+body.electron .body-area::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 38px;
+  -webkit-app-region: drag;
+  pointer-events: none;
+}
 
 .popover-wrap { position: relative; display: inline-flex; }
 .popover {

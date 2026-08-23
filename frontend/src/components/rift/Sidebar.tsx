@@ -25,6 +25,8 @@ interface SidebarProps {
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
   onAddFriend: () => void;
+  onOpenPending: () => void;
+  pendingCount: number;
   onCreateServer: () => void;
   onJoinServer: () => void;
   currentUserId?: string;
@@ -77,6 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteChannel,
   onOpenSettings,
   onAddFriend,
+  onOpenPending,
+  pendingCount,
   onCreateServer,
   onJoinServer,
   currentUserId,
@@ -200,12 +204,27 @@ const Sidebar: React.FC<SidebarProps> = ({
   const renderDms = () => (
     <div className="sb-view">
       {!isFiltering && (
-        <button type="button" className="sb-add-row" onClick={onAddFriend}>
-          <span className="sb-add-row-ico">
-            <Icon name="user-plus" size={13} />
-          </span>
-          <span>{t("addFriend")}</span>
-        </button>
+        <>
+          <button type="button" className="sb-add-row" onClick={onAddFriend}>
+            <span className="sb-add-row-ico">
+              <Icon name="user-plus" size={13} />
+            </span>
+            <span>{t("addFriend")}</span>
+          </button>
+          <button
+            type="button"
+            className="sb-add-row secondary"
+            onClick={onOpenPending}
+          >
+            <span className="sb-add-row-ico">
+              <Icon name="mail" size={13} />
+            </span>
+            <span>{t("pendingRequests")}</span>
+            {pendingCount > 0 && (
+              <span className="sb-add-row-badge">{pendingCount}</span>
+            )}
+          </button>
+        </>
       )}
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("directMessages")}</span>

@@ -808,70 +808,9 @@ const ServersPage: React.FC = () => {
     return out;
   }, [voicePresenceByChannel]);
 
-  const tbIdentity = selectedDm
-    ? {
-        icon: "user" as const,
-        title: selectedDm.name,
-        sub: selectedDm.online
-          ? tSidebar("statusOnline")
-          : tSidebar("statusOffline"),
-      }
-    : joinedChannel
-      ? {
-          icon: "volume" as const,
-          title: joinedChannel.channel.name,
-          sub:
-            servers.find((s) => s.id === joinedChannel.serverId)?.name ?? "",
-        }
-      : selectedServer && activeTextChannel
-        ? {
-            icon: "hash" as const,
-            title: activeTextChannel.name,
-            sub: activeTextChannel.topic ?? selectedServer.name,
-          }
-        : selectedServer
-          ? {
-              icon: "grid" as const,
-              title: selectedServer.name,
-              sub: selectedServer.description ?? "",
-            }
-          : null;
 
   return (
     <div className="win">
-      <div className="titlebar">
-        <div className="traffic">
-          <i />
-          <i />
-          <i />
-        </div>
-        {tbIdentity && (
-          <div className="tb-identity">
-            <Icon name={tbIdentity.icon} size={18} />
-            <span className="tb-identity-title">{tbIdentity.title}</span>
-            {tbIdentity.sub && (
-              <>
-                <span className="tb-identity-sep" />
-                <span className="tb-identity-sub">{tbIdentity.sub}</span>
-              </>
-            )}
-          </div>
-        )}
-        <div className="titlebar-right">
-          <button
-            type="button"
-            className="titlebar-btn"
-            title={tSidebar("pendingRequests")}
-            onClick={() => setIsPendingOpen(true)}
-          >
-            <Icon name="mail" size={17} />
-            {pendingCount > 0 && (
-              <span className="titlebar-badge">{pendingCount}</span>
-            )}
-          </button>
-        </div>
-      </div>
-
       <div className="body-area">
         <Sidebar
           servers={servers}
@@ -924,6 +863,8 @@ const ServersPage: React.FC = () => {
           }
           onOpenSettings={() => setSettingsOpen(true)}
           onAddFriend={() => setIsAddFriendOpen(true)}
+          onOpenPending={() => setIsPendingOpen(true)}
+          pendingCount={pendingCount}
           onCreateServer={() => {
             setServerModalView("create");
             setIsServerModalOpen(true);
