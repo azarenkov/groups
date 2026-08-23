@@ -13,35 +13,27 @@ where
     if names.is_empty() {
         return Ok(Vec::new());
     }
+    let member_set: std::collections::HashSet<uuid::Uuid> =
+        members.iter().map(|id| id.uuid()).collect();
     let mut mentions: Vec<uuid::Uuid> = Vec::new();
-    let mut resolved_names = std::collections::HashSet::new();
-    for (id, name) in channel_repo
-        .text_members_by_names(channel_id, &names)
-        .await?
-    {
-        let uid = id.uuid();
-        if !mentions.contains(&uid) {
-            mentions.push(uid);
-        }
-        resolved_names.insert(name);
-    }
-    let unresolved: Vec<String> = names
-        .into_iter()
-        .filter(|n| !resolved_names.contains(n))
-        .collect();
-    if !unresolved.is_empty() {
-        let member_set: std::collections::HashSet<uuid::Uuid> =
-            members.iter().map(|id| id.uuid()).collect();
-        match resolver.resolve_names(&unresolved).await {
-            Ok(resolved) => {
-                for (id, _) in resolved {
-                    if member_set.contains(&id) && !mentions.contains(&id) {
-                        mentions.push(id);
-                    }
+    match resolver.resolve_names(&names).await {
+        Ok(resolved) => {
+            for (id, _) in resolved {
+                if member_set.contains(&id) && !mentions.contains(&id) {
+                    mentions.push(id);
                 }
             }
-            Err(e) => {
-                tracing::warn!(error = %e, "Authoritative mention resolution failed; using projection only");
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Authoritative mention resolution failed; falling back to projection");
+            for (id, _) in channel_repo
+                .text_members_by_names(channel_id, &names)
+                .await?
+            {
+                let uid = id.uuid();
+                if !mentions.contains(&uid) {
+                    mentions.push(uid);
+                }
             }
         }
     }
