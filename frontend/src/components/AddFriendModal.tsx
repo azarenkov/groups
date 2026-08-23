@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Icon from "./rift/Icon";
 import { ApiError } from "../utils/apiError";
 import { friendshipAPI } from "../api/friendship";
 import { useFriendshipStore } from "../store/friendshipStore";
@@ -140,13 +139,8 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
           <h3>{t("addFriend.title")}</h3>
         </div>
         <div className="m-blurb">
-          <span className="m-blurb-ico">
-            <Icon name="user-plus" size={18} />
-          </span>
-          <div className="m-blurb-text">
-            <div>{t("addFriend.subtitle")}</div>
-            <div className="m-blurb-hint">{t("addFriend.hint")}</div>
-          </div>
+          <div>{t("addFriend.subtitle")}</div>
+          <div className="m-blurb-hint">{t("addFriend.hint")}</div>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="m-body">

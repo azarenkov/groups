@@ -19,7 +19,13 @@
     "public": "Public",
     "private": "Private",
     "create": "Create channel",
-    "creating": "Creating…"
+    "creating": "Creating…",
+    "voiceSub": "Voice, video and screen sharing",
+    "textSub": "Messages, files and mentions",
+    "publicSub": "Visible to every server member",
+    "privateSub": "Joining requires a password",
+    "passwordLabel": "Password",
+    "passwordHint": "Everyone will need it the first time they join"
   },
   "channelSettings": {
     "title": "Channel settings",

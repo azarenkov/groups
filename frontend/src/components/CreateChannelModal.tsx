@@ -103,6 +103,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
             <Icon name="x" size={14} />
           </button>
         </div>
+        <div className="m-blurb">{t("createChannel.subtitle")}</div>
         <div className="m-body">
           <div className="m-field">
             <label>{t("createChannel.nameLabel")}</label>
@@ -122,8 +123,8 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {(
                 [
-                  { value: "voice" as const, icon: "headphones" as const, ttl: t("createChannel.voice"), sub: "" },
-                  { value: "text" as const, icon: "hash" as const, ttl: t("createChannel.text"), sub: "" },
+                  { value: "voice" as const, icon: "headphones" as const, ttl: t("createChannel.voice"), sub: t("createChannel.voiceSub") },
+                  { value: "text" as const, icon: "hash" as const, ttl: t("createChannel.text"), sub: t("createChannel.textSub") },
                 ]
               ).map((opt) => {
                 const active = kind === opt.value;
@@ -134,10 +135,6 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
                     onClick={() => {
                       if (isLoading) return;
                       setKind(opt.value);
-                      if (opt.value === "text") {
-                        setVisibility("public");
-                        setPassword("");
-                      }
                     }}
                     style={{
                       display: "flex",
@@ -170,8 +167,8 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {(
                 [
-                  { value: "public" as const, icon: "globe" as const, ttl: t("createChannel.public"), sub: "" },
-                  { value: "private" as const, icon: "lock" as const, ttl: t("createChannel.private"), sub: "" },
+                  { value: "public" as const, icon: "globe" as const, ttl: t("createChannel.public"), sub: t("createChannel.publicSub") },
+                  { value: "private" as const, icon: "lock" as const, ttl: t("createChannel.private"), sub: t("createChannel.privateSub") },
                 ]
               ).map((opt) => {
                 const active = visibility === opt.value;
@@ -208,7 +205,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
 
           {visibility === "private" && (
             <div className="m-field">
-              <label>Password</label>
+              <label>{t("createChannel.passwordLabel")}</label>
               <input
                 type="password"
                 value={password}
@@ -217,6 +214,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
                 disabled={isLoading}
                 maxLength={50}
               />
+              <div className="m-blurb-hint" style={{ marginTop: 6 }}>{t("createChannel.passwordHint")}</div>
             </div>
           )}
 
