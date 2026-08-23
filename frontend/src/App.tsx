@@ -105,6 +105,9 @@ const App: React.FC = () => {
       ({ useNotificationPrefsStore }) =>
         useNotificationPrefsStore.getState().clearAll(),
     );
+    void import("./store/rolesStore").then(({ useRolesStore }) =>
+      useRolesStore.getState().clearAll(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {
