@@ -956,22 +956,24 @@ const ChatView: React.FC<ChatViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messenger]);
 
+  const atBottom = (b: HTMLDivElement) =>
+    b.scrollTop + b.clientHeight >= b.scrollHeight - 1;
+
   const onPullTouchStart = (e: React.TouchEvent) => {
     if (refreshingRef.current) return;
     const b = bodyRef.current;
-    pullStartYRef.current =
-      b && b.scrollTop <= 0 ? e.touches[0].clientY : null;
+    pullStartYRef.current = b && atBottom(b) ? e.touches[0].clientY : null;
   };
 
   const onPullTouchMove = (e: React.TouchEvent) => {
     if (refreshingRef.current || pullStartYRef.current === null) return;
     const b = bodyRef.current;
-    if (!b || b.scrollTop > 0) {
+    if (!b || !atBottom(b)) {
       pullStartYRef.current = null;
       setPullDistance(0);
       return;
     }
-    const dy = e.touches[0].clientY - pullStartYRef.current;
+    const dy = pullStartYRef.current - e.touches[0].clientY;
     setPullDistance(dy > 0 ? Math.min(dy * 0.45, PULL_MAX) : 0);
   };
 
@@ -988,15 +990,15 @@ const ChatView: React.FC<ChatViewProps> = ({
   const onPullWheel = (e: React.WheelEvent) => {
     if (refreshingRef.current) return;
     const b = bodyRef.current;
-    if (!b || b.scrollTop > 0 || e.deltaY >= 0) {
-      if (wheelPullRef.current !== 0 && b && b.scrollTop > 0) {
+    if (!b || !atBottom(b) || e.deltaY <= 0) {
+      if (wheelPullRef.current !== 0 && b && !atBottom(b)) {
         wheelPullRef.current = 0;
         setPullDistance(0);
       }
       return;
     }
     wheelPullRef.current = Math.min(
-      wheelPullRef.current - e.deltaY * 0.4,
+      wheelPullRef.current + e.deltaY * 0.35,
       PULL_MAX,
     );
     setPullDistance(wheelPullRef.current);
@@ -1468,7 +1470,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         style={{
           opacity: refreshing ? 1 : Math.min(pullDistance / PULL_THRESHOLD, 1),
           transform: `translateX(-50%) translateY(${
-            (refreshing ? PULL_THRESHOLD : pullDistance) - 44
+            44 - (refreshing ? PULL_THRESHOLD : pullDistance)
           }px) scale(${
             refreshing
               ? 1
@@ -1510,7 +1512,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           }
         }}
         style={{
-          transform: `translateY(${pullDistance}px)`,
+          transform: `translateY(${-pullDistance}px)`,
           transition:
             pullStartYRef.current !== null
               ? "none"
