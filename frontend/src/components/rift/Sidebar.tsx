@@ -681,8 +681,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
           </svg>
           {t("tabDirects")}
-          {totalDmUnread > 0 && (
-            <span className="sb-seg-badge">{totalDmUnread}</span>
+          {totalDmUnread + pendingCount > 0 && (
+            <span className="sb-seg-badge">{totalDmUnread + pendingCount}</span>
           )}
         </button>
         <button
