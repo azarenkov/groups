@@ -551,6 +551,7 @@ const ServersPage: React.FC = () => {
         next.delete(deleteConfirm.id);
         return next;
       });
+      setServerSettings((prev) => (prev?.id === deleteConfirm.id ? null : prev));
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to delete server:", err);
@@ -576,6 +577,7 @@ const ServersPage: React.FC = () => {
         return next;
       });
       await fetchServers();
+      setServerSettings((prev) => (prev?.id === deleteConfirm.id ? null : prev));
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to leave server:", err);
@@ -1028,7 +1030,9 @@ const ServersPage: React.FC = () => {
               <NoTextChannel
                 serverName={selectedServer?.name ?? ""}
                 onCreate={() => {
-                  if (selectedServer) setServerSettings(selectedServer);
+                  if (selectedServer) {
+                    setChannelModal({ serverId: selectedServer.id, kind: "text" });
+                  }
                 }}
               />
             ) : (
