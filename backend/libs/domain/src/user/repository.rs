@@ -23,6 +23,11 @@ pub trait UserRepository {
     async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError>;
     async fn find_by_name(&self, name: &UserName) -> Result<Option<User>, RepositoryError>;
+    async fn ids_by_names(
+        &self,
+        lowercase_names: &[String],
+    ) -> Result<Vec<(UserId, UserName)>, RepositoryError>;
+
     async fn search_by_name_prefix(
         &self,
         prefix: &str,

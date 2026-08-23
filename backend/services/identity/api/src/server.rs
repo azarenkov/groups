@@ -124,6 +124,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             nsfw_detector.clone(),
             reserved_names.clone(),
         ),
+        user_repository: user_repository.clone(),
         trust_forwarded_headers: server_config.trust_forwarded_headers,
     });
 

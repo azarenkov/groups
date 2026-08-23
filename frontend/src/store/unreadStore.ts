@@ -90,12 +90,16 @@ export const useUnreadStore = create<UnreadState>()((set, get) => ({
   },
 }));
 
+let refetchSeq = 0;
+
 export async function refetchUnread(): Promise<void> {
   const sessionUserId = useAuthStore.getState().user?.id;
   if (!sessionUserId) return;
+  const token = ++refetchSeq;
   for (let attempt = 0; attempt < 3; attempt++) {
     const gen = mutationGen;
     const u = await userAPI.getUnread();
+    if (token !== refetchSeq) return;
     if (useAuthStore.getState().user?.id !== sessionUserId) return;
     if (mutationGen !== gen) continue;
     const channels: Record<string, number> = {};

@@ -11,7 +11,4 @@ pub struct EditMessageRequestBody {
     pub add_attachment_ids: Vec<Uuid>,
     #[serde(default)]
     pub remove_attachment_ids: Vec<Uuid>,
-    #[serde(default)]
-    #[validate(length(max = 50))]
-    pub mention_ids: Vec<Uuid>,
 }

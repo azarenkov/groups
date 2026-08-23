@@ -53,6 +53,7 @@ use messaging::{
     },
     hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
+    media_client::identity_users::IdentityUsersClient,
     storage::minio_storage::MinioStorage,
     voice::livekit_service::LiveKitService,
 };
@@ -79,12 +80,14 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresServerRepository,
         MediaClaimsClient,
+        IdentityUsersClient,
     >,
     pub edit_channel_message_usecase: EditChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
         MediaClaimsClient,
+        IdentityUsersClient,
     >,
     pub delete_channel_message_usecase: DeleteChannelMessage<
         PostgresMessageRepository,

@@ -9,7 +9,4 @@ pub struct SendMessageRequestBody {
     pub content: String,
     #[serde(default)]
     pub attachment_ids: Vec<Uuid>,
-    #[serde(default)]
-    #[validate(length(max = 50))]
-    pub mention_ids: Vec<Uuid>,
 }

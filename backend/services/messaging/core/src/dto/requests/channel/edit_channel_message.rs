@@ -10,12 +10,10 @@ pub struct EditChannelMessageRequest {
     pub new_content: String,
     pub add_attachment_ids: Vec<Uuid>,
     pub remove_attachment_ids: Vec<Uuid>,
-    pub mention_ids: Vec<Uuid>,
     pub ctx: RequestContext,
 }
 
 impl EditChannelMessageRequest {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         server_id: Uuid,
         channel_id: Uuid,
@@ -23,7 +21,6 @@ impl EditChannelMessageRequest {
         new_content: String,
         add_attachment_ids: Vec<Uuid>,
         remove_attachment_ids: Vec<Uuid>,
-        mention_ids: Vec<Uuid>,
         ctx: RequestContext,
     ) -> Self {
         Self {
@@ -33,7 +30,6 @@ impl EditChannelMessageRequest {
             new_content,
             add_attachment_ids,
             remove_attachment_ids,
-            mention_ids,
             ctx,
         }
     }

@@ -61,6 +61,7 @@ use messaging::{
     },
     hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
+    media_client::identity_users::IdentityUsersClient,
     storage::minio_storage::MinioStorage,
     voice::livekit_service::{LiveKitService, is_livekit_reachable},
 };
@@ -104,6 +105,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
+    let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://identity-service:8080".to_string());
+    let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
 
     let minio_storage = Arc::new(
         MinioStorage::new(&minio_config)
@@ -176,12 +180,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             server_repository.clone(),
             attachment_claims.clone(),
+            mention_resolver.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
             attachment_claims.clone(),
+            mention_resolver.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),

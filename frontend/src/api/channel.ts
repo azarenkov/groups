@@ -186,11 +186,10 @@ class ChannelAPI {
     channelId: string,
     content: string,
     attachmentIds?: string[],
-    mentionIds?: string[],
   ): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/servers/${serverId}/channels/${channelId}/messages`,
-      { content, attachmentIds, mentionIds: mentionIds ?? [] },
+      { content, attachmentIds },
     );
     return response.data.data;
   }
@@ -202,7 +201,6 @@ class ChannelAPI {
     content: string,
     addAttachmentIds?: string[],
     removeAttachmentIds?: string[],
-    mentionIds?: string[],
   ): Promise<void> {
     await this.client.patch(
       `/v1/servers/${serverId}/channels/${channelId}/messages/${messageId}`,
@@ -210,7 +208,6 @@ class ChannelAPI {
         content,
         addAttachmentIds: addAttachmentIds ?? [],
         removeAttachmentIds: removeAttachmentIds ?? [],
-        mentionIds: mentionIds ?? [],
       },
     );
   }

@@ -46,37 +46,42 @@ pub enum SendChannelMessageError {
     AttachmentsUnavailable(String),
 }
 
-pub struct SendChannelMessage<M, C, S, A>
+pub struct SendChannelMessage<M, C, S, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
     A: crate::ports::attachment_claims::AttachmentClaims,
+    R: crate::ports::mention_resolver::MentionResolver,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
     attachment_claims: Arc<A>,
+    mention_resolver: Arc<R>,
 }
 
-impl<M, C, S, A> SendChannelMessage<M, C, S, A>
+impl<M, C, S, A, R> SendChannelMessage<M, C, S, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
     A: crate::ports::attachment_claims::AttachmentClaims,
+    R: crate::ports::mention_resolver::MentionResolver,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
         attachment_claims: Arc<A>,
+        mention_resolver: Arc<R>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
             attachment_claims,
+            mention_resolver,
         }
     }
 
@@ -137,33 +142,14 @@ where
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
-        let mention_names =
-            crate::usecases::channel::mentions::mention_names(message.content().as_str());
-        let mut mentions: Vec<uuid::Uuid> = Vec::new();
-        let mut resolved_names = std::collections::HashSet::new();
-        if !mention_names.is_empty() {
-            for (id, name) in self
-                .channel_repository
-                .text_members_by_names(&channel_id, &mention_names)
-                .await?
-            {
-                let uid = id.uuid();
-                if !mentions.contains(&uid) {
-                    mentions.push(uid);
-                }
-                resolved_names.insert(name);
-            }
-        }
-        let unresolved_tokens = mention_names
-            .iter()
-            .filter(|n| !resolved_names.contains(*n))
-            .count();
-        crate::usecases::channel::mentions::merge_client_mentions(
-            &mut mentions,
-            &request.mention_ids,
+        let mentions = crate::usecases::channel::mentions::resolve_mentions(
+            message.content().as_str(),
+            &channel_id,
             &recipient_ids,
-            unresolved_tokens,
-        );
+            self.channel_repository.as_ref(),
+            self.mention_resolver.as_ref(),
+        )
+        .await?;
 
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = message

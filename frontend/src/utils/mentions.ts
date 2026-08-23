@@ -15,15 +15,6 @@ export function mentionsUser(content: string, name: string): boolean {
   return false;
 }
 
-export function extractMentionNames(content: string): string[] {
-  const names: string[] = [];
-  for (const match of stripUrls(content).matchAll(MENTION_REGEX)) {
-    const name = match[2].toLowerCase();
-    if (!names.includes(name)) names.push(name);
-  }
-  return names;
-}
-
 export function activeMentionQuery(
   text: string,
   caret: number,

@@ -1,21 +1,52 @@
-pub fn merge_client_mentions(
-    mentions: &mut Vec<uuid::Uuid>,
-    client_ids: &[uuid::Uuid],
+pub async fn resolve_mentions<C, R>(
+    content: &str,
+    channel_id: &domain::channel::id::ChannelId,
     members: &[domain::user::id::UserId],
-    mut unresolved_tokens: usize,
-) {
-    let member_set: std::collections::HashSet<uuid::Uuid> =
-        members.iter().map(|id| id.uuid()).collect();
-    for id in client_ids {
-        if unresolved_tokens == 0 {
-            break;
+    channel_repo: &C,
+    resolver: &R,
+) -> Result<Vec<uuid::Uuid>, domain::shared::repository::error::RepositoryError>
+where
+    C: domain::channel::repository::ChannelRepository + ?Sized,
+    R: crate::ports::mention_resolver::MentionResolver + ?Sized,
+{
+    let names = mention_names(content);
+    if names.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut mentions: Vec<uuid::Uuid> = Vec::new();
+    let mut resolved_names = std::collections::HashSet::new();
+    for (id, name) in channel_repo
+        .text_members_by_names(channel_id, &names)
+        .await?
+    {
+        let uid = id.uuid();
+        if !mentions.contains(&uid) {
+            mentions.push(uid);
         }
-        if member_set.contains(id) && !mentions.contains(id) {
-            mentions.push(*id);
-            unresolved_tokens -= 1;
+        resolved_names.insert(name);
+    }
+    let unresolved: Vec<String> = names
+        .into_iter()
+        .filter(|n| !resolved_names.contains(n))
+        .collect();
+    if !unresolved.is_empty() {
+        let member_set: std::collections::HashSet<uuid::Uuid> =
+            members.iter().map(|id| id.uuid()).collect();
+        match resolver.resolve_names(&unresolved).await {
+            Ok(resolved) => {
+                for (id, _) in resolved {
+                    if member_set.contains(&id) && !mentions.contains(&id) {
+                        mentions.push(id);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Authoritative mention resolution failed; using projection only");
+            }
         }
     }
     mentions.truncate(50);
+    Ok(mentions)
 }
 
 fn url_ranges(content: &str) -> Vec<(usize, usize)> {
@@ -108,27 +139,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn client_ids_bounded_by_unresolved_tokens() {
-        let member_a = domain::user::id::UserId::new(uuid::Uuid::from_u128(1));
-        let member_b = domain::user::id::UserId::new(uuid::Uuid::from_u128(2));
-        let members = vec![member_a, member_b];
-        let mut mentions = Vec::new();
-        merge_client_mentions(
-            &mut mentions,
-            &[uuid::Uuid::from_u128(1), uuid::Uuid::from_u128(2)],
-            &members,
-            1,
-        );
-        assert_eq!(mentions, vec![uuid::Uuid::from_u128(1)]);
-
-        let mut none_allowed = Vec::new();
-        merge_client_mentions(
-            &mut none_allowed,
-            &[uuid::Uuid::from_u128(1)],
-            &members,
-            0,
-        );
-        assert!(none_allowed.is_empty());
-    }
 }
