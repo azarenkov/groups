@@ -134,7 +134,6 @@ interface ChatViewProps {
   membersOpen?: boolean;
   servers?: Server[];
   onToggleMembers?: () => void;
-  onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
   onGoToServer?: (serverId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
@@ -149,7 +148,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   membersOpen,
   servers,
   onToggleMembers,
-  onOpenChannelSettings,
   onRemoveFriend,
   onGoToServer,
   topSlot,
@@ -1432,7 +1430,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         searchActive={searchOpen}
         onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
-        onOpenChannelSettings={onOpenChannelSettings}
         onRemoveFriend={onRemoveFriend}
       />
       {topSlot}
@@ -1862,7 +1859,6 @@ interface ChannelHeaderProps {
   searchActive?: boolean;
   onToggleSearch?: () => void;
   onToggleMembers?: () => void;
-  onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
 }
 
@@ -1873,7 +1869,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   searchActive,
   onToggleSearch,
   onToggleMembers,
-  onOpenChannelSettings,
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
@@ -2113,16 +2108,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             onClick={onToggleSearch}
           >
             <Icon name="search" size={15} />
-          </button>
-        )}
-        {onOpenChannelSettings && (
-          <button
-            type="button"
-            className="icon-btn"
-            title={i18n.t("channelSettings.title", { ns: "modals" })}
-            onClick={onOpenChannelSettings}
-          >
-            <Icon name="settings" size={15} />
           </button>
         )}
       </div>

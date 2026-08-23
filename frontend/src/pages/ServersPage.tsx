@@ -36,7 +36,6 @@ import { colorForId, initialFor } from "../utils/avatar";
 import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
 import { ApiError } from "../utils/apiError";
-import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import IncomingCallModal from "../components/rift/IncomingCallModal";
 import ActiveCallBar from "../components/rift/ActiveCallBar";
@@ -65,11 +64,6 @@ import {
   type MockMember,
 } from "../data/mockData";
 import "../styles/rift.css";
-
-interface ChannelOverride {
-  name?: string;
-  topic?: string;
-}
 
 const ServersPage: React.FC = () => {
   const { t: tModals } = useTranslation("modals");
@@ -258,15 +252,6 @@ const ServersPage: React.FC = () => {
     [friends],
   );
 
-  const [channelOverrides, setChannelOverrides] =
-    useState<Record<string, ChannelOverride>>({});
-  const [editingChannel, setEditingChannel] = useState<{
-    id: string;
-    serverId: string;
-    name: string;
-    topic?: string;
-  } | null>(null);
-
   const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -407,15 +392,11 @@ const ServersPage: React.FC = () => {
         ) ?? null
       : null;
 
-  const activeChannelOverride = selectedTextChannel
-    ? channelOverrides[selectedTextChannel.id] || {}
-    : {};
-
   const activeTextChannel = selectedTextChannel
     ? {
         id: selectedTextChannel.id,
-        name: activeChannelOverride.name ?? selectedTextChannel.name,
-        topic: activeChannelOverride.topic,
+        name: selectedTextChannel.name,
+        topic: undefined as string | undefined,
       }
     : null;
 
@@ -1116,22 +1097,6 @@ const ServersPage: React.FC = () => {
                     {voiceJoinFailed ? tVoice("disconnected") : tVoice("connected")}
                     {selectedServer ? ` · ${selectedServer.name}` : ""}
                   </span>
-                  <div className="right">
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      title={tModals("channelSettings.title")}
-                      onClick={() =>
-                        setEditingChannel({
-                          id: joinedChannel.channel.id,
-                          serverId: joinedChannel.serverId,
-                          name: joinedChannel.channel.name,
-                        })
-                      }
-                    >
-                      <Icon name="settings" size={15} />
-                    </button>
-                  </div>
                 </header>
                 <div id="voice-stage-slot" className="voice-stage-slot" />
               </div>
@@ -1150,22 +1115,6 @@ const ServersPage: React.FC = () => {
                   </span>
                   <span className="sep" />
                   <span className="topic">{tVoice("disconnected")}</span>
-                  <div className="right">
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      title={tModals("channelSettings.title")}
-                      onClick={() =>
-                        setEditingChannel({
-                          id: selectedVoiceChannelNotJoined.id,
-                          serverId: selectedServer.id,
-                          name: selectedVoiceChannelNotJoined.name,
-                        })
-                      }
-                    >
-                      <Icon name="settings" size={15} />
-                    </button>
-                  </div>
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
@@ -1276,17 +1225,6 @@ const ServersPage: React.FC = () => {
                           ...prev,
                           [activeTextChannel.id]: !prev[activeTextChannel.id],
                         }))
-                    : undefined
-                }
-                onOpenChannelSettings={
-                  selectedTextChannel && selectedServer
-                    ? () =>
-                        setEditingChannel({
-                          id: selectedTextChannel.id,
-                          serverId: selectedServer.id,
-                          name: activeChannelOverride.name ?? selectedTextChannel.name,
-                          topic: activeChannelOverride.topic,
-                        })
                     : undefined
                 }
               />
@@ -1427,30 +1365,6 @@ const ServersPage: React.FC = () => {
         friends={friends.filter((f) => f.status === "accepted")}
         onClose={() => setInviteModalServer(null)}
       />
-
-      {editingChannel && (
-        <ChannelSettingsModal
-          isOpen={!!editingChannel}
-          channel={editingChannel}
-          onClose={() => setEditingChannel(null)}
-          onSave={(patch) => {
-            setChannelOverrides((prev) => ({
-              ...prev,
-              [editingChannel.id]: { ...prev[editingChannel.id], ...patch },
-            }));
-            setEditingChannel(null);
-          }}
-          onDelete={() => {
-            setDeleteConfirm({
-              type: "channel",
-              id: editingChannel.id,
-              serverId: editingChannel.serverId,
-              name: editingChannel.name,
-            });
-            setEditingChannel(null);
-          }}
-        />
-      )}
 
       {deleteConfirm && (
         <ConfirmModal
