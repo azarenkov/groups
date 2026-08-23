@@ -699,7 +699,8 @@ body.electron .sb-search button { -webkit-app-region: no-drag; }
 body.electron .body-area::before {
   content: "";
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0; left: 0;
+  width: var(--w-sidebar);
   height: 38px;
   -webkit-app-region: drag;
   pointer-events: none;
