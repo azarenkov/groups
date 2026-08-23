@@ -108,6 +108,13 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     ? userPermissions(rolesData, currentUserId)
     : 0;
   const canManageRoles = isOwner || (myPerms & PERM_MANAGE_ROLES) !== 0;
+  const myTopPosition = isOwner
+    ? Number.POSITIVE_INFINITY
+    : currentUserId
+      ? (topRoleFor(rolesData, currentUserId)?.position ?? Number.NEGATIVE_INFINITY)
+      : Number.NEGATIVE_INFINITY;
+  const canTouchRole = (position: number) =>
+    canManageRoles && position < myTopPosition;
   const canManageServer = isOwner || (myPerms & PERM_MANAGE_SERVER) !== 0;
 
   const ROLE_COLORS = [
@@ -155,12 +162,27 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     name: string,
     color: string,
     permissions: number,
+    position?: number,
   ) => {
     try {
-      await serverAPI.updateRole(server.id, roleId, name, color, permissions);
+      await serverAPI.updateRole(server.id, roleId, name, color, permissions, position);
       refreshRoles();
     } catch (e) {
       setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
+
+  const swapRoles = async (
+    a: { id: string; name: string; color: string; permissions: number; position: number },
+    b: { id: string; name: string; color: string; permissions: number; position: number },
+  ) => {
+    try {
+      await serverAPI.updateRole(server.id, a.id, a.name, a.color, a.permissions, b.position);
+      await serverAPI.updateRole(server.id, b.id, b.name, b.color, b.permissions, a.position);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+      refreshRoles();
     }
   };
 
@@ -824,7 +846,9 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 {(rolesData?.roles.length ?? 0) === 0 && (
                   <div className="ssv-empty">{t("noRoles")}</div>
                 )}
-                {(rolesData?.roles ?? []).map((role, i) => {
+                {(() => {
+                  const sortedRoles = rolesData?.roles ?? [];
+                  return sortedRoles.map((role, i) => {
                   const expanded = expandedRoleId === role.id;
                   const holders = effectiveMembers.filter((m) =>
                     (rolesData?.memberRoles[m.id] ?? []).includes(role.id),
@@ -860,6 +884,39 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                         </div>
                         <span className="ssv-tag">{holders.length}</span>
                         {canManageRoles && (
+                          <span
+                            className="ssv-role-reorder"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="ssv-row-delete"
+                              disabled={
+                                i === 0 ||
+                                !canTouchRole(role.position) ||
+                                !canTouchRole(sortedRoles[i - 1].position)
+                              }
+                              title="↑"
+                              onClick={() => void swapRoles(role, sortedRoles[i - 1])}
+                            >
+                              <Icon name="chev" size={13} className="flip-y" />
+                            </button>
+                            <button
+                              type="button"
+                              className="ssv-row-delete"
+                              disabled={
+                                i === sortedRoles.length - 1 ||
+                                !canTouchRole(role.position) ||
+                                !canTouchRole(sortedRoles[i + 1].position)
+                              }
+                              title="↓"
+                              onClick={() => void swapRoles(role, sortedRoles[i + 1])}
+                            >
+                              <Icon name="chev" size={13} />
+                            </button>
+                          </span>
+                        )}
+                        {canTouchRole(role.position) && (
                           <button
                             type="button"
                             className="ssv-row-delete"
@@ -873,7 +930,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                           </button>
                         )}
                       </div>
-                      {expanded && canManageRoles && (
+                      {expanded && canTouchRole(role.position) && (
                         <div className="ssv-role-detail">
                           <div className="ssv-role-colors">
                             {ROLE_COLORS.map((c) => (
@@ -935,7 +992,8 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                       )}
                     </React.Fragment>
                   );
-                })}
+                  });
+                })()}
               </div>
             </>
           )}

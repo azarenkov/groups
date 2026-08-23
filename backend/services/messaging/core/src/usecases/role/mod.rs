@@ -21,6 +21,8 @@ pub enum RoleError {
     NotMember,
     #[error("Missing permission to manage roles")]
     NotAllowed,
+    #[error("Role is not below your highest role")]
+    HierarchyViolation,
     #[error("Role not found")]
     RoleNotFound,
     #[error("Invalid role data")]
@@ -99,4 +101,47 @@ pub async fn recipients<S: ServerRepository>(
     server_id: &ServerId,
 ) -> Result<Vec<UserId>, RoleError> {
     Ok(server_repository.find_member_ids_by_server_id(server_id).await?)
+}
+
+pub enum ActorHeight {
+    Owner,
+    Position(i32),
+}
+
+pub async fn actor_height<S, R>(
+    server_repository: &S,
+    role_repository: &R,
+    server_id: &ServerId,
+    user_id: &UserId,
+) -> Result<ActorHeight, RoleError>
+where
+    S: ServerRepository,
+    R: role::ServerRoleRepository,
+{
+    let owner = server_repository.find_server_owner(server_id).await?;
+    if owner.as_ref() == Some(user_id) {
+        return Ok(ActorHeight::Owner);
+    }
+    let roles = role_repository.list_roles(server_id).await?;
+    let assignments = role_repository.member_role_ids(server_id).await?;
+    let mine: Vec<Uuid> = assignments
+        .into_iter()
+        .filter(|(uid, _)| *uid == user_id.uuid())
+        .map(|(_, rid)| rid)
+        .collect();
+    let top = roles
+        .iter()
+        .filter(|r| mine.contains(&r.id))
+        .map(|r| r.position)
+        .max()
+        .unwrap_or(i32::MIN);
+    Ok(ActorHeight::Position(top))
+}
+
+pub fn ensure_below(height: &ActorHeight, role_position: i32) -> Result<(), RoleError> {
+    match height {
+        ActorHeight::Owner => Ok(()),
+        ActorHeight::Position(top) if role_position < *top => Ok(()),
+        _ => Err(RoleError::HierarchyViolation),
+    }
 }

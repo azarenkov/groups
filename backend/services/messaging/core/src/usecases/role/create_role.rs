@@ -12,8 +12,8 @@ use domain::{
 use uuid::Uuid;
 
 use super::{
-    MAX_ROLES_PER_SERVER, RoleError, ensure_manage_roles, recipients, roles_changed_event,
-    validate_role_input,
+    ActorHeight, MAX_ROLES_PER_SERVER, RoleError, actor_height, ensure_manage_roles, recipients,
+    roles_changed_event, validate_role_input,
 };
 
 pub struct CreateRole<S: ServerRepository, R: ServerRoleRepository> {
@@ -49,7 +49,22 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
         if existing.len() >= MAX_ROLES_PER_SERVER {
             return Err(RoleError::InvalidData);
         }
-        let position = existing.iter().map(|r| r.position).max().unwrap_or(0) + 1;
+        let height = actor_height(
+            self.server_repository.as_ref(),
+            self.role_repository.as_ref(),
+            &server_id,
+            &actor,
+        )
+        .await?;
+        let position = match height {
+            ActorHeight::Owner => existing.iter().map(|r| r.position).max().unwrap_or(0) + 1,
+            ActorHeight::Position(top) => {
+                if top == i32::MIN {
+                    return Err(RoleError::HierarchyViolation);
+                }
+                top - 1
+            }
+        };
         let role = ServerRole {
             id: Uuid::new_v4(),
             server_id: server_id.uuid(),

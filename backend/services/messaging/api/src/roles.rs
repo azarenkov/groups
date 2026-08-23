@@ -70,6 +70,8 @@ struct RoleBody {
     name: String,
     color: String,
     permissions: i64,
+    #[serde(default)]
+    position: Option<i32>,
 }
 
 #[post("/{server_id}/roles")]
@@ -114,6 +116,7 @@ async fn update_role(
             body.name,
             body.color,
             body.permissions,
+            body.position,
         )
         .await?;
     Ok(HttpResponse::NoContent().finish())

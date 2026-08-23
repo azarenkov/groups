@@ -1598,6 +1598,7 @@ impl ToHttpStatus for RoleError {
             RoleError::Repository(e) => e.to_http_status(),
             RoleError::NotMember => StatusCode::FORBIDDEN,
             RoleError::NotAllowed => StatusCode::FORBIDDEN,
+            RoleError::HierarchyViolation => StatusCode::FORBIDDEN,
             RoleError::RoleNotFound => StatusCode::NOT_FOUND,
             RoleError::InvalidData => StatusCode::BAD_REQUEST,
         }
@@ -1609,6 +1610,9 @@ impl ToHttpStatus for RoleError {
             RoleError::NotAllowed => {
                 "You don't have permission to manage roles".to_string()
             }
+            RoleError::HierarchyViolation => {
+                "You can only manage roles below your highest role".to_string()
+            }
             RoleError::RoleNotFound => "Role not found".to_string(),
             RoleError::InvalidData => "Invalid role data".to_string(),
         }
@@ -1618,6 +1622,7 @@ impl ToHttpStatus for RoleError {
             RoleError::Repository(e) => e.to_error_code(),
             RoleError::NotMember => "SERVER_NOT_MEMBER",
             RoleError::NotAllowed => "ROLE_NOT_ALLOWED",
+            RoleError::HierarchyViolation => "ROLE_HIERARCHY",
             RoleError::RoleNotFound => "ROLE_NOT_FOUND",
             RoleError::InvalidData => "ROLE_INVALID",
         }

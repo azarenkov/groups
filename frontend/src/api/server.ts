@@ -151,11 +151,13 @@ class ServerAPI {
     name: string,
     color: string,
     permissions: number,
+    position?: number,
   ): Promise<void> {
     await this.client.put(`/v1/servers/${serverId}/roles/${roleId}`, {
       name,
       color,
       permissions,
+      position,
     });
   }
 
