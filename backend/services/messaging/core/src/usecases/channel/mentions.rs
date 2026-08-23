@@ -54,12 +54,11 @@ fn is_url_terminator(byte: u8) -> bool {
 }
 
 fn url_ranges(content: &str) -> Vec<(usize, usize)> {
-    let lower = content.to_ascii_lowercase();
     let bytes = content.as_bytes();
     let mut ranges: Vec<(usize, usize)> = Vec::new();
     for pat in ["http://", "https://"] {
         let mut from = 0;
-        while let Some(pos) = lower[from..].find(pat) {
+        while let Some(pos) = content[from..].find(pat) {
             let start = from + pos;
             let mut end = start;
             while end < bytes.len() && !is_url_terminator(bytes[end]) {
@@ -146,6 +145,14 @@ mod tests {
         assert_eq!(
             mention_names("https://mastodon.social/@alice cc @bob"),
             vec!["bob".to_string()],
+        );
+    }
+
+    #[test]
+    fn uppercase_scheme_is_not_a_url() {
+        assert_eq!(
+            mention_names("HTTPS://mastodon.social/@alice"),
+            vec!["alice".to_string()],
         );
     }
 

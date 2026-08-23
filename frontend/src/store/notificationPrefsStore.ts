@@ -106,6 +106,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
               else next[channelId] = persisted;
               return { channelLevels: next };
             });
+            void refetchUnread().catch(() => {});
           }
           throw e;
         } finally {
@@ -142,6 +143,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
               else next[friendId] = persisted;
               return { dmLevels: next };
             });
+            void refetchUnread().catch(() => {});
           }
           throw e;
         } finally {

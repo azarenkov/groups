@@ -7,7 +7,7 @@ FROM (
     INNER JOIN messaging.messaging_user_profiles up ON up.user_id = p.user_id
     WHERE m2.mentions = '{}'
       AND m2.content LIKE '%@%'
-      AND regexp_replace(m2.content, 'https?://[^]<>"'')}[:space:]]+', ' ', 'gi')
+      AND regexp_replace(m2.content, 'https?://[^]<>"'')}[:space:]]+', ' ', 'g')
           ~* ('(^|[^a-z0-9_@])@' || up.name || '([^a-z0-9_]|$)')
     GROUP BY m2.id
 ) sub
