@@ -33,6 +33,11 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
+import {
+  PERM_MANAGE_MESSAGES,
+  useRolesStore,
+  userPermissions,
+} from "../../store/rolesStore";
 import { MENTION_REGEX, activeMentionQuery } from "../../utils/mentions";
 import type { ChannelParticipant } from "../../types/channel";
 
@@ -539,6 +544,19 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const composerRef = React.useRef<HTMLInputElement>(null);
   const wasSendingRef = React.useRef(false);
+
+  const rolesData = useRolesStore((s) =>
+    serverId ? s.byServer[serverId] : undefined,
+  );
+  const serverOwnerId = React.useMemo(
+    () => servers?.find((sv) => sv.id === serverId)?.ownerId,
+    [servers, serverId],
+  );
+  const canModerateMessages =
+    !!channel &&
+    !!currentUserId &&
+    (serverOwnerId === currentUserId ||
+      (userPermissions(rolesData, currentUserId) & PERM_MANAGE_MESSAGES) !== 0);
 
   const [mentionQuery, setMentionQuery] = React.useState<{
     query: string;
@@ -1651,6 +1669,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   inviteIsMember={
                     !!m.inviteServerId && myServerIds.has(m.inviteServerId)
                   }
+                  canModerate={canModerateMessages}
                   editRemovedIds={editRemovedIds}
                   editFiles={editFiles}
                   editSaving={savingEdit}
@@ -2556,6 +2575,7 @@ const ReadTicks: React.FC<{ read: boolean }> = ({ read }) => (
 );
 
 interface MessageProps {
+  canModerate?: boolean;
   msg: ChannelMessage;
   displayName: string;
   continued: boolean;
@@ -2583,6 +2603,7 @@ interface MessageProps {
 }
 
 const Message: React.FC<MessageProps> = ({
+  canModerate,
   msg,
   displayName,
   continued,
@@ -2907,16 +2928,28 @@ const Message: React.FC<MessageProps> = ({
         {!isMine &&
           !editing &&
           !msg.inviteServerId &&
-          msg.content.length > 0 && (
+          (msg.content.length > 0 || canModerate) && (
             <div className="msg-actions">
-              <button
-                type="button"
-                className="icon-btn"
-                title={i18n.t("copyMessage", { ns: "chat" })}
-                onClick={handleCopy}
-              >
-                <Icon name={copied ? "check" : "copy"} size={13} />
-              </button>
+              {msg.content.length > 0 && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={i18n.t("copyMessage", { ns: "chat" })}
+                  onClick={handleCopy}
+                >
+                  <Icon name={copied ? "check" : "copy"} size={13} />
+                </button>
+              )}
+              {canModerate && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title="Delete"
+                  onClick={onDelete}
+                >
+                  <Icon name="trash" size={13} />
+                </button>
+              )}
             </div>
           )}
       </div>

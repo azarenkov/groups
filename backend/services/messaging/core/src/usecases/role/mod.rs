@@ -3,6 +3,7 @@ pub mod create_role;
 pub mod delete_role;
 pub mod list_roles;
 pub mod revoke_role;
+pub mod swap_roles;
 pub mod update_role;
 
 use chrono::Utc;
@@ -34,7 +35,7 @@ pub const MAX_ROLES_PER_SERVER: usize = 50;
 
 pub fn validate_role_input(name: &str, color: &str) -> Result<(), RoleError> {
     let name = name.trim();
-    if name.is_empty() || name.len() > MAX_ROLE_NAME_LEN {
+    if name.is_empty() || name.chars().count() > MAX_ROLE_NAME_LEN {
         return Err(RoleError::InvalidData);
     }
     let ok_color = color.len() == 7

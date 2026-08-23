@@ -165,6 +165,10 @@ class ServerAPI {
     await this.client.delete(`/v1/servers/${serverId}/roles/${roleId}`);
   }
 
+  async swapRoles(serverId: string, roleA: string, roleB: string): Promise<void> {
+    await this.client.post(`/v1/servers/${serverId}/roles/${roleA}/swap/${roleB}`);
+  }
+
   async assignRole(serverId: string, memberId: string, roleId: string): Promise<void> {
     await this.client.put(
       `/v1/servers/${serverId}/members/${memberId}/roles/${roleId}`,

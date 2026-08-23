@@ -28,7 +28,8 @@ use messaging::usecases::{
     },
     role::{
         assign_role::AssignRole, create_role::CreateRole, delete_role::DeleteRole,
-        list_roles::ListRoles, revoke_role::RevokeRole, update_role::UpdateRole,
+        list_roles::ListRoles, revoke_role::RevokeRole, swap_roles::SwapRoles,
+        update_role::UpdateRole,
     },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
@@ -149,6 +150,7 @@ pub struct AppState {
     pub delete_role_usecase: DeleteRole<PostgresServerRepository, PostgresServerRoleRepository>,
     pub assign_role_usecase: AssignRole<PostgresServerRepository, PostgresServerRoleRepository>,
     pub revoke_role_usecase: RevokeRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub swap_roles_usecase: SwapRoles<PostgresServerRepository, PostgresServerRoleRepository>,
     pub list_notification_preferences_usecase:
         ListNotificationPreferences<PostgresNotificationPreferenceRepository>,
     pub set_notification_preference_usecase: SetNotificationPreference<

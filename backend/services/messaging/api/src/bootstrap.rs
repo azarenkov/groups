@@ -32,7 +32,8 @@ use messaging::usecases::{
     },
     role::{
         assign_role::AssignRole, create_role::CreateRole, delete_role::DeleteRole,
-        list_roles::ListRoles, revoke_role::RevokeRole, update_role::UpdateRole,
+        list_roles::ListRoles, revoke_role::RevokeRole, swap_roles::SwapRoles,
+        update_role::UpdateRole,
     },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
@@ -271,6 +272,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_role_repository.clone(),
         ),
         revoke_role_usecase: RevokeRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        swap_roles_usecase: SwapRoles::new(
             server_repository.clone(),
             server_role_repository.clone(),
         ),

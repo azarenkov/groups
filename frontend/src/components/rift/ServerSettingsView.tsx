@@ -173,16 +173,14 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   };
 
   const swapRoles = async (
-    a: { id: string; name: string; color: string; permissions: number; position: number },
-    b: { id: string; name: string; color: string; permissions: number; position: number },
+    a: { id: string; position: number },
+    b: { id: string; position: number },
   ) => {
     try {
-      await serverAPI.updateRole(server.id, a.id, a.name, a.color, a.permissions, b.position);
-      await serverAPI.updateRole(server.id, b.id, b.name, b.color, b.permissions, a.position);
+      await serverAPI.swapRoles(server.id, a.id, b.id);
       refreshRoles();
     } catch (e) {
       setRoleError(e instanceof ApiError ? e.message : t("common:error"));
-      refreshRoles();
     }
   };
 

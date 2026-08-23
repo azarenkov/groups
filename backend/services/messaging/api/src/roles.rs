@@ -177,11 +177,27 @@ async fn revoke_role(
     Ok(HttpResponse::NoContent().finish())
 }
 
+#[post("/{server_id}/roles/{role_a}/swap/{role_b}")]
+async fn swap_roles(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let user_id = UserId::new(auth_token.id);
+    let (server_id, role_a, role_b) = path.into_inner();
+    app_state
+        .swap_roles_usecase
+        .execute(ServerId::new(server_id), user_id, role_a, role_b)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 pub fn role_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(list_roles)
         .service(create_role)
         .service(update_role)
         .service(delete_role)
         .service(assign_role)
-        .service(revoke_role);
+        .service(revoke_role)
+        .service(swap_roles);
 }

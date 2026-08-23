@@ -230,6 +230,41 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         Ok(true)
     }
 
+    async fn swap_positions(
+        &self,
+        server_id: &ServerId,
+        role_a: Uuid,
+        role_b: Uuid,
+        events: &[OutboxRecord],
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        let result = sqlx::query!(
+            r#"
+            UPDATE server_roles AS r
+            SET position = o.position
+            FROM server_roles AS o
+            WHERE r.server_id = $1 AND o.server_id = $1
+              AND ((r.id = $2 AND o.id = $3) OR (r.id = $3 AND o.id = $2))
+            "#,
+            server_id.uuid(),
+            role_a,
+            role_b,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if result.rows_affected() != 2 {
+            return Ok(false);
+        }
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
+    }
+
     async fn member_role_ids(
         &self,
         server_id: &ServerId,

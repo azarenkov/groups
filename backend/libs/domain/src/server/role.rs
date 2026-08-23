@@ -72,6 +72,14 @@ pub trait ServerRoleRepository {
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
     ) -> Result<bool, crate::shared::repository::error::RepositoryError>;
 
+    async fn swap_positions(
+        &self,
+        server_id: &crate::server::id::ServerId,
+        role_a: Uuid,
+        role_b: Uuid,
+        events: &[crate::shared::outbox::outbox_record::OutboxRecord],
+    ) -> Result<bool, crate::shared::repository::error::RepositoryError>;
+
     async fn member_role_ids(
         &self,
         server_id: &crate::server::id::ServerId,
