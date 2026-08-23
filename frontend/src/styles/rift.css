@@ -4225,9 +4225,13 @@ textarea.s-input {
 }
 .ssv-input:disabled { color: var(--fg-3); }
 .ssv-input:focus,
-.ssv-input:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
-.ssv-create-password:focus,
-.ssv-create-password:focus-visible { outline: none; }
+input.ssv-input:focus-visible,
+textarea.ssv-input:focus-visible {
+  outline: none;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+input.ssv-create-password:focus-visible { outline: none; box-shadow: none; }
 .ssv-textarea {
   min-height: 84px;
   padding: 12px 14px;
