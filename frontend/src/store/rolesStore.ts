@@ -28,11 +28,15 @@ interface RolesState {
   clearAll: () => void;
 }
 
+const fetchGens: Record<string, number> = {};
+
 export const useRolesStore = create<RolesState>()((set) => ({
   byServer: {},
 
   fetch: async (serverId) => {
+    const gen = (fetchGens[serverId] = (fetchGens[serverId] ?? 0) + 1);
     const data = await serverAPI.listRoles(serverId);
+    if (fetchGens[serverId] !== gen) return;
     const memberRoles: Record<string, string[]> = {};
     for (const a of data.assignments) {
       (memberRoles[a.userId] ??= []).push(a.roleId);
@@ -45,7 +49,10 @@ export const useRolesStore = create<RolesState>()((set) => ({
     }));
   },
 
-  clearAll: () => set({ byServer: {} }),
+  clearAll: () => {
+    for (const k of Object.keys(fetchGens)) delete fetchGens[k];
+    set({ byServer: {} });
+  },
 }));
 
 export function topRoleFor(

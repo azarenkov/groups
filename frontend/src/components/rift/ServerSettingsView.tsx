@@ -205,13 +205,15 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
         refreshRoles();
       } catch (e) {
         setRoleError(e instanceof ApiError ? e.message : t("common:error"));
-        delete roleLatestRef.current[role.id];
-        setRolePermsDraft((cur) => {
-          const nextDraft = { ...cur };
-          delete nextDraft[role.id];
-          return nextDraft;
-        });
-        refreshRoles();
+        if (roleLatestRef.current[role.id] === target) {
+          delete roleLatestRef.current[role.id];
+          setRolePermsDraft((cur) => {
+            const nextDraft = { ...cur };
+            delete nextDraft[role.id];
+            return nextDraft;
+          });
+          refreshRoles();
+        }
       }
     });
   };
