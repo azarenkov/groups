@@ -429,6 +429,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     </React.Fragment>
   );
 
+  const totalDmUnread = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
+  const totalServerUnread = Object.values(unreadByChannel).reduce(
+    (a, b) => a + b,
+    0,
+  );
+
   const serverUnreadFor = (serverId: string) => {
     const all = channelsByServer[serverId] || [];
     const localSum = all
@@ -675,6 +681,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
           </svg>
           {t("tabDirects")}
+          {totalDmUnread > 0 && (
+            <span className="sb-seg-badge">{totalDmUnread}</span>
+          )}
         </button>
         <button
           type="button"
@@ -700,6 +709,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             <path d="M6 6h.01M6 18h.01" />
           </svg>
           {t("tabServers")}
+          {totalServerUnread > 0 && (
+            <span className="sb-seg-badge">{totalServerUnread}</span>
+          )}
         </button>
       </div>
 
