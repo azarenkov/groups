@@ -70,7 +70,13 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
                 if top == i32::MIN {
                     return Err(RoleError::HierarchyViolation);
                 }
-                top - 1
+                let taken: std::collections::HashSet<i32> =
+                    existing.iter().map(|r| r.position).collect();
+                let mut candidate = top - 1;
+                while taken.contains(&candidate) {
+                    candidate -= 1;
+                }
+                candidate
             }
         };
         let role = ServerRole {

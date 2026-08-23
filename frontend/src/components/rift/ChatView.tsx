@@ -548,6 +548,10 @@ const ChatView: React.FC<ChatViewProps> = ({
   const rolesData = useRolesStore((s) =>
     serverId ? s.byServer[serverId] : undefined,
   );
+  const fetchRoles = useRolesStore((s) => s.fetch);
+  React.useEffect(() => {
+    if (serverId) void fetchRoles(serverId).catch(() => {});
+  }, [serverId, fetchRoles]);
   const serverOwnerId = React.useMemo(
     () => servers?.find((sv) => sv.id === serverId)?.ownerId,
     [servers, serverId],
