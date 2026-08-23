@@ -19,7 +19,6 @@ interface SidebarProps {
   onSelectServer: (serverId: string) => void;
   onSelectChannel: (server: Server, channel: Channel) => void;
   onSelectDm: (dm: MockDirect) => void;
-  onAddChannel: (server: Server) => void;
   onInviteServer: (server: Server) => void;
   onOpenServerSettings: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
@@ -73,7 +72,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectServer,
   onSelectChannel,
   onSelectDm,
-  onAddChannel,
   onInviteServer,
   onOpenServerSettings,
   onDeleteChannel,
@@ -360,18 +358,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
               {!isCol && (
                 <>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    className="sb-section-add"
-                    title={t("addChannel")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddChannel(server);
-                    }}
-                  >
-                    <Icon name="plus" size={14} />
-                  </button>
                   <button
                     type="button"
                     tabIndex={-1}

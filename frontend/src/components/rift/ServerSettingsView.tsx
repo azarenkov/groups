@@ -12,8 +12,9 @@ import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import type { Friendship } from "../../types/friendship";
 import type { InviteCode, Server } from "../../types/server";
+import type { Channel } from "../../types/channel";
 
-type SectionId = "overview" | "invites" | "members" | "danger";
+type SectionId = "overview" | "channels" | "invites" | "members" | "danger";
 
 const EXPIRY_OPTIONS = [1, 7, 30, 0] as const;
 const MAX_USES_OPTIONS = [0, 10, 25, 50, 100] as const;
@@ -51,6 +52,7 @@ const copyText = async (text: string): Promise<boolean> => {
 
 const SECTIONS: { id: SectionId; icon: IconName }[] = [
   { id: "overview", icon: "grid" },
+  { id: "channels", icon: "hash" },
   { id: "invites", icon: "user-plus" },
   { id: "members", icon: "users" },
 ];
@@ -58,17 +60,23 @@ const SECTIONS: { id: SectionId; icon: IconName }[] = [
 interface ServerSettingsViewProps {
   server: Server;
   friends: Friendship[];
+  channels: Channel[];
   currentUserId?: string;
   onClose: () => void;
   onDeleteServer: (server: Server) => void;
+  onCreateChannel: () => void;
+  onDeleteChannel: (channel: Channel) => void;
 }
 
 const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   server,
   friends,
+  channels,
   currentUserId,
   onClose,
   onDeleteServer,
+  onCreateChannel,
+  onDeleteChannel,
 }) => {
   const { t } = useTranslation(["serverSettings", "common"]);
   const [section, setSection] = React.useState<SectionId>("overview");
@@ -477,6 +485,64 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                   </button>
                 </div>
               )}
+            </>
+          )}
+
+          {section === "channels" && (
+            <>
+              <h1>{t("nav.channels")}</h1>
+              <p className="lead">
+                {t("channelsLead", { count: channels.length, server: server.name })}
+              </p>
+              {isOwner && (
+                <div className="ssv-actions" style={{ marginTop: 0 }}>
+                  <button
+                    type="button"
+                    className="ssv-btn primary"
+                    onClick={onCreateChannel}
+                  >
+                    <Icon name="plus" size={14} />
+                    {t("createChannel")}
+                  </button>
+                </div>
+              )}
+              <div className="ssv-card">
+                {channels.length === 0 && (
+                  <div className="ssv-empty">{t("noChannels")}</div>
+                )}
+                {channels.map((c, i) => (
+                  <React.Fragment key={c.id}>
+                    {i > 0 && <div className="ssv-divider" />}
+                    <div className="ssv-row">
+                      <span className="ssv-channel-ico">
+                        <Icon name={c.kind === "voice" ? "volume" : "hash"} size={15} />
+                      </span>
+                      <div className="ssv-row-main">
+                        <div className="ssv-row-name">{c.name}</div>
+                        <div className="ssv-row-sub">
+                          {c.kind === "voice" ? t("kindVoice") : t("kindText")}
+                          {c.visibility === "private" && ` · ${t("privateChannel")}`}
+                        </div>
+                      </div>
+                      {c.visibility === "private" && (
+                        <span className="ssv-tag">
+                          <Icon name="lock" size={11} />
+                        </span>
+                      )}
+                      {isOwner && (
+                        <button
+                          type="button"
+                          className="ssv-row-delete"
+                          title={t("deleteChannel")}
+                          onClick={() => onDeleteChannel(c)}
+                        >
+                          <Icon name="trash" size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
             </>
           )}
 

@@ -847,10 +847,6 @@ const ServersPage: React.FC = () => {
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
-          onAddChannel={(server) => {
-            setChannelModalServerId(server.id);
-            setIsChannelModalOpen(true);
-          }}
           onInviteServer={(server) => setInviteModalServer(server)}
           onOpenServerSettings={(server) => setServerSettings(server)}
           onDeleteChannel={(server, channel) =>
@@ -1133,6 +1129,7 @@ const ServersPage: React.FC = () => {
               servers.find((s) => s.id === serverSettings.id) ?? serverSettings
             }
             friends={friends}
+            channels={channelsByServer[serverSettings.id] ?? []}
             currentUserId={user?.id}
             onClose={() => setServerSettings(null)}
             onDeleteServer={(server) => {
@@ -1143,6 +1140,18 @@ const ServersPage: React.FC = () => {
                 name: server.name,
               });
             }}
+            onCreateChannel={() => {
+              setChannelModalServerId(serverSettings.id);
+              setIsChannelModalOpen(true);
+            }}
+            onDeleteChannel={(channel) =>
+              setDeleteConfirm({
+                type: "channel",
+                id: channel.id,
+                serverId: serverSettings.id,
+                name: channel.name,
+              })
+            }
           />
         )}
       </div>
