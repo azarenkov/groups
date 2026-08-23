@@ -220,15 +220,17 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const renderDms = () => (
     <div className="sb-view">
-      <div className="sb-vhead">
-        <span className="sb-vhead-label">{t("directMessages")}</span>
-      </div>
       {!isFiltering && (
         <button type="button" className="sb-add-row" onClick={onAddFriend}>
-          <Icon name="user-plus" size={14} />
+          <span className="sb-add-row-ico">
+            <Icon name="user-plus" size={13} />
+          </span>
           <span>{t("addFriend")}</span>
         </button>
       )}
+      <div className="sb-vhead">
+        <span className="sb-vhead-label">{t("directMessages")}</span>
+      </div>
       {visibleDirects.length === 0 && (
         <div className="sb-empty">
           {isFiltering ? t("noDirectMatches") : t("noDirects")}
@@ -281,15 +283,17 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const renderServers = () => (
     <div className="sb-view">
-      <div className="sb-vhead">
-        <span className="sb-vhead-label">{t("servers")}</span>
-      </div>
       {!isFiltering && (
         <button type="button" className="sb-add-row" onClick={onAddServer}>
-          <Icon name="plus" size={14} />
+          <span className="sb-add-row-ico">
+            <Icon name="plus" size={13} />
+          </span>
           <span>{t("addServer")}</span>
         </button>
       )}
+      <div className="sb-vhead">
+        <span className="sb-vhead-label">{t("servers")}</span>
+      </div>
       {filteredServers.length === 0 && (
         <div className="sb-empty">
           {isFiltering ? t("noMatches") : t("noServers")}
