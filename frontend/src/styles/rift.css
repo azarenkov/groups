@@ -622,6 +622,7 @@ body.electron .titlebar { padding-left: 84px; }
   transition: background var(--dur-fast), color var(--dur-fast);
 }
 .sb-add-row:first-child { margin-top: 0; }
+.sb-add-row + .sb-vhead { padding-top: 14px; }
 .sb-add-row:hover { background: var(--surface-hover); color: var(--fg-1); }
 .sb-add-row:active { background: var(--surface-sunken); }
 .sb-add-row-ico {
