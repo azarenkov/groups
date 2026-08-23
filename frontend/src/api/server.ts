@@ -123,6 +123,58 @@ class ServerAPI {
     return response.data.data;
   }
 
+  async listRoles(serverId: string): Promise<{
+    roles: { id: string; name: string; color: string; permissions: number; position: number }[];
+    assignments: { userId: string; roleId: string }[];
+  }> {
+    const response = await this.client.get(`/v1/servers/${serverId}/roles`);
+    return response.data.data;
+  }
+
+  async createRole(
+    serverId: string,
+    name: string,
+    color: string,
+    permissions: number,
+  ): Promise<{ id: string }> {
+    const response = await this.client.post(`/v1/servers/${serverId}/roles`, {
+      name,
+      color,
+      permissions,
+    });
+    return response.data.data;
+  }
+
+  async updateRole(
+    serverId: string,
+    roleId: string,
+    name: string,
+    color: string,
+    permissions: number,
+  ): Promise<void> {
+    await this.client.put(`/v1/servers/${serverId}/roles/${roleId}`, {
+      name,
+      color,
+      permissions,
+    });
+  }
+
+  async deleteRole(serverId: string, roleId: string): Promise<void> {
+    await this.client.delete(`/v1/servers/${serverId}/roles/${roleId}`);
+  }
+
+  async assignRole(serverId: string, memberId: string, roleId: string): Promise<void> {
+    await this.client.put(
+      `/v1/servers/${serverId}/members/${memberId}/roles/${roleId}`,
+    );
+  }
+
+  async revokeRole(serverId: string, memberId: string, roleId: string): Promise<void> {
+    await this.client.delete(
+      `/v1/servers/${serverId}/members/${memberId}/roles/${roleId}`,
+    );
+  }
+
   async listInviteCodes(serverId: string): Promise<{ invites: InviteCode[] }> {
     const response = await this.client.get(
       `/v1/servers/${serverId}/invite-codes`,

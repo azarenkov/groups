@@ -19,6 +19,7 @@ use crate::friendship::{
 use crate::notifications::notification_routes;
 use crate::presence::presence_routes;
 use crate::read_state::read_state_routes;
+use crate::roles::role_routes;
 use crate::server::{
     create_invite_code, create_server, delete_server, leave_server, list_invite_codes,
     list_sent_server_invites, list_server_channels, list_server_members, list_servers_by_user,
@@ -37,6 +38,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 .configure(attachment_routes)
                 .service(
                     web::scope("/v1/servers")
+                        .configure(role_routes)
                         .service(create_server)
                         .service(redeem_invite_code)
                         .service(create_invite_code)

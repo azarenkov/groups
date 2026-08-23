@@ -407,6 +407,17 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "server.roles.changed": {
+      const serverId = asString(d.serverId);
+      if (!serverId) return;
+      void import("../store/rolesStore").then(({ useRolesStore }) => {
+        if (useRolesStore.getState().byServer[serverId]) {
+          void useRolesStore.getState().fetch(serverId).catch(() => {});
+        }
+      });
+      return;
+    }
+
     case "notification_preference.updated": {
       const scopeType = asString(d.scopeType);
       const scopeId = asString(d.scopeId);

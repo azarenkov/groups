@@ -3,6 +3,7 @@
   "nav": {
     "overview": "Overview",
     "channels": "Channels",
+    "roles": "Roles",
     "invites": "Invites",
     "members": "Members",
     "danger": "Danger zone"
@@ -70,5 +71,21 @@
   "channelVisibility": "Access",
   "channelPassword": "Password",
   "channelNameRequired": "Enter a channel name",
-  "channelPasswordRequired": "Private channels need a password"
+  "channelPasswordRequired": "Private channels need a password",
+  "rolesLead": "Roles define member permissions on {{server}}.",
+  "createRole": "Create role",
+  "roleName": "Role name",
+  "roleColor": "Color",
+  "rolePerms": "Permissions",
+  "permManageChannels": "Manage channels",
+  "permManageInvites": "Manage invites",
+  "permManageMessages": "Delete others' messages",
+  "permMuteMembers": "Mute members",
+  "permManageRoles": "Manage roles",
+  "permManageServer": "Manage server",
+  "roleMembers": "Members with this role",
+  "deleteRole": "Delete role",
+  "noRoles": "No roles yet — create the first one.",
+  "roleNameRequired": "Enter a role name",
+  "roleList": "Roles ({{count}})"
 }

@@ -9,6 +9,7 @@ mod internal;
 mod notifications;
 mod presence;
 mod read_state;
+mod roles;
 mod routes;
 mod server;
 mod state;

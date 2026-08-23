@@ -4,6 +4,7 @@ pub mod invite_code;
 pub mod id;
 pub mod name;
 pub mod repository;
+pub mod role;
 
 use chrono::{DateTime, Utc};
 

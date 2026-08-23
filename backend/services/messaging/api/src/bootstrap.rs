@@ -30,6 +30,10 @@ use messaging::usecases::{
         list_notification_preferences::ListNotificationPreferences,
         set_notification_preference::SetNotificationPreference,
     },
+    role::{
+        assign_role::AssignRole, create_role::CreateRole, delete_role::DeleteRole,
+        list_roles::ListRoles, revoke_role::RevokeRole, update_role::UpdateRole,
+    },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
@@ -56,6 +60,7 @@ use messaging::{
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
+            server_role::PostgresServerRoleRepository,
             user_profile::PostgresUserProfileRepository,
         },
     },
@@ -98,6 +103,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
     let read_state_repository =
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
+    let server_role_repository =
+        Arc::new(PostgresServerRoleRepository::new(postgres_pool.clone()));
     let notification_preference_repository = Arc::new(
         PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
     );
@@ -236,6 +243,30 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         get_channel_read_receipts_usecase: GetChannelReadReceipts::new(
             read_state_repository.clone(),
             channel_repository.clone(),
+        ),
+        list_roles_usecase: ListRoles::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        create_role_usecase: CreateRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        update_role_usecase: UpdateRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        delete_role_usecase: DeleteRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        assign_role_usecase: AssignRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        revoke_role_usecase: RevokeRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
         ),
         list_notification_preferences_usecase: ListNotificationPreferences::new(
             notification_preference_repository.clone(),

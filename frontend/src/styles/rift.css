@@ -5337,3 +5337,36 @@ button.ssv-row-delete:focus-visible {
   cursor: pointer;
 }
 .m-empty-cta:hover { background: var(--accent-hover, var(--accent)); }
+
+.ssv-role-colors { display: flex; gap: 8px; margin-top: 14px; }
+.ssv-role-color {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.ssv-role-color.on { border-color: var(--fg-1); }
+.ssv-role-perms {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-top: 14px;
+}
+.ssv-role-perm {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--fg-2);
+  cursor: pointer;
+}
+.ssv-role-perm input { accent-color: var(--accent); }
+.ssv-role-row { cursor: pointer; }
+.ssv-role-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  flex-shrink: 0;
+  margin: 0 6px;
+}
+.ssv-role-detail {
+  padding: 4px 16px 16px 36px;
+}
+.ssv-role-members {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}

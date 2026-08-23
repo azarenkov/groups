@@ -32,6 +32,7 @@ use crate::usecases::friendship::send_friend_request::SendFriendRequestError;
 use crate::usecases::notification::list_notification_preferences::ListNotificationPreferencesError;
 use crate::usecases::notification::set_notification_preference::SetNotificationPreferenceError;
 use crate::usecases::read_state::get_channel_read_receipts::GetChannelReadReceiptsError;
+use crate::usecases::role::RoleError;
 use crate::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use crate::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use crate::usecases::read_state::mark_channel_read::MarkChannelReadError;
@@ -1591,6 +1592,38 @@ impl ToHttpStatus for ListChannelParticipantsError {
     }
 }
 
+impl ToHttpStatus for RoleError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RoleError::Repository(e) => e.to_http_status(),
+            RoleError::NotMember => StatusCode::FORBIDDEN,
+            RoleError::NotAllowed => StatusCode::FORBIDDEN,
+            RoleError::RoleNotFound => StatusCode::NOT_FOUND,
+            RoleError::InvalidData => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RoleError::Repository(e) => e.to_user_message(),
+            RoleError::NotMember => "You are not a member of this server".to_string(),
+            RoleError::NotAllowed => {
+                "You don't have permission to manage roles".to_string()
+            }
+            RoleError::RoleNotFound => "Role not found".to_string(),
+            RoleError::InvalidData => "Invalid role data".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RoleError::Repository(e) => e.to_error_code(),
+            RoleError::NotMember => "SERVER_NOT_MEMBER",
+            RoleError::NotAllowed => "ROLE_NOT_ALLOWED",
+            RoleError::RoleNotFound => "ROLE_NOT_FOUND",
+            RoleError::InvalidData => "ROLE_INVALID",
+        }
+    }
+}
+
 impl ToHttpStatus for SetNotificationPreferenceError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1666,6 +1699,7 @@ shared::impl_from_for_api_error!(
     RedeemInviteCodeError,
     RemoveFriendshipError,
     RevokeInviteCodeError,
+    RoleError,
     SearchChannelMessagesError,
     SearchDmMessagesError,
     SendChannelMessageError,

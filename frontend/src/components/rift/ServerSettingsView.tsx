@@ -10,11 +10,22 @@ import { colorForId } from "../../utils/avatar";
 import { ServerLogo, UserAvatar } from "./Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { useUserNamesStore } from "../../store/userNamesStore";
+import {
+  PERM_MANAGE_CHANNELS,
+  PERM_MANAGE_INVITES,
+  PERM_MANAGE_MESSAGES,
+  PERM_MANAGE_ROLES,
+  PERM_MANAGE_SERVER,
+  PERM_MUTE_MEMBERS,
+  topRoleFor,
+  useRolesStore,
+  userPermissions,
+} from "../../store/rolesStore";
 import type { Friendship } from "../../types/friendship";
 import type { InviteCode, Server } from "../../types/server";
 import type { Channel, ChannelKind, ChannelVisibility } from "../../types/channel";
 
-type SectionId = "overview" | "channels" | "invites" | "members" | "danger";
+type SectionId = "overview" | "channels" | "roles" | "invites" | "members" | "danger";
 
 const EXPIRY_OPTIONS = [1, 7, 30, 0] as const;
 const MAX_USES_OPTIONS = [0, 10, 25, 50, 100] as const;
@@ -53,6 +64,7 @@ const copyText = async (text: string): Promise<boolean> => {
 const SECTIONS: { id: SectionId; icon: IconName }[] = [
   { id: "overview", icon: "grid" },
   { id: "channels", icon: "hash" },
+  { id: "roles", icon: "shield" },
   { id: "invites", icon: "user-plus" },
   { id: "members", icon: "users" },
 ];
@@ -86,6 +98,90 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const { t } = useTranslation(["serverSettings", "common", "modals"]);
   const [section, setSection] = React.useState<SectionId>("overview");
   const isOwner = currentUserId === server.ownerId;
+
+  const rolesData = useRolesStore((st) => st.byServer[server.id]);
+  const fetchRoles = useRolesStore((st) => st.fetch);
+  React.useEffect(() => {
+    void fetchRoles(server.id).catch(() => {});
+  }, [server.id, fetchRoles]);
+  const myPerms = currentUserId
+    ? userPermissions(rolesData, currentUserId)
+    : 0;
+  const canManageRoles = isOwner || (myPerms & PERM_MANAGE_ROLES) !== 0;
+
+  const ROLE_COLORS = [
+    "#5865f2", "#3ba55c", "#faa61a", "#ed4245", "#eb459e", "#9b59b6", "#00b0f4", "#8e8e93",
+  ];
+  const PERMS: { bit: number; key: string }[] = [
+    { bit: PERM_MANAGE_CHANNELS, key: "permManageChannels" },
+    { bit: PERM_MANAGE_INVITES, key: "permManageInvites" },
+    { bit: PERM_MANAGE_MESSAGES, key: "permManageMessages" },
+    { bit: PERM_MUTE_MEMBERS, key: "permMuteMembers" },
+    { bit: PERM_MANAGE_ROLES, key: "permManageRoles" },
+    { bit: PERM_MANAGE_SERVER, key: "permManageServer" },
+  ];
+  const [newRoleName, setNewRoleName] = React.useState("");
+  const [newRoleColor, setNewRoleColor] = React.useState(ROLE_COLORS[0]);
+  const [newRolePerms, setNewRolePerms] = React.useState(0);
+  const [roleBusy, setRoleBusy] = React.useState(false);
+  const [roleError, setRoleError] = React.useState<string | null>(null);
+  const [expandedRoleId, setExpandedRoleId] = React.useState<string | null>(null);
+
+  const refreshRoles = () => void fetchRoles(server.id).catch(() => {});
+
+  const submitCreateRole = async () => {
+    const name = newRoleName.trim();
+    if (!name) {
+      setRoleError(t("roleNameRequired"));
+      return;
+    }
+    setRoleBusy(true);
+    setRoleError(null);
+    try {
+      await serverAPI.createRole(server.id, name, newRoleColor, newRolePerms);
+      setNewRoleName("");
+      setNewRolePerms(0);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    } finally {
+      setRoleBusy(false);
+    }
+  };
+
+  const patchRole = async (
+    roleId: string,
+    name: string,
+    color: string,
+    permissions: number,
+  ) => {
+    try {
+      await serverAPI.updateRole(server.id, roleId, name, color, permissions);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
+
+  const removeRole = async (roleId: string) => {
+    try {
+      await serverAPI.deleteRole(server.id, roleId);
+      if (expandedRoleId === roleId) setExpandedRoleId(null);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
+
+  const toggleAssignment = async (roleId: string, memberId: string, has: boolean) => {
+    try {
+      if (has) await serverAPI.revokeRole(server.id, memberId, roleId);
+      else await serverAPI.assignRole(server.id, memberId, roleId);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
 
   const [newChName, setNewChName] = React.useState("");
   const [newChKind, setNewChKind] = React.useState<ChannelKind>("text");
@@ -654,6 +750,195 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
             </>
           )}
 
+          {section === "roles" && (
+            <>
+              <h1>{t("nav.roles")}</h1>
+              <p className="lead">{t("rolesLead", { server: server.name })}</p>
+              {canManageRoles && (
+                <form
+                  className="ssv-invite-card"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void submitCreateRole();
+                  }}
+                >
+                  <div className="ssv-invite-head">
+                    <Icon name="shield" size={16} />
+                    <span>{t("createRole")}</span>
+                  </div>
+                  <div className="ssv-invite-row">
+                    <input
+                      className="ssv-input ssv-create-input"
+                      placeholder={t("roleName")}
+                      value={newRoleName}
+                      maxLength={40}
+                      disabled={roleBusy}
+                      onChange={(e) => {
+                        setNewRoleName(e.target.value);
+                        setRoleError(null);
+                      }}
+                    />
+                    <button type="submit" className="ssv-btn primary" disabled={roleBusy}>
+                      <Icon name="plus" size={14} />
+                      {t("createRole")}
+                    </button>
+                  </div>
+                  <div className="ssv-role-colors">
+                    {ROLE_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={
+                          "ssv-role-color" + (newRoleColor === c ? " on" : "")
+                        }
+                        style={{ background: c }}
+                        onClick={() => setNewRoleColor(c)}
+                      />
+                    ))}
+                  </div>
+                  <div className="ssv-role-perms">
+                    {PERMS.map((perm) => (
+                      <label key={perm.bit} className="ssv-role-perm">
+                        <input
+                          type="checkbox"
+                          checked={(newRolePerms & perm.bit) !== 0}
+                          disabled={roleBusy}
+                          onChange={(e) =>
+                            setNewRolePerms((prev) =>
+                              e.target.checked ? prev | perm.bit : prev & ~perm.bit,
+                            )
+                          }
+                        />
+                        <span>{t(perm.key)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </form>
+              )}
+              {roleError && <div className="ssv-error">{roleError}</div>}
+              <div className="ssv-section-label">
+                {t("roleList", { count: rolesData?.roles.length ?? 0 })}
+              </div>
+              <div className="ssv-card">
+                {(rolesData?.roles.length ?? 0) === 0 && (
+                  <div className="ssv-empty">{t("noRoles")}</div>
+                )}
+                {(rolesData?.roles ?? []).map((role, i) => {
+                  const expanded = expandedRoleId === role.id;
+                  const holders = effectiveMembers.filter((m) =>
+                    (rolesData?.memberRoles[m.id] ?? []).includes(role.id),
+                  );
+                  return (
+                    <React.Fragment key={role.id}>
+                      {i > 0 && <div className="ssv-divider" />}
+                      <div
+                        className="ssv-row ssv-role-row"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() =>
+                          setExpandedRoleId(expanded ? null : role.id)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setExpandedRoleId(expanded ? null : role.id);
+                          }
+                        }}
+                      >
+                        <span
+                          className="ssv-role-dot"
+                          style={{ background: role.color }}
+                        />
+                        <div className="ssv-row-main">
+                          <div className="ssv-row-name">{role.name}</div>
+                          <div className="ssv-row-sub">
+                            {PERMS.filter((p2) => (role.permissions & p2.bit) !== 0)
+                              .map((p2) => t(p2.key))
+                              .join(" · ") || "—"}
+                          </div>
+                        </div>
+                        <span className="ssv-tag">{holders.length}</span>
+                        {canManageRoles && (
+                          <button
+                            type="button"
+                            className="ssv-row-delete"
+                            title={t("deleteRole")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void removeRole(role.id);
+                            }}
+                          >
+                            <Icon name="trash" size={14} />
+                          </button>
+                        )}
+                      </div>
+                      {expanded && canManageRoles && (
+                        <div className="ssv-role-detail">
+                          <div className="ssv-role-colors">
+                            {ROLE_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                className={
+                                  "ssv-role-color" + (role.color === c ? " on" : "")
+                                }
+                                style={{ background: c }}
+                                onClick={() =>
+                                  void patchRole(role.id, role.name, c, role.permissions)
+                                }
+                              />
+                            ))}
+                          </div>
+                          <div className="ssv-role-perms">
+                            {PERMS.map((perm) => (
+                              <label key={perm.bit} className="ssv-role-perm">
+                                <input
+                                  type="checkbox"
+                                  checked={(role.permissions & perm.bit) !== 0}
+                                  onChange={(e) =>
+                                    void patchRole(
+                                      role.id,
+                                      role.name,
+                                      role.color,
+                                      e.target.checked
+                                        ? role.permissions | perm.bit
+                                        : role.permissions & ~perm.bit,
+                                    )
+                                  }
+                                />
+                                <span>{t(perm.key)}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="ssv-section-label">{t("roleMembers")}</div>
+                          <div className="ssv-role-members">
+                            {effectiveMembers.map((m) => {
+                              const has = (rolesData?.memberRoles[m.id] ?? []).includes(
+                                role.id,
+                              );
+                              return (
+                                <label key={m.id} className="ssv-role-perm">
+                                  <input
+                                    type="checkbox"
+                                    checked={has}
+                                    onChange={() =>
+                                      void toggleAssignment(role.id, m.id, has)
+                                    }
+                                  />
+                                  <span>{m.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           {section === "invites" && (
             <>
               <h1>{t("nav.invites")}</h1>
@@ -919,6 +1204,20 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                               : t("offline")}
                           </div>
                         </div>
+                        {(() => {
+                          const top = topRoleFor(rolesData, m.id);
+                          return top ? (
+                            <span
+                              className="ssv-tag"
+                              style={{
+                                color: top.color,
+                                background: `color-mix(in srgb, ${top.color} 16%, transparent)`,
+                              }}
+                            >
+                              {top.name}
+                            </span>
+                          ) : null;
+                        })()}
                         <span
                           className={
                             "ssv-tag" + (m.id === server.ownerId ? " owner" : "")

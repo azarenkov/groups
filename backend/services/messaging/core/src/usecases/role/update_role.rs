@@ -1,0 +1,69 @@
+use std::sync::Arc;
+
+use domain::{
+    server::{
+        id::ServerId,
+        repository::ServerRepository,
+        role::{PERM_ALL, ServerRole, ServerRoleRepository},
+    },
+    user::id::UserId,
+};
+use uuid::Uuid;
+
+use super::{RoleError, ensure_manage_roles, recipients, roles_changed_event, validate_role_input};
+
+pub struct UpdateRole<S: ServerRepository, R: ServerRoleRepository> {
+    server_repository: Arc<S>,
+    role_repository: Arc<R>,
+}
+
+impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
+    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
+        Self {
+            server_repository,
+            role_repository,
+        }
+    }
+
+    pub async fn execute(
+        &self,
+        server_id: ServerId,
+        actor: UserId,
+        role_id: Uuid,
+        name: String,
+        color: String,
+        permissions: i64,
+    ) -> Result<(), RoleError> {
+        ensure_manage_roles(
+            self.server_repository.as_ref(),
+            self.role_repository.as_ref(),
+            &server_id,
+            &actor,
+        )
+        .await?;
+        validate_role_input(&name, &color)?;
+        let existing = self
+            .role_repository
+            .list_roles(&server_id)
+            .await?
+            .into_iter()
+            .find(|r| r.id == role_id)
+            .ok_or(RoleError::RoleNotFound)?;
+        let role = ServerRole {
+            name: name.trim().to_string(),
+            color,
+            permissions: permissions & PERM_ALL,
+            ..existing
+        };
+        let members = recipients(self.server_repository.as_ref(), &server_id).await?;
+        let event = roles_changed_event(&server_id, &members);
+        let updated = self
+            .role_repository
+            .update_role(&role, std::slice::from_ref(&event))
+            .await?;
+        if !updated {
+            return Err(RoleError::RoleNotFound);
+        }
+        Ok(())
+    }
+}

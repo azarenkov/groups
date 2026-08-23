@@ -3,6 +3,7 @@
   "nav": {
     "overview": "Обзор",
     "channels": "Каналы",
+    "roles": "Роли",
     "invites": "Приглашения",
     "members": "Участники",
     "danger": "Опасная зона"
@@ -70,5 +71,21 @@
   "channelVisibility": "Доступ",
   "channelPassword": "Пароль",
   "channelNameRequired": "Введите название канала",
-  "channelPasswordRequired": "Для приватного канала нужен пароль"
+  "channelPasswordRequired": "Для приватного канала нужен пароль",
+  "rolesLead": "Роли определяют права участников на сервере {{server}}.",
+  "createRole": "Создать роль",
+  "roleName": "Название роли",
+  "roleColor": "Цвет",
+  "rolePerms": "Права",
+  "permManageChannels": "Управление каналами",
+  "permManageInvites": "Управление приглашениями",
+  "permManageMessages": "Удаление чужих сообщений",
+  "permMuteMembers": "Мьют участников",
+  "permManageRoles": "Управление ролями",
+  "permManageServer": "Управление сервером",
+  "roleMembers": "Участники с ролью",
+  "deleteRole": "Удалить роль",
+  "noRoles": "Ролей пока нет — создайте первую.",
+  "roleNameRequired": "Введите название роли",
+  "roleList": "Роли ({{count}})"
 }

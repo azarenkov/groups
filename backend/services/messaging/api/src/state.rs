@@ -26,6 +26,10 @@ use messaging::usecases::{
         list_notification_preferences::ListNotificationPreferences,
         set_notification_preference::SetNotificationPreference,
     },
+    role::{
+        assign_role::AssignRole, create_role::CreateRole, delete_role::DeleteRole,
+        list_roles::ListRoles, revoke_role::RevokeRole, update_role::UpdateRole,
+    },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
@@ -49,7 +53,9 @@ use messaging::{
         message::PostgresMessageRepository,
         notification_preference::PostgresNotificationPreferenceRepository,
         read_state::PostgresReadStateRepository,
-        server::PostgresServerRepository, user_profile::PostgresUserProfileRepository,
+        server::PostgresServerRepository,
+        server_role::PostgresServerRoleRepository,
+        user_profile::PostgresUserProfileRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
@@ -122,6 +128,12 @@ pub struct AppState {
         GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
+    pub list_roles_usecase: ListRoles<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub create_role_usecase: CreateRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub update_role_usecase: UpdateRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub delete_role_usecase: DeleteRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub assign_role_usecase: AssignRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub revoke_role_usecase: RevokeRole<PostgresServerRepository, PostgresServerRoleRepository>,
     pub list_notification_preferences_usecase:
         ListNotificationPreferences<PostgresNotificationPreferenceRepository>,
     pub set_notification_preference_usecase: SetNotificationPreference<

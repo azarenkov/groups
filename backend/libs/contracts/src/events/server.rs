@@ -38,3 +38,10 @@ pub struct ServerMemberV1 {
     pub user_id: Uuid,
     pub occurred_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerRolesChangedV1 {
+    pub server_id: Uuid,
+    #[serde(default)]
+    pub recipients: Vec<Uuid>,
+}

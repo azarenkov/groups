@@ -5,6 +5,7 @@ import type { ChannelParticipant } from "../../types/channel";
 import { UserAvatar } from "./Avatar";
 import { usePresenceStore } from "../../store/presenceStore";
 import { useUserNamesStore } from "../../store/userNamesStore";
+import { topRoleFor, useRolesStore } from "../../store/rolesStore";
 
 interface MembersPanelProps {
   serverId: string;
@@ -21,6 +22,11 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const rolesData = useRolesStore((s) => s.byServer[serverId]);
+  const fetchRoles = useRolesStore((s) => s.fetch);
+  useEffect(() => {
+    void fetchRoles(serverId).catch(() => {});
+  }, [serverId, fetchRoles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +95,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
         const isSelf = m.id === selfUserId;
         const isOnline = isSelf ? selfOnline : !!onlineUsers[m.id];
         const displayName = nameOverrides[m.id] ?? m.name;
+        const topRole = topRoleFor(rolesData, m.id);
         const statusLabel = isOnline
           ? t("common:online")
           : t("common:offline");
@@ -102,11 +109,14 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
               />
             </UserAvatar>
             <div className="info">
-              <div className="name">
+              <div
+                className="name"
+                style={topRole ? { color: topRole.color } : undefined}
+              >
                 {displayName}
                 {isSelf && <span className="member-you">{t("you")}</span>}
               </div>
-              <div className="role">{statusLabel}</div>
+              <div className="role">{topRole ? topRole.name : statusLabel}</div>
             </div>
           </div>
         );

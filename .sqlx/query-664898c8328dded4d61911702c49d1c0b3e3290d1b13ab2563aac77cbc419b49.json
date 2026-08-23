@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS(\n                SELECT 1 FROM server_roles r\n                INNER JOIN server_members m\n                    ON m.server_id = r.server_id AND m.user_id = $3\n                WHERE r.id = $1 AND r.server_id = $2\n            ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "664898c8328dded4d61911702c49d1c0b3e3290d1b13ab2563aac77cbc419b49"
+}
