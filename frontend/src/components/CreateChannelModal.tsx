@@ -165,7 +165,6 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
             </div>
           </div>
 
-          {kind === "voice" && (
           <div className="m-field">
             <label>{t("createChannel.visibilityLabel")}</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -206,9 +205,8 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
               })}
             </div>
           </div>
-          )}
 
-          {kind === "voice" && visibility === "private" && (
+          {visibility === "private" && (
             <div className="m-field">
               <label>Password</label>
               <input
