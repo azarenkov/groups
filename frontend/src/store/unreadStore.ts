@@ -93,6 +93,14 @@ export const useUnreadStore = create<UnreadState>()((set, get) => ({
 let refetchSeq = 0;
 let refetchRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
+function scheduleRefetchRetry(token: number) {
+  if (token !== refetchSeq || refetchRetryTimer) return;
+  refetchRetryTimer = setTimeout(() => {
+    refetchRetryTimer = null;
+    void refetchUnread().catch(() => {});
+  }, 2000);
+}
+
 export async function refetchUnread(): Promise<void> {
   const sessionUserId = useAuthStore.getState().user?.id;
   if (!sessionUserId) return;
@@ -103,12 +111,7 @@ export async function refetchUnread(): Promise<void> {
     try {
       u = await userAPI.getUnread();
     } catch (e) {
-      if (token === refetchSeq && !refetchRetryTimer) {
-        refetchRetryTimer = setTimeout(() => {
-          refetchRetryTimer = null;
-          void refetchUnread().catch(() => {});
-        }, 2000);
-      }
+      scheduleRefetchRetry(token);
       throw e;
     }
     if (token !== refetchSeq) return;
@@ -125,10 +128,5 @@ export async function refetchUnread(): Promise<void> {
     useUnreadStore.getState().setAll(channels, dms, channelToServer);
     return;
   }
-  if (token === refetchSeq && !refetchRetryTimer) {
-    refetchRetryTimer = setTimeout(() => {
-      refetchRetryTimer = null;
-      void refetchUnread().catch(() => {});
-    }, 2000);
-  }
+  scheduleRefetchRetry(token);
 }
