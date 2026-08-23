@@ -932,8 +932,12 @@ const ServersPage: React.FC = () => {
           }
           onOpenSettings={() => setSettingsOpen(true)}
           onAddFriend={() => setIsAddFriendOpen(true)}
-          onAddServer={() => {
-            setServerModalView("choose");
+          onCreateServer={() => {
+            setServerModalView("create");
+            setIsServerModalOpen(true);
+          }}
+          onJoinServer={() => {
+            setServerModalView("join");
             setIsServerModalOpen(true);
           }}
           currentUserId={user?.id}

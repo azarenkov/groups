@@ -26,7 +26,8 @@ interface SidebarProps {
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
   onAddFriend: () => void;
-  onAddServer: () => void;
+  onCreateServer: () => void;
+  onJoinServer: () => void;
   currentUserId?: string;
   currentUserName: string;
   currentUserStatus: string;
@@ -78,7 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteChannel,
   onOpenSettings,
   onAddFriend,
-  onAddServer,
+  onCreateServer,
+  onJoinServer,
   currentUserId,
   currentUserName,
   currentUserStatus,
@@ -284,12 +286,24 @@ const Sidebar: React.FC<SidebarProps> = ({
   const renderServers = () => (
     <div className="sb-view">
       {!isFiltering && (
-        <button type="button" className="sb-add-row" onClick={onAddServer}>
-          <span className="sb-add-row-ico">
-            <Icon name="plus" size={13} />
-          </span>
-          <span>{t("addServer")}</span>
-        </button>
+        <>
+          <button type="button" className="sb-add-row" onClick={onCreateServer}>
+            <span className="sb-add-row-ico">
+              <Icon name="plus" size={13} />
+            </span>
+            <span>{t("createServer")}</span>
+          </button>
+          <button
+            type="button"
+            className="sb-add-row secondary"
+            onClick={onJoinServer}
+          >
+            <span className="sb-add-row-ico">
+              <Icon name="logout" size={13} />
+            </span>
+            <span>{t("joinServer")}</span>
+          </button>
+        </>
       )}
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("servers")}</span>
