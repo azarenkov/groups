@@ -9,6 +9,7 @@ interface NewDmModalProps {
   existingDirects: MockDirect[];
   onClose: () => void;
   onPick: (person: MockMember) => void;
+  onAddFriend?: () => void;
 }
 
 const NewDmModal: React.FC<NewDmModalProps> = ({
@@ -16,6 +17,7 @@ const NewDmModal: React.FC<NewDmModalProps> = ({
   existingDirects,
   onClose,
   onPick,
+  onAddFriend,
 }) => {
   const { t } = useTranslation(["modals", "common"]);
   const [query, setQuery] = useState("");
@@ -90,6 +92,28 @@ const NewDmModal: React.FC<NewDmModalProps> = ({
           />
         </div>
         <div className="newdm-list">
+          {people.length === 0 && !q && (
+            <div className="m-empty">
+              <span className="m-empty-ico">
+                <Icon name="users" size={22} />
+              </span>
+              <div className="m-empty-title">{t("newDm.emptyTitle")}</div>
+              <div className="m-empty-sub">{t("newDm.noFriends")}</div>
+              {onAddFriend && (
+                <button
+                  type="button"
+                  className="m-empty-cta"
+                  onClick={() => {
+                    onClose();
+                    onAddFriend();
+                  }}
+                >
+                  <Icon name="user-plus" size={14} />
+                  {t("newDm.emptyCta")}
+                </button>
+              )}
+            </div>
+          )}
           {filtered.length === 0 && q && (
             <button type="button" className="newdm-create" onClick={submitFreeform}>
               <span className="newdm-ava placeholder">

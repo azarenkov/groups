@@ -7,11 +7,13 @@ import { UserAvatar } from "./rift/Avatar";
 interface PendingFriendsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAddFriend?: () => void;
 }
 
 const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
   isOpen,
   onClose,
+  onAddFriend,
 }) => {
   const { t } = useTranslation(["modals", "common"]);
   const friends = useFriendshipStore((s) => s.friends);
@@ -51,7 +53,26 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
           {incoming.length === 0 &&
             outgoing.length === 0 &&
             declined.length === 0 && (
-              <div className="pf-empty">{t("pendingFriends.empty")}</div>
+              <div className="m-empty">
+                <span className="m-empty-ico">
+                  <Icon name="mail" size={22} />
+                </span>
+                <div className="m-empty-title">{t("pendingFriends.emptyTitle")}</div>
+                <div className="m-empty-sub">{t("pendingFriends.emptyHint")}</div>
+                {onAddFriend && (
+                  <button
+                    type="button"
+                    className="m-empty-cta"
+                    onClick={() => {
+                      onClose();
+                      onAddFriend();
+                    }}
+                  >
+                    <Icon name="user-plus" size={14} />
+                    {t("pendingFriends.emptyCta")}
+                  </button>
+                )}
+              </div>
             )}
 
           {incoming.length > 0 && (

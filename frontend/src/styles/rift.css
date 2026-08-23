@@ -5302,3 +5302,47 @@ button.ssv-row-delete:focus-visible {
 .presence {
   z-index: 1;
 }
+
+.m-blurb {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 0 20px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+}
+.m-blurb-ico {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: var(--accent-tint);
+  color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.m-blurb-text { font-size: 13px; color: var(--fg-2); line-height: 1.45; }
+.m-blurb-hint { margin-top: 4px; font-size: 12px; color: var(--fg-3); }
+
+.m-empty {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  padding: 28px 16px 20px;
+  gap: 6px;
+}
+.m-empty-ico {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 6px;
+}
+.m-empty-title { font-size: 15px; font-weight: 600; color: var(--fg-1); }
+.m-empty-sub { font-size: 13px; color: var(--fg-3); max-width: 300px; line-height: 1.45; }
+.m-empty-cta {
+  margin-top: 12px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border: 0; border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.m-empty-cta:hover { background: var(--accent-hover, var(--accent)); }

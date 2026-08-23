@@ -1227,6 +1227,7 @@ const ServersPage: React.FC = () => {
       <PendingFriendsModal
         isOpen={isPendingOpen}
         onClose={() => setIsPendingOpen(false)}
+        onAddFriend={() => setIsAddFriendOpen(true)}
       />
 
       <InviteFriendsModal
