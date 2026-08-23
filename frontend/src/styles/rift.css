@@ -1382,6 +1382,7 @@ body.electron .titlebar { padding-left: 84px; }
 
 .composer { padding: 10px 24px 20px; }
 .composer-wrap {
+  position: relative;
   background: var(--surface-sunken);
   border-radius: 12px;
   padding: 0 14px;
@@ -4848,6 +4849,48 @@ textarea.s-input {
 }
 
 /* ---- Message links and previews ---- */
+.msg-mention {
+  color: var(--accent);
+  background: var(--accent-tint);
+  border-radius: 4px;
+  padding: 0 3px;
+  font-weight: 500;
+}
+.msg-mention.self {
+  color: #ff9f0a;
+  background: rgba(255, 159, 10, 0.18);
+}
+.msg.bubble.mine .msg-mention {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mention-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: var(--shadow-3);
+  padding: 6px;
+  z-index: 60;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.mention-pop-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px; color: var(--fg-1);
+  border: 0; background: transparent;
+  width: 100%; text-align: left;
+}
+.mention-pop-item.active { background: var(--surface-hover); }
+.mention-pop-name { font-weight: 500; }
+
 .msg-link { color: var(--accent); text-decoration: none; word-break: break-all; }
 .msg-link:hover { text-decoration: underline; }
 .msg.bubble.mine .msg-link { color: #fff; text-decoration: underline; }

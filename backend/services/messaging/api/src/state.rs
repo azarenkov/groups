@@ -22,6 +22,10 @@ use messaging::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    notification::{
+        list_notification_preferences::ListNotificationPreferences,
+        set_notification_preference::SetNotificationPreference,
+    },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
@@ -42,11 +46,14 @@ use messaging::{
     database::postgres::repositories::{
         channel::PostgresChannelRepository,
         dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
-        message::PostgresMessageRepository, read_state::PostgresReadStateRepository,
+        message::PostgresMessageRepository,
+        notification_preference::PostgresNotificationPreferenceRepository,
+        read_state::PostgresReadStateRepository,
         server::PostgresServerRepository, user_profile::PostgresUserProfileRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
+    media_client::identity_users::IdentityUsersClient,
     storage::minio_storage::MinioStorage,
     voice::livekit_service::LiveKitService,
 };
@@ -73,12 +80,14 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresServerRepository,
         MediaClaimsClient,
+        IdentityUsersClient,
     >,
     pub edit_channel_message_usecase: EditChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
         MediaClaimsClient,
+        IdentityUsersClient,
     >,
     pub delete_channel_message_usecase: DeleteChannelMessage<
         PostgresMessageRepository,
@@ -113,6 +122,13 @@ pub struct AppState {
         GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
+    pub list_notification_preferences_usecase:
+        ListNotificationPreferences<PostgresNotificationPreferenceRepository>,
+    pub set_notification_preference_usecase: SetNotificationPreference<
+        PostgresNotificationPreferenceRepository,
+        PostgresChannelRepository,
+        PostgresFriendshipRepository,
+    >,
     pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,

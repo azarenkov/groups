@@ -9,6 +9,7 @@ pub mod join_voice_connection;
 pub mod leave_voice_connection;
 pub mod list_channel_messages;
 pub mod list_channel_participants;
+pub mod mentions;
 pub mod mute_channel;
 pub mod recipients;
 pub mod search_channel_messages;

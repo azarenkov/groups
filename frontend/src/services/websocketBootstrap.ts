@@ -14,6 +14,12 @@ import {
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
+import {
+  channelNotifLevel,
+  dmNotifLevel,
+  useNotificationPrefsStore,
+} from "../store/notificationPrefsStore";
+import { mentionsUser } from "../utils/mentions";
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
 
@@ -55,9 +61,31 @@ function throttleMarkDmRead(friendId: string) {
 }
 
 let installed = false;
+let prefsReloadGen = 0;
 
 function asString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
+}
+
+const UNREAD_REFETCH_DELAY_MS = 1000;
+let unreadRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+const lastChannelBumpAt: Record<string, number> = {};
+const lastDmBumpAt: Record<string, number> = {};
+
+function eventTs(v: unknown): number {
+  const t = Date.parse(asString(v) ?? "");
+  return Number.isFinite(t) ? t : Date.now();
+}
+
+function scheduleUnreadRefetch() {
+  if (unreadRefetchTimer) return;
+  unreadRefetchTimer = setTimeout(() => {
+    unreadRefetchTimer = null;
+    void import("../store/unreadStore").then(({ refetchUnread }) =>
+      refetchUnread().catch(() => {}),
+    );
+  }, UNREAD_REFETCH_DELAY_MS);
 }
 
 function dispatch(env: WsEnvelope) {
@@ -106,6 +134,12 @@ function dispatch(env: WsEnvelope) {
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
         purgeServerLocally(serverId);
+        return;
+      }
+      const channels = useChannelStore.getState().channelsByServer[serverId] ?? [];
+      const receipts = useReadReceiptStore.getState();
+      for (const c of channels) {
+        receipts.removeChannelMember(c.id, userId);
       }
       return;
     }
@@ -229,6 +263,15 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
+      const level = channelNotifLevel(channelId);
+      if (level === "none") return;
+      if (level === "mentions") {
+        const myName = useAuthStore.getState().user?.name;
+        const mentioned = Array.isArray(d.mentions)
+          ? !!selfId && d.mentions.includes(selfId)
+          : !!myName && mentionsUser(asString(d.content) ?? "", myName);
+        if (!mentioned) return;
+      }
       const byServer = useChannelStore.getState().channelsByServer;
       let serverId: string | undefined;
       for (const [sid, chans] of Object.entries(byServer)) {
@@ -237,7 +280,20 @@ function dispatch(env: WsEnvelope) {
           break;
         }
       }
+      lastChannelBumpAt[channelId] = Math.max(
+        lastChannelBumpAt[channelId] ?? 0,
+        eventTs(d.occurredAt),
+      );
       useUnreadStore.getState().bumpChannel(channelId, serverId);
+      return;
+    }
+
+    case "message.edited": {
+      const channelId = asString(d.channelId);
+      if (!channelId) return;
+      if (activeChannelView === channelId) return;
+      if (channelNotifLevel(channelId) !== "mentions") return;
+      scheduleUnreadRefetch();
       return;
     }
 
@@ -261,6 +317,11 @@ function dispatch(env: WsEnvelope) {
         throttleMarkDmRead(senderId);
         return;
       }
+      if (dmNotifLevel(senderId) === "none") return;
+      lastDmBumpAt[senderId] = Math.max(
+        lastDmBumpAt[senderId] ?? 0,
+        eventTs(d.occurredAt),
+      );
       useUnreadStore.getState().bumpDm(senderId);
       return;
     }
@@ -293,6 +354,23 @@ function dispatch(env: WsEnvelope) {
     case "dm.read": {
       const readerId = asString(d.readerId);
       const readAt = asString(d.readAt);
+      const selfId = useAuthStore.getState().user?.id;
+      if (readerId && readerId === selfId) {
+        const peerId = asString(d.peerId);
+        if (!peerId) return;
+        const readTs = Date.parse(readAt ?? "");
+        const bumpTs = lastDmBumpAt[peerId];
+        if (
+          bumpTs !== undefined &&
+          (!Number.isFinite(readTs) || bumpTs > readTs)
+        ) {
+          scheduleUnreadRefetch();
+          return;
+        }
+        delete lastDmBumpAt[peerId];
+        useUnreadStore.getState().resetDm(peerId);
+        return;
+      }
       if (readerId && readAt) {
         useReadReceiptStore.getState().setDmPeerReadAt(readerId, readAt);
       }
@@ -303,11 +381,43 @@ function dispatch(env: WsEnvelope) {
       const channelId = asString(d.channelId);
       const readerId = asString(d.readerId);
       const readAt = asString(d.readAt);
+      const selfId = useAuthStore.getState().user?.id;
+      if (channelId && readerId && readerId === selfId) {
+        const readTs = Date.parse(readAt ?? "");
+        const bumpTs = lastChannelBumpAt[channelId];
+        if (
+          bumpTs !== undefined &&
+          (!Number.isFinite(readTs) || bumpTs > readTs)
+        ) {
+          scheduleUnreadRefetch();
+          return;
+        }
+        delete lastChannelBumpAt[channelId];
+        useUnreadStore.getState().resetChannel(channelId);
+        return;
+      }
       if (channelId && readerId && readAt) {
         useReadReceiptStore
           .getState()
           .setChannelMemberRead(channelId, readerId, readAt);
       }
+      return;
+    }
+
+    case "notification_preference.updated": {
+      const scopeType = asString(d.scopeType);
+      const scopeId = asString(d.scopeId);
+      const level = asString(d.level);
+      if (!scopeType || !scopeId || !level) return;
+      useNotificationPrefsStore
+        .getState()
+        .applyRemote(
+          scopeType,
+          scopeId,
+          level,
+          typeof d.version === "number" ? d.version : undefined,
+        );
+      scheduleUnreadRefetch();
       return;
     }
 
@@ -455,6 +565,23 @@ export function installWsBootstrap() {
   installed = true;
   ws.on(dispatch);
   ws.onOpen(() => {
+    const gen = ++prefsReloadGen;
+    void (async () => {
+      let delayMs = 1000;
+      for (;;) {
+        try {
+          await useNotificationPrefsStore.getState().load();
+          break;
+        } catch (err) {
+          console.warn("[ws] failed to reload notification prefs:", err);
+          await new Promise((r) => setTimeout(r, delayMs));
+          delayMs = Math.min(delayMs * 2, 15000);
+          if (gen !== prefsReloadGen) return;
+        }
+      }
+      if (gen !== prefsReloadGen) return;
+      scheduleUnreadRefetch();
+    })();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void useFriendshipStore

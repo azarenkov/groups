@@ -517,7 +517,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 FROM messaging_user_profiles u
                 INNER JOIN channel_text_participants p ON p.user_id = u.user_id
                 WHERE p.channel_id = $1
-                ORDER BY p.joined_at ASC
+                ORDER BY p.joined_at ASC, u.user_id ASC
                 LIMIT $2 OFFSET $3
                 "#,
                 channel_id.uuid(),
@@ -780,6 +780,34 @@ impl ChannelRepository for PostgresChannelRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(rows.into_iter().map(|r| UserId::new(r.user_id)).collect())
+    }
+
+    async fn text_members_by_names(
+        &self,
+        channel_id: &ChannelId,
+        lowercase_names: &[String],
+    ) -> Result<Vec<(UserId, String)>, RepositoryError> {
+        if lowercase_names.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query!(
+            r#"
+            SELECT p.user_id, lower(up.name) AS "name!"
+            FROM channel_text_participants p
+            INNER JOIN messaging_user_profiles up ON up.user_id = p.user_id
+            WHERE p.channel_id = $1 AND lower(up.name) = ANY($2)
+            "#,
+            channel_id.uuid(),
+            lowercase_names,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| (UserId::new(r.user_id), r.name))
+            .collect())
     }
 
     async fn find_channel_by_id(&self, id: &ChannelId) -> Result<Channel, RepositoryError> {

@@ -47,19 +47,26 @@ const App: React.FC = () => {
       let cancelled = false;
       void (async () => {
         try {
-          const { userAPI } = await import("./api/user");
-          const { useUnreadStore } = await import("./store/unreadStore");
-          const u = await userAPI.getUnread();
+          const { useNotificationPrefsStore } = await import(
+            "./store/notificationPrefsStore"
+          );
           if (cancelled) return;
-          const channels: Record<string, number> = {};
-          const channelToServer: Record<string, string> = {};
-          for (const c of u.channels) {
-            channels[c.channelId] = c.count;
-            channelToServer[c.channelId] = c.serverId;
+          let prefsLoaded = false;
+          let delayMs = 1000;
+          while (!cancelled && !prefsLoaded) {
+            try {
+              await useNotificationPrefsStore.getState().load();
+              prefsLoaded = true;
+            } catch (err) {
+              console.warn("[App] failed to load notification prefs:", err);
+              await new Promise((r) => setTimeout(r, delayMs));
+              delayMs = Math.min(delayMs * 2, 15000);
+            }
           }
-          const dms: Record<string, number> = {};
-          for (const d of u.dms) dms[d.friendId] = d.count;
-          useUnreadStore.getState().setAll(channels, dms, channelToServer);
+          if (cancelled) return;
+          const { refetchUnread } = await import("./store/unreadStore");
+          if (cancelled) return;
+          await refetchUnread();
         } catch (err) {
           if (!cancelled) console.warn("[App] failed to load unread counts:", err);
         }
@@ -86,6 +93,10 @@ const App: React.FC = () => {
     );
     void import("./store/presenceStore").then(({ usePresenceStore }) =>
       usePresenceStore.getState().clearAll(),
+    );
+    void import("./store/notificationPrefsStore").then(
+      ({ useNotificationPrefsStore }) =>
+        useNotificationPrefsStore.getState().clearAll(),
     );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 

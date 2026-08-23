@@ -55,5 +55,6 @@ pub struct AppState {
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, NsfwDetector>,
+    pub user_repository: std::sync::Arc<PostgresUserRepository>,
     pub trust_forwarded_headers: bool,
 }

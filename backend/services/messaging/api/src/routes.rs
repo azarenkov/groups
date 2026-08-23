@@ -16,6 +16,7 @@ use crate::internal::internal_routes;
 use crate::friendship::{
     accept_friend_request, list_friends, remove_friendship, send_friend_request,
 };
+use crate::notifications::notification_routes;
 use crate::presence::presence_routes;
 use crate::read_state::read_state_routes;
 use crate::server::{
@@ -82,6 +83,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 .service(
                     web::scope("/v1")
                         .configure(read_state_routes)
+                        .configure(notification_routes)
                         .configure(presence_routes),
                 ),
         );

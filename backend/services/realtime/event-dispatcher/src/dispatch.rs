@@ -25,7 +25,10 @@ use contracts::events::{
         ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerDeletedDto,
         ServerMemberV1 as ServerMemberDto, ServerUpdatedV1 as ServerUpdatedDto,
     },
-    user::{UserLifecycleV1 as UserLifecycleDto, UserRenamedV1 as UserRenamedDto},
+    user::{
+        NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
+        UserLifecycleV1 as UserLifecycleDto, UserRenamedV1 as UserRenamedDto,
+    },
 };
 use std::collections::HashSet;
 
@@ -118,13 +121,32 @@ pub async fn dispatch(
 
     if ends_with(subject, ".dm.read") {
         let evt: DmReadDto = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "dm.read",
-            json!({
-                "readerId": evt.reader_id,
-                "readAt": evt.read_at,
-            }),
-        );
+        let mut data = json!({
+            "readerId": evt.reader_id,
+            "readAt": evt.read_at,
+        });
+        if let Some(peer_id) = evt.peer_id {
+            data["peerId"] = json!(peer_id);
+        }
+        let envelope = Envelope::new("dm.read", data);
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".notification_preference.updated") {
+        let evt: NotificationPrefUpdated = serde_json::from_slice(payload)?;
+        let mut data = json!({
+            "userId": evt.user_id,
+            "scopeType": evt.scope_type,
+            "scopeId": evt.scope_id,
+            "level": evt.level,
+        });
+        if let Some(version) = evt.version {
+            data["version"] = json!(version);
+        }
+        let envelope = Envelope::new("notification_preference.updated", data);
         publisher
             .publish_to_users(unique(evt.recipients), &envelope)
             .await?;
@@ -152,18 +174,19 @@ pub async fn dispatch(
         let recipients = evt.recipient_ids.clone();
         let author_name = resolver.user_name(evt.author_id).await?;
         let attachments = evt.attachments.clone().unwrap_or_else(|| json!([]));
-        let envelope = Envelope::new(
-            "message.sent",
-            json!({
-                "id": evt.message_id,
-                "channelId": evt.channel_id,
-                "authorId": evt.author_id,
-                "authorName": author_name,
-                "content": evt.content,
-                "occurredAt": evt.occurred_at,
-                "attachments": attachments,
-            }),
-        );
+        let mut data = json!({
+            "id": evt.message_id,
+            "channelId": evt.channel_id,
+            "authorId": evt.author_id,
+            "authorName": author_name,
+            "content": evt.content,
+            "occurredAt": evt.occurred_at,
+            "attachments": attachments,
+        });
+        if let Some(mentions) = &evt.mentions {
+            data["mentions"] = json!(mentions);
+        }
+        let envelope = Envelope::new("message.sent", data);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
     }

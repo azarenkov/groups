@@ -52,6 +52,7 @@ export type WsEventType =
   | "friendship.requestSent"
   | "friendship.requestAccepted"
   | "friendship.removed"
+  | "notification_preference.updated"
   | "user.registered"
   | "user.renamed"
   | "user.emailVerified"

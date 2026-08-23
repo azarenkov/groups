@@ -29,6 +29,8 @@ use crate::usecases::friendship::accept_friend_request::AcceptFriendRequestError
 use crate::usecases::friendship::list_friends::ListFriendsError;
 use crate::usecases::friendship::remove_friendship::RemoveFriendshipError;
 use crate::usecases::friendship::send_friend_request::SendFriendRequestError;
+use crate::usecases::notification::list_notification_preferences::ListNotificationPreferencesError;
+use crate::usecases::notification::set_notification_preference::SetNotificationPreferenceError;
 use crate::usecases::read_state::get_channel_read_receipts::GetChannelReadReceiptsError;
 use crate::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use crate::usecases::read_state::get_unread_counts::GetUnreadCountsError;
@@ -1589,6 +1591,41 @@ impl ToHttpStatus for ListChannelParticipantsError {
     }
 }
 
+impl ToHttpStatus for SetNotificationPreferenceError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            SetNotificationPreferenceError::Repository(e) => e.to_http_status(),
+            SetNotificationPreferenceError::NotMember => StatusCode::FORBIDDEN,
+            SetNotificationPreferenceError::NotFriends => StatusCode::FORBIDDEN,
+            SetNotificationPreferenceError::UnsupportedLevel => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            SetNotificationPreferenceError::Repository(e) => e.to_user_message(),
+            SetNotificationPreferenceError::NotMember => {
+                "You are not a member of this channel".to_string()
+            }
+            SetNotificationPreferenceError::NotFriends => {
+                "You are not friends with this user".to_string()
+            }
+            SetNotificationPreferenceError::UnsupportedLevel => {
+                "This notification level is not supported for this scope".to_string()
+            }
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            SetNotificationPreferenceError::Repository(e) => e.to_error_code(),
+            SetNotificationPreferenceError::NotMember => "CHANNEL_NOT_MEMBER",
+            SetNotificationPreferenceError::NotFriends => "NOT_FRIENDS",
+            SetNotificationPreferenceError::UnsupportedLevel => "UNSUPPORTED_LEVEL",
+        }
+    }
+}
+
+shared::impl_to_http_status_delegate!(ListNotificationPreferencesError, Repository);
+
 shared::impl_from_for_api_error!(
     AcceptFriendRequestError,
     AcceptServerInviteError,
@@ -1617,6 +1654,7 @@ shared::impl_from_for_api_error!(
     ListFriendsError,
     ListInviteCodesError,
     ListMessageAttachmentsError,
+    ListNotificationPreferencesError,
     ListSentServerInvitesError,
     ListServerChannelsError,
     ListServerMembersError,
@@ -1634,6 +1672,7 @@ shared::impl_from_for_api_error!(
     SendDmMessageError,
     SendFriendRequestError,
     SendServerInviteError,
+    SetNotificationPreferenceError,
     UnmuteChannelError,
     UpdateServerError,
     UpdateStreamViewerError,

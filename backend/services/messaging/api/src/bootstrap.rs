@@ -26,6 +26,10 @@ use messaging::usecases::{
         accept_friend_request::AcceptFriendRequest, list_friends::ListFriends,
         remove_friendship::RemoveFriendship, send_friend_request::SendFriendRequest,
     },
+    notification::{
+        list_notification_preferences::ListNotificationPreferences,
+        set_notification_preference::SetNotificationPreference,
+    },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
@@ -50,12 +54,14 @@ use messaging::{
             channel::PostgresChannelRepository,
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
+            notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
             user_profile::PostgresUserProfileRepository,
         },
     },
     hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
+    media_client::identity_users::IdentityUsersClient,
     storage::minio_storage::MinioStorage,
     voice::livekit_service::{LiveKitService, is_livekit_reachable},
 };
@@ -92,10 +98,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
     let read_state_repository =
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
+    let notification_preference_repository = Arc::new(
+        PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
+    );
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
     let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
+    let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://identity-service:8080".to_string());
+    let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
 
     let minio_storage = Arc::new(
         MinioStorage::new(&minio_config)
@@ -168,12 +180,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             server_repository.clone(),
             attachment_claims.clone(),
+            mention_resolver.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
             attachment_claims.clone(),
+            mention_resolver.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
@@ -222,6 +236,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         get_channel_read_receipts_usecase: GetChannelReadReceipts::new(
             read_state_repository.clone(),
             channel_repository.clone(),
+        ),
+        list_notification_preferences_usecase: ListNotificationPreferences::new(
+            notification_preference_repository.clone(),
+        ),
+        set_notification_preference_usecase: SetNotificationPreference::new(
+            notification_preference_repository.clone(),
+            channel_repository.clone(),
+            friendship_repository.clone(),
         ),
         log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         server_repository: server_repository.clone(),

@@ -45,6 +45,8 @@ pub struct DmMessageDeletedV1 {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DmReadV1 {
     pub reader_id: Uuid,
+    #[serde(default)]
+    pub peer_id: Option<Uuid>,
     pub read_at: DateTime<Utc>,
     pub recipients: Vec<Uuid>,
 }

@@ -39,37 +39,42 @@ pub enum EditChannelMessageError {
     AttachmentsUnavailable(String),
 }
 
-pub struct EditChannelMessage<M, C, S, A>
+pub struct EditChannelMessage<M, C, S, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
     A: crate::ports::attachment_claims::AttachmentClaims,
+    R: crate::ports::mention_resolver::MentionResolver,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
     attachment_claims: Arc<A>,
+    mention_resolver: Arc<R>,
 }
 
-impl<M, C, S, A> EditChannelMessage<M, C, S, A>
+impl<M, C, S, A, R> EditChannelMessage<M, C, S, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
     A: crate::ports::attachment_claims::AttachmentClaims,
+    R: crate::ports::mention_resolver::MentionResolver,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
         attachment_claims: Arc<A>,
+        mention_resolver: Arc<R>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
             attachment_claims,
+            mention_resolver,
         }
     }
 
@@ -151,6 +156,15 @@ where
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
+        let mentions = crate::usecases::channel::mentions::resolve_mentions(
+            message.content().as_str(),
+            &channel_id,
+            &recipient_ids,
+            self.channel_repository.as_ref(),
+            self.mention_resolver.as_ref(),
+        )
+        .await?;
+
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = message
             .pull_events()
@@ -203,6 +217,7 @@ where
                 &records,
                 &added_attachments,
                 &request.remove_attachment_ids,
+                &mentions,
             )
             .await
         {

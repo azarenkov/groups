@@ -17,6 +17,7 @@ interface ReadReceiptState {
     readAt: string,
   ) => void;
   addChannelMember: (channelId: string, memberId: string) => void;
+  removeChannelMember: (channelId: string, memberId: string) => void;
   clear: () => void;
 }
 
@@ -74,6 +75,16 @@ export const useReadReceiptStore = create<ReadReceiptState>()((set) => ({
           ...s.channelReads,
           [channelId]: { ...cur, [memberId]: null },
         },
+      };
+    }),
+
+  removeChannelMember: (channelId, memberId) =>
+    set((s) => {
+      const cur = s.channelReads[channelId];
+      if (!cur || !(memberId in cur)) return s;
+      const { [memberId]: _gone, ...rest } = cur;
+      return {
+        channelReads: { ...s.channelReads, [channelId]: rest },
       };
     }),
 

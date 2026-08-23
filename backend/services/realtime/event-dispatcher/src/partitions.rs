@@ -26,6 +26,7 @@ struct OwnedPartition {
     handles: Vec<actix_web::rt::task::JoinHandle<()>>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run_partitioned(
     jetstream: Context,
     cfg: DispatcherConfig,
