@@ -61,6 +61,7 @@ function throttleMarkDmRead(friendId: string) {
 }
 
 let installed = false;
+let prefsReloadGen = 0;
 
 function asString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
@@ -564,12 +565,21 @@ export function installWsBootstrap() {
   installed = true;
   ws.on(dispatch);
   ws.onOpen(() => {
+    const gen = ++prefsReloadGen;
     void (async () => {
-      try {
-        await useNotificationPrefsStore.getState().load();
-      } catch (err) {
-        console.warn("[ws] failed to reload notification prefs:", err);
+      let delayMs = 1000;
+      for (;;) {
+        try {
+          await useNotificationPrefsStore.getState().load();
+          break;
+        } catch (err) {
+          console.warn("[ws] failed to reload notification prefs:", err);
+          await new Promise((r) => setTimeout(r, delayMs));
+          delayMs = Math.min(delayMs * 2, 15000);
+          if (gen !== prefsReloadGen) return;
+        }
       }
+      if (gen !== prefsReloadGen) return;
       scheduleUnreadRefetch();
     })();
     void useCallStore.getState().rehydrate();
