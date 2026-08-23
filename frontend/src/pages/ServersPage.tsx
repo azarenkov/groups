@@ -886,10 +886,10 @@ const ServersPage: React.FC = () => {
               <ChatView
                 dm={{
                   friendId: selectedDm.id,
-                  name: selectedDm.name,
+                  name: nameOverrides[selectedDm.id] ?? selectedDm.name,
                   initials: selectedDm.initials,
                   color: selectedDm.color,
-                  online: selectedDm.online,
+                  online: !!onlineUsers[selectedDm.id],
                 }}
                 currentUserId={user?.id}
                 servers={servers}
