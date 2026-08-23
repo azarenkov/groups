@@ -140,10 +140,12 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       const dmLevels: Record<string, NotifLevel> = {};
       const preserveChannel = new Set<string>();
       const preserveDm = new Set<string>();
+      const seenKeys = new Set<string>();
       for (const p of preferences) {
         if (!isLevel(p.level)) continue;
         if (p.scopeType !== "channel" && p.scopeType !== "dm") continue;
         const key = `${p.scopeType}:${p.scopeId}`;
+        seenKeys.add(key);
         if (isStaleVersion(key, p.version)) {
           if (p.scopeType === "channel") preserveChannel.add(p.scopeId);
           else preserveDm.add(p.scopeId);
@@ -160,6 +162,14 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       }
       for (const [key, count] of Object.entries(activeWrites)) {
         if (count <= 0) continue;
+        if (key.startsWith("channel:")) {
+          preserveChannel.add(key.slice("channel:".length));
+        } else if (key.startsWith("dm:")) {
+          preserveDm.add(key.slice("dm:".length));
+        }
+      }
+      for (const key of Object.keys(remoteVersions)) {
+        if (seenKeys.has(key)) continue;
         if (key.startsWith("channel:")) {
           preserveChannel.add(key.slice("channel:".length));
         } else if (key.startsWith("dm:")) {
