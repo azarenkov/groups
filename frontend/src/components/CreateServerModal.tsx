@@ -398,7 +398,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
               <Icon name="info" size={15} />
               <span>
                 {t("serverModal.codeHint")}{" "}
-                <span className="srvm-hint-mono">rift.app/x7Kd9m</span>
+                <span className="srvm-hint-mono">rift.server/x7Kd9m</span>
               </span>
             </div>
             {errorBox}
