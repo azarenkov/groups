@@ -20,7 +20,7 @@ interface SidebarProps {
   onSelectChannel: (server: Server, channel: Channel) => void;
   onSelectDm: (dm: MockDirect) => void;
   onInviteServer: (server: Server) => void;
-  onOpenServerSettings: (server: Server) => void;
+  onOpenServerSettings: (server: Server, section?: "channels") => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
   onAddFriend: () => void;
@@ -431,23 +431,36 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Icon name="settings" size={14} />
           </button>
         </div>
-        {channels.length === 0 && (
-          <div className="sb-empty">{t("noChannels")}</div>
-        )}
-        {textChannels.length > 0 && (
+        {(
           <>
             <div className="sb-vhead">
               <span className="sb-vhead-label">{t("textChannels")}</span>
+              <button
+                type="button"
+                className="sb-vhead-add"
+                title={t("addChannel")}
+                onClick={() => onOpenServerSettings(server, "channels")}
+              >
+                <Icon name="plus" size={14} />
+              </button>
             </div>
             <div className="sb-srv-channels">
               {textChannels.map((c) => renderChannelRow(server, c))}
             </div>
           </>
         )}
-        {voiceChannels.length > 0 && (
+        {(
           <>
             <div className="sb-vhead">
               <span className="sb-vhead-label">{t("voiceChannels")}</span>
+              <button
+                type="button"
+                className="sb-vhead-add"
+                title={t("addChannel")}
+                onClick={() => onOpenServerSettings(server, "channels")}
+              >
+                <Icon name="plus" size={14} />
+              </button>
             </div>
             <div className="sb-srv-channels">
               {voiceChannels.map((c) => renderChannelRow(server, c))}

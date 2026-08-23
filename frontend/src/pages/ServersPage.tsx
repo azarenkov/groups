@@ -126,6 +126,7 @@ const ServersPage: React.FC = () => {
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
   const [serverSettings, setServerSettings] = useState<Server | null>(null);
+  const [serverSettingsSection, setServerSettingsSection] = useState<"channels" | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -832,7 +833,10 @@ const ServersPage: React.FC = () => {
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onInviteServer={(server) => setInviteModalServer(server)}
-          onOpenServerSettings={(server) => setServerSettings(server)}
+          onOpenServerSettings={(server, section) => {
+            setServerSettingsSection(section ?? null);
+            setServerSettings(server);
+          }}
           onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
               type: "channel",
@@ -1114,6 +1118,7 @@ const ServersPage: React.FC = () => {
             friends={friends}
             channels={channelsByServer[serverSettings.id] ?? []}
             currentUserId={user?.id}
+            initialSection={serverSettingsSection ?? undefined}
             onClose={() => setServerSettings(null)}
             onDeleteServer={(server) => {
               const isOwner = server.ownerId === user?.id;

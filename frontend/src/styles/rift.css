@@ -659,6 +659,16 @@ body.electron .titlebar { padding-left: 84px; }
 .sb-server-head .sb-srv-name { flex: 1; min-width: 0; font-weight: 600; }
 .sb-server-head .sb-section-add { opacity: 1; }
 .sb-server-page .sb-vhead { padding-top: 12px; }
+.sb-vhead-add {
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent;
+  color: var(--fg-3);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.sb-vhead-add:hover { background: var(--surface-hover); color: var(--fg-1); }
 
 .sb-add-row-badge {
   margin-left: auto;
