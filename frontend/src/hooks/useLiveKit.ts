@@ -178,6 +178,21 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     }
   }, []);
 
+  useEffect(() => {
+    const onModeratorMute = (e: Event) => {
+      const detail = (e as CustomEvent<{ channelId?: string }>).detail;
+      const active = activeChannelRef.current;
+      if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
+        return;
+      }
+      serviceRef.current?.setMicrophoneMuted(true);
+      setIsMuted(true);
+    };
+    window.addEventListener("rift:moderator-mute", onModeratorMute);
+    return () =>
+      window.removeEventListener("rift:moderator-mute", onModeratorMute);
+  }, []);
+
   const toggleMute = useCallback(() => {
     const service = serviceRef.current;
     if (!service) return;

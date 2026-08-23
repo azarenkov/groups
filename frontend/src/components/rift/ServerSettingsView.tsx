@@ -162,10 +162,9 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     name: string,
     color: string,
     permissions: number,
-    position?: number,
   ) => {
     try {
-      await serverAPI.updateRole(server.id, roleId, name, color, permissions, position);
+      await serverAPI.updateRole(server.id, roleId, name, color, permissions);
       refreshRoles();
     } catch (e) {
       setRoleError(e instanceof ApiError ? e.message : t("common:error"));

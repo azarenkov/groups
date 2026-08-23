@@ -516,6 +516,13 @@ function dispatch(env: WsEnvelope) {
       useVoicePresenceStore
         .getState()
         .setChannelMute(channelId, userId, isMuted);
+      const selfId = useAuthStore.getState().user?.id;
+      const mutedBy = asString(d.mutedBy);
+      if (isMuted && userId === selfId && mutedBy && mutedBy !== selfId) {
+        window.dispatchEvent(
+          new CustomEvent("rift:moderator-mute", { detail: { channelId } }),
+        );
+      }
       return;
     }
 

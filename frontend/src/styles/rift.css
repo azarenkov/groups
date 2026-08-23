@@ -5375,3 +5375,16 @@ button.ssv-row-delete:focus-visible {
 .ssv-role-reorder { display: inline-flex; gap: 0; }
 .ssv-role-reorder .ssv-row-delete:disabled { opacity: 0.3; cursor: default; }
 .ssv-role-reorder .ssv-row-delete:disabled:hover { background: transparent; color: var(--fg-3); }
+
+.sb-voice-mute-btn {
+  width: 20px; height: 20px;
+  display: none;
+  align-items: center; justify-content: center;
+  border: 0; border-radius: 5px;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  margin-left: auto;
+}
+.sb-voice-member:hover .sb-voice-mute-btn { display: inline-flex; }
+.sb-voice-mute-btn:hover { background: var(--surface-hover); color: var(--fg-1); }

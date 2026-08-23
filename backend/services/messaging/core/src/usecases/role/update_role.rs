@@ -25,7 +25,6 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn execute(
         &self,
         server_id: ServerId,
@@ -34,7 +33,6 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
         name: String,
         color: String,
         permissions: i64,
-        position: Option<i32>,
     ) -> Result<(), RoleError> {
         ensure_manage_roles(
             self.server_repository.as_ref(),
@@ -59,9 +57,6 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
         )
         .await?;
         ensure_below(&height, existing.position)?;
-        if let Some(p) = position {
-            ensure_below(&height, p)?;
-        }
         let grantable = actor_grantable_permissions(
             self.server_repository.as_ref(),
             self.role_repository.as_ref(),
@@ -77,7 +72,6 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
             name: name.trim().to_string(),
             color,
             permissions: permissions & PERM_ALL,
-            position: position.unwrap_or(existing.position),
             ..existing
         };
         let members = recipients(self.server_repository.as_ref(), &server_id).await?;

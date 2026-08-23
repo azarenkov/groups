@@ -6,6 +6,12 @@ import type { Channel, ChannelKind } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 import { colorForId } from "../../utils/avatar";
 import { ServerLogo, UserAvatar } from "./Avatar";
+import { channelAPI } from "../../api/channel";
+import {
+  PERM_MUTE_MEMBERS,
+  useRolesStore,
+  userPermissions,
+} from "../../store/rolesStore";
 
 interface SidebarProps {
   servers: Server[];
@@ -184,6 +190,24 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChannelId]);
+  const rolesByServer = useRolesStore((st) => st.byServer);
+  const fetchRoles = useRolesStore((st) => st.fetch);
+  React.useEffect(() => {
+    if (openServerId) void fetchRoles(openServerId).catch(() => {});
+  }, [openServerId, fetchRoles]);
+  const canMuteIn = (server: Server) =>
+    !!currentUserId &&
+    (server.ownerId === currentUserId ||
+      (userPermissions(rolesByServer[server.id], currentUserId) &
+        PERM_MUTE_MEMBERS) !==
+        0);
+  const moderateMute = (server: Server, channelId: string, m: { id: string; isMuted?: boolean }) => {
+    const call = m.isMuted
+      ? channelAPI.unmute(server.id, channelId, m.id)
+      : channelAPI.mute(server.id, channelId, m.id);
+    call.catch((err) => console.warn("[sidebar] mute toggle failed:", err));
+  };
+
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
   const statusMenuRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -433,6 +457,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <span className="sb-voice-member-badge muted" title="Muted">
                       <Icon name="mic-off" size={11} />
                     </span>
+                  )}
+                  {m.id !== currentUserId && canMuteIn(server) && (
+                    <button
+                      type="button"
+                      className="sb-voice-mute-btn"
+                      title={m.isMuted ? t("unmuteMember") : t("muteMember")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moderateMute(server, channel.id, m);
+                      }}
+                    >
+                      <Icon name={m.isMuted ? "mic" : "mic-off"} size={12} />
+                    </button>
                   )}
                 </div>
               ))}
