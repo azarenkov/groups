@@ -130,6 +130,21 @@ const Sidebar: React.FC<SidebarProps> = ({
     setScreen(historyRef.current[idx]);
     syncNavState();
   };
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      if (e.key === "[") {
+        e.preventDefault();
+        goHistory(-1);
+      } else if (e.key === "]") {
+        e.preventDefault();
+        goHistory(1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setTab = (next: "dms" | "servers") =>
     navigateTo({ tab: next, server: next === "servers" ? openServerId : null });
   const setOpenServerId = (id: string | null) =>
