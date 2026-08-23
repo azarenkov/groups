@@ -914,14 +914,6 @@ const ServersPage: React.FC = () => {
           }}
           onInviteServer={(server) => setInviteModalServer(server)}
           onOpenServerSettings={(server) => setServerSettings(server)}
-          onDeleteServer={(server) => {
-            const isOwner = server.ownerId === user?.id;
-            setDeleteConfirm({
-              type: isOwner ? "server" : "leave-server",
-              id: server.id,
-              name: server.name,
-            });
-          }}
           onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
               type: "channel",

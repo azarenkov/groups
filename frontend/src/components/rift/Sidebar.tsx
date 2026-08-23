@@ -22,7 +22,6 @@ interface SidebarProps {
   onAddChannel: (server: Server) => void;
   onInviteServer: (server: Server) => void;
   onOpenServerSettings: (server: Server) => void;
-  onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
   onAddFriend: () => void;
@@ -75,7 +74,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddChannel,
   onInviteServer,
   onOpenServerSettings,
-  onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
   onAddFriend,
@@ -110,27 +108,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     prevSelection.current = { dm: selectedDmId, channel: selectedChannelId };
   }, [selectedDmId, selectedChannelId]);
-  const [menuServerId, setMenuServerId] = React.useState<string | null>(null);
-  const menuRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!menuServerId) return;
-    const onDoc = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuServerId(null);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuServerId(null);
-    };
-    document.addEventListener("mousedown", onDoc);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [menuServerId]);
-
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
   const statusMenuRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -368,6 +345,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                     type="button"
                     tabIndex={-1}
                     className="sb-section-add"
+                    title={t("addChannel")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddChannel(server);
+                    }}
+                  >
+                    <Icon name="plus" size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    className="sb-section-add"
                     title={t("inviteFriends")}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -376,80 +365,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <Icon name="user-plus" size={14} />
                   </button>
-                  <div
-                    className="sb-server-menu-wrap"
-                    ref={menuServerId === server.id ? menuRef : undefined}
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    className="sb-section-add"
+                    title={t("serverSettings")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenServerSettings(server);
+                    }}
                   >
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      className={
-                        "sb-section-add" +
-                        (menuServerId === server.id ? " on" : "")
-                      }
-                      title="More"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuServerId((prev) =>
-                          prev === server.id ? null : server.id,
-                        );
-                      }}
-                    >
-                      <Icon name="more" size={14} />
-                    </button>
-                    {menuServerId === server.id && (
-                      <div
-                        className="sb-server-menu"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          className="sb-server-menu-item"
-                          onClick={() => {
-                            setMenuServerId(null);
-                            onAddChannel(server);
-                          }}
-                        >
-                          <Icon name="plus" size={12} />
-                          <span>{t("addChannel")}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="sb-server-menu-item"
-                          onClick={() => {
-                            setMenuServerId(null);
-                            onOpenServerSettings(server);
-                          }}
-                        >
-                          <Icon name="settings" size={12} />
-                          <span>{t("serverSettings")}</span>
-                        </button>
-                        <div className="sb-server-menu-divider" />
-                        <button
-                          type="button"
-                          className="sb-server-menu-item danger"
-                          onClick={() => {
-                            setMenuServerId(null);
-                            onDeleteServer(server);
-                          }}
-                        >
-                          <Icon
-                            name={
-                              currentUserId === server.ownerId
-                                ? "trash"
-                                : "logout"
-                            }
-                            size={12}
-                          />
-                          <span>
-                            {currentUserId === server.ownerId
-                              ? t("deleteServer")
-                              : t("leaveServer")}
-                          </span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                    <Icon name="settings" size={14} />
+                  </button>
                 </>
               )}
               <Icon
