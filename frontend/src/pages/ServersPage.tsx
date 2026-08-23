@@ -9,6 +9,7 @@ import { callAPI } from "../api/call";
 import { attachmentAPI } from "../api/attachment";
 import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
+import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
@@ -51,7 +52,7 @@ import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
 import { qualityClass, qualityLabel } from "../utils/quality";
-import { Channel, ChannelParticipant } from "../types/channel";
+import { Channel, ChannelKind, ChannelParticipant } from "../types/channel";
 import { Server } from "../types/server";
 import {
   type MockDirect,
@@ -126,7 +127,7 @@ const ServersPage: React.FC = () => {
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
   const [serverSettings, setServerSettings] = useState<Server | null>(null);
-  const [serverSettingsSection, setServerSettingsSection] = useState<"channels" | null>(null);
+  const [channelModal, setChannelModal] = useState<{ serverId: string; kind: ChannelKind } | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -833,10 +834,8 @@ const ServersPage: React.FC = () => {
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onInviteServer={(server) => setInviteModalServer(server)}
-          onOpenServerSettings={(server, section) => {
-            setServerSettingsSection(section ?? null);
-            setServerSettings(server);
-          }}
+          onOpenServerSettings={(server) => setServerSettings(server)}
+          onAddChannel={(server, kind) => setChannelModal({ serverId: server.id, kind })}
           onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
               type: "channel",
@@ -1118,7 +1117,6 @@ const ServersPage: React.FC = () => {
             friends={friends}
             channels={channelsByServer[serverSettings.id] ?? []}
             currentUserId={user?.id}
-            initialSection={serverSettingsSection ?? undefined}
             onClose={() => setServerSettings(null)}
             onDeleteServer={(server) => {
               const isOwner = server.ownerId === user?.id;
@@ -1160,6 +1158,16 @@ const ServersPage: React.FC = () => {
           setSelectedServer(server.id);
           setSelectedChannel(null);
           setSelectedDm(null);
+        }}
+      />
+
+      <CreateChannelModal
+        isOpen={!!channelModal}
+        defaultKind={channelModal?.kind}
+        onClose={() => setChannelModal(null)}
+        onCreate={async (name, kind, visibility, password) => {
+          if (!channelModal) return;
+          await createChannel(channelModal.serverId, name, kind, visibility, password);
         }}
       />
 

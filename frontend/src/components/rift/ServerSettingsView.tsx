@@ -62,7 +62,6 @@ interface ServerSettingsViewProps {
   friends: Friendship[];
   channels: Channel[];
   currentUserId?: string;
-  initialSection?: SectionId;
   onClose: () => void;
   onDeleteServer: (server: Server) => void;
   onCreateChannel: (
@@ -79,14 +78,13 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   friends,
   channels,
   currentUserId,
-  initialSection,
   onClose,
   onDeleteServer,
   onCreateChannel,
   onDeleteChannel,
 }) => {
   const { t } = useTranslation(["serverSettings", "common", "modals"]);
-  const [section, setSection] = React.useState<SectionId>(initialSection ?? "overview");
+  const [section, setSection] = React.useState<SectionId>("overview");
   const isOwner = currentUserId === server.ownerId;
 
   const [newChName, setNewChName] = React.useState("");

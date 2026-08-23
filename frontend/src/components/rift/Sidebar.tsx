@@ -2,7 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import type { Server } from "../../types/server";
-import type { Channel } from "../../types/channel";
+import type { Channel, ChannelKind } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 import { colorForId } from "../../utils/avatar";
 import { ServerLogo, UserAvatar } from "./Avatar";
@@ -20,7 +20,8 @@ interface SidebarProps {
   onSelectChannel: (server: Server, channel: Channel) => void;
   onSelectDm: (dm: MockDirect) => void;
   onInviteServer: (server: Server) => void;
-  onOpenServerSettings: (server: Server, section?: "channels") => void;
+  onOpenServerSettings: (server: Server) => void;
+  onAddChannel: (server: Server, kind: ChannelKind) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
   onAddFriend: () => void;
@@ -74,6 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectDm,
   onInviteServer,
   onOpenServerSettings,
+  onAddChannel,
   onDeleteChannel,
   onOpenSettings,
   onAddFriend,
@@ -439,7 +441,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 className="sb-vhead-add"
                 title={t("addChannel")}
-                onClick={() => onOpenServerSettings(server, "channels")}
+                onClick={() => onAddChannel(server, "text")}
               >
                 <Icon name="plus" size={14} />
               </button>
@@ -457,7 +459,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 className="sb-vhead-add"
                 title={t("addChannel")}
-                onClick={() => onOpenServerSettings(server, "channels")}
+                onClick={() => onAddChannel(server, "voice")}
               >
                 <Icon name="plus" size={14} />
               </button>

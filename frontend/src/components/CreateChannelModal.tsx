@@ -6,6 +6,7 @@ import "../styles/rift.css";
 
 interface CreateChannelModalProps {
   isOpen: boolean;
+  defaultKind?: ChannelKind;
   onClose: () => void;
   onCreate: (
     name: string,
@@ -19,12 +20,16 @@ const MAX_CHANNEL_NAME_LENGTH = 100;
 
 const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
   isOpen,
+  defaultKind = "voice",
   onClose,
   onCreate,
 }) => {
   const { t } = useTranslation(["modals", "common"]);
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<ChannelKind>("voice");
+  const [kind, setKind] = useState<ChannelKind>(defaultKind);
+  useEffect(() => {
+    if (isOpen) setKind(defaultKind);
+  }, [isOpen, defaultKind]);
   const [visibility, setVisibility] = useState<ChannelVisibility>("public");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +46,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
 
   const reset = () => {
     setName("");
-    setKind("voice");
+    setKind(defaultKind);
     setVisibility("public");
     setPassword("");
     setError(null);
