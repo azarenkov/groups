@@ -1,3 +1,18 @@
+pub fn merge_client_mentions(
+    mentions: &mut Vec<uuid::Uuid>,
+    client_ids: &[uuid::Uuid],
+    members: &[domain::user::id::UserId],
+) {
+    let member_set: std::collections::HashSet<uuid::Uuid> =
+        members.iter().map(|id| id.uuid()).collect();
+    for id in client_ids {
+        if member_set.contains(id) && !mentions.contains(id) {
+            mentions.push(*id);
+        }
+    }
+    mentions.truncate(50);
+}
+
 pub fn mention_names(content: &str) -> Vec<String> {
     let bytes = content.as_bytes();
     let mut names = Vec::new();

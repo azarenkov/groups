@@ -312,6 +312,7 @@ async fn send_channel_message(
         channel_id,
         body.content,
         body.attachment_ids,
+        body.mention_ids,
         request_context(&req),
     );
 
@@ -344,6 +345,7 @@ async fn edit_channel_message(
         body.content,
         body.add_attachment_ids,
         body.remove_attachment_ids,
+        body.mention_ids,
         request_context(&req),
     );
 

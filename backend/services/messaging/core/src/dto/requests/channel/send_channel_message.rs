@@ -8,6 +8,7 @@ pub struct SendChannelMessageRequest {
     pub channel_id: Uuid,
     pub content: String,
     pub attachment_ids: Vec<Uuid>,
+    pub mention_ids: Vec<Uuid>,
     pub ctx: RequestContext,
 }
 
@@ -17,6 +18,7 @@ impl SendChannelMessageRequest {
         channel_id: Uuid,
         content: String,
         attachment_ids: Vec<Uuid>,
+        mention_ids: Vec<Uuid>,
         ctx: RequestContext,
     ) -> Self {
         Self {
@@ -24,6 +26,7 @@ impl SendChannelMessageRequest {
             channel_id,
             content,
             attachment_ids,
+            mention_ids,
             ctx,
         }
     }

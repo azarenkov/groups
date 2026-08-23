@@ -32,7 +32,11 @@ import i18n from "../../i18n";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
-import { MENTION_REGEX, activeMentionQuery } from "../../utils/mentions";
+import {
+  MENTION_REGEX,
+  activeMentionQuery,
+  extractMentionNames,
+} from "../../utils/mentions";
 import type { ChannelParticipant } from "../../types/channel";
 
 const mergeWithLive = (
@@ -668,13 +672,17 @@ const ChatView: React.FC<ChatViewProps> = ({
           after?: string;
           limit?: number;
         }) => dmAPI.listMessages(dm.friendId, opts),
-        sendMessage: (content: string, attachmentIds?: string[]) =>
-          dmAPI.sendMessage(dm.friendId, content, attachmentIds),
+        sendMessage: (
+          content: string,
+          attachmentIds?: string[],
+          _mentionIds?: string[],
+        ) => dmAPI.sendMessage(dm.friendId, content, attachmentIds),
         editMessage: (
           messageId: string,
           content: string,
           addAttachmentIds?: string[],
           removeAttachmentIds?: string[],
+          _mentionIds?: string[],
         ) =>
           dmAPI.editMessage(
             messageId,
@@ -694,13 +702,24 @@ const ChatView: React.FC<ChatViewProps> = ({
           after?: string;
           limit?: number;
         }) => channelAPI.listMessages(serverId, channel.id, opts),
-        sendMessage: (content: string, attachmentIds?: string[]) =>
-          channelAPI.sendMessage(serverId, channel.id, content, attachmentIds),
+        sendMessage: (
+          content: string,
+          attachmentIds?: string[],
+          mentionIds?: string[],
+        ) =>
+          channelAPI.sendMessage(
+            serverId,
+            channel.id,
+            content,
+            attachmentIds,
+            mentionIds,
+          ),
         editMessage: (
           messageId: string,
           content: string,
           addAttachmentIds?: string[],
           removeAttachmentIds?: string[],
+          mentionIds?: string[],
         ) =>
           channelAPI.editMessage(
             serverId,
@@ -709,6 +728,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             content,
             addAttachmentIds,
             removeAttachmentIds,
+            mentionIds,
           ),
         deleteMessage: (messageId: string) =>
           channelAPI.deleteMessage(serverId, channel.id, messageId),
@@ -887,12 +907,33 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (b.scrollTop < 80) void loadOlder();
   }, [loadOlder, searchOpen, searchInput]);
 
+  const resolveMentionIds = (content: string): string[] => {
+    if (!channel) return [];
+    const names = extractMentionNames(content);
+    if (names.length === 0) return [];
+    const overrides = useUserNamesStore.getState().overrides;
+    const byName = new Map<string, string>();
+    for (const p of participants) {
+      byName.set((overrides[p.id] ?? p.name).toLowerCase(), p.id);
+    }
+    const ids: string[] = [];
+    for (const n of names) {
+      const id = byName.get(n);
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids.slice(0, 50);
+  };
+
   const sendOnce = async (
     content: string,
     attachmentIds?: string[],
   ): Promise<ChannelMessage> => {
     if (!messenger) throw new Error("no conversation");
-    return messenger.sendMessage(content, attachmentIds);
+    return messenger.sendMessage(
+      content,
+      attachmentIds,
+      resolveMentionIds(content),
+    );
   };
 
   const refreshHistoryAfterJoin = async () => {
@@ -1252,7 +1293,13 @@ const ChatView: React.FC<ChatViewProps> = ({
     for (const id of sentLocalIds) inFlightSendRef.current.add(id);
     let linked = false;
     try {
-      await messenger.editMessage(msg.id, v, addIds, removeIds);
+      await messenger.editMessage(
+        msg.id,
+        v,
+        addIds,
+        removeIds,
+        resolveMentionIds(v),
+      );
       linked = true;
       const editedAt = new Date().toISOString();
       const attachments = (msg.attachments ?? [])

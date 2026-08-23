@@ -139,7 +139,7 @@ where
 
         let mention_names =
             crate::usecases::channel::mentions::mention_names(message.content().as_str());
-        let mentions: Vec<uuid::Uuid> = if mention_names.is_empty() {
+        let mut mentions: Vec<uuid::Uuid> = if mention_names.is_empty() {
             Vec::new()
         } else {
             self.channel_repository
@@ -149,6 +149,11 @@ where
                 .map(|id| id.uuid())
                 .collect()
         };
+        crate::usecases::channel::mentions::merge_client_mentions(
+            &mut mentions,
+            &request.mention_ids,
+            &recipient_ids,
+        );
 
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = message
