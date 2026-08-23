@@ -845,7 +845,7 @@ const ServersPage: React.FC = () => {
           <i />
           <i />
         </div>
-        {tbIdentity && (
+        {!settingsOpen && !serverSettings && tbIdentity && (
           <div className="tb-identity">
             <Icon name={tbIdentity.icon} size={18} />
             <span className="tb-identity-title">{tbIdentity.title}</span>
@@ -857,19 +857,21 @@ const ServersPage: React.FC = () => {
             )}
           </div>
         )}
-        <div className="titlebar-right">
-          <button
-            type="button"
-            className="titlebar-btn"
-            title={tSidebar("pendingRequests")}
-            onClick={() => setIsPendingOpen(true)}
-          >
-            <Icon name="mail" size={17} />
-            {pendingCount > 0 && (
-              <span className="titlebar-badge">{pendingCount}</span>
-            )}
-          </button>
-        </div>
+        {!settingsOpen && !serverSettings && (
+          <div className="titlebar-right">
+            <button
+              type="button"
+              className="titlebar-btn"
+              title={tSidebar("pendingRequests")}
+              onClick={() => setIsPendingOpen(true)}
+            >
+              <Icon name="mail" size={17} />
+              {pendingCount > 0 && (
+                <span className="titlebar-badge">{pendingCount}</span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="body-area">
