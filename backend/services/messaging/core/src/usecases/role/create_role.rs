@@ -5,15 +5,15 @@ use domain::{
     server::{
         id::ServerId,
         repository::ServerRepository,
-        role::{PERM_ALL, ServerRole, ServerRoleRepository},
+        role::{CreateOutcome, PERM_ALL, ServerRole, ServerRoleRepository},
     },
     user::id::UserId,
 };
 use uuid::Uuid;
 
 use super::{
-    ActorHeight, MAX_ROLES_PER_SERVER, RoleError, actor_grantable_permissions, actor_height,
-    ensure_grantable, ensure_manage_roles, recipients, roles_changed_event, validate_role_input,
+    MAX_ROLES_PER_SERVER, RoleError, actor_grantable_permissions, ensure_grantable,
+    ensure_manage_roles, recipients, roles_changed_event, validate_role_input,
 };
 
 pub struct CreateRole<S: ServerRepository, R: ServerRoleRepository> {
@@ -53,21 +53,11 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
         )
         .await?;
         ensure_grantable(permissions & PERM_ALL, grantable)?;
-        let height = actor_height(
-            self.server_repository.as_ref(),
-            self.role_repository.as_ref(),
-            &server_id,
-            &actor,
-        )
-        .await?;
-        let actor_top = match height {
-            ActorHeight::Owner => None,
-            ActorHeight::Position(top) => {
-                if top == i32::MIN {
-                    return Err(RoleError::HierarchyViolation);
-                }
-                Some(top)
-            }
+        let owner = self.server_repository.find_server_owner(&server_id).await?;
+        let delegated = if owner.as_ref() == Some(&actor) {
+            None
+        } else {
+            Some(&actor)
         };
         let role = ServerRole {
             id: Uuid::new_v4(),
@@ -80,16 +70,19 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
         };
         let members = recipients(self.server_repository.as_ref(), &server_id).await?;
         let event = roles_changed_event(&server_id, &members);
-        let created = self
+        match self
             .role_repository
             .create_role(
                 &role,
-                actor_top,
+                delegated,
                 MAX_ROLES_PER_SERVER,
                 std::slice::from_ref(&event),
             )
             .await?
-            .ok_or(RoleError::InvalidData)?;
-        Ok(created)
+        {
+            CreateOutcome::Created(created) => Ok(created),
+            CreateOutcome::LimitReached => Err(RoleError::InvalidData),
+            CreateOutcome::Denied => Err(RoleError::HierarchyViolation),
+        }
     }
 }

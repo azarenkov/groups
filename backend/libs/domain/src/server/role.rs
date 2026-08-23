@@ -37,6 +37,13 @@ pub enum AssignOutcome {
     Denied,
 }
 
+#[derive(Debug, Clone)]
+pub enum CreateOutcome {
+    Created(ServerRole),
+    LimitReached,
+    Denied,
+}
+
 #[async_trait::async_trait]
 pub trait ServerRoleRepository {
     async fn list_roles(
@@ -47,10 +54,10 @@ pub trait ServerRoleRepository {
     async fn create_role(
         &self,
         role: &ServerRole,
-        actor_top: Option<i32>,
+        delegated_actor: Option<&crate::user::id::UserId>,
         max_roles: usize,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<Option<ServerRole>, crate::shared::repository::error::RepositoryError>;
+    ) -> Result<CreateOutcome, crate::shared::repository::error::RepositoryError>;
 
     async fn update_role(
         &self,

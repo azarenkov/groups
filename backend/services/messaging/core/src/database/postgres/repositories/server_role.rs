@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::{
     server::{
         id::ServerId,
-        role::{AssignOutcome, ServerRole, ServerRoleRepository},
+        role::{AssignOutcome, CreateOutcome, ServerRole, ServerRoleRepository},
     },
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
@@ -111,22 +111,17 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
     async fn create_role(
         &self,
         role: &ServerRole,
-        actor_top: Option<i32>,
+        delegated_actor: Option<&UserId>,
         max_roles: usize,
         events: &[OutboxRecord],
-    ) -> Result<Option<ServerRole>, RepositoryError> {
+    ) -> Result<CreateOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
-            role.server_id.to_string(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        let server_id = ServerId::new(role.server_id);
+        lock_server(&mut tx, &server_id).await?;
         let taken: Vec<i32> = sqlx::query_scalar!(
             r#"
             SELECT position FROM server_roles WHERE server_id = $1
@@ -137,11 +132,18 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if taken.len() >= max_roles {
-            return Ok(None);
+            return Ok(CreateOutcome::LimitReached);
         }
-        let position = match actor_top {
+        let position = match delegated_actor {
             None => taken.iter().copied().max().unwrap_or(0) + 1,
-            Some(top) => {
+            Some(actor) => {
+                let state = actor_state(&mut tx, &server_id, actor).await?;
+                if !delegated_ok(&state, &[], role.permissions) {
+                    return Ok(CreateOutcome::Denied);
+                }
+                let Some(top) = state.top else {
+                    return Ok(CreateOutcome::Denied);
+                };
                 let set: std::collections::HashSet<i32> = taken.into_iter().collect();
                 let mut candidate = top - 1;
                 while set.contains(&candidate) {
@@ -168,7 +170,7 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(Some(ServerRole {
+        Ok(CreateOutcome::Created(ServerRole {
             position,
             ..role.clone()
         }))
@@ -316,27 +318,8 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             return Ok(AssignOutcome::NotFound);
         };
         if let Some(actor) = delegated_actor {
-            let actor_state = sqlx::query!(
-                r#"
-                SELECT
-                    max(r.position) AS "top",
-                    bit_or(r.permissions) AS "perms"
-                FROM server_member_roles mr
-                INNER JOIN server_roles r ON r.id = mr.role_id
-                INNER JOIN server_members m
-                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
-                WHERE mr.server_id = $1 AND mr.user_id = $2
-                "#,
-                server_id.uuid(),
-                actor.uuid(),
-            )
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-            let actor_top = actor_state.top;
-            let actor_perms = actor_state.perms.unwrap_or(0);
-            let below = matches!(actor_top, Some(top) if role.position < top);
-            if !below || role.permissions & !actor_perms != 0 {
+            let state = actor_state(&mut tx, server_id, actor).await?;
+            if !delegated_ok(&state, &[role.position], role.permissions) {
                 return Ok(AssignOutcome::Denied);
             }
         }
