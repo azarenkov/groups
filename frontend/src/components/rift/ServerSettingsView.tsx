@@ -206,7 +206,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   }, [server.id, currentUserId]);
 
   const copyCode = (code: string) => {
-    void copyText(`rift.chat/${code}`).then((ok) => {
+    void copyText(`rift.server/${code}`).then((ok) => {
       if (!ok) return;
       setCopied(code);
       if (copyTimer.current) clearTimeout(copyTimer.current);
@@ -666,7 +666,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 </div>
                 <div className="ssv-invite-row">
                   <div className="ssv-invite-code">
-                    <span className="dim">rift.chat/</span>
+                    <span className="dim">rift.server/</span>
                     <span>{primaryCode ?? "—"}</span>
                   </div>
                   {primaryCode ? (
