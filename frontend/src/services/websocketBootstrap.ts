@@ -20,6 +20,7 @@ import {
   useNotificationPrefsStore,
 } from "../store/notificationPrefsStore";
 import { mentionsUser } from "../utils/mentions";
+import { playNotificationSound } from "../utils/notificationSound";
 import type { Server } from "../types/server";
 import type { Channel } from "../types/channel";
 
@@ -285,6 +286,7 @@ function dispatch(env: WsEnvelope) {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpChannel(channelId, serverId);
+      playNotificationSound();
       return;
     }
 
@@ -323,6 +325,7 @@ function dispatch(env: WsEnvelope) {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
+      playNotificationSound();
       return;
     }
 
