@@ -152,19 +152,19 @@ pub async fn dispatch(
         let recipients = evt.recipient_ids.clone();
         let author_name = resolver.user_name(evt.author_id).await?;
         let attachments = evt.attachments.clone().unwrap_or_else(|| json!([]));
-        let envelope = Envelope::new(
-            "message.sent",
-            json!({
-                "id": evt.message_id,
-                "channelId": evt.channel_id,
-                "authorId": evt.author_id,
-                "authorName": author_name,
-                "content": evt.content,
-                "occurredAt": evt.occurred_at,
-                "attachments": attachments,
-                "mentions": evt.mentions,
-            }),
-        );
+        let mut data = json!({
+            "id": evt.message_id,
+            "channelId": evt.channel_id,
+            "authorId": evt.author_id,
+            "authorName": author_name,
+            "content": evt.content,
+            "occurredAt": evt.occurred_at,
+            "attachments": attachments,
+        });
+        if let Some(mentions) = &evt.mentions {
+            data["mentions"] = json!(mentions);
+        }
+        let envelope = Envelope::new("message.sent", data);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
     }

@@ -15,7 +15,7 @@ pub struct ChannelMessageSentV1 {
     #[serde(default)]
     pub attachments: Option<Value>,
     #[serde(default)]
-    pub mentions: Vec<Uuid>,
+    pub mentions: Option<Vec<Uuid>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
