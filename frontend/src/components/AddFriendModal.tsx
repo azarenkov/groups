@@ -138,12 +138,13 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
         <div className="m-head">
           <h3>{t("addFriend.title")}</h3>
         </div>
-        <div className="m-blurb">
-          <div>{t("addFriend.subtitle")}</div>
-          <div className="m-blurb-hint">{t("addFriend.hint")}</div>
-        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="m-body">
+            <div className="m-blurb">
+              <div>{t("addFriend.subtitle")}</div>
+              <div className="m-blurb-hint">{t("addFriend.hint")}</div>
+            </div>
             <div className="m-field" style={{ position: "relative" }}>
               <label>{t("addFriend.placeholder")}</label>
               <input

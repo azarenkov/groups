@@ -103,8 +103,8 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
             <Icon name="x" size={14} />
           </button>
         </div>
-        <div className="m-blurb">{t("createChannel.subtitle")}</div>
         <div className="m-body">
+          <div className="m-blurb">{t("createChannel.subtitle")}</div>
           <div className="m-field">
             <label>{t("createChannel.nameLabel")}</label>
             <input
