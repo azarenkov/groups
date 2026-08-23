@@ -115,6 +115,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
       : Number.NEGATIVE_INFINITY;
   const canTouchRole = (position: number) =>
     canManageRoles && position < myTopPosition;
+  const grantableBits = isOwner ? ~0 : myPerms;
   const canManageServer = isOwner || (myPerms & PERM_MANAGE_SERVER) !== 0;
 
   const ROLE_COLORS = [
@@ -191,6 +192,10 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
           target.permissions,
         );
         roleSentRef.current[role.id] = key;
+        if (roleLatestRef.current[role.id] === target) {
+          delete roleLatestRef.current[role.id];
+          delete roleSentRef.current[role.id];
+        }
         setRolePermsDraft((cur) => {
           if (cur[role.id] !== target.permissions) return cur;
           const nextDraft = { ...cur };
@@ -807,7 +812,9 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                           <Icon name="lock" size={11} />
                         </span>
                       )}
-                      {c.ownerId === currentUserId && (
+                      {(c.ownerId === currentUserId ||
+                        isOwner ||
+                        (myPerms & PERM_MANAGE_CHANNELS) !== 0) && (
                         <button
                           type="button"
                           className="ssv-row-delete"
@@ -876,7 +883,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                         <input
                           type="checkbox"
                           checked={(newRolePerms & perm.bit) !== 0}
-                          disabled={roleBusy}
+                          disabled={
+                            roleBusy ||
+                            ((newRolePerms & perm.bit) === 0 &&
+                              (grantableBits & perm.bit) === 0)
+                          }
                           onChange={(e) =>
                             setNewRolePerms((prev) =>
                               e.target.checked ? prev | perm.bit : prev & ~perm.bit,
@@ -1005,6 +1016,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                                     ((rolePermsDraft[role.id] ?? role.permissions) &
                                       perm.bit) !==
                                     0
+                                  }
+                                  disabled={
+                                    ((rolePermsDraft[role.id] ?? role.permissions) &
+                                      perm.bit) ===
+                                      0 && (grantableBits & perm.bit) === 0
                                   }
                                   onChange={(e) =>
                                     toggleRolePerm(role, perm.bit, e.target.checked)

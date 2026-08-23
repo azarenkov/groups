@@ -370,6 +370,13 @@ export class LiveKitService {
       this.room.localParticipant.audioTrackPublications.values(),
     );
 
+    if (!muted && audioTracks.length === 0) {
+      void this.enableMicrophone().catch((err) =>
+        console.warn("[livekit] failed to publish microphone on unmute:", err),
+      );
+      return;
+    }
+
     for (const publication of audioTracks) {
       if (publication.track) {
         if (muted) {
