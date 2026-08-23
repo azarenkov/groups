@@ -48,19 +48,30 @@ where
     Ok(mentions)
 }
 
+fn is_url_terminator(byte: u8) -> bool {
+    byte.is_ascii_whitespace()
+        || matches!(byte, b'<' | b'>' | b'"' | b'\'' | b')' | b']' | b'}')
+}
+
 fn url_ranges(content: &str) -> Vec<(usize, usize)> {
     let lower = content.to_ascii_lowercase();
+    let bytes = content.as_bytes();
     let mut ranges: Vec<(usize, usize)> = Vec::new();
     for pat in ["http://", "https://"] {
         let mut from = 0;
         while let Some(pos) = lower[from..].find(pat) {
             let start = from + pos;
-            let end = content[start..]
-                .find(char::is_whitespace)
-                .map(|o| start + o)
-                .unwrap_or(content.len());
+            let mut end = start;
+            while end < bytes.len() && !is_url_terminator(bytes[end]) {
+                end += 1;
+            }
+            while end > start
+                && matches!(bytes[end - 1], b'.' | b',' | b';' | b':' | b'!' | b'?')
+            {
+                end -= 1;
+            }
             ranges.push((start, end));
-            from = end.max(start + 1);
+            from = end.max(start + pat.len());
         }
     }
     ranges
@@ -136,6 +147,19 @@ mod tests {
             mention_names("https://mastodon.social/@alice cc @bob"),
             vec!["bob".to_string()],
         );
+    }
+
+    #[test]
+    fn url_ends_at_frontend_link_boundary() {
+        assert_eq!(
+            mention_names("https://example.com)@alice"),
+            vec!["alice".to_string()],
+        );
+        assert_eq!(
+            mention_names("(https://example.com/path) @bob"),
+            vec!["bob".to_string()],
+        );
+        assert!(mention_names("https://example.com/@carol.").is_empty());
     }
 
 }

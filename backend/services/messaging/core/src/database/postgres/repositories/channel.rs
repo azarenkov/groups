@@ -517,7 +517,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 FROM messaging_user_profiles u
                 INNER JOIN channel_text_participants p ON p.user_id = u.user_id
                 WHERE p.channel_id = $1
-                ORDER BY p.joined_at ASC
+                ORDER BY p.joined_at ASC, u.user_id ASC
                 LIMIT $2 OFFSET $3
                 "#,
                 channel_id.uuid(),

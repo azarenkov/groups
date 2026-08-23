@@ -565,6 +565,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     void (async () => {
       try {
         const all: ChannelParticipant[] = [];
+        const seen = new Set<string>();
         let page = 1;
         let totalPages = 1;
         do {
@@ -574,7 +575,11 @@ const ChatView: React.FC<ChatViewProps> = ({
             page,
             50,
           );
-          all.push(...res.participants);
+          for (const p of res.participants) {
+            if (seen.has(p.id)) continue;
+            seen.add(p.id);
+            all.push(p);
+          }
           totalPages = res.pagination?.totalPages ?? 1;
           page += 1;
         } while (
