@@ -148,16 +148,6 @@ const ServersPage: React.FC = () => {
     channel: Channel;
   } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
-  useEffect(() => {
-    if (selectedDm) {
-      setActiveChatView({ kind: "dm", id: selectedDm.id });
-    } else if (selectedChannelId) {
-      setActiveChatView({ kind: "channel", id: selectedChannelId });
-    } else {
-      setActiveChatView(null);
-    }
-    return () => setActiveChatView(null);
-  }, [selectedChannelId, selectedDm]);
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
@@ -395,6 +385,30 @@ const ServersPage: React.FC = () => {
     !!selectedServer && !selectedDm && !viewingJoinedVoice;
   const showMembersForChannel =
     onTextChannelActive && !!activeTextChannel && !!membersOpenById[activeTextChannel.id];
+
+  const callStageShown = useCallStore((s) => !!s.activeCallId && s.focused);
+  const chatHidden = settingsOpen || !!serverSettings || (callStageShown && !selectedDm);
+  const visibleTextChannelId =
+    !chatHidden && onTextChannelActive && activeTextChannel
+      ? activeTextChannel.id
+      : null;
+  const visibleDmId = !chatHidden && selectedDm ? selectedDm.id : null;
+  useEffect(() => {
+    if (visibleDmId) {
+      setActiveChatView({ kind: "dm", id: visibleDmId });
+    } else if (visibleTextChannelId) {
+      setActiveChatView({ kind: "channel", id: visibleTextChannelId });
+      if ((useUnreadStore.getState().byChannel[visibleTextChannelId] ?? 0) > 0) {
+        useUnreadStore.getState().resetChannel(visibleTextChannelId);
+        userAPI.markChannelRead(visibleTextChannelId).catch((err) => {
+          console.warn("[read-state] mark channel read failed:", err);
+        });
+      }
+    } else {
+      setActiveChatView(null);
+    }
+    return () => setActiveChatView(null);
+  }, [visibleDmId, visibleTextChannelId]);
 
   const handleToggleServer = (serverId: string) => {
     setExpandedServerIds((prev) => {
