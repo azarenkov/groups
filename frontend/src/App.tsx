@@ -59,7 +59,8 @@ const App: React.FC = () => {
               prefsLoaded = true;
             } catch (err) {
               console.warn("[App] failed to load notification prefs:", err);
-              await new Promise((r) => setTimeout(r, delayMs));
+              const wait = delayMs;
+              await new Promise((r) => setTimeout(r, wait));
               delayMs = Math.min(delayMs * 2, 15000);
             }
           }

@@ -574,7 +574,8 @@ export function installWsBootstrap() {
           break;
         } catch (err) {
           console.warn("[ws] failed to reload notification prefs:", err);
-          await new Promise((r) => setTimeout(r, delayMs));
+          const wait = delayMs;
+          await new Promise((r) => setTimeout(r, wait));
           delayMs = Math.min(delayMs * 2, 15000);
           if (gen !== prefsReloadGen) return;
         }
