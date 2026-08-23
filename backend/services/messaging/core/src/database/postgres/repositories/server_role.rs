@@ -58,8 +58,9 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         &self,
         role: &ServerRole,
         actor_top: Option<i32>,
+        max_roles: usize,
         events: &[OutboxRecord],
-    ) -> Result<ServerRole, RepositoryError> {
+    ) -> Result<Option<ServerRole>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -81,6 +82,9 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        if taken.len() >= max_roles {
+            return Ok(None);
+        }
         let position = match actor_top {
             None => taken.iter().copied().max().unwrap_or(0) + 1,
             Some(top) => {
@@ -110,10 +114,10 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(ServerRole {
+        Ok(Some(ServerRole {
             position,
             ..role.clone()
-        })
+        }))
     }
 
     async fn update_role(

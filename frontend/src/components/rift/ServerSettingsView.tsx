@@ -134,6 +134,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const [roleBusy, setRoleBusy] = React.useState(false);
   const [roleError, setRoleError] = React.useState<string | null>(null);
   const [expandedRoleId, setExpandedRoleId] = React.useState<string | null>(null);
+  const [rolePermsDraft, setRolePermsDraft] = React.useState<Record<string, number>>({});
 
   const refreshRoles = () => void fetchRoles(server.id).catch(() => {});
 
@@ -165,10 +166,35 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   ) => {
     try {
       await serverAPI.updateRole(server.id, roleId, name, color, permissions);
+      setRolePermsDraft((prev) => {
+        if (prev[roleId] !== permissions) return prev;
+        const next = { ...prev };
+        delete next[roleId];
+        return next;
+      });
       refreshRoles();
     } catch (e) {
       setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+      setRolePermsDraft((prev) => {
+        const next = { ...prev };
+        delete next[roleId];
+        return next;
+      });
+      refreshRoles();
     }
+  };
+
+  const toggleRolePerm = (
+    role: { id: string; name: string; color: string; permissions: number },
+    bit: number,
+    checked: boolean,
+  ) => {
+    setRolePermsDraft((prev) => {
+      const base = prev[role.id] ?? role.permissions;
+      const next = checked ? base | bit : base & ~bit;
+      void patchRole(role.id, role.name, role.color, next);
+      return { ...prev, [role.id]: next };
+    });
   };
 
   const swapRoles = async (
@@ -949,16 +975,13 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                               <label key={perm.bit} className="ssv-role-perm">
                                 <input
                                   type="checkbox"
-                                  checked={(role.permissions & perm.bit) !== 0}
+                                  checked={
+                                    ((rolePermsDraft[role.id] ?? role.permissions) &
+                                      perm.bit) !==
+                                    0
+                                  }
                                   onChange={(e) =>
-                                    void patchRole(
-                                      role.id,
-                                      role.name,
-                                      role.color,
-                                      e.target.checked
-                                        ? role.permissions | perm.bit
-                                        : role.permissions & ~perm.bit,
-                                    )
+                                    toggleRolePerm(role, perm.bit, e.target.checked)
                                   }
                                 />
                                 <span>{t(perm.key)}</span>

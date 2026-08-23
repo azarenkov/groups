@@ -53,10 +53,6 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
         )
         .await?;
         ensure_grantable(permissions & PERM_ALL, grantable)?;
-        let existing = self.role_repository.list_roles(&server_id).await?;
-        if existing.len() >= MAX_ROLES_PER_SERVER {
-            return Err(RoleError::InvalidData);
-        }
         let height = actor_height(
             self.server_repository.as_ref(),
             self.role_repository.as_ref(),
@@ -86,8 +82,14 @@ impl<S: ServerRepository, R: ServerRoleRepository> CreateRole<S, R> {
         let event = roles_changed_event(&server_id, &members);
         let created = self
             .role_repository
-            .create_role(&role, actor_top, std::slice::from_ref(&event))
-            .await?;
+            .create_role(
+                &role,
+                actor_top,
+                MAX_ROLES_PER_SERVER,
+                std::slice::from_ref(&event),
+            )
+            .await?
+            .ok_or(RoleError::InvalidData)?;
         Ok(created)
     }
 }

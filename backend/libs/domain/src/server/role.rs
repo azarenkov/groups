@@ -41,8 +41,9 @@ pub trait ServerRoleRepository {
         &self,
         role: &ServerRole,
         actor_top: Option<i32>,
+        max_roles: usize,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<ServerRole, crate::shared::repository::error::RepositoryError>;
+    ) -> Result<Option<ServerRole>, crate::shared::repository::error::RepositoryError>;
 
     async fn update_role(
         &self,
