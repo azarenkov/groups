@@ -145,8 +145,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const setTab = (next: "dms" | "servers") =>
-    navigateTo({ tab: next, server: next === "servers" ? openServerId : null });
+  const setTab = (next: "dms" | "servers") => {
+    const latest = historyRef.current[historyIdxRef.current];
+    navigateTo({
+      tab: next,
+      server:
+        next === "servers"
+          ? latest?.tab === "servers"
+            ? latest.server
+            : openServerId
+          : null,
+    });
+  };
   const setOpenServerId = (id: string | null) =>
     navigateTo({ tab: "servers", server: id });
   const prevSelection = React.useRef({
