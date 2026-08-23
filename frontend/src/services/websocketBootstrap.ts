@@ -69,6 +69,14 @@ function asString(v: unknown): string | undefined {
 const UNREAD_REFETCH_DELAY_MS = 1000;
 let unreadRefetchTimer: ReturnType<typeof setTimeout> | null = null;
 
+const lastChannelBumpAt: Record<string, number> = {};
+const lastDmBumpAt: Record<string, number> = {};
+
+function eventTs(v: unknown): number {
+  const t = Date.parse(asString(v) ?? "");
+  return Number.isFinite(t) ? t : Date.now();
+}
+
 function scheduleUnreadRefetch() {
   if (unreadRefetchTimer) return;
   unreadRefetchTimer = setTimeout(() => {
@@ -271,6 +279,7 @@ function dispatch(env: WsEnvelope) {
           break;
         }
       }
+      lastChannelBumpAt[channelId] = eventTs(d.occurredAt);
       useUnreadStore.getState().bumpChannel(channelId, serverId);
       return;
     }
@@ -305,6 +314,7 @@ function dispatch(env: WsEnvelope) {
         return;
       }
       if (dmNotifLevel(senderId) === "none") return;
+      lastDmBumpAt[senderId] = eventTs(d.occurredAt);
       useUnreadStore.getState().bumpDm(senderId);
       return;
     }
@@ -340,7 +350,18 @@ function dispatch(env: WsEnvelope) {
       const selfId = useAuthStore.getState().user?.id;
       if (readerId && readerId === selfId) {
         const peerId = asString(d.peerId);
-        if (peerId) useUnreadStore.getState().resetDm(peerId);
+        if (!peerId) return;
+        const readTs = Date.parse(readAt ?? "");
+        const bumpTs = lastDmBumpAt[peerId];
+        if (
+          bumpTs !== undefined &&
+          (!Number.isFinite(readTs) || bumpTs > readTs)
+        ) {
+          scheduleUnreadRefetch();
+          return;
+        }
+        delete lastDmBumpAt[peerId];
+        useUnreadStore.getState().resetDm(peerId);
         return;
       }
       if (readerId && readAt) {
@@ -355,6 +376,16 @@ function dispatch(env: WsEnvelope) {
       const readAt = asString(d.readAt);
       const selfId = useAuthStore.getState().user?.id;
       if (channelId && readerId && readerId === selfId) {
+        const readTs = Date.parse(readAt ?? "");
+        const bumpTs = lastChannelBumpAt[channelId];
+        if (
+          bumpTs !== undefined &&
+          (!Number.isFinite(readTs) || bumpTs > readTs)
+        ) {
+          scheduleUnreadRefetch();
+          return;
+        }
+        delete lastChannelBumpAt[channelId];
         useUnreadStore.getState().resetChannel(channelId);
         return;
       }
