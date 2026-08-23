@@ -494,18 +494,16 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
               <p className="lead">
                 {t("channelsLead", { count: channels.length, server: server.name })}
               </p>
-              {isOwner && (
-                <div className="ssv-actions" style={{ marginTop: 0 }}>
-                  <button
-                    type="button"
-                    className="ssv-btn primary"
-                    onClick={onCreateChannel}
-                  >
-                    <Icon name="plus" size={14} />
-                    {t("createChannel")}
-                  </button>
-                </div>
-              )}
+              <div className="ssv-actions" style={{ marginTop: 0 }}>
+                <button
+                  type="button"
+                  className="ssv-btn primary"
+                  onClick={onCreateChannel}
+                >
+                  <Icon name="plus" size={14} />
+                  {t("createChannel")}
+                </button>
+              </div>
               <div className="ssv-card">
                 {channels.length === 0 && (
                   <div className="ssv-empty">{t("noChannels")}</div>
