@@ -25,6 +25,8 @@ interface SidebarProps {
   onDeleteServer: (server: Server) => void;
   onDeleteChannel: (server: Server, channel: Channel) => void;
   onOpenSettings: () => void;
+  onAddFriend: () => void;
+  onAddServer: () => void;
   currentUserId?: string;
   currentUserName: string;
   currentUserStatus: string;
@@ -75,6 +77,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteServer,
   onDeleteChannel,
   onOpenSettings,
+  onAddFriend,
+  onAddServer,
   currentUserId,
   currentUserName,
   currentUserStatus,
@@ -219,6 +223,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("directMessages")}</span>
       </div>
+      {!isFiltering && (
+        <button type="button" className="sb-add-row" onClick={onAddFriend}>
+          <Icon name="user-plus" size={14} />
+          <span>{t("addFriend")}</span>
+        </button>
+      )}
       {visibleDirects.length === 0 && (
         <div className="sb-empty">
           {isFiltering ? t("noDirectMatches") : t("noDirects")}
@@ -274,6 +284,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("servers")}</span>
       </div>
+      {!isFiltering && (
+        <button type="button" className="sb-add-row" onClick={onAddServer}>
+          <Icon name="plus" size={14} />
+          <span>{t("addServer")}</span>
+        </button>
+      )}
       {filteredServers.length === 0 && (
         <div className="sb-empty">
           {isFiltering ? t("noMatches") : t("noServers")}

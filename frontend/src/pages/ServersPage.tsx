@@ -127,29 +127,6 @@ const ServersPage: React.FC = () => {
   const [serverModalView, setServerModalView] = useState<
     "choose" | "create" | "join"
   >("choose");
-  const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const createMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!createMenuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(e.target as Node)
-      ) {
-        setCreateMenuOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCreateMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [createMenuOpen]);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
@@ -881,77 +858,6 @@ const ServersPage: React.FC = () => {
           </div>
         )}
         <div className="titlebar-right">
-          <div className="tb-create-wrap" ref={createMenuRef}>
-            <button
-              type="button"
-              className="tb-create-btn"
-              onClick={() => setCreateMenuOpen((v) => !v)}
-            >
-              <Icon name="plus" size={14} />
-              <span>{tSidebar("createServer")}</span>
-              <Icon
-                name="chev"
-                size={13}
-                className={"tb-create-chev" + (createMenuOpen ? " up" : "")}
-              />
-            </button>
-            {createMenuOpen && (
-              <div className="tb-create-menu">
-                <button
-                  type="button"
-                  className="tb-create-mi"
-                  onClick={() => {
-                    setCreateMenuOpen(false);
-                    setServerModalView("create");
-                    setIsServerModalOpen(true);
-                  }}
-                >
-                  <span className="tb-create-mi-icon accent">
-                    <Icon name="plus" size={18} />
-                  </span>
-                  <span className="tb-create-mi-body">
-                    <span className="tb-create-mi-title">
-                      {tSidebar("createServer")}
-                    </span>
-                    <span className="tb-create-mi-sub">
-                      {tSidebar("createServerHint")}
-                    </span>
-                  </span>
-                </button>
-                <div className="tb-create-menu-divider" />
-                <button
-                  type="button"
-                  className="tb-create-mi"
-                  onClick={() => {
-                    setCreateMenuOpen(false);
-                    setServerModalView("join");
-                    setIsServerModalOpen(true);
-                  }}
-                >
-                  <span className="tb-create-mi-icon">
-                    <Icon name="logout" size={18} />
-                  </span>
-                  <span className="tb-create-mi-body">
-                    <span className="tb-create-mi-title">
-                      {tSidebar("joinServer")}
-                    </span>
-                    <span className="tb-create-mi-sub">
-                      {tSidebar("joinServerHint")}
-                    </span>
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            className="tb-friend-btn"
-            title={tSidebar("addFriend")}
-            onClick={() => setIsAddFriendOpen(true)}
-          >
-            <Icon name="user-plus" size={15} />
-            <span>{tSidebar("addFriend")}</span>
-          </button>
           <button
             type="button"
             className="titlebar-btn"
@@ -1025,6 +931,11 @@ const ServersPage: React.FC = () => {
             })
           }
           onOpenSettings={() => setSettingsOpen(true)}
+          onAddFriend={() => setIsAddFriendOpen(true)}
+          onAddServer={() => {
+            setServerModalView("choose");
+            setIsServerModalOpen(true);
+          }}
           currentUserId={user?.id}
           currentUserName={userName}
           currentUserStatus={userStatus}

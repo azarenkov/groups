@@ -2059,9 +2059,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               <Icon name="user-check" size={16} />
             </button>
           )}
-          <button type="button" className="icon-btn" title={i18n.t("settings", { ns: "sidebar" })}>
-            <Icon name="settings" size={16} />
-          </button>
         </div>
       </header>
     );

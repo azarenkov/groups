@@ -608,6 +608,25 @@ body.electron .titlebar { padding-left: 84px; }
   background: var(--accent);
 }
 
+.sb-add-row {
+  display: flex; align-items: center; gap: 8px;
+  width: calc(100% - 16px);
+  margin: 2px 8px 6px;
+  padding: 7px 10px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+.sb-add-row:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+
 .popover-wrap { position: relative; display: inline-flex; }
 .popover {
   position: absolute;
