@@ -200,7 +200,13 @@ body.electron .titlebar { padding-left: 84px; }
   background: transparent;  padding: 10px 8px 8px;
   gap: 2px;
 }
-.sb-nav { display: flex; gap: 2px; margin: 0 4px 6px; }
+.sb-nav { display: flex; gap: 2px; margin: 0 0 6px 2px; }
+body.electron .sb-nav {
+  position: fixed;
+  top: 7px; left: 84px;
+  margin: 0;
+  z-index: 45;
+}
 .sb-nav-btn {
   width: 28px; height: 26px;
   display: inline-flex; align-items: center; justify-content: center;
