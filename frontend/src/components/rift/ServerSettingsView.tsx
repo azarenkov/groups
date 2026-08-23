@@ -494,7 +494,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
               <p className="lead">
                 {t("channelsLead", { count: channels.length, server: server.name })}
               </p>
-              <div className="ssv-actions" style={{ marginTop: 0 }}>
+              <div className="ssv-actions" style={{ marginTop: 0, marginBottom: 16 }}>
                 <button
                   type="button"
                   className="ssv-btn primary"
