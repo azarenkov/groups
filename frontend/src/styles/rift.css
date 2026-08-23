@@ -5370,3 +5370,8 @@ button.ssv-row-delete:focus-visible {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 6px 16px;
 }
+
+.flip-y { transform: scaleY(-1); }
+.ssv-role-reorder { display: inline-flex; gap: 0; }
+.ssv-role-reorder .ssv-row-delete:disabled { opacity: 0.3; cursor: default; }
+.ssv-role-reorder .ssv-row-delete:disabled:hover { background: transparent; color: var(--fg-3); }
