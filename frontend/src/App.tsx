@@ -51,12 +51,19 @@ const App: React.FC = () => {
             "./store/notificationPrefsStore"
           );
           if (cancelled) return;
-          await useNotificationPrefsStore
-            .getState()
-            .load()
-            .catch((err) =>
-              console.warn("[App] failed to load notification prefs:", err),
-            );
+          let prefsLoaded = false;
+          let delayMs = 1000;
+          while (!cancelled && !prefsLoaded) {
+            try {
+              await useNotificationPrefsStore.getState().load();
+              prefsLoaded = true;
+            } catch (err) {
+              console.warn("[App] failed to load notification prefs:", err);
+              await new Promise((r) => setTimeout(r, delayMs));
+              delayMs = Math.min(delayMs * 2, 15000);
+            }
+          }
+          if (cancelled) return;
           const { refetchUnread } = await import("./store/unreadStore");
           if (cancelled) return;
           await refetchUnread();
