@@ -52,6 +52,7 @@ async function reconcileScope(
   const gen = sessionGen;
   const sessionUserId = useAuthStore.getState().user?.id;
   if (!sessionUserId) return;
+  const key = `${scopeType}:${scopeId}`;
   try {
     const { preferences } = await userAPI.getNotificationPreferences();
     if (
@@ -60,7 +61,6 @@ async function reconcileScope(
     ) {
       return;
     }
-    const key = `${scopeType}:${scopeId}`;
     if ((pendingWrites[key] ?? 0) > 0) {
       deferredRemote[key] = true;
       return;
@@ -92,7 +92,14 @@ async function reconcileScope(
     }
     void refetchUnread().catch(() => {});
   } catch {
-    return;
+    if (sessionGen !== gen) return;
+    deferredRemote[key] = true;
+    setTimeout(() => {
+      if (deferredRemote[key] && (pendingWrites[key] ?? 0) === 0) {
+        delete deferredRemote[key];
+        void reconcileScope(scopeType, scopeId);
+      }
+    }, 2000);
   }
 }
 

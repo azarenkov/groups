@@ -99,7 +99,18 @@ export async function refetchUnread(): Promise<void> {
   const token = ++refetchSeq;
   for (let attempt = 0; attempt < 3; attempt++) {
     const gen = mutationGen;
-    const u = await userAPI.getUnread();
+    let u;
+    try {
+      u = await userAPI.getUnread();
+    } catch (e) {
+      if (token === refetchSeq && !refetchRetryTimer) {
+        refetchRetryTimer = setTimeout(() => {
+          refetchRetryTimer = null;
+          void refetchUnread().catch(() => {});
+        }, 2000);
+      }
+      throw e;
+    }
     if (token !== refetchSeq) return;
     if (useAuthStore.getState().user?.id !== sessionUserId) return;
     if (mutationGen !== gen) continue;
