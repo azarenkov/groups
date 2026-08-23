@@ -4325,6 +4325,13 @@ textarea.s-input {
   white-space: nowrap;
 }
 .ssv-tag.owner { background: var(--accent-tint-2); color: var(--accent); }
+.ssv-create-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--fg-3);
+  line-height: 1.4;
+}
 .ssv-channel-ico {
   width: 36px; height: 36px; border-radius: 10px;
   background: var(--surface-sunken);

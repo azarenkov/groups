@@ -500,9 +500,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                   <span>{t("createChannel")}</span>
                 </div>
                 <div className="ssv-invite-row">
-                  <div className="ssv-invite-code">
-                    <span className="dim">{t("createChannelHint")}</span>
-                  </div>
+                  <div className="ssv-create-hint">{t("createChannelHint")}</div>
                   <button
                     type="button"
                     className="ssv-btn primary"
