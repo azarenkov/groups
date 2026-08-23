@@ -212,12 +212,7 @@ const ServersPage: React.FC = () => {
 
   const pendingCount = React.useMemo(
     () =>
-      friends.filter(
-        (f) =>
-          f.status === "pending_incoming" ||
-          f.status === "pending_outgoing" ||
-          f.status === "declined",
-      ).length,
+      friends.filter((f) => f.status === "pending_incoming").length,
     [friends],
   );
 
