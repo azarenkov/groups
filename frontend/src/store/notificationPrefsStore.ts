@@ -30,10 +30,8 @@ const dmSeqs: Record<string, number> = {};
 const channelPersisted: Record<string, NotifLevel> = {};
 const dmPersisted: Record<string, NotifLevel> = {};
 const writeQueues: Record<string, Promise<void>> = {};
-const pendingWrites: Record<string, number> = {};
+const activeWrites: Record<string, number> = {};
 const deferredRemote: Record<string, boolean> = {};
-const writtenScopes = new Set<string>();
-const remoteTouched = new Set<string>();
 const remoteVersions: Record<string, number> = {};
 let sessionGen = 0;
 
@@ -42,15 +40,23 @@ function advanceRemoteVersion(key: string, version: number | undefined): void {
   remoteVersions[key] = Math.max(remoteVersions[key] ?? -Infinity, version);
 }
 
+function isStaleVersion(key: string, version: number | undefined): boolean {
+  return (
+    typeof version === "number" &&
+    remoteVersions[key] !== undefined &&
+    version < remoteVersions[key]
+  );
+}
+
 function enqueueWrite(key: string, task: () => Promise<void>): Promise<void> {
   const next = (writeQueues[key] ?? Promise.resolve()).then(task, task);
   writeQueues[key] = next.catch(() => {});
   return next;
 }
 
-function settleWrite(key: string, scopeType: "channel" | "dm", scopeId: string) {
-  pendingWrites[key] = Math.max(0, (pendingWrites[key] ?? 1) - 1);
-  if (pendingWrites[key] === 0 && deferredRemote[key]) {
+function releaseWrite(key: string, scopeType: "channel" | "dm", scopeId: string) {
+  activeWrites[key] = Math.max(0, (activeWrites[key] ?? 1) - 1);
+  if (activeWrites[key] === 0 && deferredRemote[key]) {
     delete deferredRemote[key];
     void reconcileScope(scopeType, scopeId);
   }
@@ -72,7 +78,7 @@ async function reconcileScope(
     ) {
       return;
     }
-    if ((pendingWrites[key] ?? 0) > 0) {
+    if ((activeWrites[key] ?? 0) > 0) {
       deferredRemote[key] = true;
       return;
     }
@@ -81,7 +87,6 @@ async function reconcileScope(
     );
     const level =
       found && isLevel(found.level) ? found.level : undefined;
-    remoteTouched.add(key);
     advanceRemoteVersion(key, found?.version);
     if (scopeType === "channel") {
       if (level === undefined) delete channelPersisted[scopeId];
@@ -107,7 +112,7 @@ async function reconcileScope(
     if (sessionGen !== gen) return;
     deferredRemote[key] = true;
     setTimeout(() => {
-      if (deferredRemote[key] && (pendingWrites[key] ?? 0) === 0) {
+      if (deferredRemote[key] && (activeWrites[key] ?? 0) === 0) {
         delete deferredRemote[key];
         void reconcileScope(scopeType, scopeId);
       }
@@ -133,33 +138,32 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       }
       const channelLevels: Record<string, NotifLevel> = {};
       const dmLevels: Record<string, NotifLevel> = {};
+      const preserveChannel = new Set<string>();
+      const preserveDm = new Set<string>();
       for (const p of preferences) {
         if (!isLevel(p.level)) continue;
+        if (p.scopeType !== "channel" && p.scopeType !== "dm") continue;
+        const key = `${p.scopeType}:${p.scopeId}`;
+        if (isStaleVersion(key, p.version)) {
+          if (p.scopeType === "channel") preserveChannel.add(p.scopeId);
+          else preserveDm.add(p.scopeId);
+          continue;
+        }
+        advanceRemoteVersion(key, p.version);
         if (p.scopeType === "channel") {
           channelLevels[p.scopeId] = p.level;
-          advanceRemoteVersion(`channel:${p.scopeId}`, p.version);
-        } else if (p.scopeType === "dm") {
+          channelPersisted[p.scopeId] = p.level;
+        } else {
           dmLevels[p.scopeId] = p.level;
-          advanceRemoteVersion(`dm:${p.scopeId}`, p.version);
+          dmPersisted[p.scopeId] = p.level;
         }
       }
-      const preserveChannel = new Set(Object.keys(channelSeqs));
-      const preserveDm = new Set(Object.keys(dmSeqs));
-      for (const key of remoteTouched) {
+      for (const [key, count] of Object.entries(activeWrites)) {
+        if (count <= 0) continue;
         if (key.startsWith("channel:")) {
           preserveChannel.add(key.slice("channel:".length));
         } else if (key.startsWith("dm:")) {
           preserveDm.add(key.slice("dm:".length));
-        }
-      }
-      for (const [k, v] of Object.entries(channelLevels)) {
-        if (!writtenScopes.has(`channel:${k}`) && !remoteTouched.has(`channel:${k}`)) {
-          channelPersisted[k] = v;
-        }
-      }
-      for (const [k, v] of Object.entries(dmLevels)) {
-        if (!writtenScopes.has(`dm:${k}`) && !remoteTouched.has(`dm:${k}`)) {
-          dmPersisted[k] = v;
         }
       }
       set((s) => {
@@ -179,6 +183,8 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       const gen = sessionGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (channelSeqs[channelId] = (channelSeqs[channelId] ?? 0) + 1);
+      const key = `channel:${channelId}`;
+      activeWrites[key] = (activeWrites[key] ?? 0) + 1;
       set((s) => ({
         channelLevels: { ...s.channelLevels, [channelId]: level },
       }));
@@ -186,85 +192,85 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         sessionGen === gen &&
         channelSeqs[channelId] === seq &&
         useAuthStore.getState().user?.id === sessionUserId;
-      await enqueueWrite(`channel:${channelId}`, async () => {
-        if (!current()) return;
-        const key = `channel:${channelId}`;
-        pendingWrites[key] = (pendingWrites[key] ?? 0) + 1;
-        try {
-          const version = await userAPI.setNotificationPreference(
-            "channel",
-            channelId,
-            level,
-          );
-          if (sessionGen === gen) {
-            channelPersisted[channelId] = level;
-            writtenScopes.add(key);
-            advanceRemoteVersion(key, version);
+      try {
+        await enqueueWrite(key, async () => {
+          if (!current()) return;
+          try {
+            const version = await userAPI.setNotificationPreference(
+              "channel",
+              channelId,
+              level,
+            );
+            if (sessionGen === gen) {
+              channelPersisted[channelId] = level;
+              advanceRemoteVersion(key, version);
+            }
+            if (current()) {
+              void refetchUnread().catch(() => {});
+            }
+          } catch (e) {
+            if (current()) {
+              const persisted = channelPersisted[channelId];
+              set((s) => {
+                const next = { ...s.channelLevels };
+                if (persisted === undefined) delete next[channelId];
+                else next[channelId] = persisted;
+                return { channelLevels: next };
+              });
+              void refetchUnread().catch(() => {});
+            }
+            throw e;
           }
-          if (current()) {
-            void refetchUnread().catch(() => {});
-          }
-        } catch (e) {
-          if (current()) {
-            const persisted = channelPersisted[channelId];
-            set((s) => {
-              const next = { ...s.channelLevels };
-              if (persisted === undefined) delete next[channelId];
-              else next[channelId] = persisted;
-              return { channelLevels: next };
-            });
-            void refetchUnread().catch(() => {});
-          }
-          throw e;
-        } finally {
-          settleWrite(key, "channel", channelId);
-        }
-      });
+        });
+      } finally {
+        releaseWrite(key, "channel", channelId);
+      }
     },
 
     setDmLevel: async (friendId, level) => {
       const gen = sessionGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (dmSeqs[friendId] = (dmSeqs[friendId] ?? 0) + 1);
+      const key = `dm:${friendId}`;
+      activeWrites[key] = (activeWrites[key] ?? 0) + 1;
       set((s) => ({ dmLevels: { ...s.dmLevels, [friendId]: level } }));
       const current = () =>
         sessionGen === gen &&
         dmSeqs[friendId] === seq &&
         useAuthStore.getState().user?.id === sessionUserId;
-      await enqueueWrite(`dm:${friendId}`, async () => {
-        if (!current()) return;
-        const key = `dm:${friendId}`;
-        pendingWrites[key] = (pendingWrites[key] ?? 0) + 1;
-        try {
-          const version = await userAPI.setNotificationPreference(
-            "dm",
-            friendId,
-            level,
-          );
-          if (sessionGen === gen) {
-            dmPersisted[friendId] = level;
-            writtenScopes.add(key);
-            advanceRemoteVersion(key, version);
+      try {
+        await enqueueWrite(key, async () => {
+          if (!current()) return;
+          try {
+            const version = await userAPI.setNotificationPreference(
+              "dm",
+              friendId,
+              level,
+            );
+            if (sessionGen === gen) {
+              dmPersisted[friendId] = level;
+              advanceRemoteVersion(key, version);
+            }
+            if (current()) {
+              void refetchUnread().catch(() => {});
+            }
+          } catch (e) {
+            if (current()) {
+              const persisted = dmPersisted[friendId];
+              set((s) => {
+                const next = { ...s.dmLevels };
+                if (persisted === undefined) delete next[friendId];
+                else next[friendId] = persisted;
+                return { dmLevels: next };
+              });
+              void refetchUnread().catch(() => {});
+            }
+            throw e;
           }
-          if (current()) {
-            void refetchUnread().catch(() => {});
-          }
-        } catch (e) {
-          if (current()) {
-            const persisted = dmPersisted[friendId];
-            set((s) => {
-              const next = { ...s.dmLevels };
-              if (persisted === undefined) delete next[friendId];
-              else next[friendId] = persisted;
-              return { dmLevels: next };
-            });
-            void refetchUnread().catch(() => {});
-          }
-          throw e;
-        } finally {
-          settleWrite(key, "dm", friendId);
-        }
-      });
+        });
+      } finally {
+        releaseWrite(key, "dm", friendId);
+      }
     },
 
     applyRemote: (scopeType, scopeId, level, version) => {
@@ -278,11 +284,10 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       ) {
         return;
       }
-      if ((pendingWrites[key] ?? 0) > 0) {
+      if ((activeWrites[key] ?? 0) > 0) {
         deferredRemote[key] = true;
         return;
       }
-      remoteTouched.add(key);
       advanceRemoteVersion(key, version);
       if (scopeType === "channel") {
         channelPersisted[scopeId] = level;
@@ -302,10 +307,8 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       for (const k of Object.keys(channelPersisted)) delete channelPersisted[k];
       for (const k of Object.keys(dmPersisted)) delete dmPersisted[k];
       for (const k of Object.keys(writeQueues)) delete writeQueues[k];
-      for (const k of Object.keys(pendingWrites)) delete pendingWrites[k];
+      for (const k of Object.keys(activeWrites)) delete activeWrites[k];
       for (const k of Object.keys(deferredRemote)) delete deferredRemote[k];
-      writtenScopes.clear();
-      remoteTouched.clear();
       for (const k of Object.keys(remoteVersions)) delete remoteVersions[k];
       set({ channelLevels: {}, dmLevels: {} });
     },

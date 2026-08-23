@@ -564,6 +564,14 @@ export function installWsBootstrap() {
   installed = true;
   ws.on(dispatch);
   ws.onOpen(() => {
+    void (async () => {
+      try {
+        await useNotificationPrefsStore.getState().load();
+      } catch (err) {
+        console.warn("[ws] failed to reload notification prefs:", err);
+      }
+      scheduleUnreadRefetch();
+    })();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void useFriendshipStore
