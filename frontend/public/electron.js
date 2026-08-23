@@ -255,6 +255,12 @@ function createMainWindow() {
     }
   });
 
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow?.webContents.send('window:fullscreen', true);
+  });
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow?.webContents.send('window:fullscreen', false);
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -448,6 +454,7 @@ function secureFilePath() {
   return path.join(app.getPath('userData'), 'auth.bin');
 }
 
+ipcMain.handle('window:is-fullscreen', () => mainWindow?.isFullScreen() ?? false);
 ipcMain.handle('secure:get', () => {
   try {
     const file = secureFilePath();

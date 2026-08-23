@@ -28,6 +28,8 @@ declare global {
           }[];
         }) => void,
       ) => () => void;
+      isFullscreen?: () => Promise<boolean>;
+      onFullscreenChange?: (callback: (value: boolean) => void) => () => void;
       pickScreenShareSource?: (
         requestId: number,
         sourceId: string | null,

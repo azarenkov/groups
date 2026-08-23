@@ -19,7 +19,13 @@
     "public": "Public",
     "private": "Private",
     "create": "Create channel",
-    "creating": "Creating…"
+    "creating": "Creating…",
+    "voiceSub": "Voice, video and screen sharing",
+    "textSub": "Messages, files and mentions",
+    "publicSub": "Visible to every server member",
+    "privateSub": "Joining requires a password",
+    "passwordLabel": "Password",
+    "passwordHint": "Everyone will need it the first time they join"
   },
   "channelSettings": {
     "title": "Channel settings",
@@ -36,7 +42,8 @@
     "sent": "Friend request sent.",
     "selfError": "You can't send a friend request to yourself.",
     "alreadyFriends": "You're already friends with this user.",
-    "userNotFound": "User not found."
+    "userNotFound": "User not found.",
+    "hint": "Usernames are 3+ characters: letters, digits and underscores. Ask your friend to check theirs in profile settings."
   },
   "inviteFriends": {
     "title": "Invite friends to {{server}}",
@@ -53,13 +60,18 @@
     "accept": "Accept",
     "decline": "Decline",
     "cancel": "Cancel",
-    "empty": "No pending requests."
+    "empty": "No pending requests.",
+    "emptyTitle": "No requests yet",
+    "emptyHint": "Incoming and outgoing friend requests will show up here.",
+    "emptyCta": "Add friend"
   },
   "newDm": {
     "title": "Start a direct message",
     "subtitle": "Pick a friend to message.",
     "search": "Search friends",
-    "noFriends": "Add some friends to start a DM."
+    "noFriends": "Add some friends to start a DM.",
+    "emptyTitle": "No one to message yet",
+    "emptyCta": "Add friend"
   },
   "passwordPrompt": {
     "title": "Private channel",

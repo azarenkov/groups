@@ -2,6 +2,7 @@ pub async fn resolve_mentions<C, R>(
     content: &str,
     channel_id: &domain::channel::id::ChannelId,
     members: &[domain::user::id::UserId],
+    author_id: uuid::Uuid,
     channel_repo: &C,
     resolver: &R,
 ) -> Result<Vec<uuid::Uuid>, domain::shared::repository::error::RepositoryError>
@@ -19,7 +20,7 @@ where
     match resolver.resolve_names(&names).await {
         Ok(resolved) => {
             for (id, _) in resolved {
-                if member_set.contains(&id) && !mentions.contains(&id) {
+                if id != author_id && member_set.contains(&id) && !mentions.contains(&id) {
                     mentions.push(id);
                 }
             }
@@ -31,7 +32,7 @@ where
                 .await?
             {
                 let uid = id.uuid();
-                if !mentions.contains(&uid) {
+                if uid != author_id && !mentions.contains(&uid) {
                     mentions.push(uid);
                 }
             }

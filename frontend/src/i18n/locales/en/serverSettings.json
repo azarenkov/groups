@@ -2,6 +2,7 @@
   "navTitle": "Server settings",
   "nav": {
     "overview": "Overview",
+    "channels": "Channels",
     "invites": "Invites",
     "members": "Members",
     "danger": "Danger zone"
@@ -56,5 +57,18 @@
   "uploadLogo": "Upload logo",
   "removeLogo": "Remove logo",
   "logoError": "Failed to update logo",
-  "logoRejected": "This image was rejected by content moderation"
+  "logoRejected": "This image was rejected by content moderation",
+  "channelsLead": "Channels in {{server}}: {{count}}",
+  "createChannel": "Create channel",
+  "noChannels": "No channels yet",
+  "kindText": "Text",
+  "kindVoice": "Voice",
+  "privateChannel": "Private",
+  "deleteChannel": "Delete channel",
+  "channelList": "Channels ({{count}})",
+  "channelKind": "Type",
+  "channelVisibility": "Access",
+  "channelPassword": "Password",
+  "channelNameRequired": "Enter a channel name",
+  "channelPasswordRequired": "Private channels need a password"
 }

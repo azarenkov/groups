@@ -31,6 +31,7 @@ import {
 import i18n from "../../i18n";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
+import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { MENTION_REGEX, activeMentionQuery } from "../../utils/mentions";
 import type { ChannelParticipant } from "../../types/channel";
@@ -133,7 +134,6 @@ interface ChatViewProps {
   membersOpen?: boolean;
   servers?: Server[];
   onToggleMembers?: () => void;
-  onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
   onGoToServer?: (serverId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
@@ -148,7 +148,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   membersOpen,
   servers,
   onToggleMembers,
-  onOpenChannelSettings,
   onRemoveFriend,
   onGoToServer,
   topSlot,
@@ -617,10 +616,11 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (!mentionQuery) return [];
     const q = mentionQuery.query.toLowerCase();
     return participants
+      .filter((p) => p.id !== currentUserId)
       .map((p) => ({ ...p, name: nameOverrides[p.id] ?? p.name }))
       .filter((p) => p.name.toLowerCase().startsWith(q))
       .slice(0, 8);
-  }, [mentionQuery, participants, nameOverrides]);
+  }, [mentionQuery, participants, nameOverrides, currentUserId]);
 
   const applyMention = React.useCallback(
     (name: string) => {
@@ -732,6 +732,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     setMentionIndex(0);
     setParticipants([]);
     participantsChannelRef.current = null;
+    setPullDistance(0);
+    pullStartYRef.current = null;
+    wheelPullRef.current = 0;
     setPendingFiles((prev) => {
       for (const p of prev) {
         if (!inFlightSendRef.current.has(p.localId)) discardPendingFile(p);
@@ -906,15 +909,111 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const refreshHistoryAfterJoin = async () => {
     if (!messenger) return;
+    const requestConvId = convIdRef.current;
     reseedChannelReads();
     try {
       const res = await messenger.listMessages({ limit: PAGE_LIMIT });
+      if (convIdRef.current !== requestConvId) return;
       const ordered = [...res.messages].reverse();
       setMessages((prev) => mergeWithLive(ordered, prev));
       setHasMore(res.messages.length >= PAGE_LIMIT);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
     }
+  };
+
+  const PULL_THRESHOLD = 64;
+  const PULL_MAX = 96;
+  const [pullDistance, setPullDistance] = React.useState(0);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const pullStartYRef = React.useRef<number | null>(null);
+  const wheelPullRef = React.useRef(0);
+  const wheelResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const refreshingRef = React.useRef(false);
+  refreshingRef.current = refreshing;
+
+  const triggerPullRefresh = React.useCallback(async () => {
+    if (refreshingRef.current || !messenger) {
+      setPullDistance(0);
+      return;
+    }
+    setRefreshing(true);
+    setPullDistance(PULL_THRESHOLD);
+    const started = Date.now();
+    try {
+      await refreshHistoryAfterJoin();
+      void refetchUnread().catch(() => {});
+    } finally {
+      const wait = Math.max(0, 650 - (Date.now() - started));
+      setTimeout(() => {
+        setRefreshing(false);
+        setPullDistance(0);
+        wheelPullRef.current = 0;
+      }, wait);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messenger]);
+
+  const atBottom = (b: HTMLDivElement) =>
+    b.scrollTop + b.clientHeight >= b.scrollHeight - 1;
+
+  const onPullTouchStart = (e: React.TouchEvent) => {
+    if (refreshingRef.current) return;
+    const b = bodyRef.current;
+    pullStartYRef.current = b && atBottom(b) ? e.touches[0].clientY : null;
+  };
+
+  const onPullTouchMove = (e: React.TouchEvent) => {
+    if (refreshingRef.current || pullStartYRef.current === null) return;
+    const b = bodyRef.current;
+    if (!b || !atBottom(b)) {
+      pullStartYRef.current = null;
+      setPullDistance(0);
+      return;
+    }
+    const dy = pullStartYRef.current - e.touches[0].clientY;
+    setPullDistance(dy > 0 ? Math.min(dy * 0.45, PULL_MAX) : 0);
+  };
+
+  const onPullTouchEnd = () => {
+    if (refreshingRef.current) return;
+    pullStartYRef.current = null;
+    if (pullDistance >= PULL_THRESHOLD) {
+      void triggerPullRefresh();
+    } else {
+      setPullDistance(0);
+    }
+  };
+
+  const onPullWheel = (e: React.WheelEvent) => {
+    if (refreshingRef.current) return;
+    const b = bodyRef.current;
+    if (!b || !atBottom(b) || e.deltaY <= 0) {
+      if (wheelPullRef.current !== 0 && b && !atBottom(b)) {
+        wheelPullRef.current = 0;
+        setPullDistance(0);
+      }
+      return;
+    }
+    wheelPullRef.current = Math.min(
+      wheelPullRef.current + e.deltaY * 0.35,
+      PULL_MAX,
+    );
+    setPullDistance(wheelPullRef.current);
+    if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current);
+    if (wheelPullRef.current >= PULL_THRESHOLD) {
+      void triggerPullRefresh();
+      return;
+    }
+    wheelResetTimerRef.current = setTimeout(() => {
+      wheelResetTimerRef.current = null;
+      if (!refreshingRef.current) {
+        wheelPullRef.current = 0;
+        setPullDistance(0);
+      }
+    }, 400);
   };
 
   React.useEffect(() => {
@@ -1333,7 +1432,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         searchActive={searchOpen}
         onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
-        onOpenChannelSettings={onOpenChannelSettings}
         onRemoveFriend={onRemoveFriend}
       />
       {topSlot}
@@ -1363,9 +1461,41 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
       <div
+        className="chat-body-wrap"
+        style={callMode ? { display: "none" } : undefined}
+      >
+      <div
+        className={"pull-refresh" + (refreshing ? " refreshing" : "")}
+        style={{
+          opacity: refreshing ? 1 : Math.min(pullDistance / PULL_THRESHOLD, 1),
+          transform: `translateX(-50%) translateY(${
+            44 - (refreshing ? PULL_THRESHOLD : pullDistance)
+          }px) scale(${
+            refreshing
+              ? 1
+              : 0.6 + 0.4 * Math.min(pullDistance / PULL_THRESHOLD, 1)
+          })`,
+        }}
+      >
+        <span
+          className="pull-refresh-icon"
+          style={
+            refreshing
+              ? undefined
+              : { transform: `rotate(${pullDistance * 2.5}deg)` }
+          }
+        >
+          <Icon name="refresh" size={15} />
+        </span>
+      </div>
+      <div
         className={"chat-body" + (dragOver ? " drag-over" : "")}
         ref={bodyRef}
         onScroll={handleScroll}
+        onTouchStart={onPullTouchStart}
+        onTouchMove={onPullTouchMove}
+        onTouchEnd={onPullTouchEnd}
+        onWheel={onPullWheel}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes("Files")) {
             e.preventDefault();
@@ -1380,7 +1510,13 @@ const ChatView: React.FC<ChatViewProps> = ({
             addFiles(e.dataTransfer.files);
           }
         }}
-        style={callMode ? { display: "none" } : undefined}
+        style={{
+          transform: `translateY(${-pullDistance}px)`,
+          transition:
+            pullStartYRef.current !== null
+              ? "none"
+              : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
       >
         {searchOpen && searchInput.trim().length > 0 ? (
           <div className="search-results">
@@ -1545,6 +1681,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             })}
           </div>
         )}
+      </div>
       </div>
       {!callMode && (
       <form className="composer" onSubmit={handleSend}>
@@ -1724,7 +1861,6 @@ interface ChannelHeaderProps {
   searchActive?: boolean;
   onToggleSearch?: () => void;
   onToggleMembers?: () => void;
-  onOpenChannelSettings?: () => void;
   onRemoveFriend?: () => void;
 }
 
@@ -1735,7 +1871,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   searchActive,
   onToggleSearch,
   onToggleMembers,
-  onOpenChannelSettings,
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
@@ -1926,9 +2061,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               <Icon name="user-check" size={16} />
             </button>
           )}
-          <button type="button" className="icon-btn" title={i18n.t("settings", { ns: "sidebar" })}>
-            <Icon name="settings" size={16} />
-          </button>
         </div>
       </header>
     );
@@ -1977,19 +2109,34 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             <Icon name="search" size={15} />
           </button>
         )}
-        {onOpenChannelSettings && (
-          <button
-            type="button"
-            className="icon-btn"
-            title={i18n.t("channelSettings.title", { ns: "modals" })}
-            onClick={onOpenChannelSettings}
-          >
-            <Icon name="settings" size={15} />
-          </button>
-        )}
       </div>
     </header>
   );
+};
+
+const copyTextToClipboard = async (text: string): Promise<void> => {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // fall through to execCommand
+    }
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("execCommand copy failed");
+    }
+  } finally {
+    ta.remove();
+  }
 };
 
 const renderMentions = (
@@ -2462,6 +2609,25 @@ const Message: React.FC<MessageProps> = ({
   onOpenInviteServer,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
+  const [copied, setCopied] = React.useState(false);
+  const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  React.useEffect(
+    () => () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
+  const handleCopy = () => {
+    void copyTextToClipboard(msg.content)
+      .then(() => {
+        setCopied(true);
+        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = setTimeout(() => setCopied(false), 1200);
+      })
+      .catch((e) => console.warn("[ChatView] copy failed:", e));
+  };
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
     hour: "2-digit",
@@ -2718,27 +2884,42 @@ const Message: React.FC<MessageProps> = ({
             </span>
           </div>
         )}
+        {isMine && !editing && !msg.inviteServerId && (
+          <div className="msg-actions">
+            <button
+              type="button"
+              className="icon-btn"
+              title="Edit"
+              onClick={onStartEdit}
+            >
+              <Icon name="edit" size={13} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title="Delete"
+              onClick={onDelete}
+            >
+              <Icon name="trash" size={13} />
+            </button>
+          </div>
+        )}
+        {!isMine &&
+          !editing &&
+          !msg.inviteServerId &&
+          msg.content.length > 0 && (
+            <div className="msg-actions">
+              <button
+                type="button"
+                className="icon-btn"
+                title={i18n.t("copyMessage", { ns: "chat" })}
+                onClick={handleCopy}
+              >
+                <Icon name={copied ? "check" : "copy"} size={13} />
+              </button>
+            </div>
+          )}
       </div>
-      {isMine && !editing && !msg.inviteServerId && (
-        <div className="msg-actions">
-          <button
-            type="button"
-            className="icon-btn"
-            title="Edit"
-            onClick={onStartEdit}
-          >
-            <Icon name="edit" size={13} />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            title="Delete"
-            onClick={onDelete}
-          >
-            <Icon name="trash" size={13} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };

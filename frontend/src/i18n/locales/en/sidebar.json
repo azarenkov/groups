@@ -36,5 +36,8 @@
   "previewCall": "Voice call",
   "previewInvite": "Server invite",
   "previewYou": "You:",
-  "previewAttachment": "📎 Attachment"
+  "previewAttachment": "📎 Attachment",
+  "textChannels": "Text channels",
+  "voiceChannels": "Voice channels",
+  "noChannels": "No channels yet"
 }

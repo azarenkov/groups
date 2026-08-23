@@ -36,7 +36,6 @@ import { colorForId, initialFor } from "../utils/avatar";
 import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
 import { ApiError } from "../utils/apiError";
-import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import IncomingCallModal from "../components/rift/IncomingCallModal";
 import ActiveCallBar from "../components/rift/ActiveCallBar";
@@ -53,23 +52,13 @@ import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
 import { qualityClass, qualityLabel } from "../utils/quality";
-import {
-  Channel,
-  ChannelKind,
-  ChannelParticipant,
-  ChannelVisibility,
-} from "../types/channel";
+import { Channel, ChannelKind, ChannelParticipant } from "../types/channel";
 import { Server } from "../types/server";
 import {
   type MockDirect,
   type MockMember,
 } from "../data/mockData";
 import "../styles/rift.css";
-
-interface ChannelOverride {
-  name?: string;
-  topic?: string;
-}
 
 const ServersPage: React.FC = () => {
   const { t: tModals } = useTranslation("modals");
@@ -133,36 +122,12 @@ const ServersPage: React.FC = () => {
   const [serverModalView, setServerModalView] = useState<
     "choose" | "create" | "join"
   >("choose");
-  const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const createMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!createMenuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(e.target as Node)
-      ) {
-        setCreateMenuOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCreateMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [createMenuOpen]);
-  const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
-  const [channelModalServerId, setChannelModalServerId] = useState<string | null>(null);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
   const [serverSettings, setServerSettings] = useState<Server | null>(null);
+  const [channelModal, setChannelModal] = useState<{ serverId: string; kind: ChannelKind } | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -185,16 +150,6 @@ const ServersPage: React.FC = () => {
     channel: Channel;
   } | null>(null);
   const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
-  useEffect(() => {
-    if (selectedDm) {
-      setActiveChatView({ kind: "dm", id: selectedDm.id });
-    } else if (selectedChannelId) {
-      setActiveChatView({ kind: "channel", id: selectedChannelId });
-    } else {
-      setActiveChatView(null);
-    }
-    return () => setActiveChatView(null);
-  }, [selectedChannelId, selectedDm]);
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
@@ -249,23 +204,9 @@ const ServersPage: React.FC = () => {
 
   const pendingCount = React.useMemo(
     () =>
-      friends.filter(
-        (f) =>
-          f.status === "pending_incoming" ||
-          f.status === "pending_outgoing" ||
-          f.status === "declined",
-      ).length,
+      friends.filter((f) => f.status === "pending_incoming").length,
     [friends],
   );
-
-  const [channelOverrides, setChannelOverrides] =
-    useState<Record<string, ChannelOverride>>({});
-  const [editingChannel, setEditingChannel] = useState<{
-    id: string;
-    serverId: string;
-    name: string;
-    topic?: string;
-  } | null>(null);
 
   const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
 
@@ -407,15 +348,11 @@ const ServersPage: React.FC = () => {
         ) ?? null
       : null;
 
-  const activeChannelOverride = selectedTextChannel
-    ? channelOverrides[selectedTextChannel.id] || {}
-    : {};
-
   const activeTextChannel = selectedTextChannel
     ? {
         id: selectedTextChannel.id,
-        name: activeChannelOverride.name ?? selectedTextChannel.name,
-        topic: activeChannelOverride.topic,
+        name: selectedTextChannel.name,
+        topic: undefined as string | undefined,
       }
     : null;
 
@@ -450,6 +387,52 @@ const ServersPage: React.FC = () => {
     !!selectedServer && !selectedDm && !viewingJoinedVoice;
   const showMembersForChannel =
     onTextChannelActive && !!activeTextChannel && !!membersOpenById[activeTextChannel.id];
+
+  const callStageShown = useCallStore((s) => !!s.activeCallId && s.focused);
+  const [windowFocused, setWindowFocused] = useState(
+    () => typeof document === "undefined" || document.hasFocus(),
+  );
+  useEffect(() => {
+    const update = () =>
+      setWindowFocused(document.hasFocus() && !document.hidden);
+    window.addEventListener("focus", update);
+    window.addEventListener("blur", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.removeEventListener("focus", update);
+      window.removeEventListener("blur", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
+  const chatHidden =
+    !windowFocused || settingsOpen || !!serverSettings || callStageShown;
+  const visibleTextChannelId =
+    !chatHidden && onTextChannelActive && activeTextChannel
+      ? activeTextChannel.id
+      : null;
+  const visibleDmId = !chatHidden && selectedDm ? selectedDm.id : null;
+  useEffect(() => {
+    if (visibleDmId) {
+      setActiveChatView({ kind: "dm", id: visibleDmId });
+      if ((useUnreadStore.getState().byDm[visibleDmId] ?? 0) > 0) {
+        useUnreadStore.getState().resetDm(visibleDmId);
+        userAPI.markDmRead(visibleDmId).catch((err) => {
+          console.warn("[read-state] mark dm read failed:", err);
+        });
+      }
+    } else if (visibleTextChannelId) {
+      setActiveChatView({ kind: "channel", id: visibleTextChannelId });
+      if ((useUnreadStore.getState().byChannel[visibleTextChannelId] ?? 0) > 0) {
+        useUnreadStore.getState().resetChannel(visibleTextChannelId);
+        userAPI.markChannelRead(visibleTextChannelId).catch((err) => {
+          console.warn("[read-state] mark channel read failed:", err);
+        });
+      }
+    } else {
+      setActiveChatView(null);
+    }
+    return () => setActiveChatView(null);
+  }, [visibleDmId, visibleTextChannelId]);
 
   const handleToggleServer = (serverId: string) => {
     setExpandedServerIds((prev) => {
@@ -572,23 +555,6 @@ const ServersPage: React.FC = () => {
     if (logoError) return { logoError };
   };
 
-  const handleCreateChannel = async (
-    name: string,
-    kind: ChannelKind,
-    visibility: ChannelVisibility,
-    password?: string,
-  ) => {
-    if (channelModalServerId) {
-      await createChannel(
-        channelModalServerId,
-        name,
-        kind,
-        visibility,
-        password,
-      );
-    }
-  };
-
   const handleDeleteServer = async () => {
     if (deleteConfirm?.type !== "server") return;
     try {
@@ -607,6 +573,7 @@ const ServersPage: React.FC = () => {
         next.delete(deleteConfirm.id);
         return next;
       });
+      setServerSettings((prev) => (prev?.id === deleteConfirm.id ? null : prev));
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to delete server:", err);
@@ -632,6 +599,7 @@ const ServersPage: React.FC = () => {
         return next;
       });
       await fetchServers();
+      setServerSettings((prev) => (prev?.id === deleteConfirm.id ? null : prev));
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to leave server:", err);
@@ -850,141 +818,9 @@ const ServersPage: React.FC = () => {
     return out;
   }, [voicePresenceByChannel]);
 
-  const tbIdentity = selectedDm
-    ? {
-        icon: "user" as const,
-        title: selectedDm.name,
-        sub: selectedDm.online
-          ? tSidebar("statusOnline")
-          : tSidebar("statusOffline"),
-      }
-    : joinedChannel
-      ? {
-          icon: "volume" as const,
-          title: joinedChannel.channel.name,
-          sub:
-            servers.find((s) => s.id === joinedChannel.serverId)?.name ?? "",
-        }
-      : selectedServer && activeTextChannel
-        ? {
-            icon: "hash" as const,
-            title: activeTextChannel.name,
-            sub: activeTextChannel.topic ?? selectedServer.name,
-          }
-        : selectedServer
-          ? {
-              icon: "grid" as const,
-              title: selectedServer.name,
-              sub: selectedServer.description ?? "",
-            }
-          : null;
 
   return (
     <div className="win">
-      <div className="titlebar">
-        <div className="traffic">
-          <i />
-          <i />
-          <i />
-        </div>
-        {tbIdentity && (
-          <div className="tb-identity">
-            <Icon name={tbIdentity.icon} size={18} />
-            <span className="tb-identity-title">{tbIdentity.title}</span>
-            {tbIdentity.sub && (
-              <>
-                <span className="tb-identity-sep" />
-                <span className="tb-identity-sub">{tbIdentity.sub}</span>
-              </>
-            )}
-          </div>
-        )}
-        <div className="titlebar-right">
-          <div className="tb-create-wrap" ref={createMenuRef}>
-            <button
-              type="button"
-              className="tb-create-btn"
-              onClick={() => setCreateMenuOpen((v) => !v)}
-            >
-              <Icon name="plus" size={14} />
-              <span>{tSidebar("createServer")}</span>
-              <Icon
-                name="chev"
-                size={13}
-                className={"tb-create-chev" + (createMenuOpen ? " up" : "")}
-              />
-            </button>
-            {createMenuOpen && (
-              <div className="tb-create-menu">
-                <button
-                  type="button"
-                  className="tb-create-mi"
-                  onClick={() => {
-                    setCreateMenuOpen(false);
-                    setServerModalView("create");
-                    setIsServerModalOpen(true);
-                  }}
-                >
-                  <span className="tb-create-mi-icon accent">
-                    <Icon name="plus" size={18} />
-                  </span>
-                  <span className="tb-create-mi-body">
-                    <span className="tb-create-mi-title">
-                      {tSidebar("createServer")}
-                    </span>
-                    <span className="tb-create-mi-sub">
-                      {tSidebar("createServerHint")}
-                    </span>
-                  </span>
-                </button>
-                <div className="tb-create-menu-divider" />
-                <button
-                  type="button"
-                  className="tb-create-mi"
-                  onClick={() => {
-                    setCreateMenuOpen(false);
-                    setServerModalView("join");
-                    setIsServerModalOpen(true);
-                  }}
-                >
-                  <span className="tb-create-mi-icon">
-                    <Icon name="logout" size={18} />
-                  </span>
-                  <span className="tb-create-mi-body">
-                    <span className="tb-create-mi-title">
-                      {tSidebar("joinServer")}
-                    </span>
-                    <span className="tb-create-mi-sub">
-                      {tSidebar("joinServerHint")}
-                    </span>
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            className="tb-friend-btn"
-            title={tSidebar("addFriend")}
-            onClick={() => setIsAddFriendOpen(true)}
-          >
-            <Icon name="user-plus" size={15} />
-            <span>{tSidebar("addFriend")}</span>
-          </button>
-          <button
-            type="button"
-            className="titlebar-btn"
-            title={tSidebar("pendingRequests")}
-            onClick={() => setIsPendingOpen(true)}
-          >
-            <Icon name="mail" size={17} />
-            {pendingCount > 0 && (
-              <span className="titlebar-badge">{pendingCount}</span>
-            )}
-          </button>
-        </div>
-      </div>
-
       <div className="body-area">
         <Sidebar
           servers={servers}
@@ -1021,20 +857,9 @@ const ServersPage: React.FC = () => {
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
-          onAddChannel={(server) => {
-            setChannelModalServerId(server.id);
-            setIsChannelModalOpen(true);
-          }}
           onInviteServer={(server) => setInviteModalServer(server)}
           onOpenServerSettings={(server) => setServerSettings(server)}
-          onDeleteServer={(server) => {
-            const isOwner = server.ownerId === user?.id;
-            setDeleteConfirm({
-              type: isOwner ? "server" : "leave-server",
-              id: server.id,
-              name: server.name,
-            });
-          }}
+          onAddChannel={(server, kind) => setChannelModal({ serverId: server.id, kind })}
           onDeleteChannel={(server, channel) =>
             setDeleteConfirm({
               type: "channel",
@@ -1044,6 +869,17 @@ const ServersPage: React.FC = () => {
             })
           }
           onOpenSettings={() => setSettingsOpen(true)}
+          onAddFriend={() => setIsAddFriendOpen(true)}
+          onOpenPending={() => setIsPendingOpen(true)}
+          pendingCount={pendingCount}
+          onCreateServer={() => {
+            setServerModalView("create");
+            setIsServerModalOpen(true);
+          }}
+          onJoinServer={() => {
+            setServerModalView("join");
+            setIsServerModalOpen(true);
+          }}
           currentUserId={user?.id}
           currentUserName={userName}
           currentUserStatus={userStatus}
@@ -1074,10 +910,10 @@ const ServersPage: React.FC = () => {
               <ChatView
                 dm={{
                   friendId: selectedDm.id,
-                  name: selectedDm.name,
+                  name: nameOverrides[selectedDm.id] ?? selectedDm.name,
                   initials: selectedDm.initials,
                   color: selectedDm.color,
-                  online: selectedDm.online,
+                  online: !!onlineUsers[selectedDm.id],
                 }}
                 currentUserId={user?.id}
                 servers={servers}
@@ -1116,22 +952,6 @@ const ServersPage: React.FC = () => {
                     {voiceJoinFailed ? tVoice("disconnected") : tVoice("connected")}
                     {selectedServer ? ` · ${selectedServer.name}` : ""}
                   </span>
-                  <div className="right">
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      title={tModals("channelSettings.title")}
-                      onClick={() =>
-                        setEditingChannel({
-                          id: joinedChannel.channel.id,
-                          serverId: joinedChannel.serverId,
-                          name: joinedChannel.channel.name,
-                        })
-                      }
-                    >
-                      <Icon name="settings" size={15} />
-                    </button>
-                  </div>
                 </header>
                 <div id="voice-stage-slot" className="voice-stage-slot" />
               </div>
@@ -1150,22 +970,6 @@ const ServersPage: React.FC = () => {
                   </span>
                   <span className="sep" />
                   <span className="topic">{tVoice("disconnected")}</span>
-                  <div className="right">
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      title={tModals("channelSettings.title")}
-                      onClick={() =>
-                        setEditingChannel({
-                          id: selectedVoiceChannelNotJoined.id,
-                          serverId: selectedServer.id,
-                          name: selectedVoiceChannelNotJoined.name,
-                        })
-                      }
-                    >
-                      <Icon name="settings" size={15} />
-                    </button>
-                  </div>
                 </header>
                 <div className="voice-preview">
                   {previewParticipants.length === 0 ? (
@@ -1248,8 +1052,9 @@ const ServersPage: React.FC = () => {
               <NoTextChannel
                 serverName={selectedServer?.name ?? ""}
                 onCreate={() => {
-                  setChannelModalServerId(selectedServer?.id ?? null);
-                  setIsChannelModalOpen(true);
+                  if (selectedServer) {
+                    setChannelModal({ serverId: selectedServer.id, kind: "text" });
+                  }
                 }}
               />
             ) : (
@@ -1276,17 +1081,6 @@ const ServersPage: React.FC = () => {
                           ...prev,
                           [activeTextChannel.id]: !prev[activeTextChannel.id],
                         }))
-                    : undefined
-                }
-                onOpenChannelSettings={
-                  selectedTextChannel && selectedServer
-                    ? () =>
-                        setEditingChannel({
-                          id: selectedTextChannel.id,
-                          serverId: selectedServer.id,
-                          name: activeChannelOverride.name ?? selectedTextChannel.name,
-                          topic: activeChannelOverride.topic,
-                        })
                     : undefined
                 }
               />
@@ -1347,6 +1141,7 @@ const ServersPage: React.FC = () => {
               servers.find((s) => s.id === serverSettings.id) ?? serverSettings
             }
             friends={friends}
+            channels={channelsByServer[serverSettings.id] ?? []}
             currentUserId={user?.id}
             onClose={() => setServerSettings(null)}
             onDeleteServer={(server) => {
@@ -1357,6 +1152,17 @@ const ServersPage: React.FC = () => {
                 name: server.name,
               });
             }}
+            onCreateChannel={(name, kind, visibility, password) =>
+              createChannel(serverSettings.id, name, kind, visibility, password)
+            }
+            onDeleteChannel={(channel) =>
+              setDeleteConfirm({
+                type: "channel",
+                id: channel.id,
+                serverId: serverSettings.id,
+                name: channel.name,
+              })
+            }
           />
         )}
       </div>
@@ -1382,12 +1188,13 @@ const ServersPage: React.FC = () => {
       />
 
       <CreateChannelModal
-        isOpen={isChannelModalOpen}
-        onClose={() => {
-          setIsChannelModalOpen(false);
-          setChannelModalServerId(null);
+        isOpen={!!channelModal}
+        defaultKind={channelModal?.kind}
+        onClose={() => setChannelModal(null)}
+        onCreate={async (name, kind, visibility, password) => {
+          if (!channelModal) return;
+          await createChannel(channelModal.serverId, name, kind, visibility, password);
         }}
-        onCreate={handleCreateChannel}
       />
 
       <PasswordPromptModal
@@ -1420,6 +1227,7 @@ const ServersPage: React.FC = () => {
       <PendingFriendsModal
         isOpen={isPendingOpen}
         onClose={() => setIsPendingOpen(false)}
+        onAddFriend={() => setIsAddFriendOpen(true)}
       />
 
       <InviteFriendsModal
@@ -1427,30 +1235,6 @@ const ServersPage: React.FC = () => {
         friends={friends.filter((f) => f.status === "accepted")}
         onClose={() => setInviteModalServer(null)}
       />
-
-      {editingChannel && (
-        <ChannelSettingsModal
-          isOpen={!!editingChannel}
-          channel={editingChannel}
-          onClose={() => setEditingChannel(null)}
-          onSave={(patch) => {
-            setChannelOverrides((prev) => ({
-              ...prev,
-              [editingChannel.id]: { ...prev[editingChannel.id], ...patch },
-            }));
-            setEditingChannel(null);
-          }}
-          onDelete={() => {
-            setDeleteConfirm({
-              type: "channel",
-              id: editingChannel.id,
-              serverId: editingChannel.serverId,
-              name: editingChannel.name,
-            });
-            setEditingChannel(null);
-          }}
-        />
-      )}
 
       {deleteConfirm && (
         <ConfirmModal

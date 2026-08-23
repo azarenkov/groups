@@ -12,8 +12,9 @@ import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import type { Friendship } from "../../types/friendship";
 import type { InviteCode, Server } from "../../types/server";
+import type { Channel, ChannelKind, ChannelVisibility } from "../../types/channel";
 
-type SectionId = "overview" | "invites" | "members" | "danger";
+type SectionId = "overview" | "channels" | "invites" | "members" | "danger";
 
 const EXPIRY_OPTIONS = [1, 7, 30, 0] as const;
 const MAX_USES_OPTIONS = [0, 10, 25, 50, 100] as const;
@@ -51,6 +52,7 @@ const copyText = async (text: string): Promise<boolean> => {
 
 const SECTIONS: { id: SectionId; icon: IconName }[] = [
   { id: "overview", icon: "grid" },
+  { id: "channels", icon: "hash" },
   { id: "invites", icon: "user-plus" },
   { id: "members", icon: "users" },
 ];
@@ -58,21 +60,69 @@ const SECTIONS: { id: SectionId; icon: IconName }[] = [
 interface ServerSettingsViewProps {
   server: Server;
   friends: Friendship[];
+  channels: Channel[];
   currentUserId?: string;
   onClose: () => void;
   onDeleteServer: (server: Server) => void;
+  onCreateChannel: (
+    name: string,
+    kind: ChannelKind,
+    visibility: ChannelVisibility,
+    password?: string,
+  ) => Promise<void>;
+  onDeleteChannel: (channel: Channel) => void;
 }
 
 const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   server,
   friends,
+  channels,
   currentUserId,
   onClose,
   onDeleteServer,
+  onCreateChannel,
+  onDeleteChannel,
 }) => {
-  const { t } = useTranslation(["serverSettings", "common"]);
+  const { t } = useTranslation(["serverSettings", "common", "modals"]);
   const [section, setSection] = React.useState<SectionId>("overview");
   const isOwner = currentUserId === server.ownerId;
+
+  const [newChName, setNewChName] = React.useState("");
+  const [newChKind, setNewChKind] = React.useState<ChannelKind>("text");
+  const [newChVisibility, setNewChVisibility] =
+    React.useState<ChannelVisibility>("public");
+  const [newChPassword, setNewChPassword] = React.useState("");
+  const [newChBusy, setNewChBusy] = React.useState(false);
+  const [newChError, setNewChError] = React.useState<string | null>(null);
+
+  const submitNewChannel = async () => {
+    const name = newChName.trim();
+    if (!name) {
+      setNewChError(t("channelNameRequired"));
+      return;
+    }
+    if (newChVisibility === "private" && !newChPassword.trim()) {
+      setNewChError(t("channelPasswordRequired"));
+      return;
+    }
+    setNewChBusy(true);
+    setNewChError(null);
+    try {
+      await onCreateChannel(
+        name,
+        newChKind,
+        newChVisibility,
+        newChVisibility === "private" ? newChPassword : undefined,
+      );
+      setNewChName("");
+      setNewChPassword("");
+      setNewChVisibility("public");
+    } catch (e) {
+      setNewChError(e instanceof ApiError ? e.message : t("common:error"));
+    } finally {
+      setNewChBusy(false);
+    }
+  };
 
   const [name, setName] = React.useState(server.name);
   const [description, setDescription] = React.useState(server.description ?? "");
@@ -156,7 +206,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   }, [server.id, currentUserId]);
 
   const copyCode = (code: string) => {
-    void copyText(code).then((ok) => {
+    void copyText(`rift.server/${code}`).then((ok) => {
       if (!ok) return;
       setCopied(code);
       if (copyTimer.current) clearTimeout(copyTimer.current);
@@ -480,6 +530,130 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
             </>
           )}
 
+          {section === "channels" && (
+            <>
+              <h1>{t("nav.channels")}</h1>
+              <p className="lead">
+                {t("channelsLead", { count: channels.length, server: server.name })}
+              </p>
+              <form
+                className="ssv-invite-card"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submitNewChannel();
+                }}
+              >
+                <div className="ssv-invite-head">
+                  <Icon name="hash" size={16} />
+                  <span>{t("createChannel")}</span>
+                </div>
+                <div className="ssv-invite-row">
+                  <input
+                    className="ssv-input ssv-create-input"
+                    placeholder={t("modals:createChannel.namePlaceholder")}
+                    value={newChName}
+                    maxLength={100}
+                    disabled={newChBusy}
+                    onChange={(e) => {
+                      setNewChName(e.target.value);
+                      setNewChError(null);
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    className="ssv-btn primary"
+                    disabled={newChBusy}
+                  >
+                    <Icon name="plus" size={14} />
+                    {t("createChannel")}
+                  </button>
+                </div>
+                <div className="ssv-invite-opts">
+                  <label className="ssv-invite-opt">
+                    <span className="ssv-invite-opt-label">{t("channelKind")}</span>
+                    <select
+                      value={newChKind}
+                      disabled={newChBusy}
+                      onChange={(e) => setNewChKind(e.target.value as ChannelKind)}
+                    >
+                      <option value="text">{t("kindText")}</option>
+                      <option value="voice">{t("kindVoice")}</option>
+                    </select>
+                  </label>
+                  <label className="ssv-invite-opt">
+                    <span className="ssv-invite-opt-label">{t("channelVisibility")}</span>
+                    <select
+                      value={newChVisibility}
+                      disabled={newChBusy}
+                      onChange={(e) =>
+                        setNewChVisibility(e.target.value as ChannelVisibility)
+                      }
+                    >
+                      <option value="public">{t("modals:createChannel.public")}</option>
+                      <option value="private">{t("modals:createChannel.private")}</option>
+                    </select>
+                  </label>
+                  {newChVisibility === "private" && (
+                    <label className="ssv-invite-opt">
+                      <span className="ssv-invite-opt-label">{t("channelPassword")}</span>
+                      <input
+                        className="ssv-create-password"
+                        type="password"
+                        value={newChPassword}
+                        disabled={newChBusy}
+                        onChange={(e) => {
+                          setNewChPassword(e.target.value);
+                          setNewChError(null);
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                {newChError && <div className="ssv-error">{newChError}</div>}
+              </form>
+              <div className="ssv-section-label">
+                {t("channelList", { count: channels.length })}
+              </div>
+              <div className="ssv-card">
+                {channels.length === 0 && (
+                  <div className="ssv-empty">{t("noChannels")}</div>
+                )}
+                {channels.map((c, i) => (
+                  <React.Fragment key={c.id}>
+                    {i > 0 && <div className="ssv-divider" />}
+                    <div className="ssv-row">
+                      <span className="ssv-channel-ico">
+                        <Icon name={c.kind === "voice" ? "volume" : "hash"} size={15} />
+                      </span>
+                      <div className="ssv-row-main">
+                        <div className="ssv-row-name">{c.name}</div>
+                        <div className="ssv-row-sub">
+                          {c.kind === "voice" ? t("kindVoice") : t("kindText")}
+                          {c.visibility === "private" && ` · ${t("privateChannel")}`}
+                        </div>
+                      </div>
+                      {c.visibility === "private" && (
+                        <span className="ssv-tag">
+                          <Icon name="lock" size={11} />
+                        </span>
+                      )}
+                      {c.ownerId === currentUserId && (
+                        <button
+                          type="button"
+                          className="ssv-row-delete"
+                          title={t("deleteChannel")}
+                          onClick={() => onDeleteChannel(c)}
+                        >
+                          <Icon name="trash" size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </>
+          )}
+
           {section === "invites" && (
             <>
               <h1>{t("nav.invites")}</h1>
@@ -492,7 +666,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 </div>
                 <div className="ssv-invite-row">
                   <div className="ssv-invite-code">
-                    <span className="dim">rift.chat/</span>
+                    <span className="dim">rift.server/</span>
                     <span>{primaryCode ?? "—"}</span>
                   </div>
                   {primaryCode ? (

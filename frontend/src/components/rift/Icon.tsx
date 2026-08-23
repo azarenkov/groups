@@ -47,9 +47,23 @@ export type IconName =
   | "grid"
   | "chev-left"
   | "info"
-  | "paperclip";
+  | "paperclip"
+  | "refresh"
+  | "copy";
 
 const PATHS: Record<IconName, React.ReactNode> = {
+  copy: (
+    <>
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </>
+  ),
+  refresh: (
+    <>
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+    </>
+  ),
   hash: (
     <>
       <line x1="4" y1="9" x2="20" y2="9" />

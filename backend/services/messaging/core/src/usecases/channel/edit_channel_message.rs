@@ -160,6 +160,7 @@ where
             message.content().as_str(),
             &channel_id,
             &recipient_ids,
+            message.author_id().uuid(),
             self.channel_repository.as_ref(),
             self.mention_resolver.as_ref(),
         )

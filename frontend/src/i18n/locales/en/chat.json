@@ -17,6 +17,7 @@
   "typing": "{{name}} is typing…",
   "typingMany": "Several people are typing…",
   "edit": "Edit",
+  "copyMessage": "Copy message",
   "deleteMessage": "Delete message",
   "deleteMessageConfirm": "Delete this message? This cannot be undone.",
   "reply": "Reply",

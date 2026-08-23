@@ -165,17 +165,6 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     </button>
   );
 
-  const backBtn = (
-    <button
-      type="button"
-      className="srvm-icon-btn"
-      title={t("serverModal.back")}
-      onClick={() => goTo("choose")}
-    >
-      <Icon name="chev-left" size={17} />
-    </button>
-  );
-
   const errorBox = error && <div className="srvm-error">{error}</div>;
 
   if (warning) {
@@ -258,7 +247,6 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           onSubmit={handleCreate}
         >
           <div className="srvm-head">
-            {backBtn}
             <h4 className="srvm-head-title">{t("createServer.title")}</h4>
             {closeBtn}
           </div>
@@ -384,7 +372,6 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="srvm-head">
-            {backBtn}
             <h4 className="srvm-head-title">{t("serverModal.joinTitle")}</h4>
             {closeBtn}
           </div>
@@ -396,7 +383,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
                 autoFocus
                 className="srvm-code-input"
                 value={code}
-                placeholder="x7Kd9m"
+                placeholder="rift.server/x7Kd9m"
                 disabled={joining}
                 onChange={(e) => setCode(e.target.value)}
                 onKeyDown={(e) => {
@@ -411,20 +398,12 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
               <Icon name="info" size={15} />
               <span>
                 {t("serverModal.codeHint")}{" "}
-                <span className="srvm-hint-mono">rift.app/x7Kd9m</span>
+                <span className="srvm-hint-mono">rift.server/x7Kd9m</span>
               </span>
             </div>
             {errorBox}
           </div>
           <div className="srvm-foot">
-            <button
-              type="button"
-              className="srvm-btn"
-              disabled={joining}
-              onClick={() => goTo("choose")}
-            >
-              {t("serverModal.back")}
-            </button>
             <button
               type="button"
               className="srvm-btn primary"

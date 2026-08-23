@@ -36,7 +36,13 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (window.electron) document.body.classList.add("electron");
+    if (!window.electron) return;
+    document.body.classList.add("electron");
+    const apply = (v: boolean) =>
+      document.body.classList.toggle("electron-fullscreen", v);
+    void window.electron.isFullscreen?.().then(apply).catch(() => {});
+    const off = window.electron.onFullscreenChange?.(apply);
+    return () => off?.();
   }, []);
 
   const hasAccessToken = !!tokens?.accessToken;
@@ -59,7 +65,8 @@ const App: React.FC = () => {
               prefsLoaded = true;
             } catch (err) {
               console.warn("[App] failed to load notification prefs:", err);
-              await new Promise((r) => setTimeout(r, delayMs));
+              const wait = delayMs;
+              await new Promise((r) => setTimeout(r, wait));
               delayMs = Math.min(delayMs * 2, 15000);
             }
           }

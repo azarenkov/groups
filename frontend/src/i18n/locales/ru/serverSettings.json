@@ -2,6 +2,7 @@
   "navTitle": "Настройки сервера",
   "nav": {
     "overview": "Обзор",
+    "channels": "Каналы",
     "invites": "Приглашения",
     "members": "Участники",
     "danger": "Опасная зона"
@@ -56,5 +57,18 @@
   "uploadLogo": "Загрузить логотип",
   "removeLogo": "Удалить логотип",
   "logoError": "Не удалось обновить логотип",
-  "logoRejected": "Изображение отклонено модерацией контента"
+  "logoRejected": "Изображение отклонено модерацией контента",
+  "channelsLead": "Каналы сервера {{server}}: {{count}}",
+  "createChannel": "Создать канал",
+  "noChannels": "Каналов пока нет",
+  "kindText": "Текстовый",
+  "kindVoice": "Голосовой",
+  "privateChannel": "Приватный",
+  "deleteChannel": "Удалить канал",
+  "channelList": "Каналы ({{count}})",
+  "channelKind": "Тип",
+  "channelVisibility": "Доступ",
+  "channelPassword": "Пароль",
+  "channelNameRequired": "Введите название канала",
+  "channelPasswordRequired": "Для приватного канала нужен пароль"
 }
