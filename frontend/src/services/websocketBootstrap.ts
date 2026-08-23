@@ -17,6 +17,7 @@ import { useUserNamesStore } from "../store/userNamesStore";
 import {
   channelNotifLevel,
   dmNotifLevel,
+  useNotificationPrefsStore,
 } from "../store/notificationPrefsStore";
 import { mentionsUser } from "../utils/mentions";
 import type { Server } from "../types/server";
@@ -336,6 +337,12 @@ function dispatch(env: WsEnvelope) {
     case "dm.read": {
       const readerId = asString(d.readerId);
       const readAt = asString(d.readAt);
+      const selfId = useAuthStore.getState().user?.id;
+      if (readerId && readerId === selfId) {
+        const peerId = asString(d.peerId);
+        if (peerId) useUnreadStore.getState().resetDm(peerId);
+        return;
+      }
       if (readerId && readAt) {
         useReadReceiptStore.getState().setDmPeerReadAt(readerId, readAt);
       }
@@ -346,11 +353,28 @@ function dispatch(env: WsEnvelope) {
       const channelId = asString(d.channelId);
       const readerId = asString(d.readerId);
       const readAt = asString(d.readAt);
+      const selfId = useAuthStore.getState().user?.id;
+      if (channelId && readerId && readerId === selfId) {
+        useUnreadStore.getState().resetChannel(channelId);
+        return;
+      }
       if (channelId && readerId && readAt) {
         useReadReceiptStore
           .getState()
           .setChannelMemberRead(channelId, readerId, readAt);
       }
+      return;
+    }
+
+    case "notification_preference.updated": {
+      const scopeType = asString(d.scopeType);
+      const scopeId = asString(d.scopeId);
+      const level = asString(d.level);
+      if (!scopeType || !scopeId || !level) return;
+      useNotificationPrefsStore
+        .getState()
+        .applyRemote(scopeType, scopeId, level);
+      scheduleUnreadRefetch();
       return;
     }
 

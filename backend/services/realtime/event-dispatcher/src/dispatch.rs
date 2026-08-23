@@ -25,7 +25,10 @@ use contracts::events::{
         ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerDeletedDto,
         ServerMemberV1 as ServerMemberDto, ServerUpdatedV1 as ServerUpdatedDto,
     },
-    user::{UserLifecycleV1 as UserLifecycleDto, UserRenamedV1 as UserRenamedDto},
+    user::{
+        NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
+        UserLifecycleV1 as UserLifecycleDto, UserRenamedV1 as UserRenamedDto,
+    },
 };
 use std::collections::HashSet;
 
@@ -118,11 +121,29 @@ pub async fn dispatch(
 
     if ends_with(subject, ".dm.read") {
         let evt: DmReadDto = serde_json::from_slice(payload)?;
+        let mut data = json!({
+            "readerId": evt.reader_id,
+            "readAt": evt.read_at,
+        });
+        if let Some(peer_id) = evt.peer_id {
+            data["peerId"] = json!(peer_id);
+        }
+        let envelope = Envelope::new("dm.read", data);
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".notification_preference.updated") {
+        let evt: NotificationPrefUpdated = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
-            "dm.read",
+            "notification_preference.updated",
             json!({
-                "readerId": evt.reader_id,
-                "readAt": evt.read_at,
+                "userId": evt.user_id,
+                "scopeType": evt.scope_type,
+                "scopeId": evt.scope_id,
+                "level": evt.level,
             }),
         );
         publisher

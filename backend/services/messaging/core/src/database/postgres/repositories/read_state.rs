@@ -77,10 +77,9 @@ impl ReadStateRepository for PostgresReadStateRepository {
             r#"
             SELECT user_id
             FROM channel_text_participants
-            WHERE channel_id = $1 AND user_id <> $2
+            WHERE channel_id = $1
             "#,
             channel_id.uuid(),
-            user_id.uuid(),
         )
         .fetch_all(&mut *tx)
         .await
@@ -138,7 +137,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
                 "reader_id": user_id.uuid(),
                 "peer_id": friend_id.uuid(),
                 "read_at": read_at,
-                "recipients": [friend_id.uuid()],
+                "recipients": [friend_id.uuid(), user_id.uuid()],
             }),
             read_at,
         );

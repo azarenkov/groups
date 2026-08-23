@@ -12,6 +12,7 @@ interface NotificationPrefsState {
   load: () => Promise<void>;
   setChannelLevel: (channelId: string, level: NotifLevel) => Promise<void>;
   setDmLevel: (friendId: string, level: Exclude<NotifLevel, "mentions">) => Promise<void>;
+  applyRemote: (scopeType: string, scopeId: string, level: string) => void;
   clearAll: () => void;
 }
 
@@ -24,6 +25,7 @@ const dmSeqs: Record<string, number> = {};
 const channelPersisted: Record<string, NotifLevel> = {};
 const dmPersisted: Record<string, NotifLevel> = {};
 const writeQueues: Record<string, Promise<void>> = {};
+const pendingWrites: Record<string, number> = {};
 let sessionGen = 0;
 
 function enqueueWrite(key: string, task: () => Promise<void>): Promise<void> {
@@ -87,6 +89,8 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         useAuthStore.getState().user?.id === sessionUserId;
       await enqueueWrite(`channel:${channelId}`, async () => {
         if (!current()) return;
+        const key = `channel:${channelId}`;
+        pendingWrites[key] = (pendingWrites[key] ?? 0) + 1;
         try {
           await userAPI.setNotificationPreference("channel", channelId, level);
           if (sessionGen === gen) channelPersisted[channelId] = level;
@@ -104,6 +108,8 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
             });
           }
           throw e;
+        } finally {
+          pendingWrites[key] = Math.max(0, (pendingWrites[key] ?? 1) - 1);
         }
       });
     },
@@ -119,6 +125,8 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         useAuthStore.getState().user?.id === sessionUserId;
       await enqueueWrite(`dm:${friendId}`, async () => {
         if (!current()) return;
+        const key = `dm:${friendId}`;
+        pendingWrites[key] = (pendingWrites[key] ?? 0) + 1;
         try {
           await userAPI.setNotificationPreference("dm", friendId, level);
           if (sessionGen === gen) dmPersisted[friendId] = level;
@@ -136,8 +144,25 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
             });
           }
           throw e;
+        } finally {
+          pendingWrites[key] = Math.max(0, (pendingWrites[key] ?? 1) - 1);
         }
       });
+    },
+
+    applyRemote: (scopeType, scopeId, level) => {
+      if (!isLevel(level)) return;
+      if (scopeType !== "channel" && scopeType !== "dm") return;
+      if ((pendingWrites[`${scopeType}:${scopeId}`] ?? 0) > 0) return;
+      if (scopeType === "channel") {
+        channelPersisted[scopeId] = level;
+        set((s) => ({
+          channelLevels: { ...s.channelLevels, [scopeId]: level },
+        }));
+      } else {
+        dmPersisted[scopeId] = level;
+        set((s) => ({ dmLevels: { ...s.dmLevels, [scopeId]: level } }));
+      }
     },
 
     clearAll: () => {
@@ -147,6 +172,7 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       for (const k of Object.keys(channelPersisted)) delete channelPersisted[k];
       for (const k of Object.keys(dmPersisted)) delete dmPersisted[k];
       for (const k of Object.keys(writeQueues)) delete writeQueues[k];
+      for (const k of Object.keys(pendingWrites)) delete pendingWrites[k];
       set({ channelLevels: {}, dmLevels: {} });
     },
   }),

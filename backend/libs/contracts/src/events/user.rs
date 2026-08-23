@@ -23,3 +23,13 @@ pub struct UserLifecycleV1 {
     #[serde(default)]
     pub name: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationPreferenceUpdatedV1 {
+    pub user_id: Uuid,
+    pub scope_type: String,
+    pub scope_id: Uuid,
+    pub level: String,
+    #[serde(default)]
+    pub recipients: Vec<Uuid>,
+}
