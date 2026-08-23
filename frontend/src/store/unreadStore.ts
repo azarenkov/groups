@@ -91,6 +91,7 @@ export const useUnreadStore = create<UnreadState>()((set, get) => ({
 }));
 
 let refetchSeq = 0;
+let refetchRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
 export async function refetchUnread(): Promise<void> {
   const sessionUserId = useAuthStore.getState().user?.id;
@@ -112,5 +113,11 @@ export async function refetchUnread(): Promise<void> {
     for (const d of u.dms) dms[d.friendId] = d.count;
     useUnreadStore.getState().setAll(channels, dms, channelToServer);
     return;
+  }
+  if (token === refetchSeq && !refetchRetryTimer) {
+    refetchRetryTimer = setTimeout(() => {
+      refetchRetryTimer = null;
+      void refetchUnread().catch(() => {});
+    }, 2000);
   }
 }

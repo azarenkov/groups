@@ -723,6 +723,10 @@ const ChatView: React.FC<ChatViewProps> = ({
     setMessages([]);
     setText("");
     setComposerError(null);
+    setMentionQuery(null);
+    setMentionIndex(0);
+    setParticipants([]);
+    participantsChannelRef.current = null;
     setPendingFiles((prev) => {
       for (const p of prev) {
         if (!inFlightSendRef.current.has(p.localId)) discardPendingFile(p);

@@ -124,6 +124,12 @@ function dispatch(env: WsEnvelope) {
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
         purgeServerLocally(serverId);
+        return;
+      }
+      const channels = useChannelStore.getState().channelsByServer[serverId] ?? [];
+      const receipts = useReadReceiptStore.getState();
+      for (const c of channels) {
+        receipts.removeChannelMember(c.id, userId);
       }
       return;
     }
