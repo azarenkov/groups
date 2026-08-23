@@ -10,6 +10,7 @@ import {
 } from "../services/livekit";
 import { channelAPI } from "../api/channel";
 import { useAuthStore } from "../store/authStore";
+import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { decodeAccessToken } from "../utils/jwt";
 import { useLocalQuality } from "./useLocalQuality";
 
@@ -190,6 +191,29 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   }, []);
 
   const moderatorLockedRef = useRef(false);
+  useEffect(() => {
+    const reconcile = () => {
+      const active = activeChannelRef.current;
+      if (!active || !isConnectedRef.current) return;
+      const auth = useAuthStore.getState();
+      const selfId =
+        auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+      if (!selfId) return;
+      const me = useVoicePresenceStore
+        .getState()
+        .byChannel[active.channelId]?.find((m) => m.id === selfId);
+      if (!me) return;
+      if (me.isMuted && !moderatorLockedRef.current) {
+        moderatorLockedRef.current = true;
+        serviceRef.current?.setMicrophoneMuted(true);
+        setIsMuted(true);
+      } else if (!me.isMuted && moderatorLockedRef.current) {
+        moderatorLockedRef.current = false;
+      }
+    };
+    const unsub = useVoicePresenceStore.subscribe(reconcile);
+    return unsub;
+  }, []);
   useEffect(() => {
     const onModeratorMute = (e: Event) => {
       const detail = (e as CustomEvent<{ channelId?: string }>).detail;

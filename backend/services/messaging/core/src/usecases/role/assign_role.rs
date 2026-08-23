@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
 use domain::{
-    server::{id::ServerId, repository::ServerRepository, role::ServerRoleRepository},
+    server::{
+        id::ServerId,
+        repository::ServerRepository,
+        role::{AssignOutcome, ServerRoleRepository},
+    },
     user::id::UserId,
 };
 use uuid::Uuid;
@@ -58,15 +62,28 @@ impl<S: ServerRepository, R: ServerRoleRepository> AssignRole<S, R> {
         )
         .await?;
         ensure_grantable(target_role.permissions, grantable)?;
+        let owner = self.server_repository.find_server_owner(&server_id).await?;
+        let delegated = if owner.as_ref() == Some(&actor) {
+            None
+        } else {
+            Some(&actor)
+        };
         let members = recipients(self.server_repository.as_ref(), &server_id).await?;
         let event = roles_changed_event(&server_id, &members);
-        let assigned = self
+        let outcome = self
             .role_repository
-            .assign_role(&server_id, &target, role_id, std::slice::from_ref(&event))
+            .assign_role(
+                &server_id,
+                &target,
+                role_id,
+                delegated,
+                std::slice::from_ref(&event),
+            )
             .await?;
-        if !assigned {
-            return Err(RoleError::RoleNotFound);
+        match outcome {
+            AssignOutcome::Assigned => Ok(()),
+            AssignOutcome::NotFound => Err(RoleError::RoleNotFound),
+            AssignOutcome::Denied => Err(RoleError::HierarchyViolation),
         }
-        Ok(())
     }
 }

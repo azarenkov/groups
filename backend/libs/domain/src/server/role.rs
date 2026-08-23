@@ -30,6 +30,13 @@ pub fn has_permission(permissions: i64, perm: i64) -> bool {
     permissions & perm != 0
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssignOutcome {
+    Assigned,
+    NotFound,
+    Denied,
+}
+
 #[async_trait::async_trait]
 pub trait ServerRoleRepository {
     async fn list_roles(
@@ -63,8 +70,9 @@ pub trait ServerRoleRepository {
         server_id: &crate::server::id::ServerId,
         user_id: &crate::user::id::UserId,
         role_id: Uuid,
+        delegated_actor: Option<&crate::user::id::UserId>,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<bool, crate::shared::repository::error::RepositoryError>;
+    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
 
     async fn revoke_role(
         &self,

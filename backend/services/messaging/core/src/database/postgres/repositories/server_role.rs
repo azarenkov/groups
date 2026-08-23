@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::{
     server::{
         id::ServerId,
-        role::{ServerRole, ServerRoleRepository},
+        role::{AssignOutcome, ServerRole, ServerRoleRepository},
     },
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
@@ -188,31 +188,63 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         server_id: &ServerId,
         user_id: &UserId,
         role_id: Uuid,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<AssignOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        let valid = sqlx::query_scalar!(
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let role = sqlx::query!(
             r#"
-            SELECT EXISTS(
-                SELECT 1 FROM server_roles r
-                INNER JOIN server_members m
-                    ON m.server_id = r.server_id AND m.user_id = $3
-                WHERE r.id = $1 AND r.server_id = $2
-            ) AS "exists!"
+            SELECT r.position, r.permissions
+            FROM server_roles r
+            INNER JOIN server_members m
+                ON m.server_id = r.server_id AND m.user_id = $3
+            WHERE r.id = $1 AND r.server_id = $2
             "#,
             role_id,
             server_id.uuid(),
             user_id.uuid(),
         )
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if !valid {
-            return Ok(false);
+        let Some(role) = role else {
+            return Ok(AssignOutcome::NotFound);
+        };
+        if let Some(actor) = delegated_actor {
+            let actor_state = sqlx::query!(
+                r#"
+                SELECT
+                    max(r.position) AS "top",
+                    bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let actor_top = actor_state.top;
+            let actor_perms = actor_state.perms.unwrap_or(0);
+            let below = matches!(actor_top, Some(top) if role.position < top);
+            if !below || role.permissions & !actor_perms != 0 {
+                return Ok(AssignOutcome::Denied);
+            }
         }
         sqlx::query!(
             r#"
@@ -229,7 +261,7 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(AssignOutcome::Assigned)
     }
 
     async fn revoke_role(

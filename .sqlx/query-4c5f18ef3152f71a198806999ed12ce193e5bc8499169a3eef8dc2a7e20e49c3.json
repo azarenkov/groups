@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    max(r.position) AS \"top\",\n                    bit_or(r.permissions) AS \"perms\"\n                FROM server_member_roles mr\n                INNER JOIN server_roles r ON r.id = mr.role_id\n                INNER JOIN server_members m\n                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id\n                WHERE mr.server_id = $1 AND mr.user_id = $2\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "top",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "perms",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "4c5f18ef3152f71a198806999ed12ce193e5bc8499169a3eef8dc2a7e20e49c3"
+}
