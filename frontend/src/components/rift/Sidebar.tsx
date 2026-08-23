@@ -26,6 +26,10 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onAddFriend: () => void;
   onOpenPending: () => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  onGoBack: () => void;
+  onGoForward: () => void;
   pendingCount: number;
   onCreateServer: () => void;
   onJoinServer: () => void;
@@ -80,6 +84,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onAddFriend,
   onOpenPending,
+  canGoBack,
+  canGoForward,
+  onGoBack,
+  onGoForward,
   pendingCount,
   onCreateServer,
   onJoinServer,
@@ -562,6 +570,27 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="sb">
+      <div className="sb-top">
+        <div className="sb-nav">
+          <button
+            type="button"
+            className="sb-nav-btn"
+            title={t("common:back")}
+            disabled={!canGoBack}
+            onClick={onGoBack}
+          >
+            <Icon name="chev-left" size={15} />
+          </button>
+          <button
+            type="button"
+            className="sb-nav-btn"
+            title={t("common:forward")}
+            disabled={!canGoForward}
+            onClick={onGoForward}
+          >
+            <Icon name="chev-left" size={15} className="flip-x" />
+          </button>
+        </div>
       <div className="sb-search">
         <Icon name="search" size={14} />
         <input
@@ -593,6 +622,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ) : (
           <kbd>⌘K</kbd>
         )}
+      </div>
       </div>
 
       <div className={"sb-seg " + tab}>

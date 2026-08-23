@@ -421,6 +421,84 @@ const ServersPage: React.FC = () => {
     });
   };
 
+  type NavLoc =
+    | { kind: "dm"; id: string }
+    | { kind: "channel"; serverId: string; id: string }
+    | { kind: "server"; serverId: string };
+  const navHistoryRef = useRef<NavLoc[]>([]);
+  const navIndexRef = useRef(-1);
+  const navFromHistoryRef = useRef(false);
+  const [navState, setNavState] = useState({ back: false, forward: false });
+
+  const currentLoc: NavLoc | null = selectedDm
+    ? { kind: "dm", id: selectedDm.id }
+    : selectedServerId && selectedChannelId
+      ? { kind: "channel", serverId: selectedServerId, id: selectedChannelId }
+      : selectedServerId
+        ? { kind: "server", serverId: selectedServerId }
+        : null;
+  const currentLocKey = currentLoc
+    ? currentLoc.kind === "dm"
+      ? `dm:${currentLoc.id}`
+      : currentLoc.kind === "channel"
+        ? `ch:${currentLoc.serverId}:${currentLoc.id}`
+        : `srv:${currentLoc.serverId}`
+    : "";
+
+  useEffect(() => {
+    if (!currentLoc) return;
+    if (navFromHistoryRef.current) {
+      navFromHistoryRef.current = false;
+    } else {
+      const hist = navHistoryRef.current.slice(0, navIndexRef.current + 1);
+      const last = hist[hist.length - 1];
+      const sameAsLast =
+        last &&
+        JSON.stringify(last) === JSON.stringify(currentLoc);
+      if (!sameAsLast) {
+        hist.push(currentLoc);
+        if (hist.length > 50) hist.shift();
+        navHistoryRef.current = hist;
+        navIndexRef.current = hist.length - 1;
+      }
+    }
+    setNavState({
+      back: navIndexRef.current > 0,
+      forward: navIndexRef.current < navHistoryRef.current.length - 1,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocKey]);
+
+  const applyLoc = (loc: NavLoc) => {
+    navFromHistoryRef.current = true;
+    useCallStore.getState().setFocused(false);
+    if (loc.kind === "dm") {
+      const dm = acceptedFriends.find((d) => d.id === loc.id);
+      if (!dm) {
+        navFromHistoryRef.current = false;
+        return;
+      }
+      setSelectedDm(dm);
+      setSelectedChannel(null);
+      return;
+    }
+    setSelectedDm(null);
+    setSelectedServer(loc.serverId);
+    setExpandedServerIds((prev) => new Set(prev).add(loc.serverId));
+    setSelectedChannel(loc.kind === "channel" ? loc.id : null);
+  };
+
+  const navigateHistory = (delta: -1 | 1) => {
+    const next = navIndexRef.current + delta;
+    if (next < 0 || next >= navHistoryRef.current.length) return;
+    navIndexRef.current = next;
+    applyLoc(navHistoryRef.current[next]);
+    setNavState({
+      back: next > 0,
+      forward: next < navHistoryRef.current.length - 1,
+    });
+  };
+
   const handleSelectServer = (serverId: string) => {
     useCallStore.getState().setFocused(false);
     setSelectedServer(serverId);
@@ -847,6 +925,10 @@ const ServersPage: React.FC = () => {
           onOpenSettings={() => setSettingsOpen(true)}
           onAddFriend={() => setIsAddFriendOpen(true)}
           onOpenPending={() => setIsPendingOpen(true)}
+          canGoBack={navState.back}
+          canGoForward={navState.forward}
+          onGoBack={() => navigateHistory(-1)}
+          onGoForward={() => navigateHistory(1)}
           pendingCount={pendingCount}
           onCreateServer={() => {
             setServerModalView("create");

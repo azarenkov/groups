@@ -200,14 +200,30 @@ body.electron .titlebar { padding-left: 84px; }
   background: transparent;  padding: 10px 8px 8px;
   gap: 2px;
 }
+.sb-top { display: flex; align-items: center; gap: 6px; margin: 0 4px 10px; }
+.sb-nav { display: flex; gap: 2px; flex-shrink: 0; }
+.sb-nav-btn {
+  width: 28px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.sb-nav-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--fg-1); }
+.sb-nav-btn:disabled { color: var(--fg-4, var(--fg-3)); opacity: 0.45; cursor: default; }
+.flip-x { transform: scaleX(-1); }
+body.electron .sb-nav { -webkit-app-region: no-drag; }
 .sb-search {
+  flex: 1;
   display: flex; align-items: center; gap: 10px;
   background: var(--surface-sunken);
   border-radius: 10px;
   padding: 0 12px;
   height: 34px;
   color: var(--fg-3);
-  margin: 0 4px 10px;
+  margin: 0;
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 .sb-search:focus-within { background: var(--surface-panel); box-shadow: var(--shadow-xs); }
