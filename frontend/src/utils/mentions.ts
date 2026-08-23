@@ -25,5 +25,9 @@ export function activeMentionQuery(
   if (at > 0 && /[A-Za-z0-9_@]/.test(before[at - 1])) return null;
   const query = before.slice(at + 1);
   if (!/^[A-Za-z0-9_]*$/.test(query)) return null;
+  for (const match of text.matchAll(URL_REGEX)) {
+    const start = match.index ?? 0;
+    if (at >= start && at < start + match[0].length) return null;
+  }
   return { query, start: at };
 }
