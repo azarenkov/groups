@@ -139,20 +139,30 @@ where
 
         let mention_names =
             crate::usecases::channel::mentions::mention_names(message.content().as_str());
-        let mut mentions: Vec<uuid::Uuid> = if mention_names.is_empty() {
-            Vec::new()
-        } else {
-            self.channel_repository
-                .text_member_ids_by_names(&channel_id, &mention_names)
+        let mut mentions: Vec<uuid::Uuid> = Vec::new();
+        let mut resolved_names = std::collections::HashSet::new();
+        if !mention_names.is_empty() {
+            for (id, name) in self
+                .channel_repository
+                .text_members_by_names(&channel_id, &mention_names)
                 .await?
-                .into_iter()
-                .map(|id| id.uuid())
-                .collect()
-        };
+            {
+                let uid = id.uuid();
+                if !mentions.contains(&uid) {
+                    mentions.push(uid);
+                }
+                resolved_names.insert(name);
+            }
+        }
+        let unresolved_tokens = mention_names
+            .iter()
+            .filter(|n| !resolved_names.contains(*n))
+            .count();
         crate::usecases::channel::mentions::merge_client_mentions(
             &mut mentions,
             &request.mention_ids,
             &recipient_ids,
+            unresolved_tokens,
         );
 
         let request_id = request.ctx.request_id.clone();

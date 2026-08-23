@@ -21,6 +21,8 @@ function isLevel(v: string): v is NotifLevel {
 
 const channelSeqs: Record<string, number> = {};
 const dmSeqs: Record<string, number> = {};
+const channelPersisted: Record<string, NotifLevel> = {};
+const dmPersisted: Record<string, NotifLevel> = {};
 const writeQueues: Record<string, Promise<void>> = {};
 let sessionGen = 0;
 
@@ -31,7 +33,7 @@ function enqueueWrite(key: string, task: () => Promise<void>): Promise<void> {
 }
 
 export const useNotificationPrefsStore = create<NotificationPrefsState>()(
-  (set, get) => ({
+  (set) => ({
     channelLevels: {},
     dmLevels: {},
 
@@ -53,6 +55,12 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         if (p.scopeType === "channel") channelLevels[p.scopeId] = p.level;
         else if (p.scopeType === "dm") dmLevels[p.scopeId] = p.level;
       }
+      for (const [k, v] of Object.entries(channelLevels)) {
+        if (channelSeqs[k] === undefined) channelPersisted[k] = v;
+      }
+      for (const [k, v] of Object.entries(dmLevels)) {
+        if (dmSeqs[k] === undefined) dmPersisted[k] = v;
+      }
       set((s) => {
         for (const key of Object.keys(channelSeqs)) {
           if (s.channelLevels[key] === undefined) delete channelLevels[key];
@@ -70,7 +78,6 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       const gen = sessionGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (channelSeqs[channelId] = (channelSeqs[channelId] ?? 0) + 1);
-      const prev = get().channelLevels[channelId];
       set((s) => ({
         channelLevels: { ...s.channelLevels, [channelId]: level },
       }));
@@ -82,15 +89,17 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         if (!current()) return;
         try {
           await userAPI.setNotificationPreference("channel", channelId, level);
+          if (sessionGen === gen) channelPersisted[channelId] = level;
           if (current()) {
             void refetchUnread().catch(() => {});
           }
         } catch (e) {
           if (current()) {
+            const persisted = channelPersisted[channelId];
             set((s) => {
               const next = { ...s.channelLevels };
-              if (prev === undefined) delete next[channelId];
-              else next[channelId] = prev;
+              if (persisted === undefined) delete next[channelId];
+              else next[channelId] = persisted;
               return { channelLevels: next };
             });
           }
@@ -103,7 +112,6 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       const gen = sessionGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       const seq = (dmSeqs[friendId] = (dmSeqs[friendId] ?? 0) + 1);
-      const prev = get().dmLevels[friendId];
       set((s) => ({ dmLevels: { ...s.dmLevels, [friendId]: level } }));
       const current = () =>
         sessionGen === gen &&
@@ -113,15 +121,17 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
         if (!current()) return;
         try {
           await userAPI.setNotificationPreference("dm", friendId, level);
+          if (sessionGen === gen) dmPersisted[friendId] = level;
           if (current()) {
             void refetchUnread().catch(() => {});
           }
         } catch (e) {
           if (current()) {
+            const persisted = dmPersisted[friendId];
             set((s) => {
               const next = { ...s.dmLevels };
-              if (prev === undefined) delete next[friendId];
-              else next[friendId] = prev;
+              if (persisted === undefined) delete next[friendId];
+              else next[friendId] = persisted;
               return { dmLevels: next };
             });
           }
@@ -134,6 +144,8 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
       sessionGen += 1;
       for (const k of Object.keys(channelSeqs)) delete channelSeqs[k];
       for (const k of Object.keys(dmSeqs)) delete dmSeqs[k];
+      for (const k of Object.keys(channelPersisted)) delete channelPersisted[k];
+      for (const k of Object.keys(dmPersisted)) delete dmPersisted[k];
       for (const k of Object.keys(writeQueues)) delete writeQueues[k];
       set({ channelLevels: {}, dmLevels: {} });
     },

@@ -1,9 +1,15 @@
+import { URL_REGEX } from "./links";
+
 export const MENTION_REGEX = /(^|[^A-Za-z0-9_@])@([A-Za-z0-9_]+)/g;
+
+function stripUrls(content: string): string {
+  return content.replace(URL_REGEX, " ");
+}
 
 export function mentionsUser(content: string, name: string): boolean {
   if (!name) return false;
   const lower = name.toLowerCase();
-  for (const match of content.matchAll(MENTION_REGEX)) {
+  for (const match of stripUrls(content).matchAll(MENTION_REGEX)) {
     if (match[2].toLowerCase() === lower) return true;
   }
   return false;
@@ -11,7 +17,7 @@ export function mentionsUser(content: string, name: string): boolean {
 
 export function extractMentionNames(content: string): string[] {
   const names: string[] = [];
-  for (const match of content.matchAll(MENTION_REGEX)) {
+  for (const match of stripUrls(content).matchAll(MENTION_REGEX)) {
     const name = match[2].toLowerCase();
     if (!names.includes(name)) names.push(name);
   }
