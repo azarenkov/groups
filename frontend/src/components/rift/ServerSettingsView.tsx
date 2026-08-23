@@ -206,7 +206,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   }, [server.id, currentUserId]);
 
   const copyCode = (code: string) => {
-    void copyText(code).then((ok) => {
+    void copyText(`rift.chat/${code}`).then((ok) => {
       if (!ok) return;
       setCopied(code);
       if (copyTimer.current) clearTimeout(copyTimer.current);
