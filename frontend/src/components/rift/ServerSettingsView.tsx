@@ -637,16 +637,14 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                           <Icon name="lock" size={11} />
                         </span>
                       )}
-                      {isOwner && (
-                        <button
-                          type="button"
-                          className="ssv-row-delete"
-                          title={t("deleteChannel")}
-                          onClick={() => onDeleteChannel(c)}
-                        >
-                          <Icon name="trash" size={14} />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="ssv-row-delete"
+                        title={t("deleteChannel")}
+                        onClick={() => onDeleteChannel(c)}
+                      >
+                        <Icon name="trash" size={14} />
+                      </button>
                     </div>
                   </React.Fragment>
                 ))}

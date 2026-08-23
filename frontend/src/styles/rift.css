@@ -4356,6 +4356,11 @@ input.ssv-create-password:focus-visible { outline: none; box-shadow: none; }
   transition: background var(--dur-fast), color var(--dur-fast);
 }
 .ssv-row-delete:hover { background: rgba(255, 69, 58, 0.12); color: #ff453a; }
+button.ssv-row-delete:focus-visible {
+  outline: none;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px #ff453a;
+}
 .ssv-section-label {
   font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--fg-3);
