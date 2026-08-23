@@ -2858,39 +2858,42 @@ const Message: React.FC<MessageProps> = ({
             </span>
           </div>
         )}
+        {isMine && !editing && !msg.inviteServerId && (
+          <div className="msg-actions">
+            <button
+              type="button"
+              className="icon-btn"
+              title="Edit"
+              onClick={onStartEdit}
+            >
+              <Icon name="edit" size={13} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title="Delete"
+              onClick={onDelete}
+            >
+              <Icon name="trash" size={13} />
+            </button>
+          </div>
+        )}
+        {!isMine &&
+          !editing &&
+          !msg.inviteServerId &&
+          msg.content.length > 0 && (
+            <div className="msg-actions">
+              <button
+                type="button"
+                className="icon-btn"
+                title={i18n.t("copyMessage", { ns: "chat" })}
+                onClick={handleCopy}
+              >
+                <Icon name={copied ? "check" : "copy"} size={13} />
+              </button>
+            </div>
+          )}
       </div>
-      {isMine && !editing && !msg.inviteServerId && (
-        <div className="msg-actions">
-          <button
-            type="button"
-            className="icon-btn"
-            title="Edit"
-            onClick={onStartEdit}
-          >
-            <Icon name="edit" size={13} />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            title="Delete"
-            onClick={onDelete}
-          >
-            <Icon name="trash" size={13} />
-          </button>
-        </div>
-      )}
-      {!isMine && !editing && !msg.inviteServerId && msg.content.length > 0 && (
-        <div className="msg-actions">
-          <button
-            type="button"
-            className="icon-btn"
-            title={i18n.t("copyMessage", { ns: "chat" })}
-            onClick={handleCopy}
-          >
-            <Icon name={copied ? "check" : "copy"} size={13} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };

@@ -1346,7 +1346,7 @@ body.electron .titlebar { padding-left: 84px; }
 .msg-actions {
   position: absolute;
   top: -10px;
-  right: 8px;
+  right: 0;
   display: none;
   gap: 2px;
   background: var(--surface-panel);
@@ -1355,14 +1355,8 @@ body.electron .titlebar { padding-left: 84px; }
   padding: 2px;
   box-shadow: var(--shadow-md);
 }
-.msg .body:hover + .msg-actions,
-.msg-actions:hover { display: flex; }
+.msg .body:hover .msg-actions { display: flex; }
 .msg-actions .icon-btn { width: 26px; height: 26px; }
-.msg.bubble.theirs .msg-actions {
-  left: 48px;
-  right: auto;
-}
-.msg.bubble.dm.theirs .msg-actions { left: 8px; }
 .msg-edited { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
 .msg-meta {
   display: inline-flex;
@@ -1395,7 +1389,7 @@ body.electron .titlebar { padding-left: 84px; }
 .msg.bubble .head { display: none; }
 .msg.bubble.theirs .ava { align-self: flex-end; }
 .msg.bubble.cont .ava { visibility: hidden; height: auto; }
-.msg.bubble .body { flex: 0 1 auto; min-width: 0; max-width: 74%; }
+.msg.bubble .body { flex: 0 1 auto; min-width: 0; max-width: 74%; position: relative; }
 .msg.bubble .txt {
   display: inline-block;
   margin-top: 0;
