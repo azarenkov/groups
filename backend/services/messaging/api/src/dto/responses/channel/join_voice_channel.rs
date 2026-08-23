@@ -5,6 +5,7 @@ use serde::Serialize;
 pub struct JoinVoiceChannelResponse {
     pub token: String,
     pub url: String,
+    pub muted: bool,
 }
 
 impl From<messaging::dto::responses::channel::join_voice_channel::JoinVoiceChannelResponse>
@@ -16,6 +17,7 @@ impl From<messaging::dto::responses::channel::join_voice_channel::JoinVoiceChann
         Self {
             token: value.token.to_string(),
             url: value.url,
+            muted: value.muted,
         }
     }
 }

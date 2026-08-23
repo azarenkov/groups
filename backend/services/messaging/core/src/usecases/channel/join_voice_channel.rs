@@ -121,8 +121,14 @@ where
             .create_token(&user_id, &user_name, channel.id())
             .await?;
 
-        let response =
-            JoinVoiceChannelResponse::new(channel_token, self.voice_service.client_url());
+        let muted = channel
+            .muted_participants_list()
+            .any(|m| m.user_id == user_id);
+        let response = JoinVoiceChannelResponse::new(
+            channel_token,
+            self.voice_service.client_url(),
+            muted,
+        );
         Ok(response)
     }
 }

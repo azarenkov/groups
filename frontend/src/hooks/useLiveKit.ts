@@ -10,7 +10,6 @@ import {
 } from "../services/livekit";
 import { channelAPI } from "../api/channel";
 import { useAuthStore } from "../store/authStore";
-import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { decodeAccessToken } from "../utils/jwt";
 import { useLocalQuality } from "./useLocalQuality";
 
@@ -109,17 +108,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(true);
         setError(null);
         activeChannelRef.current = { serverId, channelId };
-        const auth = useAuthStore.getState();
-        const selfId =
-          auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
-        const persistedMuted = !!useVoicePresenceStore
-          .getState()
-          .byChannel[channelId]?.some((m) => m.id === selfId && m.isMuted);
-        moderatorLockedRef.current = persistedMuted;
-        if (persistedMuted) {
-          serviceRef.current?.setMicrophoneMuted(true);
-          setIsMuted(true);
-        }
+        moderatorLockedRef.current = false;
 
         console.log(
           `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
@@ -132,6 +121,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
         await service.connect(response.token, response.url, channelId);
+
+        if (response.muted) {
+          moderatorLockedRef.current = true;
+          service.setMicrophoneMuted(true);
+          setIsMuted(true);
+        }
 
         setIsConnecting(false);
       } catch (err) {

@@ -184,15 +184,53 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     }
   };
 
+  const permWriteChainsRef = React.useRef<Record<string, Promise<void>>>({});
+  const permLatestRef = React.useRef<Record<string, number>>({});
+  const permSentRef = React.useRef<Record<string, number | undefined>>({});
+
   const toggleRolePerm = (
     role: { id: string; name: string; color: string; permissions: number },
     bit: number,
     checked: boolean,
   ) => {
     setRolePermsDraft((prev) => {
-      const base = prev[role.id] ?? role.permissions;
+      const base =
+        permLatestRef.current[role.id] ?? prev[role.id] ?? role.permissions;
       const next = checked ? base | bit : base & ~bit;
-      void patchRole(role.id, role.name, role.color, next);
+      permLatestRef.current[role.id] = next;
+      const chain = permWriteChainsRef.current[role.id] ?? Promise.resolve();
+      permWriteChainsRef.current[role.id] = chain.then(async () => {
+        const target = permLatestRef.current[role.id];
+        if (target === undefined || permSentRef.current[role.id] === target) {
+          return;
+        }
+        try {
+          await serverAPI.updateRole(
+            server.id,
+            role.id,
+            role.name,
+            role.color,
+            target,
+          );
+          permSentRef.current[role.id] = target;
+          setRolePermsDraft((cur) => {
+            if (cur[role.id] !== target) return cur;
+            const nextDraft = { ...cur };
+            delete nextDraft[role.id];
+            return nextDraft;
+          });
+          refreshRoles();
+        } catch (e) {
+          setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+          delete permLatestRef.current[role.id];
+          setRolePermsDraft((cur) => {
+            const nextDraft = { ...cur };
+            delete nextDraft[role.id];
+            return nextDraft;
+          });
+          refreshRoles();
+        }
+      });
       return { ...prev, [role.id]: next };
     });
   };

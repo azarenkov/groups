@@ -57,6 +57,7 @@ export interface JoinVoiceChannelRequest {
 export interface JoinVoiceChannelResponse {
   token: string;
   url: string;
+  muted?: boolean;
 }
 
 export interface Attachment {
