@@ -17,6 +17,7 @@ struct PreferenceItem {
     scope_type: String,
     scope_id: Uuid,
     level: String,
+    updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Serialize)]
@@ -38,9 +39,10 @@ async fn list_notification_preferences(
         preferences: preferences
             .into_iter()
             .map(|p| PreferenceItem {
-                scope_type: p.scope.as_str().to_string(),
-                scope_id: p.scope_id,
-                level: p.level.as_str().to_string(),
+                scope_type: p.preference.scope.as_str().to_string(),
+                scope_id: p.preference.scope_id,
+                level: p.preference.level.as_str().to_string(),
+                updated_at: p.updated_at,
             })
             .collect(),
     };
@@ -68,11 +70,19 @@ async fn set_notification_preference(
     let level = NotificationLevel::parse(&body.level).ok_or_else(|| {
         ApiError::bad_request("Unknown notification level".to_string())
     })?;
-    app_state
+    let updated_at = app_state
         .set_notification_preference_usecase
         .execute(user_id, scope, body.scope_id, level)
         .await?;
-    Ok(HttpResponse::NoContent().finish())
+    Ok(HttpResponse::Ok().json(ApiResponse::success(SetPreferenceResponse {
+        updated_at,
+    })))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SetPreferenceResponse {
+    updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub fn notification_routes(cfg: &mut web::ServiceConfig) {

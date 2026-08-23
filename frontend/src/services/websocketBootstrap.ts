@@ -279,7 +279,10 @@ function dispatch(env: WsEnvelope) {
           break;
         }
       }
-      lastChannelBumpAt[channelId] = eventTs(d.occurredAt);
+      lastChannelBumpAt[channelId] = Math.max(
+        lastChannelBumpAt[channelId] ?? 0,
+        eventTs(d.occurredAt),
+      );
       useUnreadStore.getState().bumpChannel(channelId, serverId);
       return;
     }
@@ -314,7 +317,10 @@ function dispatch(env: WsEnvelope) {
         return;
       }
       if (dmNotifLevel(senderId) === "none") return;
-      lastDmBumpAt[senderId] = eventTs(d.occurredAt);
+      lastDmBumpAt[senderId] = Math.max(
+        lastDmBumpAt[senderId] ?? 0,
+        eventTs(d.occurredAt),
+      );
       useUnreadStore.getState().bumpDm(senderId);
       return;
     }
@@ -404,7 +410,7 @@ function dispatch(env: WsEnvelope) {
       if (!scopeType || !scopeId || !level) return;
       useNotificationPrefsStore
         .getState()
-        .applyRemote(scopeType, scopeId, level);
+        .applyRemote(scopeType, scopeId, level, asString(d.updatedAt));
       scheduleUnreadRefetch();
       return;
     }

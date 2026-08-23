@@ -2,7 +2,10 @@ use async_trait::async_trait;
 use domain::{
     notification::{
         NotificationLevel, NotificationScope,
-        repository::{NotificationPreference, NotificationPreferenceRepository},
+        repository::{
+            NotificationPreference, NotificationPreferenceRepository,
+            StoredNotificationPreference,
+        },
     },
     shared::{
         outbox::outbox_record::{AggregateType, OutboxRecord},
@@ -32,10 +35,10 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
     async fn list_for_user(
         &self,
         user_id: &UserId,
-    ) -> Result<Vec<NotificationPreference>, RepositoryError> {
+    ) -> Result<Vec<StoredNotificationPreference>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
-            SELECT scope_type, scope_id, level
+            SELECT scope_type, scope_id, level, updated_at
             FROM notification_preferences
             WHERE user_id = $1
             "#,
@@ -48,10 +51,13 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
         Ok(rows
             .into_iter()
             .filter_map(|row| {
-                Some(NotificationPreference {
-                    scope: NotificationScope::parse(&row.scope_type)?,
-                    scope_id: row.scope_id,
-                    level: NotificationLevel::parse(&row.level)?,
+                Some(StoredNotificationPreference {
+                    preference: NotificationPreference {
+                        scope: NotificationScope::parse(&row.scope_type)?,
+                        scope_id: row.scope_id,
+                        level: NotificationLevel::parse(&row.level)?,
+                    },
+                    updated_at: row.updated_at,
                 })
             })
             .collect())
@@ -61,7 +67,7 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
         &self,
         user_id: &UserId,
         preference: &NotificationPreference,
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<chrono::DateTime<chrono::Utc>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -97,6 +103,7 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
                 "scope_type": preference.scope.as_str(),
                 "scope_id": preference.scope_id,
                 "level": preference.level.as_str(),
+                "updated_at": updated_at,
                 "recipients": [user_id.uuid()],
             }),
             occurred_at: updated_at,
@@ -105,6 +112,6 @@ impl NotificationPreferenceRepository for PostgresNotificationPreferenceReposito
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(updated_at)
     }
 }

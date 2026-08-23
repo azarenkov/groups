@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT scope_type, scope_id, level\n            FROM notification_preferences\n            WHERE user_id = $1\n            ",
+  "query": "\n            SELECT scope_type, scope_id, level, updated_at\n            FROM notification_preferences\n            WHERE user_id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "ordinal": 2,
         "name": "level",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -27,8 +32,9 @@
     "nullable": [
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "4668efb97d199d147089d51166f7c60c9380b77aa35e20a50dce22d8250a8150"
+  "hash": "94bdebda478f24d6dc3acddf5be6b62c2f66c7b2fc33dea038c6db5d21b87e46"
 }

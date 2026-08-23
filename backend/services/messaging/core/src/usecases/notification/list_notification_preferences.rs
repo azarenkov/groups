@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use domain::{
-    notification::repository::{NotificationPreference, NotificationPreferenceRepository},
+    notification::repository::{
+        NotificationPreferenceRepository, StoredNotificationPreference,
+    },
     shared::repository::error::RepositoryError,
     user::id::UserId,
 };
@@ -24,7 +26,7 @@ impl<R: NotificationPreferenceRepository> ListNotificationPreferences<R> {
     pub async fn execute(
         &self,
         user_id: UserId,
-    ) -> Result<Vec<NotificationPreference>, ListNotificationPreferencesError> {
+    ) -> Result<Vec<StoredNotificationPreference>, ListNotificationPreferencesError> {
         Ok(self.repo.list_for_user(&user_id).await?)
     }
 }

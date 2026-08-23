@@ -127,7 +127,12 @@ class UserAPI {
   }
 
   async getNotificationPreferences(): Promise<{
-    preferences: { scopeType: string; scopeId: string; level: string }[];
+    preferences: {
+      scopeType: string;
+      scopeId: string;
+      level: string;
+      updatedAt?: string;
+    }[];
   }> {
     const response = await this.client.get("/v1/notifications/preferences");
     return response.data.data;
@@ -137,12 +142,13 @@ class UserAPI {
     scopeType: "channel" | "dm",
     scopeId: string,
     level: "all" | "mentions" | "none",
-  ): Promise<void> {
-    await this.client.put("/v1/notifications/preferences", {
+  ): Promise<string | undefined> {
+    const response = await this.client.put("/v1/notifications/preferences", {
       scopeType,
       scopeId,
       level,
     });
+    return response.data?.data?.updatedAt;
   }
 }
 

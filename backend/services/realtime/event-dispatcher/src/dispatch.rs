@@ -137,15 +137,16 @@ pub async fn dispatch(
 
     if ends_with(subject, ".notification_preference.updated") {
         let evt: NotificationPrefUpdated = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "notification_preference.updated",
-            json!({
-                "userId": evt.user_id,
-                "scopeType": evt.scope_type,
-                "scopeId": evt.scope_id,
-                "level": evt.level,
-            }),
-        );
+        let mut data = json!({
+            "userId": evt.user_id,
+            "scopeType": evt.scope_type,
+            "scopeId": evt.scope_id,
+            "level": evt.level,
+        });
+        if let Some(updated_at) = evt.updated_at {
+            data["updatedAt"] = json!(updated_at);
+        }
+        let envelope = Envelope::new("notification_preference.updated", data);
         publisher
             .publish_to_users(unique(evt.recipients), &envelope)
             .await?;
