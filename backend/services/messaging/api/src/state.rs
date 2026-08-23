@@ -73,8 +73,18 @@ pub struct AppState {
         PostgresUserProfileRepository,
         BcryptHasher,
     >,
-    pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
-    pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
+    pub mute_channel_usecase: MuteChannel<
+        PostgresChannelRepository,
+        PostgresUserProfileRepository,
+        PostgresServerRepository,
+        PostgresServerRoleRepository,
+    >,
+    pub unmute_channel_usecase: UnmuteChannel<
+        PostgresChannelRepository,
+        PostgresUserProfileRepository,
+        PostgresServerRepository,
+        PostgresServerRoleRepository,
+    >,
     pub delete_channel_usecase: DeleteChannel<
         PostgresChannelRepository,
         LiveKitService,
@@ -181,7 +191,8 @@ pub struct AppState {
         UpdateServer<PostgresServerRepository, PostgresServerRoleRepository>,
     pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
     pub list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
-    pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,
+    pub revoke_invite_code_usecase:
+        RevokeInviteCode<PostgresServerRepository, PostgresServerRoleRepository>,
     pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
     pub leave_server_usecase:
         LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,

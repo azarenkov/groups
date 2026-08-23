@@ -163,10 +163,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
+            server_repository.clone(),
+            server_role_repository.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
+            server_repository.clone(),
+            server_role_repository.clone(),
         ),
         delete_channel_usecase: DeleteChannel::new(
             channel_repository.clone(),
@@ -329,7 +333,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         create_invite_code_usecase: CreateInviteCode::new(server_repository.clone()),
         list_invite_codes_usecase: ListInviteCodes::new(server_repository.clone()),
-        revoke_invite_code_usecase: RevokeInviteCode::new(server_repository.clone()),
+        revoke_invite_code_usecase: RevokeInviteCode::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
         redeem_invite_code_usecase: RedeemInviteCode::new(server_repository.clone()),
         leave_server_usecase: LeaveServer::new(
             server_repository.clone(),

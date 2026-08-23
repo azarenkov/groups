@@ -542,9 +542,10 @@ impl Channel {
         &mut self,
         target: UserId,
         initiator: UserId,
+        can_override: bool,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
-        if target != initiator && self.owner_id != initiator {
+        if target != initiator && self.owner_id != initiator && !can_override {
             return Err(ChannelError::NotOwner);
         }
         let muted = self
@@ -571,6 +572,7 @@ impl Channel {
         &mut self,
         target: UserId,
         initiator: UserId,
+        can_override: bool,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
         let muted = self
@@ -582,7 +584,7 @@ impl Channel {
         let is_self_unmute_of_self_mute = target == initiator && mute_record.muted_by == initiator;
         let is_owner = self.owner_id == initiator;
 
-        if !is_self_unmute_of_self_mute && !is_owner {
+        if !is_self_unmute_of_self_mute && !is_owner && !can_override {
             return Err(ChannelError::NotOwner);
         }
 

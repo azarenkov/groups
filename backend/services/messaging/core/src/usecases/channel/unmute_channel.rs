@@ -32,24 +32,37 @@ pub enum UnmuteChannelError {
 }
 
 #[derive(Debug)]
-pub struct UnmuteChannel<C, U>
+pub struct UnmuteChannel<C, U, S, R>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
+    S: domain::server::repository::ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
 {
     channel_repository: Arc<C>,
     user_repository: Arc<U>,
+    server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<C, U> UnmuteChannel<C, U>
+impl<C, U, S, R> UnmuteChannel<C, U, S, R>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
+    S: domain::server::repository::ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
 {
-    pub fn new(channel_repository: Arc<C>, user_repository: Arc<U>) -> Self {
+    pub fn new(
+        channel_repository: Arc<C>,
+        user_repository: Arc<U>,
+        server_repository: Arc<S>,
+        role_repository: Arc<R>,
+    ) -> Self {
         Self {
             channel_repository,
             user_repository,
+            server_repository,
+            role_repository,
         }
     }
 
@@ -81,7 +94,23 @@ where
 
         let now = Utc::now();
 
-        channel.unmute(target, initiator, now)?;
+                let can_override = if target == initiator {
+            false
+        } else {
+            let server_id = domain::server::id::ServerId::new(request.server_id);
+            let server_owner = self
+                .server_repository
+                .find_server_owner(&server_id)
+                .await?;
+            server_owner.as_ref() == Some(&initiator)
+                || domain::server::role::has_permission(
+                    self.role_repository
+                        .user_permissions(&server_id, &initiator)
+                        .await?,
+                    domain::server::role::PERM_MUTE_MEMBERS,
+                )
+        };
+        channel.unmute(target, initiator, can_override, now)?;
 
         let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel

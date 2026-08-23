@@ -115,13 +115,19 @@ pub enum RevokeInviteCodeError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct RevokeInviteCode<S: ServerRepository> {
+pub struct RevokeInviteCode<S: ServerRepository, R: domain::server::role::ServerRoleRepository> {
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<S: ServerRepository> RevokeInviteCode<S> {
-    pub fn new(server_repository: Arc<S>) -> Self {
-        Self { server_repository }
+impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
+    RevokeInviteCode<S, R>
+{
+    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
+        Self {
+            server_repository,
+            role_repository,
+        }
     }
 
     pub async fn execute(
@@ -133,7 +139,13 @@ impl<S: ServerRepository> RevokeInviteCode<S> {
         let owner = self.server_repository.find_server_owner(&server_id).await?;
         let is_owner = owner
             .map(|o| o.uuid() == user_id.uuid())
-            .unwrap_or(false);
+            .unwrap_or(false)
+            || domain::server::role::has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &user_id)
+                    .await?,
+                domain::server::role::PERM_MANAGE_INVITES,
+            );
         let revoked = self
             .server_repository
             .revoke_invite_code(&server_id, &code, &user_id, is_owner)
