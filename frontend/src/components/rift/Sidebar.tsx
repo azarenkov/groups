@@ -97,6 +97,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [tab, setTab] = React.useState<"dms" | "servers">(
     selectedChannelId ? "servers" : "dms",
   );
+  const [openServerId, setOpenServerId] = React.useState<string | null>(null);
+  const openServer = servers.find((s) => s.id === openServerId) ?? null;
   const prevSelection = React.useRef({
     dm: selectedDmId,
     channel: selectedChannelId,
@@ -110,6 +112,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     prevSelection.current = { dm: selectedDmId, channel: selectedChannelId };
   }, [selectedDmId, selectedChannelId]);
+  React.useEffect(() => {
+    if (!selectedChannelId) return;
+    for (const [sid, list] of Object.entries(channelsByServer)) {
+      if (list.some((c) => c.id === selectedChannelId)) {
+        setOpenServerId(sid);
+        return;
+      }
+    }
+  }, [selectedChannelId, channelsByServer]);
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
   const statusMenuRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -183,19 +194,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     settleAfterPick("dms");
   };
 
+
   const pickServer = (server: Server) => {
-    if (!isFiltering || !expandedServerIds.has(server.id)) {
-      onToggleServer(server.id);
-    }
+    if (!expandedServerIds.has(server.id)) onToggleServer(server.id);
+    setOpenServerId(server.id);
     onSelectServer(server.id);
     settleAfterPick("servers");
   };
 
   const pickChannel = (server: Server, channel: Channel) => {
     onSelectChannel(server, channel);
-    if (isFiltering && !expandedServerIds.has(server.id)) {
-      onToggleServer(server.id);
-    }
+    if (!expandedServerIds.has(server.id)) onToggleServer(server.id);
+    setOpenServerId(server.id);
     settleAfterPick("servers");
   };
 
@@ -277,241 +287,263 @@ const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 
-  const renderServers = () => (
-    <div className="sb-view">
-      {!isFiltering && (
-        <>
-          <button type="button" className="sb-add-row" onClick={onCreateServer}>
-            <span className="sb-add-row-ico">
-              <Icon name="plus" size={13} />
+  const renderChannelRow = (server: Server, channel: Channel) => (
+    <React.Fragment key={channel.id}>
+      <div
+        role="button"
+        tabIndex={0}
+        className={
+          "sb-item" +
+          (selectedChannelId === channel.id ? " active" : "") +
+          (joinedChannelId === channel.id ? " in-voice" : "") +
+          (channel.kind === "text" && (unreadByChannel[channel.id] ?? 0) > 0
+            ? " unread"
+            : "")
+        }
+        onClick={() => pickChannel(server, channel)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            pickChannel(server, channel);
+          }
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onDeleteChannel(server, channel);
+        }}
+      >
+        <span className="sb-icon">
+          <Icon name={channel.kind === "voice" ? "volume" : "hash"} size={14} />
+        </span>
+        <span className="sb-label">{channel.name}</span>
+        {channel.kind === "text" && (unreadByChannel[channel.id] ?? 0) > 0 && (
+          <span className="meta">{unreadByChannel[channel.id]}</span>
+        )}
+        {channel.kind === "voice" &&
+          (voiceMembersByChannel?.[channel.id]?.length ?? 0) > 0 && (
+            <span className="meta">
+              {voiceMembersByChannel?.[channel.id]?.length}
             </span>
-            <span>{t("createServer")}</span>
+          )}
+        {channel.visibility === "private" && (
+          <span className="lock">
+            <Icon name="lock" size={11} />
+          </span>
+        )}
+      </div>
+      {channel.kind === "voice" &&
+        (() => {
+          const base = voiceMembersByChannel?.[channel.id] ?? [];
+          const isJoined = joinedChannelId === channel.id;
+          let membersForChannel = base;
+          if (isJoined && voiceMembers && voiceMembers.length > 0) {
+            const merged = new Map(base.map((m) => [m.id, m]));
+            for (const live of voiceMembers) {
+              const existing = merged.get(live.id);
+              merged.set(live.id, existing ? { ...existing, ...live } : live);
+            }
+            membersForChannel = Array.from(merged.values());
+          }
+          if (membersForChannel.length === 0) return null;
+          return (
+            <div className="sb-voice-members">
+              {membersForChannel.map((m) => (
+                <div key={m.id} className="sb-voice-member">
+                  <UserAvatar
+                    userId={m.id}
+                    name={m.name}
+                    className="sb-voice-member-ava"
+                    style={{ background: m.color, display: "inline-flex" }}
+                  />
+                  <span className="sb-voice-member-name">{m.name}</span>
+                  {m.isCameraOn && (
+                    <span className="sb-voice-member-badge" title="Camera on">
+                      <Icon name="camera" size={11} />
+                    </span>
+                  )}
+                  {m.isSharingScreen && (
+                    <span className="sb-voice-member-badge" title="Sharing screen">
+                      <Icon name="monitor" size={11} />
+                    </span>
+                  )}
+                  {m.isMuted && (
+                    <span className="sb-voice-member-badge muted" title="Muted">
+                      <Icon name="mic-off" size={11} />
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+    </React.Fragment>
+  );
+
+  const serverUnreadFor = (serverId: string) => {
+    const all = channelsByServer[serverId] || [];
+    const localSum = all
+      .filter((c) => c.kind === "text")
+      .reduce((sum, c) => sum + (unreadByChannel[c.id] ?? 0), 0);
+    let fallbackSum = 0;
+    for (const [cid, count] of Object.entries(unreadByChannel)) {
+      if (channelToServer[cid] === serverId) fallbackSum += count;
+    }
+    return Math.max(localSum, fallbackSum);
+  };
+
+  const renderServerPage = (server: Server) => {
+    const channels = visibleChannelsFor(server.id);
+    const textChannels = channels.filter((c) => c.kind === "text");
+    const voiceChannels = channels.filter((c) => c.kind === "voice");
+    const accent = server.accentColor ?? colorForId(server.id);
+    return (
+      <div className="sb-view sb-server-page">
+        <button
+          type="button"
+          className="sb-back"
+          onClick={() => setOpenServerId(null)}
+        >
+          <Icon name="chev-left" size={14} />
+          <span>{t("tabServers")}</span>
+        </button>
+        <div className="sb-server-head">
+          <ServerLogo
+            serverId={server.id}
+            name={server.name}
+            className="sb-srv-ava"
+            style={{ background: accent }}
+          />
+          <span className="sb-srv-name">{server.name}</span>
+          <button
+            type="button"
+            className="sb-section-add"
+            title={t("inviteFriends")}
+            onClick={() => onInviteServer(server)}
+          >
+            <Icon name="user-plus" size={14} />
           </button>
           <button
             type="button"
-            className="sb-add-row secondary"
-            onClick={onJoinServer}
+            className="sb-section-add"
+            title={t("serverSettings")}
+            onClick={() => onOpenServerSettings(server)}
           >
-            <span className="sb-add-row-ico">
-              <Icon name="logout" size={13} />
-            </span>
-            <span>{t("joinServer")}</span>
+            <Icon name="settings" size={14} />
           </button>
-        </>
-      )}
-      <div className="sb-vhead">
-        <span className="sb-vhead-label">{t("servers")}</span>
-      </div>
-      {filteredServers.length === 0 && (
-        <div className="sb-empty">
-          {isFiltering ? t("noMatches") : t("noServers")}
         </div>
-      )}
-      {filteredServers.map((server) => {
-        const isCol = isFiltering ? false : !expandedServerIds.has(server.id);
-        const channels = visibleChannelsFor(server.id);
-        const accent = server.accentColor ?? colorForId(server.id);
-        const allServerChannels = channelsByServer[server.id] || [];
-        const localSum = allServerChannels
-          .filter((c) => c.kind === "text")
-          .reduce((sum, c) => sum + (unreadByChannel[c.id] ?? 0), 0);
-        let fallbackSum = 0;
-        for (const [cid, count] of Object.entries(unreadByChannel)) {
-          if (channelToServer[cid] === server.id) fallbackSum += count;
-        }
-        const serverUnread = Math.max(localSum, fallbackSum);
-        const hasVoiceActivity = allServerChannels.some(
-          (c) =>
-            c.kind === "voice" &&
-            (voiceMembersByChannel?.[c.id]?.length ?? 0) > 0,
-        );
-        return (
-          <div key={server.id}>
-            <div
-              role="button"
-              tabIndex={0}
-              className="sb-srv"
-              onClick={() => pickServer(server)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  pickServer(server);
-                }
-              }}
-            >
-              <ServerLogo
-                serverId={server.id}
-                name={server.name}
-                className="sb-srv-ava"
-                style={{ background: accent }}
-              />
-              <span className="sb-srv-name">{server.name}</span>
-              {hasVoiceActivity && (
-                <span
-                  className="sb-server-voice-dot"
-                  title="Someone is in voice"
-                  aria-label="Voice activity"
-                />
-              )}
-              {serverUnread > 0 && (
-                <span className="sb-server-unread">{serverUnread}</span>
-              )}
-              {!isCol && (
-                <>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    className="sb-section-add"
-                    title={t("inviteFriends")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onInviteServer(server);
-                    }}
-                  >
-                    <Icon name="user-plus" size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    className="sb-section-add"
-                    title={t("serverSettings")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenServerSettings(server);
-                    }}
-                  >
-                    <Icon name="settings" size={14} />
-                  </button>
-                </>
-              )}
-              <Icon
-                name="chev"
-                size={13}
-                className={"sb-srv-chev" + (isCol ? " collapsed" : "")}
-              />
+        {channels.length === 0 && (
+          <div className="sb-empty">{t("noChannels")}</div>
+        )}
+        {textChannels.length > 0 && (
+          <>
+            <div className="sb-vhead">
+              <span className="sb-vhead-label">{t("textChannels")}</span>
             </div>
-            {!isCol && (
-              <div className="sb-srv-channels">
-                {channels.map((channel) => (
-                  <React.Fragment key={channel.id}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      className={
-                        "sb-item" +
-                        (selectedChannelId === channel.id ? " active" : "") +
-                        (joinedChannelId === channel.id ? " in-voice" : "") +
-                        (channel.kind === "text" &&
-                        (unreadByChannel[channel.id] ?? 0) > 0
-                          ? " unread"
-                          : "")
-                      }
-                      onClick={() => pickChannel(server, channel)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          pickChannel(server, channel);
-                        }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        onDeleteChannel(server, channel);
-                      }}
-                    >
-                      <span className="sb-icon">
-                        <Icon
-                          name={channel.kind === "voice" ? "volume" : "hash"}
-                          size={14}
-                        />
-                      </span>
-                      <span className="sb-label">{channel.name}</span>
-                      {channel.kind === "text" &&
-                        (unreadByChannel[channel.id] ?? 0) > 0 && (
-                          <span className="meta">
-                            {unreadByChannel[channel.id]}
-                          </span>
-                        )}
-                      {channel.kind === "voice" &&
-                        (voiceMembersByChannel?.[channel.id]?.length ?? 0) >
-                          0 && (
-                          <span className="meta">
-                            {voiceMembersByChannel?.[channel.id]?.length}
-                          </span>
-                        )}
-                      {channel.visibility === "private" && (
-                        <span className="lock">
-                          <Icon name="lock" size={11} />
-                        </span>
-                      )}
-                    </div>
-                    {channel.kind === "voice" &&
-                      (() => {
-                        const base = voiceMembersByChannel?.[channel.id] ?? [];
-                        const isJoined = joinedChannelId === channel.id;
-                        let membersForChannel = base;
-                        if (isJoined && voiceMembers && voiceMembers.length > 0) {
-                          const merged = new Map(base.map((m) => [m.id, m]));
-                          for (const live of voiceMembers) {
-                            const existing = merged.get(live.id);
-                            merged.set(
-                              live.id,
-                              existing ? { ...existing, ...live } : live,
-                            );
-                          }
-                          membersForChannel = Array.from(merged.values());
-                        }
-                        if (membersForChannel.length === 0) return null;
-                        return (
-                          <div className="sb-voice-members">
-                            {membersForChannel.map((m) => (
-                              <div key={m.id} className="sb-voice-member">
-                                <UserAvatar
-                                  userId={m.id}
-                                  name={m.name}
-                                  className="sb-voice-member-ava"
-                                  style={{ background: m.color, display: "inline-flex" }}
-                                />
-                                <span className="sb-voice-member-name">
-                                  {m.name}
-                                </span>
-                                {m.isCameraOn && (
-                                  <span
-                                    className="sb-voice-member-badge"
-                                    title="Camera on"
-                                  >
-                                    <Icon name="camera" size={11} />
-                                  </span>
-                                )}
-                                {m.isSharingScreen && (
-                                  <span
-                                    className="sb-voice-member-badge"
-                                    title="Sharing screen"
-                                  >
-                                    <Icon name="monitor" size={11} />
-                                  </span>
-                                )}
-                                {m.isMuted && (
-                                  <span
-                                    className="sb-voice-member-badge muted"
-                                    title="Muted"
-                                  >
-                                    <Icon name="mic-off" size={11} />
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                  </React.Fragment>
-                ))}
-              </div>
-            )}
+            <div className="sb-srv-channels">
+              {textChannels.map((c) => renderChannelRow(server, c))}
+            </div>
+          </>
+        )}
+        {voiceChannels.length > 0 && (
+          <>
+            <div className="sb-vhead">
+              <span className="sb-vhead-label">{t("voiceChannels")}</span>
+            </div>
+            <div className="sb-srv-channels">
+              {voiceChannels.map((c) => renderChannelRow(server, c))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderServers = () => {
+    if (openServer && !isFiltering) return renderServerPage(openServer);
+    return (
+      <div className="sb-view">
+        {!isFiltering && (
+          <>
+            <button type="button" className="sb-add-row" onClick={onCreateServer}>
+              <span className="sb-add-row-ico">
+                <Icon name="plus" size={13} />
+              </span>
+              <span>{t("createServer")}</span>
+            </button>
+            <button
+              type="button"
+              className="sb-add-row secondary"
+              onClick={onJoinServer}
+            >
+              <span className="sb-add-row-ico">
+                <Icon name="logout" size={13} />
+              </span>
+              <span>{t("joinServer")}</span>
+            </button>
+          </>
+        )}
+        <div className="sb-vhead">
+          <span className="sb-vhead-label">{t("servers")}</span>
+        </div>
+        {filteredServers.length === 0 && (
+          <div className="sb-empty">
+            {isFiltering ? t("noMatches") : t("noServers")}
           </div>
-        );
-      })}
-    </div>
-  );
+        )}
+        {filteredServers.map((server) => {
+          const accent = server.accentColor ?? colorForId(server.id);
+          const allServerChannels = channelsByServer[server.id] || [];
+          const serverUnread = serverUnreadFor(server.id);
+          const hasVoiceActivity = allServerChannels.some(
+            (c) =>
+              c.kind === "voice" &&
+              (voiceMembersByChannel?.[c.id]?.length ?? 0) > 0,
+          );
+          const channels = isFiltering ? visibleChannelsFor(server.id) : [];
+          return (
+            <div key={server.id}>
+              <div
+                role="button"
+                tabIndex={0}
+                className="sb-srv"
+                onClick={() => pickServer(server)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    pickServer(server);
+                  }
+                }}
+              >
+                <ServerLogo
+                  serverId={server.id}
+                  name={server.name}
+                  className="sb-srv-ava"
+                  style={{ background: accent }}
+                />
+                <span className="sb-srv-name">{server.name}</span>
+                {hasVoiceActivity && (
+                  <span
+                    className="sb-server-voice-dot"
+                    title="Someone is in voice"
+                    aria-label="Voice activity"
+                  />
+                )}
+                {serverUnread > 0 && (
+                  <span className="sb-server-unread">{serverUnread}</span>
+                )}
+                <Icon name="chev" size={13} className="sb-srv-chev collapsed" />
+              </div>
+              {isFiltering && channels.length > 0 && (
+                <div className="sb-srv-channels">
+                  {channels.map((c) => renderChannelRow(server, c))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="sb">

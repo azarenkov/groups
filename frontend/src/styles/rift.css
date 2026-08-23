@@ -638,6 +638,28 @@ body.electron .titlebar { padding-left: 84px; }
   color: var(--fg-2);
 }
 .sb-add-row.secondary:hover .sb-add-row-ico { color: var(--fg-1); }
+.sb-back {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 6px 6px;
+  padding: 6px 8px;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.sb-back:hover { background: var(--surface-hover); color: var(--fg-1); }
+.sb-server-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px 8px;
+  margin: 0 2px;
+  border-bottom: 1px solid var(--hairline);
+}
+.sb-server-head .sb-srv-name { flex: 1; min-width: 0; font-weight: 600; }
+.sb-server-head .sb-section-add { opacity: 1; }
+.sb-server-page .sb-vhead { padding-top: 12px; }
+
 .sb-add-row-badge {
   margin-left: auto;
   min-width: 18px; height: 18px;

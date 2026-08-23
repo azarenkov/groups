@@ -36,5 +36,8 @@
   "previewCall": "Звонок",
   "previewInvite": "Приглашение на сервер",
   "previewYou": "Вы:",
-  "previewAttachment": "📎 Вложение"
+  "previewAttachment": "📎 Вложение",
+  "textChannels": "Текстовые каналы",
+  "voiceChannels": "Голосовые каналы",
+  "noChannels": "Каналов пока нет"
 }
