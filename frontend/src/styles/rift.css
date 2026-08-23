@@ -1359,11 +1359,10 @@ body.electron .titlebar { padding-left: 84px; }
 .msg-actions:hover { display: flex; }
 .msg-actions .icon-btn { width: 26px; height: 26px; }
 .msg.bubble.theirs .msg-actions {
-  position: static;
-  align-self: center;
-  margin-left: 0;
-  flex-shrink: 0;
+  left: 48px;
+  right: auto;
 }
+.msg.bubble.dm.theirs .msg-actions { left: 8px; }
 .msg-edited { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
 .msg-meta {
   display: inline-flex;
