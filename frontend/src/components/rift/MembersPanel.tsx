@@ -6,6 +6,7 @@ import { UserAvatar } from "./Avatar";
 import { usePresenceStore } from "../../store/presenceStore";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { topRoleFor, useRolesStore } from "../../store/rolesStore";
+import { useServerStore } from "../../store/serverStore";
 
 interface MembersPanelProps {
   serverId: string;
@@ -23,6 +24,9 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const rolesData = useRolesStore((s) => s.byServer[serverId]);
+  const serverOwnerId = useServerStore(
+    (s) => s.servers.find((sv) => sv.id === serverId)?.ownerId,
+  );
   const fetchRoles = useRolesStore((s) => s.fetch);
   useEffect(() => {
     void fetchRoles(serverId).catch(() => {});
@@ -109,14 +113,26 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
               />
             </UserAvatar>
             <div className="info">
-              <div
-                className="name"
-                style={topRole ? { color: topRole.color } : undefined}
-              >
+              <div className="name">
                 {displayName}
                 {isSelf && <span className="member-you">{t("you")}</span>}
+                {m.id === serverOwnerId ? (
+                  <span className="member-role-badge owner">{t("owner")}</span>
+                ) : (
+                  topRole && (
+                    <span
+                      className="member-role-badge"
+                      style={{
+                        color: topRole.color,
+                        background: `color-mix(in srgb, ${topRole.color} 16%, transparent)`,
+                      }}
+                    >
+                      {topRole.name}
+                    </span>
+                  )
+                )}
               </div>
-              <div className="role">{topRole ? topRole.name : statusLabel}</div>
+              <div className="role">{statusLabel}</div>
             </div>
           </div>
         );

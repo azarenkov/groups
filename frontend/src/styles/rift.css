@@ -5388,3 +5388,21 @@ button.ssv-row-delete:focus-visible {
 }
 .sb-voice-member:hover .sb-voice-mute-btn { display: inline-flex; }
 .sb-voice-mute-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
+
+.member-row .member-role-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+.member-row .member-role-badge.owner {
+  color: #e8b339;
+  background: rgba(232, 179, 57, 0.14);
+}
