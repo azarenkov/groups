@@ -552,8 +552,12 @@ impl Channel {
             .muted_participants
             .as_mut()
             .ok_or(ChannelError::VoiceNotSupported)?;
-        if muted.contains_key(&target) {
-            return Err(ChannelError::AlreadyMuted);
+        if let Some(existing) = muted.get(&target) {
+            let replaces_self_mute =
+                existing.muted_by == target && initiator != target;
+            if !replaces_self_mute {
+                return Err(ChannelError::AlreadyMuted);
+            }
         }
         muted.insert(target, ParticipantMute::new(target, initiator, now));
 

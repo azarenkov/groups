@@ -242,6 +242,7 @@ class ServerAPI {
       userId: string;
       userName: string;
       isMuted: boolean;
+      mutedBy?: string | null;
       cameraOn: boolean;
       screenOn: boolean;
     }[];

@@ -515,7 +515,12 @@ function dispatch(env: WsEnvelope) {
       const isMuted = env.type === "channel.participant.muted";
       useVoicePresenceStore
         .getState()
-        .setChannelMute(channelId, userId, isMuted);
+        .setChannelMute(
+          channelId,
+          userId,
+          isMuted,
+          isMuted ? (asString(d.mutedBy) ?? undefined) : undefined,
+        );
       const selfId = useAuthStore.getState().user?.id;
       const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);
       if (userId === selfId && mutedBy && mutedBy !== selfId) {

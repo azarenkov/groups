@@ -4,6 +4,7 @@ export interface VoicePresenceMember {
   id: string;
   name: string;
   isMuted: boolean;
+  mutedBy?: string;
   cameraOn: boolean;
   screenOn: boolean;
 }
@@ -18,6 +19,7 @@ interface VoicePresenceState {
     channelId: string,
     userId: string,
     isMuted: boolean,
+    mutedBy?: string,
   ) => void;
   setChannelMedia: (
     channelId: string,
@@ -42,6 +44,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
                 ...m,
                 name: member.name,
                 isMuted: member.isMuted,
+                mutedBy: member.mutedBy,
                 cameraOn: member.cameraOn,
                 screenOn: member.screenOn,
               }
@@ -90,12 +93,14 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       return changed ? { byChannel } : state;
     }),
 
-  setChannelMute: (channelId, userId, isMuted) =>
+  setChannelMute: (channelId, userId, isMuted, mutedBy) =>
     set((state) => {
       const existing = state.byChannel[channelId];
       if (!existing) return state;
       const next = existing.map((m) =>
-        m.id === userId ? { ...m, isMuted } : m,
+        m.id === userId
+          ? { ...m, isMuted, mutedBy: isMuted ? mutedBy : undefined }
+          : m,
       );
       return { byChannel: { ...state.byChannel, [channelId]: next } };
     }),

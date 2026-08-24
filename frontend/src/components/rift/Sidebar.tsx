@@ -44,6 +44,7 @@ interface SidebarProps {
     initials: string;
     color: string;
     isMuted?: boolean;
+    mutedBy?: string;
     isSharingScreen?: boolean;
     isCameraOn?: boolean;
   }[];
@@ -55,6 +56,7 @@ interface SidebarProps {
       initials: string;
       color: string;
       isMuted?: boolean;
+      mutedBy?: string;
       isSharingScreen?: boolean;
       isCameraOn?: boolean;
     }[]
@@ -201,8 +203,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       (userPermissions(rolesByServer[server.id], currentUserId) &
         PERM_MUTE_MEMBERS) !==
         0);
-  const moderateMute = (server: Server, channelId: string, m: { id: string; isMuted?: boolean }) => {
-    const call = m.isMuted
+  const moderateMute = (
+    server: Server,
+    channelId: string,
+    m: { id: string; isMuted?: boolean; mutedBy?: string },
+  ) => {
+    const moderatorMuted = !!m.isMuted && !!m.mutedBy && m.mutedBy !== m.id;
+    const call = moderatorMuted
       ? channelAPI.unmute(server.id, channelId, m.id)
       : channelAPI.mute(server.id, channelId, m.id);
     call.catch((err) => console.warn("[sidebar] mute toggle failed:", err));
@@ -462,13 +469,24 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       type="button"
                       className="sb-voice-mute-btn"
-                      title={m.isMuted ? t("unmuteMember") : t("muteMember")}
+                      title={
+                        m.isMuted && m.mutedBy && m.mutedBy !== m.id
+                          ? t("unmuteMember")
+                          : t("muteMember")
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         moderateMute(server, channel.id, m);
                       }}
                     >
-                      <Icon name={m.isMuted ? "mic" : "mic-off"} size={12} />
+                      <Icon
+                        name={
+                          m.isMuted && m.mutedBy && m.mutedBy !== m.id
+                            ? "mic"
+                            : "mic-off"
+                        }
+                        size={12}
+                      />
                     </button>
                   )}
                 </div>

@@ -378,7 +378,8 @@ impl ChannelRepository for PostgresChannelRepository {
             INSERT INTO channel_muted_participants
                 (channel_id, user_id, muted_by, muted_at)
             VALUES ($1, $2, $3, $4)
-            ON CONFLICT (channel_id, user_id) DO NOTHING
+            ON CONFLICT (channel_id, user_id) DO UPDATE
+                SET muted_by = EXCLUDED.muted_by, muted_at = EXCLUDED.muted_at
             "#,
             channel_id.uuid(),
             target.uuid(),
@@ -589,7 +590,12 @@ impl ChannelRepository for PostgresChannelRepository {
                     SELECT 1 FROM channel_muted_participants cmp
                     WHERE cmp.channel_id = cvp.channel_id
                       AND cmp.user_id = cvp.user_id
-                ) AS "is_muted!"
+                ) AS "is_muted!",
+                (
+                    SELECT cmp.muted_by FROM channel_muted_participants cmp
+                    WHERE cmp.channel_id = cvp.channel_id
+                      AND cmp.user_id = cvp.user_id
+                ) AS "muted_by?"
             FROM channel_voice_participants cvp
             INNER JOIN channels c ON c.id = cvp.channel_id
             INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id
@@ -609,6 +615,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 user_id: UserId::new(r.user_id),
                 user_name: r.user_name,
                 is_muted: r.is_muted,
+                muted_by: r.muted_by.map(UserId::new),
                 camera_on: r.camera_on,
                 screen_on: r.screen_on,
             })

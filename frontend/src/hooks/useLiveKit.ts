@@ -203,11 +203,13 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         .getState()
         .byChannel[active.channelId]?.find((m) => m.id === selfId);
       if (!me) return;
-      if (me.isMuted && !moderatorLockedRef.current) {
+      const moderatorMuted =
+        me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
+      if (moderatorMuted && !moderatorLockedRef.current) {
         moderatorLockedRef.current = true;
         serviceRef.current?.setMicrophoneMuted(true);
         setIsMuted(true);
-      } else if (!me.isMuted && moderatorLockedRef.current) {
+      } else if (!moderatorMuted && moderatorLockedRef.current) {
         moderatorLockedRef.current = false;
       }
     };

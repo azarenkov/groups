@@ -195,6 +195,7 @@ pub struct VoicePresenceRow {
     pub user_id: UserId,
     pub user_name: String,
     pub is_muted: bool,
+    pub muted_by: Option<UserId>,
     pub camera_on: bool,
     pub screen_on: bool,
 }
