@@ -606,13 +606,13 @@ export function installWsBootstrap() {
       }
       if (gen !== prefsReloadGen) return;
       scheduleUnreadRefetch();
-      void import("../store/rolesStore").then(({ useRolesStore }) => {
-        const loaded = Object.keys(useRolesStore.getState().byServer);
-        for (const serverId of loaded) {
-          void useRolesStore.getState().fetch(serverId).catch(() => {});
-        }
-      });
     })();
+    void import("../store/rolesStore").then(({ useRolesStore }) => {
+      const loaded = Object.keys(useRolesStore.getState().byServer);
+      for (const serverId of loaded) {
+        void useRolesStore.getState().fetch(serverId).catch(() => {});
+      }
+    });
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void useFriendshipStore

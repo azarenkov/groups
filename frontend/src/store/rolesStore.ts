@@ -50,7 +50,7 @@ export const useRolesStore = create<RolesState>()((set) => ({
   },
 
   clearAll: () => {
-    for (const k of Object.keys(fetchGens)) delete fetchGens[k];
+    for (const k of Object.keys(fetchGens)) fetchGens[k] += 1;
     set({ byServer: {} });
   },
 }));
