@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use domain::shared::outbox::to_outbox::ToOutboxRecord;
 use domain::{
+    server::repository::RemoveMemberOutcome,
     channel::{
         Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
         participant_mute::ParticipantMute, session_id::SessionId,
@@ -455,8 +456,9 @@ impl ServerRepository for PostgresServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        delegated_kicker: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<RemoveMemberOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -471,6 +473,50 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        if let Some(actor) = delegated_kicker {
+            let actor_state = sqlx::query!(
+                r#"
+                SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let target_top = sqlx::query_scalar!(
+                r#"
+                SELECT max(r.position) AS "top"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                user_id.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let perms = actor_state.perms.unwrap_or(0);
+            let has_kick = domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_KICK_MEMBERS,
+            );
+            let outranks = match (actor_state.top, target_top) {
+                (Some(a), Some(t)) => a > t,
+                (Some(_), None) => true,
+                _ => false,
+            };
+            if !has_kick || !outranks {
+                return Ok(RemoveMemberOutcome::Denied);
+            }
+        }
+
         let result = sqlx::query!(
             r#"
                 DELETE FROM server_members
@@ -484,7 +530,7 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if result.rows_affected() == 0 {
-            return Ok(false);
+            return Ok(RemoveMemberOutcome::NotMember);
         }
 
         sqlx::query!(
@@ -606,7 +652,7 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(RemoveMemberOutcome::Removed)
     }
 
     async fn delete_server_by_owner_with_events(

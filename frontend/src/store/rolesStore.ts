@@ -26,6 +26,7 @@ interface ServerRolesData {
 interface RolesState {
   byServer: Record<string, ServerRolesData>;
   fetch: (serverId: string) => Promise<void>;
+  removeMember: (serverId: string, userId: string) => void;
   clearAll: () => void;
 }
 
@@ -49,6 +50,17 @@ export const useRolesStore = create<RolesState>()((set) => ({
       },
     }));
   },
+
+  removeMember: (serverId, userId) =>
+    set((s) => {
+      const data = s.byServer[serverId];
+      if (!data || !data.memberRoles[userId]) return s;
+      const memberRoles = { ...data.memberRoles };
+      delete memberRoles[userId];
+      return {
+        byServer: { ...s.byServer, [serverId]: { ...data, memberRoles } },
+      };
+    }),
 
   clearAll: () => {
     for (const k of Object.keys(fetchGens)) fetchGens[k] += 1;

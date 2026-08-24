@@ -13,6 +13,13 @@ use crate::{
 };
 
 #[async_trait]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoveMemberOutcome {
+    Removed,
+    NotMember,
+    Denied,
+}
+
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
     async fn save_server_with_events(
@@ -50,8 +57,9 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        delegated_kicker: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<RemoveMemberOutcome, RepositoryError>;
     async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,

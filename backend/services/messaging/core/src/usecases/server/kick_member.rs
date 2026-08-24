@@ -118,12 +118,19 @@ where
             ),
         );
         let member_records = vec![member_event.to_outbox_record()?];
+        let delegated = if is_owner { None } else { Some(&actor) };
         let removed = self
             .server_repository
-            .remove_server_member(&server_id, &target, &member_records)
+            .remove_server_member(&server_id, &target, delegated, &member_records)
             .await?;
-        if !removed {
-            return Err(KickMemberError::NotMember);
+        match removed {
+            domain::server::repository::RemoveMemberOutcome::Removed => {}
+            domain::server::repository::RemoveMemberOutcome::NotMember => {
+                return Err(KickMemberError::NotMember);
+            }
+            domain::server::repository::RemoveMemberOutcome::Denied => {
+                return Err(KickMemberError::NotAllowed);
+            }
         }
 
         for channel_id in &voice_channel_ids {
