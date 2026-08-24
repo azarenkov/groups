@@ -232,6 +232,21 @@ async fn list_sent_server_invites(
     )))
 }
 
+#[delete("/{server_id}/members/{member_id}")]
+async fn kick_member(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let actor = UserId::new(auth_token.id);
+    let (server_id, member_id) = path.into_inner();
+    app_state
+        .kick_member_usecase
+        .execute(ServerId::new(server_id), actor, UserId::new(member_id))
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 #[delete("/{server_id}/members/me")]
 async fn leave_server(
     auth_token: RateLimitedAuthToken,

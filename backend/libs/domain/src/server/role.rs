@@ -7,13 +7,15 @@ pub const PERM_MANAGE_MESSAGES: i64 = 4;
 pub const PERM_MUTE_MEMBERS: i64 = 8;
 pub const PERM_MANAGE_ROLES: i64 = 16;
 pub const PERM_MANAGE_SERVER: i64 = 32;
+pub const PERM_KICK_MEMBERS: i64 = 64;
 
 pub const PERM_ALL: i64 = PERM_MANAGE_CHANNELS
     | PERM_MANAGE_INVITES
     | PERM_MANAGE_MESSAGES
     | PERM_MUTE_MEMBERS
     | PERM_MANAGE_ROLES
-    | PERM_MANAGE_SERVER;
+    | PERM_MANAGE_SERVER
+    | PERM_KICK_MEMBERS;
 
 #[derive(Debug, Clone)]
 pub struct ServerRole {

@@ -87,5 +87,7 @@
   "deleteRole": "Delete role",
   "noRoles": "No roles yet — create the first one.",
   "roleNameRequired": "Enter a role name",
-  "roleList": "Roles ({{count}})"
+  "roleList": "Roles ({{count}})",
+  "permKickMembers": "Kick members",
+  "kickMember": "Kick from server"
 }

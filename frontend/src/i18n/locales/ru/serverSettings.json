@@ -87,5 +87,7 @@
   "deleteRole": "Удалить роль",
   "noRoles": "Ролей пока нет — создайте первую.",
   "roleNameRequired": "Введите название роли",
-  "roleList": "Роли ({{count}})"
+  "roleList": "Роли ({{count}})",
+  "permKickMembers": "Исключение участников",
+  "kickMember": "Исключить с сервера"
 }

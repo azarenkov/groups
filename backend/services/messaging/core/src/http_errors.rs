@@ -46,6 +46,7 @@ use crate::usecases::server::invite_codes::CreateInviteCodeError;
 use crate::usecases::server::invite_codes::ListInviteCodesError;
 use crate::usecases::server::invite_codes::RedeemInviteCodeError;
 use crate::usecases::server::invite_codes::RevokeInviteCodeError;
+use crate::usecases::server::kick_member::KickMemberError;
 use crate::usecases::server::leave_server::LeaveServerError;
 use crate::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use crate::usecases::server::list_server_channels::ListServerChannelsError;
@@ -1139,6 +1140,37 @@ impl ToHttpStatus for SendServerInviteError {
     }
 }
 
+impl ToHttpStatus for KickMemberError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            KickMemberError::Outbox(e) => e.to_http_status(),
+            KickMemberError::Repository(e) => e.to_http_status(),
+            KickMemberError::NotMember => StatusCode::NOT_FOUND,
+            KickMemberError::NotAllowed => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            KickMemberError::Outbox(e) => e.to_user_message(),
+            KickMemberError::Repository(e) => e.to_user_message(),
+            KickMemberError::NotMember => "User is not a member of this server".to_string(),
+            KickMemberError::NotAllowed => {
+                "You don't have permission to kick this member".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            KickMemberError::Outbox(e) => e.to_error_code(),
+            KickMemberError::Repository(e) => e.to_error_code(),
+            KickMemberError::NotMember => "SERVER_NOT_MEMBER",
+            KickMemberError::NotAllowed => "KICK_NOT_ALLOWED",
+        }
+    }
+}
+
 impl ToHttpStatus for LeaveServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1699,6 +1731,7 @@ shared::impl_from_for_api_error!(
     GetVoicePresenceError,
     JoinTextChannelError,
     JoinVoiceChannelError,
+    KickMemberError,
     LeaveServerError,
     ListChannelMessagesError,
     ListChannelParticipantsError,

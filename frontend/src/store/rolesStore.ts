@@ -16,6 +16,7 @@ export const PERM_MANAGE_MESSAGES = 4;
 export const PERM_MUTE_MEMBERS = 8;
 export const PERM_MANAGE_ROLES = 16;
 export const PERM_MANAGE_SERVER = 32;
+export const PERM_KICK_MEMBERS = 64;
 
 interface ServerRolesData {
   roles: ServerRole[];

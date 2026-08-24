@@ -15,6 +15,7 @@ import {
   PERM_MANAGE_INVITES,
   PERM_MANAGE_MESSAGES,
   PERM_MANAGE_ROLES,
+  PERM_KICK_MEMBERS,
   PERM_MANAGE_SERVER,
   PERM_MUTE_MEMBERS,
   topRoleFor,
@@ -119,6 +120,26 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const canManageServer = isOwner || (myPerms & PERM_MANAGE_SERVER) !== 0;
   const canManageChannels = isOwner || (myPerms & PERM_MANAGE_CHANNELS) !== 0;
   const canManageInvites = isOwner || (myPerms & PERM_MANAGE_INVITES) !== 0;
+  const canKickMembers = isOwner || (myPerms & PERM_KICK_MEMBERS) !== 0;
+  const canKick = (memberId: string) => {
+    if (!canKickMembers) return false;
+    if (memberId === currentUserId || memberId === server.ownerId) return false;
+    if (isOwner) return true;
+    const targetTop = topRoleFor(rolesData, memberId)?.position;
+    return (
+      myTopPosition !== Number.NEGATIVE_INFINITY &&
+      (targetTop === undefined || targetTop < myTopPosition)
+    );
+  };
+  const kickMember = async (memberId: string) => {
+    try {
+      await serverAPI.kickMember(server.id, memberId);
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
   const visibleSections = SECTIONS.filter(
     (sec) => sec.id !== "invites" || canManageInvites,
   );
@@ -133,6 +154,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     { bit: PERM_MUTE_MEMBERS, key: "permMuteMembers" },
     { bit: PERM_MANAGE_ROLES, key: "permManageRoles" },
     { bit: PERM_MANAGE_SERVER, key: "permManageServer" },
+    { bit: PERM_KICK_MEMBERS, key: "permKickMembers" },
   ];
   const [newRoleName, setNewRoleName] = React.useState("");
   const [newRoleColor, setNewRoleColor] = React.useState(ROLE_COLORS[0]);
@@ -1361,6 +1383,16 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                         >
                           {m.id === server.ownerId ? t("roleOwner") : t("roleMember")}
                         </span>
+                        {canKick(m.id) && (
+                          <button
+                            type="button"
+                            className="ssv-row-delete"
+                            title={t("kickMember")}
+                            onClick={() => void kickMember(m.id)}
+                          >
+                            <Icon name="logout" size={14} />
+                          </button>
+                        )}
                       </div>
                     </React.Fragment>
                   );

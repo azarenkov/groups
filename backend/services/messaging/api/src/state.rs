@@ -41,7 +41,8 @@ use messaging::usecases::{
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_voice_presence::GetVoicePresence,
         invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
-        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
+        kick_member::KickMember, leave_server::LeaveServer,
+        list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
         update_server::UpdateServer,
@@ -206,6 +207,12 @@ pub struct AppState {
     pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
     pub leave_server_usecase:
         LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+    pub kick_member_usecase: KickMember<
+        PostgresServerRepository,
+        PostgresChannelRepository,
+        LiveKitService,
+        PostgresServerRoleRepository,
+    >,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,

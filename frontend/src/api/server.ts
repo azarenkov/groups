@@ -163,6 +163,10 @@ class ServerAPI {
     await this.client.delete(`/v1/servers/${serverId}/roles/${roleId}`);
   }
 
+  async kickMember(serverId: string, memberId: string): Promise<void> {
+    await this.client.delete(`/v1/servers/${serverId}/members/${memberId}`);
+  }
+
   async swapRoles(serverId: string, roleA: string, roleB: string): Promise<void> {
     await this.client.post(`/v1/servers/${serverId}/roles/${roleA}/swap/${roleB}`);
   }
