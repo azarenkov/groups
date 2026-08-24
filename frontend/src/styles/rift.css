@@ -5407,24 +5407,23 @@ button.ssv-row-delete:focus-visible {
   background: rgba(232, 179, 57, 0.14);
 }
 
-.cs-tile-modmute,
-.call-orb-modmute {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 22px;
-  height: 22px;
-  display: none;
+.cs-menu-item {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 7px 9px;
   border: 0;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
-  z-index: 3;
+  text-align: left;
 }
-.cs-tile:hover .cs-tile-modmute { display: inline-flex; }
-.call-empty-orb:hover .call-orb-modmute { display: inline-flex; }
-.cs-tile-modmute:hover,
-.call-orb-modmute:hover { background: rgba(0, 0, 0, 0.8); }
+.cs-menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import i18nTheater from "../../i18n";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
@@ -6,10 +7,11 @@ import { VideoTileCell } from "./VideoStage";
 import { getLiveKitService, VideoTile } from "../../services/livekit";
 import { UserAvatar } from "./Avatar";
 
-const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
-  id,
-  className,
-}) => {
+const TileVolumeMenu: React.FC<{
+  id: string;
+  className?: string;
+  moderate?: { muted: boolean; onToggle: () => void };
+}> = ({ id, className, moderate }) => {
   const [open, setOpen] = useState(false);
   const [vol, setVol] = useState(100);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -49,7 +51,7 @@ const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
       const menuW = 216;
-      const menuH = 54;
+      const menuH = moderate ? 96 : 54;
       let left = r.left - menuW - 8;
       if (left < 8) left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
       let top = r.top;
@@ -103,6 +105,23 @@ const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
               />
               <span className="cs-menu-pct">{vol}%</span>
             </div>
+            {moderate && (
+              <button
+                type="button"
+                className="cs-menu-item"
+                onClick={() => {
+                  moderate.onToggle();
+                  setOpen(false);
+                }}
+              >
+                <Icon name={moderate.muted ? "mic" : "mic-off"} size={15} />
+                <span>
+                  {moderate.muted
+                    ? i18nTheater.t("voice:unmuteMember")
+                    : i18nTheater.t("voice:muteMember")}
+                </span>
+              </button>
+            )}
           </div>,
           document.body,
         )}
@@ -257,21 +276,18 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                       </span>
                     )}
                     {!r.isSelf && (
-                      <TileVolumeMenu id={r.id} className="call-orb-menu" />
-                    )}
-                    {!r.isSelf && onModerateMute && (
-                      <button
-                        type="button"
-                        className="call-orb-modmute"
-                        title={
-                          r.muted
-                            ? t("voice:unmuteMember")
-                            : t("voice:muteMember")
+                      <TileVolumeMenu
+                        id={r.id}
+                        className="call-orb-menu"
+                        moderate={
+                          onModerateMute
+                            ? {
+                                muted: r.muted,
+                                onToggle: () => onModerateMute(r.id, r.muted),
+                              }
+                            : undefined
                         }
-                        onClick={() => onModerateMute(r.id, r.muted)}
-                      >
-                        <Icon name={r.muted ? "mic" : "mic-off"} size={12} />
-                      </button>
+                      />
                     )}
                   </UserAvatar>
                   <div className="call-empty-name">
@@ -404,17 +420,18 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                 <span>{r.isSelf ? t("you") : r.name}</span>
               </div>
               {!r.isSelf && (
-                <TileVolumeMenu id={r.id} className="cs-tile-menu" />
-              )}
-              {!r.isSelf && onModerateMute && (
-                <button
-                  type="button"
-                  className="cs-tile-modmute"
-                  title={r.muted ? t("voice:unmuteMember") : t("voice:muteMember")}
-                  onClick={() => onModerateMute(r.id, r.muted)}
-                >
-                  <Icon name={r.muted ? "mic" : "mic-off"} size={12} />
-                </button>
+                <TileVolumeMenu
+                  id={r.id}
+                  className="cs-tile-menu"
+                  moderate={
+                    onModerateMute
+                      ? {
+                          muted: r.muted,
+                          onToggle: () => onModerateMute(r.id, r.muted),
+                        }
+                      : undefined
+                  }
+                />
               )}
             </div>
           ))}
