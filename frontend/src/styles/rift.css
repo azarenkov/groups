@@ -5378,15 +5378,21 @@ button.ssv-row-delete:focus-visible {
 
 .sb-voice-mute-btn {
   width: 20px; height: 20px;
-  display: none;
+  display: inline-flex;
+  opacity: 0;
+  pointer-events: none;
   align-items: center; justify-content: center;
   border: 0; border-radius: 5px;
   background: transparent;
   color: var(--fg-3);
   cursor: pointer;
   margin-left: auto;
+  flex: 0 0 auto;
 }
-.sb-voice-member:hover .sb-voice-mute-btn { display: inline-flex; }
+.sb-voice-member:hover .sb-voice-mute-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
 .sb-voice-mute-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
 
 .member-row .member-role-badge {
