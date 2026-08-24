@@ -211,6 +211,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsMuted(true);
       } else if (!moderatorMuted && moderatorLockedRef.current) {
         moderatorLockedRef.current = false;
+        serviceRef.current?.setMicrophoneMuted(false);
+        setIsMuted(false);
       }
     };
     const unsub = useVoicePresenceStore.subscribe(reconcile);
@@ -233,7 +235,11 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
         return;
       }
-      moderatorLockedRef.current = false;
+      if (moderatorLockedRef.current) {
+        moderatorLockedRef.current = false;
+        serviceRef.current?.setMicrophoneMuted(false);
+        setIsMuted(false);
+      }
     };
     window.addEventListener("rift:moderator-mute", onModeratorMute);
     window.addEventListener("rift:moderator-unmute", onModeratorUnmute);
