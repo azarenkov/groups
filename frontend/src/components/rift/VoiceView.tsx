@@ -146,6 +146,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       (userPermissions(rolesData, currentUserId) & PERM_MUTE_MEMBERS) !== 0);
   const presenceMembers = useVoicePresenceStore((s) => s.byChannel[channelId]);
   const moderateMute = (id: string, currentlyMuted: boolean) => {
+    if (id === serverOwnerId) return;
     const rec = presenceMembers?.find((m) => m.id === id);
     const moderatorMuted =
       currentlyMuted && !!rec?.mutedBy && rec.mutedBy !== id;
@@ -280,6 +281,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             viewersFor={viewersFor}
             onWatchChange={onStreamWatch}
             onModerateMute={canModerateMute ? moderateMute : undefined}
+            moderationExcluded={serverOwnerId ? [serverOwnerId] : undefined}
           />,
           stageMount,
         )}

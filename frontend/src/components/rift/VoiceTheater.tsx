@@ -159,6 +159,7 @@ interface VoiceTheaterProps {
   viewersFor?: (id: string) => number | undefined;
   onWatchChange?: (id: string, watching: boolean) => void;
   onModerateMute?: (id: string, currentlyMuted: boolean) => void;
+  moderationExcluded?: string[];
 }
 
 const STRIP_MAX = 6;
@@ -179,6 +180,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   viewersFor,
   onWatchChange,
   onModerateMute,
+  moderationExcluded,
 }) => {
   const { t } = useTranslation(["call", "voice"]);
   const [addOpen, setAddOpen] = useState(false);
@@ -280,7 +282,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                         id={r.id}
                         className="call-orb-menu"
                         moderate={
-                          onModerateMute
+                          onModerateMute && !moderationExcluded?.includes(r.id)
                             ? {
                                 muted: r.muted,
                                 onToggle: () => onModerateMute(r.id, r.muted),
@@ -424,7 +426,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                   id={r.id}
                   className="cs-tile-menu"
                   moderate={
-                    onModerateMute
+                    onModerateMute && !moderationExcluded?.includes(r.id)
                       ? {
                           muted: r.muted,
                           onToggle: () => onModerateMute(r.id, r.muted),

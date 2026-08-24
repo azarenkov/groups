@@ -479,7 +479,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <Icon name="mic-off" size={11} />
                     </span>
                   )}
-                  {m.id !== currentUserId && canMuteIn(server) && (
+                  {m.id !== currentUserId &&
+                    m.id !== server.ownerId &&
+                    canMuteIn(server) && (
                     <button
                       type="button"
                       className="sb-voice-mute-btn"
