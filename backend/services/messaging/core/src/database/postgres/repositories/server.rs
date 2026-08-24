@@ -463,6 +463,14 @@ impl ServerRepository for PostgresServerRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
         let result = sqlx::query!(
             r#"
                 DELETE FROM server_members

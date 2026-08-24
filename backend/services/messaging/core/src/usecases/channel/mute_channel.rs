@@ -94,14 +94,19 @@ where
 
         let now = Utc::now();
 
-                let can_override = if target == initiator {
+        let server_id = domain::server::id::ServerId::new(request.server_id);
+        let server_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?;
+        if target != initiator
+            && server_owner.as_ref() == Some(&target)
+        {
+            return Err(MuteChannelError::Domain(ChannelError::NotOwner));
+        }
+        let can_override = if target == initiator {
             false
         } else {
-            let server_id = domain::server::id::ServerId::new(request.server_id);
-            let server_owner = self
-                .server_repository
-                .find_server_owner(&server_id)
-                .await?;
             server_owner.as_ref() == Some(&initiator)
                 || domain::server::role::has_permission(
                     self.role_repository

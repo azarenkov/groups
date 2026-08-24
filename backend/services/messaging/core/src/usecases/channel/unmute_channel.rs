@@ -94,22 +94,20 @@ where
 
         let now = Utc::now();
 
-                let can_override = if target == initiator {
-            false
-        } else {
-            let server_id = domain::server::id::ServerId::new(request.server_id);
-            let server_owner = self
-                .server_repository
-                .find_server_owner(&server_id)
-                .await?;
-            server_owner.as_ref() == Some(&initiator)
-                || domain::server::role::has_permission(
+        let server_id = domain::server::id::ServerId::new(request.server_id);
+        let server_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?;
+        let is_server_owner = server_owner.as_ref() == Some(&initiator);
+        let can_override = is_server_owner
+            || (target != initiator
+                && domain::server::role::has_permission(
                     self.role_repository
                         .user_permissions(&server_id, &initiator)
                         .await?,
                     domain::server::role::PERM_MUTE_MEMBERS,
-                )
-        };
+                ));
         channel.unmute(target, initiator, can_override, now)?;
 
         let request_id = request.ctx.request_id.clone();
