@@ -9,6 +9,7 @@ import { ServerLogo, UserAvatar } from "./Avatar";
 import { channelAPI } from "../../api/channel";
 import {
   PERM_MANAGE_CHANNELS,
+  PERM_MANAGE_INVITES,
   PERM_MUTE_MEMBERS,
   useRolesStore,
   userPermissions,
@@ -198,6 +199,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   React.useEffect(() => {
     if (openServerId) void fetchRoles(openServerId).catch(() => {});
   }, [openServerId, fetchRoles]);
+  const canInviteIn = (server: Server) =>
+    !!currentUserId &&
+    (server.ownerId === currentUserId ||
+      (userPermissions(rolesByServer[server.id], currentUserId) &
+        PERM_MANAGE_INVITES) !==
+        0);
   const canManageChannelsIn = (server: Server) =>
     !!currentUserId &&
     (server.ownerId === currentUserId ||
@@ -537,14 +544,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             style={{ background: accent }}
           />
           <span className="sb-srv-name">{server.name}</span>
-          <button
-            type="button"
-            className="sb-section-add"
-            title={t("inviteFriends")}
-            onClick={() => onInviteServer(server)}
-          >
-            <Icon name="user-plus" size={14} />
-          </button>
+          {canInviteIn(server) && (
+            <button
+              type="button"
+              className="sb-section-add"
+              title={t("inviteFriends")}
+              onClick={() => onInviteServer(server)}
+            >
+              <Icon name="user-plus" size={14} />
+            </button>
+          )}
           <button
             type="button"
             className="sb-section-add"

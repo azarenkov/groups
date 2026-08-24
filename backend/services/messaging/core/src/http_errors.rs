@@ -394,11 +394,15 @@ impl ToHttpStatus for CreateInviteCodeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             CreateInviteCodeError::NotMember => StatusCode::FORBIDDEN,
+            CreateInviteCodeError::NotAllowed => StatusCode::FORBIDDEN,
             CreateInviteCodeError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
+            CreateInviteCodeError::NotAllowed => {
+                "You don't have permission to manage invites".to_string()
+            }
             CreateInviteCodeError::NotMember => {
                 "You are not a member of this server.".to_string()
             }
@@ -408,6 +412,7 @@ impl ToHttpStatus for CreateInviteCodeError {
     fn to_error_code(&self) -> &'static str {
         match self {
             CreateInviteCodeError::NotMember => "SERVER_NOT_MEMBER",
+            CreateInviteCodeError::NotAllowed => "INVITE_NOT_ALLOWED",
             CreateInviteCodeError::Repository(e) => e.to_error_code(),
         }
     }
@@ -417,11 +422,15 @@ impl ToHttpStatus for ListInviteCodesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListInviteCodesError::NotMember => StatusCode::FORBIDDEN,
+            ListInviteCodesError::NotAllowed => StatusCode::FORBIDDEN,
             ListInviteCodesError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
+            ListInviteCodesError::NotAllowed => {
+                "You don't have permission to manage invites".to_string()
+            }
             ListInviteCodesError::NotMember => {
                 "You are not a member of this server.".to_string()
             }
@@ -431,6 +440,7 @@ impl ToHttpStatus for ListInviteCodesError {
     fn to_error_code(&self) -> &'static str {
         match self {
             ListInviteCodesError::NotMember => "SERVER_NOT_MEMBER",
+            ListInviteCodesError::NotAllowed => "INVITE_NOT_ALLOWED",
             ListInviteCodesError::Repository(e) => e.to_error_code(),
         }
     }

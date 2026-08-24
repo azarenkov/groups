@@ -197,8 +197,10 @@ pub struct AppState {
         DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
     pub update_server_usecase:
         UpdateServer<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
-    pub list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
+    pub create_invite_code_usecase:
+        CreateInviteCode<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub list_invite_codes_usecase:
+        ListInviteCodes<PostgresServerRepository, PostgresServerRoleRepository>,
     pub revoke_invite_code_usecase:
         RevokeInviteCode<PostgresServerRepository, PostgresServerRoleRepository>,
     pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,

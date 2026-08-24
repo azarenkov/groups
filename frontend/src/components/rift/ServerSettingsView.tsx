@@ -118,6 +118,10 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const grantableBits = isOwner ? ~0 : myPerms;
   const canManageServer = isOwner || (myPerms & PERM_MANAGE_SERVER) !== 0;
   const canManageChannels = isOwner || (myPerms & PERM_MANAGE_CHANNELS) !== 0;
+  const canManageInvites = isOwner || (myPerms & PERM_MANAGE_INVITES) !== 0;
+  const visibleSections = SECTIONS.filter(
+    (sec) => sec.id !== "invites" || canManageInvites,
+  );
 
   const ROLE_COLORS = [
     "#5865f2", "#3ba55c", "#faa61a", "#ed4245", "#eb459e", "#9b59b6", "#00b0f4", "#8e8e93",
@@ -558,7 +562,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
           </div>
         </div>
         <div className="rail-section">{t("navTitle")}</div>
-        {SECTIONS.map((s) => (
+        {visibleSections.map((s) => (
           <button
             key={s.id}
             type="button"

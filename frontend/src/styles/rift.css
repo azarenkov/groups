@@ -5406,3 +5406,25 @@ button.ssv-row-delete:focus-visible {
   color: #e8b339;
   background: rgba(232, 179, 57, 0.14);
 }
+
+.cs-tile-modmute,
+.call-orb-modmute {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  z-index: 3;
+}
+.cs-tile:hover .cs-tile-modmute { display: inline-flex; }
+.call-empty-orb:hover .call-orb-modmute { display: inline-flex; }
+.cs-tile-modmute:hover,
+.call-orb-modmute:hover { background: rgba(0, 0, 0, 0.8); }

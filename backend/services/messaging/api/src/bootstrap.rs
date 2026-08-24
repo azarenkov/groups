@@ -338,8 +338,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_repository.clone(),
             server_role_repository.clone(),
         ),
-        create_invite_code_usecase: CreateInviteCode::new(server_repository.clone()),
-        list_invite_codes_usecase: ListInviteCodes::new(server_repository.clone()),
+        create_invite_code_usecase: CreateInviteCode::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        list_invite_codes_usecase: ListInviteCodes::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
         revoke_invite_code_usecase: RevokeInviteCode::new(
             server_repository.clone(),
             server_role_repository.clone(),

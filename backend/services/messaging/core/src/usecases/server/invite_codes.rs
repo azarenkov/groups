@@ -26,17 +26,25 @@ fn generate_code() -> String {
 pub enum CreateInviteCodeError {
     #[error("Not a member of this server")]
     NotMember,
+    #[error("Missing permission to manage invites")]
+    NotAllowed,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
 }
 
-pub struct CreateInviteCode<S: ServerRepository> {
+pub struct CreateInviteCode<S: ServerRepository, R: domain::server::role::ServerRoleRepository> {
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<S: ServerRepository> CreateInviteCode<S> {
-    pub fn new(server_repository: Arc<S>) -> Self {
-        Self { server_repository }
+impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
+    CreateInviteCode<S, R>
+{
+    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
+        Self {
+            server_repository,
+            role_repository,
+        }
     }
 
     pub async fn execute(
@@ -52,6 +60,17 @@ impl<S: ServerRepository> CreateInviteCode<S> {
             .await?;
         if !is_member {
             return Err(CreateInviteCodeError::NotMember);
+        }
+        let owner = self.server_repository.find_server_owner(&server_id).await?;
+        let allowed = owner.as_ref() == Some(&user_id)
+            || domain::server::role::has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &user_id)
+                    .await?,
+                domain::server::role::PERM_MANAGE_INVITES,
+            );
+        if !allowed {
+            return Err(CreateInviteCodeError::NotAllowed);
         }
 
         let expires_at = expires_days
@@ -77,17 +96,25 @@ impl<S: ServerRepository> CreateInviteCode<S> {
 pub enum ListInviteCodesError {
     #[error("Not a member of this server")]
     NotMember,
+    #[error("Missing permission to manage invites")]
+    NotAllowed,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
 }
 
-pub struct ListInviteCodes<S: ServerRepository> {
+pub struct ListInviteCodes<S: ServerRepository, R: domain::server::role::ServerRoleRepository> {
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<S: ServerRepository> ListInviteCodes<S> {
-    pub fn new(server_repository: Arc<S>) -> Self {
-        Self { server_repository }
+impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
+    ListInviteCodes<S, R>
+{
+    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
+        Self {
+            server_repository,
+            role_repository,
+        }
     }
 
     pub async fn execute(
@@ -101,6 +128,17 @@ impl<S: ServerRepository> ListInviteCodes<S> {
             .await?;
         if !is_member {
             return Err(ListInviteCodesError::NotMember);
+        }
+        let owner = self.server_repository.find_server_owner(&server_id).await?;
+        let allowed = owner.as_ref() == Some(&user_id)
+            || domain::server::role::has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &user_id)
+                    .await?,
+                domain::server::role::PERM_MANAGE_INVITES,
+            );
+        if !allowed {
+            return Err(ListInviteCodesError::NotAllowed);
         }
         let invites = self.server_repository.list_invite_codes(&server_id).await?;
         Ok(invites)

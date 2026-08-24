@@ -139,6 +139,7 @@ interface VoiceTheaterProps {
   };
   viewersFor?: (id: string) => number | undefined;
   onWatchChange?: (id: string, watching: boolean) => void;
+  onModerateMute?: (id: string, currentlyMuted: boolean) => void;
 }
 
 const STRIP_MAX = 6;
@@ -158,6 +159,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   invite,
   viewersFor,
   onWatchChange,
+  onModerateMute,
 }) => {
   const { t } = useTranslation(["call", "voice"]);
   const [addOpen, setAddOpen] = useState(false);
@@ -256,6 +258,20 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                     )}
                     {!r.isSelf && (
                       <TileVolumeMenu id={r.id} className="call-orb-menu" />
+                    )}
+                    {!r.isSelf && onModerateMute && (
+                      <button
+                        type="button"
+                        className="call-orb-modmute"
+                        title={
+                          r.muted
+                            ? t("voice:unmuteMember")
+                            : t("voice:muteMember")
+                        }
+                        onClick={() => onModerateMute(r.id, r.muted)}
+                      >
+                        <Icon name={r.muted ? "mic" : "mic-off"} size={12} />
+                      </button>
                     )}
                   </UserAvatar>
                   <div className="call-empty-name">
@@ -389,6 +405,16 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
               </div>
               {!r.isSelf && (
                 <TileVolumeMenu id={r.id} className="cs-tile-menu" />
+              )}
+              {!r.isSelf && onModerateMute && (
+                <button
+                  type="button"
+                  className="cs-tile-modmute"
+                  title={r.muted ? t("voice:unmuteMember") : t("voice:muteMember")}
+                  onClick={() => onModerateMute(r.id, r.muted)}
+                >
+                  <Icon name={r.muted ? "mic" : "mic-off"} size={12} />
+                </button>
               )}
             </div>
           ))}
