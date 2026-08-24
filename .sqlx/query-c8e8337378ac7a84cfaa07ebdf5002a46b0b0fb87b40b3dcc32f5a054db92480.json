@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO notification_preferences (user_id, scope_type, scope_id, level, updated_at)\n            VALUES ($1, $2, $3, $4, now())\n            ON CONFLICT (user_id, scope_type, scope_id)\n            DO UPDATE SET\n                level = EXCLUDED.level,\n                updated_at = EXCLUDED.updated_at,\n                version = notification_preferences.version + 1\n            RETURNING updated_at, version\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "version",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c8e8337378ac7a84cfaa07ebdf5002a46b0b0fb87b40b3dcc32f5a054db92480"
+}

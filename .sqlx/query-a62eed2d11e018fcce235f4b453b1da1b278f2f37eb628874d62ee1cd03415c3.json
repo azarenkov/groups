@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) AS \"count!\", COALESCE(SUM(size_bytes), 0)::BIGINT AS \"bytes!\"\n            FROM attachments\n            WHERE owner_id = $1 AND claimed_at IS NULL\n              AND deleting_at IS NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "bytes!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "a62eed2d11e018fcce235f4b453b1da1b278f2f37eb628874d62ee1cd03415c3"
+}

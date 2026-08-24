@@ -12,7 +12,6 @@ use crate::{
     user::{id::UserId, name::UserName},
 };
 
-#[async_trait]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RemoveMemberOutcome {
     Removed,
@@ -20,6 +19,7 @@ pub enum RemoveMemberOutcome {
     Denied,
 }
 
+#[async_trait]
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
     async fn save_server_with_events(

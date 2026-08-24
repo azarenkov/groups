@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT attachment_id AS \"attachment_id!\" FROM message_attachments\n            WHERE attachment_id = ANY($1)\n            UNION\n            SELECT attachment_id AS \"attachment_id!\" FROM dm_message_attachments\n            WHERE attachment_id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "attachment_id!",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "429a970318717d28219429cfbc02d27dfa97518144f479292a6a8c5b48f72c4c"
+}

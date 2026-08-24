@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE channel_voice_participants\n                    SET screen_on = $4\n                    WHERE channel_id = $1 AND user_id = $2 AND session_id = $3\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0f080ed0401cff908ef0eae84ac36319d1cfa150d697ee08311fdb87f3ad31f0"
+}

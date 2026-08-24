@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE attachments\n            SET claimed_at = NULL, claim_token = NULL\n            WHERE id = ANY($1)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b36c284bd6e0e4e835dfbef62fd50ab8eb2c8168cab78c7317ae54d67cbed7c3"
+}

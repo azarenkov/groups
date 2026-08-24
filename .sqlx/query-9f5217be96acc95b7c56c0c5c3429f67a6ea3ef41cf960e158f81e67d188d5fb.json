@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE friendships\n            SET status = $3, updated_at = $4\n            WHERE user_id = $1 AND friend_id = $2 AND status = $5\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "friendship_status",
+            "kind": {
+              "Enum": [
+                "pending_outgoing",
+                "pending_incoming",
+                "accepted",
+                "declined"
+              ]
+            }
+          }
+        },
+        "Timestamptz",
+        {
+          "Custom": {
+            "name": "friendship_status",
+            "kind": {
+              "Enum": [
+                "pending_outgoing",
+                "pending_incoming",
+                "accepted",
+                "declined"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9f5217be96acc95b7c56c0c5c3429f67a6ea3ef41cf960e158f81e67d188d5fb"
+}

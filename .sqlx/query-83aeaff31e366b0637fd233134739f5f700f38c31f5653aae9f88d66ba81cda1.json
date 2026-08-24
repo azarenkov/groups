@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO channel_voice_participants (channel_id, user_id, session_id)\n                    VALUES ($1, $2, $3)\n                    ON CONFLICT DO NOTHING\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "83aeaff31e366b0637fd233134739f5f700f38c31f5653aae9f88d66ba81cda1"
+}

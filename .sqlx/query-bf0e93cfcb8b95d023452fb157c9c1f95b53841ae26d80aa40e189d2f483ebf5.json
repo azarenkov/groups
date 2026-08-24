@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                DELETE FROM dm_messages\n                WHERE id = $1 AND recipient_id = $2 AND invite_server_id = $3\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf0e93cfcb8b95d023452fb157c9c1f95b53841ae26d80aa40e189d2f483ebf5"
+}

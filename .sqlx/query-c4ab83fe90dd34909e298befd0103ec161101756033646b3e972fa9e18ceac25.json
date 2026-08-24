@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT max(r.position) AS \"top\"\n                FROM server_member_roles mr\n                INNER JOIN server_roles r ON r.id = mr.role_id\n                WHERE mr.server_id = $1 AND mr.user_id = $2\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "top",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c4ab83fe90dd34909e298befd0103ec161101756033646b3e972fa9e18ceac25"
+}
