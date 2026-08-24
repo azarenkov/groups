@@ -319,6 +319,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_repository.clone(),
             friendship_repository.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         accept_server_invite_usecase: AcceptServerInvite::new(
             dm_repository.clone(),

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO channel_muted_participants\n                (channel_id, user_id, muted_by, muted_at)\n            VALUES ($1, $2, $3, $4)\n            ON CONFLICT (channel_id, user_id) DO UPDATE\n                SET muted_by = EXCLUDED.muted_by, muted_at = EXCLUDED.muted_at\n                WHERE channel_muted_participants.muted_by = EXCLUDED.user_id\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9f17cd1f7578ef641448052d08764e0284a5443d2b943abbad89265993a078a2"
+}

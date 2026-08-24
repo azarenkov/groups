@@ -93,7 +93,8 @@ where
             .server_repository
             .find_server_owner(&server_id)
             .await?;
-        let allowed = server_owner.as_ref() == Some(&deleted_by)
+        let allowed = channel.owner_id() == &deleted_by
+            || server_owner.as_ref() == Some(&deleted_by)
             || has_permission(
                 self.role_repository
                     .user_permissions(&server_id, &deleted_by)

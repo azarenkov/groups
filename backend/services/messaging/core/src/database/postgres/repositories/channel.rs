@@ -380,6 +380,7 @@ impl ChannelRepository for PostgresChannelRepository {
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (channel_id, user_id) DO UPDATE
                 SET muted_by = EXCLUDED.muted_by, muted_at = EXCLUDED.muted_at
+                WHERE channel_muted_participants.muted_by = EXCLUDED.user_id
             "#,
             channel_id.uuid(),
             target.uuid(),

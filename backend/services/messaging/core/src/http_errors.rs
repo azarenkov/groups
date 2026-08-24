@@ -1102,6 +1102,7 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
             SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
             SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
+            SendServerInviteError::NotAllowed => StatusCode::FORBIDDEN,
             SendServerInviteError::AlreadyMember => StatusCode::CONFLICT,
             SendServerInviteError::InviteAlreadyPending => StatusCode::CONFLICT,
         }
@@ -1117,6 +1118,9 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::ServerNotFound => "Server not found".to_string(),
             SendServerInviteError::NotServerMember => {
                 "Only members of this server can invite people".to_string()
+            }
+            SendServerInviteError::NotAllowed => {
+                "You don't have permission to manage invites".to_string()
             }
             SendServerInviteError::AlreadyMember => {
                 "This user is already a member of the server".to_string()
@@ -1134,6 +1138,7 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::NotFriends => "NOT_FRIENDS",
             SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
             SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
+            SendServerInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
             SendServerInviteError::AlreadyMember => "ALREADY_MEMBER",
             SendServerInviteError::InviteAlreadyPending => "INVITE_ALREADY_PENDING",
         }

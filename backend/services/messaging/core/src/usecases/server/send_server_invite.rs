@@ -30,6 +30,8 @@ pub enum SendServerInviteError {
     NotFriends,
     #[error("Server not found")]
     ServerNotFound,
+    #[error("Missing permission to manage invites")]
+    NotAllowed,
     #[error("Only server members can send invites")]
     NotServerMember,
     #[error("This user is already a member of the server")]
@@ -38,32 +40,37 @@ pub enum SendServerInviteError {
     InviteAlreadyPending,
 }
 
-pub struct SendServerInvite<M, F, S>
+pub struct SendServerInvite<M, F, S, R>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
     S: ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
 {
     dm_repository: Arc<M>,
     friendship_repository: Arc<F>,
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<M, F, S> SendServerInvite<M, F, S>
+impl<M, F, S, R> SendServerInvite<M, F, S, R>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
     S: ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
 {
     pub fn new(
         dm_repository: Arc<M>,
         friendship_repository: Arc<F>,
         server_repository: Arc<S>,
+        role_repository: Arc<R>,
     ) -> Self {
         Self {
             dm_repository,
             friendship_repository,
             server_repository,
+            role_repository,
         }
     }
 
@@ -94,6 +101,18 @@ where
             .await?
         {
             return Err(SendServerInviteError::NotServerMember);
+        }
+
+        let owner = self.server_repository.find_server_owner(&server_id).await?;
+        let allowed = owner.as_ref() == Some(&sender_id)
+            || domain::server::role::has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &sender_id)
+                    .await?,
+                domain::server::role::PERM_MANAGE_INVITES,
+            );
+        if !allowed {
+            return Err(SendServerInviteError::NotAllowed);
         }
 
         if self
