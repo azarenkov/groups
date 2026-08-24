@@ -13,6 +13,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpdateServerOutcome {
+    Updated,
+    NotFound,
+    Denied,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RemoveMemberOutcome {
     Removed,
     NotMember,
@@ -84,8 +91,9 @@ pub trait ServerRepository {
         server_id: &ServerId,
         name: &str,
         description: Option<&str>,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<UpdateServerOutcome, RepositoryError>;
     async fn create_invite_code(
         &self,
         server_id: &ServerId,

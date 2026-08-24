@@ -105,15 +105,29 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
-        let updated = self
+        let delegated = if actual_owner.uuid() == owner_id.uuid() {
+            None
+        } else {
+            Some(&owner_id)
+        };
+        match self
             .server_repository
-            .update_server_details(&server_id, &name, description.as_deref(), &records)
-            .await?;
-
-        if !updated {
-            return Err(UpdateServerError::ServerNotFound);
+            .update_server_details(
+                &server_id,
+                &name,
+                description.as_deref(),
+                delegated,
+                &records,
+            )
+            .await?
+        {
+            domain::server::repository::UpdateServerOutcome::Updated => Ok(()),
+            domain::server::repository::UpdateServerOutcome::NotFound => {
+                Err(UpdateServerError::ServerNotFound)
+            }
+            domain::server::repository::UpdateServerOutcome::Denied => {
+                Err(UpdateServerError::NotOwner)
+            }
         }
-
-        Ok(())
     }
 }
