@@ -5370,10 +5370,12 @@ button.ssv-row-delete:focus-visible {
 .ssv-role-detail {
   padding: 4px 16px 16px 36px;
 }
+.ssv-role-detail .ssv-section-label { margin-top: 18px; }
 .ssv-role-members {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-top: 6px;
 }
 .ssv-role-member-row {
   display: flex;
