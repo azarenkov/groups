@@ -5352,11 +5352,15 @@ button.ssv-row-delete:focus-visible {
   margin-top: 14px;
 }
 .ssv-role-perm {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   font-size: 13px; color: var(--fg-2);
-  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: var(--surface-inset, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--hairline);
 }
-.ssv-role-perm input { accent-color: var(--accent); }
+.ssv-role-perm .s-switch { flex: 0 0 auto; }
+.ssv-role-perm .s-switch:disabled { opacity: 0.4; cursor: default; }
 .ssv-role-row { cursor: pointer; }
 .ssv-role-dot {
   width: 14px; height: 14px; border-radius: 50%;
@@ -5367,9 +5371,35 @@ button.ssv-row-delete:focus-visible {
   padding: 4px 16px 16px 36px;
 }
 .ssv-role-members {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 6px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
+.ssv-role-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 9px;
+}
+.ssv-role-member-row:hover { background: var(--surface-hover); }
+.ssv-role-member-ava {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50%;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+.ssv-role-member-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--fg-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ssv-role-member-row .s-switch { flex: 0 0 auto; }
 
 .flip-y { transform: scaleY(-1); }
 .ssv-role-reorder { display: inline-flex; gap: 0; }

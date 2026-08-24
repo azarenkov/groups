@@ -885,25 +885,26 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                     ))}
                   </div>
                   <div className="ssv-role-perms">
-                    {PERMS.map((perm) => (
-                      <label key={perm.bit} className="ssv-role-perm">
-                        <input
-                          type="checkbox"
-                          checked={(newRolePerms & perm.bit) !== 0}
-                          disabled={
-                            roleBusy ||
-                            ((newRolePerms & perm.bit) === 0 &&
-                              (grantableBits & perm.bit) === 0)
-                          }
-                          onChange={(e) =>
+                    {PERMS.map((perm) => {
+                      const on = (newRolePerms & perm.bit) !== 0;
+                      const locked =
+                        roleBusy || (!on && (grantableBits & perm.bit) === 0);
+                      return (
+                      <div key={perm.bit} className="ssv-role-perm">
+                        <span>{t(perm.key)}</span>
+                        <button
+                          type="button"
+                          className={"s-switch" + (on ? " on" : "")}
+                          disabled={locked}
+                          onClick={() =>
                             setNewRolePerms((prev) =>
-                              e.target.checked ? prev | perm.bit : prev & ~perm.bit,
+                              on ? prev & ~perm.bit : prev | perm.bit,
                             )
                           }
                         />
-                        <span>{t(perm.key)}</span>
-                      </label>
-                    ))}
+                      </div>
+                      );
+                    })}
                   </div>
                 </form>
               )}
@@ -1015,27 +1016,27 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                             ))}
                           </div>
                           <div className="ssv-role-perms">
-                            {PERMS.map((perm) => (
-                              <label key={perm.bit} className="ssv-role-perm">
-                                <input
-                                  type="checkbox"
-                                  checked={
-                                    ((rolePermsDraft[role.id] ?? role.permissions) &
-                                      perm.bit) !==
-                                    0
-                                  }
-                                  disabled={
-                                    ((rolePermsDraft[role.id] ?? role.permissions) &
-                                      perm.bit) ===
-                                      0 && (grantableBits & perm.bit) === 0
-                                  }
-                                  onChange={(e) =>
-                                    toggleRolePerm(role, perm.bit, e.target.checked)
-                                  }
-                                />
-                                <span>{t(perm.key)}</span>
-                              </label>
-                            ))}
+                            {PERMS.map((perm) => {
+                              const on =
+                                ((rolePermsDraft[role.id] ?? role.permissions) &
+                                  perm.bit) !==
+                                0;
+                              const locked =
+                                !on && (grantableBits & perm.bit) === 0;
+                              return (
+                                <div key={perm.bit} className="ssv-role-perm">
+                                  <span>{t(perm.key)}</span>
+                                  <button
+                                    type="button"
+                                    className={"s-switch" + (on ? " on" : "")}
+                                    disabled={locked}
+                                    onClick={() =>
+                                      toggleRolePerm(role, perm.bit, !on)
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="ssv-section-label">{t("roleMembers")}</div>
                           <div className="ssv-role-members">
@@ -1044,16 +1045,23 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                                 role.id,
                               );
                               return (
-                                <label key={m.id} className="ssv-role-perm">
-                                  <input
-                                    type="checkbox"
-                                    checked={has}
-                                    onChange={() =>
+                                <div key={m.id} className="ssv-role-member-row">
+                                  <UserAvatar
+                                    userId={m.id}
+                                    name={m.name}
+                                    className="ssv-role-member-ava"
+                                  />
+                                  <span className="ssv-role-member-name">
+                                    {m.name}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className={"s-switch" + (has ? " on" : "")}
+                                    onClick={() =>
                                       void toggleAssignment(role.id, m.id, has)
                                     }
                                   />
-                                  <span>{m.name}</span>
-                                </label>
+                                </div>
                               );
                             })}
                           </div>
