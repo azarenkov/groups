@@ -89,22 +89,21 @@ where
         let now = Utc::now();
         let supports_voice = channel.supports_voice();
 
-        let can_override = if channel.owner_id() == &deleted_by {
-            false
-        } else {
-            let server_owner = self
-                .server_repository
-                .find_server_owner(&server_id)
-                .await?;
-            server_owner.as_ref() == Some(&deleted_by)
-                || has_permission(
-                    self.role_repository
-                        .user_permissions(&server_id, &deleted_by)
-                        .await?,
-                    PERM_MANAGE_CHANNELS,
-                )
-        };
-        channel.delete(deleted_by, can_override, now).map_err(|e| match e {
+        let server_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?;
+        let allowed = server_owner.as_ref() == Some(&deleted_by)
+            || has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &deleted_by)
+                    .await?,
+                PERM_MANAGE_CHANNELS,
+            );
+        if !allowed {
+            return Err(DeleteChannelError::NotOwner);
+        }
+        channel.delete(deleted_by, true, now).map_err(|e| match e {
             ChannelError::NotOwner => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;

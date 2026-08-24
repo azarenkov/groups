@@ -8,6 +8,7 @@ import { colorForId } from "../../utils/avatar";
 import { ServerLogo, UserAvatar } from "./Avatar";
 import { channelAPI } from "../../api/channel";
 import {
+  PERM_MANAGE_CHANNELS,
   PERM_MUTE_MEMBERS,
   useRolesStore,
   userPermissions,
@@ -197,6 +198,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   React.useEffect(() => {
     if (openServerId) void fetchRoles(openServerId).catch(() => {});
   }, [openServerId, fetchRoles]);
+  const canManageChannelsIn = (server: Server) =>
+    !!currentUserId &&
+    (server.ownerId === currentUserId ||
+      (userPermissions(rolesByServer[server.id], currentUserId) &
+        PERM_MANAGE_CHANNELS) !==
+        0);
   const canMuteIn = (server: Server) =>
     !!currentUserId &&
     (server.ownerId === currentUserId ||
@@ -551,14 +558,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           <>
             <div className="sb-vhead">
               <span className="sb-vhead-label">{t("textChannels")}</span>
-              <button
-                type="button"
-                className="sb-vhead-add"
-                title={t("addChannel")}
-                onClick={() => onAddChannel(server, "text")}
-              >
-                <Icon name="plus" size={14} />
-              </button>
+              {canManageChannelsIn(server) && (
+                <button
+                  type="button"
+                  className="sb-vhead-add"
+                  title={t("addChannel")}
+                  onClick={() => onAddChannel(server, "text")}
+                >
+                  <Icon name="plus" size={14} />
+                </button>
+              )}
             </div>
             <div className="sb-srv-channels">
               {textChannels.map((c) => renderChannelRow(server, c))}
@@ -569,14 +578,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           <>
             <div className="sb-vhead">
               <span className="sb-vhead-label">{t("voiceChannels")}</span>
-              <button
-                type="button"
-                className="sb-vhead-add"
-                title={t("addChannel")}
-                onClick={() => onAddChannel(server, "voice")}
-              >
-                <Icon name="plus" size={14} />
-              </button>
+              {canManageChannelsIn(server) && (
+                <button
+                  type="button"
+                  className="sb-vhead-add"
+                  title={t("addChannel")}
+                  onClick={() => onAddChannel(server, "voice")}
+                >
+                  <Icon name="plus" size={14} />
+                </button>
+              )}
             </div>
             <div className="sb-srv-channels">
               {voiceChannels.map((c) => renderChannelRow(server, c))}

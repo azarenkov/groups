@@ -67,7 +67,12 @@ use messaging::{
 
 pub struct AppState {
     pub create_channel_usecase:
-        CreateChannel<PostgresChannelRepository, BcryptHasher, PostgresServerRepository>,
+        CreateChannel<
+            PostgresChannelRepository,
+            BcryptHasher,
+            PostgresServerRepository,
+            PostgresServerRoleRepository,
+        >,
     pub join_voice_channel_usecase: JoinVoiceChannel<
         LiveKitService,
         PostgresChannelRepository,

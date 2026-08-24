@@ -154,6 +154,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             hasher.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         join_voice_channel_usecase: JoinVoiceChannel::new(
             livekit_service.clone(),

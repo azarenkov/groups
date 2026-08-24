@@ -117,6 +117,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     canManageRoles && position < myTopPosition;
   const grantableBits = isOwner ? ~0 : myPerms;
   const canManageServer = isOwner || (myPerms & PERM_MANAGE_SERVER) !== 0;
+  const canManageChannels = isOwner || (myPerms & PERM_MANAGE_CHANNELS) !== 0;
 
   const ROLE_COLORS = [
     "#5865f2", "#3ba55c", "#faa61a", "#ed4245", "#eb459e", "#9b59b6", "#00b0f4", "#8e8e93",
@@ -713,6 +714,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
               <p className="lead">
                 {t("channelsLead", { count: channels.length, server: server.name })}
               </p>
+              {canManageChannels && (
               <form
                 className="ssv-invite-card"
                 onSubmit={(e) => {
@@ -788,6 +790,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 </div>
                 {newChError && <div className="ssv-error">{newChError}</div>}
               </form>
+              )}
               <div className="ssv-section-label">
                 {t("channelList", { count: channels.length })}
               </div>
@@ -814,9 +817,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                           <Icon name="lock" size={11} />
                         </span>
                       )}
-                      {(c.ownerId === currentUserId ||
-                        isOwner ||
-                        (myPerms & PERM_MANAGE_CHANNELS) !== 0) && (
+                      {canManageChannels && (
                         <button
                           type="button"
                           className="ssv-row-delete"

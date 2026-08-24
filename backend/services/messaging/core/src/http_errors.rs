@@ -59,6 +59,7 @@ impl ToHttpStatus for CreateChannelError {
         match self {
             CreateChannelError::Repository(e) => e.to_http_status(),
             CreateChannelError::Hash(e) => e.to_http_status(),
+            CreateChannelError::NotAllowed => StatusCode::FORBIDDEN,
             CreateChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
             CreateChannelError::InvalidData => StatusCode::BAD_REQUEST,
             CreateChannelError::Domain(e) => e.to_http_status(),
@@ -70,6 +71,9 @@ impl ToHttpStatus for CreateChannelError {
         match self {
             CreateChannelError::Repository(e) => e.to_user_message(),
             CreateChannelError::Hash(e) => e.to_user_message(),
+            CreateChannelError::NotAllowed => {
+                "You don't have permission to manage channels".to_string()
+            }
             CreateChannelError::PasswordRequired => {
                 "Password is required for private channels".to_string()
             }
@@ -83,6 +87,7 @@ impl ToHttpStatus for CreateChannelError {
         match self {
             CreateChannelError::Repository(e) => e.to_error_code(),
             CreateChannelError::Hash(e) => e.to_error_code(),
+            CreateChannelError::NotAllowed => "CHANNEL_NOT_ALLOWED",
             CreateChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
             CreateChannelError::InvalidData => "CHANNEL_INVALID_DATA",
             CreateChannelError::Domain(e) => e.to_error_code(),
