@@ -421,8 +421,9 @@ function dispatch(env: WsEnvelope) {
       const serverId = asString(d.serverId);
       if (!serverId) return;
       void import("../store/rolesStore").then(({ useRolesStore }) => {
-        if (useRolesStore.getState().byServer[serverId]) {
-          void useRolesStore.getState().fetch(serverId).catch(() => {});
+        const roles = useRolesStore.getState();
+        if (roles.byServer[serverId] || roles.isTracked(serverId)) {
+          void roles.fetch(serverId).catch(() => {});
         }
       });
       return;

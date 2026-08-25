@@ -212,19 +212,21 @@ const Sidebar: React.FC<SidebarProps> = ({
       (userPermissions(rolesByServer[server.id], currentUserId) &
         PERM_MANAGE_CHANNELS) !==
         0);
-  const outranksIn = (server: Server, memberId: string) => {
+  const outranksIn = (server: Server, memberId: string, channel?: Channel) => {
     if (!currentUserId) return false;
     if (server.ownerId === currentUserId) return true;
     if (memberId === server.ownerId) return false;
+    if (channel && channel.ownerId === currentUserId) return true;
     const data = rolesByServer[server.id];
     const myTop = topRoleFor(data, currentUserId)?.position;
     if (myTop === undefined) return false;
     const targetTop = topRoleFor(data, memberId)?.position;
     return targetTop === undefined || targetTop < myTop;
   };
-  const canMuteIn = (server: Server) =>
+  const canMuteIn = (server: Server, channel?: Channel) =>
     !!currentUserId &&
     (server.ownerId === currentUserId ||
+      (channel !== undefined && channel.ownerId === currentUserId) ||
       (userPermissions(rolesByServer[server.id], currentUserId) &
         PERM_MUTE_MEMBERS) !==
         0);
@@ -491,8 +493,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                   {m.id !== currentUserId &&
-                    canMuteIn(server) &&
-                    outranksIn(server, m.id) && (
+                    canMuteIn(server, channel) &&
+                    outranksIn(server, m.id, channel) && (
                     <button
                       type="button"
                       className="sb-voice-mute-btn"
