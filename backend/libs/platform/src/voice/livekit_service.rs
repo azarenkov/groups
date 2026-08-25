@@ -215,7 +215,7 @@ impl VoiceService for LiveKitService {
             can_publish_sources: Vec::new(),
             ..Default::default()
         };
-        match livekit_room
+        let participant = match livekit_room
             .update_participant(
                 &room,
                 &identity,
@@ -226,14 +226,33 @@ impl VoiceService for LiveKitService {
             )
             .await
         {
-            Ok(_) => Ok(()),
+            Ok(p) => p,
             Err(ServiceError::Twirp(TwirpError::Twirp(code)))
                 if code.code == TwirpErrorCode::NOT_FOUND =>
             {
-                Ok(())
+                return Ok(());
             }
-            Err(e) => Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
+            Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
+        };
+        for track in participant.tracks {
+            let is_muted_microphone =
+                track.source == livekit_protocol::TrackSource::Microphone as i32 && track.muted;
+            if !is_muted_microphone {
+                continue;
+            }
+            if let Err(e) = livekit_room
+                .mute_published_track(&room, &identity, &track.sid, false)
+                .await
+            {
+                tracing::warn!(
+                    error = %e,
+                    room = %room,
+                    identity = %identity,
+                    "Failed to unmute microphone track after restoring permissions",
+                );
+            }
         }
+        Ok(())
     }
 
     fn client_url(&self) -> String {
