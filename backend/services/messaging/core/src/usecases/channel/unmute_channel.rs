@@ -140,6 +140,11 @@ where
                 )
                 .await?);
         channel.unmute(target, initiator, can_override, now)?;
+        let expected_muted_by = if target == initiator && !can_override {
+            Some(&target)
+        } else {
+            None
+        };
 
         let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel
@@ -149,7 +154,7 @@ where
             .collect::<Result<_, _>>()?;
 
         self.channel_repository
-            .unmute_participant_with_events(&channel_id, &target, &records)
+            .unmute_participant_with_events(&channel_id, &target, expected_muted_by, &records)
             .await?;
 
         Ok(())

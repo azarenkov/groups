@@ -168,6 +168,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             server_repository.clone(),
             server_role_repository.clone(),
+            livekit_service.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
             channel_repository.clone(),

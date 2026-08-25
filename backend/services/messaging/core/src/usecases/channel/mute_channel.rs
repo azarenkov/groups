@@ -56,37 +56,42 @@ pub enum MuteChannelError {
 }
 
 #[derive(Debug)]
-pub struct MuteChannel<C, U, S, R>
+pub struct MuteChannel<C, U, S, R, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
     S: domain::server::repository::ServerRepository,
     R: domain::server::role::ServerRoleRepository,
+    V: crate::ports::voice_service::VoiceService,
 {
     channel_repository: Arc<C>,
     user_repository: Arc<U>,
     server_repository: Arc<S>,
     role_repository: Arc<R>,
+    voice_service: Arc<V>,
 }
 
-impl<C, U, S, R> MuteChannel<C, U, S, R>
+impl<C, U, S, R, V> MuteChannel<C, U, S, R, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
     S: domain::server::repository::ServerRepository,
     R: domain::server::role::ServerRoleRepository,
+    V: crate::ports::voice_service::VoiceService,
 {
     pub fn new(
         channel_repository: Arc<C>,
         user_repository: Arc<U>,
         server_repository: Arc<S>,
         role_repository: Arc<R>,
+        voice_service: Arc<V>,
     ) -> Self {
         Self {
             channel_repository,
             user_repository,
             server_repository,
             role_repository,
+            voice_service,
         }
     }
 
@@ -157,6 +162,20 @@ where
         self.channel_repository
             .mute_participant_with_events(&channel_id, &target, &initiator, now, &records)
             .await?;
+
+        if target != initiator
+            && let Err(err) = self
+                .voice_service
+                .mute_participant(&channel_id, &target)
+                .await
+        {
+            tracing::warn!(
+                channel_id = %channel_id.uuid(),
+                user_id = %target.uuid(),
+                error = %err,
+                "Failed to enforce moderator mute on LiveKit track",
+            );
+        }
 
         Ok(())
     }

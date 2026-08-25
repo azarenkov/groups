@@ -27,6 +27,11 @@ pub trait VoiceService {
         channel_id: &ChannelId,
         user_id: &UserId,
     ) -> Result<(), VoiceServiceError>;
+    async fn mute_participant(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<(), VoiceServiceError>;
     fn client_url(&self) -> String;
 }
 

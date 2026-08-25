@@ -114,6 +114,7 @@ pub trait ChannelRepository {
         &self,
         channel_id: &ChannelId,
         target: &UserId,
+        expected_muted_by: Option<&UserId>,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
 

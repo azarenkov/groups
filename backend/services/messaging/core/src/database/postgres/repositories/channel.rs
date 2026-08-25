@@ -405,6 +405,7 @@ impl ChannelRepository for PostgresChannelRepository {
         &self,
         channel_id: &ChannelId,
         target: &UserId,
+        expected_muted_by: Option<&UserId>,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError> {
         let mut tx = self
@@ -417,9 +418,11 @@ impl ChannelRepository for PostgresChannelRepository {
             r#"
             DELETE FROM channel_muted_participants
             WHERE channel_id = $1 AND user_id = $2
+              AND ($3::uuid IS NULL OR muted_by = $3)
             "#,
             channel_id.uuid(),
             target.uuid(),
+            expected_muted_by.map(|u| u.uuid()),
         )
         .execute(&mut *tx)
         .await

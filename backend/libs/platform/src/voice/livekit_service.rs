@@ -116,6 +116,40 @@ impl VoiceService for LiveKitService {
         }
     }
 
+    async fn mute_participant(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<(), VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
+        let room = channel_id.uuid().to_string();
+        let identity = user_id.uuid().to_string();
+        let participant = match livekit_room.get_participant(&room, &identity).await {
+            Ok(p) => p,
+            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
+                if code.code == TwirpErrorCode::NOT_FOUND =>
+            {
+                return Ok(());
+            }
+            Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
+        };
+        for track in participant.tracks {
+            let is_live_audio =
+                track.r#type == livekit_protocol::TrackType::Audio as i32 && !track.muted;
+            if !is_live_audio {
+                continue;
+            }
+            if let Err(e) = livekit_room
+                .mute_published_track(&room, &identity, &track.sid, true)
+                .await
+            {
+                return Err(VoiceServiceError::ParticipantRemoval(e.to_string()));
+            }
+        }
+        Ok(())
+    }
+
     fn client_url(&self) -> String {
         self.config.client_url.clone()
     }

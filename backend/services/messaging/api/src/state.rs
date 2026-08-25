@@ -85,6 +85,7 @@ pub struct AppState {
         PostgresUserProfileRepository,
         PostgresServerRepository,
         PostgresServerRoleRepository,
+        LiveKitService,
     >,
     pub unmute_channel_usecase: UnmuteChannel<
         PostgresChannelRepository,

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM channel_muted_participants\n            WHERE channel_id = $1 AND user_id = $2\n              AND ($3::uuid IS NULL OR muted_by = $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f10200b86c0e4ded77b7300f2baaed59b2b9eb44b8a4d5aa8d99999db078d503"
+}
