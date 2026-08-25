@@ -109,14 +109,16 @@ where
             return Err(DeleteChannelMessageError::MessageNotFound);
         }
 
-        let is_owner = channel.owner_id() == &deleter_id
+        let inherent = channel.owner_id() == &deleter_id
+            || message.author_id() == &deleter_id
             || {
                 let server_owner = self
                     .server_repository
                     .find_server_owner(&server_id)
                     .await?;
                 server_owner.as_ref() == Some(&deleter_id)
-            }
+            };
+        let is_owner = inherent
             || has_permission(
                 self.role_repository
                     .user_permissions(&server_id, &deleter_id)
@@ -140,9 +142,20 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
-        self.message_repository
-            .delete_message_with_events(&message_id, &records)
-            .await?;
+        let delegated = if inherent {
+            None
+        } else {
+            Some((&server_id, &deleter_id))
+        };
+        if !self
+            .message_repository
+            .delete_message_with_events(&message_id, delegated, &records)
+            .await?
+        {
+            return Err(DeleteChannelMessageError::Domain(
+                domain::message::MessageError::NotAuthor,
+            ));
+        }
 
         Ok(())
     }

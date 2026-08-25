@@ -107,8 +107,9 @@ pub trait ChannelRepository {
         target: &UserId,
         muted_by: &UserId,
         muted_at: DateTime<Utc>,
+        delegated_server: Option<&crate::server::id::ServerId>,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn unmute_participant_with_events(
         &self,

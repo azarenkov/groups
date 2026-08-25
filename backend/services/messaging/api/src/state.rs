@@ -93,6 +93,7 @@ pub struct AppState {
         PostgresUserProfileRepository,
         PostgresServerRepository,
         PostgresServerRoleRepository,
+        LiveKitService,
     >,
     pub delete_channel_usecase: DeleteChannel<
         PostgresChannelRepository,

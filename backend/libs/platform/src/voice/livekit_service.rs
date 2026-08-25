@@ -51,6 +51,31 @@ impl VoiceService for LiveKitService {
         Ok(ChannelToken::new(token))
     }
 
+    async fn create_token_without_microphone(
+        &self,
+        user_id: &UserId,
+        username: &UserName,
+        channel_id: &ChannelId,
+    ) -> Result<ChannelToken, VoiceServiceError> {
+        let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
+            .with_identity(&user_id.uuid().to_string())
+            .with_name(username.as_str())
+            .with_grants(access_token::VideoGrants {
+                room_join: true,
+                room: channel_id.uuid().to_string(),
+                can_publish_sources: vec![
+                    "camera".to_string(),
+                    "screen_share".to_string(),
+                    "screen_share_audio".to_string(),
+                ],
+                ..Default::default()
+            })
+            .to_jwt()
+            .map_err(|e| VoiceServiceError::VoiceChannelCreation(e.to_string()))?;
+
+        Ok(ChannelToken::new(token))
+    }
+
     async fn create_voice_channel(
         &self,
         channel_id: &ChannelId,
@@ -147,7 +172,66 @@ impl VoiceService for LiveKitService {
                 return Err(VoiceServiceError::ParticipantRemoval(e.to_string()));
             }
         }
+        let permission = livekit_protocol::ParticipantPermission {
+            can_subscribe: true,
+            can_publish: true,
+            can_publish_data: true,
+            can_publish_sources: vec![
+                livekit_protocol::TrackSource::Camera as i32,
+                livekit_protocol::TrackSource::ScreenShare as i32,
+                livekit_protocol::TrackSource::ScreenShareAudio as i32,
+            ],
+            ..Default::default()
+        };
+        livekit_room
+            .update_participant(
+                &room,
+                &identity,
+                livekit_api::services::room::UpdateParticipantOptions {
+                    permission: Some(permission),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
         Ok(())
+    }
+
+    async fn unmute_participant(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<(), VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
+        let room = channel_id.uuid().to_string();
+        let identity = user_id.uuid().to_string();
+        let permission = livekit_protocol::ParticipantPermission {
+            can_subscribe: true,
+            can_publish: true,
+            can_publish_data: true,
+            can_publish_sources: Vec::new(),
+            ..Default::default()
+        };
+        match livekit_room
+            .update_participant(
+                &room,
+                &identity,
+                livekit_api::services::room::UpdateParticipantOptions {
+                    permission: Some(permission),
+                    ..Default::default()
+                },
+            )
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
+                if code.code == TwirpErrorCode::NOT_FOUND =>
+            {
+                Ok(())
+            }
+            Err(e) => Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
+        }
     }
 
     fn client_url(&self) -> String {

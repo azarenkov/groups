@@ -408,13 +408,64 @@ impl ChannelRepository for PostgresChannelRepository {
         target: &UserId,
         muted_by: &UserId,
         muted_at: DateTime<Utc>,
+        delegated_server: Option<&ServerId>,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        if let Some(server_id) = delegated_server {
+            sqlx::query!(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+                server_id.uuid().to_string(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let actor = sqlx::query!(
+                r#"
+                SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                muted_by.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let target_top = sqlx::query_scalar!(
+                r#"
+                SELECT max(r.position) AS "top"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                target.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let has_mute = domain::server::role::has_permission(
+                actor.perms.unwrap_or(0),
+                domain::server::role::PERM_MUTE_MEMBERS,
+            );
+            let outranks = match (actor.top, target_top) {
+                (Some(a), Some(t)) => a > t,
+                (Some(_), None) => true,
+                _ => false,
+            };
+            if !has_mute || !outranks {
+                return Ok(false);
+            }
+        }
 
         let result = sqlx::query!(
             r#"
@@ -441,7 +492,7 @@ impl ChannelRepository for PostgresChannelRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(true)
     }
 
     async fn unmute_participant_with_events(
