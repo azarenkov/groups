@@ -209,6 +209,32 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             if !delegated_ok(&state, &[existing.position], added) {
                 return Ok(AssignOutcome::Denied);
             }
+            let removed = existing.permissions & !role.permissions;
+            if removed != 0 {
+                let highest_assignee = sqlx::query_scalar!(
+                    r#"
+                    SELECT max(top.position) AS "top"
+                    FROM server_member_roles holder
+                    INNER JOIN server_member_roles mr
+                        ON mr.server_id = holder.server_id AND mr.user_id = holder.user_id
+                    INNER JOIN server_roles top ON top.id = mr.role_id
+                    WHERE holder.server_id = $1 AND holder.role_id = $2
+                    "#,
+                    role.server_id,
+                    role.id,
+                )
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                let outranks_all = match (state.top, highest_assignee) {
+                    (Some(a), Some(t)) => a > t,
+                    (Some(_), None) => true,
+                    _ => false,
+                };
+                if !outranks_all {
+                    return Ok(AssignOutcome::Denied);
+                }
+            }
         }
         sqlx::query!(
             r#"
