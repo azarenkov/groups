@@ -273,13 +273,56 @@ impl ChannelRepository for PostgresChannelRepository {
     async fn delete_channel_with_events(
         &self,
         channel_id: &ChannelId,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<Vec<String>, RepositoryError> {
+    ) -> Result<Option<Vec<String>>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        if let Some(actor) = delegated_actor {
+            let server_id = sqlx::query_scalar!(
+                r#"SELECT server_id FROM channels WHERE id = $1"#,
+                channel_id.uuid(),
+            )
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let Some(server_id) = server_id else {
+                return Err(RepositoryError::NotFound);
+            };
+            sqlx::query!(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+                server_id.to_string(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id,
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_CHANNELS,
+            ) {
+                return Ok(None);
+            }
+        }
 
         sqlx::query!(
             r#"SELECT id FROM channels WHERE id = $1 FOR UPDATE"#,
@@ -337,7 +380,7 @@ impl ChannelRepository for PostgresChannelRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(storage_keys)
+        Ok(Some(storage_keys))
     }
 
     async fn list_voice_channel_ids_by_server(

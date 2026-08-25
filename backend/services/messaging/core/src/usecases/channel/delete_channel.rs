@@ -93,8 +93,9 @@ where
             .server_repository
             .find_server_owner(&server_id)
             .await?;
-        let allowed = channel.owner_id() == &deleted_by
-            || server_owner.as_ref() == Some(&deleted_by)
+        let inherent = channel.owner_id() == &deleted_by
+            || server_owner.as_ref() == Some(&deleted_by);
+        let allowed = inherent
             || has_permission(
                 self.role_repository
                     .user_permissions(&server_id, &deleted_by)
@@ -122,9 +123,15 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
-        self.channel_repository
-            .delete_channel_with_events(&channel_id, &records)
-            .await?;
+        let delegated = if inherent { None } else { Some(&deleted_by) };
+        if self
+            .channel_repository
+            .delete_channel_with_events(&channel_id, delegated, &records)
+            .await?
+            .is_none()
+        {
+            return Err(DeleteChannelError::NotOwner);
+        }
 
         if supports_voice
             && let Err(err) = self.voice_service.delete_voice_channel(&channel_id).await

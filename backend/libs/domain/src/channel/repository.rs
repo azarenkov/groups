@@ -121,8 +121,9 @@ pub trait ChannelRepository {
     async fn delete_channel_with_events(
         &self,
         channel_id: &ChannelId,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<Vec<String>, RepositoryError>;
+    ) -> Result<Option<Vec<String>>, RepositoryError>;
 
     async fn list_voice_channel_ids_by_server(
         &self,
