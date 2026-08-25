@@ -101,7 +101,8 @@ pub trait ServerRepository {
         code: &str,
         max_uses: Option<i32>,
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> Result<InviteCode, RepositoryError>;
+        delegated: bool,
+    ) -> Result<Option<InviteCode>, RepositoryError>;
     async fn list_invite_codes(
         &self,
         server_id: &ServerId,

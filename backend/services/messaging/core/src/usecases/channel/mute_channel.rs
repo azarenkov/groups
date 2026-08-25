@@ -53,6 +53,8 @@ pub enum MuteChannelError {
     Domain(#[from] ChannelError),
     #[error("Outbox error: {0}")]
     Outbox(#[from] OutboxError),
+    #[error("Voice service error: {0}")]
+    VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
 
 #[derive(Debug)]
@@ -165,7 +167,14 @@ where
         } else {
             None
         };
-        if !self
+        let moderator_mute = target != initiator;
+        if moderator_mute {
+            self.voice_service
+                .mute_participant(&channel_id, &target)
+                .await?;
+        }
+
+        let persisted = self
             .channel_repository
             .mute_participant_with_events(
                 &channel_id,
@@ -175,23 +184,22 @@ where
                 delegated_server,
                 &records,
             )
-            .await?
-        {
+            .await;
+        let persisted = match persisted {
+            Ok(true) => true,
+            Ok(false) => false,
+            Err(err) => {
+                if moderator_mute {
+                    let _ = self.voice_service.unmute_participant(&channel_id, &target).await;
+                }
+                return Err(err.into());
+            }
+        };
+        if !persisted {
+            if moderator_mute {
+                let _ = self.voice_service.unmute_participant(&channel_id, &target).await;
+            }
             return Err(MuteChannelError::Domain(ChannelError::NotOwner));
-        }
-
-        if target != initiator
-            && let Err(err) = self
-                .voice_service
-                .mute_participant(&channel_id, &target)
-                .await
-        {
-            tracing::warn!(
-                channel_id = %channel_id.uuid(),
-                user_id = %target.uuid(),
-                error = %err,
-                "Failed to enforce moderator mute on LiveKit track",
-            );
         }
 
         Ok(())

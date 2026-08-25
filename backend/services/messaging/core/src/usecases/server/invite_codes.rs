@@ -62,7 +62,8 @@ impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
             return Err(CreateInviteCodeError::NotMember);
         }
         let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let allowed = owner.as_ref() == Some(&user_id)
+        let is_owner = owner.as_ref() == Some(&user_id);
+        let allowed = is_owner
             || domain::server::role::has_permission(
                 self.role_repository
                     .user_permissions(&server_id, &user_id)
@@ -81,10 +82,11 @@ impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
             let code = generate_code();
             match self
                 .server_repository
-                .create_invite_code(&server_id, &user_id, &code, max_uses, expires_at)
+                .create_invite_code(&server_id, &user_id, &code, max_uses, expires_at, !is_owner)
                 .await
             {
-                Ok(invite) => return Ok(invite),
+                Ok(Some(invite)) => return Ok(invite),
+                Ok(None) => return Err(CreateInviteCodeError::NotAllowed),
                 Err(RepositoryError::AlreadyExists) => continue,
                 Err(e) => return Err(e.into()),
             }

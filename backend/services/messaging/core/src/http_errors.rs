@@ -144,6 +144,7 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::Repository(e) => e.to_http_status(),
             MuteChannelError::Domain(e) => e.to_http_status(),
             MuteChannelError::Outbox(e) => e.to_http_status(),
+            MuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
 
@@ -157,6 +158,7 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::Repository(e) => e.to_user_message(),
             MuteChannelError::Domain(e) => e.to_user_message(),
             MuteChannelError::Outbox(e) => e.to_user_message(),
+            MuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
 
@@ -168,6 +170,7 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::Repository(e) => e.to_error_code(),
             MuteChannelError::Domain(e) => e.to_error_code(),
             MuteChannelError::Outbox(e) => e.to_error_code(),
+            MuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
 }

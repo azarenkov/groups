@@ -90,7 +90,8 @@ where
             .server_repository
             .find_server_owner(&server_id)
             .await?;
-        let allowed = server_owner.as_ref() == Some(&owner_id)
+        let is_server_owner = server_owner.as_ref() == Some(&owner_id);
+        let allowed = is_server_owner
             || domain::server::role::has_permission(
                 self.role_repository
                     .user_permissions(&server_id, &owner_id)
@@ -140,9 +141,14 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
-        self.channel_repository
-            .save_channel_with_events(&channel, &records)
-            .await?;
+        let delegated = if is_server_owner { None } else { Some(&owner_id) };
+        if !self
+            .channel_repository
+            .save_channel_with_events(&channel, delegated, &records)
+            .await?
+        {
+            return Err(CreateChannelError::NotAllowed);
+        }
 
         Ok(channel)
     }

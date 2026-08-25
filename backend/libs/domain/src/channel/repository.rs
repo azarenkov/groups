@@ -30,8 +30,9 @@ pub trait ChannelRepository {
     async fn save_channel_with_events(
         &self,
         channel: &Channel,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn update_channel_with_events(
         &self,

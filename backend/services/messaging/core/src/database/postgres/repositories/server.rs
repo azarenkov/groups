@@ -812,7 +812,47 @@ impl ServerRepository for PostgresServerRepository {
         code: &str,
         max_uses: Option<i32>,
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> Result<InviteCode, RepositoryError> {
+        delegated: bool,
+    ) -> Result<Option<InviteCode>, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        if delegated {
+            let actor = created_by;
+            sqlx::query!(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+                server_id.uuid().to_string(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_INVITES,
+            ) {
+                return Ok(None);
+            }
+        }
+
         let row = sqlx::query!(
             r#"
             INSERT INTO server_invite_codes (code, server_id, created_by, max_uses, expires_at)
@@ -825,11 +865,13 @@ impl ServerRepository for PostgresServerRepository {
             max_uses,
             expires_at,
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(InviteCode {
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(Some(InviteCode {
             code: row.code,
             server_id: row.server_id,
             created_by: row.created_by,
@@ -838,7 +880,7 @@ impl ServerRepository for PostgresServerRepository {
             uses: row.uses,
             expires_at: row.expires_at,
             created_at: row.created_at,
-        })
+        }))
     }
 
     async fn list_invite_codes(
