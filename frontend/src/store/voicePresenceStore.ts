@@ -101,7 +101,15 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
           )
         : members;
       const pendingMutes = { ...state.pendingMutes };
-      delete pendingMutes[channelId];
+      if (overlay) {
+        const remaining = { ...overlay };
+        for (const m of members) delete remaining[m.id];
+        if (Object.keys(remaining).length === 0) {
+          delete pendingMutes[channelId];
+        } else {
+          pendingMutes[channelId] = remaining;
+        }
+      }
       return {
         byChannel: { ...state.byChannel, [channelId]: merged },
         pendingMutes,

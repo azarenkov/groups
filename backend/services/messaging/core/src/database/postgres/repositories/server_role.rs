@@ -371,6 +371,17 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             if !delegated_ok(&state, &[role.position], role.permissions) {
                 return Ok(AssignOutcome::Denied);
             }
+            let target_is_owner = sqlx::query_scalar!(
+                r#"SELECT owner_id FROM servers WHERE id = $1"#,
+                server_id.uuid(),
+            )
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .is_some_and(|owner| owner == user_id.uuid());
+            if target_is_owner {
+                return Ok(AssignOutcome::Denied);
+            }
             let target_top = sqlx::query_scalar!(
                 r#"
                 SELECT max(r.position) AS "top"
@@ -442,6 +453,17 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         if let Some(actor) = delegated_actor {
             let state = actor_state(&mut tx, server_id, actor).await?;
             if !delegated_ok(&state, &[existing.position], 0) {
+                return Ok(AssignOutcome::Denied);
+            }
+            let target_is_owner = sqlx::query_scalar!(
+                r#"SELECT owner_id FROM servers WHERE id = $1"#,
+                server_id.uuid(),
+            )
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .is_some_and(|owner| owner == user_id.uuid());
+            if target_is_owner {
                 return Ok(AssignOutcome::Denied);
             }
             let target_top = sqlx::query_scalar!(
