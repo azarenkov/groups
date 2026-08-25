@@ -130,6 +130,13 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
       (targetTop === undefined || targetTop < myTopPosition)
     );
   };
+  const outranksAllHolders = (roleId: string) => {
+    if (isOwner) return true;
+    const holders = Object.entries(rolesData?.memberRoles ?? {})
+      .filter(([, roleIds]) => roleIds.includes(roleId))
+      .map(([id]) => id);
+    return holders.every((id) => outranksMember(id));
+  };
   const canKick = (memberId: string) =>
     canKickMembers && memberId !== currentUserId && outranksMember(memberId);
   const kickMember = async (memberId: string) => {
@@ -1009,7 +1016,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                             </button>
                           </span>
                         )}
-                        {canTouchRole(role.position) && (
+                        {canTouchRole(role.position) && outranksAllHolders(role.id) && (
                           <button
                             type="button"
                             className="ssv-row-delete"
@@ -1044,8 +1051,9 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                                 ((rolePermsDraft[role.id] ?? role.permissions) &
                                   perm.bit) !==
                                 0;
-                              const locked =
-                                !on && (grantableBits & perm.bit) === 0;
+                              const locked = on
+                                ? !outranksAllHolders(role.id)
+                                : (grantableBits & perm.bit) === 0;
                               return (
                                 <div key={perm.bit} className="ssv-role-perm">
                                   <span>{t(perm.key)}</span>
