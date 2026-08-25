@@ -121,16 +121,17 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const canManageChannels = isOwner || (myPerms & PERM_MANAGE_CHANNELS) !== 0;
   const canManageInvites = isOwner || (myPerms & PERM_MANAGE_INVITES) !== 0;
   const canKickMembers = isOwner || (myPerms & PERM_KICK_MEMBERS) !== 0;
-  const canKick = (memberId: string) => {
-    if (!canKickMembers) return false;
-    if (memberId === currentUserId || memberId === server.ownerId) return false;
+  const outranksMember = (memberId: string) => {
     if (isOwner) return true;
+    if (memberId === server.ownerId) return false;
     const targetTop = topRoleFor(rolesData, memberId)?.position;
     return (
       myTopPosition !== Number.NEGATIVE_INFINITY &&
       (targetTop === undefined || targetTop < myTopPosition)
     );
   };
+  const canKick = (memberId: string) =>
+    canKickMembers && memberId !== currentUserId && outranksMember(memberId);
   const kickMember = async (memberId: string) => {
     try {
       await serverAPI.kickMember(server.id, memberId);
@@ -1079,6 +1080,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                                   <button
                                     type="button"
                                     className={"s-switch" + (has ? " on" : "")}
+                                    disabled={!outranksMember(m.id)}
                                     onClick={() =>
                                       void toggleAssignment(role.id, m.id, has)
                                     }

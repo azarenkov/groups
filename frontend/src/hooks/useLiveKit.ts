@@ -122,7 +122,11 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
         if (response.muted) {
-          moderatorLockedRef.current = true;
+          const auth = useAuthStore.getState();
+          const selfId =
+            auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+          moderatorLockedRef.current =
+            !!response.mutedBy && response.mutedBy !== selfId;
           setIsMuted(true);
         }
         await service.connect(
@@ -211,8 +215,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsMuted(true);
       } else if (!moderatorMuted && moderatorLockedRef.current) {
         moderatorLockedRef.current = false;
-        serviceRef.current?.setMicrophoneMuted(false);
-        setIsMuted(false);
+        if (!me.isMuted) {
+          serviceRef.current?.setMicrophoneMuted(false);
+          setIsMuted(false);
+        }
       }
     };
     const unsub = useVoicePresenceStore.subscribe(reconcile);

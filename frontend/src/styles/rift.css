@@ -5465,3 +5465,4 @@ button.ssv-row-delete:focus-visible {
   background: var(--surface-hover);
   color: var(--fg-1);
 }
+.ssv-role-member-row .s-switch:disabled { opacity: 0.4; cursor: default; }
