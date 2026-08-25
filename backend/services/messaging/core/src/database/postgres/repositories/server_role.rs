@@ -211,6 +211,24 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             }
             let removed = existing.permissions & !role.permissions;
             if removed != 0 {
+                let owner_holds = sqlx::query_scalar!(
+                    r#"
+                    SELECT EXISTS(
+                        SELECT 1
+                        FROM server_member_roles mr
+                        INNER JOIN servers s ON s.id = mr.server_id
+                        WHERE mr.server_id = $1 AND mr.role_id = $2 AND mr.user_id = s.owner_id
+                    ) AS "exists!"
+                    "#,
+                    role.server_id,
+                    role.id,
+                )
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                if owner_holds {
+                    return Ok(AssignOutcome::Denied);
+                }
                 let highest_assignee = sqlx::query_scalar!(
                     r#"
                     SELECT max(top.position) AS "top"
@@ -286,6 +304,24 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         if let Some(actor) = delegated_actor {
             let state = actor_state(&mut tx, server_id, actor).await?;
             if !delegated_ok(&state, &[existing.position], 0) {
+                return Ok(AssignOutcome::Denied);
+            }
+            let owner_holds = sqlx::query_scalar!(
+                r#"
+                SELECT EXISTS(
+                    SELECT 1
+                    FROM server_member_roles mr
+                    INNER JOIN servers s ON s.id = mr.server_id
+                    WHERE mr.server_id = $1 AND mr.role_id = $2 AND mr.user_id = s.owner_id
+                ) AS "exists!"
+                "#,
+                server_id.uuid(),
+                role_id,
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if owner_holds {
                 return Ok(AssignOutcome::Denied);
             }
             let highest_assignee = sqlx::query_scalar!(

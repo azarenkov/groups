@@ -1088,7 +1088,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                                   <button
                                     type="button"
                                     className={"s-switch" + (has ? " on" : "")}
-                                    disabled={!outranksMember(m.id)}
+                                    disabled={
+                                      !outranksMember(m.id) ||
+                                      (!has &&
+                                        (role.permissions & ~grantableBits) !== 0)
+                                    }
                                     onClick={() =>
                                       void toggleAssignment(role.id, m.id, has)
                                     }
