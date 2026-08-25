@@ -33,6 +33,7 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
+import { useChannelStore } from "../../store/channelStore";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -556,10 +557,17 @@ const ChatView: React.FC<ChatViewProps> = ({
     () => servers?.find((sv) => sv.id === serverId)?.ownerId,
     [servers, serverId],
   );
+  const channelOwnerId = useChannelStore((s) =>
+    serverId && channel
+      ? (s.channelsByServer[serverId] ?? []).find((c) => c.id === channel.id)
+          ?.ownerId
+      : undefined,
+  );
   const canModerateMessages =
     !!channel &&
     !!currentUserId &&
     (serverOwnerId === currentUserId ||
+      channelOwnerId === currentUserId ||
       (userPermissions(rolesData, currentUserId) & PERM_MANAGE_MESSAGES) !== 0);
 
   const [mentionQuery, setMentionQuery] = React.useState<{

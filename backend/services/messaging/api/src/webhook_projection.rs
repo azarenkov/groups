@@ -186,7 +186,7 @@ where
                 evt.channel_id,
                 evt.user_id,
             )
-            .await;
+            .await?;
             let result = join_uc
                 .execute(JoinVoiceConnectionRequest {
                     channel_id: evt.channel_id,
@@ -343,7 +343,8 @@ async fn enforce_membership<T, S, V>(
     voice_service: &V,
     channel_id: uuid::Uuid,
     user_id: uuid::Uuid,
-) where
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+where
     T: ChannelRepository + Send + Sync,
     S: domain::server::repository::ServerRepository + Send + Sync,
     V: messaging::ports::voice_service::VoiceService + Send + Sync,
@@ -352,27 +353,22 @@ async fn enforce_membership<T, S, V>(
     let user_id = domain::user::id::UserId::new(user_id);
     let channel = match channel_repository.find_channel_by_id(&channel_id).await {
         Ok(c) => c,
-        Err(_) => return,
+        Err(domain::shared::repository::error::RepositoryError::NotFound) => return Ok(()),
+        Err(e) => return Err(e.into()),
     };
     let is_member = server_repository
         .is_server_member(channel.server_id(), &user_id)
-        .await
-        .unwrap_or(true);
+        .await?;
     if is_member {
-        return;
+        return Ok(());
     }
-    if let Err(e) = voice_service.remove_participant(&channel_id, &user_id).await {
-        tracing::warn!(
-            error = %e,
-            channel_id = %channel_id.uuid(),
-            user_id = %user_id.uuid(),
-            "Failed to disconnect non-member voice participant",
-        );
-    } else {
-        tracing::info!(
-            channel_id = %channel_id.uuid(),
-            user_id = %user_id.uuid(),
-            "Disconnected non-member voice participant",
-        );
-    }
+    voice_service
+        .remove_participant(&channel_id, &user_id)
+        .await?;
+    tracing::info!(
+        channel_id = %channel_id.uuid(),
+        user_id = %user_id.uuid(),
+        "Disconnected non-member voice participant",
+    );
+    Ok(())
 }
