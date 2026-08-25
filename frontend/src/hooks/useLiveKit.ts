@@ -23,6 +23,7 @@ interface UseLiveKitResult {
   toggleScreenShare: () => Promise<void>;
   isConnected: boolean;
   isMuted: boolean;
+  isModeratorMuted: boolean;
   isConnecting: boolean;
   error: string | null;
   localQuality: ConnectionQuality;
@@ -109,7 +110,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(true);
         setError(null);
         activeChannelRef.current = { serverId, channelId };
-        moderatorLockedRef.current = false;
+        setLock(false);
         selfMutedBeforeLockRef.current = false;
 
         console.log(
@@ -126,8 +127,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           const auth = useAuthStore.getState();
           const selfId =
             auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
-          moderatorLockedRef.current =
-            !!response.mutedBy && response.mutedBy !== selfId;
+          setLock(!!response.mutedBy && response.mutedBy !== selfId);
           setIsMuted(true);
         }
         await service.connect(
@@ -141,7 +141,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
         activeChannelRef.current = null;
-        moderatorLockedRef.current = false;
+        setLock(false);
         selfMutedBeforeLockRef.current = false;
         setError(err instanceof Error ? err.message : "Failed to join channel");
         setIsConnecting(false);
@@ -198,6 +198,11 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
   const moderatorLockedRef = useRef(false);
   const selfMutedBeforeLockRef = useRef(false);
+  const [isModeratorMuted, setIsModeratorMuted] = useState(false);
+  const setLock = (locked: boolean) => {
+    moderatorLockedRef.current = locked;
+    setIsModeratorMuted(locked);
+  };
 
   const restoreSelfMute = () => {
     const active = activeChannelRef.current;
@@ -211,7 +216,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   };
 
   const liftModeratorLock = () => {
-    moderatorLockedRef.current = false;
+    setLock(false);
     if (selfMutedBeforeLockRef.current) {
       selfMutedBeforeLockRef.current = false;
       restoreSelfMute();
@@ -236,12 +241,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
       if (moderatorMuted && !moderatorLockedRef.current) {
         selfMutedBeforeLockRef.current = isMutedRef.current;
-        moderatorLockedRef.current = true;
+        setLock(true);
         serviceRef.current?.setMicrophoneMuted(true);
         setIsMuted(true);
       } else if (!moderatorMuted && moderatorLockedRef.current) {
         if (me.isMuted) {
-          moderatorLockedRef.current = false;
+          setLock(false);
           selfMutedBeforeLockRef.current = false;
         } else {
           liftModeratorLock();
@@ -263,7 +268,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       }
       serviceRef.current?.setMicrophoneMuted(true);
       setIsMuted(true);
-      moderatorLockedRef.current = true;
+      setLock(true);
     };
     const onModeratorUnmute = (e: Event) => {
       const detail = (e as CustomEvent<{ channelId?: string }>).detail;
@@ -296,7 +301,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       channelAPI
         .unmute(active.serverId, active.channelId, userId)
         .then(() => {
-          moderatorLockedRef.current = false;
+          setLock(false);
           selfMutedBeforeLockRef.current = false;
           serviceRef.current?.setMicrophoneMuted(false);
           setIsMuted(false);
@@ -375,6 +380,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     toggleScreenShare,
     isConnected,
     isMuted,
+    isModeratorMuted,
     isConnecting,
     error,
     localQuality,

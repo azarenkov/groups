@@ -162,9 +162,9 @@ impl VoiceService for LiveKitService {
             Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
         };
         for track in participant.tracks {
-            let is_live_audio =
-                track.r#type == livekit_protocol::TrackType::Audio as i32 && !track.muted;
-            if !is_live_audio {
+            let is_live_microphone =
+                track.source == livekit_protocol::TrackSource::Microphone as i32 && !track.muted;
+            if !is_live_microphone {
                 continue;
             }
             if let Err(e) = livekit_room

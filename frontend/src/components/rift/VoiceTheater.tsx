@@ -145,6 +145,7 @@ interface VoiceTheaterProps {
   screenTile: VideoTile | null;
   liveName?: string | null;
   isMuted: boolean;
+  muteLocked?: boolean;
   cameraOn: boolean;
   screenOn: boolean;
   onToggleMute: () => void;
@@ -169,6 +170,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   screenTile,
   liveName,
   isMuted,
+  muteLocked,
   cameraOn,
   screenOn,
   onToggleMute,
@@ -305,7 +307,14 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           <button
             type="button"
             className={"cp-btn" + (isMuted ? " danger" : "")}
-            title={isMuted ? t("voice:unmuteSelf") : t("voice:muteSelf")}
+            disabled={muteLocked}
+            title={
+              muteLocked
+                ? t("voice:mutedByModerator")
+                : isMuted
+                  ? t("voice:unmuteSelf")
+                  : t("voice:muteSelf")
+            }
             onClick={onToggleMute}
           >
             <Icon name={isMuted ? "mic-off" : "mic"} size={18} />

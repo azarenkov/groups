@@ -53,6 +53,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     videoTiles,
     isConnected,
     isMuted,
+    isModeratorMuted,
     isCameraEnabled,
     isScreenShareEnabled,
     error,
@@ -282,6 +283,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           title={channelName}
           meta={meta}
           isMuted={isMuted}
+          muteLocked={isModeratorMuted && serverOwnerId !== currentUserId}
           onToggleMute={toggleMute}
           onLeave={handleLeave}
           className={qualityClass(localQuality)}
@@ -296,6 +298,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             screenTile={screenTile}
             liveName={sharerName}
             isMuted={isMuted}
+            muteLocked={isModeratorMuted && serverOwnerId !== currentUserId}
             cameraOn={isCameraEnabled}
             screenOn={isScreenShareEnabled}
             onToggleMute={toggleMute}
