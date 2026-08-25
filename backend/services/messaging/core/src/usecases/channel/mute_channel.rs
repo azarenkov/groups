@@ -174,12 +174,9 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        let is_server_owner = server_owner.as_ref() == Some(&initiator);
-        let delegated_server = if target != initiator && !is_server_owner {
-            Some(&server_id)
-        } else {
-            None
-        };
+        let inherent = server_owner.as_ref() == Some(&initiator)
+            || channel.owner_id() == &initiator;
+        let delegated = target != initiator && !inherent;
         let moderator_mute = target != initiator;
         if moderator_mute {
             self.voice_service
@@ -194,7 +191,8 @@ where
                 &target,
                 &initiator,
                 now,
-                delegated_server,
+                &server_id,
+                delegated,
                 &records,
             )
             .await;

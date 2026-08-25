@@ -442,7 +442,8 @@ impl ChannelRepository for PostgresChannelRepository {
         target: &UserId,
         muted_by: &UserId,
         muted_at: DateTime<Utc>,
-        delegated_server: Option<&ServerId>,
+        server_id: &ServerId,
+        delegated: bool,
         events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
         let mut tx = self
@@ -451,14 +452,32 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        if let Some(server_id) = delegated_server {
-            sqlx::query!(
-                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
-                server_id.uuid().to_string(),
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let target_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            target.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !target_is_member {
+            return Ok(false);
+        }
+
+        if delegated {
             let actor = sqlx::query!(
                 r#"
                 SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"

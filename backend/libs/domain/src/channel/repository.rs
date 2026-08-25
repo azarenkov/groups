@@ -108,7 +108,8 @@ pub trait ChannelRepository {
         target: &UserId,
         muted_by: &UserId,
         muted_at: DateTime<Utc>,
-        delegated_server: Option<&crate::server::id::ServerId>,
+        server_id: &crate::server::id::ServerId,
+        delegated: bool,
         events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError>;
 
