@@ -15,6 +15,30 @@ use domain::{
 
 use crate::dto::requests::channel::unmute_channel::UnmuteChannelRequest;
 
+
+async fn outranks_target<R: domain::server::role::ServerRoleRepository>(
+    role_repository: &R,
+    server_id: &domain::server::id::ServerId,
+    actor: &UserId,
+    target: &UserId,
+) -> Result<bool, domain::shared::repository::error::RepositoryError> {
+    let roles = role_repository.list_roles(server_id).await?;
+    let assignments = role_repository.member_role_ids(server_id).await?;
+    let top_of = |user: &UserId| {
+        assignments
+            .iter()
+            .filter(|(uid, _)| uid == &user.uuid())
+            .filter_map(|(_, rid)| roles.iter().find(|r| &r.id == rid))
+            .map(|r| r.position)
+            .max()
+    };
+    Ok(match (top_of(actor), top_of(target)) {
+        (Some(a), Some(t)) => a > t,
+        (Some(_), None) => true,
+        _ => false,
+    })
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum UnmuteChannelError {
     #[error("Channel not found")]
@@ -107,7 +131,14 @@ where
                         .user_permissions(&server_id, &initiator)
                         .await?,
                     domain::server::role::PERM_MUTE_MEMBERS,
-                ));
+                )
+                && outranks_target(
+                    self.role_repository.as_ref(),
+                    &server_id,
+                    &initiator,
+                    &target,
+                )
+                .await?);
         channel.unmute(target, initiator, can_override, now)?;
 
         let request_id = request.ctx.request_id.clone();
