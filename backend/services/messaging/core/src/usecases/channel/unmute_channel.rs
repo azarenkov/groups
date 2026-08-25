@@ -97,6 +97,19 @@ where
         }
     }
 
+    async fn compensate_livekit(&self, channel_id: &ChannelId, target: &UserId) {
+        let still_muted = match self.channel_repository.find_channel_by_id(channel_id).await {
+            Ok(channel) => channel
+                .muted_participants_list()
+                .find(|m| &m.user_id == target)
+                .is_some_and(|m| &m.muted_by != target),
+            Err(_) => true,
+        };
+        if still_muted {
+            let _ = self.voice_service.mute_participant(channel_id, target).await;
+        }
+    }
+
     pub async fn execute(
         &self,
         request: UnmuteChannelRequest,
@@ -146,16 +159,13 @@ where
                     &target,
                 )
                 .await?);
-        let moderator_record = channel
+        let observed_muted_by = channel
             .muted_participants_list()
             .find(|m| m.user_id == target)
-            .is_some_and(|m| m.muted_by != target);
+            .map(|m| m.muted_by);
+        let moderator_record = observed_muted_by.is_some_and(|by| by != target);
         channel.unmute(target, initiator, can_override, now)?;
-        let expected_muted_by = if target == initiator && !can_override {
-            Some(&target)
-        } else {
-            None
-        };
+        let expected_muted_by = observed_muted_by.as_ref();
         let delegated = if !is_server_owner && target != initiator {
             Some((&server_id, &initiator))
         } else {
@@ -189,13 +199,13 @@ where
             Ok(true) => Ok(()),
             Ok(false) => {
                 if moderator_record {
-                    let _ = self.voice_service.mute_participant(&channel_id, &target).await;
+                    self.compensate_livekit(&channel_id, &target).await;
                 }
                 Err(UnmuteChannelError::Domain(ChannelError::NotOwner))
             }
             Err(err) => {
                 if moderator_record {
-                    let _ = self.voice_service.mute_participant(&channel_id, &target).await;
+                    self.compensate_livekit(&channel_id, &target).await;
                 }
                 Err(err.into())
             }
