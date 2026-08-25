@@ -167,11 +167,7 @@ where
         channel.unmute(target, initiator, can_override, now)?;
         let expected_muted_by = observed_muted_by.as_ref();
         let inherent = is_server_owner || channel.owner_id() == &initiator;
-        let delegated = if !inherent && target != initiator {
-            Some((&server_id, &initiator))
-        } else {
-            None
-        };
+        let delegated = !inherent && target != initiator;
 
         let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel
@@ -192,6 +188,8 @@ where
                 &channel_id,
                 &target,
                 expected_muted_by,
+                &server_id,
+                &initiator,
                 delegated,
                 &records,
             )

@@ -212,7 +212,9 @@ impl MessageRepository for PostgresMessageRepository {
     async fn delete_message_with_events(
         &self,
         message_id: &MessageId,
-        delegated: Option<(&domain::server::id::ServerId, &domain::user::id::UserId)>,
+        server_id: &domain::server::id::ServerId,
+        actor: &domain::user::id::UserId,
+        delegated: bool,
         events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
         let mut tx = self
@@ -221,14 +223,31 @@ impl MessageRepository for PostgresMessageRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        if let Some((server_id, actor)) = delegated {
-            sqlx::query!(
-                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
-                server_id.uuid().to_string(),
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            actor.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(false);
+        }
+
+        if delegated {
             let perms = sqlx::query_scalar!(
                 r#"
                 SELECT bit_or(r.permissions) AS "perms"

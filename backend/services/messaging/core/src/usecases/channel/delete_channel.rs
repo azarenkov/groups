@@ -123,10 +123,9 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
-        let delegated = if inherent { None } else { Some(&deleted_by) };
         if self
             .channel_repository
-            .delete_channel_with_events(&channel_id, delegated, &records)
+            .delete_channel_with_events(&channel_id, &deleted_by, !inherent, &records)
             .await?
             .is_none()
         {

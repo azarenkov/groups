@@ -142,14 +142,9 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
-        let delegated = if inherent {
-            None
-        } else {
-            Some((&server_id, &deleter_id))
-        };
         if !self
             .message_repository
-            .delete_message_with_events(&message_id, delegated, &records)
+            .delete_message_with_events(&message_id, &server_id, &deleter_id, !inherent, &records)
             .await?
         {
             return Err(DeleteChannelMessageError::Domain(

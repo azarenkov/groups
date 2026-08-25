@@ -25,6 +25,8 @@ pub enum KickMemberError {
     NotMember,
     #[error("Missing permission to kick members")]
     NotAllowed,
+    #[error("Voice service error: {0}")]
+    VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
 
 pub struct KickMember<S, C, V, R>
@@ -110,6 +112,12 @@ where
             .list_voice_channel_ids_by_server(&server_id)
             .await?;
 
+        for channel_id in &voice_channel_ids {
+            self.voice_service
+                .remove_participant(channel_id, &target)
+                .await?;
+        }
+
         let member_event = domain::server::events::ServerEvent::MemberLeft(
             domain::server::events::lifecycle::ServerMemberLeft::record(
                 server_id,
@@ -130,21 +138,6 @@ where
             }
             domain::server::repository::RemoveMemberOutcome::Denied => {
                 return Err(KickMemberError::NotAllowed);
-            }
-        }
-
-        for channel_id in &voice_channel_ids {
-            if let Err(err) = self
-                .voice_service
-                .remove_participant(channel_id, &target)
-                .await
-            {
-                tracing::warn!(
-                    channel_id = %channel_id.uuid(),
-                    user_id = %target.uuid(),
-                    error = %err,
-                    "Failed to disconnect LiveKit participant after kick",
-                );
             }
         }
 

@@ -307,7 +307,8 @@ impl ChannelRepository for PostgresChannelRepository {
     async fn delete_channel_with_events(
         &self,
         channel_id: &ChannelId,
-        delegated_actor: Option<&UserId>,
+        actor: &UserId,
+        delegated: bool,
         events: &[OutboxRecord],
     ) -> Result<Option<Vec<String>>, RepositoryError> {
         let mut tx = self
@@ -316,24 +317,40 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        if let Some(actor) = delegated_actor {
-            let server_id = sqlx::query_scalar!(
-                r#"SELECT server_id FROM channels WHERE id = $1"#,
-                channel_id.uuid(),
-            )
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-            let Some(server_id) = server_id else {
-                return Err(RepositoryError::NotFound);
-            };
-            sqlx::query!(
-                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
-                server_id.to_string(),
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        let server_id = sqlx::query_scalar!(
+            r#"SELECT server_id FROM channels WHERE id = $1"#,
+            channel_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(server_id) = server_id.map(ServerId::new) else {
+            return Err(RepositoryError::NotFound);
+        };
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            actor.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(None);
+        }
+        if delegated {
             let perms = sqlx::query_scalar!(
                 r#"
                 SELECT bit_or(r.permissions) AS "perms"
@@ -343,7 +360,7 @@ impl ChannelRepository for PostgresChannelRepository {
                     ON m.server_id = mr.server_id AND m.user_id = mr.user_id
                 WHERE mr.server_id = $1 AND mr.user_id = $2
                 "#,
-                server_id,
+                server_id.uuid(),
                 actor.uuid(),
             )
             .fetch_one(&mut *tx)
@@ -476,6 +493,22 @@ impl ChannelRepository for PostgresChannelRepository {
         if !target_is_member {
             return Ok(false);
         }
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            muted_by.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(false);
+        }
 
         if delegated {
             let actor = sqlx::query!(
@@ -553,7 +586,9 @@ impl ChannelRepository for PostgresChannelRepository {
         channel_id: &ChannelId,
         target: &UserId,
         expected_muted_by: Option<&UserId>,
-        delegated: Option<(&ServerId, &UserId)>,
+        server_id: &ServerId,
+        initiator: &UserId,
+        delegated: bool,
         events: &[OutboxRecord],
     ) -> Result<bool, RepositoryError> {
         let mut tx = self
@@ -562,14 +597,32 @@ impl ChannelRepository for PostgresChannelRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        if let Some((server_id, actor)) = delegated {
-            sqlx::query!(
-                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
-                server_id.uuid().to_string(),
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            initiator.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(false);
+        }
+
+        if delegated {
+            let actor = initiator;
             let actor_state = sqlx::query!(
                 r#"
                 SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"
