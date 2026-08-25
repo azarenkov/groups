@@ -179,7 +179,7 @@ where
 
     match kind {
         WebhookKind::Joined => {
-            enforce_membership(
+            let admitted = enforce_membership(
                 channel_repository.as_ref(),
                 server_repository.as_ref(),
                 voice_service.as_ref(),
@@ -187,6 +187,9 @@ where
                 evt.user_id,
             )
             .await?;
+            if !admitted {
+                return Ok(());
+            }
             let result = join_uc
                 .execute(JoinVoiceConnectionRequest {
                     channel_id: evt.channel_id,
@@ -343,7 +346,7 @@ async fn enforce_membership<T, S, V>(
     voice_service: &V,
     channel_id: uuid::Uuid,
     user_id: uuid::Uuid,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>
 where
     T: ChannelRepository + Send + Sync,
     S: domain::server::repository::ServerRepository + Send + Sync,
@@ -353,14 +356,14 @@ where
     let user_id = domain::user::id::UserId::new(user_id);
     let channel = match channel_repository.find_channel_by_id(&channel_id).await {
         Ok(c) => c,
-        Err(domain::shared::repository::error::RepositoryError::NotFound) => return Ok(()),
+        Err(domain::shared::repository::error::RepositoryError::NotFound) => return Ok(false),
         Err(e) => return Err(e.into()),
     };
     let is_member = server_repository
         .is_server_member(channel.server_id(), &user_id)
         .await?;
     if is_member {
-        return Ok(());
+        return Ok(true);
     }
     voice_service
         .remove_participant(&channel_id, &user_id)
@@ -370,5 +373,5 @@ where
         user_id = %user_id.uuid(),
         "Disconnected non-member voice participant",
     );
-    Ok(())
+    Ok(false)
 }
