@@ -142,6 +142,9 @@ function dispatch(env: WsEnvelope) {
       for (const c of channels) {
         receipts.removeChannelMember(c.id, userId);
       }
+      useVoicePresenceStore
+        .getState()
+        .purgePendingMutes(channels.map((c) => c.id), userId);
       void import("../store/rolesStore").then(({ useRolesStore }) => {
         const roles = useRolesStore.getState();
         roles.removeMember(serverId, userId);

@@ -110,6 +110,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setError(null);
         activeChannelRef.current = { serverId, channelId };
         moderatorLockedRef.current = false;
+        selfMutedBeforeLockRef.current = false;
 
         console.log(
           `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
@@ -141,6 +142,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         console.error("[useLiveKit] Failed to join channel:", err);
         activeChannelRef.current = null;
         moderatorLockedRef.current = false;
+        selfMutedBeforeLockRef.current = false;
         setError(err instanceof Error ? err.message : "Failed to join channel");
         setIsConnecting(false);
         throw err;
@@ -195,6 +197,29 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   }, []);
 
   const moderatorLockedRef = useRef(false);
+  const selfMutedBeforeLockRef = useRef(false);
+
+  const restoreSelfMute = () => {
+    const active = activeChannelRef.current;
+    const auth = useAuthStore.getState();
+    const userId =
+      auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+    if (!active || !userId) return;
+    channelAPI.mute(active.serverId, active.channelId, userId).catch((err) => {
+      console.warn("[useLiveKit] failed to restore self-mute:", err);
+    });
+  };
+
+  const liftModeratorLock = () => {
+    moderatorLockedRef.current = false;
+    if (selfMutedBeforeLockRef.current) {
+      selfMutedBeforeLockRef.current = false;
+      restoreSelfMute();
+      return;
+    }
+    serviceRef.current?.setMicrophoneMuted(false);
+    setIsMuted(false);
+  };
   useEffect(() => {
     const reconcile = () => {
       const active = activeChannelRef.current;
@@ -210,14 +235,16 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       const moderatorMuted =
         me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
       if (moderatorMuted && !moderatorLockedRef.current) {
+        selfMutedBeforeLockRef.current = isMutedRef.current;
         moderatorLockedRef.current = true;
         serviceRef.current?.setMicrophoneMuted(true);
         setIsMuted(true);
       } else if (!moderatorMuted && moderatorLockedRef.current) {
-        moderatorLockedRef.current = false;
-        if (!me.isMuted) {
-          serviceRef.current?.setMicrophoneMuted(false);
-          setIsMuted(false);
+        if (me.isMuted) {
+          moderatorLockedRef.current = false;
+          selfMutedBeforeLockRef.current = false;
+        } else {
+          liftModeratorLock();
         }
       }
     };
@@ -231,6 +258,9 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
         return;
       }
+      if (!moderatorLockedRef.current) {
+        selfMutedBeforeLockRef.current = isMutedRef.current;
+      }
       serviceRef.current?.setMicrophoneMuted(true);
       setIsMuted(true);
       moderatorLockedRef.current = true;
@@ -242,9 +272,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         return;
       }
       if (moderatorLockedRef.current) {
-        moderatorLockedRef.current = false;
-        serviceRef.current?.setMicrophoneMuted(false);
-        setIsMuted(false);
+        liftModeratorLock();
       }
     };
     window.addEventListener("rift:moderator-mute", onModeratorMute);
@@ -269,6 +297,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         .unmute(active.serverId, active.channelId, userId)
         .then(() => {
           moderatorLockedRef.current = false;
+          selfMutedBeforeLockRef.current = false;
           serviceRef.current?.setMicrophoneMuted(false);
           setIsMuted(false);
         })
