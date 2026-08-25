@@ -117,8 +117,9 @@ pub trait ChannelRepository {
         channel_id: &ChannelId,
         target: &UserId,
         expected_muted_by: Option<&UserId>,
+        delegated: Option<(&crate::server::id::ServerId, &UserId)>,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn delete_channel_with_events(
         &self,

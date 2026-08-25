@@ -53,6 +53,8 @@ pub enum UnmuteChannelError {
     Domain(#[from] ChannelError),
     #[error("Outbox error: {0}")]
     Outbox(#[from] OutboxError),
+    #[error("Voice service error: {0}")]
+    VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
 
 #[derive(Debug)]
@@ -144,9 +146,18 @@ where
                     &target,
                 )
                 .await?);
+        let moderator_record = channel
+            .muted_participants_list()
+            .find(|m| m.user_id == target)
+            .is_some_and(|m| m.muted_by != target);
         channel.unmute(target, initiator, can_override, now)?;
         let expected_muted_by = if target == initiator && !can_override {
             Some(&target)
+        } else {
+            None
+        };
+        let delegated = if !is_server_owner && target != initiator {
+            Some((&server_id, &initiator))
         } else {
             None
         };
@@ -158,19 +169,36 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        self.channel_repository
-            .unmute_participant_with_events(&channel_id, &target, expected_muted_by, &records)
-            .await?;
-
-        if let Err(err) = self.voice_service.unmute_participant(&channel_id, &target).await {
-            tracing::warn!(
-                channel_id = %channel_id.uuid(),
-                user_id = %target.uuid(),
-                error = %err,
-                "Failed to restore LiveKit publication rights after unmute",
-            );
+        if moderator_record {
+            self.voice_service
+                .unmute_participant(&channel_id, &target)
+                .await?;
         }
 
-        Ok(())
+        let persisted = self
+            .channel_repository
+            .unmute_participant_with_events(
+                &channel_id,
+                &target,
+                expected_muted_by,
+                delegated,
+                &records,
+            )
+            .await;
+        match persisted {
+            Ok(true) => Ok(()),
+            Ok(false) => {
+                if moderator_record {
+                    let _ = self.voice_service.mute_participant(&channel_id, &target).await;
+                }
+                Err(UnmuteChannelError::Domain(ChannelError::NotOwner))
+            }
+            Err(err) => {
+                if moderator_record {
+                    let _ = self.voice_service.mute_participant(&channel_id, &target).await;
+                }
+                Err(err.into())
+            }
+        }
     }
 }

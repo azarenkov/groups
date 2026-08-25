@@ -113,6 +113,27 @@ where
             None => None,
         };
 
+        if owner != requester_id {
+            let still_allowed = self
+                .owner_lookup
+                .can_manage(&server_id, &requester_id)
+                .await
+                .unwrap_or_default();
+            if !still_allowed {
+                if let Some(key) = new_key {
+                    if let Err(qe) = self
+                        .attachment_repository
+                        .enqueue_cleanup(std::slice::from_ref(&key))
+                        .await
+                    {
+                        tracing::warn!(error = %qe, %key, "Failed to enqueue orphaned logo object");
+                    }
+                    cleanup_object(&*self.storage, &*self.attachment_repository, &key).await;
+                }
+                return Err(UpdateServerLogoError::NotOwner);
+            }
+        }
+
         let old = match self
             .media_repository
             .set_server_logo_key(&server_id, new_key.as_deref())

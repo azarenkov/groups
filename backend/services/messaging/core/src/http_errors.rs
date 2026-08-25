@@ -185,6 +185,7 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Repository(e) => e.to_http_status(),
             UnmuteChannelError::Domain(e) => e.to_http_status(),
             UnmuteChannelError::Outbox(e) => e.to_http_status(),
+            UnmuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
 
@@ -198,6 +199,7 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Repository(e) => e.to_user_message(),
             UnmuteChannelError::Domain(e) => e.to_user_message(),
             UnmuteChannelError::Outbox(e) => e.to_user_message(),
+            UnmuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
 
@@ -209,6 +211,7 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Repository(e) => e.to_error_code(),
             UnmuteChannelError::Domain(e) => e.to_error_code(),
             UnmuteChannelError::Outbox(e) => e.to_error_code(),
+            UnmuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
 }

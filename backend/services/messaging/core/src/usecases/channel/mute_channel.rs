@@ -97,6 +97,19 @@ where
         }
     }
 
+    async fn compensate_livekit(&self, channel_id: &ChannelId, target: &UserId) {
+        let committed = match self.channel_repository.find_channel_by_id(channel_id).await {
+            Ok(channel) => channel
+                .muted_participants_list()
+                .find(|m| &m.user_id == target)
+                .is_some_and(|m| &m.muted_by != target),
+            Err(_) => true,
+        };
+        if !committed {
+            let _ = self.voice_service.unmute_participant(channel_id, target).await;
+        }
+    }
+
     pub async fn execute(
         &self,
         request: MuteChannelRequest,
@@ -190,14 +203,14 @@ where
             Ok(false) => false,
             Err(err) => {
                 if moderator_mute {
-                    let _ = self.voice_service.unmute_participant(&channel_id, &target).await;
+                    self.compensate_livekit(&channel_id, &target).await;
                 }
                 return Err(err.into());
             }
         };
         if !persisted {
             if moderator_mute {
-                let _ = self.voice_service.unmute_participant(&channel_id, &target).await;
+                self.compensate_livekit(&channel_id, &target).await;
             }
             return Err(MuteChannelError::Domain(ChannelError::NotOwner));
         }
