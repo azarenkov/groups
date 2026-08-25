@@ -45,6 +45,7 @@ impl VoiceService for LiveKitService {
                 room: channel_id.uuid().to_string(),
                 ..Default::default()
             })
+            .with_ttl(Duration::from_secs(3600))
             .to_jwt()
             .map_err(|e| VoiceServiceError::VoiceChannelCreation(e.to_string()))?;
 
@@ -70,6 +71,7 @@ impl VoiceService for LiveKitService {
                 ],
                 ..Default::default()
             })
+            .with_ttl(Duration::from_secs(3600))
             .to_jwt()
             .map_err(|e| VoiceServiceError::VoiceChannelCreation(e.to_string()))?;
 

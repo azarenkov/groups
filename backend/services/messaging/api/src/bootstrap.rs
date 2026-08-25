@@ -132,6 +132,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         channel_stream,
         channel_repository.clone(),
+        server_repository.clone(),
+        livekit_service.clone(),
     );
 
     let user_stream = std::env::var("MESSAGING_USER_STREAM")

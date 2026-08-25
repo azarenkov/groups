@@ -1161,7 +1161,6 @@ impl ToHttpStatus for KickMemberError {
             KickMemberError::Repository(e) => e.to_http_status(),
             KickMemberError::NotMember => StatusCode::NOT_FOUND,
             KickMemberError::NotAllowed => StatusCode::FORBIDDEN,
-            KickMemberError::VoiceService(e) => e.to_http_status(),
         }
     }
 
@@ -1173,7 +1172,6 @@ impl ToHttpStatus for KickMemberError {
             KickMemberError::NotAllowed => {
                 "You don't have permission to kick this member".to_string()
             }
-            KickMemberError::VoiceService(e) => e.to_user_message(),
         }
     }
 
@@ -1183,7 +1181,6 @@ impl ToHttpStatus for KickMemberError {
             KickMemberError::Repository(e) => e.to_error_code(),
             KickMemberError::NotMember => "SERVER_NOT_MEMBER",
             KickMemberError::NotAllowed => "KICK_NOT_ALLOWED",
-            KickMemberError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
