@@ -8,6 +8,7 @@ import { channelAPI } from "../../api/channel";
 import { useServerStore } from "../../store/serverStore";
 import {
   PERM_MUTE_MEMBERS,
+  topRoleFor,
   useRolesStore,
   userPermissions,
 } from "../../store/rolesStore";
@@ -145,6 +146,21 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     (serverOwnerId === currentUserId ||
       (userPermissions(rolesData, currentUserId) & PERM_MUTE_MEMBERS) !== 0);
   const presenceMembers = useVoicePresenceStore((s) => s.byChannel[channelId]);
+  const moderationExcluded = React.useMemo(() => {
+    if (!currentUserId) return undefined;
+    const isOwner = serverOwnerId === currentUserId;
+    const myTop = topRoleFor(rolesData, currentUserId)?.position;
+    return (presenceMembers ?? [])
+      .filter((m) => {
+        if (m.id === currentUserId) return false;
+        if (m.id === serverOwnerId) return true;
+        if (isOwner) return false;
+        if (myTop === undefined) return true;
+        const targetTop = topRoleFor(rolesData, m.id)?.position;
+        return targetTop !== undefined && targetTop >= myTop;
+      })
+      .map((m) => m.id);
+  }, [currentUserId, serverOwnerId, rolesData, presenceMembers]);
   const moderateMute = (id: string, currentlyMuted: boolean) => {
     if (id === serverOwnerId) return;
     const rec = presenceMembers?.find((m) => m.id === id);
@@ -281,7 +297,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             viewersFor={viewersFor}
             onWatchChange={onStreamWatch}
             onModerateMute={canModerateMute ? moderateMute : undefined}
-            moderationExcluded={serverOwnerId ? [serverOwnerId] : undefined}
+            moderationExcluded={moderationExcluded}
           />,
           stageMount,
         )}

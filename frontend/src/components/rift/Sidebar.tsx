@@ -11,6 +11,7 @@ import {
   PERM_MANAGE_CHANNELS,
   PERM_MANAGE_INVITES,
   PERM_MUTE_MEMBERS,
+  topRoleFor,
   useRolesStore,
   userPermissions,
 } from "../../store/rolesStore";
@@ -211,6 +212,16 @@ const Sidebar: React.FC<SidebarProps> = ({
       (userPermissions(rolesByServer[server.id], currentUserId) &
         PERM_MANAGE_CHANNELS) !==
         0);
+  const outranksIn = (server: Server, memberId: string) => {
+    if (!currentUserId) return false;
+    if (server.ownerId === currentUserId) return true;
+    if (memberId === server.ownerId) return false;
+    const data = rolesByServer[server.id];
+    const myTop = topRoleFor(data, currentUserId)?.position;
+    if (myTop === undefined) return false;
+    const targetTop = topRoleFor(data, memberId)?.position;
+    return targetTop === undefined || targetTop < myTop;
+  };
   const canMuteIn = (server: Server) =>
     !!currentUserId &&
     (server.ownerId === currentUserId ||
@@ -480,8 +491,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                   {m.id !== currentUserId &&
-                    m.id !== server.ownerId &&
-                    canMuteIn(server) && (
+                    canMuteIn(server) &&
+                    outranksIn(server, m.id) && (
                     <button
                       type="button"
                       className="sb-voice-mute-btn"
