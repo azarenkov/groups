@@ -143,7 +143,11 @@ function dispatch(env: WsEnvelope) {
         receipts.removeChannelMember(c.id, userId);
       }
       void import("../store/rolesStore").then(({ useRolesStore }) => {
-        useRolesStore.getState().removeMember(serverId, userId);
+        const roles = useRolesStore.getState();
+        roles.removeMember(serverId, userId);
+        if (roles.byServer[serverId]) {
+          void roles.fetch(serverId).catch(() => {});
+        }
       });
       return;
     }

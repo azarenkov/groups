@@ -53,6 +53,7 @@ export const useRolesStore = create<RolesState>()((set) => ({
 
   removeMember: (serverId, userId) =>
     set((s) => {
+      fetchGens[serverId] = (fetchGens[serverId] ?? 0) + 1;
       const data = s.byServer[serverId];
       if (!data || !data.memberRoles[userId]) return s;
       const memberRoles = { ...data.memberRoles };

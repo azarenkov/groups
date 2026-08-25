@@ -104,7 +104,8 @@ where
         }
 
         let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let allowed = owner.as_ref() == Some(&sender_id)
+        let is_owner = owner.as_ref() == Some(&sender_id);
+        let allowed = is_owner
             || domain::server::role::has_permission(
                 self.role_repository
                     .user_permissions(&server_id, &sender_id)
@@ -153,12 +154,18 @@ where
             "invite_server_name",
             serde_json::json!(server_name.clone()),
         );
+        let delegated = if is_owner {
+            None
+        } else {
+            Some((&server_id, &sender_id))
+        };
         match self
             .dm_repository
-            .save_with_events(&message, &records, &[])
+            .save_server_invite_with_events(&message, &records, delegated)
             .await
         {
-            Ok(()) => {}
+            Ok(true) => {}
+            Ok(false) => return Err(SendServerInviteError::NotAllowed),
             Err(RepositoryError::AlreadyExists) => {
                 return Err(SendServerInviteError::InviteAlreadyPending);
             }

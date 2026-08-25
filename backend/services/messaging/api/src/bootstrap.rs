@@ -351,10 +351,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_repository.clone(),
             server_role_repository.clone(),
         ),
-        revoke_invite_code_usecase: RevokeInviteCode::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
+        revoke_invite_code_usecase: RevokeInviteCode::new(server_repository.clone()),
         redeem_invite_code_usecase: RedeemInviteCode::new(server_repository.clone()),
         leave_server_usecase: LeaveServer::new(
             server_repository.clone(),

@@ -13,6 +13,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevokeAuthority {
+    Owner,
+    Delegated,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpdateServerOutcome {
     Updated,
     NotFound,
@@ -112,7 +118,7 @@ pub trait ServerRepository {
         server_id: &ServerId,
         code: &str,
         requester: &UserId,
-        is_owner: bool,
+        authority: RevokeAuthority,
     ) -> Result<bool, RepositoryError>;
     async fn redeem_invite_code(
         &self,

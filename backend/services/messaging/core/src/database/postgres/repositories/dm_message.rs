@@ -67,6 +67,32 @@ struct MessageCursor {
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
+
+async fn insert_dm_message(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    message: &DmMessage,
+) -> Result<(), RepositoryError> {
+    sqlx::query!(
+        r#"
+        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_server_id, call_status, call_duration_seconds, created_at, edited_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        "#,
+        message.id().uuid(),
+        message.sender_id().uuid(),
+        message.recipient_id().uuid(),
+        message.content().as_str(),
+        message.invite_server_id().map(|id| id.uuid()),
+        message.call_status(),
+        message.call_duration_seconds(),
+        message.created_at(),
+        message.edited_at(),
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
 #[async_trait]
 impl DmMessageRepository for PostgresDmMessageRepository {
     async fn linked_attachment_subset(
@@ -100,28 +126,59 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"
-            INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_server_id, call_status, call_duration_seconds, created_at, edited_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            "#,
-            message.id().uuid(),
-            message.sender_id().uuid(),
-            message.recipient_id().uuid(),
-            message.content().as_str(),
-            message.invite_server_id().map(|id| id.uuid()),
-            message.call_status(),
-            message.call_duration_seconds(),
-            message.created_at(),
-            message.edited_at(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        insert_dm_message(&mut tx, message).await?;
         insert_dm_links(&mut tx, message.id().uuid(), attachments).await?;
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
+    }
+
+    async fn save_server_invite_with_events(
+        &self,
+        message: &DmMessage,
+        events: &[OutboxRecord],
+        delegated: Option<(&ServerId, &domain::user::id::UserId)>,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        if let Some((server_id, actor)) = delegated {
+            sqlx::query!(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+                server_id.uuid().to_string(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_INVITES,
+            ) {
+                return Ok(false);
+            }
+        }
+        insert_dm_message(&mut tx, message).await?;
+        save_outbox_records(&mut tx, events).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
     }
 
     async fn update_with_events(

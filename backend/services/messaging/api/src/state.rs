@@ -206,8 +206,7 @@ pub struct AppState {
         CreateInviteCode<PostgresServerRepository, PostgresServerRoleRepository>,
     pub list_invite_codes_usecase:
         ListInviteCodes<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub revoke_invite_code_usecase:
-        RevokeInviteCode<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,
     pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
     pub leave_server_usecase:
         LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
