@@ -162,6 +162,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             user_repository.clone(),
             hasher.clone(),
+            server_repository.clone(),
         ),
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),

@@ -79,6 +79,7 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresUserProfileRepository,
         BcryptHasher,
+        PostgresServerRepository,
     >,
     pub mute_channel_usecase: MuteChannel<
         PostgresChannelRepository,

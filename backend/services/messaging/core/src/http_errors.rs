@@ -503,6 +503,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
             JoinVoiceChannelError::InvalidPassword => StatusCode::FORBIDDEN,
             JoinVoiceChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            JoinVoiceChannelError::NotMember => StatusCode::FORBIDDEN,
             JoinVoiceChannelError::Repository(e) => e.to_http_status(),
             JoinVoiceChannelError::VoiceService(e) => e.to_http_status(),
             JoinVoiceChannelError::Hash(e) => e.to_http_status(),
@@ -522,6 +523,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::VoiceNotSupported => {
                 "Voice is not supported for this channel".to_string()
             }
+            JoinVoiceChannelError::NotMember => "You are not a member of this server".to_string(),
             JoinVoiceChannelError::Repository(e) => e.to_user_message(),
             JoinVoiceChannelError::VoiceService(e) => e.to_user_message(),
             JoinVoiceChannelError::Hash(e) => e.to_user_message(),
@@ -537,6 +539,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
             JoinVoiceChannelError::InvalidPassword => "INVALID_CHANNEL_PASSWORD",
             JoinVoiceChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            JoinVoiceChannelError::NotMember => "SERVER_NOT_MEMBER",
             JoinVoiceChannelError::Repository(e) => e.to_error_code(),
             JoinVoiceChannelError::VoiceService(e) => e.to_error_code(),
             JoinVoiceChannelError::Hash(e) => e.to_error_code(),
