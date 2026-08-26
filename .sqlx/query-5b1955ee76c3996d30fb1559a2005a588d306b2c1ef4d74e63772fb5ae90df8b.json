@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT channel_id, user_id, muted_by, muted_at\n            FROM channel_muted_participants\n            WHERE channel_id = ANY($1)\n            ",
+  "query": "\n            SELECT channel_id, user_id, muted_by, muted_at, self_muted\n            FROM channel_muted_participants\n            WHERE channel_id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -22,19 +22,25 @@
         "ordinal": 3,
         "name": "muted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "self_muted",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
-        "UuidArray"
+        "Uuid"
       ]
     },
     "nullable": [
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "6e1481ce91edbafb02553d8a878fc8245c1fe9f2565bf2cb67d6427beb6ec95d"
+  "hash": "5b1955ee76c3996d30fb1559a2005a588d306b2c1ef4d74e63772fb5ae90df8b"
 }

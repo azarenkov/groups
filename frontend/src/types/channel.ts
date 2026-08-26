@@ -59,6 +59,7 @@ export interface JoinVoiceChannelResponse {
   url: string;
   muted?: boolean;
   mutedBy?: string | null;
+  selfMuted?: boolean;
 }
 
 export interface Attachment {

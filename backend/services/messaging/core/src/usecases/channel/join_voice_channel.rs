@@ -152,6 +152,7 @@ where
             self.voice_service.client_url(),
             mute_record.is_some(),
             mute_record.map(|m| m.muted_by.uuid()),
+            mute_record.is_some_and(|m| m.self_muted),
         );
         Ok(response)
     }

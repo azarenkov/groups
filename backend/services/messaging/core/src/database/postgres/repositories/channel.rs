@@ -121,13 +121,14 @@ impl ChannelRepository for PostgresChannelRepository {
             sqlx::query!(
                 r#"
                 INSERT INTO channel_muted_participants
-                    (channel_id, user_id, muted_by, muted_at)
-                VALUES ($1, $2, $3, $4)
+                    (channel_id, user_id, muted_by, muted_at, self_muted)
+                VALUES ($1, $2, $3, $4, $5)
                 "#,
                 channel.id().uuid(),
                 mute.user_id.uuid(),
                 mute.muted_by.uuid(),
                 mute.muted_at,
+                mute.self_muted,
             )
             .execute(&mut *tx)
             .await
@@ -459,6 +460,7 @@ impl ChannelRepository for PostgresChannelRepository {
         target: &UserId,
         muted_by: &UserId,
         muted_at: DateTime<Utc>,
+        self_muted: bool,
         server_id: &ServerId,
         delegated: bool,
         events: &[OutboxRecord],
@@ -556,16 +558,19 @@ impl ChannelRepository for PostgresChannelRepository {
         let result = sqlx::query!(
             r#"
             INSERT INTO channel_muted_participants
-                (channel_id, user_id, muted_by, muted_at)
-            VALUES ($1, $2, $3, $4)
+                (channel_id, user_id, muted_by, muted_at, self_muted)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (channel_id, user_id) DO UPDATE
-                SET muted_by = EXCLUDED.muted_by, muted_at = EXCLUDED.muted_at
+                SET muted_by = EXCLUDED.muted_by,
+                    muted_at = EXCLUDED.muted_at,
+                    self_muted = channel_muted_participants.self_muted OR EXCLUDED.self_muted
                 WHERE channel_muted_participants.muted_by = EXCLUDED.user_id
             "#,
             channel_id.uuid(),
             target.uuid(),
             muted_by.uuid(),
             muted_at,
+            self_muted,
         )
         .execute(&mut *tx)
         .await
@@ -586,6 +591,7 @@ impl ChannelRepository for PostgresChannelRepository {
         channel_id: &ChannelId,
         target: &UserId,
         expected_muted_by: Option<&UserId>,
+        downgrade_to_self_mute: bool,
         server_id: &ServerId,
         initiator: &UserId,
         delegated: bool,
@@ -665,19 +671,36 @@ impl ChannelRepository for PostgresChannelRepository {
             }
         }
 
-        let result = sqlx::query!(
-            r#"
-            DELETE FROM channel_muted_participants
-            WHERE channel_id = $1 AND user_id = $2
-              AND ($3::uuid IS NULL OR muted_by = $3)
-            "#,
-            channel_id.uuid(),
-            target.uuid(),
-            expected_muted_by.map(|u| u.uuid()),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        let result = if downgrade_to_self_mute {
+            sqlx::query!(
+                r#"
+                UPDATE channel_muted_participants
+                SET muted_by = $2, muted_at = now(), self_muted = true
+                WHERE channel_id = $1 AND user_id = $2
+                  AND ($3::uuid IS NULL OR muted_by = $3)
+                "#,
+                channel_id.uuid(),
+                target.uuid(),
+                expected_muted_by.map(|u| u.uuid()),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+        } else {
+            sqlx::query!(
+                r#"
+                DELETE FROM channel_muted_participants
+                WHERE channel_id = $1 AND user_id = $2
+                  AND ($3::uuid IS NULL OR muted_by = $3)
+                "#,
+                channel_id.uuid(),
+                target.uuid(),
+                expected_muted_by.map(|u| u.uuid()),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+        };
 
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
@@ -1093,7 +1116,7 @@ impl ChannelRepository for PostgresChannelRepository {
         let muted_dtos = sqlx::query_as!(
             MutedParticipantDto,
             r#"
-            SELECT channel_id, user_id, muted_by, muted_at
+            SELECT channel_id, user_id, muted_by, muted_at, self_muted
             FROM channel_muted_participants
             WHERE channel_id = $1
             "#,
@@ -1650,7 +1673,7 @@ async fn load_channel_for_update(
     let muted_dtos = sqlx::query_as!(
         MutedParticipantDto,
         r#"
-        SELECT channel_id, user_id, muted_by, muted_at
+        SELECT channel_id, user_id, muted_by, muted_at, self_muted
         FROM channel_muted_participants
         WHERE channel_id = $1
         "#,

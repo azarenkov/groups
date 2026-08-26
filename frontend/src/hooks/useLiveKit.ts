@@ -127,7 +127,9 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           const auth = useAuthStore.getState();
           const selfId =
             auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
-          setLock(!!response.mutedBy && response.mutedBy !== selfId);
+          const locked = !!response.mutedBy && response.mutedBy !== selfId;
+          setLock(locked);
+          selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
           setIsMuted(true);
         }
         await service.connect(

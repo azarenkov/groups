@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO channel_muted_participants\n                    (channel_id, user_id, muted_by, muted_at, self_muted)\n                VALUES ($1, $2, $3, $4, $5)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c3f0cadf514c9d93b85970d3b04a5e398fa5779092e9296d084d4183fd6fa877"
+}

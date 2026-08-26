@@ -371,6 +371,13 @@ where
         .is_server_member(channel.server_id(), &user_id)
         .await?;
     if is_member {
+        let moderator_muted = channel
+            .muted_participants_list()
+            .find(|m| m.user_id == user_id)
+            .is_some_and(|m| m.muted_by != user_id);
+        if moderator_muted {
+            voice_service.mute_participant(&channel_id, &user_id).await?;
+        }
         return Ok(true);
     }
     voice_service

@@ -7,6 +7,7 @@ pub struct JoinVoiceChannelResponse {
     pub url: String,
     pub muted: bool,
     pub muted_by: Option<uuid::Uuid>,
+    pub self_muted: bool,
 }
 
 impl From<messaging::dto::responses::channel::join_voice_channel::JoinVoiceChannelResponse>
@@ -20,6 +21,7 @@ impl From<messaging::dto::responses::channel::join_voice_channel::JoinVoiceChann
             url: value.url,
             muted: value.muted,
             muted_by: value.muted_by,
+            self_muted: value.self_muted,
         }
     }
 }

@@ -35,6 +35,12 @@ use crate::{
     user::id::UserId,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnmuteOutcome {
+    Removed,
+    DowngradedToSelfMute,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ChannelError {
     #[error("Private channel requires a password")]
@@ -552,14 +558,16 @@ impl Channel {
             .muted_participants
             .as_mut()
             .ok_or(ChannelError::VoiceNotSupported)?;
+        let mut self_muted = target == initiator;
         if let Some(existing) = muted.get(&target) {
             let replaces_self_mute =
                 existing.muted_by == target && initiator != target;
             if !replaces_self_mute {
                 return Err(ChannelError::AlreadyMuted);
             }
+            self_muted = self_muted || existing.self_muted;
         }
-        muted.insert(target, ParticipantMute::new(target, initiator, now));
+        muted.insert(target, ParticipantMute::new(target, initiator, now, self_muted));
 
         self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
             self.id,
@@ -578,7 +586,7 @@ impl Channel {
         initiator: UserId,
         can_override: bool,
         now: DateTime<Utc>,
-    ) -> Result<(), ChannelError> {
+    ) -> Result<UnmuteOutcome, ChannelError> {
         let muted = self
             .muted_participants
             .as_ref()
@@ -592,6 +600,23 @@ impl Channel {
             return Err(ChannelError::NotOwner);
         }
 
+        let keeps_self_mute =
+            mute_record.muted_by != target && mute_record.self_muted && initiator != target;
+        if keeps_self_mute {
+            self.muted_participants
+                .as_mut()
+                .ok_or(ChannelError::VoiceNotSupported)?
+                .insert(target, ParticipantMute::new(target, target, now, true));
+            self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
+                self.id,
+                self.server_id,
+                target,
+                target,
+                now,
+            )));
+            return Ok(UnmuteOutcome::DowngradedToSelfMute);
+        }
+
         self.muted_participants
             .as_mut()
             .ok_or(ChannelError::VoiceNotSupported)?
@@ -601,7 +626,7 @@ impl Channel {
             ParticipantUnmuted::record(self.id, self.server_id, target, initiator, now),
         ));
 
-        Ok(())
+        Ok(UnmuteOutcome::Removed)
     }
 
     pub fn muted_participants_list(&self) -> impl Iterator<Item = &ParticipantMute> {

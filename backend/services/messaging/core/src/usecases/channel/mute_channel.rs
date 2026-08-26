@@ -218,6 +218,7 @@ where
                 &target,
                 &initiator,
                 now,
+                target == initiator,
                 &server_id,
                 delegated,
                 &records,

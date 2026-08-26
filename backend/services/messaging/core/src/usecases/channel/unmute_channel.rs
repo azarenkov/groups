@@ -164,7 +164,8 @@ where
             .find(|m| m.user_id == target)
             .map(|m| m.muted_by);
         let moderator_record = observed_muted_by.is_some_and(|by| by != target);
-        channel.unmute(target, initiator, can_override, now)?;
+        let outcome = channel.unmute(target, initiator, can_override, now)?;
+        let downgrade = outcome == domain::channel::UnmuteOutcome::DowngradedToSelfMute;
         let expected_muted_by = observed_muted_by.as_ref();
         let inherent = is_server_owner || channel.owner_id() == &initiator;
         let delegated = !inherent && target != initiator;
@@ -188,6 +189,7 @@ where
                 &channel_id,
                 &target,
                 expected_muted_by,
+                downgrade,
                 &server_id,
                 &initiator,
                 delegated,

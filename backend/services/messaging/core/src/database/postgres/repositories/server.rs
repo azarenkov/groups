@@ -276,7 +276,7 @@ impl ServerRepository for PostgresServerRepository {
         let muted_dtos = sqlx::query_as!(
             MutedParticipantDto,
             r#"
-            SELECT channel_id, user_id, muted_by, muted_at
+            SELECT channel_id, user_id, muted_by, muted_at, self_muted
             FROM channel_muted_participants
             WHERE channel_id = ANY($1)
             "#,
@@ -289,7 +289,12 @@ impl ServerRepository for PostgresServerRepository {
         let mut muted_by_channel: HashMap<Uuid, HashMap<UserId, ParticipantMute>> = HashMap::new();
         for dto in muted_dtos {
             let user_id = UserId::new(dto.user_id);
-            let mute = ParticipantMute::new(user_id, UserId::new(dto.muted_by), dto.muted_at);
+            let mute = ParticipantMute::new(
+                user_id,
+                UserId::new(dto.muted_by),
+                dto.muted_at,
+                dto.self_muted,
+            );
             muted_by_channel
                 .entry(dto.channel_id)
                 .or_default()

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT channel_id, user_id, muted_by, muted_at\n        FROM channel_muted_participants\n        WHERE channel_id = $1\n        ",
+  "query": "\n        SELECT channel_id, user_id, muted_by, muted_at, self_muted\n        FROM channel_muted_participants\n        WHERE channel_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -22,6 +22,11 @@
         "ordinal": 3,
         "name": "muted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "self_muted",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -33,8 +38,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "36f28d659c546dd275fec025d74a7958eb54db9d8fedaf893602409d97b9d02e"
+  "hash": "4abbb7cd3536543a621a6a74079e436b36f360aa6553edb582e1ae72ec46769a"
 }
