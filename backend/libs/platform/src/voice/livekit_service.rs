@@ -152,7 +152,28 @@ impl VoiceService for LiveKitService {
             .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
         let room = channel_id.uuid().to_string();
         let identity = user_id.uuid().to_string();
-        let participant = match livekit_room.get_participant(&room, &identity).await {
+        let permission = livekit_protocol::ParticipantPermission {
+            can_subscribe: true,
+            can_publish: true,
+            can_publish_data: true,
+            can_publish_sources: vec![
+                livekit_protocol::TrackSource::Camera as i32,
+                livekit_protocol::TrackSource::ScreenShare as i32,
+                livekit_protocol::TrackSource::ScreenShareAudio as i32,
+            ],
+            ..Default::default()
+        };
+        let participant = match livekit_room
+            .update_participant(
+                &room,
+                &identity,
+                livekit_api::services::room::UpdateParticipantOptions {
+                    permission: Some(permission),
+                    ..Default::default()
+                },
+            )
+            .await
+        {
             Ok(p) => p,
             Err(ServiceError::Twirp(TwirpError::Twirp(code)))
                 if code.code == TwirpErrorCode::NOT_FOUND =>
@@ -171,31 +192,17 @@ impl VoiceService for LiveKitService {
                 .mute_published_track(&room, &identity, &track.sid, true)
                 .await
             {
+                if let Err(rollback) = self.unmute_participant(channel_id, user_id).await {
+                    tracing::warn!(
+                        error = %rollback,
+                        room = %room,
+                        identity = %identity,
+                        "Failed to roll back publication restriction after track mute failure",
+                    );
+                }
                 return Err(VoiceServiceError::ParticipantRemoval(e.to_string()));
             }
         }
-        let permission = livekit_protocol::ParticipantPermission {
-            can_subscribe: true,
-            can_publish: true,
-            can_publish_data: true,
-            can_publish_sources: vec![
-                livekit_protocol::TrackSource::Camera as i32,
-                livekit_protocol::TrackSource::ScreenShare as i32,
-                livekit_protocol::TrackSource::ScreenShareAudio as i32,
-            ],
-            ..Default::default()
-        };
-        livekit_room
-            .update_participant(
-                &room,
-                &identity,
-                livekit_api::services::room::UpdateParticipantOptions {
-                    permission: Some(permission),
-                    ..Default::default()
-                },
-            )
-            .await
-            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
         Ok(())
     }
 
