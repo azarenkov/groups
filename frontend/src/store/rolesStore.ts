@@ -29,6 +29,7 @@ interface RolesState {
   removeMember: (serverId: string, userId: string) => void;
   clearServer: (serverId: string) => void;
   isTracked: (serverId: string) => boolean;
+  trackedServers: () => string[];
   clearAll: () => void;
 }
 
@@ -63,6 +64,8 @@ export const useRolesStore = create<RolesState>()((set) => ({
     }),
 
   isTracked: (serverId) => fetchGens[serverId] !== undefined,
+
+  trackedServers: () => Object.keys(fetchGens),
 
   removeMember: (serverId, userId) =>
     set((s) => {

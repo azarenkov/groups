@@ -627,9 +627,13 @@ export function installWsBootstrap() {
       scheduleUnreadRefetch();
     })();
     void import("../store/rolesStore").then(({ useRolesStore }) => {
-      const loaded = Object.keys(useRolesStore.getState().byServer);
-      for (const serverId of loaded) {
-        void useRolesStore.getState().fetch(serverId).catch(() => {});
+      const roles = useRolesStore.getState();
+      const tracked = new Set([
+        ...Object.keys(roles.byServer),
+        ...roles.trackedServers(),
+      ]);
+      for (const serverId of tracked) {
+        void roles.fetch(serverId).catch(() => {});
       }
     });
     void useCallStore.getState().rehydrate();
