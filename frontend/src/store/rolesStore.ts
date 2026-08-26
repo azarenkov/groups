@@ -27,6 +27,7 @@ interface RolesState {
   byServer: Record<string, ServerRolesData>;
   fetch: (serverId: string) => Promise<void>;
   removeMember: (serverId: string, userId: string) => void;
+  clearServer: (serverId: string) => void;
   isTracked: (serverId: string) => boolean;
   clearAll: () => void;
 }
@@ -51,6 +52,15 @@ export const useRolesStore = create<RolesState>()((set) => ({
       },
     }));
   },
+
+  clearServer: (serverId) =>
+    set((s) => {
+      if (fetchGens[serverId] !== undefined) fetchGens[serverId] += 1;
+      if (!s.byServer[serverId]) return s;
+      const byServer = { ...s.byServer };
+      delete byServer[serverId];
+      return { byServer };
+    }),
 
   isTracked: (serverId) => fetchGens[serverId] !== undefined,
 

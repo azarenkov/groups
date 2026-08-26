@@ -578,6 +578,9 @@ function dispatch(env: WsEnvelope) {
 }
 
 function purgeServerLocally(id: string) {
+  void import("../store/rolesStore").then(({ useRolesStore }) => {
+    useRolesStore.getState().clearServer(id);
+  });
   const serverState = useServerStore.getState();
   const channelState = useChannelStore.getState();
   const voiceState = useVoicePresenceStore.getState();
