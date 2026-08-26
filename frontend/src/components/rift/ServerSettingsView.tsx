@@ -400,6 +400,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
+    if (!canManageInvites) return;
     let cancelled = false;
     (async () => {
       try {
@@ -415,7 +416,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [server.id, currentUserId]);
+  }, [server.id, currentUserId, canManageInvites]);
 
   const copyCode = (code: string) => {
     void copyText(`rift.server/${code}`).then((ok) => {
