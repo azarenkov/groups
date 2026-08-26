@@ -11,7 +11,10 @@ export interface VoicePresenceMember {
 
 interface VoicePresenceState {
   byChannel: Record<string, VoicePresenceMember[]>;
-  pendingMutes: Record<string, Record<string, { isMuted: boolean; mutedBy?: string }>>;
+  pendingMutes: Record<
+    string,
+    Record<string, { isMuted: boolean; mutedBy?: string; serverId?: string }>
+  >;
   addMember: (channelId: string, member: VoicePresenceMember) => void;
   removeMember: (channelId: string, userId: string) => void;
   renameMember: (userId: string, name: string) => void;
@@ -21,6 +24,7 @@ interface VoicePresenceState {
     userId: string,
     isMuted: boolean,
     mutedBy?: string,
+    serverId?: string,
   ) => void;
   setChannelMedia: (
     channelId: string,
@@ -29,7 +33,7 @@ interface VoicePresenceState {
     enabled: boolean,
   ) => void;
   clearChannel: (channelId: string) => void;
-  purgePendingMutes: (channelIds: string[], userId: string) => void;
+  purgePendingMutes: (channelIds: string[], userId: string, serverId?: string) => void;
   clearAll: () => void;
 }
 
@@ -134,7 +138,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       return changed ? { byChannel } : state;
     }),
 
-  setChannelMute: (channelId, userId, isMuted, mutedBy) =>
+  setChannelMute: (channelId, userId, isMuted, mutedBy, serverId) =>
     set((state) => {
       const existing = state.byChannel[channelId];
       if (!existing || !existing.some((m) => m.id === userId)) {
@@ -143,7 +147,11 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
             ...state.pendingMutes,
             [channelId]: {
               ...(state.pendingMutes[channelId] ?? {}),
-              [userId]: { isMuted, mutedBy: isMuted ? mutedBy : undefined },
+              [userId]: {
+                isMuted,
+                mutedBy: isMuted ? mutedBy : undefined,
+                serverId,
+              },
             },
           },
         };
@@ -170,11 +178,17 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       return { byChannel: { ...state.byChannel, [channelId]: next } };
     }),
 
-  purgePendingMutes: (channelIds, userId) =>
+  purgePendingMutes: (channelIds, userId, serverId) =>
     set((state) => {
       let changed = false;
       const pendingMutes = { ...state.pendingMutes };
-      for (const channelId of channelIds) {
+      const targets = new Set(channelIds);
+      if (serverId) {
+        for (const [channelId, overlay] of Object.entries(pendingMutes)) {
+          if (overlay[userId]?.serverId === serverId) targets.add(channelId);
+        }
+      }
+      for (const channelId of targets) {
         const overlay = pendingMutes[channelId];
         if (!overlay || !overlay[userId]) continue;
         const next = { ...overlay };

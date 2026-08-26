@@ -144,7 +144,7 @@ function dispatch(env: WsEnvelope) {
       }
       useVoicePresenceStore
         .getState()
-        .purgePendingMutes(channels.map((c) => c.id), userId);
+        .purgePendingMutes(channels.map((c) => c.id), userId, serverId);
       void import("../store/rolesStore").then(({ useRolesStore }) => {
         const roles = useRolesStore.getState();
         roles.removeMember(serverId, userId);
@@ -531,6 +531,7 @@ function dispatch(env: WsEnvelope) {
           userId,
           isMuted,
           isMuted ? (asString(d.mutedBy) ?? undefined) : undefined,
+          asString(d.serverId) ?? undefined,
         );
       const selfId = useAuthStore.getState().user?.id;
       const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);

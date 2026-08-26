@@ -151,6 +151,12 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const visibleSections = SECTIONS.filter(
     (sec) => sec.id !== "invites" || canManageInvites,
   );
+  React.useEffect(() => {
+    if (canManageInvites) return;
+    setInvites([]);
+    setPrimaryCode(null);
+    setSection((cur) => (cur === "invites" ? "overview" : cur));
+  }, [canManageInvites]);
 
   const ROLE_COLORS = [
     "#5865f2", "#3ba55c", "#faa61a", "#ed4245", "#eb459e", "#9b59b6", "#00b0f4", "#8e8e93",
@@ -1112,7 +1118,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
             </>
           )}
 
-          {section === "invites" && (
+          {section === "invites" && canManageInvites && (
             <>
               <h1>{t("nav.invites")}</h1>
               <p className="lead">{t("invitesLead", { server: server.name })}</p>
