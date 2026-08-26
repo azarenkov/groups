@@ -356,7 +356,15 @@ where
     let user_id = domain::user::id::UserId::new(user_id);
     let channel = match channel_repository.find_channel_by_id(&channel_id).await {
         Ok(c) => c,
-        Err(domain::shared::repository::error::RepositoryError::NotFound) => return Ok(false),
+        Err(domain::shared::repository::error::RepositoryError::NotFound) => {
+            voice_service.delete_voice_channel(&channel_id).await?;
+            tracing::info!(
+                channel_id = %channel_id.uuid(),
+                user_id = %user_id.uuid(),
+                "Closed orphaned LiveKit room after join into a deleted channel",
+            );
+            return Ok(false);
+        }
         Err(e) => return Err(e.into()),
     };
     let is_member = server_repository
