@@ -97,7 +97,12 @@ where
         }
     }
 
-    async fn compensate_livekit(&self, channel_id: &ChannelId, target: &UserId) {
+    async fn compensate_livekit(
+        &self,
+        channel_id: &ChannelId,
+        target: &UserId,
+        muted_sids: &[String],
+    ) {
         let committed = match self.channel_repository.find_channel_by_id(channel_id).await {
             Ok(channel) => channel
                 .muted_participants_list()
@@ -105,8 +110,28 @@ where
                 .is_some_and(|m| &m.muted_by != target),
             Err(_) => true,
         };
-        if !committed {
-            let _ = self.voice_service.unmute_participant(channel_id, target).await;
+        if committed {
+            return;
+        }
+        if let Err(err) = self
+            .voice_service
+            .unmute_tracks(channel_id, target, muted_sids)
+            .await
+        {
+            tracing::warn!(
+                channel_id = %channel_id.uuid(),
+                user_id = %target.uuid(),
+                error = %err,
+                "Failed to revert LiveKit track mutes during compensation",
+            );
+        }
+        if let Err(err) = self.voice_service.unmute_participant(channel_id, target).await {
+            tracing::warn!(
+                channel_id = %channel_id.uuid(),
+                user_id = %target.uuid(),
+                error = %err,
+                "Failed to restore LiveKit publication rights during compensation",
+            );
         }
     }
 
@@ -178,11 +203,13 @@ where
             || channel.owner_id() == &initiator;
         let delegated = target != initiator && !inherent;
         let moderator_mute = target != initiator;
-        if moderator_mute {
+        let muted_sids = if moderator_mute {
             self.voice_service
                 .mute_participant(&channel_id, &target)
-                .await?;
-        }
+                .await?
+        } else {
+            Vec::new()
+        };
 
         let persisted = self
             .channel_repository
@@ -201,14 +228,14 @@ where
             Ok(false) => false,
             Err(err) => {
                 if moderator_mute {
-                    self.compensate_livekit(&channel_id, &target).await;
+                    self.compensate_livekit(&channel_id, &target, &muted_sids).await;
                 }
                 return Err(err.into());
             }
         };
         if !persisted {
             if moderator_mute {
-                self.compensate_livekit(&channel_id, &target).await;
+                self.compensate_livekit(&channel_id, &target, &muted_sids).await;
             }
             return Err(MuteChannelError::Domain(ChannelError::NotOwner));
         }

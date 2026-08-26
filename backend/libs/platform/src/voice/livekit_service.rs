@@ -147,7 +147,7 @@ impl VoiceService for LiveKitService {
         &self,
         channel_id: &ChannelId,
         user_id: &UserId,
-    ) -> Result<(), VoiceServiceError> {
+    ) -> Result<Vec<String>, VoiceServiceError> {
         let livekit_room = RoomClient::new(self.config.url())
             .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
         let room = channel_id.uuid().to_string();
@@ -178,10 +178,11 @@ impl VoiceService for LiveKitService {
             Err(ServiceError::Twirp(TwirpError::Twirp(code)))
                 if code.code == TwirpErrorCode::NOT_FOUND =>
             {
-                return Ok(());
+                return Ok(Vec::new());
             }
             Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
         };
+        let mut muted_sids = Vec::new();
         for track in participant.tracks {
             let is_live_microphone =
                 track.source == livekit_protocol::TrackSource::Microphone as i32 && !track.muted;
@@ -192,6 +193,14 @@ impl VoiceService for LiveKitService {
                 .mute_published_track(&room, &identity, &track.sid, true)
                 .await
             {
+                if let Err(rollback) = self.unmute_tracks(channel_id, user_id, &muted_sids).await {
+                    tracing::warn!(
+                        error = %rollback,
+                        room = %room,
+                        identity = %identity,
+                        "Failed to roll back track mutes after track mute failure",
+                    );
+                }
                 if let Err(rollback) = self.unmute_participant(channel_id, user_id).await {
                     tracing::warn!(
                         error = %rollback,
@@ -202,8 +211,9 @@ impl VoiceService for LiveKitService {
                 }
                 return Err(VoiceServiceError::ParticipantRemoval(e.to_string()));
             }
+            muted_sids.push(track.sid);
         }
-        Ok(())
+        Ok(muted_sids)
     }
 
     async fn unmute_participant(
@@ -222,7 +232,7 @@ impl VoiceService for LiveKitService {
             can_publish_sources: Vec::new(),
             ..Default::default()
         };
-        let participant = match livekit_room
+        match livekit_room
             .update_participant(
                 &room,
                 &identity,
@@ -233,30 +243,38 @@ impl VoiceService for LiveKitService {
             )
             .await
         {
-            Ok(p) => p,
+            Ok(_) => Ok(()),
             Err(ServiceError::Twirp(TwirpError::Twirp(code)))
                 if code.code == TwirpErrorCode::NOT_FOUND =>
             {
-                return Ok(());
+                Ok(())
             }
-            Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
-        };
-        for track in participant.tracks {
-            let is_muted_microphone =
-                track.source == livekit_protocol::TrackSource::Microphone as i32 && track.muted;
-            if !is_muted_microphone {
-                continue;
-            }
-            if let Err(e) = livekit_room
-                .mute_published_track(&room, &identity, &track.sid, false)
+            Err(e) => Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
+        }
+    }
+
+    async fn unmute_tracks(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+        track_sids: &[String],
+    ) -> Result<(), VoiceServiceError> {
+        if track_sids.is_empty() {
+            return Ok(());
+        }
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
+        let room = channel_id.uuid().to_string();
+        let identity = user_id.uuid().to_string();
+        for sid in track_sids {
+            match livekit_room
+                .mute_published_track(&room, &identity, sid, false)
                 .await
             {
-                tracing::warn!(
-                    error = %e,
-                    room = %room,
-                    identity = %identity,
-                    "Failed to unmute microphone track after restoring permissions",
-                );
+                Ok(_) => {}
+                Err(ServiceError::Twirp(TwirpError::Twirp(code)))
+                    if code.code == TwirpErrorCode::NOT_FOUND => {}
+                Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
             }
         }
         Ok(())

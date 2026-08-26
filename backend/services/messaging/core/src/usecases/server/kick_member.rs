@@ -105,11 +105,6 @@ where
             }
         }
 
-        let voice_channel_ids = self
-            .channel_repository
-            .list_voice_channel_ids_by_server(&server_id)
-            .await?;
-
         let member_event = domain::server::events::ServerEvent::MemberLeft(
             domain::server::events::lifecycle::ServerMemberLeft::record(
                 server_id,
@@ -132,6 +127,11 @@ where
                 return Err(KickMemberError::NotAllowed);
             }
         }
+
+        let voice_channel_ids = self
+            .channel_repository
+            .list_voice_channel_ids_by_server(&server_id)
+            .await?;
 
         for channel_id in &voice_channel_ids {
             let mut last_err = None;

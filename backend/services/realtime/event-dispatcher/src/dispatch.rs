@@ -156,12 +156,14 @@ pub async fn dispatch(
 
     if ends_with(subject, ".server.roles.changed") {
         let evt: ServerRolesChangedDto = serde_json::from_slice(payload)?;
+        let mut recipients = resolver.server_members(evt.server_id).await?;
+        recipients.extend(evt.recipients);
         let envelope = Envelope::new(
             "server.roles.changed",
             json!({ "serverId": evt.server_id }),
         );
         publisher
-            .publish_to_users(unique(evt.recipients), &envelope)
+            .publish_to_users(unique(recipients), &envelope)
             .await?;
         return Ok(());
     }
