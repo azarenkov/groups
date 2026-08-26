@@ -34,6 +34,7 @@ interface VoicePresenceState {
   ) => void;
   clearChannel: (channelId: string) => void;
   purgePendingMutes: (channelIds: string[], userId: string, serverId?: string) => void;
+  purgePendingForServer: (serverId: string, channelIds: string[]) => void;
   clearAll: () => void;
 }
 
@@ -195,6 +196,21 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
         delete next[userId];
         if (Object.keys(next).length === 0) delete pendingMutes[channelId];
         else pendingMutes[channelId] = next;
+        changed = true;
+      }
+      return changed ? { pendingMutes } : state;
+    }),
+
+  purgePendingForServer: (serverId, channelIds) =>
+    set((state) => {
+      let changed = false;
+      const pendingMutes = { ...state.pendingMutes };
+      for (const [channelId, overlay] of Object.entries(pendingMutes)) {
+        const belongs =
+          channelIds.includes(channelId) ||
+          Object.values(overlay).some((o) => o.serverId === serverId);
+        if (!belongs) continue;
+        delete pendingMutes[channelId];
         changed = true;
       }
       return changed ? { pendingMutes } : state;

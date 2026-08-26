@@ -587,6 +587,7 @@ function purgeServerLocally(id: string) {
   const voiceState = useVoicePresenceStore.getState();
   const unreadState = useUnreadStore.getState();
   const channelIds = (channelState.channelsByServer[id] ?? []).map((c) => c.id);
+  voiceState.purgePendingForServer(id, channelIds);
   for (const cid of channelIds) {
     voiceState.clearChannel(cid);
     unreadState.resetChannel(cid);

@@ -34,12 +34,13 @@ interface RolesState {
 }
 
 const fetchGens: Record<string, number> = {};
+let nextGen = 0;
 
 export const useRolesStore = create<RolesState>()((set) => ({
   byServer: {},
 
   fetch: async (serverId) => {
-    const gen = (fetchGens[serverId] = (fetchGens[serverId] ?? 0) + 1);
+    const gen = (fetchGens[serverId] = ++nextGen);
     const data = await serverAPI.listRoles(serverId);
     if (fetchGens[serverId] !== gen) return;
     const memberRoles: Record<string, string[]> = {};
@@ -56,7 +57,7 @@ export const useRolesStore = create<RolesState>()((set) => ({
 
   clearServer: (serverId) =>
     set((s) => {
-      if (fetchGens[serverId] !== undefined) fetchGens[serverId] += 1;
+      delete fetchGens[serverId];
       if (!s.byServer[serverId]) return s;
       const byServer = { ...s.byServer };
       delete byServer[serverId];
@@ -69,7 +70,7 @@ export const useRolesStore = create<RolesState>()((set) => ({
 
   removeMember: (serverId, userId) =>
     set((s) => {
-      fetchGens[serverId] = (fetchGens[serverId] ?? 0) + 1;
+      if (fetchGens[serverId] !== undefined) fetchGens[serverId] = ++nextGen;
       const data = s.byServer[serverId];
       if (!data || !data.memberRoles[userId]) return s;
       const memberRoles = { ...data.memberRoles };
@@ -80,7 +81,7 @@ export const useRolesStore = create<RolesState>()((set) => ({
     }),
 
   clearAll: () => {
-    for (const k of Object.keys(fetchGens)) fetchGens[k] += 1;
+    for (const k of Object.keys(fetchGens)) delete fetchGens[k];
     set({ byServer: {} });
   },
 }));
