@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{notification::repository::NotificationPreferenceRepository, notification::repository::StoredNotificationPreference};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ListNotificationPreferencesError {

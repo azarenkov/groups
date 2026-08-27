@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use messaging_domain::{channel::id::ChannelId, channel::unit_of_work::ChannelTransaction, channel::unit_of_work::ChannelUnitOfWork};
 use sqlx::{Pool, Postgres, Transaction};
 

@@ -3,7 +3,8 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use messaging_domain::{channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 

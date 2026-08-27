@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use messaging_domain::{friendship::Friendship, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::view::FriendshipView};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{

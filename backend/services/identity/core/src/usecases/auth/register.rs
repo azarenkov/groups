@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::User, user::email::Email, user::repository::UserRepository};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
+use domain::{password_hash::PasswordHash, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
+use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 
 
 use crate::{

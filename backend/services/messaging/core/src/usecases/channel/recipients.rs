@@ -1,4 +1,5 @@
-use domain::{shared::outbox::outbox_record::OutboxRecord, user::id::UserId};
+use domain::user::id::UserId;
+use ports::outbox::record::OutboxRecord;
 use serde_json::{Value, json};
 
 pub fn inject_recipient_ids(records: &mut [OutboxRecord], recipient_ids: &[UserId]) {

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use domain::{user::id::UserId, user::name::UserName};
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode};
 use sqlx::{Pool, Postgres, Transaction};
 

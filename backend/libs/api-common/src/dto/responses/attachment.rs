@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::attachment::{Attachment, AttachmentLink};
+use domain::{attachment::Attachment, attachment::AttachmentLink};
 use serde::Serialize;
 use uuid::Uuid;
 

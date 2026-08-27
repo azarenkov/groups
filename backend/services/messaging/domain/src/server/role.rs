@@ -45,16 +45,16 @@ pub trait ServerRoleRepository {
     async fn list_roles(
         &self,
         server_id: &crate::server::id::ServerId,
-    ) -> Result<Vec<ServerRole>, domain::shared::repository::error::RepositoryError>;
+    ) -> Result<Vec<ServerRole>, ports::repository::RepositoryError>;
 
     async fn member_role_ids(
         &self,
         server_id: &crate::server::id::ServerId,
-    ) -> Result<Vec<(Uuid, Uuid)>, domain::shared::repository::error::RepositoryError>;
+    ) -> Result<Vec<(Uuid, Uuid)>, ports::repository::RepositoryError>;
 
     async fn user_permissions(
         &self,
         server_id: &crate::server::id::ServerId,
         user_id: &domain::user::id::UserId,
-    ) -> Result<i64, domain::shared::repository::error::RepositoryError>;
+    ) -> Result<i64, ports::repository::RepositoryError>;
 }

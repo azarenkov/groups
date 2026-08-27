@@ -3,7 +3,8 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::view::DmMessageView, server::id::ServerId};
-use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
+use ports::repository::RepositoryError;
 
 #[derive(Debug, Clone)]
 pub struct DmConversationPreview {

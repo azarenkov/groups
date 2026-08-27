@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 
 use crate::{channel::Channel, server::Server, server::id::ServerId, server::invite_code::InviteCode};
-use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use domain::{pagination::PaginatedResult, pagination::Pagination, user::id::UserId, user::name::UserName};
+use ports::repository::RepositoryError;
 
 #[async_trait]
 pub trait ServerRepository {

@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
-use ports::outbox_publisher::OutboxPublisher;
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, repository::RepositoryError};
 use chrono::{Duration, Utc};
-use domain::shared::{
-    outbox::outbox_record::{AggregateType, OutboxRecord},
-    repository::error::RepositoryError,
-};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{

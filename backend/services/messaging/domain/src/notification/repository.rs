@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::{notification::NotificationLevel, notification::NotificationScope};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[derive(Debug, Clone)]
 pub struct NotificationPreference {

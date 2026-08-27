@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::{
-    shared::repository::error::RepositoryError, user::id::UserId,
-    user_profile::UserProfileRepository,
-};
+use domain::user::id::UserId;
+use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 use sqlx::{Pool, Postgres, Row};
 
 use crate::database::postgres::error::map_sqlx_error_to_domain_error;

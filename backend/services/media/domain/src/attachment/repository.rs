@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::attachment::Attachment;
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[async_trait]
 pub trait AttachmentRepository {

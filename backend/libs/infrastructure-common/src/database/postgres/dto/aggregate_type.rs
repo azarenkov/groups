@@ -1,4 +1,4 @@
-use domain::shared::outbox::outbox_record::AggregateType;
+use ports::outbox::record::AggregateType;
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "aggregate_type", rename_all = "snake_case")]

@@ -1,4 +1,4 @@
-use domain::shared::pagination::Pagination;
+use domain::pagination::Pagination;
 use uuid::Uuid;
 
 use crate::dto::RequestContext;

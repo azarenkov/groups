@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::user::{email::Email, locale::Locale};
+use domain::{user::email::Email, user::locale::Locale};
 
 #[async_trait]
 pub trait Mailer {

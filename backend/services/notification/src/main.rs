@@ -1,9 +1,6 @@
 use std::{error::Error, sync::Arc};
 
-use ports::{
-    event_consumer::{ConsumedMessage, EventConsumer, StartPosition, SubscribeOptions},
-    mailer::Mailer,
-};
+use ports::{event_consumer::ConsumedMessage, event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
 use identity_domain::verification::events::VerificationEvent;
 use futures::StreamExt;
 use infrastructure_common::{

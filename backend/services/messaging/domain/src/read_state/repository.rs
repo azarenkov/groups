@@ -3,7 +3,8 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::channel::id::ChannelId;
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[derive(Debug, Clone)]
 pub struct ChannelUnread {

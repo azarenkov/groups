@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use domain::shared::outbox::to_outbox::ToOutboxRecord;
+use domain::user::id::UserId;
+use ports::{outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 
 use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::ports::voice_service::VoiceService;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LeaveServerError {
     #[error("Outbox error: {0}")]
-    Outbox(#[from] domain::shared::outbox::to_outbox::OutboxError),
+    Outbox(#[from] ports::outbox::to_outbox::OutboxError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("You are not a member of this server")]

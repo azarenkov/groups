@@ -3,7 +3,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberJoined, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerUpdated, server::id::ServerId};
-use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord};
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
 
 pub mod lifecycle;
 

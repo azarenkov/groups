@@ -4,7 +4,8 @@ use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
 use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelOperationError, channel::repository::ChannelRepository, channel::session_id::SessionId, server::id::ServerId};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::ToOutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use ports::{outbox::record::OutboxRecord, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
@@ -743,9 +744,9 @@ pub(crate) fn stream_viewers_record(
     OutboxRecord {
         id: uuid::Uuid::new_v4(),
         aggregate_id: channel_id,
-        aggregate_type: domain::shared::outbox::outbox_record::AggregateType::Channel,
+        aggregate_type: ports::outbox::record::AggregateType::Channel,
         parent_id: Some(server_id),
-        parent_type: Some(domain::shared::outbox::outbox_record::AggregateType::Server),
+        parent_type: Some(ports::outbox::record::AggregateType::Server),
         event_type: "stream.viewers".to_string(),
         payload: serde_json::json!({
             "channel_id": channel_id,

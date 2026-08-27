@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use messaging_domain::{channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
-use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

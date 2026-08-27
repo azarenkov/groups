@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ListDmPreviewsError {

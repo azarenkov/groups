@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
-use domain::{shared::outbox::to_outbox::OutboxError, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use domain::{user::id::UserId, user::name::UserName};
+use ports::{outbox::to_outbox::OutboxError, repository::RepositoryError};
 
 use crate::{
     dto::{
@@ -45,7 +46,7 @@ pub struct JoinVoiceChannel<T, U, R, H, S>
 where
     T: VoiceService,
     U: ChannelRepository,
-    R: domain::user_profile::UserProfileRepository,
+    R: ports::user_profile::UserProfileRepository,
     H: Hasher,
     S: messaging_domain::server::repository::ServerRepository,
 {
@@ -60,7 +61,7 @@ impl<T, U, R, H, S> JoinVoiceChannel<T, U, R, H, S>
 where
     T: VoiceService,
     U: ChannelRepository,
-    R: domain::user_profile::UserProfileRepository,
+    R: ports::user_profile::UserProfileRepository,
     H: Hasher,
     S: messaging_domain::server::repository::ServerRepository,
 {

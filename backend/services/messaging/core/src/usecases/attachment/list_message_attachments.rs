@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use domain::{attachment::AttachmentLink, shared::repository::error::RepositoryError};
+use domain::attachment::AttachmentLink;
+use ports::repository::RepositoryError;
 use messaging_domain::{dm_message::repository::DmMessageRepository, message::repository::MessageRepository};
 use uuid::Uuid;
 

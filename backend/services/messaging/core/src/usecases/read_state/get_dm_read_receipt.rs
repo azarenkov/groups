@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use messaging_domain::{friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, read_state::repository::ReadStateRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetDmReadReceiptError {

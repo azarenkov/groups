@@ -5,7 +5,7 @@ pub async fn resolve_mentions<C, R>(
     author_id: uuid::Uuid,
     channel_repo: &C,
     resolver: &R,
-) -> Result<Vec<uuid::Uuid>, domain::shared::repository::error::RepositoryError>
+) -> Result<Vec<uuid::Uuid>, ports::repository::RepositoryError>
 where
     C: messaging_domain::channel::repository::ChannelRepository + ?Sized,
     R: crate::ports::mention_resolver::MentionResolver + ?Sized,

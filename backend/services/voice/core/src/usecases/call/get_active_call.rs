@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use voice_domain::{call::repository::CallParticipantView, call::repository::CallRepository};
-use domain::{channel::id::ChannelId, channel::token::ChannelToken, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, user::id::UserId};
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
@@ -27,7 +28,7 @@ pub struct GetActiveCall<C, V, U>
 where
     C: CallRepository,
     V: VoiceService,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
@@ -38,7 +39,7 @@ impl<C, V, U> GetActiveCall<C, V, U>
 where
     C: CallRepository,
     V: VoiceService,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
 {
     pub fn new(call_repository: Arc<C>, voice_service: Arc<V>, user_repository: Arc<U>) -> Self {
         Self {

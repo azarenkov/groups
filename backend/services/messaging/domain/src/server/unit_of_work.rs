@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 
 #[async_trait::async_trait]
 pub trait ServerUnitOfWork: Send + Sync {

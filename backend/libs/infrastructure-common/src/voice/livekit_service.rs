@@ -1,13 +1,9 @@
 use std::time::Duration;
 
-use ports::voice_service::{VoiceService, VoiceServiceError};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, user::id::UserId, user::name::UserName};
+use ports::{voice_service::VoiceService, voice_service::VoiceServiceError};
 use async_trait::async_trait;
 
-use domain::{
-    channel::{id::ChannelId, token::ChannelToken},
-    server::id::ServerId,
-    user::{id::UserId, name::UserName},
-};
 use livekit_api::{
     access_token::{self, AccessToken},
     services::{

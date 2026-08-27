@@ -1,8 +1,7 @@
 use crate::messaging::partitions::{partition_for, partition_token};
-use ports::outbox_publisher::{OutboxPublisher, OutboxPublisherError};
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, outbox_publisher::OutboxPublisherError};
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
-use domain::shared::outbox::outbox_record::{AggregateType, OutboxRecord};
 use uuid::Uuid;
 
 const MSG_ID_HEADER: &str = "Nats-Msg-Id";
@@ -102,7 +101,7 @@ impl OutboxPublisher for NatsOutboxPublisher {
 
 #[cfg(test)]
 mod tests {
-    use domain::shared::outbox::outbox_record::{AggregateType, OutboxRecord};
+    use ports::outbox::record::{AggregateType, OutboxRecord};
     use uuid::Uuid;
 
     fn record(parent_id: Option<Uuid>) -> OutboxRecord {

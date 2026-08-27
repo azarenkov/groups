@@ -8,7 +8,8 @@ pub mod update_role;
 
 use chrono::Utc;
 use messaging_domain::{server::authorization::AuthorizationSnapshot, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository};
-use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]

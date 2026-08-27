@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use media_domain::media::repository::MediaRepository;
-use domain::{server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{server::id::ServerId, user::id::UserId};
+use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::error::map_sqlx_error_to_domain_error;

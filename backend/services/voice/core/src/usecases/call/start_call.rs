@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use voice_domain::{call::repository::CallParticipantView, call::repository::CallRepository};
-use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, user::id::UserId};
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 use crate::{
@@ -41,7 +42,7 @@ where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
@@ -54,7 +55,7 @@ where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
 {
     pub fn new(
         call_repository: Arc<C>,

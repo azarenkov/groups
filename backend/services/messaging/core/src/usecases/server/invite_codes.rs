@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 use messaging_domain::{server::id::ServerId, server::invite_code::InviteCode, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 const CODE_ALPHABET: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

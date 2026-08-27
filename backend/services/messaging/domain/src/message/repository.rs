@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
-use domain::{attachment::AttachmentLink, user::id::UserId, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError};
+use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
+use ports::repository::RepositoryError;
 use crate::{channel::id::ChannelId, message::Message, message::id::MessageId, message::view::MessageView};
 
 #[async_trait]

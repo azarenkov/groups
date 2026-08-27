@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{channel::id::ChannelId, message::content::MessageContent, message::id::MessageId};
-use domain::{shared::event::event_id::EventId, user::id::UserId};
+use domain::{event::EventId, user::id::UserId};
 
 #[derive(Debug, Serialize)]
 pub struct MessageSent {

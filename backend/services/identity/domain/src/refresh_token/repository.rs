@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::id::UserId};
-use domain::shared::repository::error::RepositoryError;
+use ports::repository::RepositoryError;
 
 #[async_trait]
 pub trait RefreshTokenRepository {

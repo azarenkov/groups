@@ -42,7 +42,7 @@ async fn claim_attachments(
                 .collect();
             Ok(HttpResponse::Ok().json(items))
         }
-        Err(domain::shared::repository::error::RepositoryError::InvalidData(_)) => {
+        Err(ports::repository::RepositoryError::InvalidData(_)) => {
             Err(HttpError::new(
                 "Invalid attachments".to_string(),
                 actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,

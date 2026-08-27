@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use voice_domain::{call::repository::CallRepository, call::CallParticipantStatus};
-use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

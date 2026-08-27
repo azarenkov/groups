@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use identity_domain::{refresh_token::repository::RefreshTokenRepository, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserLoggedOut};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 
 use crate::{
     dto::requests::auth::logout::LogoutRequest,

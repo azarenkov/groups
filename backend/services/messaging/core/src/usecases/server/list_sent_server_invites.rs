@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{dm_message::repository::DmMessageRepository, server::id::ServerId, server::repository::ServerRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]

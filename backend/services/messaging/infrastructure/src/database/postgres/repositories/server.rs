@@ -2,9 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 
-use domain::shared::outbox::to_outbox::ToOutboxRecord;
+use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use ports::{outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository};
-use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

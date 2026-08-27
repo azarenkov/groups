@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use messaging_domain::{friendship::Friendship, friendship::unit_of_work::FriendshipTransaction, friendship::unit_of_work::FriendshipUnitOfWork};
 use sqlx::{Pool, Postgres, Transaction};
 

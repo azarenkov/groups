@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{server::description::ServerDescription, server::id::ServerId, server::name::ServerName};
-use domain::{shared::event::event_id::EventId, user::id::UserId};
+use domain::{event::EventId, user::id::UserId};
 
 #[derive(Debug, Serialize)]
 pub struct ServerCreated {

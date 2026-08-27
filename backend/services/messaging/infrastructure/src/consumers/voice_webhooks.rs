@@ -20,7 +20,7 @@ use messaging::{
     },
 };
 use messaging_domain::{channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::repository::ChannelRepository};
-use domain::shared::repository::error::RepositoryError;
+use ports::repository::RepositoryError;
 use chrono::Utc;
 use futures::StreamExt;
 use tracing::Instrument;

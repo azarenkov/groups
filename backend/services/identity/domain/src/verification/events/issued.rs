@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use domain::shared::event::event_id::EventId;
+use domain::event::EventId;
 use crate::{user::email::Email, user::id::UserId, user::locale::Locale, verification::channel::VerificationChannel, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 
 #[derive(Debug, Serialize, Deserialize)]

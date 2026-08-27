@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 
 use crate::dto::requests::channel::unmute_channel::UnmuteChannelRequest;
 
@@ -38,7 +39,7 @@ impl From<messaging_domain::server::policy::PolicyError> for UnmuteChannelError 
 pub struct UnmuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
     W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {
@@ -51,7 +52,7 @@ where
 impl<C, U, W, V> UnmuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
     W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {

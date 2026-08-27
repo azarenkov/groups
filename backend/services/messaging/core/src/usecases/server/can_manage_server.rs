@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{server::id::ServerId, server::repository::ServerRepository, server::role::PERM_MANAGE_SERVER, server::role::ServerRoleRepository, server::role::has_permission};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 pub struct CanManageServer<S: ServerRepository, R: ServerRoleRepository> {
     server_repository: Arc<S>,

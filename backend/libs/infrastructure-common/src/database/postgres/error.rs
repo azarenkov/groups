@@ -1,4 +1,4 @@
-use domain::shared::repository::error::RepositoryError;
+use ports::repository::RepositoryError;
 
 pub fn map_sqlx_error_to_domain_error(e: sqlx::Error) -> RepositoryError {
     match e {

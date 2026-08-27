@@ -1,4 +1,4 @@
-use domain::shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError};
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Postgres, Transaction};
 
 use crate::database::postgres::{

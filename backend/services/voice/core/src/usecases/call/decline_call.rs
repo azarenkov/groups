@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use voice_domain::call::repository::CallRepository;
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]

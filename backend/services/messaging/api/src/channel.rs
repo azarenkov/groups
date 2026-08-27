@@ -11,7 +11,7 @@ use messaging::dto::requests::channel::{
 };
 use serde::Deserialize;
 use messaging_domain::{channel::id::ChannelId, server::id::ServerId};
-use domain::{shared::pagination::Pagination, user::id::UserId};
+use domain::user::id::UserId;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
@@ -141,7 +141,7 @@ async fn list_channel_participants(
     query.validate()?;
 
     let (server_id, channel_id) = path.into_inner();
-    let pagination = Pagination::new(query.page, query.per_page)?;
+    let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let data = ListChannelParticipantsRequest::new(
         server_id,
@@ -258,7 +258,7 @@ async fn search_channel_messages(
     query.validate()?;
     let (server_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
-    let pagination = Pagination::new(query.page, query.per_page)?;
+    let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let data = SearchChannelMessagesRequest::new(
         server_id,

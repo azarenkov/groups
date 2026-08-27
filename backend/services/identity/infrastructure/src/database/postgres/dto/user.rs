@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::{shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use domain::{password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use identity_domain::{user::User, user::email::Email, user::locale::Locale};
 use sqlx::{FromRow, types::Uuid};
 
