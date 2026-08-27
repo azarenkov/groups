@@ -8,7 +8,7 @@ use media_domain::media::repository::MediaRepository;
 use domain::{server::id::ServerId, user::id::UserId};
 use futures::StreamExt;
 use tracing::Instrument;
-use platform::messaging::nats::consumer::NatsEventConsumer;
+use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::server::{
     ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
 };

@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
 use ports::outbox_publisher::OutboxPublisher;
-use platform::{
+use infrastructure_common::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::{
@@ -19,7 +19,7 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    platform::observability::init("outbox-worker");
+    infrastructure_common::observability::init("outbox-worker");
 
     let worker_config = WorkerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;

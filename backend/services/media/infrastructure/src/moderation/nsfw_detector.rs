@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use media::ports::image_moderation::{ImageModeration, ImageModerationError};
-use platform::config::nsfw::NsfwConfig;
+use infrastructure_common::config::nsfw::NsfwConfig;
 
 pub struct NsfwDetector {
     client: reqwest::Client,

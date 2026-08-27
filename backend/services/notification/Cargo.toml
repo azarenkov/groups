@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 api-common = { workspace = true }
 ports = { workspace = true }
-platform = { workspace = true }
+infrastructure-common = { workspace = true }
 domain = { workspace = true }
 identity-domain = { workspace = true }
 

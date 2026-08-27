@@ -10,7 +10,7 @@ contracts = { workspace = true }
 domain = { workspace = true }
 ports = { workspace = true }
 messaging-domain = { workspace = true }
-platform = { workspace = true }
+infrastructure-common = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

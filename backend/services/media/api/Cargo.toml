@@ -13,7 +13,7 @@ contracts = { workspace = true }
 domain = { workspace = true }
 ports = { workspace = true }
 media-domain = { workspace = true }
-platform = { workspace = true }
+infrastructure-common = { workspace = true }
 media = { workspace = true }
 media-infrastructure = { workspace = true }
 serde = { workspace = true }

@@ -13,7 +13,7 @@ contracts = { workspace = true }
 domain = { workspace = true }
 ports = { workspace = true }
 voice-domain = { workspace = true }
-platform = { workspace = true }
+infrastructure-common = { workspace = true }
 voice = { workspace = true }
 voice-infrastructure = { workspace = true }
 serde = { workspace = true }

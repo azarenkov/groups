@@ -13,7 +13,7 @@ use media::usecases::{
         update_avatar::UpdateUserAvatar,
     },
 };
-use platform::{
+use infrastructure_common::{
     config::{minio::MinioConfig, nsfw::NsfwConfig, postgres::PostgresConfig},
     storage::minio_storage::MinioStorage,
 };
@@ -38,7 +38,7 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    platform::observability::init("media-service");
+    infrastructure_common::observability::init("media-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
@@ -98,9 +98,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    let nats_config = platform::config::nats::NatsConfig::from_env()?;
+    let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
-        platform::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let server_stream = std::env::var("MEDIA_SERVER_STREAM")
         .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
     crate::projection::spawn(

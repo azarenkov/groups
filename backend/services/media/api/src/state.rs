@@ -6,7 +6,7 @@ use media::usecases::{
         update_avatar::UpdateUserAvatar,
     },
 };
-use platform::{
+use infrastructure_common::{
     storage::minio_storage::MinioStorage,
 };
 use media_infrastructure::{

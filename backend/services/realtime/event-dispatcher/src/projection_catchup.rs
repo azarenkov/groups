@@ -10,7 +10,7 @@ use contracts::events::{
 };
 use futures::StreamExt;
 use tracing::Instrument;
-use platform::messaging::nats::consumer::NatsEventConsumer;
+use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 
 use crate::recipients::RecipientResolver;
 

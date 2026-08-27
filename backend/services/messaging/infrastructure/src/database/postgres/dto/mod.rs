@@ -5,4 +5,4 @@ pub mod message;
 pub mod muted_participant;
 pub mod server;
 pub mod visibility;
-pub use platform::database::postgres::dto::aggregate_type;
+pub use infrastructure_common::database::postgres::dto::aggregate_type;

@@ -1,2 +1,2 @@
 pub mod repositories;
-pub use platform::database::postgres::{connection, error};
+pub use infrastructure_common::database::postgres::{connection, error};

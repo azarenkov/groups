@@ -9,7 +9,7 @@ use identity::usecases::{
         update_locale::UpdateUserLocale,
     },
 };
-use platform::{
+use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{

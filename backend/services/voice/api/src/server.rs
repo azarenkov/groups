@@ -11,7 +11,7 @@ use voice::usecases::{
     },
     webhook::voice::HandleVoiceWebhook,
 };
-use platform::{
+use infrastructure_common::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
 };
 use voice_infrastructure::{
@@ -39,7 +39,7 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    platform::observability::init("voice-service");
+    infrastructure_common::observability::init("voice-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
@@ -56,9 +56,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let friendship_lookup = Arc::new(MessagingFriendshipClient::new(&messaging_internal_url));
 
-    let nats_config = platform::config::nats::NatsConfig::from_env()?;
+    let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
-        platform::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let user_stream = std::env::var("VOICE_USER_STREAM")
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
     crate::projection::spawn(

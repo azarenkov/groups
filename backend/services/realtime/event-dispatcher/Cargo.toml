@@ -7,7 +7,7 @@ edition = "2024"
 api-common = { workspace = true }
 ports = { workspace = true }
 contracts = { workspace = true }
-platform = { workspace = true }
+infrastructure-common = { workspace = true }
 
 
 tracing = { workspace = true }

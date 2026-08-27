@@ -2,7 +2,7 @@
 resolver = "3"
 members = [
     "backend/libs/contracts",
-    "backend/libs/platform",
+    "backend/libs/infrastructure-common",
     "backend/services/identity/core",
     "backend/services/media/core",
     "backend/services/messaging/core",
@@ -52,7 +52,7 @@ actix-multipart = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 
 contracts = { path = "backend/libs/contracts" }
-platform = { path = "backend/libs/platform" }
+infrastructure-common = { path = "backend/libs/infrastructure-common" }
 identity = { path = "backend/services/identity/core" }
 media = { path = "backend/services/media/core" }
 messaging = { path = "backend/services/messaging/core" }

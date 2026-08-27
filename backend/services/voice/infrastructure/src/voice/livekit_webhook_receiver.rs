@@ -8,7 +8,7 @@ use livekit_api::{access_token::TokenVerifier, webhooks::WebhookReceiver};
 use livekit_protocol::{DisconnectReason, ParticipantInfo, Room, TrackInfo, TrackSource};
 use uuid::Uuid;
 
-use platform::config::livekit::LiveKitConfig;
+use infrastructure_common::config::livekit::LiveKitConfig;
 
 const EVENT_PARTICIPANT_CONNECTION_ABORTED: &str = "participant_connection_aborted";
 const EVENT_PARTICIPANT_LEFT: &str = "participant_left";

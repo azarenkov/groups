@@ -14,7 +14,7 @@ use identity::usecases::{
     },
 };
 use domain::user::name::ReservedNames;
-use platform::{
+use infrastructure_common::{
     config::{
         google::GoogleOAuthConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
         username::UsernameConfig,
@@ -44,7 +44,7 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    platform::observability::init("identity-service");
+    infrastructure_common::observability::init("identity-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;

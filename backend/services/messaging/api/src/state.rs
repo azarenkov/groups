@@ -49,7 +49,7 @@ use messaging::usecases::{
         update_server::UpdateServer,
     },
 };
-use platform::{
+use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
     storage::minio_storage::MinioStorage,
     voice::livekit_service::LiveKitService,

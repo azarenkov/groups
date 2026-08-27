@@ -1,5 +1,5 @@
 pub mod attachment;
 pub mod media;
-pub use platform::database::postgres::repositories::outbox_record;
-pub use platform::database::postgres::repositories::outbox_writer;
-pub use platform::database::postgres::repositories::user_profile;
+pub use infrastructure_common::database::postgres::repositories::outbox_record;
+pub use infrastructure_common::database::postgres::repositories::outbox_writer;
+pub use infrastructure_common::database::postgres::repositories::user_profile;

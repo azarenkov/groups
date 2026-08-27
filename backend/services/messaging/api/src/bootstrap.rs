@@ -53,7 +53,7 @@ use messaging::usecases::{
         update_server::UpdateServer,
     },
 };
-use platform::{
+use infrastructure_common::{
     config::{livekit::LiveKitConfig, minio::MinioConfig, postgres::PostgresConfig},
     hasher::bcrypt_hasher::BcryptHasher,
     storage::minio_storage::MinioStorage,
@@ -87,18 +87,18 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    platform::observability::init("messaging-service");
+    infrastructure_common::observability::init("messaging-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let minio_config = MinioConfig::from_env()?;
-    let nats_config = platform::config::nats::NatsConfig::from_env()?;
+    let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let nats_jetstream =
-        platform::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));

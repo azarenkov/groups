@@ -2,7 +2,7 @@ use std::{error::Error, sync::Arc, time::Duration};
 
 use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnection;
 use messaging::usecases::channel::track_media_connection::TrackMediaConnection;
-use platform::{
+use infrastructure_common::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
 };
 use messaging_infrastructure::{
@@ -21,7 +21,7 @@ mod reconciler;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    platform::observability::init("livekit-pooler");
+    infrastructure_common::observability::init("livekit-pooler");
 
     let pooler_config = PoolerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;

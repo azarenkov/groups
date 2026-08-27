@@ -6,7 +6,7 @@ use ports::{
 };
 use identity_domain::verification::events::VerificationEvent;
 use futures::StreamExt;
-use platform::{
+use infrastructure_common::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
     messaging::nats::{
@@ -25,7 +25,7 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    platform::observability::init("notification-service");
+    infrastructure_common::observability::init("notification-service");
 
     let notification_config = NotificationConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;
