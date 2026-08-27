@@ -2913,16 +2913,18 @@ const Message: React.FC<MessageProps> = ({
             </span>
           </div>
         )}
-        {isMine && !editing && !msg.inviteServerId && !msg.callStatus && (
+        {isMine && !editing && !msg.inviteServerId && (
           <div className="msg-actions">
-            <button
-              type="button"
-              className="icon-btn"
-              title="Edit"
-              onClick={onStartEdit}
-            >
-              <Icon name="edit" size={13} />
-            </button>
+            {!msg.callStatus && (
+              <button
+                type="button"
+                className="icon-btn"
+                title="Edit"
+                onClick={onStartEdit}
+              >
+                <Icon name="edit" size={13} />
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn"
@@ -2936,10 +2938,9 @@ const Message: React.FC<MessageProps> = ({
         {!isMine &&
           !editing &&
           !msg.inviteServerId &&
-          !msg.callStatus &&
-          (msg.content.length > 0 || canModerate) && (
+          ((msg.content.length > 0 && !msg.callStatus) || canModerate) && (
             <div className="msg-actions">
-              {msg.content.length > 0 && (
+              {msg.content.length > 0 && !msg.callStatus && (
                 <button
                   type="button"
                   className="icon-btn"
