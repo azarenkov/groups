@@ -721,6 +721,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "domain",
+ "identity-domain",
  "messaging",
  "messaging-domain",
  "serde",

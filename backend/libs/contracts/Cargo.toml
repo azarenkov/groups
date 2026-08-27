@@ -13,3 +13,4 @@ chrono = { workspace = true }
 messaging = { workspace = true }
 domain = { workspace = true }
 messaging-domain = { workspace = true }
+identity-domain = { workspace = true }
