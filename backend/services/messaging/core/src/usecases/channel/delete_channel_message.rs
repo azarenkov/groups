@@ -109,8 +109,7 @@ where
             return Err(DeleteChannelMessageError::MessageNotFound);
         }
 
-        let inherent = channel.owner_id() == &deleter_id
-            || message.author_id() == &deleter_id
+        let inherent = message.author_id() == &deleter_id
             || {
                 let server_owner = self
                     .server_repository
