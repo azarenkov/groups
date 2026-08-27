@@ -78,13 +78,17 @@ where
                         VoiceAction::Unmute => voice_service.unmute_participant(&channel_id, &user_id).await,
                     }
                 });
+                let abort = call.abort_handle();
                 let result = match tokio::time::timeout(LOCKED_ENFORCEMENT_BUDGET, call).await {
                     Ok(Ok(Ok(()))) => Ok(()),
                     Ok(Ok(Err(e))) => Err(EnforceServerDepartureError::VoiceService(e)),
                     Ok(Err(join)) => Err(EnforceServerDepartureError::VoiceService(
                         VoiceServiceError::ParticipantRemoval(join.to_string()),
                     )),
-                    Err(_) => Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET)),
+                    Err(_) => {
+                        abort.abort();
+                        Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET))
+                    }
                 };
                 if let Err(e) = &result {
                     tracing::warn!(
