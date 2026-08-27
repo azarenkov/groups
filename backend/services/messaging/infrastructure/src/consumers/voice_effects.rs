@@ -14,6 +14,7 @@ use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepos
 use tracing::Instrument;
 
 const MAX_DELIVER: u32 = 20;
+const ACK_WAIT: std::time::Duration = std::time::Duration::from_secs(300);
 
 pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
@@ -130,6 +131,7 @@ async fn run<F, Fut>(
             max_deliver: Some(MAX_DELIVER),
             dlq_subject: Some(dlq.clone()),
             extra_subjects: extra_subjects.clone(),
+            ack_wait: Some(ACK_WAIT),
         };
         match consumer.subscribe(opts).await {
             Ok(mut messages) => {

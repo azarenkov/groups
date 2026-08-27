@@ -39,6 +39,7 @@ impl EventConsumer for NatsEventConsumer {
             max_deliver,
             dlq_subject,
             extra_subjects,
+            ack_wait,
         } = opts;
         let deliver_policy = match start_position {
             StartPosition::New => DeliverPolicy::New,
@@ -54,8 +55,8 @@ impl EventConsumer for NatsEventConsumer {
                 &jetstream,
                 &stream_name,
                 &consumer_name,
-                subject,
-                extra_subjects,
+                std::iter::once(subject).chain(extra_subjects).collect(),
+                ack_wait,
                 deliver_policy,
                 max_deliver_i64,
             )
@@ -150,8 +151,8 @@ async fn create_durable_consumer(
     jetstream: &Context,
     stream_name: &str,
     consumer_name: &str,
-    filter_subject: String,
-    extra_subjects: Vec<String>,
+    mut subjects: Vec<String>,
+    ack_wait: Option<std::time::Duration>,
     deliver_policy: DeliverPolicy,
     max_deliver: i64,
 ) -> Result<Consumer<pull::Config>, async_nats::Error> {
@@ -164,11 +165,12 @@ async fn create_durable_consumer(
         max_deliver,
         ..Default::default()
     };
-    if extra_subjects.is_empty() {
-        config.filter_subject = filter_subject;
+    if let Some(ack_wait) = ack_wait {
+        config.ack_wait = ack_wait;
+    }
+    if subjects.len() == 1 {
+        config.filter_subject = subjects.remove(0);
     } else {
-        let mut subjects = vec![filter_subject];
-        subjects.extend(extra_subjects);
         config.filter_subjects = subjects;
     }
 

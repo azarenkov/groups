@@ -32,6 +32,7 @@ pub async fn run_catchup<R: RealtimeProjection + 'static>(
             max_deliver: Some(5),
             dlq_subject: Some(spec.dlq_subject.clone()),
             extra_subjects: vec![],
+            ack_wait: None,
         };
         match consumer.subscribe(opts).await {
             Ok(mut messages) => {

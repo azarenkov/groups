@@ -19,6 +19,7 @@ pub struct SubscribeOptions {
     pub max_deliver: Option<u32>,
     pub dlq_subject: Option<String>,
     pub extra_subjects: Vec<String>,
+    pub ack_wait: Option<std::time::Duration>,
 }
 
 #[derive(Debug, Clone, Copy)]

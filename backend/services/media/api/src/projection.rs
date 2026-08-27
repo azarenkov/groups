@@ -34,6 +34,7 @@ pub fn spawn<M, FS>(
                 max_deliver: Some(5),
                 dlq_subject: Some(format!("{prefix}.dlq.media.server")),
                 extra_subjects: vec![],
+                ack_wait: None,
             };
             match consumer.subscribe(opts).await {
                 Ok(mut messages) => {

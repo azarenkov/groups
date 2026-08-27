@@ -42,6 +42,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
             max_deliver: Some(spec.max_deliver),
             dlq_subject: Some(spec.dlq_subject.clone()),
             extra_subjects: vec![],
+            ack_wait: None,
         };
 
         match event_consumer.subscribe(opts).await {
