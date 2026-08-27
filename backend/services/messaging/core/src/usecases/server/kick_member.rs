@@ -2,16 +2,8 @@ use std::sync::Arc;
 
 use domain::shared::outbox::to_outbox::ToOutboxRecord;
 
-use domain::{
-    channel::repository::ChannelRepository,
-    server::{
-        id::ServerId,
-        repository::ServerRepository,
-        role::{PERM_KICK_MEMBERS, ServerRoleRepository, has_permission},
-    },
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::ports::voice_service::VoiceService;
 
@@ -27,37 +19,37 @@ pub enum KickMemberError {
     NotAllowed,
 }
 
-pub struct KickMember<S, C, V, R>
-where
-    S: ServerRepository,
-    C: ChannelRepository,
-    V: VoiceService,
-    R: ServerRoleRepository,
-{
-    server_repository: Arc<S>,
-    channel_repository: Arc<C>,
-    voice_service: Arc<V>,
-    role_repository: Arc<R>,
+impl From<PolicyError> for KickMemberError {
+    fn from(err: PolicyError) -> Self {
+        match err {
+            PolicyError::TargetNotMember => KickMemberError::NotMember,
+            _ => KickMemberError::NotAllowed,
+        }
+    }
 }
 
-impl<S, C, V, R> KickMember<S, C, V, R>
+pub struct KickMember<W, C, V>
 where
-    S: ServerRepository,
+    W: ServerUnitOfWork,
     C: ChannelRepository,
     V: VoiceService,
-    R: ServerRoleRepository,
 {
-    pub fn new(
-        server_repository: Arc<S>,
-        channel_repository: Arc<C>,
-        voice_service: Arc<V>,
-        role_repository: Arc<R>,
-    ) -> Self {
+    unit_of_work: Arc<W>,
+    channel_repository: Arc<C>,
+    voice_service: Arc<V>,
+}
+
+impl<W, C, V> KickMember<W, C, V>
+where
+    W: ServerUnitOfWork,
+    C: ChannelRepository,
+    V: VoiceService,
+{
+    pub fn new(unit_of_work: Arc<W>, channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
         Self {
-            server_repository,
+            unit_of_work,
             channel_repository,
             voice_service,
-            role_repository,
         }
     }
 
@@ -67,66 +59,22 @@ where
         actor: UserId,
         target: UserId,
     ) -> Result<(), KickMemberError> {
-        if actor == target {
-            return Err(KickMemberError::NotAllowed);
-        }
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        if owner.as_ref() == Some(&target) {
-            return Err(KickMemberError::NotAllowed);
-        }
-        let is_owner = owner.as_ref() == Some(&actor);
-        if !is_owner {
-            let perms = self
-                .role_repository
-                .user_permissions(&server_id, &actor)
-                .await?;
-            if !has_permission(perms, PERM_KICK_MEMBERS) {
-                return Err(KickMemberError::NotAllowed);
-            }
-            let roles = self.role_repository.list_roles(&server_id).await?;
-            let assignments = self.role_repository.member_role_ids(&server_id).await?;
-            let top_of = |user: &UserId| {
-                assignments
-                    .iter()
-                    .filter(|(uid, _)| uid == &user.uuid())
-                    .filter_map(|(_, rid)| roles.iter().find(|r| &r.id == rid))
-                    .map(|r| r.position)
-                    .max()
-            };
-            let actor_top = top_of(&actor);
-            let target_top = top_of(&target);
-            let outranks = match (actor_top, target_top) {
-                (Some(a), Some(t)) => a > t,
-                (Some(_), None) => true,
-                _ => false,
-            };
-            if !outranks {
-                return Err(KickMemberError::NotAllowed);
-            }
-        }
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::kick(&snapshot, &actor, &target)?;
 
-        let member_event = domain::server::events::ServerEvent::MemberLeft(
-            domain::server::events::lifecycle::ServerMemberLeft::record(
+        let member_event = messaging_domain::server::events::ServerEvent::MemberLeft(
+            messaging_domain::server::events::lifecycle::ServerMemberLeft::record(
                 server_id,
                 target,
                 chrono::Utc::now(),
             ),
         );
-        let member_records = vec![member_event.to_outbox_record()?];
-        let delegated = if is_owner { None } else { Some(&actor) };
-        let removed = self
-            .server_repository
-            .remove_server_member(&server_id, &target, delegated, &member_records)
-            .await?;
-        match removed {
-            domain::server::repository::RemoveMemberOutcome::Removed => {}
-            domain::server::repository::RemoveMemberOutcome::NotMember => {
-                return Err(KickMemberError::NotMember);
-            }
-            domain::server::repository::RemoveMemberOutcome::Denied => {
-                return Err(KickMemberError::NotAllowed);
-            }
+        if !tx.remove_member(&target).await? {
+            return Err(KickMemberError::NotMember);
         }
+        tx.save_outbox(&[member_event.to_outbox_record()?]).await?;
+        tx.commit().await?;
 
         let voice_channel_ids = self
             .channel_repository

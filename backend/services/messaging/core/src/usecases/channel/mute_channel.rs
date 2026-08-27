@@ -1,43 +1,11 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::{id::UserId},
-};
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::channel::mute_channel::MuteChannelRequest;
 
-
-async fn outranks_target<R: domain::server::role::ServerRoleRepository>(
-    role_repository: &R,
-    server_id: &domain::server::id::ServerId,
-    actor: &UserId,
-    target: &UserId,
-) -> Result<bool, domain::shared::repository::error::RepositoryError> {
-    let roles = role_repository.list_roles(server_id).await?;
-    let assignments = role_repository.member_role_ids(server_id).await?;
-    let top_of = |user: &UserId| {
-        assignments
-            .iter()
-            .filter(|(uid, _)| uid == &user.uuid())
-            .filter_map(|(_, rid)| roles.iter().find(|r| &r.id == rid))
-            .map(|r| r.position)
-            .max()
-    };
-    Ok(match (top_of(actor), top_of(target)) {
-        (Some(a), Some(t)) => a > t,
-        (Some(_), None) => true,
-        _ => false,
-    })
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum MuteChannelError {
@@ -57,42 +25,46 @@ pub enum MuteChannelError {
     VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
 
+impl From<messaging_domain::server::policy::PolicyError> for MuteChannelError {
+    fn from(err: messaging_domain::server::policy::PolicyError) -> Self {
+        match err {
+            messaging_domain::server::policy::PolicyError::TargetNotMember => MuteChannelError::TargetUserNotFound,
+            _ => MuteChannelError::Domain(ChannelError::NotOwner),
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct MuteChannel<C, U, S, R, V>
+pub struct MuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
-    S: domain::server::repository::ServerRepository,
-    R: domain::server::role::ServerRoleRepository,
+    W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {
     channel_repository: Arc<C>,
     user_repository: Arc<U>,
-    server_repository: Arc<S>,
-    role_repository: Arc<R>,
+    unit_of_work: Arc<W>,
     voice_service: Arc<V>,
 }
 
-impl<C, U, S, R, V> MuteChannel<C, U, S, R, V>
+impl<C, U, W, V> MuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
-    S: domain::server::repository::ServerRepository,
-    R: domain::server::role::ServerRoleRepository,
+    W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {
     pub fn new(
         channel_repository: Arc<C>,
         user_repository: Arc<U>,
-        server_repository: Arc<S>,
-        role_repository: Arc<R>,
+        unit_of_work: Arc<W>,
         voice_service: Arc<V>,
     ) -> Self {
         Self {
             channel_repository,
             user_repository,
-            server_repository,
-            role_repository,
+            unit_of_work,
             voice_service,
         }
     }
@@ -163,34 +135,14 @@ where
 
         let now = Utc::now();
 
-        let server_id = domain::server::id::ServerId::new(request.server_id);
-        let server_owner = self
-            .server_repository
-            .find_server_owner(&server_id)
-            .await?;
-        if target != initiator
-            && server_owner.as_ref() == Some(&target)
+        let server_id = messaging_domain::server::id::ServerId::new(request.server_id);
         {
-            return Err(MuteChannelError::Domain(ChannelError::NotOwner));
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
         }
-        let can_override = if target == initiator {
-            false
-        } else {
-            server_owner.as_ref() == Some(&initiator)
-                || (domain::server::role::has_permission(
-                    self.role_repository
-                        .user_permissions(&server_id, &initiator)
-                        .await?,
-                    domain::server::role::PERM_MUTE_MEMBERS,
-                ) && outranks_target(
-                    self.role_repository.as_ref(),
-                    &server_id,
-                    &initiator,
-                    &target,
-                )
-                .await?)
-        };
-        channel.mute(target, initiator, can_override, now)?;
+        let moderator_mute = target != initiator;
+        channel.mute(target, initiator, moderator_mute, now)?;
 
         let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel
@@ -199,9 +151,6 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        let inherent = server_owner.as_ref() == Some(&initiator);
-        let delegated = target != initiator && !inherent;
-        let moderator_mute = target != initiator;
         let muted_sids = if moderator_mute {
             self.voice_service
                 .mute_participant(&channel_id, &target)
@@ -210,36 +159,35 @@ where
             Vec::new()
         };
 
-        let persisted = self
-            .channel_repository
-            .mute_participant_with_events(
-                &channel_id,
-                &target,
-                &initiator,
-                now,
-                target == initiator,
-                &server_id,
-                delegated,
-                &records,
-            )
-            .await;
-        let persisted = match persisted {
-            Ok(true) => true,
-            Ok(false) => false,
+        let persisted = async {
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
+            if !tx
+                .mute_participant(&channel_id, &target, &initiator, now, !moderator_mute)
+                .await?
+            {
+                return Ok::<bool, MuteChannelError>(false);
+            }
+            tx.save_outbox(&records).await?;
+            tx.commit().await?;
+            Ok(true)
+        }
+        .await;
+        match persisted {
+            Ok(true) => Ok(()),
+            Ok(false) => {
+                if moderator_mute {
+                    self.compensate_livekit(&channel_id, &target, &muted_sids).await;
+                }
+                Err(MuteChannelError::Domain(ChannelError::AlreadyMuted))
+            }
             Err(err) => {
                 if moderator_mute {
                     self.compensate_livekit(&channel_id, &target, &muted_sids).await;
                 }
-                return Err(err.into());
+                Err(err)
             }
-        };
-        if !persisted {
-            if moderator_mute {
-                self.compensate_livekit(&channel_id, &target, &muted_sids).await;
-            }
-            return Err(MuteChannelError::Domain(ChannelError::NotOwner));
         }
-
-        Ok(())
     }
 }

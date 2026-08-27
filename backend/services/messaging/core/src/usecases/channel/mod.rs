@@ -1,4 +1,5 @@
 pub mod abort_voice_connection;
+pub mod admit_voice_participant;
 pub mod create_channel;
 pub mod delete_channel;
 pub mod delete_channel_message;

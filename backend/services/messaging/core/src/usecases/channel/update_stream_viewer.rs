@@ -1,12 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    channel::{id::ChannelId, repository::ChannelRepository, session_id::SessionId},
-    server::{id::ServerId, repository::ServerRepository},
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::session_id::SessionId, server::id::ServerId, server::repository::ServerRepository};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::channel::update_stream_viewer::UpdateStreamViewerRequest;
 

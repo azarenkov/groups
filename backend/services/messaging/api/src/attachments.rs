@@ -1,18 +1,18 @@
 use actix_web::{HttpResponse, Responder, get, web};
 use domain::user::id::UserId;
 use futures::StreamExt;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[get("/{attachment_id}")]
 async fn download_attachment(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let attachment_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 

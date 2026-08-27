@@ -1,13 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    server::{
-        id::ServerId,
-        repository::ServerRepository,
-        role::{ServerRole, ServerRoleRepository},
-    },
-    user::id::UserId,
-};
+use messaging_domain::{server::id::ServerId, server::repository::ServerRepository, server::role::ServerRole, server::role::ServerRoleRepository};
+use domain::user::id::UserId;
 use uuid::Uuid;
 
 use super::{RoleError, ensure_member};

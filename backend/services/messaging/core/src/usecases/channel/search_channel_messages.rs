@@ -1,12 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    channel::{id::ChannelId, repository::ChannelRepository, visibility::ChannelVisibility},
-    message::repository::MessageRepository,
-    server::{id::ServerId, repository::ServerRepository},
-    shared::{pagination::PaginatedResult, repository::error::RepositoryError},
-    user::id::UserId,
-};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, message::repository::MessageRepository, server::id::ServerId, server::repository::ServerRepository};
+use domain::{shared::pagination::PaginatedResult, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::{
     requests::channel::search_channel_messages::SearchChannelMessagesRequest,

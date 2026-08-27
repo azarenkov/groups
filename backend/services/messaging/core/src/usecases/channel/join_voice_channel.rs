@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
-    shared::{outbox::to_outbox::OutboxError, repository::error::RepositoryError},
-    user::{id::UserId, name::UserName},
-};
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
+use domain::{shared::outbox::to_outbox::OutboxError, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
 
 use crate::{
     dto::{
@@ -50,7 +47,7 @@ where
     U: ChannelRepository,
     R: domain::user_profile::UserProfileRepository,
     H: Hasher,
-    S: domain::server::repository::ServerRepository,
+    S: messaging_domain::server::repository::ServerRepository,
 {
     voice_service: Arc<T>,
     channel_repository: Arc<U>,
@@ -65,7 +62,7 @@ where
     U: ChannelRepository,
     R: domain::user_profile::UserProfileRepository,
     H: Hasher,
-    S: domain::server::repository::ServerRepository,
+    S: messaging_domain::server::repository::ServerRepository,
 {
     pub fn new(
         voice_service: Arc<T>,
@@ -99,7 +96,7 @@ where
             return Err(JoinVoiceChannelError::ChannelNotFound);
         }
 
-        let server_id = domain::server::id::ServerId::new(request.server_id);
+        let server_id = messaging_domain::server::id::ServerId::new(request.server_id);
         if !self
             .server_repository
             .is_server_member(&server_id, &user_id)

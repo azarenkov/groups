@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-platform = { workspace = true }
+api-common = { workspace = true }
+infrastructure-common = { workspace = true }
 messaging = { workspace = true }
+messaging-infrastructure = { workspace = true }
 contracts = { workspace = true }
 domain = { workspace = true }
+messaging-domain = { workspace = true }
 
-shared = { workspace = true }
 
 tracing = { workspace = true }
 dotenv = { workspace = true }

@@ -1,20 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    dm_message::{DmMessage, repository::DmMessageRepository},
-    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
-    message::{MessageError, content::MessageContent},
-    server::{id::ServerId, repository::ServerRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::{RequestContext, responses::dm::send_dm_message::SendDmMessageResponse};
 
@@ -40,37 +28,46 @@ pub enum SendServerInviteError {
     InviteAlreadyPending,
 }
 
-pub struct SendServerInvite<M, F, S, R>
+impl From<PolicyError> for SendServerInviteError {
+    fn from(err: PolicyError) -> Self {
+        match err {
+            PolicyError::NotMember => SendServerInviteError::NotServerMember,
+            _ => SendServerInviteError::NotAllowed,
+        }
+    }
+}
+
+pub struct SendServerInvite<M, F, S, W>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
     S: ServerRepository,
-    R: domain::server::role::ServerRoleRepository,
+    W: ServerUnitOfWork,
 {
     dm_repository: Arc<M>,
     friendship_repository: Arc<F>,
     server_repository: Arc<S>,
-    role_repository: Arc<R>,
+    unit_of_work: Arc<W>,
 }
 
-impl<M, F, S, R> SendServerInvite<M, F, S, R>
+impl<M, F, S, W> SendServerInvite<M, F, S, W>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
     S: ServerRepository,
-    R: domain::server::role::ServerRoleRepository,
+    W: ServerUnitOfWork,
 {
     pub fn new(
         dm_repository: Arc<M>,
         friendship_repository: Arc<F>,
         server_repository: Arc<S>,
-        role_repository: Arc<R>,
+        unit_of_work: Arc<W>,
     ) -> Self {
         Self {
             dm_repository,
             friendship_repository,
             server_repository,
-            role_repository,
+            unit_of_work,
         }
     }
 
@@ -95,41 +92,19 @@ where
             .await?
             .ok_or(SendServerInviteError::ServerNotFound)?;
 
-        if !self
-            .server_repository
-            .is_server_member(&server_id, &sender_id)
-            .await?
-        {
-            return Err(SendServerInviteError::NotServerMember);
-        }
-
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let is_owner = owner.as_ref() == Some(&sender_id);
-        let allowed = is_owner
-            || domain::server::role::has_permission(
-                self.role_repository
-                    .user_permissions(&server_id, &sender_id)
-                    .await?,
-                domain::server::role::PERM_MANAGE_INVITES,
-            );
-        if !allowed {
-            return Err(SendServerInviteError::NotAllowed);
-        }
-
-        if self
-            .server_repository
-            .is_server_member(&server_id, &friend_id)
-            .await?
-        {
-            return Err(SendServerInviteError::AlreadyMember);
-        }
-
         if self
             .dm_repository
             .has_pending_server_invite(&sender_id, &friend_id, &server_id)
             .await?
         {
             return Err(SendServerInviteError::InviteAlreadyPending);
+        }
+
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::manage_invites(&snapshot, &sender_id)?;
+        if snapshot.is_member(&friend_id) {
+            return Err(SendServerInviteError::AlreadyMember);
         }
 
         let server_name = server.name().as_str().to_string();
@@ -154,18 +129,14 @@ where
             "invite_server_name",
             serde_json::json!(server_name.clone()),
         );
-        let delegated = if is_owner {
-            None
-        } else {
-            Some((&server_id, &sender_id))
-        };
-        match self
-            .dm_repository
-            .save_server_invite_with_events(&message, &records, delegated)
-            .await
-        {
-            Ok(true) => {}
-            Ok(false) => return Err(SendServerInviteError::NotAllowed),
+        let persisted = async {
+            tx.insert_dm_message(&message).await?;
+            tx.save_outbox(&records).await?;
+            tx.commit().await
+        }
+        .await;
+        match persisted {
+            Ok(()) => {}
             Err(RepositoryError::AlreadyExists) => {
                 return Err(SendServerInviteError::InviteAlreadyPending);
             }

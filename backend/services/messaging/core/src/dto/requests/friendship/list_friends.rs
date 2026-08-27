@@ -1,4 +1,4 @@
-use domain::friendship::status::FriendshipStatus;
+use messaging_domain::friendship::status::FriendshipStatus;
 
 use crate::dto::RequestContext;
 

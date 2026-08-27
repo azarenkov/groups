@@ -1,13 +1,13 @@
 pub async fn resolve_mentions<C, R>(
     content: &str,
-    channel_id: &domain::channel::id::ChannelId,
+    channel_id: &messaging_domain::channel::id::ChannelId,
     members: &[domain::user::id::UserId],
     author_id: uuid::Uuid,
     channel_repo: &C,
     resolver: &R,
 ) -> Result<Vec<uuid::Uuid>, domain::shared::repository::error::RepositoryError>
 where
-    C: domain::channel::repository::ChannelRepository + ?Sized,
+    C: messaging_domain::channel::repository::ChannelRepository + ?Sized,
     R: crate::ports::mention_resolver::MentionResolver + ?Sized,
 {
     let names = mention_names(content);

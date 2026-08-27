@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::server::invite_code::InviteCode;
+use messaging_domain::server::invite_code::InviteCode;
 use serde::Serialize;
 use uuid::Uuid;
 

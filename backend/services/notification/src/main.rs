@@ -1,12 +1,12 @@
 use std::{error::Error, sync::Arc};
 
-use platform::ports::{
+use ports::{
     event_consumer::{ConsumedMessage, EventConsumer, StartPosition, SubscribeOptions},
     mailer::Mailer,
 };
-use domain::verification::events::VerificationEvent;
+use identity_domain::verification::events::VerificationEvent;
 use futures::StreamExt;
-use platform::{
+use infrastructure_common::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
     messaging::nats::{
@@ -14,8 +14,8 @@ use platform::{
         consumer::NatsEventConsumer,
     },
 };
-use shared::health::{self, Readiness};
-use shared::middleware::request_id::REQUEST_ID;
+use api_common::health::{self, Readiness};
+use api_common::middleware::request_id::REQUEST_ID;
 use tracing::Instrument;
 use tokio::signal;
 
@@ -25,7 +25,7 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("notification-service");
+    infrastructure_common::observability::init("notification-service");
 
     let notification_config = NotificationConfig::from_env()?;
     let nats_config = NatsConfig::from_env()?;

@@ -4,12 +4,11 @@ use media::ports::{
     event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
     file_storage::{FileStorage, FileStorageError},
 };
-use domain::{
-    media::repository::MediaRepository, server::id::ServerId, user::id::UserId,
-};
+use media_domain::media::repository::MediaRepository;
+use domain::{server::id::ServerId, user::id::UserId};
 use futures::StreamExt;
 use tracing::Instrument;
-use media::messaging::nats::consumer::NatsEventConsumer;
+use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::server::{
     ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
 };

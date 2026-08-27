@@ -1,20 +1,21 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use chrono::{DateTime, Utc};
-use domain::{channel::id::ChannelId, user::id::UserId};
+use messaging_domain::channel::id::ChannelId;
+use domain::user::id::UserId;
 use serde::Serialize;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;
 use api_common::dto::responses::ApiResponse;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("/channels/{channel_id}/read")]
 async fn mark_channel_read(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let channel_id = ChannelId::new(path.into_inner());
     app_state
@@ -29,7 +30,7 @@ async fn mark_dm_read(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let friend_id = UserId::new(path.into_inner());
     app_state
@@ -64,7 +65,7 @@ struct UnreadResponse {
 async fn get_unread(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let counts = app_state.get_unread_counts_usecase.execute(user_id).await?;
     let response = UnreadResponse {
@@ -100,7 +101,7 @@ async fn get_dm_read_receipt(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let friend_id = UserId::new(path.into_inner());
     let read_at = app_state
@@ -127,7 +128,7 @@ async fn get_channel_read_receipts(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let channel_id = ChannelId::new(path.into_inner());
     let reads = app_state

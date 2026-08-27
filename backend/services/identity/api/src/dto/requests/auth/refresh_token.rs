@@ -1,5 +1,5 @@
 use identity::dto::requests::auth::refresh_tokens::RefreshTokensRequest;
-use shared::client_context::ClientContext;
+use domain::context::ClientContext;
 use serde::Deserialize;
 use validator::Validate;
 

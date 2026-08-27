@@ -6,19 +6,21 @@ use media::usecases::{
         update_avatar::UpdateUserAvatar,
     },
 };
-use media::{
+use infrastructure_common::{
+    storage::minio_storage::MinioStorage,
+};
+use media_infrastructure::{
     database::postgres::repositories::{
         attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
     },
     media_client::owner_lookup::MessagingOwnerClient,
     moderation::nsfw_detector::NsfwDetector,
-    storage::minio_storage::MinioStorage,
 };
 
 pub struct AppState {
     pub upload_attachment_usecase: UploadAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub upload_semaphore: std::sync::Arc<tokio::sync::Semaphore>,
-    pub image_read_limiter: shared::rate_limiting::KeyedRateLimiter,
+    pub image_read_limiter: api_common::rate_limiting::KeyedRateLimiter,
     pub delete_attachment_usecase: DeleteAttachment<PostgresAttachmentRepository, MinioStorage>,
     pub attachment_repository: std::sync::Arc<PostgresAttachmentRepository>,
     pub update_user_avatar_usecase: UpdateUserAvatar<

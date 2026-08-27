@@ -2,14 +2,16 @@ use std::{error::Error, sync::Arc, time::Duration};
 
 use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnection;
 use messaging::usecases::channel::track_media_connection::TrackMediaConnection;
-use messaging::{
+use infrastructure_common::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
+};
+use messaging_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::channel::PostgresChannelRepository,
     },
 };
-use shared::health::{self, Readiness};
+use api_common::health::{self, Readiness};
 use tokio::signal;
 
 use crate::{config::PoolerConfig, reconciler::Reconciler};
@@ -19,7 +21,7 @@ mod reconciler;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("livekit-pooler");
+    infrastructure_common::observability::init("livekit-pooler");
 
     let pooler_config = PoolerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;

@@ -13,8 +13,11 @@ use media::usecases::{
         update_avatar::UpdateUserAvatar,
     },
 };
-use media::{
+use infrastructure_common::{
     config::{minio::MinioConfig, nsfw::NsfwConfig, postgres::PostgresConfig},
+    storage::minio_storage::MinioStorage,
+};
+use media_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -23,9 +26,8 @@ use media::{
     },
     media_client::{links::MessagingLinksClient, owner_lookup::MessagingOwnerClient},
     moderation::nsfw_detector::NsfwDetector,
-    storage::minio_storage::MinioStorage,
 };
-use shared::{
+use api_common::{
     health::Readiness,
     middleware::request_id::RequestIdMiddleware,
     rate_limiting::config::RateLimitingConfig,
@@ -36,7 +38,7 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("media-service");
+    infrastructure_common::observability::init("media-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
@@ -96,9 +98,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    let nats_config = media::config::nats::NatsConfig::from_env()?;
+    let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
-        media::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let server_stream = std::env::var("MEDIA_SERVER_STREAM")
         .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
     crate::projection::spawn(
@@ -112,7 +114,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let owner_lookup = Arc::new(MessagingOwnerClient::new(&messaging_internal_url));
     let nsfw_detector = Arc::new(NsfwDetector::new(&nsfw_config));
     let upload_semaphore = Arc::new(tokio::sync::Semaphore::new(8));
-    let image_read_limiter = shared::rate_limiting::create_limiter("image-read", 60, 400)
+    let image_read_limiter = api_common::rate_limiting::create_limiter("image-read", 60, 400)
         .await
         .ok_or("Failed to create image read limiter")?;
 
@@ -157,7 +159,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     });
 
     let rate_limiter =
-        shared::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
+        api_common::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
             .await
             .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);

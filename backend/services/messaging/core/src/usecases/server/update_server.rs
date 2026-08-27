@@ -1,22 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    server::{
-        description::ServerDescription,
-        events::{ServerEvent, lifecycle::ServerUpdated},
-        name::ServerName,
-        repository::ServerRepository,
-        role::{PERM_MANAGE_SERVER, ServerRoleRepository, has_permission},
-    },
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-};
+use messaging_domain::{server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerUpdated, server::name::ServerName, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError};
 
 use crate::dto::requests::server::update_server::UpdateServerRequest;
 
@@ -38,30 +24,25 @@ impl From<RepositoryError> for UpdateServerError {
     fn from(e: RepositoryError) -> Self {
         match e {
             RepositoryError::AlreadyExists => UpdateServerError::NameTaken,
+            RepositoryError::NotFound => UpdateServerError::ServerNotFound,
             other => UpdateServerError::Repository(other),
         }
     }
 }
 
-pub struct UpdateServer<S, R>
-where
-    S: ServerRepository,
-    R: ServerRoleRepository,
-{
-    server_repository: Arc<S>,
-    role_repository: Arc<R>,
+impl From<PolicyError> for UpdateServerError {
+    fn from(_: PolicyError) -> Self {
+        UpdateServerError::NotOwner
+    }
 }
 
-impl<S, R> UpdateServer<S, R>
-where
-    S: ServerRepository,
-    R: ServerRoleRepository,
-{
-    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
-        Self {
-            server_repository,
-            role_repository,
-        }
+pub struct UpdateServer<W: ServerUnitOfWork> {
+    unit_of_work: Arc<W>,
+}
+
+impl<W: ServerUnitOfWork> UpdateServer<W> {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(&self, request: UpdateServerRequest) -> Result<(), UpdateServerError> {
@@ -73,28 +54,11 @@ where
             ctx,
         } = request;
 
-        let actual_owner = self
-            .server_repository
-            .find_server_owner(&server_id)
-            .await?
-            .ok_or(UpdateServerError::ServerNotFound)?;
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::manage_server(&snapshot, &owner_id)?;
 
-        if actual_owner.uuid() != owner_id.uuid() {
-            let perms = self
-                .role_repository
-                .user_permissions(&server_id, &owner_id)
-                .await
-                .map_err(UpdateServerError::Repository)?;
-            if !has_permission(perms, PERM_MANAGE_SERVER) {
-                return Err(UpdateServerError::NotOwner);
-            }
-        }
-
-        let member_ids = self
-            .server_repository
-            .find_member_ids_by_server_id(&server_id)
-            .await?;
-
+        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
         let event = ServerEvent::Updated(ServerUpdated::record(
             server_id,
             ServerName::new(name.clone()),
@@ -105,29 +69,11 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
-        let delegated = if actual_owner.uuid() == owner_id.uuid() {
-            None
-        } else {
-            Some(&owner_id)
-        };
-        match self
-            .server_repository
-            .update_server_details(
-                &server_id,
-                &name,
-                description.as_deref(),
-                delegated,
-                &records,
-            )
-            .await?
-        {
-            domain::server::repository::UpdateServerOutcome::Updated => Ok(()),
-            domain::server::repository::UpdateServerOutcome::NotFound => {
-                Err(UpdateServerError::ServerNotFound)
-            }
-            domain::server::repository::UpdateServerOutcome::Denied => {
-                Err(UpdateServerError::NotOwner)
-            }
+        if !tx.update_server_details(&name, description.as_deref()).await? {
+            return Err(UpdateServerError::ServerNotFound);
         }
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
+        Ok(())
     }
 }

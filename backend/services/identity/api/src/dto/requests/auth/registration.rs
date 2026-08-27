@@ -2,7 +2,7 @@ use identity::dto::{
     RequestContext,
     requests::{auth::register_user::RegisterUserRequest, client_context::ClientContext},
 };
-use domain::user::locale::Locale;
+use identity_domain::user::locale::Locale;
 use serde::Deserialize;
 use validator::Validate;
 

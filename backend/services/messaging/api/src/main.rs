@@ -1,4 +1,5 @@
 mod dto;
+mod http_errors;
 mod bootstrap;
 mod attachments;
 mod calls;
@@ -13,7 +14,6 @@ mod roles;
 mod routes;
 mod server;
 mod state;
-mod webhook_projection;
 
 use std::error::Error;
 

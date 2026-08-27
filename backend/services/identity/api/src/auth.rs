@@ -1,22 +1,23 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use identity::dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest;
 use identity::usecases::auth::google_login::GoogleLoginOutcome;
-use domain::{user::id::UserId, verification::purpose::VerificationPurpose};
-use shared::middleware::auth::AuthToken;
+use domain::user::id::UserId;
+use identity_domain::verification::purpose::VerificationPurpose;
+use api_common::middleware::auth::AuthToken;
 use validator::Validate;
 
 use crate::state::AppState;
 use api_common::{client::extract_client_context, context::request_context};
 use api_common::dto::{responses::ApiResponse};
 use crate::dto::{requests::auth::{ confirm_registration::ConfirmRegistrationRequestBody, google_complete::GoogleCompleteRequestBody, google_login::GoogleLoginRequestBody, login::LoginUserRequestBody, logout::LogoutRequestBody, refresh_token::RefreshTokenRequestBody, registration::RegisterUserRequestBody, request_verification_code::RequestVerificationCodeRequestBody, }, responses::auth::{google::GoogleAuthResponse, token_pair::TokenPairResponse}};
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("/register")]
 async fn register_user(
     req: HttpRequest,
     app_state: web::Data<AppState>,
     body: web::Json<RegisterUserRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body: RegisterUserRequestBody = body.into_inner();
     body.validate()?;
 
@@ -38,7 +39,7 @@ async fn request_verification_code(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<RequestVerificationCodeRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body: RequestVerificationCodeRequestBody = body.into_inner();
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
@@ -64,7 +65,7 @@ async fn confirm_registration(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     request: web::Json<ConfirmRegistrationRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let request: ConfirmRegistrationRequestBody = request.into_inner();
     request.validate()?;
     let user_id = UserId::new(auth_token.id);
@@ -83,7 +84,7 @@ async fn login_user(
     req: HttpRequest,
     app_state: web::Data<AppState>,
     request: web::Json<LoginUserRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let request: LoginUserRequestBody = request.into_inner();
     request.validate()?;
 
@@ -104,7 +105,7 @@ async fn google_login(
     req: HttpRequest,
     app_state: web::Data<AppState>,
     request: web::Json<GoogleLoginRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let request: GoogleLoginRequestBody = request.into_inner();
     request.validate()?;
 
@@ -130,7 +131,7 @@ async fn google_complete(
     req: HttpRequest,
     app_state: web::Data<AppState>,
     request: web::Json<GoogleCompleteRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let request: GoogleCompleteRequestBody = request.into_inner();
     request.validate()?;
 
@@ -151,7 +152,7 @@ async fn refresh_tokens(
     req: HttpRequest,
     app_state: web::Data<AppState>,
     request: web::Json<RefreshTokenRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let request: RefreshTokenRequestBody = request.into_inner();
     request.validate()?;
 
@@ -172,7 +173,7 @@ async fn logout(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     request: web::Json<LogoutRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let request: LogoutRequestBody = request.into_inner();
     request.validate()?;
     let user_id = UserId::new(auth_token.id);

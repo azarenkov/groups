@@ -5,7 +5,7 @@ use messaging::dto::requests::friendship::{
     send_friend_request::SendFriendRequestRequest,
 };
 use domain::user::id::UserId;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -13,7 +13,7 @@ use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{responses::ApiResponse};
 use crate::dto::{requests::friendship::{ListFriendsQuery, SendFriendRequestBody}, responses::friendship::{ FriendshipResponse, ListFriendshipsResponse, parse_status, }};
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("/me/friends")]
 async fn send_friend_request(
@@ -21,7 +21,7 @@ async fn send_friend_request(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<SendFriendRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body = body.into_inner();
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
@@ -42,7 +42,7 @@ async fn accept_friend_request(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let sender_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
@@ -62,7 +62,7 @@ async fn remove_friendship(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let other_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
@@ -82,11 +82,11 @@ async fn list_friends(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     query: web::Query<ListFriendsQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let status = match query.status.as_deref() {
         Some(s) => Some(parse_status(s).ok_or_else(|| {
-            ApiError::new(
+            HttpError::new(
                 "Unknown status".to_string(),
                 actix_web::http::StatusCode::BAD_REQUEST,
                 "INVALID_STATUS",

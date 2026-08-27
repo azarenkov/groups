@@ -1,4 +1,4 @@
-use domain::channel::{kind::ChannelKind, visibility::ChannelVisibility};
+use messaging_domain::channel::{kind::ChannelKind, visibility::ChannelVisibility};
 use uuid::Uuid;
 
 use crate::dto::RequestContext;

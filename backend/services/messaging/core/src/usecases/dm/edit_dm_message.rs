@@ -2,18 +2,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    dm_message::{DmMessageError, id::DmMessageId, repository::DmMessageRepository},
-    message::{MessageError, content::MessageContent},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, message::MessageError, message::content::MessageContent};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
 use crate::{

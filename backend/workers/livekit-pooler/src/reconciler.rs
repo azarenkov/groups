@@ -13,20 +13,14 @@ use messaging::{
             track_media_connection::TrackMediaConnectionRequest,
         },
     },
-    
     usecases::channel::{
         abort_voice_connection::AbortVoiceConnection,
         track_media_connection::TrackMediaConnection,
     },
 };
 use chrono::Utc;
-use domain::{
-    channel::{
-        events::participant::{ConnectionAbortReason, MediaSource},
-        repository::ChannelRepository,
-    },
-    shared::repository::error::RepositoryError,
-};
+use messaging_domain::{channel::events::participant::ConnectionAbortReason, channel::events::participant::MediaSource, channel::repository::ChannelRepository};
+use domain::shared::repository::error::RepositoryError;
 use livekit_api::services::room::RoomClient;
 use sqlx::{PgPool, Row};
 use tokio::time::timeout;

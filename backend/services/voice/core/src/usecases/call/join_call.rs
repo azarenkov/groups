@@ -1,12 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    call::repository::{CallParticipantView, CallRepository},
-    channel::{id::ChannelId, token::ChannelToken},
-    shared::repository::error::RepositoryError,
-    user::{id::UserId},
-};
+use voice_domain::{call::repository::CallParticipantView, call::repository::CallRepository};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};

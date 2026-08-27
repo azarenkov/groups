@@ -14,12 +14,15 @@ use identity::usecases::{
     },
 };
 use domain::user::name::ReservedNames;
-use identity::{
-    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
+use infrastructure_common::{
     config::{
         google::GoogleOAuthConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
         username::UsernameConfig,
     },
+    hasher::bcrypt_hasher::BcryptHasher,
+};
+use identity_infrastructure::{
+    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -27,11 +30,10 @@ use identity::{
             verification_code::PostgresVerificationCodeRepository,
         },
     },
-    hasher::bcrypt_hasher::BcryptHasher,
     media_client::user_state::MessagingStateClient,
     moderation::nsfw_detector::NsfwDetector,
 };
-use shared::{
+use api_common::{
     health::Readiness,
     middleware::request_id::RequestIdMiddleware,
     rate_limiting::config::RateLimitingConfig,
@@ -42,7 +44,7 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("identity-service");
+    infrastructure_common::observability::init("identity-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
@@ -129,7 +131,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     });
 
     let rate_limiter =
-        shared::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
+        api_common::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
             .await
             .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);

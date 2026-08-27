@@ -1,28 +1,18 @@
 use std::sync::Arc;
 
-use domain::{
-    server::{
-        id::ServerId,
-        repository::ServerRepository,
-        role::{AssignOutcome, ServerRoleRepository},
-    },
-    user::id::UserId,
-};
+use messaging_domain::{server::id::ServerId, server::policy::RolePolicy, server::unit_of_work::ServerUnitOfWork};
+use domain::user::id::UserId;
 use uuid::Uuid;
 
-use super::{RoleError, actor_height, ensure_below, ensure_manage_roles, recipients, roles_changed_event};
+use super::{RoleError, roles_changed_event};
 
-pub struct DeleteRole<S: ServerRepository, R: ServerRoleRepository> {
-    server_repository: Arc<S>,
-    role_repository: Arc<R>,
+pub struct DeleteRole<U: ServerUnitOfWork> {
+    unit_of_work: Arc<U>,
 }
 
-impl<S: ServerRepository, R: ServerRoleRepository> DeleteRole<S, R> {
-    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
-        Self {
-            server_repository,
-            role_repository,
-        }
+impl<U: ServerUnitOfWork> DeleteRole<U> {
+    pub fn new(unit_of_work: Arc<U>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -31,44 +21,15 @@ impl<S: ServerRepository, R: ServerRoleRepository> DeleteRole<S, R> {
         actor: UserId,
         role_id: Uuid,
     ) -> Result<(), RoleError> {
-        ensure_manage_roles(
-            self.server_repository.as_ref(),
-            self.role_repository.as_ref(),
-            &server_id,
-            &actor,
-        )
-        .await?;
-        let target = self
-            .role_repository
-            .list_roles(&server_id)
-            .await?
-            .into_iter()
-            .find(|r| r.id == role_id)
-            .ok_or(RoleError::RoleNotFound)?;
-        let height = actor_height(
-            self.server_repository.as_ref(),
-            self.role_repository.as_ref(),
-            &server_id,
-            &actor,
-        )
-        .await?;
-        ensure_below(&height, target.position)?;
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let delegated = if owner.as_ref() == Some(&actor) {
-            None
-        } else {
-            Some(&actor)
-        };
-        let members = recipients(self.server_repository.as_ref(), &server_id).await?;
-        let event = roles_changed_event(&server_id, &members);
-        match self
-            .role_repository
-            .delete_role(&server_id, role_id, delegated, std::slice::from_ref(&event))
-            .await?
-        {
-            AssignOutcome::Assigned => Ok(()),
-            AssignOutcome::NotFound => Err(RoleError::RoleNotFound),
-            AssignOutcome::Denied => Err(RoleError::HierarchyViolation),
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        RolePolicy::delete(&snapshot, &actor, role_id)?;
+        if !tx.delete_role(role_id).await? {
+            return Err(RoleError::RoleNotFound);
         }
+        tx.save_outbox(std::slice::from_ref(&roles_changed_event(&server_id, &snapshot)))
+            .await?;
+        tx.commit().await?;
+        Ok(())
     }
 }

@@ -1,21 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    refresh_token::{RefreshToken, repository::RefreshTokenRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::{
-        email::Email,
-        events::{UserEvent, lifecycle::UserLoggedIn},
-        repository::UserRepository,
-    },
-};
+use identity_domain::{refresh_token::RefreshToken, refresh_token::repository::RefreshTokenRepository, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError};
 
 use crate::{
     dto::requests::auth::login_user::LoginUserRequest,

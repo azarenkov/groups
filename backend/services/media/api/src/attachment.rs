@@ -3,7 +3,7 @@ use actix_web::{HttpResponse, Responder, delete, post, web};
 use media::usecases::attachment::upload_attachment::MAX_ATTACHMENT_BYTES;
 use domain::user::id::UserId;
 use futures::StreamExt;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 const MAX_FILE_NAME_BYTES: usize = 255;
@@ -11,14 +11,14 @@ const MAX_FILE_NAME_BYTES: usize = 255;
 use crate::state::AppState;
 use api_common::dto::responses::ApiResponse;
 use api_common::dto::responses::attachment::AttachmentResponse;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("")]
 async fn upload_attachment(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     mut payload: Multipart,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
 
     let _permit = app_state
@@ -26,10 +26,10 @@ async fn upload_attachment(
         .clone()
         .acquire_owned()
         .await
-        .map_err(|_| ApiError::bad_request("upload capacity unavailable".to_string()))?;
+        .map_err(|_| HttpError::bad_request("upload capacity unavailable".to_string()))?;
 
     while let Some(field) = payload.next().await {
-        let mut field = field.map_err(|e| ApiError::bad_request(e.to_string()))?;
+        let mut field = field.map_err(|e| HttpError::bad_request(e.to_string()))?;
         if field.name() != Some("file") {
             continue;
         }
@@ -54,9 +54,9 @@ async fn upload_attachment(
 
         let mut bytes: Vec<u8> = Vec::new();
         while let Some(chunk) = field.next().await {
-            let chunk = chunk.map_err(|e| ApiError::bad_request(e.to_string()))?;
+            let chunk = chunk.map_err(|e| HttpError::bad_request(e.to_string()))?;
             if bytes.len() + chunk.len() > MAX_ATTACHMENT_BYTES {
-                return Err(ApiError::payload_too_large());
+                return Err(HttpError::payload_too_large());
             }
             bytes.extend_from_slice(&chunk);
         }
@@ -70,7 +70,7 @@ async fn upload_attachment(
             .json(ApiResponse::success(AttachmentResponse::from(attachment))));
     }
 
-    Err(ApiError::bad_request("missing file field".to_string()))
+    Err(HttpError::bad_request("missing file field".to_string()))
 }
 
 #[delete("/{attachment_id}")]
@@ -78,7 +78,7 @@ async fn delete_attachment(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let attachment_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 

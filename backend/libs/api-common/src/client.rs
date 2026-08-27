@@ -1,5 +1,5 @@
 use actix_web::{HttpRequest, http};
-use shared::client_context::ClientContext;
+use domain::context::ClientContext;
 
 pub fn extract_client_context(req: &HttpRequest, trust_forwarded_headers: bool) -> ClientContext {
     let info = req.connection_info();

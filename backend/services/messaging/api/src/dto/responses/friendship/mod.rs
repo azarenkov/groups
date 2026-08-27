@@ -1,6 +1,6 @@
 use messaging::dto::responses::friendship::friendship::FriendshipDto;
 use chrono::{DateTime, Utc};
-use domain::friendship::status::FriendshipStatus;
+use messaging_domain::friendship::status::FriendshipStatus;
 use serde::Serialize;
 use uuid::Uuid;
 

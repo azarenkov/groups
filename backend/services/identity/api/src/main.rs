@@ -1,4 +1,5 @@
 mod dto;
+mod http_errors;
 mod auth;
 mod internal;
 mod routes;

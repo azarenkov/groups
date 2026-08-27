@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-platform = { workspace = true }
+infrastructure-common = { workspace = true }
 actix-web = { workspace = true }
 tokio = { workspace = true }
-shared = { workspace = true }
 event-dispatcher = { path = "../event-dispatcher" }
 websocket = { path = "../websocket" }

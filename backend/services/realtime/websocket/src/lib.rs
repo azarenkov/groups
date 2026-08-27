@@ -2,12 +2,12 @@ use std::error::Error;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
-use platform::{
+use infrastructure_common::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
-use shared::health::{self, Readiness};
+use api_common::health::{self, Readiness};
 use tokio::signal;
 
 mod config;

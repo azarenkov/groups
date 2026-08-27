@@ -1,4 +1,4 @@
-use domain::verification::channel::VerificationChannel;
+use identity_domain::verification::channel::VerificationChannel;
 use serde::Deserialize;
 use validator::Validate;
 

@@ -1,7 +1,8 @@
 use messaging::dto::{
     RequestContext, requests::server::update_server::UpdateServerRequest,
 };
-use domain::{server::id::ServerId, user::id::UserId};
+use messaging_domain::server::id::ServerId;
+use domain::user::id::UserId;
 use serde::Deserialize;
 use validator::Validate;
 

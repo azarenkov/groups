@@ -2,13 +2,21 @@
 resolver = "3"
 members = [
     "backend/libs/contracts",
-    "backend/libs/platform",
+    "backend/libs/infrastructure-common",
     "backend/services/identity/core",
     "backend/services/media/core",
     "backend/services/messaging/core",
     "backend/services/voice/core",
+    "backend/services/identity/infrastructure",
+    "backend/services/media/infrastructure",
+    "backend/services/messaging/infrastructure",
+    "backend/services/voice/infrastructure",
     "backend/libs/domain",
-    "backend/libs/shared",
+    "backend/libs/ports",
+    "backend/services/messaging/domain",
+    "backend/services/identity/domain",
+    "backend/services/media/domain",
+    "backend/services/voice/domain",
     "backend/libs/api-common",
     "backend/services/identity/api",
     "backend/services/media/api",
@@ -44,11 +52,19 @@ actix-multipart = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 
 contracts = { path = "backend/libs/contracts" }
-platform = { path = "backend/libs/platform" }
+infrastructure-common = { path = "backend/libs/infrastructure-common" }
 identity = { path = "backend/services/identity/core" }
 media = { path = "backend/services/media/core" }
 messaging = { path = "backend/services/messaging/core" }
 voice = { path = "backend/services/voice/core" }
+identity-infrastructure = { path = "backend/services/identity/infrastructure" }
+media-infrastructure = { path = "backend/services/media/infrastructure" }
+messaging-infrastructure = { path = "backend/services/messaging/infrastructure" }
+voice-infrastructure = { path = "backend/services/voice/infrastructure" }
 api-common = { path = "backend/libs/api-common" }
 domain = { path = "backend/libs/domain" }
-shared = { path = "backend/libs/shared" }
+ports = { path = "backend/libs/ports" }
+messaging-domain = { path = "backend/services/messaging/domain" }
+identity-domain = { path = "backend/services/identity/domain" }
+media-domain = { path = "backend/services/media/domain" }
+voice-domain = { path = "backend/services/voice/domain" }

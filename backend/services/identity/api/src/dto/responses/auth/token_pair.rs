@@ -1,4 +1,7 @@
-use identity::{ports::token_issuer::IssuedTokens, usecases::auth::login::LoginOutcome};
+use identity::{
+    ports::token_issuer::IssuedTokens,
+    usecases::auth::login::LoginOutcome,
+};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

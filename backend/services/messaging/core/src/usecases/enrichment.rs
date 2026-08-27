@@ -1,8 +1,4 @@
-use domain::{
-    attachment::{Attachment, AttachmentLink, AttachmentSnapshot},
-    shared::outbox::outbox_record::OutboxRecord,
-    user::id::UserId,
-};
+use domain::{attachment::Attachment, attachment::AttachmentLink, attachment::AttachmentSnapshot, shared::outbox::outbox_record::OutboxRecord, user::id::UserId};
 use serde_json::{Value, json};
 
 pub fn inject_field(records: &mut [OutboxRecord], key: &str, value: Value) {

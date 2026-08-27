@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::{refresh_token::id::RefreshTokenId, user::id::UserId};
+use identity_domain::refresh_token::id::RefreshTokenId;
+use domain::user::id::UserId;
 
 #[derive(Debug)]
 pub struct IssuedTokens {

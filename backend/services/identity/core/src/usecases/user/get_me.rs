@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    shared::repository::error::RepositoryError,
-    user::{id::UserId, locale::Locale, repository::UserRepository},
-};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use identity_domain::{user::locale::Locale, user::repository::UserRepository};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]

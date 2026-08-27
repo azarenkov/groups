@@ -1,4 +1,4 @@
-use platform::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use contracts::events::{
     friendship::{
         FriendRequestAcceptedV1 as FriendAcceptedDto, FriendRequestSentV1 as FriendRequestSentDto,
@@ -10,7 +10,7 @@ use contracts::events::{
 };
 use futures::StreamExt;
 use tracing::Instrument;
-use platform::messaging::nats::consumer::NatsEventConsumer;
+use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 
 use crate::recipients::RecipientResolver;
 

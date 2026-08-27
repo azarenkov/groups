@@ -41,7 +41,8 @@ use messaging::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     server::{
-        accept_server_invite::AcceptServerInvite, create_server::CreateServer,
+        accept_server_invite::AcceptServerInvite, can_manage_server::CanManageServer,
+        create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_voice_presence::GetVoicePresence,
         invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
@@ -52,8 +53,13 @@ use messaging::usecases::{
         update_server::UpdateServer,
     },
 };
-use messaging::{
+use infrastructure_common::{
     config::{livekit::LiveKitConfig, minio::MinioConfig, postgres::PostgresConfig},
+    hasher::bcrypt_hasher::BcryptHasher,
+    storage::minio_storage::MinioStorage,
+    voice::livekit_service::{LiveKitService, is_livekit_reachable},
+};
+use messaging_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -63,16 +69,14 @@ use messaging::{
             notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
             server_role::PostgresServerRoleRepository,
+            server_unit_of_work::PostgresServerUnitOfWork,
             user_profile::PostgresUserProfileRepository,
         },
     },
-    hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
     media_client::identity_users::IdentityUsersClient,
-    storage::minio_storage::MinioStorage,
-    voice::livekit_service::{LiveKitService, is_livekit_reachable},
 };
-use shared::{
+use api_common::{
     health::Readiness,
     middleware::request_id::RequestIdMiddleware,
     rate_limiting::config::RateLimitingConfig,
@@ -83,18 +87,18 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("messaging-service");
+    infrastructure_common::observability::init("messaging-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let minio_config = MinioConfig::from_env()?;
-    let nats_config = messaging::config::nats::NatsConfig::from_env()?;
+    let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let nats_jetstream =
-        messaging::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
@@ -107,6 +111,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
     let server_role_repository =
         Arc::new(PostgresServerRoleRepository::new(postgres_pool.clone()));
+    let server_unit_of_work = Arc::new(PostgresServerUnitOfWork::new(postgres_pool.clone()));
     let notification_preference_repository = Arc::new(
         PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
     );
@@ -127,7 +132,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let channel_stream = std::env::var("MESSAGING_CHANNEL_STREAM")
         .unwrap_or_else(|_| "RIFT_CHANNEL_EVENTS".to_string());
-    crate::webhook_projection::spawn(
+    messaging_infrastructure::consumers::voice_webhooks::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         channel_stream,
@@ -154,10 +159,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let app_state = web::Data::new(AppState {
         create_channel_usecase: CreateChannel::new(
-            channel_repository.clone(),
             hasher.clone(),
             server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         join_voice_channel_usecase: JoinVoiceChannel::new(
             livekit_service.clone(),
@@ -169,22 +173,19 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
             livekit_service.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
             livekit_service.clone(),
         ),
         delete_channel_usecase: DeleteChannel::new(
             channel_repository.clone(),
             livekit_service.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),
@@ -212,8 +213,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         list_channel_messages_usecase: ListChannelMessages::new(
             message_repository.clone(),
@@ -262,30 +262,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_repository.clone(),
             server_role_repository.clone(),
         ),
-        create_role_usecase: CreateRole::new(
+        can_manage_server_usecase: CanManageServer::new(
             server_repository.clone(),
             server_role_repository.clone(),
         ),
-        update_role_usecase: UpdateRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        delete_role_usecase: DeleteRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        assign_role_usecase: AssignRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        revoke_role_usecase: RevokeRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        swap_roles_usecase: SwapRoles::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
+        create_role_usecase: CreateRole::new(server_unit_of_work.clone()),
+        update_role_usecase: UpdateRole::new(server_unit_of_work.clone()),
+        delete_role_usecase: DeleteRole::new(server_unit_of_work.clone()),
+        assign_role_usecase: AssignRole::new(server_unit_of_work.clone()),
+        revoke_role_usecase: RevokeRole::new(server_unit_of_work.clone()),
+        swap_roles_usecase: SwapRoles::new(server_unit_of_work.clone()),
         list_notification_preferences_usecase: ListNotificationPreferences::new(
             notification_preference_repository.clone(),
         ),
@@ -296,7 +282,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         server_repository: server_repository.clone(),
-        server_role_repository: server_role_repository.clone(),
         message_repository: message_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         nats_core,
@@ -324,7 +309,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_repository.clone(),
             friendship_repository.clone(),
             server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         accept_server_invite_usecase: AcceptServerInvite::new(
             dm_repository.clone(),
@@ -341,30 +326,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             livekit_service.clone(),
         ),
-        update_server_usecase: UpdateServer::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        create_invite_code_usecase: CreateInviteCode::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
+        update_server_usecase: UpdateServer::new(server_unit_of_work.clone()),
+        create_invite_code_usecase: CreateInviteCode::new(server_unit_of_work.clone()),
         list_invite_codes_usecase: ListInviteCodes::new(
             server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
-        revoke_invite_code_usecase: RevokeInviteCode::new(server_repository.clone()),
+        revoke_invite_code_usecase: RevokeInviteCode::new(server_unit_of_work.clone()),
         redeem_invite_code_usecase: RedeemInviteCode::new(server_repository.clone()),
         leave_server_usecase: LeaveServer::new(
-            server_repository.clone(),
+            server_unit_of_work.clone(),
             channel_repository.clone(),
             livekit_service.clone(),
         ),
         kick_member_usecase: KickMember::new(
-            server_repository.clone(),
+            server_unit_of_work.clone(),
             channel_repository.clone(),
             livekit_service.clone(),
-            server_role_repository.clone(),
         ),
         list_servers_by_user_usecase: ListServersByUser::new(server_repository.clone()),
         list_server_members_usecase: ListServerMembers::new(server_repository.clone()),
@@ -380,7 +358,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     });
 
     let rate_limiter =
-        shared::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
+        api_common::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
             .await
             .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);

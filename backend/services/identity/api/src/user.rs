@@ -1,12 +1,12 @@
 use actix_web::{HttpResponse, Responder, get, patch, web};
-use domain::user::{id::UserId, locale::Locale};
+use identity_domain::user::{id::UserId, locale::Locale};
 use serde::{Deserialize, Serialize};
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;
 use api_common::dto::responses::ApiResponse;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[derive(Debug, Deserialize)]
 pub struct SearchUsersQuery {
@@ -39,7 +39,7 @@ pub struct MeResponse {
 async fn get_me(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let profile = app_state.get_me_usecase.execute(user_id).await?;
     let response = MeResponse {
@@ -56,7 +56,7 @@ async fn search_users(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     query: web::Query<SearchUsersQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
 
     let items = app_state
@@ -88,10 +88,10 @@ async fn update_me_locale(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<UpdateLocaleBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let locale: Locale = body.locale.parse().map_err(|_| {
-        ApiError::new(
+        HttpError::new(
             format!("invalid locale: {}", body.locale),
             actix_web::http::StatusCode::BAD_REQUEST,
             "INVALID_LOCALE",
@@ -121,7 +121,7 @@ async fn update_me_name(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<UpdateNameBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let name = app_state
         .rename_user_usecase

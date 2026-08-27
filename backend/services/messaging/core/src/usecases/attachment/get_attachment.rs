@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    attachment::AttachmentLink, message::repository::MessageRepository,
-    shared::repository::error::RepositoryError, user::id::UserId,
-};
+use domain::{attachment::AttachmentLink, shared::repository::error::RepositoryError, user::id::UserId};
+use messaging_domain::message::repository::MessageRepository;
 use uuid::Uuid;
 
 use crate::ports::{

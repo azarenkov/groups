@@ -1,20 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::{id::UserId, repository::UserRepository},
-    verification::{
-        channel::VerificationChannel, code::VerificationCode,
-        repository::VerificationCodeRepository,
-    },
-};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use identity_domain::{user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::repository::VerificationCodeRepository};
 
 use crate::{
     dto::requests::auth::confirm_registration::ConfirmRegistrationRequest,

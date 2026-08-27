@@ -1,13 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    server::{id::ServerId, repository::ServerRepository},
-    shared::{
-        pagination::{PaginatedResult, Pagination},
-        repository::error::RepositoryError,
-    },
-    user::{id::UserId, name::UserName},
-};
+use messaging_domain::{server::id::ServerId, server::repository::ServerRepository};
+use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ListServerMembersError {

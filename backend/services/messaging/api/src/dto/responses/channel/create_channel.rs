@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::channel::{Channel, kind::ChannelKind, visibility::ChannelVisibility};
+use messaging_domain::channel::{Channel, kind::ChannelKind, visibility::ChannelVisibility};
 use serde::Serialize;
 use uuid::Uuid;
 

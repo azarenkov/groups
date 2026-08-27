@@ -1,18 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    server::role::{PERM_MANAGE_CHANNELS, ServerRoleRepository, has_permission},
-    channel::{ChannelError, repository::ChannelRepository},
-    server::repository::ServerRepository,
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-};
+use messaging_domain::{channel::ChannelError, channel::repository::ChannelRepository, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError};
 
 use crate::{
     dto::requests::channel::delete_channel::DeleteChannelRequest,
@@ -35,37 +25,34 @@ pub enum DeleteChannelError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteChannel<C, V, S, R>
+impl From<PolicyError> for DeleteChannelError {
+    fn from(_: PolicyError) -> Self {
+        DeleteChannelError::NotOwner
+    }
+}
+
+pub struct DeleteChannel<C, V, W>
 where
     C: ChannelRepository,
     V: VoiceService,
-    S: ServerRepository,
-    R: ServerRoleRepository,
+    W: ServerUnitOfWork,
 {
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
-    server_repository: Arc<S>,
-    role_repository: Arc<R>,
+    unit_of_work: Arc<W>,
 }
 
-impl<C, V, S, R> DeleteChannel<C, V, S, R>
+impl<C, V, W> DeleteChannel<C, V, W>
 where
     C: ChannelRepository,
     V: VoiceService,
-    S: ServerRepository,
-    R: ServerRoleRepository,
+    W: ServerUnitOfWork,
 {
-    pub fn new(
-        channel_repository: Arc<C>,
-        voice_service: Arc<V>,
-        server_repository: Arc<S>,
-        role_repository: Arc<R>,
-    ) -> Self {
+    pub fn new(channel_repository: Arc<C>, voice_service: Arc<V>, unit_of_work: Arc<W>) -> Self {
         Self {
             channel_repository,
             voice_service,
-            server_repository,
-            role_repository,
+            unit_of_work,
         }
     }
 
@@ -89,31 +76,15 @@ where
         let now = Utc::now();
         let supports_voice = channel.supports_voice();
 
-        let server_owner = self
-            .server_repository
-            .find_server_owner(&server_id)
-            .await?;
-        let inherent = server_owner.as_ref() == Some(&deleted_by);
-        let allowed = inherent
-            || has_permission(
-                self.role_repository
-                    .user_permissions(&server_id, &deleted_by)
-                    .await?,
-                PERM_MANAGE_CHANNELS,
-            );
-        if !allowed {
-            return Err(DeleteChannelError::NotOwner);
-        }
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::manage_channels(&snapshot, &deleted_by)?;
         channel.delete(deleted_by, true, now).map_err(|e| match e {
             ChannelError::NotOwner => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;
 
-        let member_ids = self
-            .server_repository
-            .find_member_ids_by_server_id(&server_id)
-            .await?;
-
+        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
         let request_id = ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = channel
             .pull_events()
@@ -122,14 +93,9 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
-        if self
-            .channel_repository
-            .delete_channel_with_events(&channel_id, &deleted_by, !inherent, &records)
-            .await?
-            .is_none()
-        {
-            return Err(DeleteChannelError::NotOwner);
-        }
+        tx.delete_channel(&channel_id).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         if supports_voice
             && let Err(err) = self.voice_service.delete_voice_channel(&channel_id).await

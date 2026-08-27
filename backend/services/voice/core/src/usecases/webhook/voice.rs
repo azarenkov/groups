@@ -1,15 +1,9 @@
+use contracts::events::webhook::{MediaSourceV1};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use domain::{
-    call::repository::CallRepository,
-    channel::events::participant::MediaSource,
-    shared::{
-        outbox::outbox_record::{AggregateType, OutboxRecord},
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use voice_domain::call::repository::CallRepository;
+use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -222,7 +216,7 @@ where
         channel_id: Uuid,
         user_id: Uuid,
         session_id: String,
-        media_source: MediaSource,
+        media_source: MediaSourceV1,
         published: bool,
         occurred_at: DateTime<Utc>,
         source: WebhookSource,

@@ -4,19 +4,19 @@ use domain::user::id::UserId;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use domain::attachment::repository::AttachmentRepository;
+use media_domain::attachment::repository::AttachmentRepository;
 
 use crate::state::AppState;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("/attachments/claim")]
 async fn claim_attachments(
     app_state: web::Data<AppState>,
     body: web::Json<ClaimRequestV1>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body = body.into_inner();
     if body.attachment_ids.is_empty() || body.attachment_ids.len() > 10 {
-        return Err(ApiError::new(
+        return Err(HttpError::new(
             "Invalid attachments".to_string(),
             actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,
             "ATTACHMENTS_INVALID",
@@ -43,13 +43,13 @@ async fn claim_attachments(
             Ok(HttpResponse::Ok().json(items))
         }
         Err(domain::shared::repository::error::RepositoryError::InvalidData(_)) => {
-            Err(ApiError::new(
+            Err(HttpError::new(
                 "Invalid attachments".to_string(),
                 actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,
                 "ATTACHMENTS_INVALID",
             ))
         }
-        Err(e) => Err(ApiError::from(e)),
+        Err(e) => Err(HttpError::from(e)),
     }
 }
 
@@ -57,14 +57,14 @@ async fn claim_attachments(
 async fn release_attachments(
     app_state: web::Data<AppState>,
     body: web::Json<ReleaseRequestV1>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body = body.into_inner();
     if !body.attachment_ids.is_empty() {
         app_state
             .attachment_repository
             .release_claims_by_token(&body.attachment_ids, body.claim_token)
             .await
-            .map_err(ApiError::from)?;
+            .map_err(HttpError::from)?;
     }
     Ok(HttpResponse::NoContent().finish())
 }
@@ -80,13 +80,13 @@ async fn unclaimed_attachment(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<UnclaimedQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let owner = UserId::new(query.owner_id);
     match app_state
         .attachment_repository
         .find_unclaimed_owned(path.into_inner(), &owner)
         .await
-        .map_err(ApiError::from)?
+        .map_err(HttpError::from)?
     {
         Some(a) => Ok(HttpResponse::Ok().json(ClaimedAttachmentV1 {
             id: a.id,

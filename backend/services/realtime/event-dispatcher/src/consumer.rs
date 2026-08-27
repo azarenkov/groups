@@ -1,11 +1,11 @@
 use std::time::Duration;
 
-use platform::ports::event_consumer::{
+use ports::event_consumer::{
     EventConsumer, StartPosition, SubscribeOptions,
 };
 use futures::StreamExt;
 use tracing::Instrument;
-use platform::messaging::nats::consumer::NatsEventConsumer;
+use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 
 use crate::{
     dispatch::dispatch, publisher::Publisher, recipients::RecipientResolver,

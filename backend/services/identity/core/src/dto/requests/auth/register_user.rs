@@ -1,4 +1,4 @@
-use domain::user::locale::Locale;
+use identity_domain::user::locale::Locale;
 
 use crate::dto::{RequestContext, requests::client_context::ClientContext};
 

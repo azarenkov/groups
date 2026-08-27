@@ -1,20 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    friendship::{
-        Friendship, FriendshipError, repository::FriendshipRepository,
-        status::FriendshipStatus,
-    },
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::{id::UserId, name::UserName},
-};
+use messaging_domain::{friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
 
 use crate::dto::requests::friendship::send_friend_request::SendFriendRequestRequest;
 

@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    attachment::repository::AttachmentRepository, media::repository::MediaRepository,
-    server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId,
-};
+use media_domain::{attachment::repository::AttachmentRepository, media::repository::MediaRepository};
+use domain::{server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::{
     ports::{

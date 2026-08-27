@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    friendship::repository::FriendshipRepository,
-    shared::repository::error::RepositoryError, user::id::UserId,
-};
+use messaging_domain::friendship::repository::FriendshipRepository;
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::{
     requests::friendship::list_friends::ListFriendsRequest,

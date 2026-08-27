@@ -1,4 +1,5 @@
-use domain::{channel::id::ChannelId, server::id::ServerId, user::id::UserId};
+use messaging_domain::{channel::id::ChannelId, server::id::ServerId};
+use domain::user::id::UserId;
 
 use crate::dto::RequestContext;
 

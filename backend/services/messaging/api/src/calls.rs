@@ -1,11 +1,11 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use domain::user::id::UserId;
 use serde::Deserialize;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,7 +20,7 @@ async fn log_call(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<LogCallBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let sender_id = UserId::new(auth_token.id);
     let body = body.into_inner();
     app_state
