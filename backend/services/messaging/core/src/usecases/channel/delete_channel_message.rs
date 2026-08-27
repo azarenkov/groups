@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -94,8 +94,8 @@ where
             .await?;
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::delete_message(&snapshot, &deleter_id, message.author_id())?;
+        let server = tx.load_server().await?;
+        server.ensure_can_delete_message(&deleter_id, message.author_id())?;
         let is_owner = message.author_id() != &deleter_id;
 
         let now = Utc::now();

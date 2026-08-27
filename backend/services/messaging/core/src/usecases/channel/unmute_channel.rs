@@ -117,14 +117,9 @@ where
 
         let can_override = {
             let mut tx = self.unit_of_work.begin(&server_id).await?;
-            let snapshot = tx.authorization().await?;
-            messaging_domain::server::policy::ModerationPolicy::unmute(
-                &snapshot,
-                &initiator,
-                &target,
-                observed_muted_by.as_ref(),
-            )?;
-            snapshot.is_owner(&initiator) || target != initiator
+            let server = tx.load_server().await?;
+            server.ensure_can_unmute(&initiator, &target, observed_muted_by.as_ref())?;
+            server.is_owner(&initiator) || target != initiator
         };
         let outcome = channel.unmute(target, initiator, can_override, now)?;
         let downgrade = outcome == messaging_domain::channel::UnmuteOutcome::DowngradedToSelfMute;
@@ -141,13 +136,8 @@ where
         let persisted = async {
             let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-            let snapshot = tx.authorization().await?;
-            messaging_domain::server::policy::ModerationPolicy::unmute(
-                &snapshot,
-                &initiator,
-                &target,
-                observed_muted_by.as_ref(),
-            )?;
+            let server = tx.load_server().await?;
+            server.ensure_can_unmute(&initiator, &target, observed_muted_by.as_ref())?;
             if !tx
                 .unmute_participant(&channel_id, &target, observed_muted_by.as_ref(), downgrade)
                 .await?

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::{password_hash::PasswordHash, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -70,8 +70,8 @@ where
 
         {
             let mut tx = self.unit_of_work.begin(&server_id).await?;
-            let snapshot = tx.authorization().await?;
-            ModerationPolicy::manage_channels(&snapshot, &owner_id)?;
+            let server = tx.load_server().await?;
+            server.ensure_can_manage_channels(&owner_id)?;
         }
 
         let channel_name = ChannelName::new(request.name);
@@ -101,9 +101,9 @@ where
         )?;
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::manage_channels(&snapshot, &owner_id)?;
-        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
+        let server = tx.load_server().await?;
+        server.ensure_can_manage_channels(&owner_id)?;
+        let member_ids = server.member_ids();
 
         let request_id = request.ctx.request_id.clone();
         let events = channel.pull_events();

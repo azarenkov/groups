@@ -136,8 +136,8 @@ where
         let server_id = messaging_domain::server::id::ServerId::new(request.server_id);
         {
             let mut tx = self.unit_of_work.begin(&server_id).await?;
-            let snapshot = tx.authorization().await?;
-            messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
+            let server = tx.load_server().await?;
+            server.ensure_can_mute(&initiator, &target)?;
         }
         let moderator_mute = target != initiator;
         channel.mute(target, initiator, moderator_mute, now)?;
@@ -156,8 +156,8 @@ where
         let persisted = async {
             let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-            let snapshot = tx.authorization().await?;
-            messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
+            let server = tx.load_server().await?;
+            server.ensure_can_mute(&initiator, &target)?;
             if !tx
                 .mute_participant(&channel_id, &target, &initiator, now, !moderator_mute)
                 .await?

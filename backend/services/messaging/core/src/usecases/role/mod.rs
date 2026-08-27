@@ -6,8 +6,7 @@ pub mod revoke_role;
 pub mod swap_roles;
 pub mod update_role;
 
-use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, server::authorization::AuthorizationSnapshot, server::events::ServerEvent, server::events::lifecycle::ServerRolesChanged, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository};
+use messaging_domain::{server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -64,12 +63,4 @@ pub async fn ensure_member<S: ServerRepository>(
         return Err(RoleError::NotMember);
     }
     Ok(())
-}
-
-pub fn roles_changed_event(server_id: &ServerId, snapshot: &AuthorizationSnapshot) -> MessagingEvent {
-    MessagingEvent::from(ServerEvent::RolesChanged(ServerRolesChanged::record(
-        *server_id,
-        snapshot.members.iter().copied().collect(),
-        Utc::now(),
-    )))
 }

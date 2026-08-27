@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
-use messaging_domain::{server::id::ServerId, server::policy::RolePolicy, server::unit_of_work::ServerUnitOfWork};
+use chrono::Utc;
 use domain::user::id::UserId;
-use messaging_domain::server::role::RolePatch;
+use messaging_domain::{events::MessagingEvent, server::id::ServerId, server::unit_of_work::ServerUnitOfWork, server::role::RolePatch};
 use uuid::Uuid;
 
-use super::validate_role_input;
-
-use super::{RoleError, roles_changed_event};
+use super::{RoleError, validate_role_input};
 
 pub struct UpdateRole<U: ServerUnitOfWork> {
     unit_of_work: Arc<U>,
@@ -26,22 +24,21 @@ impl<U: ServerUnitOfWork> UpdateRole<U> {
         patch: RolePatch,
     ) -> Result<(), RoleError> {
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        let existing = snapshot.role(role_id).ok_or(RoleError::RoleNotFound)?;
+        let mut server = tx.load_server().await?;
+        let existing = server.role(role_id).ok_or(RoleError::RoleNotFound)?;
         validate_role_input(
             patch.name.as_deref().unwrap_or(&existing.name),
             patch.color.as_deref().unwrap_or(&existing.color),
         )?;
-        let permissions = RolePolicy::update(&snapshot, &actor, role_id, &patch)?;
-        let name = patch.name.as_deref().map(str::trim);
+        let updated = server.update_role(&actor, role_id, &patch, Utc::now())?;
         if !tx
-            .update_role(role_id, name, patch.color.as_deref(), permissions)
+            .update_role(role_id, Some(&updated.name), Some(&updated.color), updated.permissions)
             .await?
         {
             return Err(RoleError::RoleNotFound);
         }
-        tx.save_events(&[roles_changed_event(&server_id, &snapshot)], None)
-            .await?;
+        let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
+        tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(())
     }

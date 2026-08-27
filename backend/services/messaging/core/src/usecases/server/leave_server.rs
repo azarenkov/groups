@@ -3,7 +3,7 @@ use std::sync::Arc;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
-use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 
 use crate::ports::voice_service::VoiceService;
 
@@ -15,6 +15,15 @@ pub enum LeaveServerError {
     NotMember,
     #[error("Server owners cannot leave their own server; delete it instead")]
     OwnerCannotLeave,
+}
+
+impl From<PolicyError> for LeaveServerError {
+    fn from(err: PolicyError) -> Self {
+        match err {
+            PolicyError::NotMember => LeaveServerError::NotMember,
+            _ => LeaveServerError::OwnerCannotLeave,
+        }
+    }
 }
 
 pub struct LeaveServer<W, C, V>
@@ -53,22 +62,13 @@ where
             .await?;
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        if snapshot.is_owner(&user_id) {
-            return Err(LeaveServerError::OwnerCannotLeave);
-        }
-
-        let member_event = messaging_domain::server::events::ServerEvent::MemberLeft(
-            messaging_domain::server::events::lifecycle::ServerMemberLeft::record(
-                server_id,
-                user_id,
-                chrono::Utc::now(),
-            ),
-        );
+        let mut server = tx.load_server().await?;
+        server.leave(&user_id, chrono::Utc::now())?;
         if !tx.remove_member(&user_id).await? {
             return Err(LeaveServerError::NotMember);
         }
-        tx.save_events(&[MessagingEvent::from(member_event)], None).await?;
+        let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
+        tx.save_events(&events, None).await?;
         tx.commit().await?;
 
         for channel_id in &voice_channel_ids {
