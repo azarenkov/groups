@@ -59,10 +59,12 @@ where
         if server.is_member(&user_id) {
             return Ok(());
         }
-        let removals = stream::iter(voice_channel_ids.iter()).map(|channel_id| async move {
+        let removals = stream::iter(voice_channel_ids).map(|channel_id| {
+            let voice_service = self.voice_service.clone();
+            async move {
             let outcome = tokio::time::timeout(
                 LOCKED_ENFORCEMENT_BUDGET,
-                self.voice_service.remove_participant(channel_id, &user_id),
+                voice_service.remove_participant(&channel_id, &user_id),
             )
             .await;
             let result = match outcome {
@@ -79,6 +81,7 @@ where
                 );
             }
             result
+            }
         });
         let results: Vec<Result<(), EnforceServerDepartureError>> = removals
             .buffer_unordered(MAX_CONCURRENT_REMOVALS)
