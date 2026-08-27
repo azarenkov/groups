@@ -377,6 +377,8 @@ where
             .is_some_and(|m| m.muted_by != user_id);
         if moderator_muted {
             voice_service.mute_participant(&channel_id, &user_id).await?;
+        } else {
+            voice_service.unmute_participant(&channel_id, &user_id).await?;
         }
         return Ok(true);
     }
