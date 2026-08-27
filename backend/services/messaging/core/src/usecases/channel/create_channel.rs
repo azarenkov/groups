@@ -69,10 +69,11 @@ where
             return Err(CreateChannelError::InvalidData);
         }
 
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::manage_channels(&snapshot, &owner_id)?;
-        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
+        {
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            ModerationPolicy::manage_channels(&snapshot, &owner_id)?;
+        }
 
         let channel_name = ChannelName::new(request.name);
         let kind: ChannelKind = request.kind.into();
@@ -99,6 +100,11 @@ where
             password_hash,
             now,
         )?;
+
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::manage_channels(&snapshot, &owner_id)?;
+        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
 
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = channel

@@ -136,9 +136,11 @@ where
         let now = Utc::now();
 
         let server_id = messaging_domain::server::id::ServerId::new(request.server_id);
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
+        {
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
+        }
         let moderator_mute = target != initiator;
         channel.mute(target, initiator, moderator_mute, now)?;
 
@@ -158,11 +160,14 @@ where
         };
 
         let persisted = async {
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
             if !tx
                 .mute_participant(&channel_id, &target, &initiator, now, !moderator_mute)
                 .await?
             {
-                return Ok::<bool, RepositoryError>(false);
+                return Ok::<bool, MuteChannelError>(false);
             }
             tx.save_outbox(&records).await?;
             tx.commit().await?;
@@ -181,7 +186,7 @@ where
                 if moderator_mute {
                     self.compensate_livekit(&channel_id, &target, &muted_sids).await;
                 }
-                Err(err.into())
+                Err(err)
             }
         }
     }

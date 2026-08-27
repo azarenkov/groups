@@ -117,15 +117,17 @@ where
             .map(|m| m.muted_by);
         let moderator_record = observed_muted_by.is_some_and(|by| by != target);
 
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        messaging_domain::server::policy::ModerationPolicy::unmute(
-            &snapshot,
-            &initiator,
-            &target,
-            observed_muted_by.as_ref(),
-        )?;
-        let can_override = snapshot.is_owner(&initiator) || target != initiator;
+        let can_override = {
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            messaging_domain::server::policy::ModerationPolicy::unmute(
+                &snapshot,
+                &initiator,
+                &target,
+                observed_muted_by.as_ref(),
+            )?;
+            snapshot.is_owner(&initiator) || target != initiator
+        };
         let outcome = channel.unmute(target, initiator, can_override, now)?;
         let downgrade = outcome == messaging_domain::channel::UnmuteOutcome::DowngradedToSelfMute;
 
@@ -143,11 +145,19 @@ where
         }
 
         let persisted = async {
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            messaging_domain::server::policy::ModerationPolicy::unmute(
+                &snapshot,
+                &initiator,
+                &target,
+                observed_muted_by.as_ref(),
+            )?;
             if !tx
                 .unmute_participant(&channel_id, &target, observed_muted_by.as_ref(), downgrade)
                 .await?
             {
-                return Ok::<bool, RepositoryError>(false);
+                return Ok::<bool, UnmuteChannelError>(false);
             }
             tx.save_outbox(&records).await?;
             tx.commit().await?;
@@ -166,7 +176,7 @@ where
                 if moderator_record {
                     self.compensate_livekit(&channel_id, &target).await;
                 }
-                Err(err.into())
+                Err(err)
             }
         }
     }
