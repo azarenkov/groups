@@ -3,9 +3,7 @@ use std::sync::Arc;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
-use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
-
-use crate::ports::voice_service::VoiceService;
+use messaging_domain::{events::MessagingEvent, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 
 #[derive(Debug, thiserror::Error)]
 pub enum KickMemberError {
@@ -26,29 +24,13 @@ impl From<PolicyError> for KickMemberError {
     }
 }
 
-pub struct KickMember<W, C, V>
-where
-    W: ServerUnitOfWork,
-    C: ChannelRepository,
-    V: VoiceService,
-{
+pub struct KickMember<W: ServerUnitOfWork> {
     unit_of_work: Arc<W>,
-    channel_repository: Arc<C>,
-    voice_service: Arc<V>,
 }
 
-impl<W, C, V> KickMember<W, C, V>
-where
-    W: ServerUnitOfWork,
-    C: ChannelRepository,
-    V: VoiceService,
-{
-    pub fn new(unit_of_work: Arc<W>, channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
-        Self {
-            unit_of_work,
-            channel_repository,
-            voice_service,
-        }
+impl<W: ServerUnitOfWork> KickMember<W> {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -66,36 +48,6 @@ where
         let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
         tx.save_events(&events, None).await?;
         tx.commit().await?;
-
-        let voice_channel_ids = self
-            .channel_repository
-            .list_voice_channel_ids_by_server(&server_id)
-            .await?;
-
-        for channel_id in &voice_channel_ids {
-            let mut last_err = None;
-            for _ in 0..3 {
-                match self.voice_service.remove_participant(channel_id, &target).await {
-                    Ok(()) => {
-                        last_err = None;
-                        break;
-                    }
-                    Err(e) => {
-                        last_err = Some(e);
-                        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                    }
-                }
-            }
-            if let Some(err) = last_err {
-                tracing::warn!(
-                    channel_id = %channel_id.uuid(),
-                    user_id = %target.uuid(),
-                    error = %err,
-                    "Failed to disconnect LiveKit participant after kick; join guard will enforce",
-                );
-            }
-        }
-
         Ok(())
     }
 }

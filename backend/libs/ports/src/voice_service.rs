@@ -33,17 +33,11 @@ pub trait VoiceService {
         &self,
         channel_id: &ChannelId,
         user_id: &UserId,
-    ) -> Result<Vec<String>, VoiceServiceError>;
+    ) -> Result<(), VoiceServiceError>;
     async fn unmute_participant(
         &self,
         channel_id: &ChannelId,
         user_id: &UserId,
-    ) -> Result<(), VoiceServiceError>;
-    async fn unmute_tracks(
-        &self,
-        channel_id: &ChannelId,
-        user_id: &UserId,
-        track_sids: &[String],
     ) -> Result<(), VoiceServiceError>;
     fn client_url(&self) -> String;
 }

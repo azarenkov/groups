@@ -143,7 +143,7 @@ impl VoiceService for LiveKitService {
         &self,
         channel_id: &ChannelId,
         user_id: &UserId,
-    ) -> Result<Vec<String>, VoiceServiceError> {
+    ) -> Result<(), VoiceServiceError> {
         let livekit_room = RoomClient::new(self.config.url())
             .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
         let room = channel_id.uuid().to_string();
@@ -174,42 +174,27 @@ impl VoiceService for LiveKitService {
             Err(ServiceError::Twirp(TwirpError::Twirp(code)))
                 if code.code == TwirpErrorCode::NOT_FOUND =>
             {
-                return Ok(Vec::new());
+                return Ok(());
             }
             Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
         };
-        let mut muted_sids = Vec::new();
         for track in participant.tracks {
             let is_live_microphone =
                 track.source == livekit_protocol::TrackSource::Microphone as i32 && !track.muted;
             if !is_live_microphone {
                 continue;
             }
-            if let Err(e) = livekit_room
+            match livekit_room
                 .mute_published_track(&room, &identity, &track.sid, true)
                 .await
             {
-                if let Err(rollback) = self.unmute_tracks(channel_id, user_id, &muted_sids).await {
-                    tracing::warn!(
-                        error = %rollback,
-                        room = %room,
-                        identity = %identity,
-                        "Failed to roll back track mutes after track mute failure",
-                    );
-                }
-                if let Err(rollback) = self.unmute_participant(channel_id, user_id).await {
-                    tracing::warn!(
-                        error = %rollback,
-                        room = %room,
-                        identity = %identity,
-                        "Failed to roll back publication restriction after track mute failure",
-                    );
-                }
-                return Err(VoiceServiceError::ParticipantRemoval(e.to_string()));
+                Ok(_) => {}
+                Err(ServiceError::Twirp(TwirpError::Twirp(code)))
+                    if code.code == TwirpErrorCode::NOT_FOUND => {}
+                Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
             }
-            muted_sids.push(track.sid);
         }
-        Ok(muted_sids)
+        Ok(())
     }
 
     async fn unmute_participant(
@@ -247,33 +232,6 @@ impl VoiceService for LiveKitService {
             }
             Err(e) => Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
         }
-    }
-
-    async fn unmute_tracks(
-        &self,
-        channel_id: &ChannelId,
-        user_id: &UserId,
-        track_sids: &[String],
-    ) -> Result<(), VoiceServiceError> {
-        if track_sids.is_empty() {
-            return Ok(());
-        }
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
-        let room = channel_id.uuid().to_string();
-        let identity = user_id.uuid().to_string();
-        for sid in track_sids {
-            match livekit_room
-                .mute_published_track(&room, &identity, sid, false)
-                .await
-            {
-                Ok(_) => {}
-                Err(ServiceError::Twirp(TwirpError::Twirp(code)))
-                    if code.code == TwirpErrorCode::NOT_FOUND => {}
-                Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
-            }
-        }
-        Ok(())
     }
 
     fn client_url(&self) -> String {

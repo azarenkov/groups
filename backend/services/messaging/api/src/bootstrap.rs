@@ -144,7 +144,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     messaging_infrastructure::consumers::voice_webhooks::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
-        channel_stream,
+        channel_stream.clone(),
+        channel_repository.clone(),
+        server_repository.clone(),
+        livekit_service.clone(),
+    );
+    let server_stream = std::env::var("MESSAGING_SERVER_STREAM")
+        .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
+    messaging_infrastructure::consumers::voice_effects::spawn(
+        nats_jetstream.clone(),
+        messaging_infrastructure::consumers::voice_effects::VoiceEffectsSpec {
+            subject_prefix: nats_config.subject_prefix.clone(),
+            channel_stream,
+            server_stream,
+        },
         channel_repository.clone(),
         server_repository.clone(),
         livekit_service.clone(),
@@ -183,13 +196,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             user_repository.clone(),
             server_unit_of_work.clone(),
-            livekit_service.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
             server_unit_of_work.clone(),
-            livekit_service.clone(),
         ),
         delete_channel_usecase: DeleteChannel::new(
             channel_repository.clone(),
@@ -362,16 +373,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         revoke_invite_code_usecase: RevokeInviteCode::new(server_unit_of_work.clone()),
         redeem_invite_code_usecase: RedeemInviteCode::new(server_repository.clone()),
-        leave_server_usecase: LeaveServer::new(
-            server_unit_of_work.clone(),
-            channel_repository.clone(),
-            livekit_service.clone(),
-        ),
-        kick_member_usecase: KickMember::new(
-            server_unit_of_work.clone(),
-            channel_repository.clone(),
-            livekit_service.clone(),
-        ),
+        leave_server_usecase: LeaveServer::new(server_unit_of_work.clone()),
+        kick_member_usecase: KickMember::new(server_unit_of_work.clone()),
         list_servers_by_user_usecase: ListServersByUser::new(server_repository.clone()),
         list_server_members_usecase: ListServerMembers::new(server_repository.clone()),
         list_server_channels_usecase: ListServerChannels::new(server_repository.clone()),

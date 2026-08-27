@@ -3,6 +3,7 @@ pub mod admit_voice_participant;
 pub mod create_channel;
 pub mod delete_channel;
 pub mod delete_channel_message;
+pub mod enforce_voice_mute;
 pub mod edit_channel_message;
 pub mod join_text_channel;
 pub mod join_voice_channel;
