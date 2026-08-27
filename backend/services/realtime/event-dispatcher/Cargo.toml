@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 contracts = { workspace = true }
 platform = { workspace = true }
-domain = { workspace = true }
 
 shared = { workspace = true }
 

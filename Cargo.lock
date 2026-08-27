@@ -1156,7 +1156,6 @@ dependencies = [
  "async-nats",
  "chrono",
  "contracts",
- "domain",
  "dotenv",
  "envy",
  "futures",
@@ -2789,7 +2788,6 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "async-nats",
- "domain",
  "dotenv",
  "envy",
  "platform",
