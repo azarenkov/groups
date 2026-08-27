@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import CallJoinBanner from "./CallJoinBanner";
@@ -2524,20 +2525,23 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
             </span>
           )}
         </button>
-        {viewerOpen && url && (
-          <div
-            className="image-viewer-overlay"
-            onClick={() => {
-              setViewerOpen(false);
-              if (!visible && urlRef.current) {
-                releaseImageUrl(attachment.id, urlRef.current);
-                setUrl(null);
-              }
-            }}
-          >
-            <img src={url} alt={attachment.fileName} />
-          </div>
-        )}
+        {viewerOpen &&
+          url &&
+          createPortal(
+            <div
+              className="image-viewer-overlay"
+              onClick={() => {
+                setViewerOpen(false);
+                if (!visible && urlRef.current) {
+                  releaseImageUrl(attachment.id, urlRef.current);
+                  setUrl(null);
+                }
+              }}
+            >
+              <img src={url} alt={attachment.fileName} />
+            </div>,
+            document.body,
+          )}
       </>
     );
   }

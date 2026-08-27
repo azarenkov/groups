@@ -5012,7 +5012,7 @@ button.ssv-row-delete:focus-visible {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.82);
   display: flex; align-items: center; justify-content: center;
-  z-index: 200;
+  z-index: 3500;
   cursor: zoom-out;
   animation: fade-in var(--dur-fast) forwards;
 }
