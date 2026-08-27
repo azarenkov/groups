@@ -92,19 +92,19 @@ where
             .await?
             .ok_or(SendServerInviteError::ServerNotFound)?;
 
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::manage_invites(&snapshot, &sender_id)?;
-        if snapshot.is_member(&friend_id) {
-            return Err(SendServerInviteError::AlreadyMember);
-        }
-
         if self
             .dm_repository
             .has_pending_server_invite(&sender_id, &friend_id, &server_id)
             .await?
         {
             return Err(SendServerInviteError::InviteAlreadyPending);
+        }
+
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::manage_invites(&snapshot, &sender_id)?;
+        if snapshot.is_member(&friend_id) {
+            return Err(SendServerInviteError::AlreadyMember);
         }
 
         let server_name = server.name().as_str().to_string();

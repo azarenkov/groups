@@ -89,6 +89,11 @@ where
             return Err(DeleteChannelMessageError::MessageNotFound);
         }
 
+        let recipient_ids = self
+            .channel_repository
+            .list_text_channel_member_ids(&channel_id)
+            .await?;
+
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let snapshot = tx.authorization().await?;
         ModerationPolicy::delete_message(&snapshot, &deleter_id, message.author_id())?;
@@ -96,11 +101,6 @@ where
 
         let now = Utc::now();
         message.mark_deleted(deleter_id, is_owner, now)?;
-
-        let recipient_ids = self
-            .channel_repository
-            .list_text_channel_member_ids(&channel_id)
-            .await?;
 
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = message

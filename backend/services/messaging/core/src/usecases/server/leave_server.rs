@@ -49,16 +49,16 @@ where
         server_id: ServerId,
         user_id: UserId,
     ) -> Result<(), LeaveServerError> {
+        let voice_channel_ids = self
+            .channel_repository
+            .list_voice_channel_ids_by_server(&server_id)
+            .await?;
+
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let snapshot = tx.authorization().await?;
         if snapshot.is_owner(&user_id) {
             return Err(LeaveServerError::OwnerCannotLeave);
         }
-
-        let voice_channel_ids = self
-            .channel_repository
-            .list_voice_channel_ids_by_server(&server_id)
-            .await?;
 
         let member_event = messaging_domain::server::events::ServerEvent::MemberLeft(
             messaging_domain::server::events::lifecycle::ServerMemberLeft::record(
