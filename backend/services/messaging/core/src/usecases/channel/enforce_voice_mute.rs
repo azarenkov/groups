@@ -49,16 +49,11 @@ where
             Err(RepositoryError::NotFound) => return Ok(()),
             Err(e) => return Err(e.into()),
         };
-        let tx = self.unit_of_work.begin(&server_id).await?;
-        let channel = match self.channel_repository.find_channel_by_id(&channel_id).await {
-            Ok(channel) => channel,
-            Err(RepositoryError::NotFound) => return Ok(()),
-            Err(e) => return Err(e.into()),
-        };
-        let moderator_muted = channel
-            .muted_participants_list()
-            .find(|m| m.user_id == user_id)
-            .is_some_and(|m| m.muted_by != user_id);
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let moderator_muted = tx
+            .participant_muted_by(&channel_id, &user_id)
+            .await?
+            .is_some_and(|muted_by| muted_by != user_id);
         let enforcement = async {
             if moderator_muted {
                 self.voice_service.mute_participant(&channel_id, &user_id).await
