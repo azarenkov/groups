@@ -201,60 +201,65 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   };
 
 
-  type RoleDraft = { name: string; color: string; permissions: number };
+  type RoleDraft = { name?: string; color?: string; add: number; remove: number };
   const roleWriteChainsRef = React.useRef<Record<string, Promise<void>>>({});
   const roleLatestRef = React.useRef<Record<string, RoleDraft>>({});
-  const roleSentRef = React.useRef<Record<string, string | undefined>>({});
 
   const enqueueRoleEdit = (
     role: { id: string; name: string; color: string; permissions: number },
-    patch: Partial<RoleDraft>,
+    patch: { name?: string; color?: string; add?: number; remove?: number },
   ) => {
-    const base = roleLatestRef.current[role.id] ?? {
-      name: role.name,
-      color: role.color,
-      permissions: role.permissions,
+    const base = roleLatestRef.current[role.id] ?? { add: 0, remove: 0 };
+    const next: RoleDraft = {
+      name: patch.name ?? base.name,
+      color: patch.color ?? base.color,
+      add: (base.add | (patch.add ?? 0)) & ~(patch.remove ?? 0),
+      remove: (base.remove | (patch.remove ?? 0)) & ~(patch.add ?? 0),
     };
-    const next = { ...base, ...patch };
     roleLatestRef.current[role.id] = next;
-    setRolePermsDraft((prev) => ({ ...prev, [role.id]: next.permissions }));
+    setRolePermsDraft((prev) => ({
+      ...prev,
+      [role.id]: (role.permissions | next.add) & ~next.remove,
+    }));
     const chain = roleWriteChainsRef.current[role.id] ?? Promise.resolve();
     roleWriteChainsRef.current[role.id] = chain.then(async () => {
       const target = roleLatestRef.current[role.id];
       if (!target) return;
-      const key = JSON.stringify(target);
-      if (roleSentRef.current[role.id] === key) return;
+      const empty =
+        target.name === undefined &&
+        target.color === undefined &&
+        target.add === 0 &&
+        target.remove === 0;
+      if (empty) {
+        delete roleLatestRef.current[role.id];
+        return;
+      }
+      delete roleLatestRef.current[role.id];
       try {
-        await serverAPI.updateRole(
-          server.id,
-          role.id,
-          target.name,
-          target.color,
-          target.permissions,
-        );
-        roleSentRef.current[role.id] = key;
-        if (roleLatestRef.current[role.id] === target) {
-          delete roleLatestRef.current[role.id];
-          delete roleSentRef.current[role.id];
-        }
-        setRolePermsDraft((cur) => {
-          if (cur[role.id] !== target.permissions) return cur;
-          const nextDraft = { ...cur };
-          delete nextDraft[role.id];
-          return nextDraft;
+        await serverAPI.updateRole(server.id, role.id, {
+          name: target.name,
+          color: target.color,
+          permissionsAdd: target.add || undefined,
+          permissionsRemove: target.remove || undefined,
         });
-        refreshRoles();
-      } catch (e) {
-        setRoleError(e instanceof ApiError ? e.message : t("common:error"));
-        if (roleLatestRef.current[role.id] === target) {
-          delete roleLatestRef.current[role.id];
+        if (!roleLatestRef.current[role.id]) {
           setRolePermsDraft((cur) => {
             const nextDraft = { ...cur };
             delete nextDraft[role.id];
             return nextDraft;
           });
-          refreshRoles();
         }
+        refreshRoles();
+      } catch (e) {
+        setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+        if (!roleLatestRef.current[role.id]) {
+          setRolePermsDraft((cur) => {
+            const nextDraft = { ...cur };
+            delete nextDraft[role.id];
+            return nextDraft;
+          });
+        }
+        refreshRoles();
       }
     });
   };
@@ -264,13 +269,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     bit: number,
     checked: boolean,
   ) => {
-    const base =
-      roleLatestRef.current[role.id]?.permissions ??
-      rolePermsDraft[role.id] ??
-      role.permissions;
-    enqueueRoleEdit(role, {
-      permissions: checked ? base | bit : base & ~bit,
-    });
+    enqueueRoleEdit(role, checked ? { add: bit } : { remove: bit });
   };
 
   const swapRoles = async (
@@ -386,6 +385,16 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   };
 
   const [members, setMembers] = React.useState<{ id: string; name: string }[]>([]);
+  const [membersTick, setMembersTick] = React.useState(0);
+  React.useEffect(() => {
+    const onChanged = (e: Event) => {
+      const detail = (e as CustomEvent<{ serverId?: string }>).detail;
+      if (detail?.serverId === server.id) setMembersTick((n) => n + 1);
+    };
+    window.addEventListener("rift:server-members-changed", onChanged);
+    return () =>
+      window.removeEventListener("rift:server-members-changed", onChanged);
+  }, [server.id]);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const nameSyncTick = useUserNamesStore((s) => s.syncTick);
   const [invitedIds, setInvitedIds] = React.useState<Set<string>>(new Set());
@@ -486,7 +495,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [server.id, nameSyncTick]);
+  }, [server.id, nameSyncTick, membersTick]);
 
   const memberIds = React.useMemo(
     () => new Set(members.map((m) => m.id)),

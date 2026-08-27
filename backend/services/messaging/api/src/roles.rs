@@ -95,12 +95,23 @@ async fn create_role(
     })))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateRoleBody {
+    name: Option<String>,
+    color: Option<String>,
+    #[serde(default)]
+    permissions_add: i64,
+    #[serde(default)]
+    permissions_remove: i64,
+}
+
 #[put("/{server_id}/roles/{role_id}")]
 async fn update_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-    body: web::Json<RoleBody>,
+    body: web::Json<UpdateRoleBody>,
 ) -> Result<impl Responder, ApiError> {
     let user_id = UserId::new(auth_token.id);
     let (server_id, role_id) = path.into_inner();
@@ -111,9 +122,12 @@ async fn update_role(
             ServerId::new(server_id),
             user_id,
             role_id,
-            body.name,
-            body.color,
-            body.permissions,
+            domain::server::role::RolePatch {
+                name: body.name,
+                color: body.color,
+                add_permissions: body.permissions_add,
+                remove_permissions: body.permissions_remove,
+            },
         )
         .await?;
     Ok(HttpResponse::NoContent().finish())

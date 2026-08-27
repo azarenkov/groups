@@ -145,6 +145,9 @@ function dispatch(env: WsEnvelope) {
       useVoicePresenceStore
         .getState()
         .purgePendingMutes(channels.map((c) => c.id), userId, serverId);
+      window.dispatchEvent(
+        new CustomEvent("rift:server-members-changed", { detail: { serverId } }),
+      );
       void import("../store/rolesStore").then(({ useRolesStore }) => {
         const roles = useRolesStore.getState();
         roles.removeMember(serverId, userId);
@@ -215,6 +218,14 @@ function dispatch(env: WsEnvelope) {
       if (applied) {
         useVoicePresenceStore.getState().renameMember(userId, userName);
         useCallStore.getState().participantRenamed(userId, userName);
+      }
+      const joinedServerId = asString(d.serverId);
+      if (joinedServerId) {
+        window.dispatchEvent(
+          new CustomEvent("rift:server-members-changed", {
+            detail: { serverId: joinedServerId },
+          }),
+        );
       }
       return;
     }

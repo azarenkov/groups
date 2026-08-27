@@ -32,6 +32,14 @@ pub fn has_permission(permissions: i64, perm: i64) -> bool {
     permissions & perm != 0
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RolePatch {
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub add_permissions: i64,
+    pub remove_permissions: i64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssignOutcome {
     Assigned,
@@ -63,7 +71,9 @@ pub trait ServerRoleRepository {
 
     async fn update_role(
         &self,
-        role: &ServerRole,
+        server_id: &crate::server::id::ServerId,
+        role_id: Uuid,
+        patch: &RolePatch,
         delegated_actor: Option<&crate::user::id::UserId>,
         events: &[crate::shared::outbox::outbox_record::OutboxRecord],
     ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;

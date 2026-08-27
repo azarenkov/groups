@@ -4,7 +4,7 @@ use domain::{
     server::{
         id::ServerId,
         repository::ServerRepository,
-        role::{AssignOutcome, PERM_ALL, ServerRole, ServerRoleRepository},
+        role::{AssignOutcome, PERM_ALL, RolePatch, ServerRoleRepository},
     },
     user::id::UserId,
 };
@@ -30,9 +30,7 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
         server_id: ServerId,
         actor: UserId,
         role_id: Uuid,
-        name: String,
-        color: String,
-        permissions: i64,
+        patch: RolePatch,
     ) -> Result<(), RoleError> {
         ensure_manage_roles(
             self.server_repository.as_ref(),
@@ -41,7 +39,6 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
             &actor,
         )
         .await?;
-        validate_role_input(&name, &color)?;
         let existing = self
             .role_repository
             .list_roles(&server_id)
@@ -57,6 +54,13 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
         )
         .await?;
         ensure_below(&height, existing.position)?;
+        validate_role_input(
+            patch.name.as_deref().unwrap_or(&existing.name),
+            patch.color.as_deref().unwrap_or(&existing.color),
+        )?;
+        let projected = (existing.permissions | patch.add_permissions)
+            & !patch.remove_permissions
+            & PERM_ALL;
         let grantable = actor_grantable_permissions(
             self.server_repository.as_ref(),
             self.role_repository.as_ref(),
@@ -64,15 +68,10 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
             &actor,
         )
         .await?;
-        ensure_grantable(
-            (permissions & PERM_ALL) & !existing.permissions,
-            grantable,
-        )?;
-        let role = ServerRole {
-            name: name.trim().to_string(),
-            color,
-            permissions: permissions & PERM_ALL,
-            ..existing
+        ensure_grantable(projected & !existing.permissions, grantable)?;
+        let patch = RolePatch {
+            name: patch.name.map(|n| n.trim().to_string()),
+            ..patch
         };
         let owner = self.server_repository.find_server_owner(&server_id).await?;
         let delegated = if owner.as_ref() == Some(&actor) {
@@ -84,7 +83,7 @@ impl<S: ServerRepository, R: ServerRoleRepository> UpdateRole<S, R> {
         let event = roles_changed_event(&server_id, &members);
         match self
             .role_repository
-            .update_role(&role, delegated, std::slice::from_ref(&event))
+            .update_role(&server_id, role_id, &patch, delegated, std::slice::from_ref(&event))
             .await?
         {
             AssignOutcome::Assigned => Ok(()),

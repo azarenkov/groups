@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::{
     server::{
         id::ServerId,
-        role::{AssignOutcome, CreateOutcome, ServerRole, ServerRoleRepository},
+        role::{AssignOutcome, CreateOutcome, PERM_ALL, RolePatch, ServerRole, ServerRoleRepository},
     },
     shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
     user::id::UserId,
@@ -178,7 +178,9 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
 
     async fn update_role(
         &self,
-        role: &ServerRole,
+        server_id: &ServerId,
+        role_id: Uuid,
+        patch: &RolePatch,
         delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
     ) -> Result<AssignOutcome, RepositoryError> {
@@ -187,15 +189,15 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        let server_id = ServerId::new(role.server_id);
+        let server_id = *server_id;
         lock_server(&mut tx, &server_id).await?;
         let existing = sqlx::query!(
             r#"
             SELECT position, permissions FROM server_roles
             WHERE id = $1 AND server_id = $2
             "#,
-            role.id,
-            role.server_id,
+            role_id,
+            server_id.uuid(),
         )
         .fetch_optional(&mut *tx)
         .await
@@ -203,13 +205,15 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         let Some(existing) = existing else {
             return Ok(AssignOutcome::NotFound);
         };
+        let new_permissions =
+            (existing.permissions | patch.add_permissions) & !patch.remove_permissions & PERM_ALL;
         if let Some(actor) = delegated_actor {
             let state = actor_state(&mut tx, &server_id, actor).await?;
-            let added = role.permissions & !existing.permissions;
+            let added = new_permissions & !existing.permissions;
             if !delegated_ok(&state, &[existing.position], added) {
                 return Ok(AssignOutcome::Denied);
             }
-            let removed = existing.permissions & !role.permissions;
+            let removed = existing.permissions & !new_permissions;
             if removed != 0 {
                 let owner_holds = sqlx::query_scalar!(
                     r#"
@@ -220,8 +224,8 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
                         WHERE mr.server_id = $1 AND mr.role_id = $2 AND mr.user_id = s.owner_id
                     ) AS "exists!"
                     "#,
-                    role.server_id,
-                    role.id,
+                    server_id.uuid(),
+                    role_id,
                 )
                 .fetch_one(&mut *tx)
                 .await
@@ -238,8 +242,8 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
                     INNER JOIN server_roles top ON top.id = mr.role_id
                     WHERE holder.server_id = $1 AND holder.role_id = $2
                     "#,
-                    role.server_id,
-                    role.id,
+                    server_id.uuid(),
+                    role_id,
                 )
                 .fetch_one(&mut *tx)
                 .await
@@ -257,14 +261,14 @@ impl ServerRoleRepository for PostgresServerRoleRepository {
         sqlx::query!(
             r#"
             UPDATE server_roles
-            SET name = $3, color = $4, permissions = $5
+            SET name = COALESCE($3, name), color = COALESCE($4, color), permissions = $5
             WHERE id = $1 AND server_id = $2
             "#,
-            role.id,
-            role.server_id,
-            role.name,
-            role.color,
-            role.permissions,
+            role_id,
+            server_id.uuid(),
+            patch.name.as_deref(),
+            patch.color.as_deref(),
+            new_permissions,
         )
         .execute(&mut *tx)
         .await

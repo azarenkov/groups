@@ -148,15 +148,14 @@ class ServerAPI {
   async updateRole(
     serverId: string,
     roleId: string,
-    name: string,
-    color: string,
-    permissions: number,
+    patch: {
+      name?: string;
+      color?: string;
+      permissionsAdd?: number;
+      permissionsRemove?: number;
+    },
   ): Promise<void> {
-    await this.client.put(`/v1/servers/${serverId}/roles/${roleId}`, {
-      name,
-      color,
-      permissions,
-    });
+    await this.client.put(`/v1/servers/${serverId}/roles/${roleId}`, patch);
   }
 
   async deleteRole(serverId: string, roleId: string): Promise<void> {
