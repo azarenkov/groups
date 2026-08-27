@@ -2913,7 +2913,7 @@ const Message: React.FC<MessageProps> = ({
             </span>
           </div>
         )}
-        {isMine && !editing && !msg.inviteServerId && (
+        {isMine && !editing && !msg.inviteServerId && !msg.callStatus && (
           <div className="msg-actions">
             <button
               type="button"
