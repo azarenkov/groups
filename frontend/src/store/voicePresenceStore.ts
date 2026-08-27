@@ -35,6 +35,7 @@ interface VoicePresenceState {
   clearChannel: (channelId: string) => void;
   purgePendingMutes: (channelIds: string[], userId: string, serverId?: string) => void;
   purgePendingForServer: (serverId: string, channelIds: string[]) => void;
+  resetRosters: () => void;
   clearAll: () => void;
 }
 
@@ -225,6 +226,8 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       const { [channelId]: _pendingGone, ...pendingRest } = state.pendingMutes;
       return { byChannel: rest, pendingMutes: pendingRest };
     }),
+
+  resetRosters: () => set({ byChannel: {} }),
 
   clearAll: () => set({ byChannel: {}, pendingMutes: {} }),
 }));

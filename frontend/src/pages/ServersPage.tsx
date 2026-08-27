@@ -237,7 +237,7 @@ const ServersPage: React.FC = () => {
   useEffect(() => {
     return ws.onOpen(() => {
       presenceSyncedRef.current.clear();
-      useVoicePresenceStore.getState().clearAll();
+      useVoicePresenceStore.getState().resetRosters();
       usePresenceStore.getState().clearAll();
       setPresenceSyncTick((n) => n + 1);
     });
