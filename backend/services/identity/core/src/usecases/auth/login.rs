@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::auth::login_user::LoginUserRequest,
@@ -18,8 +18,6 @@ pub enum LoginError {
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
     #[error("Invalid credentials")]
@@ -100,12 +98,10 @@ where
             request.client.user_agent,
             Utc::now(),
         ));
-        let records: Vec<OutboxRecord> =
-            vec![event.to_outbox_record_with_request_id(request.ctx.request_id)?];
-
         let mut tx = self.unit_of_work.begin().await?;
         tx.insert_refresh_token(&refresh_token).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&[IdentityEvent::from(event)], request.ctx.request_id.as_deref())
+            .await?;
         tx.commit().await?;
 
         Ok(LoginOutcome {

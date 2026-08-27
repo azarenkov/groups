@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::repository::ChannelRepository, server::events::ServerEvent, server::events::lifecycle::ServerDeleted, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::events::ServerEvent, server::events::lifecycle::ServerDeleted, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::server::delete_server::DeleteServerRequest,
@@ -17,8 +17,6 @@ pub enum DeleteServerError {
     NotOwner,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Voice service error: {0}")]
     VoiceService(#[from] VoiceServiceError),
 }
@@ -90,14 +88,13 @@ where
             member_ids,
             Utc::now(),
         ));
-        let records: Vec<OutboxRecord> =
-            vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
+        let events = vec![MessagingEvent::from(event)];
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         if tx.delete_server_by_owner(&owner_id).await?.is_none() {
             return Ok(false);
         }
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, ctx.request_id.as_deref()).await?;
         tx.commit().await?;
 
         for channel_id in &voice_channel_ids {

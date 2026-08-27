@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 
 use crate::{channel::id::ChannelId, message::content::MessageContent, message::id::MessageId};
-use domain::{event::EventId, user::id::UserId};
+use domain::{attachment::AttachmentSnapshot, event::EventId, user::id::UserId};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct MessageSent {
     pub id: EventId,
     pub message_id: MessageId,
@@ -12,6 +11,9 @@ pub struct MessageSent {
     pub author_id: UserId,
     pub content: MessageContent,
     pub occurred_at: DateTime<Utc>,
+    pub recipient_ids: Vec<UserId>,
+    pub attachments: Vec<AttachmentSnapshot>,
+    pub mentions: Vec<UserId>,
 }
 
 impl MessageSent {
@@ -29,17 +31,22 @@ impl MessageSent {
             author_id,
             content,
             occurred_at: now,
+            recipient_ids: Vec::new(),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct MessageEdited {
     pub id: EventId,
     pub message_id: MessageId,
     pub channel_id: ChannelId,
     pub new_content: MessageContent,
     pub occurred_at: DateTime<Utc>,
+    pub recipient_ids: Vec<UserId>,
+    pub attachments: Vec<AttachmentSnapshot>,
 }
 
 impl MessageEdited {
@@ -55,17 +62,20 @@ impl MessageEdited {
             channel_id,
             new_content,
             occurred_at: now,
+            recipient_ids: Vec::new(),
+            attachments: Vec::new(),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct MessageDeleted {
     pub id: EventId,
     pub message_id: MessageId,
     pub channel_id: ChannelId,
     pub deleted_by: UserId,
     pub occurred_at: DateTime<Utc>,
+    pub recipient_ids: Vec<UserId>,
 }
 
 impl MessageDeleted {
@@ -81,6 +91,7 @@ impl MessageDeleted {
             channel_id,
             deleted_by,
             occurred_at: now,
+            recipient_ids: Vec::new(),
         }
     }
 }

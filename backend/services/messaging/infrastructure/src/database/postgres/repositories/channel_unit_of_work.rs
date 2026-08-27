@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
-use messaging_domain::{channel::id::ChannelId, channel::unit_of_work::ChannelTransaction, channel::unit_of_work::ChannelUnitOfWork};
+use ports::repository::RepositoryError;
+use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::unit_of_work::ChannelTransaction, channel::unit_of_work::ChannelUnitOfWork};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
@@ -52,8 +52,9 @@ impl ChannelTransaction for PostgresChannelTransaction {
         Ok(result.rows_affected() > 0)
     }
 
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError> {
-        save_outbox_records(&mut self.tx, records).await
+    async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
+        let records = crate::outbox::mapping::to_records(events, request_id)?;
+        save_outbox_records(&mut self.tx, &records).await
     }
 
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError> {

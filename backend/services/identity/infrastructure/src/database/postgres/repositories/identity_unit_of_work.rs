@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use domain::{user::id::UserId, user::name::UserName};
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
-use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode};
+use ports::repository::RepositoryError;
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
@@ -11,6 +11,7 @@ use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
     repositories::outbox_record::save_outbox_records,
 };
+use crate::outbox::mapping::to_record;
 
 pub struct PostgresIdentityUnitOfWork {
     pool: Pool<Postgres>,
@@ -191,8 +192,12 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(result.rows_affected() > 0)
     }
 
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError> {
-        save_outbox_records(&mut self.tx, records).await
+    async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
+        let records = events
+            .iter()
+            .map(|e| to_record(e, request_id))
+            .collect::<Result<Vec<_>, _>>()?;
+        save_outbox_records(&mut self.tx, &records).await
     }
 
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError> {

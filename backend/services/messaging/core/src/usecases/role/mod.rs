@@ -7,10 +7,9 @@ pub mod swap_roles;
 pub mod update_role;
 
 use chrono::Utc;
-use messaging_domain::{server::authorization::AuthorizationSnapshot, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository};
+use messaging_domain::{events::MessagingEvent, server::authorization::AuthorizationSnapshot, server::events::ServerEvent, server::events::lifecycle::ServerRolesChanged, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository};
 use domain::user::id::UserId;
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
-use uuid::Uuid;
+use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RoleError {
@@ -67,19 +66,10 @@ pub async fn ensure_member<S: ServerRepository>(
     Ok(())
 }
 
-pub fn roles_changed_event(server_id: &ServerId, snapshot: &AuthorizationSnapshot) -> OutboxRecord {
-    OutboxRecord {
-        id: Uuid::new_v4(),
-        aggregate_id: server_id.uuid(),
-        aggregate_type: AggregateType::Server,
-        parent_id: None,
-        parent_type: None,
-        event_type: "server.roles.changed".to_string(),
-        payload: serde_json::json!({
-            "server_id": server_id.uuid(),
-            "recipients": snapshot.members.iter().map(|u| u.uuid()).collect::<Vec<_>>(),
-        }),
-        occurred_at: Utc::now(),
-        request_id: None,
-    }
+pub fn roles_changed_event(server_id: &ServerId, snapshot: &AuthorizationSnapshot) -> MessagingEvent {
+    MessagingEvent::from(ServerEvent::RolesChanged(ServerRolesChanged::record(
+        *server_id,
+        snapshot.members.iter().copied().collect(),
+        Utc::now(),
+    )))
 }

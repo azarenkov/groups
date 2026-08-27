@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::dto::requests::channel::mute_channel::MuteChannelRequest;
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum MuteChannelError {
@@ -20,8 +19,6 @@ pub enum MuteChannelError {
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
     Domain(#[from] ChannelError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Voice service error: {0}")]
     VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
@@ -146,11 +143,7 @@ where
         channel.mute(target, initiator, moderator_mute, now)?;
 
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = channel
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
+        let events = channel.pull_events();
 
         let muted_sids = if moderator_mute {
             self.voice_service
@@ -161,7 +154,8 @@ where
         };
 
         let persisted = async {
-            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
             let snapshot = tx.authorization().await?;
             messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
             if !tx
@@ -170,7 +164,7 @@ where
             {
                 return Ok::<bool, MuteChannelError>(false);
             }
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await?;
             Ok(true)
         }

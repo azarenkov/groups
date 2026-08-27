@@ -2,9 +2,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
-use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
+use domain::{attachment::AttachmentSnapshot, user::id::UserId};
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 use crate::{
@@ -20,8 +20,6 @@ pub enum EditDmMessageError {
     Dm(#[from] DmMessageError),
     #[error("Message error: {0}")]
     Message(#[from] MessageError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Message not found")]
     NotFound,
     #[error("Invalid attachments")]
@@ -105,11 +103,7 @@ where
         let now = Utc::now();
         message.edit_with_options(new_content, editor_id, now, attachments_changed)?;
         let request_id = request.ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
+        let events = message.pull_events();
         let claim_token = uuid::Uuid::new_v4();
         let added_attachments = if add_ids.is_empty() {
             Vec::new()
@@ -142,21 +136,13 @@ where
             .collect();
         final_attachments.extend(added_attachments.clone());
         final_attachments.sort_by_key(|a| a.created_at);
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "attachments",
-            crate::usecases::enrichment::attachment_links_value(&final_attachments),
-        );
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "recipient_id",
-            serde_json::json!(message.recipient_id().uuid()),
-        );
         let persisted = async {
-            let mut tx = self.unit_of_work.begin().await?;
+            let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();
+        let mut tx = self.unit_of_work.begin().await?;
             tx.update_message(&message, &added_attachments, &request.remove_attachment_ids)
                 .await?;
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
         }
         .await;

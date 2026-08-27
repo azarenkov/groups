@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{friendship::Friendship, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
+use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::dto::requests::friendship::remove_friendship::RemoveFriendshipRequest;
 
@@ -11,8 +11,6 @@ use crate::dto::requests::friendship::remove_friendship::RemoveFriendshipRequest
 pub enum RemoveFriendshipError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Friendship not found")]
     NotFound,
 }
@@ -55,11 +53,8 @@ where
         let events = Friendship::removal_events(requester_id, other_id, now);
 
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = events
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-
+        
+        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
         let success = match existing.status {
             FriendshipStatus::PendingIncoming => {
@@ -70,7 +65,7 @@ where
         if !success {
             return Err(RemoveFriendshipError::NotFound);
         }
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
         Ok(())
     }

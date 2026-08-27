@@ -1,20 +1,17 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
-use uuid::Uuid;
 
-use crate::{server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberJoined, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerUpdated, server::id::ServerId};
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
+use crate::{server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberJoined, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId};
 
 pub mod lifecycle;
 
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum ServerEvent {
     Created(ServerCreated),
     Updated(ServerUpdated),
     Deleted(ServerDeleted),
     MemberJoined(ServerMemberJoined),
     MemberLeft(ServerMemberLeft),
+    RolesChanged(ServerRolesChanged),
 }
 
 impl ServerEvent {
@@ -25,6 +22,7 @@ impl ServerEvent {
             Self::Deleted(e) => &e.server_id,
             Self::MemberJoined(e) => &e.server_id,
             Self::MemberLeft(e) => &e.server_id,
+            Self::RolesChanged(e) => &e.server_id,
         }
     }
 
@@ -35,6 +33,7 @@ impl ServerEvent {
             Self::Deleted(e) => e.occurred_at,
             Self::MemberJoined(e) => e.occurred_at,
             Self::MemberLeft(e) => e.occurred_at,
+            Self::RolesChanged(e) => e.occurred_at,
         }
     }
 
@@ -45,22 +44,7 @@ impl ServerEvent {
             Self::Deleted(_) => "deleted",
             Self::MemberJoined(_) => "member_joined",
             Self::MemberLeft(_) => "member_left",
+            Self::RolesChanged(_) => "server.roles.changed",
         }
-    }
-}
-
-impl ToOutboxRecord for ServerEvent {
-    fn to_outbox_record(&self) -> Result<OutboxRecord, OutboxError> {
-        Ok(OutboxRecord {
-            id: Uuid::new_v4(),
-            aggregate_id: self.server_id().uuid(),
-            aggregate_type: AggregateType::Server,
-            parent_id: None,
-            parent_type: None,
-            event_type: self.event_type().to_string(),
-            payload: serde_json::to_value(self)?,
-            occurred_at: self.occurred_at(),
-            request_id: None,
-        })
     }
 }

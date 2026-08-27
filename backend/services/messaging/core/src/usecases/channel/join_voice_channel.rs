@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
 use domain::{user::id::UserId, user::name::UserName};
-use ports::{outbox::to_outbox::OutboxError, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::{
@@ -33,8 +33,6 @@ pub enum JoinVoiceChannelError {
     Hash(#[from] HashError),
     #[error("Channel domain error: {0}")]
     Domain(#[from] ChannelError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Voice not supported for this channel")]
     VoiceNotSupported,
     #[error("Not a member of this server")]
@@ -143,7 +141,6 @@ where
                 .create_token(&user_id, &user_name, channel.id())
                 .await?
         };
-
 
         let response = JoinVoiceChannelResponse::new(
             channel_token,

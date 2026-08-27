@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelOperationError, channel::repository::ChannelRepository, channel::session_id::SessionId, server::id::ServerId};
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
@@ -934,11 +934,12 @@ where
         .iter()
         .filter_map(|e| e.screen_started_user().map(|u| u.uuid()))
         .collect();
-    let mut events: Vec<OutboxRecord> = channel_events
-        .iter()
-        .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-        .collect::<Result<_, _>>()
-        .map_err(|e| RepositoryError::Internal(format!("outbox error: {e}")))?;
+    let channel_events: Vec<messaging_domain::events::MessagingEvent> = channel_events
+        .into_iter()
+        .map(messaging_domain::events::MessagingEvent::from)
+        .collect();
+    let mut events: Vec<OutboxRecord> =
+        crate::outbox::mapping::to_records(&channel_events, request_id.as_deref())?;
     let voice_changes = channel.pull_voice_changes();
     let media_changes = channel.pull_media_changes();
     let server_id = channel.server_id().uuid();

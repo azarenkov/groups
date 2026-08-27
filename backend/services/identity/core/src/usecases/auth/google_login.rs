@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::User, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::User, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
 use domain::{password_hash::PasswordHash, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::{
@@ -25,8 +25,6 @@ pub enum GoogleLoginError {
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
     #[error("Google token verification failed: {0}")]
@@ -274,17 +272,13 @@ where
             client.user_agent,
         );
 
-        let records: Vec<OutboxRecord> = user
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<Vec<_>, _>>()?;
+        let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
 
         let persisted = async {
             let mut tx = self.unit_of_work.begin().await?;
             tx.insert_user(&user).await?;
             tx.insert_refresh_token(&refresh_token).await?;
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
         }
         .await;
@@ -334,11 +328,9 @@ where
             client.user_agent,
             Utc::now(),
         ));
-        let records: Vec<OutboxRecord> = vec![event.to_outbox_record_with_request_id(request_id)?];
-
         let mut tx = self.unit_of_work.begin().await?;
         tx.insert_refresh_token(&refresh_token).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&[IdentityEvent::from(event)], request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(tokens)

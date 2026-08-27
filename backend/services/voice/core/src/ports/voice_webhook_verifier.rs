@@ -1,8 +1,8 @@
-use contracts::events::webhook::{ConnectionAbortReasonV1, LeaveReasonV1, MediaSourceV1};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use voice_domain::webhook::{ConnectionAbortReason, LeaveReason, MediaSource};
 
-pub use contracts::events::webhook::WebhookSource;
+pub use domain::channel::webhook_source::WebhookSource;
 
 #[derive(Debug)]
 pub struct VerifiedVoiceWebhookEvent {
@@ -23,25 +23,25 @@ pub enum VoiceWebhookEvent {
         channel_id: Uuid,
         user_id: Uuid,
         session_id: String,
-        reason: LeaveReasonV1,
+        reason: LeaveReason,
     },
     ParticipantConnectionAborted {
         channel_id: Uuid,
         user_id: Uuid,
         session_id: String,
-        reason: ConnectionAbortReasonV1,
+        reason: ConnectionAbortReason,
     },
     TrackPublished {
         channel_id: Uuid,
         user_id: Uuid,
         session_id: String,
-        source: MediaSourceV1,
+        source: MediaSource,
     },
     TrackUnpublished {
         channel_id: Uuid,
         user_id: Uuid,
         session_id: String,
-        source: MediaSourceV1,
+        source: MediaSource,
     },
     Other,
 }

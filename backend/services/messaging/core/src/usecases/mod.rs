@@ -2,7 +2,6 @@ pub mod attachment;
 pub mod call;
 pub mod channel;
 pub mod dm;
-pub mod enrichment;
 pub mod friendship;
 pub mod notification;
 pub mod read_state;

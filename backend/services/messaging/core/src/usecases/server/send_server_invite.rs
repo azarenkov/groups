@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::dto::{RequestContext, responses::dm::send_dm_message::SendDmMessageResponse};
 
@@ -13,8 +13,6 @@ pub enum SendServerInviteError {
     Repository(#[from] RepositoryError),
     #[error("Message error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Not friends with this user")]
     NotFriends,
     #[error("Server not found")]
@@ -115,24 +113,11 @@ where
             DmMessage::create_server_invite(sender_id, friend_id, server_id, content, now);
 
         let request_id = ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "invite_server_id",
-            serde_json::json!(server_id.uuid()),
-        );
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "invite_server_name",
-            serde_json::json!(server_name.clone()),
-        );
+        let events = message.pull_events();
+        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let persisted = async {
             tx.insert_dm_message(&message).await?;
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
         }
         .await;

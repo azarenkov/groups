@@ -1,7 +1,7 @@
 use domain::{user::id::UserId, user::name::UserName};
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
-use crate::{refresh_token::RefreshToken, user::User, verification::code::VerificationCode};
+use crate::{events::IdentityEvent, refresh_token::RefreshToken, user::User, verification::code::VerificationCode};
 
 #[async_trait::async_trait]
 pub trait IdentityUnitOfWork: Send + Sync {
@@ -17,6 +17,6 @@ pub trait IdentityTransaction: Send {
     async fn insert_verification_code(&mut self, verification_code: &VerificationCode) -> Result<(), RepositoryError>;
     async fn mark_user_verified(&mut self, user: &User) -> Result<(), RepositoryError>;
     async fn consume_verification_code(&mut self, verification_code: &VerificationCode) -> Result<bool, RepositoryError>;
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError>;
+    async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }

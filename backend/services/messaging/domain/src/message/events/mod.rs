@@ -1,14 +1,12 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
-use uuid::Uuid;
+
+use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 
 use crate::{channel::id::ChannelId, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId};
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
 
 pub mod lifecycle;
 
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum MessageDomainEvent {
     Sent(MessageSent),
     Edited(MessageEdited),
@@ -47,20 +45,29 @@ impl MessageDomainEvent {
             Self::Deleted(_) => "deleted",
         }
     }
-}
 
-impl ToOutboxRecord for MessageDomainEvent {
-    fn to_outbox_record(&self) -> Result<OutboxRecord, OutboxError> {
-        Ok(OutboxRecord {
-            id: Uuid::new_v4(),
-            aggregate_id: self.message_id().uuid(),
-            aggregate_type: AggregateType::Message,
-            parent_id: Some(self.channel_id().uuid()),
-            parent_type: Some(AggregateType::Channel),
-            event_type: self.event_type().to_string(),
-            payload: serde_json::to_value(self)?,
-            occurred_at: self.occurred_at(),
-            request_id: None,
-        })
+    pub fn with_recipients(mut self, recipient_ids: &[UserId]) -> Self {
+        match &mut self {
+            Self::Sent(e) => e.recipient_ids = recipient_ids.to_vec(),
+            Self::Edited(e) => e.recipient_ids = recipient_ids.to_vec(),
+            Self::Deleted(e) => e.recipient_ids = recipient_ids.to_vec(),
+        }
+        self
+    }
+
+    pub fn with_attachments(mut self, attachments: &[AttachmentSnapshot]) -> Self {
+        match &mut self {
+            Self::Sent(e) => e.attachments = attachments.to_vec(),
+            Self::Edited(e) => e.attachments = attachments.to_vec(),
+            Self::Deleted(_) => {}
+        }
+        self
+    }
+
+    pub fn with_mentions(mut self, mentions: &[UserId]) -> Self {
+        if let Self::Sent(e) = &mut self {
+            e.mentions = mentions.to_vec();
+        }
+        self
     }
 }

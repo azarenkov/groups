@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
-use identity_domain::{unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserRenamed, user::repository::UserRepository};
+use ports::repository::RepositoryError;
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserRenamed, user::repository::UserRepository};
 
 use crate::ports::text_moderation::{TextModeration, TextModerationError};
 
@@ -11,8 +11,6 @@ use crate::ports::text_moderation::{TextModeration, TextModerationError};
 pub enum RenameUserError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Invalid username: {0}")]
     InvalidName(#[from] UserNameError),
     #[error("Username is already taken")]
@@ -78,8 +76,7 @@ where
             let mut tx = self.unit_of_work.begin().await?;
             tx.set_user_name(&user_id, &name).await?;
             let event = UserEvent::Renamed(UserRenamed::record(user_id, name.clone(), Utc::now()));
-            let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
-            tx.save_outbox(&records).await?;
+            tx.save_events(&[IdentityEvent::from(event)], None).await?;
             tx.commit().await?;
             Ok::<(), RenameUserError>(())
         }

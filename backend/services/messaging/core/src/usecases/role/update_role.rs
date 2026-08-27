@@ -40,7 +40,7 @@ impl<U: ServerUnitOfWork> UpdateRole<U> {
         {
             return Err(RoleError::RoleNotFound);
         }
-        tx.save_outbox(std::slice::from_ref(&roles_changed_event(&server_id, &snapshot)))
+        tx.save_events(&[roles_changed_event(&server_id, &snapshot)], None)
             .await?;
         tx.commit().await?;
         Ok(())

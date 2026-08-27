@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 
 use crate::{server::description::ServerDescription, server::id::ServerId, server::name::ServerName};
 use domain::{event::EventId, user::id::UserId};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ServerCreated {
     pub id: EventId,
     pub server_id: ServerId,
@@ -33,7 +32,7 @@ impl ServerCreated {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ServerDeleted {
     pub id: EventId,
     pub server_id: ServerId,
@@ -59,7 +58,7 @@ impl ServerDeleted {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ServerUpdated {
     pub id: EventId,
     pub server_id: ServerId,
@@ -88,7 +87,7 @@ impl ServerUpdated {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ServerMemberJoined {
     pub id: EventId,
     pub server_id: ServerId,
@@ -107,7 +106,26 @@ impl ServerMemberJoined {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+pub struct ServerRolesChanged {
+    pub id: EventId,
+    pub server_id: ServerId,
+    pub recipients: Vec<UserId>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ServerRolesChanged {
+    pub fn record(server_id: ServerId, recipients: Vec<UserId>, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            server_id,
+            recipients,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ServerMemberLeft {
     pub id: EventId,
     pub server_id: ServerId,

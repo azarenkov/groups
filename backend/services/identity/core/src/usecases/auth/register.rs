@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::User, user::email::Email, user::repository::UserRepository};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::User, user::email::Email, user::repository::UserRepository};
 use domain::{password_hash::PasswordHash, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 
 use crate::{
@@ -20,8 +20,6 @@ pub enum RegistrationError {
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
     #[error("Invalid username: {0}")]
@@ -125,11 +123,7 @@ where
         );
 
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = user
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<Vec<_>, _>>()?;
+        let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
 
         let user_id = user.id_ownned();
         let email = user.email().clone();
@@ -138,7 +132,7 @@ where
             let mut tx = self.unit_of_work.begin().await?;
             tx.insert_user(&user).await?;
             tx.insert_refresh_token(&refresh_token).await?;
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
         }
         .await;

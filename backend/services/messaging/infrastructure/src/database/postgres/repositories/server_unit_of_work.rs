@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -817,8 +817,9 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(Some(storage_keys))
     }
 
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError> {
-        save_outbox_records(&mut self.tx, records).await
+    async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
+        let records = crate::outbox::mapping::to_records(events, request_id)?;
+        save_outbox_records(&mut self.tx, &records).await
     }
 
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError> {

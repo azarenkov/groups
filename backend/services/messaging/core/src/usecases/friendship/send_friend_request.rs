@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
+use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
 use domain::{user::id::UserId, user::name::UserName};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::dto::requests::friendship::send_friend_request::SendFriendRequestRequest;
 
@@ -13,8 +13,6 @@ pub enum SendFriendRequestError {
     Repository(#[from] RepositoryError),
     #[error("Friendship error: {0}")]
     Domain(#[from] FriendshipError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Invalid username")]
     InvalidUsername,
     #[error("User not found")]
@@ -99,14 +97,10 @@ where
             Friendship::build_request_pair(sender_id, target_id, now)?;
 
         let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = events
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-
+        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
         tx.insert_request_pair(&outgoing, &incoming).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(target_id)

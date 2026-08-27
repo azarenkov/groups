@@ -1,7 +1,8 @@
 use std::{error::Error, sync::Arc};
 
 use ports::{event_consumer::ConsumedMessage, event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
-use identity_domain::verification::events::VerificationEvent;
+use contracts::events::user::VerificationIssuedV1;
+use domain::user::{email::Email, locale::Locale};
 use futures::StreamExt;
 use infrastructure_common::{
     config::{mailer::MailerConfig, nats::NatsConfig},
@@ -127,7 +128,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn handle_verification_message<M: Mailer>(mailer: &M, msg: ConsumedMessage) {
-    let event: VerificationEvent = match serde_json::from_slice(&msg.payload) {
+    let issued: VerificationIssuedV1 = match serde_json::from_slice(&msg.payload) {
         Ok(e) => e,
         Err(e) => {
             tracing::error!(error = %e, "Failed to deserialize verification event; not acking, JetStream will redeliver");
@@ -135,11 +136,16 @@ async fn handle_verification_message<M: Mailer>(mailer: &M, msg: ConsumedMessage
         }
     };
 
-    let VerificationEvent::Issued(issued) = event;
-    let email_str = issued.email.as_str().to_string();
+    let email_str = issued.email.clone();
+    let email = Email::new(issued.email);
+    let locale = issued
+        .locale
+        .as_deref()
+        .map(Locale::from_str_lenient)
+        .unwrap_or_default();
 
     match mailer
-        .send_verification_code(&issued.email, &issued.code, issued.locale)
+        .send_verification_code(&email, &issued.code, locale)
         .await
     {
         Ok(()) => {

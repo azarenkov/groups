@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use contracts::events::webhook::WebhookSource;
+use domain::channel::webhook_source::WebhookSource;
 use messaging::{
     dto::{
         context::RequestContext,

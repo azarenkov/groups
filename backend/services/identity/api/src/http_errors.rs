@@ -129,7 +129,6 @@ impl HttpMapping for LoginError {
         match self {
             LoginError::Repository(e) => e.to_http_status(),
             LoginError::Hash(e) => e.to_http_status(),
-            LoginError::Outbox(e) => e.to_http_status(),
             LoginError::TokenIssuer(e) => e.to_http_status(),
             LoginError::InvalidCredentials => StatusCode::UNAUTHORIZED,
         }
@@ -139,7 +138,6 @@ impl HttpMapping for LoginError {
         match self {
             LoginError::Repository(e) => e.to_user_message(),
             LoginError::Hash(e) => e.to_user_message(),
-            LoginError::Outbox(e) => e.to_user_message(),
             LoginError::TokenIssuer(e) => e.to_user_message(),
             LoginError::InvalidCredentials => "Invalid credentials".to_string(),
         }
@@ -149,7 +147,6 @@ impl HttpMapping for LoginError {
         match self {
             LoginError::Repository(e) => e.to_error_code(),
             LoginError::Hash(e) => e.to_error_code(),
-            LoginError::Outbox(e) => e.to_error_code(),
             LoginError::TokenIssuer(e) => e.to_error_code(),
             LoginError::InvalidCredentials => "INVALID_CREDENTIALS",
         }
@@ -161,7 +158,6 @@ impl HttpMapping for GoogleLoginError {
         match self {
             GoogleLoginError::Repository(e) => e.to_http_status(),
             GoogleLoginError::Hash(e) => e.to_http_status(),
-            GoogleLoginError::Outbox(e) => e.to_http_status(),
             GoogleLoginError::TokenIssuer(e) => e.to_http_status(),
             GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
                 StatusCode::SERVICE_UNAVAILABLE
@@ -185,7 +181,6 @@ impl HttpMapping for GoogleLoginError {
         match self {
             GoogleLoginError::Repository(e) => e.to_user_message(),
             GoogleLoginError::Hash(e) => e.to_user_message(),
-            GoogleLoginError::Outbox(e) => e.to_user_message(),
             GoogleLoginError::TokenIssuer(e) => e.to_user_message(),
             GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
                 "Google login is not configured".to_string()
@@ -217,7 +212,6 @@ impl HttpMapping for GoogleLoginError {
         match self {
             GoogleLoginError::Repository(e) => e.to_error_code(),
             GoogleLoginError::Hash(e) => e.to_error_code(),
-            GoogleLoginError::Outbox(e) => e.to_error_code(),
             GoogleLoginError::TokenIssuer(e) => e.to_error_code(),
             GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
                 "GOOGLE_NOT_CONFIGURED"
@@ -281,7 +275,6 @@ impl HttpMapping for LogoutError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LogoutError::Repository(e) => e.to_http_status(),
-            LogoutError::Outbox(e) => e.to_http_status(),
             LogoutError::TokenIssuer(e) => e.to_http_status(),
             LogoutError::RefreshTokenNotFound => StatusCode::NOT_FOUND,
             LogoutError::UserMismatch => StatusCode::UNAUTHORIZED,
@@ -291,7 +284,6 @@ impl HttpMapping for LogoutError {
     fn to_user_message(&self) -> String {
         match self {
             LogoutError::Repository(e) => e.to_user_message(),
-            LogoutError::Outbox(e) => e.to_user_message(),
             LogoutError::TokenIssuer(e) => e.to_user_message(),
             LogoutError::RefreshTokenNotFound => "Refresh token not found".to_string(),
             LogoutError::UserMismatch => "Refresh token user mismatch".to_string(),
@@ -301,7 +293,6 @@ impl HttpMapping for LogoutError {
     fn to_error_code(&self) -> &'static str {
         match self {
             LogoutError::Repository(e) => e.to_error_code(),
-            LogoutError::Outbox(e) => e.to_error_code(),
             LogoutError::TokenIssuer(e) => e.to_error_code(),
             LogoutError::RefreshTokenNotFound => "REFRESH_TOKEN_NOT_FOUND",
             LogoutError::UserMismatch => "REFRESH_TOKEN_USER_MISMATCH",
@@ -320,7 +311,6 @@ impl HttpMapping for ConfirmRegistrationError {
             ConfirmRegistrationError::UserNotFound => StatusCode::NOT_FOUND,
             ConfirmRegistrationError::Repository(e) => e.to_http_status(),
             ConfirmRegistrationError::Hash(e) => e.to_http_status(),
-            ConfirmRegistrationError::Outbox(e) => e.to_http_status(),
         }
     }
 
@@ -342,7 +332,6 @@ impl HttpMapping for ConfirmRegistrationError {
             ConfirmRegistrationError::UserNotFound => "User not found".to_string(),
             ConfirmRegistrationError::Repository(e) => e.to_user_message(),
             ConfirmRegistrationError::Hash(e) => e.to_user_message(),
-            ConfirmRegistrationError::Outbox(e) => e.to_user_message(),
         }
     }
 
@@ -356,7 +345,6 @@ impl HttpMapping for ConfirmRegistrationError {
             ConfirmRegistrationError::UserNotFound => "USER_NOT_FOUND",
             ConfirmRegistrationError::Repository(e) => e.to_error_code(),
             ConfirmRegistrationError::Hash(e) => e.to_error_code(),
-            ConfirmRegistrationError::Outbox(e) => e.to_error_code(),
         }
     }
 }
@@ -366,7 +354,6 @@ impl HttpMapping for RegistrationError {
         match self {
             RegistrationError::Repository(e) => e.to_http_status(),
             RegistrationError::Hash(e) => e.to_http_status(),
-            RegistrationError::Outbox(e) => e.to_http_status(),
             RegistrationError::TokenIssuer(e) => e.to_http_status(),
             RegistrationError::InvalidName(UserNameError::Reserved) => {
                 StatusCode::UNPROCESSABLE_ENTITY
@@ -382,7 +369,6 @@ impl HttpMapping for RegistrationError {
         match self {
             RegistrationError::Repository(e) => e.to_user_message(),
             RegistrationError::Hash(e) => e.to_user_message(),
-            RegistrationError::Outbox(e) => e.to_user_message(),
             RegistrationError::TokenIssuer(e) => e.to_user_message(),
             RegistrationError::InvalidName(UserNameError::Reserved)
             | RegistrationError::NameNotAllowed => "This username is not allowed.".to_string(),
@@ -401,7 +387,6 @@ impl HttpMapping for RegistrationError {
                 _ => e.to_error_code(),
             },
             RegistrationError::Hash(e) => e.to_error_code(),
-            RegistrationError::Outbox(e) => e.to_error_code(),
             RegistrationError::TokenIssuer(e) => e.to_error_code(),
             RegistrationError::InvalidName(UserNameError::Reserved)
             | RegistrationError::NameNotAllowed => "NAME_NOT_ALLOWED",
@@ -417,7 +402,6 @@ impl HttpMapping for IssueVerificationCodeError {
         match self {
             IssueVerificationCodeError::Repository(e) => e.to_http_status(),
             IssueVerificationCodeError::Hash(e) => e.to_http_status(),
-            IssueVerificationCodeError::Outbox(e) => e.to_http_status(),
             IssueVerificationCodeError::UnsupportedChannel => StatusCode::BAD_REQUEST,
             IssueVerificationCodeError::UserAlreadyVerified => StatusCode::CONFLICT,
         }
@@ -427,7 +411,6 @@ impl HttpMapping for IssueVerificationCodeError {
         match self {
             IssueVerificationCodeError::Repository(e) => e.to_user_message(),
             IssueVerificationCodeError::Hash(e) => e.to_user_message(),
-            IssueVerificationCodeError::Outbox(e) => e.to_user_message(),
             IssueVerificationCodeError::UnsupportedChannel => {
                 "Unsupported verification channel".to_string()
             }
@@ -439,7 +422,6 @@ impl HttpMapping for IssueVerificationCodeError {
         match self {
             IssueVerificationCodeError::Repository(e) => e.to_error_code(),
             IssueVerificationCodeError::Hash(e) => e.to_error_code(),
-            IssueVerificationCodeError::Outbox(e) => e.to_error_code(),
             IssueVerificationCodeError::UnsupportedChannel => "VERIFICATION_CHANNEL_UNSUPPORTED",
             IssueVerificationCodeError::UserAlreadyVerified => "USER_ALREADY_VERIFIED",
         }
@@ -516,7 +498,6 @@ impl HttpMapping for RenameUserError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RenameUserError::Repository(e) => e.to_http_status(),
-            RenameUserError::Outbox(e) => e.to_http_status(),
             RenameUserError::InvalidName(UserNameError::Reserved) => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
@@ -530,7 +511,6 @@ impl HttpMapping for RenameUserError {
     fn to_user_message(&self) -> String {
         match self {
             RenameUserError::Repository(e) => e.to_user_message(),
-            RenameUserError::Outbox(e) => e.to_user_message(),
             RenameUserError::InvalidName(UserNameError::Reserved)
             | RenameUserError::NameNotAllowed => "This username is not allowed.".to_string(),
             RenameUserError::InvalidName(e) => e.to_string(),
@@ -544,7 +524,6 @@ impl HttpMapping for RenameUserError {
     fn to_error_code(&self) -> &'static str {
         match self {
             RenameUserError::Repository(e) => e.to_error_code(),
-            RenameUserError::Outbox(e) => e.to_error_code(),
             RenameUserError::InvalidName(UserNameError::Reserved)
             | RenameUserError::NameNotAllowed => "NAME_NOT_ALLOWED",
             RenameUserError::InvalidName(_) => "NAME_INVALID_FORMAT",

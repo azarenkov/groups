@@ -170,7 +170,6 @@ impl HttpMapping for CreateChannelError {
             CreateChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
             CreateChannelError::InvalidData => StatusCode::BAD_REQUEST,
             CreateChannelError::Domain(e) => e.to_http_status(),
-            CreateChannelError::Outbox(e) => e.to_http_status(),
         }
     }
 
@@ -186,7 +185,6 @@ impl HttpMapping for CreateChannelError {
             }
             CreateChannelError::InvalidData => "Invalid channel data provided".to_string(),
             CreateChannelError::Domain(e) => e.to_user_message(),
-            CreateChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 
@@ -198,7 +196,6 @@ impl HttpMapping for CreateChannelError {
             CreateChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
             CreateChannelError::InvalidData => "CHANNEL_INVALID_DATA",
             CreateChannelError::Domain(e) => e.to_error_code(),
-            CreateChannelError::Outbox(e) => e.to_error_code(),
         }
     }
 }
@@ -210,7 +207,6 @@ impl HttpMapping for DeleteChannelError {
             DeleteChannelError::NotOwner => StatusCode::FORBIDDEN,
             DeleteChannelError::Repository(e) => e.to_http_status(),
             DeleteChannelError::Domain(e) => e.to_http_status(),
-            DeleteChannelError::Outbox(e) => e.to_http_status(),
             DeleteChannelError::VoiceService(_) => StatusCode::BAD_GATEWAY,
         }
     }
@@ -221,7 +217,6 @@ impl HttpMapping for DeleteChannelError {
             DeleteChannelError::NotOwner => "Only the channel owner can delete it.".to_string(),
             DeleteChannelError::Repository(e) => e.to_user_message(),
             DeleteChannelError::Domain(e) => e.to_user_message(),
-            DeleteChannelError::Outbox(e) => e.to_user_message(),
             DeleteChannelError::VoiceService(_) => {
                 "Voice service is temporarily unavailable.".to_string()
             }
@@ -234,7 +229,6 @@ impl HttpMapping for DeleteChannelError {
             DeleteChannelError::NotOwner => "CHANNEL_NOT_OWNER",
             DeleteChannelError::Repository(e) => e.to_error_code(),
             DeleteChannelError::Domain(e) => e.to_error_code(),
-            DeleteChannelError::Outbox(e) => e.to_error_code(),
             DeleteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
@@ -249,7 +243,6 @@ impl HttpMapping for MuteChannelError {
             MuteChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             MuteChannelError::Repository(e) => e.to_http_status(),
             MuteChannelError::Domain(e) => e.to_http_status(),
-            MuteChannelError::Outbox(e) => e.to_http_status(),
             MuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
@@ -263,7 +256,6 @@ impl HttpMapping for MuteChannelError {
             }
             MuteChannelError::Repository(e) => e.to_user_message(),
             MuteChannelError::Domain(e) => e.to_user_message(),
-            MuteChannelError::Outbox(e) => e.to_user_message(),
             MuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
@@ -275,7 +267,6 @@ impl HttpMapping for MuteChannelError {
             MuteChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             MuteChannelError::Repository(e) => e.to_error_code(),
             MuteChannelError::Domain(e) => e.to_error_code(),
-            MuteChannelError::Outbox(e) => e.to_error_code(),
             MuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
@@ -290,7 +281,6 @@ impl HttpMapping for UnmuteChannelError {
             UnmuteChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             UnmuteChannelError::Repository(e) => e.to_http_status(),
             UnmuteChannelError::Domain(e) => e.to_http_status(),
-            UnmuteChannelError::Outbox(e) => e.to_http_status(),
             UnmuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
@@ -304,7 +294,6 @@ impl HttpMapping for UnmuteChannelError {
             }
             UnmuteChannelError::Repository(e) => e.to_user_message(),
             UnmuteChannelError::Domain(e) => e.to_user_message(),
-            UnmuteChannelError::Outbox(e) => e.to_user_message(),
             UnmuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
@@ -316,7 +305,6 @@ impl HttpMapping for UnmuteChannelError {
             UnmuteChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             UnmuteChannelError::Repository(e) => e.to_error_code(),
             UnmuteChannelError::Domain(e) => e.to_error_code(),
-            UnmuteChannelError::Outbox(e) => e.to_error_code(),
             UnmuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
@@ -418,21 +406,18 @@ impl HttpMapping for CreateServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             CreateServerError::Repository(e) => e.to_http_status(),
-            CreateServerError::Outbox(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
             CreateServerError::Repository(e) => e.to_user_message(),
-            CreateServerError::Outbox(e) => e.to_user_message(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
             CreateServerError::Repository(e) => e.to_error_code(),
-            CreateServerError::Outbox(e) => e.to_error_code(),
         }
     }
 }
@@ -443,7 +428,6 @@ impl HttpMapping for DeleteServerError {
             DeleteServerError::ServerNotFound => StatusCode::NOT_FOUND,
             DeleteServerError::NotOwner => StatusCode::FORBIDDEN,
             DeleteServerError::Repository(e) => e.to_http_status(),
-            DeleteServerError::Outbox(e) => e.to_http_status(),
             DeleteServerError::VoiceService(_) => StatusCode::BAD_GATEWAY,
         }
     }
@@ -453,7 +437,6 @@ impl HttpMapping for DeleteServerError {
             DeleteServerError::ServerNotFound => "Server not found".to_string(),
             DeleteServerError::NotOwner => "Only the server owner can delete it.".to_string(),
             DeleteServerError::Repository(e) => e.to_user_message(),
-            DeleteServerError::Outbox(e) => e.to_user_message(),
             DeleteServerError::VoiceService(_) => {
                 "Voice service is temporarily unavailable.".to_string()
             }
@@ -465,7 +448,6 @@ impl HttpMapping for DeleteServerError {
             DeleteServerError::ServerNotFound => "SERVER_NOT_FOUND",
             DeleteServerError::NotOwner => "SERVER_NOT_OWNER",
             DeleteServerError::Repository(e) => e.to_error_code(),
-            DeleteServerError::Outbox(e) => e.to_error_code(),
             DeleteServerError::VoiceService(e) => e.to_error_code(),
         }
     }
@@ -477,7 +459,6 @@ impl HttpMapping for UpdateServerError {
             UpdateServerError::ServerNotFound => StatusCode::NOT_FOUND,
             UpdateServerError::NotOwner => StatusCode::FORBIDDEN,
             UpdateServerError::NameTaken => StatusCode::CONFLICT,
-            UpdateServerError::Outbox(e) => e.to_http_status(),
             UpdateServerError::Repository(e) => e.to_http_status(),
         }
     }
@@ -487,7 +468,6 @@ impl HttpMapping for UpdateServerError {
             UpdateServerError::ServerNotFound => "Server not found".to_string(),
             UpdateServerError::NotOwner => "Only the server owner can edit it.".to_string(),
             UpdateServerError::NameTaken => "A server with this name already exists.".to_string(),
-            UpdateServerError::Outbox(e) => e.to_user_message(),
             UpdateServerError::Repository(e) => e.to_user_message(),
         }
     }
@@ -497,7 +477,6 @@ impl HttpMapping for UpdateServerError {
             UpdateServerError::ServerNotFound => "SERVER_NOT_FOUND",
             UpdateServerError::NotOwner => "SERVER_NOT_OWNER",
             UpdateServerError::NameTaken => "SERVER_NAME_TAKEN",
-            UpdateServerError::Outbox(e) => e.to_error_code(),
             UpdateServerError::Repository(e) => e.to_error_code(),
         }
     }
@@ -620,7 +599,6 @@ impl HttpMapping for JoinVoiceChannelError {
             JoinVoiceChannelError::VoiceService(e) => e.to_http_status(),
             JoinVoiceChannelError::Hash(e) => e.to_http_status(),
             JoinVoiceChannelError::Domain(e) => e.to_http_status(),
-            JoinVoiceChannelError::Outbox(e) => e.to_http_status(),
         }
     }
 
@@ -640,7 +618,6 @@ impl HttpMapping for JoinVoiceChannelError {
             JoinVoiceChannelError::VoiceService(e) => e.to_user_message(),
             JoinVoiceChannelError::Hash(e) => e.to_user_message(),
             JoinVoiceChannelError::Domain(e) => e.to_user_message(),
-            JoinVoiceChannelError::Outbox(e) => e.to_user_message(),
         }
     }
 
@@ -656,7 +633,6 @@ impl HttpMapping for JoinVoiceChannelError {
             JoinVoiceChannelError::VoiceService(e) => e.to_error_code(),
             JoinVoiceChannelError::Hash(e) => e.to_error_code(),
             JoinVoiceChannelError::Domain(e) => e.to_error_code(),
-            JoinVoiceChannelError::Outbox(e) => e.to_error_code(),
         }
     }
 }
@@ -666,7 +642,6 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_http_status(),
             LogCallError::Domain(e) => e.to_http_status(),
-            LogCallError::Outbox(_) => StatusCode::INTERNAL_SERVER_ERROR,
             LogCallError::NotFriends => StatusCode::FORBIDDEN,
         }
     }
@@ -674,7 +649,6 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_user_message(),
             LogCallError::Domain(e) => e.to_user_message(),
-            LogCallError::Outbox(_) => "Failed to log call".to_string(),
             LogCallError::NotFriends => "You can only call your friends".to_string(),
         }
     }
@@ -682,7 +656,6 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_error_code(),
             LogCallError::Domain(e) => e.to_error_code(),
-            LogCallError::Outbox(_) => "CALL_LOG_FAILED",
             LogCallError::NotFriends => "CALL_NOT_FRIENDS",
         }
     }
@@ -795,7 +768,6 @@ impl HttpMapping for JoinTextChannelError {
         match self {
             JoinTextChannelError::Repository(e) => e.to_http_status(),
             JoinTextChannelError::Domain(e) => e.to_http_status(),
-            JoinTextChannelError::Outbox(e) => e.to_http_status(),
             JoinTextChannelError::Hash(e) => e.to_http_status(),
             JoinTextChannelError::NotServerMember => StatusCode::FORBIDDEN,
             JoinTextChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
@@ -809,7 +781,6 @@ impl HttpMapping for JoinTextChannelError {
         match self {
             JoinTextChannelError::Repository(e) => e.to_user_message(),
             JoinTextChannelError::Domain(e) => e.to_user_message(),
-            JoinTextChannelError::Outbox(e) => e.to_user_message(),
             JoinTextChannelError::Hash(e) => e.to_user_message(),
             JoinTextChannelError::NotServerMember => {
                 "You are not a member of this server".to_string()
@@ -827,7 +798,6 @@ impl HttpMapping for JoinTextChannelError {
         match self {
             JoinTextChannelError::Repository(e) => e.to_error_code(),
             JoinTextChannelError::Domain(e) => e.to_error_code(),
-            JoinTextChannelError::Outbox(e) => e.to_error_code(),
             JoinTextChannelError::Hash(e) => e.to_error_code(),
             JoinTextChannelError::NotServerMember => "SERVER_NOT_MEMBER",
             JoinTextChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
@@ -844,7 +814,6 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::Repository(e) => e.to_http_status(),
             SendChannelMessageError::Domain(e) => e.to_http_status(),
             SendChannelMessageError::Channel(e) => e.to_http_status(),
-            SendChannelMessageError::Outbox(e) => e.to_http_status(),
             SendChannelMessageError::NotServerMember
             | SendChannelMessageError::NotChannelMember => StatusCode::FORBIDDEN,
             SendChannelMessageError::ChannelNotFound => StatusCode::NOT_FOUND,
@@ -859,7 +828,6 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::Repository(e) => e.to_user_message(),
             SendChannelMessageError::Domain(e) => e.to_user_message(),
             SendChannelMessageError::Channel(e) => e.to_user_message(),
-            SendChannelMessageError::Outbox(e) => e.to_user_message(),
             SendChannelMessageError::NotServerMember => {
                 "You are not a member of this server".to_string()
             }
@@ -884,7 +852,6 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::Repository(e) => e.to_error_code(),
             SendChannelMessageError::Domain(e) => e.to_error_code(),
             SendChannelMessageError::Channel(e) => e.to_error_code(),
-            SendChannelMessageError::Outbox(e) => e.to_error_code(),
             SendChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
             SendChannelMessageError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             SendChannelMessageError::ChannelNotFound => "CHANNEL_NOT_FOUND",
@@ -900,7 +867,6 @@ impl HttpMapping for EditChannelMessageError {
         match self {
             EditChannelMessageError::Repository(e) => e.to_http_status(),
             EditChannelMessageError::Domain(e) => e.to_http_status(),
-            EditChannelMessageError::Outbox(e) => e.to_http_status(),
             EditChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
             EditChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
             EditChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
@@ -912,7 +878,6 @@ impl HttpMapping for EditChannelMessageError {
         match self {
             EditChannelMessageError::Repository(e) => e.to_user_message(),
             EditChannelMessageError::Domain(e) => e.to_user_message(),
-            EditChannelMessageError::Outbox(e) => e.to_user_message(),
             EditChannelMessageError::NotServerMember => {
                 "You are not a member of this server".to_string()
             }
@@ -930,7 +895,6 @@ impl HttpMapping for EditChannelMessageError {
         match self {
             EditChannelMessageError::Repository(e) => e.to_error_code(),
             EditChannelMessageError::Domain(e) => e.to_error_code(),
-            EditChannelMessageError::Outbox(e) => e.to_error_code(),
             EditChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
             EditChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
             EditChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
@@ -944,7 +908,6 @@ impl HttpMapping for DeleteChannelMessageError {
         match self {
             DeleteChannelMessageError::Repository(e) => e.to_http_status(),
             DeleteChannelMessageError::Domain(e) => e.to_http_status(),
-            DeleteChannelMessageError::Outbox(e) => e.to_http_status(),
             DeleteChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
             DeleteChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
         }
@@ -954,7 +917,6 @@ impl HttpMapping for DeleteChannelMessageError {
         match self {
             DeleteChannelMessageError::Repository(e) => e.to_user_message(),
             DeleteChannelMessageError::Domain(e) => e.to_user_message(),
-            DeleteChannelMessageError::Outbox(e) => e.to_user_message(),
             DeleteChannelMessageError::NotServerMember => {
                 "You are not a member of this server".to_string()
             }
@@ -966,7 +928,6 @@ impl HttpMapping for DeleteChannelMessageError {
         match self {
             DeleteChannelMessageError::Repository(e) => e.to_error_code(),
             DeleteChannelMessageError::Domain(e) => e.to_error_code(),
-            DeleteChannelMessageError::Outbox(e) => e.to_error_code(),
             DeleteChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
             DeleteChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
         }
@@ -1065,7 +1026,6 @@ impl HttpMapping for SendFriendRequestError {
         match self {
             SendFriendRequestError::Repository(e) => e.to_http_status(),
             SendFriendRequestError::Domain(e) => e.to_http_status(),
-            SendFriendRequestError::Outbox(e) => e.to_http_status(),
             SendFriendRequestError::InvalidUsername => StatusCode::BAD_REQUEST,
             SendFriendRequestError::UserNotFound => StatusCode::NOT_FOUND,
             SendFriendRequestError::SelfTarget => StatusCode::BAD_REQUEST,
@@ -1079,7 +1039,6 @@ impl HttpMapping for SendFriendRequestError {
         match self {
             SendFriendRequestError::Repository(e) => e.to_user_message(),
             SendFriendRequestError::Domain(e) => e.to_user_message(),
-            SendFriendRequestError::Outbox(e) => e.to_user_message(),
             SendFriendRequestError::InvalidUsername => "Invalid username".to_string(),
             SendFriendRequestError::UserNotFound => "User not found".to_string(),
             SendFriendRequestError::SelfTarget => {
@@ -1101,7 +1060,6 @@ impl HttpMapping for SendFriendRequestError {
         match self {
             SendFriendRequestError::Repository(e) => e.to_error_code(),
             SendFriendRequestError::Domain(e) => e.to_error_code(),
-            SendFriendRequestError::Outbox(e) => e.to_error_code(),
             SendFriendRequestError::InvalidUsername => "INVALID_USERNAME",
             SendFriendRequestError::UserNotFound => "USER_NOT_FOUND",
             SendFriendRequestError::SelfTarget => "SELF_FRIEND_REQUEST",
@@ -1117,7 +1075,6 @@ impl HttpMapping for AcceptFriendRequestError {
         match self {
             AcceptFriendRequestError::Repository(e) => e.to_http_status(),
             AcceptFriendRequestError::Domain(e) => e.to_http_status(),
-            AcceptFriendRequestError::Outbox(e) => e.to_http_status(),
             AcceptFriendRequestError::NoPendingRequest => StatusCode::NOT_FOUND,
         }
     }
@@ -1126,7 +1083,6 @@ impl HttpMapping for AcceptFriendRequestError {
         match self {
             AcceptFriendRequestError::Repository(e) => e.to_user_message(),
             AcceptFriendRequestError::Domain(e) => e.to_user_message(),
-            AcceptFriendRequestError::Outbox(e) => e.to_user_message(),
             AcceptFriendRequestError::NoPendingRequest => {
                 "No pending friend request from this user".to_string()
             }
@@ -1137,7 +1093,6 @@ impl HttpMapping for AcceptFriendRequestError {
         match self {
             AcceptFriendRequestError::Repository(e) => e.to_error_code(),
             AcceptFriendRequestError::Domain(e) => e.to_error_code(),
-            AcceptFriendRequestError::Outbox(e) => e.to_error_code(),
             AcceptFriendRequestError::NoPendingRequest => "NO_PENDING_REQUEST",
         }
     }
@@ -1147,7 +1102,6 @@ impl HttpMapping for RemoveFriendshipError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RemoveFriendshipError::Repository(e) => e.to_http_status(),
-            RemoveFriendshipError::Outbox(e) => e.to_http_status(),
             RemoveFriendshipError::NotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -1155,7 +1109,6 @@ impl HttpMapping for RemoveFriendshipError {
     fn to_user_message(&self) -> String {
         match self {
             RemoveFriendshipError::Repository(e) => e.to_user_message(),
-            RemoveFriendshipError::Outbox(e) => e.to_user_message(),
             RemoveFriendshipError::NotFound => "Friendship not found".to_string(),
         }
     }
@@ -1163,7 +1116,6 @@ impl HttpMapping for RemoveFriendshipError {
     fn to_error_code(&self) -> &'static str {
         match self {
             RemoveFriendshipError::Repository(e) => e.to_error_code(),
-            RemoveFriendshipError::Outbox(e) => e.to_error_code(),
             RemoveFriendshipError::NotFound => "FRIENDSHIP_NOT_FOUND",
         }
     }
@@ -1174,7 +1126,6 @@ impl HttpMapping for SendDmMessageError {
         match self {
             SendDmMessageError::Repository(e) => e.to_http_status(),
             SendDmMessageError::Domain(e) => e.to_http_status(),
-            SendDmMessageError::Outbox(e) => e.to_http_status(),
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
@@ -1184,7 +1135,6 @@ impl HttpMapping for SendDmMessageError {
         match self {
             SendDmMessageError::Repository(e) => e.to_user_message(),
             SendDmMessageError::Domain(e) => e.to_user_message(),
-            SendDmMessageError::Outbox(e) => e.to_user_message(),
             SendDmMessageError::InvalidAttachments => {
                 "One or more attachments are invalid.".to_string()
             }
@@ -1200,7 +1150,6 @@ impl HttpMapping for SendDmMessageError {
         match self {
             SendDmMessageError::Repository(e) => e.to_error_code(),
             SendDmMessageError::Domain(e) => e.to_error_code(),
-            SendDmMessageError::Outbox(e) => e.to_error_code(),
             SendDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             SendDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
@@ -1213,7 +1162,6 @@ impl HttpMapping for SendServerInviteError {
         match self {
             SendServerInviteError::Repository(e) => e.to_http_status(),
             SendServerInviteError::Domain(e) => e.to_http_status(),
-            SendServerInviteError::Outbox(e) => e.to_http_status(),
             SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
             SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
             SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
@@ -1226,7 +1174,6 @@ impl HttpMapping for SendServerInviteError {
         match self {
             SendServerInviteError::Repository(e) => e.to_user_message(),
             SendServerInviteError::Domain(e) => e.to_user_message(),
-            SendServerInviteError::Outbox(e) => e.to_user_message(),
             SendServerInviteError::NotFriends => {
                 "You can only invite users who are your friends".to_string()
             }
@@ -1249,7 +1196,6 @@ impl HttpMapping for SendServerInviteError {
         match self {
             SendServerInviteError::Repository(e) => e.to_error_code(),
             SendServerInviteError::Domain(e) => e.to_error_code(),
-            SendServerInviteError::Outbox(e) => e.to_error_code(),
             SendServerInviteError::NotFriends => "NOT_FRIENDS",
             SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
             SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
@@ -1263,7 +1209,6 @@ impl HttpMapping for SendServerInviteError {
 impl HttpMapping for KickMemberError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            KickMemberError::Outbox(e) => e.to_http_status(),
             KickMemberError::Repository(e) => e.to_http_status(),
             KickMemberError::NotMember => StatusCode::NOT_FOUND,
             KickMemberError::NotAllowed => StatusCode::FORBIDDEN,
@@ -1272,7 +1217,6 @@ impl HttpMapping for KickMemberError {
 
     fn to_user_message(&self) -> String {
         match self {
-            KickMemberError::Outbox(e) => e.to_user_message(),
             KickMemberError::Repository(e) => e.to_user_message(),
             KickMemberError::NotMember => "User is not a member of this server".to_string(),
             KickMemberError::NotAllowed => {
@@ -1283,7 +1227,6 @@ impl HttpMapping for KickMemberError {
 
     fn to_error_code(&self) -> &'static str {
         match self {
-            KickMemberError::Outbox(e) => e.to_error_code(),
             KickMemberError::Repository(e) => e.to_error_code(),
             KickMemberError::NotMember => "SERVER_NOT_MEMBER",
             KickMemberError::NotAllowed => "KICK_NOT_ALLOWED",
@@ -1295,7 +1238,6 @@ impl HttpMapping for LeaveServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LeaveServerError::Repository(e) => e.to_http_status(),
-            LeaveServerError::Outbox(e) => e.to_http_status(),
             LeaveServerError::NotMember => StatusCode::NOT_FOUND,
             LeaveServerError::OwnerCannotLeave => StatusCode::CONFLICT,
         }
@@ -1303,7 +1245,6 @@ impl HttpMapping for LeaveServerError {
     fn to_user_message(&self) -> String {
         match self {
             LeaveServerError::Repository(e) => e.to_user_message(),
-            LeaveServerError::Outbox(e) => e.to_user_message(),
             LeaveServerError::NotMember => {
                 "You are not a member of this server".to_string()
             }
@@ -1315,7 +1256,6 @@ impl HttpMapping for LeaveServerError {
     fn to_error_code(&self) -> &'static str {
         match self {
             LeaveServerError::Repository(e) => e.to_error_code(),
-            LeaveServerError::Outbox(e) => e.to_error_code(),
             LeaveServerError::NotMember => "SERVER_NOT_MEMBER",
             LeaveServerError::OwnerCannotLeave => "SERVER_OWNER_CANNOT_LEAVE",
         }
@@ -1349,7 +1289,6 @@ impl HttpMapping for DeclineServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeclineServerInviteError::Repository(e) => e.to_http_status(),
-            DeclineServerInviteError::Outbox(e) => e.to_http_status(),
             DeclineServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
             DeclineServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
         }
@@ -1357,7 +1296,6 @@ impl HttpMapping for DeclineServerInviteError {
     fn to_user_message(&self) -> String {
         match self {
             DeclineServerInviteError::Repository(e) => e.to_user_message(),
-            DeclineServerInviteError::Outbox(e) => e.to_user_message(),
             DeclineServerInviteError::NotAnInvite => {
                 "This message is not a server invite".to_string()
             }
@@ -1369,7 +1307,6 @@ impl HttpMapping for DeclineServerInviteError {
     fn to_error_code(&self) -> &'static str {
         match self {
             DeclineServerInviteError::Repository(e) => e.to_error_code(),
-            DeclineServerInviteError::Outbox(e) => e.to_error_code(),
             DeclineServerInviteError::NotAnInvite => "INVITE_INVALID",
             DeclineServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
         }
@@ -1380,7 +1317,6 @@ impl HttpMapping for AcceptServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AcceptServerInviteError::Repository(e) => e.to_http_status(),
-            AcceptServerInviteError::Outbox(e) => e.to_http_status(),
             AcceptServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
             AcceptServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
         }
@@ -1388,7 +1324,6 @@ impl HttpMapping for AcceptServerInviteError {
     fn to_user_message(&self) -> String {
         match self {
             AcceptServerInviteError::Repository(e) => e.to_user_message(),
-            AcceptServerInviteError::Outbox(e) => e.to_user_message(),
             AcceptServerInviteError::NotAnInvite => {
                 "This message is not a server invite".to_string()
             }
@@ -1400,7 +1335,6 @@ impl HttpMapping for AcceptServerInviteError {
     fn to_error_code(&self) -> &'static str {
         match self {
             AcceptServerInviteError::Repository(e) => e.to_error_code(),
-            AcceptServerInviteError::Outbox(e) => e.to_error_code(),
             AcceptServerInviteError::NotAnInvite => "INVITE_INVALID",
             AcceptServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
         }
@@ -1413,7 +1347,6 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Repository(e) => e.to_http_status(),
             EditDmMessageError::Dm(e) => e.to_http_status(),
             EditDmMessageError::Message(e) => e.to_http_status(),
-            EditDmMessageError::Outbox(e) => e.to_http_status(),
             EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
             EditDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             EditDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
@@ -1424,7 +1357,6 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Repository(e) => e.to_user_message(),
             EditDmMessageError::Dm(e) => e.to_user_message(),
             EditDmMessageError::Message(e) => e.to_user_message(),
-            EditDmMessageError::Outbox(e) => e.to_user_message(),
             EditDmMessageError::NotFound => "Message not found".to_string(),
             EditDmMessageError::InvalidAttachments => {
                 "Attachments are invalid or unavailable".to_string()
@@ -1439,7 +1371,6 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Repository(e) => e.to_error_code(),
             EditDmMessageError::Dm(e) => e.to_error_code(),
             EditDmMessageError::Message(e) => e.to_error_code(),
-            EditDmMessageError::Outbox(e) => e.to_error_code(),
             EditDmMessageError::NotFound => "DM_NOT_FOUND",
             EditDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             EditDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
@@ -1452,7 +1383,6 @@ impl HttpMapping for DeleteDmMessageError {
         match self {
             DeleteDmMessageError::Repository(e) => e.to_http_status(),
             DeleteDmMessageError::Dm(e) => e.to_http_status(),
-            DeleteDmMessageError::Outbox(e) => e.to_http_status(),
             DeleteDmMessageError::NotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -1460,7 +1390,6 @@ impl HttpMapping for DeleteDmMessageError {
         match self {
             DeleteDmMessageError::Repository(e) => e.to_user_message(),
             DeleteDmMessageError::Dm(e) => e.to_user_message(),
-            DeleteDmMessageError::Outbox(e) => e.to_user_message(),
             DeleteDmMessageError::NotFound => "Message not found".to_string(),
         }
     }
@@ -1468,7 +1397,6 @@ impl HttpMapping for DeleteDmMessageError {
         match self {
             DeleteDmMessageError::Repository(e) => e.to_error_code(),
             DeleteDmMessageError::Dm(e) => e.to_error_code(),
-            DeleteDmMessageError::Outbox(e) => e.to_error_code(),
             DeleteDmMessageError::NotFound => "DM_NOT_FOUND",
         }
     }

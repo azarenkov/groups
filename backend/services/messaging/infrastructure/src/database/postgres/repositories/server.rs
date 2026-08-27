@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
-use ports::{outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
@@ -501,9 +501,10 @@ impl ServerRepository for PostgresServerRepository {
                     chrono::Utc::now(),
                 ),
             );
-            let record = member_event
-                .to_outbox_record()
-                .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
+            let record = crate::outbox::mapping::to_record(
+                &messaging_domain::events::MessagingEvent::from(member_event),
+                None,
+            )?;
             save_outbox_records(&mut tx, &[record]).await?;
         }
 

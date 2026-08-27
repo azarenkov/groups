@@ -41,7 +41,7 @@ impl<U: ServerUnitOfWork> CreateRole<U> {
             created_at: Utc::now(),
         };
         tx.insert_role(&role).await?;
-        tx.save_outbox(std::slice::from_ref(&roles_changed_event(&server_id, &snapshot)))
+        tx.save_events(&[roles_changed_event(&server_id, &snapshot)], None)
             .await?;
         tx.commit().await?;
         Ok(role)

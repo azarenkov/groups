@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
-use messaging_domain::{friendship::Friendship, friendship::unit_of_work::FriendshipTransaction, friendship::unit_of_work::FriendshipUnitOfWork};
+use ports::repository::RepositoryError;
+use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::unit_of_work::FriendshipTransaction, friendship::unit_of_work::FriendshipUnitOfWork};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
@@ -159,8 +159,9 @@ impl FriendshipTransaction for PostgresFriendshipTransaction {
         Ok(deleted > 0)
     }
 
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError> {
-        save_outbox_records(&mut self.tx, records).await
+    async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
+        let records = crate::outbox::mapping::to_records(events, request_id)?;
+        save_outbox_records(&mut self.tx, &records).await
     }
 
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError> {

@@ -2,9 +2,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
-use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
+use domain::{attachment::AttachmentSnapshot, user::id::UserId};
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 use crate::dto::requests::channel::edit_channel_message::EditChannelMessageRequest;
@@ -15,8 +15,6 @@ pub enum EditChannelMessageError {
     Repository(#[from] RepositoryError),
     #[error("Message domain error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Not a member of the server")]
     NotServerMember,
     #[error("Message not found")]
@@ -160,12 +158,7 @@ where
         .await?;
 
         let request_id = request.ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+        let events = message.pull_events();
         let claim_token = uuid::Uuid::new_v4();
         let added_attachments = if add_ids.is_empty() {
             Vec::new()
@@ -198,14 +191,11 @@ where
             .collect();
         final_attachments.extend(added_attachments.clone());
         final_attachments.sort_by_key(|a| a.created_at);
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "attachments",
-            crate::usecases::enrichment::attachment_links_value(&final_attachments),
-        );
 
         let persisted = async {
-            let mut tx = self.unit_of_work.begin().await?;
+            let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&recipient_ids).with_attachments(&snapshots))).collect();
+        let mut tx = self.unit_of_work.begin().await?;
             tx.update_message(
                 &message,
                 &added_attachments,
@@ -213,7 +203,7 @@ where
                 &mentions,
             )
             .await?;
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
         }
         .await;

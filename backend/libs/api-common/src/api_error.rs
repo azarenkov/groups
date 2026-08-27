@@ -10,7 +10,7 @@ use validator::{ValidationErrors, ValidationErrorsKind};
 use crate::middleware::request_id::{self, REQUEST_ID_HEADER};
 
 use crate::pagination::PaginationError;
-use ports::{outbox::to_outbox::OutboxError, repository::RepositoryError};
+use ports::{repository::RepositoryError};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,20 +65,6 @@ impl ToHttpStatus for RepositoryError {
             RepositoryError::InvalidData(_) => "INVALID_DATA",
             RepositoryError::Internal(_) => "INTERNAL_ERROR",
         }
-    }
-}
-
-impl ToHttpStatus for OutboxError {
-    fn to_http_status(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
-    }
-
-    fn to_user_message(&self) -> String {
-        "Internal server error".to_string()
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        "INTERNAL_ERROR"
     }
 }
 

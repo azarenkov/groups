@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 
 use crate::{refresh_token::id::RefreshTokenId, user::email::Email, user::id::UserId, user::name::UserName};
 use domain::event::EventId;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct UserRegistered {
     pub id: EventId,
     pub user_id: UserId,
@@ -36,7 +35,7 @@ impl UserRegistered {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct UserEmailVerified {
     pub id: EventId,
     pub user_id: UserId,
@@ -55,7 +54,7 @@ impl UserEmailVerified {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct UserPhoneVerified {
     pub id: EventId,
     pub user_id: UserId,
@@ -72,7 +71,7 @@ impl UserPhoneVerified {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct UserLoggedIn {
     pub id: EventId,
     pub user_id: UserId,
@@ -101,7 +100,7 @@ impl UserLoggedIn {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct UserLoggedOut {
     pub id: EventId,
     pub user_id: UserId,
@@ -130,7 +129,7 @@ impl UserLoggedOut {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct UserRenamed {
     pub id: EventId,
     pub user_id: UserId,

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::repository::RefreshTokenRepository, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserLoggedOut};
+use identity_domain::{events::IdentityEvent, refresh_token::repository::RefreshTokenRepository, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserLoggedOut};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::auth::logout::LogoutRequest,
@@ -14,8 +14,6 @@ use crate::{
 pub enum LogoutError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
     #[error("Refresh token not found")]
@@ -84,14 +82,12 @@ where
             request.client.user_agent,
             now,
         ));
-        let records: Vec<OutboxRecord> =
-            vec![event.to_outbox_record_with_request_id(request.ctx.request_id)?];
-
         let mut tx = self.unit_of_work.begin().await?;
         if !tx.revoke_refresh_token(&refresh_token).await? {
             return Ok(());
         }
-        tx.save_outbox(&records).await?;
+        tx.save_events(&[IdentityEvent::from(event)], request.ctx.request_id.as_deref())
+            .await?;
         tx.commit().await?;
 
         Ok(())

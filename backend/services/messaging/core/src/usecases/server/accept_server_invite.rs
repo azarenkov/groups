@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 use crate::dto::RequestContext;
@@ -12,8 +12,6 @@ use crate::dto::RequestContext;
 pub enum AcceptServerInviteError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("This message is not a server invite")]
     NotAnInvite,
     #[error("This invite was not addressed to you")]
@@ -61,11 +59,7 @@ where
         message.record_invite_deleted(Utc::now());
 
         let request_id = ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
+        let events = message.pull_events();
         let member_event = messaging_domain::server::events::ServerEvent::MemberJoined(
             messaging_domain::server::events::lifecycle::ServerMemberJoined::record(
                 server_id,
@@ -73,11 +67,12 @@ where
                 Utc::now(),
             ),
         );
-        records.push(member_event.to_outbox_record_with_request_id(request_id.clone())?);
+        let mut events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
+        events.push(MessagingEvent::from(member_event));
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         tx.accept_invite(&message_id, &requester_id).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(server_id.uuid())

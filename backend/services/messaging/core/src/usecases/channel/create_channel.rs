@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::{password_hash::PasswordHash, user::id::UserId};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::channel::create_channel::CreateChannelRequest,
@@ -24,8 +24,6 @@ pub enum CreateChannelError {
     InvalidData,
     #[error("Channel domain error: {0}")]
     Domain(#[from] ChannelError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
 }
 
 impl From<PolicyError> for CreateChannelError {
@@ -108,15 +106,11 @@ where
         let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
 
         let request_id = request.ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = channel
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
+        let events = channel.pull_events();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&member_ids))).collect();
 
         tx.insert_channel(&channel).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(channel)

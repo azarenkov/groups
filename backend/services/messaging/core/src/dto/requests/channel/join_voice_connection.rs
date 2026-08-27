@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use contracts::events::webhook::WebhookSource;
+use domain::channel::webhook_source::WebhookSource;
 
 use crate::dto::context::RequestContext;
 

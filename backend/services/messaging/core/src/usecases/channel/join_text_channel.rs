@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, channel::unit_of_work::ChannelUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, channel::unit_of_work::ChannelUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::channel::join_text_channel::JoinTextChannelRequest,
@@ -16,8 +16,6 @@ pub enum JoinTextChannelError {
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
     Domain(#[from] ChannelError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
     #[error("Not a member of the server")]
@@ -124,27 +122,19 @@ where
         }
 
         let request_id = request.ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = channel
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
+        let events = channel.pull_events();
         let mut recipient_ids = self
             .channel_repository
             .list_text_channel_member_ids(&channel_id)
             .await?;
         recipient_ids.push(requester_id);
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "recipient_ids",
-            crate::usecases::enrichment::recipient_ids_value(&recipient_ids),
-        );
 
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&recipient_ids))).collect();
         let mut tx = self.unit_of_work.begin().await?;
         if !tx.join_text(&channel_id, &requester_id).await? {
             return Ok(());
         }
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(())

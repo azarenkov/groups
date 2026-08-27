@@ -1,14 +1,11 @@
 pub mod lifecycle;
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 
 use crate::{friendship::events::lifecycle::FriendRequestAccepted, friendship::events::lifecycle::FriendRequestSent, friendship::events::lifecycle::FriendshipRemoved};
 use domain::user::id::UserId;
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
 
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum FriendshipDomainEvent {
     RequestSent(FriendRequestSent),
     RequestAccepted(FriendRequestAccepted),
@@ -16,7 +13,7 @@ pub enum FriendshipDomainEvent {
 }
 
 impl FriendshipDomainEvent {
-    fn event_type(&self) -> &'static str {
+    pub fn event_type(&self) -> &'static str {
         match self {
             Self::RequestSent(_) => "request_sent",
             Self::RequestAccepted(_) => "request_accepted",
@@ -24,7 +21,7 @@ impl FriendshipDomainEvent {
         }
     }
 
-    fn aggregate_user_id(&self) -> UserId {
+    pub fn aggregate_user_id(&self) -> UserId {
         match self {
             Self::RequestSent(e) => e.sender_id,
             Self::RequestAccepted(e) => e.accepter_id,
@@ -32,7 +29,7 @@ impl FriendshipDomainEvent {
         }
     }
 
-    fn parent_user_id(&self) -> UserId {
+    pub fn parent_user_id(&self) -> UserId {
         match self {
             Self::RequestSent(e) => e.receiver_id,
             Self::RequestAccepted(e) => e.sender_id,
@@ -40,27 +37,11 @@ impl FriendshipDomainEvent {
         }
     }
 
-    fn occurred_at(&self) -> DateTime<Utc> {
+    pub fn occurred_at(&self) -> DateTime<Utc> {
         match self {
             Self::RequestSent(e) => e.occurred_at,
             Self::RequestAccepted(e) => e.occurred_at,
             Self::Removed(e) => e.occurred_at,
         }
-    }
-}
-
-impl ToOutboxRecord for FriendshipDomainEvent {
-    fn to_outbox_record(&self) -> Result<OutboxRecord, OutboxError> {
-        Ok(OutboxRecord {
-            id: uuid::Uuid::new_v4(),
-            aggregate_id: self.aggregate_user_id().uuid(),
-            aggregate_type: AggregateType::User,
-            parent_id: Some(self.parent_user_id().uuid()),
-            parent_type: Some(AggregateType::User),
-            event_type: self.event_type().to_string(),
-            payload: serde_json::to_value(self)?,
-            occurred_at: self.occurred_at(),
-            request_id: None,
-        })
     }
 }
