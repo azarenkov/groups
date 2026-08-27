@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use domain::user::id::UserId;
+use futures::{StreamExt, stream};
 use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 use ports::repository::RepositoryError;
 
@@ -17,6 +18,7 @@ pub enum EnforceServerDepartureError {
 }
 
 const LOCKED_ENFORCEMENT_BUDGET: Duration = Duration::from_secs(5);
+const MAX_CONCURRENT_REMOVALS: usize = 8;
 
 pub struct EnforceServerDeparture<W, C, V>
 where
@@ -57,7 +59,7 @@ where
         if server.is_member(&user_id) {
             return Ok(());
         }
-        let removals = voice_channel_ids.iter().map(|channel_id| async move {
+        let removals = stream::iter(voice_channel_ids.iter()).map(|channel_id| async move {
             let outcome = tokio::time::timeout(
                 LOCKED_ENFORCEMENT_BUDGET,
                 self.voice_service.remove_participant(channel_id, &user_id),
@@ -78,7 +80,10 @@ where
             }
             result
         });
-        let results = futures::future::join_all(removals).await;
+        let results: Vec<Result<(), EnforceServerDepartureError>> = removals
+            .buffer_unordered(MAX_CONCURRENT_REMOVALS)
+            .collect()
+            .await;
         drop(tx);
         results.into_iter().find(Result::is_err).unwrap_or(Ok(()))
     }
