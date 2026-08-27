@@ -25,6 +25,19 @@ pub struct UserLifecycleV1 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationIssuedV1 {
+    pub user_id: Uuid,
+    pub verification_code_id: Uuid,
+    pub channel: String,
+    pub purpose: String,
+    pub email: String,
+    pub code: String,
+    pub occurred_at: DateTime<Utc>,
+    #[serde(default)]
+    pub locale: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationPreferenceUpdatedV1 {
     pub user_id: Uuid,
     pub scope_type: String,

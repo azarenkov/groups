@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::ChannelError, channel::repository::ChannelRepository, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::repository::ChannelRepository, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::channel::delete_channel::DeleteChannelRequest,
@@ -19,8 +19,6 @@ pub enum DeleteChannelError {
     Repository(#[from] RepositoryError),
     #[error("Channel domain error: {0}")]
     Domain(#[from] ChannelError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Voice service error: {0}")]
     VoiceService(#[from] VoiceServiceError),
 }
@@ -86,15 +84,11 @@ where
 
         let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
         let request_id = ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = channel
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
+        let events = channel.pull_events();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&member_ids))).collect();
 
         tx.delete_channel(&channel_id).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         if supports_voice

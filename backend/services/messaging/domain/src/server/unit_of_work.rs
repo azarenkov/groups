@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
+use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 #[async_trait::async_trait]
 pub trait ServerUnitOfWork: Send + Sync {
@@ -70,6 +70,6 @@ pub trait ServerTransaction: Send {
         user_id: &UserId,
     ) -> Result<(), RepositoryError>;
     async fn delete_server_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError>;
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError>;
+    async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use messaging_domain::channel::events::participant::ConnectionAbortReason;
 use uuid::Uuid;
 
-use contracts::events::webhook::WebhookSource;
+use domain::channel::webhook_source::WebhookSource;
 
 use crate::dto::context::RequestContext;
 

@@ -1,14 +1,11 @@
 pub mod lifecycle;
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 
 use crate::{dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent};
-use domain::user::id::UserId;
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
+use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum DmMessageDomainEvent {
     Sent(DmMessageSent),
     Edited(DmMessageEdited),
@@ -16,7 +13,16 @@ pub enum DmMessageDomainEvent {
 }
 
 impl DmMessageDomainEvent {
-    fn event_type(&self) -> &'static str {
+    pub fn with_attachments(mut self, attachments: &[AttachmentSnapshot]) -> Self {
+        match &mut self {
+            Self::Sent(e) => e.attachments = attachments.to_vec(),
+            Self::Edited(e) => e.attachments = attachments.to_vec(),
+            Self::Deleted(_) => {}
+        }
+        self
+    }
+
+    pub fn event_type(&self) -> &'static str {
         match self {
             Self::Sent(_) => "sent",
             Self::Edited(_) => "edited",
@@ -24,7 +30,7 @@ impl DmMessageDomainEvent {
         }
     }
 
-    fn aggregate_id(&self) -> uuid::Uuid {
+    pub fn aggregate_id(&self) -> uuid::Uuid {
         match self {
             Self::Sent(e) => e.message_id.uuid(),
             Self::Edited(e) => e.message_id.uuid(),
@@ -32,7 +38,7 @@ impl DmMessageDomainEvent {
         }
     }
 
-    fn parent_id(&self) -> Option<UserId> {
+    pub fn parent_id(&self) -> Option<UserId> {
         match self {
             Self::Sent(e) => Some(e.sender_id),
             Self::Edited(e) => Some(e.sender_id),
@@ -40,27 +46,11 @@ impl DmMessageDomainEvent {
         }
     }
 
-    fn occurred_at(&self) -> DateTime<Utc> {
+    pub fn occurred_at(&self) -> DateTime<Utc> {
         match self {
             Self::Sent(e) => e.occurred_at,
             Self::Edited(e) => e.occurred_at,
             Self::Deleted(e) => e.occurred_at,
         }
-    }
-}
-
-impl ToOutboxRecord for DmMessageDomainEvent {
-    fn to_outbox_record(&self) -> Result<OutboxRecord, OutboxError> {
-        Ok(OutboxRecord {
-            id: uuid::Uuid::new_v4(),
-            aggregate_id: self.aggregate_id(),
-            aggregate_type: AggregateType::DmMessage,
-            parent_id: self.parent_id().map(|u| u.uuid()),
-            parent_type: Some(AggregateType::User),
-            event_type: self.event_type().to_string(),
-            payload: serde_json::to_value(self)?,
-            occurred_at: self.occurred_at(),
-            request_id: None,
-        })
     }
 }

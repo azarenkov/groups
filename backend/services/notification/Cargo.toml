@@ -8,7 +8,7 @@ api-common = { workspace = true }
 ports = { workspace = true }
 infrastructure-common = { workspace = true }
 domain = { workspace = true }
-identity-domain = { workspace = true }
+contracts = { workspace = true }
 
 
 tracing = { workspace = true }

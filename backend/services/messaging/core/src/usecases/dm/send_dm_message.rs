@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
-use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use domain::{attachment::AttachmentSnapshot, user::id::UserId};
+use ports::repository::RepositoryError;
 
 use crate::{
     dto::{
@@ -19,8 +19,6 @@ pub enum SendDmMessageError {
     Repository(#[from] RepositoryError),
     #[error("Message error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Not friends with this user")]
     NotFriends,
     #[error("Invalid attachments")]
@@ -89,11 +87,7 @@ where
         let now = Utc::now();
         let mut message = DmMessage::create(sender_id, recipient_id, content, now);
         let request_id = request.ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
+        let events = message.pull_events();
 
         let claim_token = uuid::Uuid::new_v4();
         let attachments = if request.attachment_ids.is_empty() {
@@ -117,15 +111,12 @@ where
                 }
             }
         };
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "attachments",
-            crate::usecases::enrichment::attachment_links_value(&attachments),
-        );
         let persisted = async {
-            let mut tx = self.unit_of_work.begin().await?;
+            let snapshots: Vec<AttachmentSnapshot> = attachments.iter().map(AttachmentSnapshot::from).collect();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();
+        let mut tx = self.unit_of_work.begin().await?;
             tx.insert_message(&message, &attachments).await?;
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
         }
         .await;

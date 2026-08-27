@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerUpdated, server::name::ServerName, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use messaging_domain::{events::MessagingEvent, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerUpdated, server::name::ServerName, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use ports::repository::RepositoryError;
 
 use crate::dto::requests::server::update_server::UpdateServerRequest;
 
@@ -14,8 +14,6 @@ pub enum UpdateServerError {
     NotOwner,
     #[error("Server name already taken")]
     NameTaken,
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Repository error: {0}")]
     Repository(RepositoryError),
 }
@@ -66,13 +64,12 @@ impl<W: ServerUnitOfWork> UpdateServer<W> {
             member_ids,
             Utc::now(),
         ));
-        let records: Vec<OutboxRecord> =
-            vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
+        let events = vec![MessagingEvent::from(event)];
 
         if !tx.update_server_details(&name, description.as_deref()).await? {
             return Err(UpdateServerError::ServerNotFound);
         }
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, ctx.request_id.as_deref()).await?;
         tx.commit().await?;
         Ok(())
     }

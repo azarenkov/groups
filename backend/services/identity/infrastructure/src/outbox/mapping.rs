@@ -1,0 +1,95 @@
+use contracts::events::user::{UserLifecycleV1, UserRenamedV1, VerificationIssuedV1};
+use identity_domain::{events::IdentityEvent, user::events::UserEvent, verification::events::VerificationEvent};
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
+use serde::Serialize;
+use uuid::Uuid;
+
+pub fn to_record(event: &IdentityEvent, request_id: Option<&str>) -> Result<OutboxRecord, RepositoryError> {
+    let (aggregate_id, event_type, occurred_at, payload) = match event {
+        IdentityEvent::User(e) => (
+            e.user_id().uuid(),
+            e.event_type(),
+            e.occurred_at(),
+            user_payload(e)?,
+        ),
+        IdentityEvent::Verification(e) => (
+            e.user_id().uuid(),
+            e.event_type(),
+            e.occurred_at(),
+            verification_payload(e)?,
+        ),
+    };
+    Ok(OutboxRecord {
+        id: Uuid::new_v4(),
+        aggregate_id,
+        aggregate_type: AggregateType::User,
+        parent_id: None,
+        parent_type: None,
+        event_type: event_type.to_string(),
+        payload,
+        occurred_at,
+        request_id: request_id.map(str::to_string),
+    })
+}
+
+fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError> {
+    match event {
+        UserEvent::Registered(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: Some(e.name.as_str().to_string()),
+        }),
+        UserEvent::EmailVerified(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::PhoneVerified(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::LoggedIn(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::LoggedOut(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::Renamed(e) => encode(&UserRenamedV1 {
+            user_id: e.user_id.uuid(),
+            name: e.name.as_str().to_string(),
+            occurred_at: e.occurred_at,
+        }),
+    }
+}
+
+fn verification_payload(event: &VerificationEvent) -> Result<serde_json::Value, RepositoryError> {
+    match event {
+        VerificationEvent::Issued(e) => encode(&VerificationIssuedV1 {
+            user_id: e.user_id.uuid(),
+            verification_code_id: e.verification_code_id.uuid(),
+            channel: snake_case(&e.channel)?,
+            purpose: snake_case(&e.purpose)?,
+            email: e.email.as_str().to_string(),
+            code: e.code.clone(),
+            occurred_at: e.occurred_at,
+            locale: Some(e.locale.as_str().to_string()),
+        }),
+    }
+}
+
+fn snake_case<T: Serialize>(value: &T) -> Result<String, RepositoryError> {
+    let value = serde_json::to_value(value).map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
+    value
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| RepositoryError::InvalidData("expected string enum".to_string()))
+}
+
+fn encode<T: Serialize>(value: &T) -> Result<serde_json::Value, RepositoryError> {
+    serde_json::to_value(value).map_err(|e| RepositoryError::InvalidData(e.to_string()))
+}

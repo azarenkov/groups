@@ -12,7 +12,6 @@ pub mod list_channel_messages;
 pub mod list_channel_participants;
 pub mod mentions;
 pub mod mute_channel;
-pub mod recipients;
 pub mod search_channel_messages;
 pub mod send_channel_message;
 pub mod track_media_connection;

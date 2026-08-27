@@ -26,7 +26,7 @@ impl<U: ServerUnitOfWork> AssignRole<U> {
         let snapshot = tx.authorization().await?;
         RolePolicy::assign(&snapshot, &actor, &target, role_id)?;
         tx.assign_role(&target, role_id).await?;
-        tx.save_outbox(std::slice::from_ref(&roles_changed_event(&server_id, &snapshot)))
+        tx.save_events(&[roles_changed_event(&server_id, &snapshot)], None)
             .await?;
         tx.commit().await?;
         Ok(())

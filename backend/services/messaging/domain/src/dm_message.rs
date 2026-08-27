@@ -80,7 +80,8 @@ impl DmMessage {
             events: Vec::new(),
         };
         message.events.push(DmMessageDomainEvent::Sent(
-            DmMessageSent::record(id, sender_id, recipient_id, content, now),
+            DmMessageSent::record(id, sender_id, recipient_id, content, now)
+                .for_call(message.call_status.as_deref().unwrap_or_default(), call_duration_seconds),
         ));
         message
     }
@@ -105,8 +106,10 @@ impl DmMessage {
             edited_at: None,
             events: Vec::new(),
         };
+        let server_name = content.as_str().to_string();
         message.events.push(DmMessageDomainEvent::Sent(
-            DmMessageSent::record(id, sender_id, recipient_id, content, now),
+            DmMessageSent::record(id, sender_id, recipient_id, content, now)
+                .for_invite(server_id, &server_name),
         ));
         message
     }
@@ -165,7 +168,7 @@ impl DmMessage {
         self.content = new_content.clone();
         self.edited_at = Some(now);
         self.events.push(DmMessageDomainEvent::Edited(
-            DmMessageEdited::record(self.id, self.sender_id, new_content, now),
+            DmMessageEdited::record(self.id, self.sender_id, self.recipient_id, new_content, now),
         ));
         Ok(())
     }

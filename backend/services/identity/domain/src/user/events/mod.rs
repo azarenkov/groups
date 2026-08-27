@@ -1,14 +1,10 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
-use uuid::Uuid;
 
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
 use crate::{user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserLoggedIn, user::events::lifecycle::UserLoggedOut, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId};
 
 pub mod lifecycle;
 
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum UserEvent {
     Registered(UserRegistered),
     EmailVerified(UserEmailVerified),
@@ -50,21 +46,5 @@ impl UserEvent {
             Self::LoggedOut(_) => "logged_out",
             Self::Renamed(_) => "renamed",
         }
-    }
-}
-
-impl ToOutboxRecord for UserEvent {
-    fn to_outbox_record(&self) -> Result<OutboxRecord, OutboxError> {
-        Ok(OutboxRecord {
-            id: Uuid::new_v4(),
-            aggregate_id: self.user_id().uuid(),
-            aggregate_type: AggregateType::User,
-            parent_id: None,
-            parent_type: None,
-            event_type: self.event_type().to_string(),
-            payload: serde_json::to_value(self)?,
-            occurred_at: self.occurred_at(),
-            request_id: None,
-        })
     }
 }

@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
 use domain::event::EventId;
 use crate::{user::email::Email, user::id::UserId, user::locale::Locale, verification::channel::VerificationChannel, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct VerificationCodeIssued {
     pub id: EventId,
     pub user_id: UserId,
@@ -14,7 +13,6 @@ pub struct VerificationCodeIssued {
     pub email: Email,
     pub code: String,
     pub occurred_at: DateTime<Utc>,
-    #[serde(default)]
     pub locale: Locale,
 }
 

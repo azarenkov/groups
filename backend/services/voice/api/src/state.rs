@@ -9,9 +9,9 @@ use voice::usecases::{
 };
 use voice_infrastructure::{
     database::postgres::repositories::{
-        call::PostgresCallRepository, outbox_writer::PostgresOutboxWriter,
-        user_profile::PostgresUserProfileRepository,
+        call::PostgresCallRepository, user_profile::PostgresUserProfileRepository,
     },
+    outbox::webhook_outbox::PostgresWebhookOutbox,
     media_client::friendship::MessagingFriendshipClient,
     voice::{livekit_service::LiveKitService, livekit_webhook_receiver::LiveKitWebhookReceiver},
 };
@@ -37,6 +37,6 @@ pub struct AppState {
     pub handle_livekit_webhook_usecase: HandleVoiceWebhook<
         LiveKitWebhookReceiver,
         PostgresCallRepository,
-        PostgresOutboxWriter,
+        PostgresWebhookOutbox,
     >,
 }

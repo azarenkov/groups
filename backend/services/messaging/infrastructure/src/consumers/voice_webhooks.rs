@@ -32,7 +32,8 @@ fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
     }
 }
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto, WebhookSource};
+use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto};
+use domain::channel::webhook_source::WebhookSource;
 
 pub fn spawn<T, S, V>(
     jetstream: async_nats::jetstream::Context,

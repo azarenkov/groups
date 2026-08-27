@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 use uuid::Uuid;
 
 use domain::user::id::UserId;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct FriendRequestSent {
     pub id: Uuid,
     pub sender_id: UserId,
@@ -23,7 +22,7 @@ impl FriendRequestSent {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct FriendRequestAccepted {
     pub id: Uuid,
     pub accepter_id: UserId,
@@ -42,7 +41,7 @@ impl FriendRequestAccepted {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct FriendshipRemoved {
     pub id: Uuid,
     pub user_id: UserId,

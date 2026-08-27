@@ -1,13 +1,10 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
 use crate::{user::id::UserId, verification::events::issued::VerificationCodeIssued};
 
 pub mod issued;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum VerificationEvent {
     Issued(VerificationCodeIssued),
 }
@@ -29,21 +26,5 @@ impl VerificationEvent {
         match self {
             Self::Issued(_) => "verification.issued",
         }
-    }
-}
-
-impl ToOutboxRecord for VerificationEvent {
-    fn to_outbox_record(&self) -> Result<OutboxRecord, OutboxError> {
-        Ok(OutboxRecord {
-            id: Uuid::new_v4(),
-            aggregate_id: self.user_id().uuid(),
-            aggregate_type: AggregateType::User,
-            parent_id: None,
-            parent_type: None,
-            event_type: self.event_type().to_string(),
-            payload: serde_json::to_value(self)?,
-            occurred_at: self.occurred_at(),
-            request_id: None,
-        })
     }
 }

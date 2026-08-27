@@ -1,20 +1,14 @@
-use contracts::events::webhook::{MediaSourceV1};
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
-use voice_domain::call::repository::CallRepository;
 use domain::user::id::UserId;
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
-use serde_json::json;
-use uuid::Uuid;
+use ports::repository::RepositoryError;
+use voice_domain::{call::repository::CallRepository, webhook::WebhookEvent, webhook::WebhookKind};
 
 use crate::{
     dto::context::RequestContext,
     ports::{
-        outbox_writer::OutboxWriter,
-        voice_webhook_verifier::{
-            VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError, WebhookSource,
-        },
+        voice_webhook_verifier::{VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError},
+        webhook_outbox::WebhookOutbox,
     },
 };
 
@@ -30,24 +24,24 @@ pub struct HandleVoiceWebhook<V, C, O>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
-    O: OutboxWriter,
+    O: WebhookOutbox,
 {
     verifier: Arc<V>,
     call_repository: Arc<C>,
-    outbox_writer: Arc<O>,
+    outbox: Arc<O>,
 }
 
 impl<V, C, O> HandleVoiceWebhook<V, C, O>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
-    O: OutboxWriter,
+    O: WebhookOutbox,
 {
-    pub fn new(verifier: Arc<V>, call_repository: Arc<C>, outbox_writer: Arc<O>) -> Self {
+    pub fn new(verifier: Arc<V>, call_repository: Arc<C>, outbox: Arc<O>) -> Self {
         Self {
             verifier,
             call_repository,
-            outbox_writer,
+            outbox,
         }
     }
 
@@ -58,12 +52,11 @@ where
         ctx: RequestContext,
     ) -> Result<(), HandleVoiceWebhookError> {
         let envelope = self.verifier.verify(body, auth_token)?;
-
         let source = envelope.source;
         let external_id = envelope.external_id;
         let occurred_at = envelope.occurred_at;
 
-        match envelope.event {
+        let (channel_id, user_id, session_id, kind) = match envelope.event {
             VoiceWebhookEvent::ParticipantJoined {
                 channel_id,
                 user_id,
@@ -82,20 +75,7 @@ where
                 {
                     return Ok(());
                 }
-                self.forward(
-                    "webhook_joined",
-                    channel_id,
-                    json!({
-                        "channel_id": channel_id,
-                        "user_id": user_id,
-                        "session_id": session_id,
-                    }),
-                    occurred_at,
-                    source,
-                    &external_id,
-                    &ctx,
-                )
-                .await?;
+                (channel_id, user_id, session_id, WebhookKind::Joined)
             }
             VoiceWebhookEvent::ParticipantConnectionAborted {
                 channel_id,
@@ -116,21 +96,7 @@ where
                 {
                     return Ok(());
                 }
-                self.forward(
-                    "webhook_aborted",
-                    channel_id,
-                    json!({
-                        "channel_id": channel_id,
-                        "user_id": user_id,
-                        "session_id": session_id,
-                        "reason": reason,
-                    }),
-                    occurred_at,
-                    source,
-                    &external_id,
-                    &ctx,
-                )
-                .await?;
+                (channel_id, user_id, session_id, WebhookKind::Aborted(reason))
             }
             VoiceWebhookEvent::ParticipantLeft {
                 channel_id,
@@ -151,21 +117,7 @@ where
                 {
                     return Ok(());
                 }
-                self.forward(
-                    "webhook_left",
-                    channel_id,
-                    json!({
-                        "channel_id": channel_id,
-                        "user_id": user_id,
-                        "session_id": session_id,
-                        "reason": reason,
-                    }),
-                    occurred_at,
-                    source,
-                    &external_id,
-                    &ctx,
-                )
-                .await?;
+                (channel_id, user_id, session_id, WebhookKind::Left(reason))
             }
             VoiceWebhookEvent::TrackPublished {
                 channel_id,
@@ -173,18 +125,18 @@ where
                 session_id,
                 source: media_source,
             } => {
-                self.forward_track(
+                if self.call_repository.is_call_room(channel_id).await? {
+                    return Ok(());
+                }
+                (
                     channel_id,
                     user_id,
                     session_id,
-                    media_source,
-                    true,
-                    occurred_at,
-                    source,
-                    &external_id,
-                    &ctx,
+                    WebhookKind::Track {
+                        source: media_source,
+                        published: true,
+                    },
                 )
-                .await?;
             }
             VoiceWebhookEvent::TrackUnpublished {
                 channel_id,
@@ -192,87 +144,32 @@ where
                 session_id,
                 source: media_source,
             } => {
-                self.forward_track(
+                if self.call_repository.is_call_room(channel_id).await? {
+                    return Ok(());
+                }
+                (
                     channel_id,
                     user_id,
                     session_id,
-                    media_source,
-                    false,
-                    occurred_at,
-                    source,
-                    &external_id,
-                    &ctx,
+                    WebhookKind::Track {
+                        source: media_source,
+                        published: false,
+                    },
                 )
-                .await?;
             }
-            VoiceWebhookEvent::Other => {}
-        }
+            VoiceWebhookEvent::Other => return Ok(()),
+        };
 
-        Ok(())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    async fn forward_track(
-        &self,
-        channel_id: Uuid,
-        user_id: Uuid,
-        session_id: String,
-        media_source: MediaSourceV1,
-        published: bool,
-        occurred_at: DateTime<Utc>,
-        source: WebhookSource,
-        external_id: &str,
-        ctx: &RequestContext,
-    ) -> Result<(), HandleVoiceWebhookError> {
-        if self.call_repository.is_call_room(channel_id).await? {
-            return Ok(());
-        }
-        self.forward(
-            "webhook_track",
-            channel_id,
-            json!({
-                "channel_id": channel_id,
-                "user_id": user_id,
-                "session_id": session_id,
-                "media_source": media_source,
-                "published": published,
-            }),
-            occurred_at,
+        let event = WebhookEvent {
             source,
             external_id,
-            ctx,
-        )
-        .await
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    async fn forward(
-        &self,
-        event_type: &str,
-        channel_id: Uuid,
-        mut payload: serde_json::Value,
-        occurred_at: DateTime<Utc>,
-        source: WebhookSource,
-        external_id: &str,
-        ctx: &RequestContext,
-    ) -> Result<(), HandleVoiceWebhookError> {
-        if let serde_json::Value::Object(obj) = &mut payload {
-            obj.insert("occurred_at".to_string(), json!(occurred_at));
-            obj.insert("inbox_source".to_string(), json!(source.as_str()));
-            obj.insert("inbox_external_id".to_string(), json!(external_id));
-        }
-        let record = OutboxRecord {
-            id: Uuid::new_v4(),
-            aggregate_id: channel_id,
-            aggregate_type: AggregateType::Channel,
-            parent_id: None,
-            parent_type: None,
-            event_type: event_type.to_string(),
-            payload,
+            channel_id,
+            user_id,
+            session_id,
             occurred_at,
-            request_id: ctx.request_id.clone(),
+            kind,
         };
-        self.outbox_writer.save(&[record]).await?;
+        self.outbox.save(&event, ctx.request_id.as_deref()).await?;
         Ok(())
     }
 }

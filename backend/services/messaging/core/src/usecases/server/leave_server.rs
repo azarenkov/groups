@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
 use domain::user::id::UserId;
-use ports::{outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
-use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 
 use crate::ports::voice_service::VoiceService;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LeaveServerError {
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] ports::outbox::to_outbox::OutboxError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("You are not a member of this server")]
@@ -70,7 +68,7 @@ where
         if !tx.remove_member(&user_id).await? {
             return Err(LeaveServerError::NotMember);
         }
-        tx.save_outbox(&[member_event.to_outbox_record()?]).await?;
+        tx.save_events(&[MessagingEvent::from(member_event)], None).await?;
         tx.commit().await?;
 
         for channel_id in &voice_channel_ids {

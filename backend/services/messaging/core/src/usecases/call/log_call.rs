@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -12,8 +12,6 @@ pub enum LogCallError {
     Repository(#[from] RepositoryError),
     #[error("Message error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Not friends with this user")]
     NotFriends,
 }
@@ -58,27 +56,13 @@ where
 
         let content = MessageContent::new("call".to_string())?;
         let now = Utc::now();
-        let status_snapshot = status.clone();
         let mut message =
             DmMessage::create_call(sender_id, recipient_id, status, duration_seconds, content, now);
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(None))
-            .collect::<Result<_, _>>()?;
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "call_status",
-            serde_json::json!(status_snapshot),
-        );
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "call_duration_seconds",
-            serde_json::json!(duration_seconds),
-        );
+        let events = message.pull_events();
+        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
         tx.insert_message(&message, &[]).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(())
     }

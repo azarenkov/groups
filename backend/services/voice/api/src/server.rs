@@ -16,6 +16,7 @@ use infrastructure_common::{
 };
 use voice_infrastructure::{
     media_client::friendship::MessagingFriendshipClient,
+    outbox::webhook_outbox::PostgresWebhookOutbox,
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -50,7 +51,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_url = livekit_config.url().to_string();
 
     let call_repository = Arc::new(PostgresCallRepository::new(postgres_pool.clone()));
-    let outbox_writer = Arc::new(PostgresOutboxWriter::new(postgres_pool.clone()));
+    let webhook_outbox = Arc::new(PostgresWebhookOutbox::new(PostgresOutboxWriter::new(
+        postgres_pool.clone(),
+    )));
     let user_repository = Arc::new(PostgresUserProfileRepository::voice(postgres_pool.clone()));
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
@@ -103,7 +106,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         handle_livekit_webhook_usecase: HandleVoiceWebhook::new(
             livekit_webhook_receiver.clone(),
             call_repository.clone(),
-            outbox_writer.clone(),
+            webhook_outbox.clone(),
         ),
     });
 

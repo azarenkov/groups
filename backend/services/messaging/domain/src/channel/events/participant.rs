@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{channel::id::ChannelId, server::id::ServerId};
 use domain::{event::EventId, user::id::UserId};
 
-#[derive(Debug, Clone, Copy, Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LeaveReason {
     ClientInitiated,
@@ -15,14 +15,14 @@ pub enum LeaveReason {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MediaSource {
     Camera,
     Screen,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionAbortReason {
     SignalClose,
@@ -35,7 +35,7 @@ pub enum ConnectionAbortReason {
 }
 
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ParticipantJoined {
     pub id: EventId,
     pub channel_id: ChannelId,
@@ -61,7 +61,7 @@ impl ParticipantJoined {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ParticipantLeft {
     pub id: EventId,
     pub channel_id: ChannelId,
@@ -90,7 +90,7 @@ impl ParticipantLeft {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ParticipantMuted {
     pub id: EventId,
     pub channel_id: ChannelId,
@@ -119,7 +119,7 @@ impl ParticipantMuted {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ParticipantUnmuted {
     pub id: EventId,
     pub channel_id: ChannelId,
@@ -148,7 +148,7 @@ impl ParticipantUnmuted {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ParticipantMediaChanged {
     pub id: EventId,
     pub channel_id: ChannelId,
@@ -180,13 +180,14 @@ impl ParticipantMediaChanged {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct TextChannelJoined {
     pub id: EventId,
     pub channel_id: ChannelId,
     pub server_id: ServerId,
     pub user_id: UserId,
     pub joined_at: DateTime<Utc>,
+    pub recipient_ids: Vec<UserId>,
 }
 
 impl TextChannelJoined {
@@ -202,11 +203,12 @@ impl TextChannelJoined {
             server_id,
             user_id,
             joined_at: now,
+            recipient_ids: Vec::new(),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ParticipantConnectionAborted {
     pub id: EventId,
     pub channel_id: ChannelId,

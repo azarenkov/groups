@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 
 use crate::{channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId};
 use domain::{event::EventId, user::id::UserId};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ChannelCreated {
     pub id: EventId,
     pub channel_id: ChannelId,
@@ -14,6 +13,7 @@ pub struct ChannelCreated {
     pub kind: ChannelKind,
     pub visibility: ChannelVisibility,
     pub occurred_at: DateTime<Utc>,
+    pub recipient_ids: Vec<UserId>,
 }
 
 impl ChannelCreated {
@@ -35,11 +35,12 @@ impl ChannelCreated {
             kind,
             visibility,
             occurred_at: now,
+            recipient_ids: Vec::new(),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ChannelRenamed {
     pub id: EventId,
     pub channel_id: ChannelId,
@@ -68,13 +69,14 @@ impl ChannelRenamed {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ChannelDeleted {
     pub id: EventId,
     pub channel_id: ChannelId,
     pub server_id: ServerId,
     pub deleted_by: UserId,
     pub occurred_at: DateTime<Utc>,
+    pub recipient_ids: Vec<UserId>,
 }
 
 impl ChannelDeleted {
@@ -90,6 +92,7 @@ impl ChannelDeleted {
             server_id,
             deleted_by,
             occurred_at: now,
+            recipient_ids: Vec::new(),
         }
     }
 }

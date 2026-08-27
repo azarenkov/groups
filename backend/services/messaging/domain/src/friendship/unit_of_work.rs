@@ -1,6 +1,7 @@
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
+use crate::events::MessagingEvent;
 use crate::friendship::Friendship;
 
 #[async_trait::async_trait]
@@ -18,6 +19,6 @@ pub trait FriendshipTransaction: Send {
     async fn accept_pair(&mut self, accepter: &UserId, sender: &UserId) -> Result<bool, RepositoryError>;
     async fn decline_request(&mut self, decliner: &UserId, sender: &UserId) -> Result<bool, RepositoryError>;
     async fn delete_pair(&mut self, user_id: &UserId, friend_id: &UserId) -> Result<bool, RepositoryError>;
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError>;
+    async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
 use crate::dto::requests::channel::delete_channel_message::DeleteChannelMessageRequest;
 
@@ -13,8 +13,6 @@ pub enum DeleteChannelMessageError {
     Repository(#[from] RepositoryError),
     #[error("Message domain error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Not a member of the server")]
     NotServerMember,
     #[error("Message not found")]
@@ -104,18 +102,14 @@ where
         message.mark_deleted(deleter_id, is_owner, now)?;
 
         let request_id = request.ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
+        let events = message.pull_events();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&recipient_ids))).collect();
 
         tx.delete_message(&message_id).await.map_err(|e| match e {
             RepositoryError::NotFound => DeleteChannelMessageError::MessageNotFound,
             other => DeleteChannelMessageError::Repository(other),
         })?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(())

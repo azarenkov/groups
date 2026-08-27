@@ -726,11 +726,6 @@ name = "contracts"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "domain",
- "identity-domain",
- "messaging",
- "messaging-domain",
- "ports",
  "serde",
  "serde_json",
  "uuid",
@@ -1870,7 +1865,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "contracts",
  "domain",
  "futures",
  "identity-domain",
@@ -2391,7 +2385,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "contracts",
  "domain",
  "futures",
  "media-domain",
@@ -2485,7 +2478,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "contracts",
  "domain",
  "futures",
  "messaging-domain",
@@ -2666,11 +2658,11 @@ dependencies = [
  "actix-web",
  "api-common",
  "async-nats",
+ "contracts",
  "domain",
  "dotenv",
  "envy",
  "futures",
- "identity-domain",
  "infrastructure-common",
  "ports",
  "serde",
@@ -4782,7 +4774,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "contracts",
  "domain",
  "futures",
  "ports",

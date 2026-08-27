@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
 use domain::user::id::UserId;
-use ports::{outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 
-use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 
 use crate::ports::voice_service::VoiceService;
 
 #[derive(Debug, thiserror::Error)]
 pub enum KickMemberError {
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] ports::outbox::to_outbox::OutboxError),
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Target is not a member of this server")]
@@ -73,7 +71,7 @@ where
         if !tx.remove_member(&target).await? {
             return Err(KickMemberError::NotMember);
         }
-        tx.save_outbox(&[member_event.to_outbox_record()?]).await?;
+        tx.save_events(&[MessagingEvent::from(member_event)], None).await?;
         tx.commit().await?;
 
         let voice_channel_ids = self

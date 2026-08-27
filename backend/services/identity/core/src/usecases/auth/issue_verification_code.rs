@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
-use identity_domain::{unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use ports::repository::RepositoryError;
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
 
 use crate::{
     dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest,
@@ -15,8 +15,6 @@ pub enum IssueVerificationCodeError {
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Unsupported verification channel")]
     UnsupportedChannel,
     #[error("User already verified")]
@@ -84,16 +82,15 @@ where
             user.locale(),
         );
 
-        let request_id = request.ctx.request_id.clone();
-        let records: Vec<OutboxRecord> = verification_code
+        let events: Vec<IdentityEvent> = verification_code
             .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<Vec<_>, _>>()?;
+            .into_iter()
+            .map(IdentityEvent::from)
+            .collect();
 
         let mut tx = self.unit_of_work.begin().await?;
         tx.insert_verification_code(&verification_code).await?;
-        tx.save_outbox(&records).await?;
+        tx.save_events(&events, request.ctx.request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(())

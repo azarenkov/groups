@@ -1,15 +1,11 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
-use uuid::Uuid;
 
 use crate::{channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, server::id::ServerId};
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
 
 pub mod lifecycle;
 pub mod participant;
 
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum ChannelEvent {
     Created(ChannelCreated),
     Renamed(ChannelRenamed),
@@ -99,6 +95,16 @@ impl ChannelEvent {
         }
     }
 
+    pub fn with_recipients(mut self, recipient_ids: &[domain::user::id::UserId]) -> Self {
+        match &mut self {
+            Self::Created(e) => e.recipient_ids = recipient_ids.to_vec(),
+            Self::Deleted(e) => e.recipient_ids = recipient_ids.to_vec(),
+            Self::TextJoined(e) => e.recipient_ids = recipient_ids.to_vec(),
+            _ => {}
+        }
+        self
+    }
+
     pub fn event_type(&self) -> &'static str {
         match self {
             Self::Created(_) => "created",
@@ -117,21 +123,5 @@ impl ChannelEvent {
             },
             Self::TextJoined(_) => "text.joined",
         }
-    }
-}
-
-impl ToOutboxRecord for ChannelEvent {
-    fn to_outbox_record(&self) -> Result<OutboxRecord, OutboxError> {
-        Ok(OutboxRecord {
-            id: Uuid::new_v4(),
-            aggregate_id: self.channel_id().uuid(),
-            aggregate_type: AggregateType::Channel,
-            parent_id: Some(self.server_id().uuid()),
-            parent_type: Some(AggregateType::Server),
-            event_type: self.event_type().to_string(),
-            payload: serde_json::to_value(self)?,
-            occurred_at: self.occurred_at(),
-            request_id: None,
-        })
     }
 }

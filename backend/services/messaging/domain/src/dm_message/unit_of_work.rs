@@ -1,8 +1,8 @@
 use domain::attachment::AttachmentLink;
-use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
-use crate::{dm_message::DmMessage, dm_message::id::DmMessageId};
+use crate::{events::MessagingEvent, dm_message::DmMessage, dm_message::id::DmMessageId};
 
 #[async_trait::async_trait]
 pub trait DmUnitOfWork: Send + Sync {
@@ -23,6 +23,6 @@ pub trait DmTransaction: Send {
         remove_attachment_ids: &[Uuid],
     ) -> Result<(), RepositoryError>;
     async fn delete_message(&mut self, id: &DmMessageId) -> Result<(), RepositoryError>;
-    async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError>;
+    async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }

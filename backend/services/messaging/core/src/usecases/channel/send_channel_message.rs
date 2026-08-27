@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
-use domain::user::id::UserId;
-use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
+use domain::{attachment::AttachmentSnapshot, user::id::UserId};
+use ports::repository::RepositoryError;
 
 use crate::dto::{
     requests::channel::send_channel_message::SendChannelMessageRequest,
@@ -18,8 +18,6 @@ pub enum SendChannelMessageError {
     Domain(#[from] MessageError),
     #[error("Channel domain error: {0}")]
     Channel(#[from] ChannelError),
-    #[error("Outbox error: {0}")]
-    Outbox(#[from] OutboxError),
     #[error("Not a member of the server")]
     NotServerMember,
     #[error("Not a member of the channel")]
@@ -146,17 +144,7 @@ where
         .await?;
 
         let request_id = request.ctx.request_id.clone();
-        let mut records: Vec<OutboxRecord> = message
-            .pull_events()
-            .iter()
-            .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
-            .collect::<Result<_, _>>()?;
-        crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "mentions",
-            serde_json::json!(mentions),
-        );
+        let events = message.pull_events();
 
         let claim_token = uuid::Uuid::new_v4();
         let attachments = if request.attachment_ids.is_empty() {
@@ -180,16 +168,14 @@ where
                 }
             }
         };
-        crate::usecases::enrichment::inject_field(
-            &mut records,
-            "attachments",
-            crate::usecases::enrichment::attachment_links_value(&attachments),
-        );
 
         let persisted = async {
-            let mut tx = self.unit_of_work.begin().await?;
+            let snapshots: Vec<AttachmentSnapshot> = attachments.iter().map(AttachmentSnapshot::from).collect();
+        let mention_ids: Vec<UserId> = mentions.iter().copied().map(UserId::new).collect();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&recipient_ids).with_mentions(&mention_ids).with_attachments(&snapshots))).collect();
+        let mut tx = self.unit_of_work.begin().await?;
             tx.insert_message(&message, &attachments, &mentions).await?;
-            tx.save_outbox(&records).await?;
+            tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
         }
         .await;
