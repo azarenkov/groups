@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::ports::text_moderation::{TextModeration, TextModerationError};
+use identity::ports::text_moderation::{TextModeration, TextModerationError};
 use platform::config::nsfw::NsfwConfig;
 
 pub struct NsfwDetector {

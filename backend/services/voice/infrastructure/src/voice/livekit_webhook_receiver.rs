@@ -1,4 +1,4 @@
-use crate::ports::voice_webhook_verifier::{
+use voice::ports::voice_webhook_verifier::{
     VerifiedVoiceWebhookEvent, VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError,
     WebhookSource,
 };

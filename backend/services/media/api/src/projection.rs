@@ -9,7 +9,7 @@ use domain::{
 };
 use futures::StreamExt;
 use tracing::Instrument;
-use media::messaging::nats::consumer::NatsEventConsumer;
+use platform::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::server::{
     ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
 };

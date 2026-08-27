@@ -1860,11 +1860,31 @@ name = "identity"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "identity-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
  "bcrypt",
  "chrono",
  "contracts",
  "domain",
  "futures",
+ "identity",
  "jsonwebtoken 10.3.0",
  "platform",
  "reqwest",
@@ -1893,6 +1913,7 @@ dependencies = [
  "envy",
  "futures",
  "identity",
+ "identity-infrastructure",
  "platform",
  "serde",
  "serde_json",
@@ -2194,6 +2215,7 @@ dependencies = [
  "envy",
  "livekit-api",
  "messaging",
+ "messaging-infrastructure",
  "platform",
  "serde",
  "shared",
@@ -2315,6 +2337,26 @@ dependencies = [
  "domain",
  "futures",
  "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "media-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "media",
+ "platform",
  "reqwest",
  "serde",
  "serde_json",
@@ -2343,6 +2385,7 @@ dependencies = [
  "futures",
  "image",
  "media",
+ "media-infrastructure",
  "platform",
  "serde",
  "serde_json",
@@ -2365,11 +2408,31 @@ name = "messaging"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "messaging-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
  "bcrypt",
  "chrono",
  "contracts",
  "domain",
  "futures",
+ "messaging",
  "platform",
  "reqwest",
  "serde",
@@ -2398,6 +2461,7 @@ dependencies = [
  "envy",
  "futures",
  "messaging",
+ "messaging-infrastructure",
  "platform",
  "serde",
  "serde_json",
@@ -4663,6 +4727,25 @@ dependencies = [
  "contracts",
  "domain",
  "futures",
+ "platform",
+ "serde",
+ "serde_json",
+ "shared",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "voice-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "contracts",
+ "domain",
+ "futures",
  "livekit-api",
  "livekit-protocol",
  "platform",
@@ -4675,6 +4758,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "voice",
 ]
 
 [[package]]
@@ -4701,6 +4785,7 @@ dependencies = [
  "uuid",
  "validator",
  "voice",
+ "voice-infrastructure",
 ]
 
 [[package]]

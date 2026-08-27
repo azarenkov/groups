@@ -7,6 +7,10 @@ members = [
     "backend/services/media/core",
     "backend/services/messaging/core",
     "backend/services/voice/core",
+    "backend/services/identity/infrastructure",
+    "backend/services/media/infrastructure",
+    "backend/services/messaging/infrastructure",
+    "backend/services/voice/infrastructure",
     "backend/libs/domain",
     "backend/libs/shared",
     "backend/libs/api-common",
@@ -49,6 +53,10 @@ identity = { path = "backend/services/identity/core" }
 media = { path = "backend/services/media/core" }
 messaging = { path = "backend/services/messaging/core" }
 voice = { path = "backend/services/voice/core" }
+identity-infrastructure = { path = "backend/services/identity/infrastructure" }
+media-infrastructure = { path = "backend/services/media/infrastructure" }
+messaging-infrastructure = { path = "backend/services/messaging/infrastructure" }
+voice-infrastructure = { path = "backend/services/voice/infrastructure" }
 api-common = { path = "backend/libs/api-common" }
 domain = { path = "backend/libs/domain" }
 shared = { path = "backend/libs/shared" }

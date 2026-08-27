@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::ports::attachment_claims::{AttachmentClaimError, AttachmentClaims};
+use messaging::ports::attachment_claims::{AttachmentClaimError, AttachmentClaims};
 use contracts::internal::attachments::{ClaimRequestV1, ClaimedAttachmentV1, ReleaseRequestV1};
 use domain::{attachment::AttachmentLink, user::id::UserId};
 use uuid::Uuid;

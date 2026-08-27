@@ -13,8 +13,11 @@ use media::usecases::{
         update_avatar::UpdateUserAvatar,
     },
 };
-use media::{
+use platform::{
     config::{minio::MinioConfig, nsfw::NsfwConfig, postgres::PostgresConfig},
+    storage::minio_storage::MinioStorage,
+};
+use media_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -23,7 +26,6 @@ use media::{
     },
     media_client::{links::MessagingLinksClient, owner_lookup::MessagingOwnerClient},
     moderation::nsfw_detector::NsfwDetector,
-    storage::minio_storage::MinioStorage,
 };
 use shared::{
     health::Readiness,
@@ -96,9 +98,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    let nats_config = media::config::nats::NatsConfig::from_env()?;
+    let nats_config = platform::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
-        media::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        platform::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let server_stream = std::env::var("MEDIA_SERVER_STREAM")
         .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
     crate::projection::spawn(

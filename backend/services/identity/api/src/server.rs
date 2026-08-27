@@ -14,12 +14,15 @@ use identity::usecases::{
     },
 };
 use domain::user::name::ReservedNames;
-use identity::{
-    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
+use platform::{
     config::{
         google::GoogleOAuthConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
         username::UsernameConfig,
     },
+    hasher::bcrypt_hasher::BcryptHasher,
+};
+use identity_infrastructure::{
+    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -27,7 +30,6 @@ use identity::{
             verification_code::PostgresVerificationCodeRepository,
         },
     },
-    hasher::bcrypt_hasher::BcryptHasher,
     media_client::user_state::MessagingStateClient,
     moderation::nsfw_detector::NsfwDetector,
 };

@@ -33,7 +33,7 @@ fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
         MediaSourceV1::Screen => MediaSource::Screen,
     }
 }
-use messaging::messaging::nats::consumer::NatsEventConsumer;
+use platform::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto, WebhookSource};
 
 pub fn spawn<T, S, V>(

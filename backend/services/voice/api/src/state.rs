@@ -7,7 +7,7 @@ use voice::usecases::{
     },
     webhook::voice::HandleVoiceWebhook,
 };
-use voice::{
+use voice_infrastructure::{
     database::postgres::repositories::{
         call::PostgresCallRepository, outbox_writer::PostgresOutboxWriter,
         user_profile::PostgresUserProfileRepository,

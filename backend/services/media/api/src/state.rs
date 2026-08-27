@@ -6,13 +6,15 @@ use media::usecases::{
         update_avatar::UpdateUserAvatar,
     },
 };
-use media::{
+use platform::{
+    storage::minio_storage::MinioStorage,
+};
+use media_infrastructure::{
     database::postgres::repositories::{
         attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
     },
     media_client::owner_lookup::MessagingOwnerClient,
     moderation::nsfw_detector::NsfwDetector,
-    storage::minio_storage::MinioStorage,
 };
 
 pub struct AppState {

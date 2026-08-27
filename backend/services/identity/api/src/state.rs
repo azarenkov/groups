@@ -9,13 +9,15 @@ use identity::usecases::{
         update_locale::UpdateUserLocale,
     },
 };
-use identity::{
+use platform::{
+    hasher::bcrypt_hasher::BcryptHasher,
+};
+use identity_infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::repositories::{
         refresh_token::PostgresRefreshTokenRepository, user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
     },
-    hasher::bcrypt_hasher::BcryptHasher,
     media_client::user_state::MessagingStateClient,
     moderation::nsfw_detector::NsfwDetector,
 };

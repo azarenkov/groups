@@ -48,7 +48,12 @@ use messaging::usecases::{
         update_server::UpdateServer,
     },
 };
-use messaging::{
+use platform::{
+    hasher::bcrypt_hasher::BcryptHasher,
+    storage::minio_storage::MinioStorage,
+    voice::livekit_service::LiveKitService,
+};
+use messaging_infrastructure::{
     database::postgres::repositories::{
         channel::PostgresChannelRepository,
         dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
@@ -59,11 +64,8 @@ use messaging::{
         server_role::PostgresServerRoleRepository,
         user_profile::PostgresUserProfileRepository,
     },
-    hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
     media_client::identity_users::IdentityUsersClient,
-    storage::minio_storage::MinioStorage,
-    voice::livekit_service::LiveKitService,
 };
 
 pub struct AppState {

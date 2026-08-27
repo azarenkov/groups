@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError};
+use voice::ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError};
 use domain::user::id::UserId;
 use contracts::internal::friendships::FriendsResponseV1;
 

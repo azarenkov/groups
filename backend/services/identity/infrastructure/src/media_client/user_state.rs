@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::ports::user_state_lookup::{UserStateLookup, UserStateLookupError};
+use identity::ports::user_state_lookup::{UserStateLookup, UserStateLookupError};
 use domain::user::id::UserId;
 use contracts::internal::users::StateResponseV1;
 

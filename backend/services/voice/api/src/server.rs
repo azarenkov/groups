@@ -11,8 +11,10 @@ use voice::usecases::{
     },
     webhook::voice::HandleVoiceWebhook,
 };
-use voice::{
+use platform::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
+};
+use voice_infrastructure::{
     media_client::friendship::MessagingFriendshipClient,
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
@@ -54,9 +56,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let friendship_lookup = Arc::new(MessagingFriendshipClient::new(&messaging_internal_url));
 
-    let nats_config = voice::config::nats::NatsConfig::from_env()?;
+    let nats_config = platform::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
-        voice::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        platform::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let user_stream = std::env::var("VOICE_USER_STREAM")
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
     crate::projection::spawn(

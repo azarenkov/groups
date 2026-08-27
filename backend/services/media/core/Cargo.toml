@@ -17,5 +17,3 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
-sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crate::ports::oauth_verifier::{
+use identity::ports::oauth_verifier::{
     OAuthIdentity, OAuthIdentityVerifier, OAuthProvider, OAuthVerifyError,
 };
 use async_trait::async_trait;

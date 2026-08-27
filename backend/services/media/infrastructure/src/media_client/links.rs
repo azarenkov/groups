@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::ports::attachment_links_lookup::{
+use media::ports::attachment_links_lookup::{
     AttachmentLinksLookup, AttachmentLinksLookupError,
 };
 use contracts::internal::attachments::{LinkedRequestV1, LinkedResponseV1};

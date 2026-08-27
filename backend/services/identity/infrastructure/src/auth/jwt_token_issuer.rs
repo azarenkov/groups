@@ -1,4 +1,4 @@
-use crate::ports::token_issuer::{
+use identity::ports::token_issuer::{
     DecodedRefreshToken, IssuedTokens, TokenIssuer, TokenIssuerError,
 };
 use async_trait::async_trait;

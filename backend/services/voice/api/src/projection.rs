@@ -4,7 +4,7 @@ use voice::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOption
 use domain::{user::id::UserId, user_profile::UserProfileRepository};
 use futures::StreamExt;
 use tracing::Instrument;
-use voice::messaging::nats::consumer::NatsEventConsumer;
+use platform::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::user::UserNameV1 as UserNameDto;
 
 pub fn spawn<P>(

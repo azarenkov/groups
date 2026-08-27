@@ -14,6 +14,7 @@ domain = { workspace = true }
 platform = { workspace = true }
 shared = { workspace = true }
 identity = { workspace = true }
+identity-infrastructure = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

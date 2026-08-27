@@ -2,8 +2,10 @@ use std::{error::Error, sync::Arc, time::Duration};
 
 use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnection;
 use messaging::usecases::channel::track_media_connection::TrackMediaConnection;
-use messaging::{
+use platform::{
     config::{livekit::LiveKitConfig, postgres::PostgresConfig},
+};
+use messaging_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::channel::PostgresChannelRepository,

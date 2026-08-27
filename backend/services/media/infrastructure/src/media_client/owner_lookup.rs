@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::ports::server_owner_lookup::{ServerOwnerLookup, ServerOwnerLookupError};
+use media::ports::server_owner_lookup::{ServerOwnerLookup, ServerOwnerLookupError};
 use domain::{server::id::ServerId, user::id::UserId};
 use contracts::internal::servers::{CanManageResponseV1, OwnerResponseV1};
 

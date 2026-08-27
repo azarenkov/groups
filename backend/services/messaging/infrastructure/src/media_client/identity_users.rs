@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use contracts::internal::users::{ResolveUsersRequestV1, ResolvedUserV1};
 use uuid::Uuid;
 
-use crate::ports::mention_resolver::MentionResolver;
+use messaging::ports::mention_resolver::MentionResolver;
 
 pub struct IdentityUsersClient {
     client: reqwest::Client,

@@ -52,8 +52,13 @@ use messaging::usecases::{
         update_server::UpdateServer,
     },
 };
-use messaging::{
+use platform::{
     config::{livekit::LiveKitConfig, minio::MinioConfig, postgres::PostgresConfig},
+    hasher::bcrypt_hasher::BcryptHasher,
+    storage::minio_storage::MinioStorage,
+    voice::livekit_service::{LiveKitService, is_livekit_reachable},
+};
+use messaging_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -66,11 +71,8 @@ use messaging::{
             user_profile::PostgresUserProfileRepository,
         },
     },
-    hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
     media_client::identity_users::IdentityUsersClient,
-    storage::minio_storage::MinioStorage,
-    voice::livekit_service::{LiveKitService, is_livekit_reachable},
 };
 use shared::{
     health::Readiness,
@@ -90,11 +92,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let minio_config = MinioConfig::from_env()?;
-    let nats_config = messaging::config::nats::NatsConfig::from_env()?;
+    let nats_config = platform::config::nats::NatsConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let nats_jetstream =
-        messaging::messaging::nats::connection::create_jetstream(&nats_config).await?;
+        platform::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let livekit_url = livekit_config.url().to_string();
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
