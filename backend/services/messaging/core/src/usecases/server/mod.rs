@@ -1,4 +1,5 @@
 pub mod accept_server_invite;
+pub mod can_manage_server;
 pub mod create_server;
 pub mod decline_server_invite;
 pub mod delete_server;

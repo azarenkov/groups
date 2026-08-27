@@ -8,11 +8,7 @@ use contracts::internal::{
 use domain::{
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     message::repository::MessageRepository,
-    server::{
-        id::ServerId,
-        repository::ServerRepository,
-        role::{PERM_MANAGE_SERVER, ServerRoleRepository, has_permission},
-    },
+    server::{id::ServerId, repository::ServerRepository},
     user::id::UserId,
 };
 use uuid::Uuid;
@@ -26,22 +22,11 @@ async fn server_can_manage(
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, ApiError> {
     let (server_id, user_id) = path.into_inner();
-    let server_id = ServerId::new(server_id);
-    let user_id = UserId::new(user_id);
-    let owner = app_state
-        .server_repository
-        .find_server_owner(&server_id)
+    let allowed = app_state
+        .can_manage_server_usecase
+        .execute(ServerId::new(server_id), UserId::new(user_id))
         .await
         .map_err(ApiError::from)?;
-    let allowed = owner.as_ref() == Some(&user_id)
-        || has_permission(
-            app_state
-                .server_role_repository
-                .user_permissions(&server_id, &user_id)
-                .await
-                .map_err(ApiError::from)?,
-            PERM_MANAGE_SERVER,
-        );
     Ok(HttpResponse::Ok().json(CanManageResponseV1 { allowed }))
 }
 

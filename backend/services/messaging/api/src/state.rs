@@ -37,7 +37,8 @@ use messaging::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     server::{
-        accept_server_invite::AcceptServerInvite, create_server::CreateServer,
+        accept_server_invite::AcceptServerInvite, can_manage_server::CanManageServer,
+        create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_voice_presence::GetVoicePresence,
         invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
@@ -145,6 +146,8 @@ pub struct AppState {
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
     pub list_roles_usecase: ListRoles<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub can_manage_server_usecase:
+        CanManageServer<PostgresServerRepository, PostgresServerRoleRepository>,
     pub create_role_usecase: CreateRole<PostgresServerUnitOfWork>,
     pub update_role_usecase: UpdateRole<PostgresServerUnitOfWork>,
     pub delete_role_usecase: DeleteRole<PostgresServerUnitOfWork>,
@@ -160,7 +163,6 @@ pub struct AppState {
     >,
     pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
-    pub server_role_repository: std::sync::Arc<PostgresServerRoleRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
     pub nats_core: async_nats::Client,

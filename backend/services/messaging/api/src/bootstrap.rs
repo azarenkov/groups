@@ -41,7 +41,8 @@ use messaging::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     server::{
-        accept_server_invite::AcceptServerInvite, create_server::CreateServer,
+        accept_server_invite::AcceptServerInvite, can_manage_server::CanManageServer,
+        create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_voice_presence::GetVoicePresence,
         invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
@@ -261,6 +262,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_repository.clone(),
             server_role_repository.clone(),
         ),
+        can_manage_server_usecase: CanManageServer::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
         create_role_usecase: CreateRole::new(server_unit_of_work.clone()),
         update_role_usecase: UpdateRole::new(server_unit_of_work.clone()),
         delete_role_usecase: DeleteRole::new(server_unit_of_work.clone()),
@@ -277,7 +282,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         server_repository: server_repository.clone(),
-        server_role_repository: server_role_repository.clone(),
         message_repository: message_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         nats_core,

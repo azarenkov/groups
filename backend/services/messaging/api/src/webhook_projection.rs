@@ -13,6 +13,7 @@ use messaging::{
     ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
     usecases::channel::{
         abort_voice_connection::{AbortVoiceConnection, AbortVoiceConnectionError},
+        admit_voice_participant::{AdmitVoiceParticipant, Admission},
         join_voice_connection::{JoinVoiceConnection, JoinVoiceConnectionError},
         leave_voice_connection::{LeaveVoiceConnection, LeaveVoiceConnectionError},
         track_media_connection::{TrackMediaConnection, TrackMediaConnectionError},
@@ -51,6 +52,11 @@ pub fn spawn<T, S, V>(
     actix_web::rt::spawn(async move {
         let prefix = subject_prefix.trim_end_matches('.').to_string();
         let consumer = NatsEventConsumer::new(jetstream, stream.clone());
+        let admit_uc = AdmitVoiceParticipant::new(
+            channel_repository.clone(),
+            server_repository.clone(),
+            voice_service.clone(),
+        );
         let join_uc = JoinVoiceConnection::new(channel_repository.clone());
         let abort_uc = AbortVoiceConnection::new(channel_repository.clone());
         let leave_uc = LeaveVoiceConnection::new(channel_repository.clone());
@@ -89,9 +95,7 @@ pub fn spawn<T, S, V>(
                                         &abort_uc,
                                         &leave_uc,
                                         &track_uc,
-                                        &channel_repository,
-                                        &server_repository,
-                                        &voice_service,
+                                        &admit_uc,
                                     )
                                     .await
                                     {
@@ -155,9 +159,7 @@ async fn apply<T, S, V>(
     abort_uc: &AbortVoiceConnection<T>,
     leave_uc: &LeaveVoiceConnection<T>,
     track_uc: &TrackMediaConnection<T>,
-    channel_repository: &Arc<T>,
-    server_repository: &Arc<S>,
-    voice_service: &Arc<V>,
+    admit_uc: &AdmitVoiceParticipant<T, S, V>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     T: ChannelRepository + Send + Sync,
@@ -179,15 +181,13 @@ where
 
     match kind {
         WebhookKind::Joined => {
-            let admitted = enforce_membership(
-                channel_repository.as_ref(),
-                server_repository.as_ref(),
-                voice_service.as_ref(),
-                evt.channel_id,
-                evt.user_id,
-            )
-            .await?;
-            if !admitted {
+            let admission = admit_uc
+                .execute(
+                    domain::channel::id::ChannelId::new(evt.channel_id),
+                    domain::user::id::UserId::new(evt.user_id),
+                )
+                .await?;
+            if admission == Admission::Rejected {
                 return Ok(());
             }
             let result = join_uc
@@ -338,57 +338,4 @@ fn is_leave_stale(e: &LeaveVoiceConnectionError) -> bool {
         LeaveVoiceConnectionError::Repository(RepositoryError::NotFound)
             | LeaveVoiceConnectionError::Domain(_)
     )
-}
-
-async fn enforce_membership<T, S, V>(
-    channel_repository: &T,
-    server_repository: &S,
-    voice_service: &V,
-    channel_id: uuid::Uuid,
-    user_id: uuid::Uuid,
-) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>
-where
-    T: ChannelRepository + Send + Sync,
-    S: domain::server::repository::ServerRepository + Send + Sync,
-    V: messaging::ports::voice_service::VoiceService + Send + Sync,
-{
-    let channel_id = domain::channel::id::ChannelId::new(channel_id);
-    let user_id = domain::user::id::UserId::new(user_id);
-    let channel = match channel_repository.find_channel_by_id(&channel_id).await {
-        Ok(c) => c,
-        Err(domain::shared::repository::error::RepositoryError::NotFound) => {
-            voice_service.delete_voice_channel(&channel_id).await?;
-            tracing::info!(
-                channel_id = %channel_id.uuid(),
-                user_id = %user_id.uuid(),
-                "Closed orphaned LiveKit room after join into a deleted channel",
-            );
-            return Ok(false);
-        }
-        Err(e) => return Err(e.into()),
-    };
-    let is_member = server_repository
-        .is_server_member(channel.server_id(), &user_id)
-        .await?;
-    if is_member {
-        let moderator_muted = channel
-            .muted_participants_list()
-            .find(|m| m.user_id == user_id)
-            .is_some_and(|m| m.muted_by != user_id);
-        if moderator_muted {
-            voice_service.mute_participant(&channel_id, &user_id).await?;
-        } else {
-            voice_service.unmute_participant(&channel_id, &user_id).await?;
-        }
-        return Ok(true);
-    }
-    voice_service
-        .remove_participant(&channel_id, &user_id)
-        .await?;
-    tracing::info!(
-        channel_id = %channel_id.uuid(),
-        user_id = %user_id.uuid(),
-        "Disconnected non-member voice participant",
-    );
-    Ok(false)
 }
