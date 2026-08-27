@@ -14,9 +14,7 @@ use crate::database::postgres::{
         server::ServerDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
-    repositories::{
-        outbox_record::save_outbox_records,
-    },
+    repositories::{outbox_record::save_outbox_records, server_unit_of_work::lock_server},
 };
 
 pub struct PostgresServerRepository {
@@ -471,6 +469,8 @@ impl ServerRepository for PostgresServerRepository {
         let Some(invite) = invite else {
             return Ok(None);
         };
+
+        lock_server(&mut tx, &ServerId::new(invite.server_id)).await?;
 
         let inserted = sqlx::query!(
             r#"
