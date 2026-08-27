@@ -62,6 +62,7 @@ use messaging_infrastructure::{
         read_state::PostgresReadStateRepository,
         server::PostgresServerRepository,
         server_role::PostgresServerRoleRepository,
+        server_unit_of_work::PostgresServerUnitOfWork,
         user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
@@ -156,12 +157,12 @@ pub struct AppState {
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
     pub list_roles_usecase: ListRoles<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub create_role_usecase: CreateRole<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub update_role_usecase: UpdateRole<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub delete_role_usecase: DeleteRole<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub assign_role_usecase: AssignRole<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub revoke_role_usecase: RevokeRole<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub swap_roles_usecase: SwapRoles<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub create_role_usecase: CreateRole<PostgresServerUnitOfWork>,
+    pub update_role_usecase: UpdateRole<PostgresServerUnitOfWork>,
+    pub delete_role_usecase: DeleteRole<PostgresServerUnitOfWork>,
+    pub assign_role_usecase: AssignRole<PostgresServerUnitOfWork>,
+    pub revoke_role_usecase: RevokeRole<PostgresServerUnitOfWork>,
+    pub swap_roles_usecase: SwapRoles<PostgresServerUnitOfWork>,
     pub list_notification_preferences_usecase:
         ListNotificationPreferences<PostgresNotificationPreferenceRepository>,
     pub set_notification_preference_usecase: SetNotificationPreference<

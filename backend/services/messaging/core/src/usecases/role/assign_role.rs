@@ -1,28 +1,20 @@
 use std::sync::Arc;
 
 use domain::{
-    server::{
-        id::ServerId,
-        repository::ServerRepository,
-        role::{AssignOutcome, ServerRoleRepository},
-    },
+    server::{id::ServerId, policy::RolePolicy, unit_of_work::ServerUnitOfWork},
     user::id::UserId,
 };
 use uuid::Uuid;
 
-use super::{RoleError, actor_grantable_permissions, actor_height, ensure_below, ensure_grantable, ensure_manage_roles, recipients, roles_changed_event};
+use super::{RoleError, roles_changed_event};
 
-pub struct AssignRole<S: ServerRepository, R: ServerRoleRepository> {
-    server_repository: Arc<S>,
-    role_repository: Arc<R>,
+pub struct AssignRole<U: ServerUnitOfWork> {
+    unit_of_work: Arc<U>,
 }
 
-impl<S: ServerRepository, R: ServerRoleRepository> AssignRole<S, R> {
-    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
-        Self {
-            server_repository,
-            role_repository,
-        }
+impl<U: ServerUnitOfWork> AssignRole<U> {
+    pub fn new(unit_of_work: Arc<U>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -32,58 +24,13 @@ impl<S: ServerRepository, R: ServerRoleRepository> AssignRole<S, R> {
         target: UserId,
         role_id: Uuid,
     ) -> Result<(), RoleError> {
-        ensure_manage_roles(
-            self.server_repository.as_ref(),
-            self.role_repository.as_ref(),
-            &server_id,
-            &actor,
-        )
-        .await?;
-        let target_role = self
-            .role_repository
-            .list_roles(&server_id)
-            .await?
-            .into_iter()
-            .find(|r| r.id == role_id)
-            .ok_or(RoleError::RoleNotFound)?;
-        let height = actor_height(
-            self.server_repository.as_ref(),
-            self.role_repository.as_ref(),
-            &server_id,
-            &actor,
-        )
-        .await?;
-        ensure_below(&height, target_role.position)?;
-        let grantable = actor_grantable_permissions(
-            self.server_repository.as_ref(),
-            self.role_repository.as_ref(),
-            &server_id,
-            &actor,
-        )
-        .await?;
-        ensure_grantable(target_role.permissions, grantable)?;
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let delegated = if owner.as_ref() == Some(&actor) {
-            None
-        } else {
-            Some(&actor)
-        };
-        let members = recipients(self.server_repository.as_ref(), &server_id).await?;
-        let event = roles_changed_event(&server_id, &members);
-        let outcome = self
-            .role_repository
-            .assign_role(
-                &server_id,
-                &target,
-                role_id,
-                delegated,
-                std::slice::from_ref(&event),
-            )
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        RolePolicy::assign(&snapshot, &actor, &target, role_id)?;
+        tx.assign_role(&target, role_id).await?;
+        tx.save_outbox(std::slice::from_ref(&roles_changed_event(&server_id, &snapshot)))
             .await?;
-        match outcome {
-            AssignOutcome::Assigned => Ok(()),
-            AssignOutcome::NotFound => Err(RoleError::RoleNotFound),
-            AssignOutcome::Denied => Err(RoleError::HierarchyViolation),
-        }
+        tx.commit().await?;
+        Ok(())
     }
 }

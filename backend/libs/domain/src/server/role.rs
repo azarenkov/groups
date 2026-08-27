@@ -40,78 +40,12 @@ pub struct RolePatch {
     pub remove_permissions: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AssignOutcome {
-    Assigned,
-    NotFound,
-    Denied,
-}
-
-#[derive(Debug, Clone)]
-pub enum CreateOutcome {
-    Created(ServerRole),
-    LimitReached,
-    Denied,
-}
-
 #[async_trait::async_trait]
 pub trait ServerRoleRepository {
     async fn list_roles(
         &self,
         server_id: &crate::server::id::ServerId,
     ) -> Result<Vec<ServerRole>, crate::shared::repository::error::RepositoryError>;
-
-    async fn create_role(
-        &self,
-        role: &ServerRole,
-        delegated_actor: Option<&crate::user::id::UserId>,
-        max_roles: usize,
-        events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<CreateOutcome, crate::shared::repository::error::RepositoryError>;
-
-    async fn update_role(
-        &self,
-        server_id: &crate::server::id::ServerId,
-        role_id: Uuid,
-        patch: &RolePatch,
-        delegated_actor: Option<&crate::user::id::UserId>,
-        events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
-
-    async fn delete_role(
-        &self,
-        server_id: &crate::server::id::ServerId,
-        role_id: Uuid,
-        delegated_actor: Option<&crate::user::id::UserId>,
-        events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
-
-    async fn assign_role(
-        &self,
-        server_id: &crate::server::id::ServerId,
-        user_id: &crate::user::id::UserId,
-        role_id: Uuid,
-        delegated_actor: Option<&crate::user::id::UserId>,
-        events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
-
-    async fn revoke_role(
-        &self,
-        server_id: &crate::server::id::ServerId,
-        user_id: &crate::user::id::UserId,
-        role_id: Uuid,
-        delegated_actor: Option<&crate::user::id::UserId>,
-        events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
-
-    async fn swap_positions(
-        &self,
-        server_id: &crate::server::id::ServerId,
-        role_a: Uuid,
-        role_b: Uuid,
-        delegated_actor: Option<&crate::user::id::UserId>,
-        events: &[crate::shared::outbox::outbox_record::OutboxRecord],
-    ) -> Result<AssignOutcome, crate::shared::repository::error::RepositoryError>;
 
     async fn member_role_ids(
         &self,

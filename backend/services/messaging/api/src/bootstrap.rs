@@ -68,6 +68,7 @@ use messaging_infrastructure::{
             notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
             server_role::PostgresServerRoleRepository,
+            server_unit_of_work::PostgresServerUnitOfWork,
             user_profile::PostgresUserProfileRepository,
         },
     },
@@ -109,6 +110,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
     let server_role_repository =
         Arc::new(PostgresServerRoleRepository::new(postgres_pool.clone()));
+    let server_unit_of_work = Arc::new(PostgresServerUnitOfWork::new(postgres_pool.clone()));
     let notification_preference_repository = Arc::new(
         PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
     );
@@ -264,30 +266,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_repository.clone(),
             server_role_repository.clone(),
         ),
-        create_role_usecase: CreateRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        update_role_usecase: UpdateRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        delete_role_usecase: DeleteRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        assign_role_usecase: AssignRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        revoke_role_usecase: RevokeRole::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        swap_roles_usecase: SwapRoles::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
+        create_role_usecase: CreateRole::new(server_unit_of_work.clone()),
+        update_role_usecase: UpdateRole::new(server_unit_of_work.clone()),
+        delete_role_usecase: DeleteRole::new(server_unit_of_work.clone()),
+        assign_role_usecase: AssignRole::new(server_unit_of_work.clone()),
+        revoke_role_usecase: RevokeRole::new(server_unit_of_work.clone()),
+        swap_roles_usecase: SwapRoles::new(server_unit_of_work.clone()),
         list_notification_preferences_usecase: ListNotificationPreferences::new(
             notification_preference_repository.clone(),
         ),
