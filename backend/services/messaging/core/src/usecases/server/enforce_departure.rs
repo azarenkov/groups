@@ -56,38 +56,57 @@ where
             Err(RepositoryError::NotFound) => return Ok(()),
             Err(e) => return Err(e.into()),
         };
+        let mut actions = Vec::with_capacity(voice_channel_ids.len());
         if server.is_member(&user_id) {
-            return Ok(());
+            for channel_id in voice_channel_ids {
+                let moderator_muted = tx
+                    .participant_muted_by(&channel_id, &user_id)
+                    .await?
+                    .is_some_and(|muted_by| muted_by != user_id);
+                actions.push((channel_id, if moderator_muted { VoiceAction::Mute } else { VoiceAction::Unmute }));
+            }
+        } else {
+            actions.extend(voice_channel_ids.into_iter().map(|c| (c, VoiceAction::Remove)));
         }
-        let removals = stream::iter(voice_channel_ids).map(|channel_id| {
+        let effects = stream::iter(actions).map(|(channel_id, action)| {
             let voice_service = self.voice_service.clone();
             async move {
-            let outcome = tokio::time::timeout(
-                LOCKED_ENFORCEMENT_BUDGET,
-                voice_service.remove_participant(&channel_id, &user_id),
-            )
-            .await;
-            let result = match outcome {
-                Ok(Ok(())) => Ok(()),
-                Ok(Err(e)) => Err(EnforceServerDepartureError::VoiceService(e)),
-                Err(_) => Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET)),
-            };
-            if let Err(e) = &result {
-                tracing::warn!(
-                    channel_id = %channel_id.uuid(),
-                    user_id = %user_id.uuid(),
-                    error = %e,
-                    "Failed to remove departed participant from voice room",
-                );
-            }
-            result
+                let call = async {
+                    match action {
+                        VoiceAction::Remove => voice_service.remove_participant(&channel_id, &user_id).await,
+                        VoiceAction::Mute => voice_service.mute_participant(&channel_id, &user_id).await,
+                        VoiceAction::Unmute => voice_service.unmute_participant(&channel_id, &user_id).await,
+                    }
+                };
+                let result = match tokio::time::timeout(LOCKED_ENFORCEMENT_BUDGET, call).await {
+                    Ok(Ok(())) => Ok(()),
+                    Ok(Err(e)) => Err(EnforceServerDepartureError::VoiceService(e)),
+                    Err(_) => Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET)),
+                };
+                if let Err(e) = &result {
+                    tracing::warn!(
+                        channel_id = %channel_id.uuid(),
+                        user_id = %user_id.uuid(),
+                        ?action,
+                        error = %e,
+                        "Failed to apply voice effect after server departure",
+                    );
+                }
+                result
             }
         });
-        let results: Vec<Result<(), EnforceServerDepartureError>> = removals
+        let results: Vec<Result<(), EnforceServerDepartureError>> = effects
             .buffer_unordered(MAX_CONCURRENT_REMOVALS)
             .collect()
             .await;
         drop(tx);
         results.into_iter().find(Result::is_err).unwrap_or(Ok(()))
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum VoiceAction {
+    Remove,
+    Mute,
+    Unmute,
 }
