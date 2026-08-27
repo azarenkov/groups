@@ -1,0 +1,17 @@
+[package]
+name = "notification-infrastructure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+notification-core = { workspace = true }
+contracts = { workspace = true }
+domain = { workspace = true }
+ports = { workspace = true }
+infrastructure-common = { workspace = true }
+api-common = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true, features = ["macros", "signal", "time", "sync"] }
+async-nats = { workspace = true }

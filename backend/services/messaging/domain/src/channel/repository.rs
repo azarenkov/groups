@@ -128,6 +128,20 @@ pub trait ChannelRepository {
         &self,
         server_id: &crate::server::id::ServerId,
     ) -> Result<Vec<StreamViewerCountRow>, RepositoryError>;
+
+    async fn list_voice_participants_joined_before(
+        &self,
+        cutoff: DateTime<Utc>,
+    ) -> Result<Vec<VoiceParticipantRow>, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct VoiceParticipantRow {
+    pub channel_id: ChannelId,
+    pub user_id: UserId,
+    pub session_id: String,
+    pub camera_on: bool,
+    pub screen_on: bool,
 }
 
 #[derive(Debug, Clone)]

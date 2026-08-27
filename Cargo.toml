@@ -22,7 +22,16 @@ members = [
     "backend/services/media/api",
     "backend/services/messaging/api",
     "backend/services/voice/api",
-    "backend/workers/outbox-worker", "backend/services/notification", "backend/services/realtime/websocket", "backend/services/realtime/event-dispatcher", "backend/services/realtime/bin", "backend/workers/livekit-pooler"]
+    "backend/workers/outbox-worker",
+    "backend/services/notification/core",
+    "backend/services/notification/infrastructure",
+    "backend/services/notification/api",
+    "backend/services/realtime/domain",
+    "backend/services/realtime/core",
+    "backend/services/realtime/infrastructure",
+    "backend/services/realtime/api",
+    "backend/workers/livekit-pooler",
+]
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -60,6 +69,11 @@ voice = { path = "backend/services/voice/core" }
 identity-infrastructure = { path = "backend/services/identity/infrastructure" }
 media-infrastructure = { path = "backend/services/media/infrastructure" }
 messaging-infrastructure = { path = "backend/services/messaging/infrastructure" }
+notification-core = { path = "backend/services/notification/core" }
+notification-infrastructure = { path = "backend/services/notification/infrastructure" }
+realtime-domain = { path = "backend/services/realtime/domain" }
+realtime-core = { path = "backend/services/realtime/core" }
+realtime-infrastructure = { path = "backend/services/realtime/infrastructure" }
 voice-infrastructure = { path = "backend/services/voice/infrastructure" }
 api-common = { path = "backend/libs/api-common" }
 domain = { path = "backend/libs/domain" }

@@ -89,10 +89,10 @@ jobs:
             packages: -p voice -p voice-service
           - name: realtime
             changed: ${{ needs.changes.outputs.realtime }}
-            packages: -p event-dispatcher -p websocket -p realtime
+            packages: -p realtime-domain -p realtime-core -p realtime-infrastructure -p realtime
           - name: notification
             changed: ${{ needs.changes.outputs.notification }}
-            packages: -p notification-service
+            packages: -p notification-core -p notification-infrastructure -p notification-service
           - name: workers
             changed: ${{ needs.changes.outputs.workers }}
             packages: -p outbox-worker -p livekit-pooler

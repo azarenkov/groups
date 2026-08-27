@@ -1,0 +1,18 @@
+[package]
+name = "notification-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+notification-core = { workspace = true }
+notification-infrastructure = { workspace = true }
+api-common = { workspace = true }
+infrastructure-common = { workspace = true }
+
+tracing = { workspace = true }
+dotenv = { workspace = true }
+envy = { workspace = true }
+serde = { workspace = true }
+
+tokio = { workspace = true, features = ["macros", "signal", "time", "sync"] }
+actix-web = { workspace = true }

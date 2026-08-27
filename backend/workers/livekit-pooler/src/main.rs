@@ -1,23 +1,23 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
-use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnection;
-use messaging::usecases::channel::track_media_connection::TrackMediaConnection;
-use infrastructure_common::{
-    config::{livekit::LiveKitConfig, postgres::PostgresConfig},
+use api_common::health::{self, Readiness};
+use infrastructure_common::config::{livekit::LiveKitConfig, postgres::PostgresConfig};
+use messaging::usecases::channel::{
+    abort_voice_connection::AbortVoiceConnection, reconcile_voice_presence::ReconcileVoicePresence,
+    track_media_connection::TrackMediaConnection,
 };
 use messaging_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::channel::PostgresChannelRepository,
     },
+    voice::livekit_room_inspector::LiveKitRoomInspector,
 };
-use api_common::health::{self, Readiness};
 use tokio::signal;
 
-use crate::{config::PoolerConfig, reconciler::Reconciler};
+use crate::config::PoolerConfig;
 
 mod config;
-mod reconciler;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -46,21 +46,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    let channel_repository = Arc::new(PostgresChannelRepository::new(pool.clone()));
-    let abort_use_case = Arc::new(AbortVoiceConnection::new(channel_repository.clone()));
-    let track_use_case = Arc::new(TrackMediaConnection::new(channel_repository));
-
-    let reconciler = Arc::new(Reconciler::new(
-        pool,
-        livekit_config.url().to_string(),
-        livekit_config.api_key().to_string(),
-        livekit_config.api_secret().to_string(),
-        abort_use_case,
-        track_use_case,
-        Duration::from_secs(pooler_config.livekit_pooler_grace_secs),
+    let channel_repository = Arc::new(PostgresChannelRepository::new(pool));
+    let inspector = Arc::new(LiveKitRoomInspector::new(
+        &livekit_config,
         Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs),
-        pooler_config.livekit_pooler_max_aborts_per_pass,
     ));
+    let reconcile = ReconcileVoicePresence::new(
+        channel_repository.clone(),
+        inspector,
+        Arc::new(AbortVoiceConnection::new(channel_repository.clone())),
+        Arc::new(TrackMediaConnection::new(channel_repository)),
+        Duration::from_secs(pooler_config.livekit_pooler_grace_secs),
+        pooler_config.livekit_pooler_max_aborts_per_pass,
+    );
 
     let interval = Duration::from_secs(pooler_config.livekit_pooler_interval_secs);
 
@@ -78,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::pin!(shutdown);
 
     loop {
-        match reconciler.run_once().await {
+        match reconcile.execute().await {
             Ok(summary) => {
                 if summary.db_entries_checked > 0
                     || summary.aborted > 0
