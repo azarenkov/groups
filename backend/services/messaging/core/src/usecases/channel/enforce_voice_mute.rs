@@ -50,12 +50,21 @@ where
             Err(e) => return Err(e.into()),
         };
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let moderator_muted = tx
-            .participant_muted_by(&channel_id, &user_id)
-            .await?
-            .is_some_and(|muted_by| muted_by != user_id);
+        let server = match tx.load_server().await {
+            Ok(server) => server,
+            Err(RepositoryError::NotFound) => return Ok(()),
+            Err(e) => return Err(e.into()),
+        };
+        let is_member = server.is_member(&user_id);
+        let moderator_muted = is_member
+            && tx
+                .participant_muted_by(&channel_id, &user_id)
+                .await?
+                .is_some_and(|muted_by| muted_by != user_id);
         let enforcement = async {
-            if moderator_muted {
+            if !is_member {
+                self.voice_service.remove_participant(&channel_id, &user_id).await
+            } else if moderator_muted {
                 self.voice_service.mute_participant(&channel_id, &user_id).await
             } else {
                 self.voice_service.unmute_participant(&channel_id, &user_id).await
