@@ -5,7 +5,7 @@ use actix_ws::AggregatedMessage;
 use futures::StreamExt;
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use serde::Deserialize;
-use shared::middleware::jwt::claims::{AccessTokenClaims, TokenType};
+use api_common::middleware::jwt::claims::{AccessTokenClaims, TokenType};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 

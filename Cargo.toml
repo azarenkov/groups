@@ -17,7 +17,6 @@ members = [
     "backend/services/identity/domain",
     "backend/services/media/domain",
     "backend/services/voice/domain",
-    "backend/libs/shared",
     "backend/libs/api-common",
     "backend/services/identity/api",
     "backend/services/media/api",
@@ -69,4 +68,3 @@ messaging-domain = { path = "backend/services/messaging/domain" }
 identity-domain = { path = "backend/services/identity/domain" }
 media-domain = { path = "backend/services/media/domain" }
 voice-domain = { path = "backend/services/voice/domain" }
-shared = { path = "backend/libs/shared" }

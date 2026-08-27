@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, get, web};
 use domain::user::id::UserId;
 use futures::StreamExt;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;

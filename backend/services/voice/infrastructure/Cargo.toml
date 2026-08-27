@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+api-common = { workspace = true }
 voice = { workspace = true }
 contracts = { workspace = true }
 domain = { workspace = true }
 ports = { workspace = true }
 voice-domain = { workspace = true }
 platform = { workspace = true }
-shared = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

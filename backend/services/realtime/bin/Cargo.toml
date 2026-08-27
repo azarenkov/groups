@@ -7,6 +7,5 @@ edition = "2024"
 platform = { workspace = true }
 actix-web = { workspace = true }
 tokio = { workspace = true }
-shared = { workspace = true }
 event-dispatcher = { path = "../event-dispatcher" }
 websocket = { path = "../websocket" }

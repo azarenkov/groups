@@ -3,7 +3,7 @@ use messaging_domain::{
     channel::ChannelError, dm_message::DmMessageError, friendship::FriendshipError,
     message::MessageError,
 };
-use shared::api_error::{ApiError, StatusCode, ToHttpStatus};
+use api_common::api_error::{ApiError, StatusCode, ToHttpStatus};
 
 pub trait HttpMapping {
     fn to_http_status(&self) -> StatusCode;

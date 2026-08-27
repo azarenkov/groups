@@ -28,7 +28,7 @@ use voice_infrastructure::{
         livekit_webhook_receiver::LiveKitWebhookReceiver,
     },
 };
-use shared::{
+use api_common::{
     health::Readiness,
     middleware::request_id::RequestIdMiddleware,
     rate_limiting::config::RateLimitingConfig,
@@ -39,7 +39,7 @@ use api_common::config::ServerConfig;
 use crate::{routes, state::AppState};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("voice-service");
+    platform::observability::init("voice-service");
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;
@@ -108,7 +108,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     });
 
     let rate_limiter =
-        shared::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
+        api_common::rate_limiting::create_rate_limiter_from_config("api", &rate_limiting_config)
             .await
             .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);

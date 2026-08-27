@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use contracts::realtime::PresencePreferenceV1;
 use serde::Deserialize;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 
 use crate::state::AppState;
 use crate::http_errors::HttpError;

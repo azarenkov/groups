@@ -11,7 +11,7 @@ use messaging_infrastructure::{
         repositories::channel::PostgresChannelRepository,
     },
 };
-use shared::health::{self, Readiness};
+use api_common::health::{self, Readiness};
 use tokio::signal;
 
 use crate::{config::PoolerConfig, reconciler::Reconciler};
@@ -21,7 +21,7 @@ mod reconciler;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    shared::observability::init("livekit-pooler");
+    platform::observability::init("livekit-pooler");
 
     let pooler_config = PoolerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env()?;

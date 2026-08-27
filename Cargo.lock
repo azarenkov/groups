@@ -307,7 +307,9 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "api-common"
 version = "0.1.0"
 dependencies = [
+ "actix-cors",
  "actix-web",
+ "anyhow",
  "async-nats",
  "chrono",
  "contracts",
@@ -315,12 +317,15 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
+ "governor",
+ "jsonwebtoken 10.3.0",
  "platform",
  "ports",
+ "redis",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "uuid",
  "validator",
@@ -1154,6 +1159,7 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "anyhow",
+ "api-common",
  "async-nats",
  "chrono",
  "contracts",
@@ -1164,7 +1170,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
@@ -1871,7 +1876,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -1896,6 +1900,7 @@ dependencies = [
 name = "identity-infrastructure"
 version = "0.1.0"
 dependencies = [
+ "api-common",
  "async-trait",
  "bcrypt",
  "chrono",
@@ -1910,7 +1915,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
@@ -1939,7 +1943,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2230,6 +2233,7 @@ name = "livekit-pooler"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "api-common",
  "chrono",
  "contracts",
  "domain",
@@ -2241,7 +2245,6 @@ dependencies = [
  "messaging-infrastructure",
  "platform",
  "serde",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
@@ -2363,7 +2366,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2388,6 +2390,7 @@ dependencies = [
 name = "media-infrastructure"
 version = "0.1.0"
 dependencies = [
+ "api-common",
  "async-trait",
  "chrono",
  "contracts",
@@ -2400,7 +2403,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
@@ -2431,7 +2433,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2458,7 +2459,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2483,6 +2483,7 @@ dependencies = [
 name = "messaging-infrastructure"
 version = "0.1.0"
 dependencies = [
+ "api-common",
  "async-nats",
  "async-trait",
  "bcrypt",
@@ -2497,7 +2498,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
@@ -2527,7 +2527,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2631,6 +2630,7 @@ name = "notification-service"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "api-common",
  "async-nats",
  "domain",
  "dotenv",
@@ -2641,7 +2641,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2797,13 +2796,13 @@ name = "outbox-worker"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "api-common",
  "async-nats",
  "dotenv",
  "envy",
  "platform",
  "ports",
  "serde",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2994,11 +2993,12 @@ dependencies = [
  "rust-s3",
  "serde",
  "serde_json",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "tracing-log",
+ "tracing-subscriber",
  "urlencoding",
  "uuid",
 ]
@@ -3359,7 +3359,6 @@ dependencies = [
  "actix-web",
  "event-dispatcher",
  "platform",
- "shared",
  "tokio",
  "websocket",
 ]
@@ -3897,31 +3896,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
-]
-
-[[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-web",
- "anyhow",
- "chrono",
- "domain",
- "dotenv",
- "envy",
- "futures",
- "governor",
- "jsonwebtoken 10.3.0",
- "redis",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
- "uuid",
- "validator",
 ]
 
 [[package]]
@@ -4809,7 +4783,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -4835,6 +4808,7 @@ dependencies = [
 name = "voice-infrastructure"
 version = "0.1.0"
 dependencies = [
+ "api-common",
  "async-trait",
  "chrono",
  "contracts",
@@ -4847,7 +4821,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
@@ -4875,7 +4848,6 @@ dependencies = [
  "ports",
  "serde",
  "serde_json",
- "shared",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -5063,6 +5035,7 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "actix-ws",
+ "api-common",
  "async-nats",
  "contracts",
  "dashmap",
@@ -5073,7 +5046,6 @@ dependencies = [
  "platform",
  "serde",
  "serde_json",
- "shared",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",

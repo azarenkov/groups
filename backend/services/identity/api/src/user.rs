@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, get, patch, web};
 use identity_domain::user::{id::UserId, locale::Locale};
 use serde::{Deserialize, Serialize};
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;

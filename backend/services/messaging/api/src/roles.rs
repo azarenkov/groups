@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, delete, get, post, put, web};
 use messaging_domain::server::id::ServerId;
 use domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;

@@ -6,7 +6,7 @@ use messaging::dto::requests::dm::{
 };
 use messaging_domain::{dm_message::id::DmMessageId, server::id::ServerId};
 use domain::{shared::pagination::Pagination, user::id::UserId};
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
 

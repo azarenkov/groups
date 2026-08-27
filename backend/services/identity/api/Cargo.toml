@@ -14,7 +14,6 @@ domain = { workspace = true }
 ports = { workspace = true }
 identity-domain = { workspace = true }
 platform = { workspace = true }
-shared = { workspace = true }
 identity = { workspace = true }
 identity-infrastructure = { workspace = true }
 serde = { workspace = true }

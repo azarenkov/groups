@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+api-common = { workspace = true }
 ports = { workspace = true }
 contracts = { workspace = true }
 platform = { workspace = true }
 
-shared = { workspace = true }
 
 tracing = { workspace = true }
 dotenv = { workspace = true }

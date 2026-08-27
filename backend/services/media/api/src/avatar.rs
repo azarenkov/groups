@@ -3,7 +3,7 @@ use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use domain::{server::id::ServerId, user::id::UserId};
 use futures::StreamExt;
 use image::{ImageDecoder, ImageFormat, imageops::FilterType};
-use shared::middleware::auth::{AuthToken, RateLimitedAuthToken};
+use api_common::middleware::auth::{AuthToken, RateLimitedAuthToken};
 use uuid::Uuid;
 
 use crate::state::AppState;

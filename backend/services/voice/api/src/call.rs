@@ -4,7 +4,7 @@ use voice::dto::requests::call::{
 };
 use domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;

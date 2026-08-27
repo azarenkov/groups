@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use messaging_domain::channel::id::ChannelId;
 use domain::user::id::UserId;
 use serde::Serialize;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 use crate::state::AppState;

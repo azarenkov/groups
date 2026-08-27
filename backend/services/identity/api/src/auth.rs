@@ -3,7 +3,7 @@ use identity::dto::requests::auth::issue_verification_code::IssueVerificationCod
 use identity::usecases::auth::google_login::GoogleLoginOutcome;
 use domain::user::id::UserId;
 use identity_domain::verification::purpose::VerificationPurpose;
-use shared::middleware::auth::AuthToken;
+use api_common::middleware::auth::AuthToken;
 use validator::Validate;
 
 use crate::state::AppState;

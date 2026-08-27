@@ -6,7 +6,7 @@ use chrono::{DateTime, Duration, Utc};
 use identity_domain::refresh_token::id::RefreshTokenId;
 use domain::user::id::UserId;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use shared::middleware::jwt::claims::{AccessTokenClaims, RefreshTokenClaims, TokenType};
+use api_common::middleware::jwt::claims::{AccessTokenClaims, RefreshTokenClaims, TokenType};
 use uuid::Uuid;
 
 const ACCESS_TOKEN_EXPIRATION_MINUTES: i64 = 15;

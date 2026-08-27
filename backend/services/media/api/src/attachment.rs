@@ -3,7 +3,7 @@ use actix_web::{HttpResponse, Responder, delete, post, web};
 use media::usecases::attachment::upload_attachment::MAX_ATTACHMENT_BYTES;
 use domain::user::id::UserId;
 use futures::StreamExt;
-use shared::middleware::auth::RateLimitedAuthToken;
+use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
 const MAX_FILE_NAME_BYTES: usize = 255;

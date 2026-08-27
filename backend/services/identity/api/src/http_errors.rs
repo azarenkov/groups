@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, ResponseError};
-use shared::api_error::{ApiError, StatusCode, ToHttpStatus};
+use api_common::api_error::{ApiError, StatusCode, ToHttpStatus};
 
 pub trait HttpMapping {
     fn to_http_status(&self) -> StatusCode;
