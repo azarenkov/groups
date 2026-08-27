@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -100,9 +100,9 @@ where
         }
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::manage_invites(&snapshot, &sender_id)?;
-        if snapshot.is_member(&friend_id) {
+        let membership = tx.load_server().await?;
+        membership.ensure_can_manage_invites(&sender_id)?;
+        if membership.is_member(&friend_id) {
             return Err(SendServerInviteError::AlreadyMember);
         }
 

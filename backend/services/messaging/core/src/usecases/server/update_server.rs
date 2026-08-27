@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerUpdated, server::name::ServerName, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, server::description::ServerDescription, server::name::ServerName, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::dto::requests::server::update_server::UpdateServerRequest;
@@ -53,18 +53,14 @@ impl<W: ServerUnitOfWork> UpdateServer<W> {
         } = request;
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::manage_server(&snapshot, &owner_id)?;
-
-        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
-        let event = ServerEvent::Updated(ServerUpdated::record(
-            server_id,
+        let mut server = tx.load_server().await?;
+        server.update_details(
+            &owner_id,
             ServerName::new(name.clone()),
             description.clone().map(ServerDescription::new),
-            member_ids,
             Utc::now(),
-        ));
-        let events = vec![MessagingEvent::from(event)];
+        )?;
+        let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
 
         if !tx.update_server_details(&name, description.as_deref()).await? {
             return Err(UpdateServerError::ServerNotFound);

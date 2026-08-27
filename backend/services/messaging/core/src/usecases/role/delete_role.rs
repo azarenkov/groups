@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use messaging_domain::{server::id::ServerId, server::policy::RolePolicy, server::unit_of_work::ServerUnitOfWork};
+use chrono::Utc;
 use domain::user::id::UserId;
+use messaging_domain::{events::MessagingEvent, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 use uuid::Uuid;
 
-use super::{RoleError, roles_changed_event};
+use super::{RoleError};
 
 pub struct DeleteRole<U: ServerUnitOfWork> {
     unit_of_work: Arc<U>,
@@ -22,13 +23,13 @@ impl<U: ServerUnitOfWork> DeleteRole<U> {
         role_id: Uuid,
     ) -> Result<(), RoleError> {
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        RolePolicy::delete(&snapshot, &actor, role_id)?;
+        let mut server = tx.load_server().await?;
+        server.delete_role(&actor, role_id, Utc::now())?;
         if !tx.delete_role(role_id).await? {
             return Err(RoleError::RoleNotFound);
         }
-        tx.save_events(&[roles_changed_event(&server_id, &snapshot)], None)
-            .await?;
+        let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
+        tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(())
     }

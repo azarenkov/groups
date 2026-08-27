@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use messaging_domain::{server::id::ServerId, server::policy::RolePolicy, server::unit_of_work::ServerUnitOfWork};
-use domain::user::id::UserId;
 use chrono::Utc;
-use messaging_domain::server::role::{PERM_ALL, ServerRole};
-use uuid::Uuid;
+use domain::user::id::UserId;
+use messaging_domain::{events::MessagingEvent, server::id::ServerId, server::unit_of_work::ServerUnitOfWork, server::role::ServerRole};
 
-use super::validate_role_input;
-
-use super::{RoleError, roles_changed_event};
+use super::{RoleError, validate_role_input};
 
 pub struct CreateRole<U: ServerUnitOfWork> {
     unit_of_work: Arc<U>,
@@ -29,20 +25,11 @@ impl<U: ServerUnitOfWork> CreateRole<U> {
     ) -> Result<ServerRole, RoleError> {
         validate_role_input(&name, &color)?;
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        let position = RolePolicy::create(&snapshot, &actor, permissions)?;
-        let role = ServerRole {
-            id: Uuid::new_v4(),
-            server_id: server_id.uuid(),
-            name: name.trim().to_string(),
-            color,
-            permissions: permissions & PERM_ALL,
-            position,
-            created_at: Utc::now(),
-        };
+        let mut server = tx.load_server().await?;
+        let role = server.create_role(&actor, name.trim().to_string(), color, permissions, Utc::now())?;
         tx.insert_role(&role).await?;
-        tx.save_events(&[roles_changed_event(&server_id, &snapshot)], None)
-            .await?;
+        let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
+        tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(role)
     }

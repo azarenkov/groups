@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::repository::ChannelRepository, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::repository::ChannelRepository, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -75,14 +75,14 @@ where
         let supports_voice = channel.supports_voice();
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::manage_channels(&snapshot, &deleted_by)?;
+        let server = tx.load_server().await?;
+        server.ensure_can_manage_channels(&deleted_by)?;
         channel.delete(deleted_by, true, now).map_err(|e| match e {
             ChannelError::NotOwner => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;
 
-        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
+        let member_ids = server.member_ids();
         let request_id = ctx.request_id.clone();
         let events = channel.pull_events();
         let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&member_ids))).collect();

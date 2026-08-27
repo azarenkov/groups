@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -47,12 +47,16 @@ pub async fn lock_server(
     Ok(())
 }
 
-pub async fn load_authorization(
+pub async fn load_server(
     tx: &mut Transaction<'_, Postgres>,
     server_id: &ServerId,
-) -> Result<AuthorizationSnapshot, RepositoryError> {
-    let owner = sqlx::query_scalar!(
-        r#"SELECT owner_id FROM servers WHERE id = $1"#,
+) -> Result<Server, RepositoryError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT id, name, owner_id, description, accent_color, created_at, updated_at
+        FROM servers
+        WHERE id = $1
+        "#,
         server_id.uuid(),
     )
     .fetch_optional(&mut **tx)
@@ -104,12 +108,18 @@ pub async fn load_authorization(
     .into_iter()
     .map(UserId::new)
     .collect();
-    Ok(AuthorizationSnapshot {
-        owner_id: UserId::new(owner),
+    Ok(Server::load(
+        ServerId::new(row.id),
+        ServerName::new(row.name),
+        UserId::new(row.owner_id),
+        row.description.map(ServerDescription::new),
+        row.accent_color,
+        row.created_at,
+        row.updated_at,
         roles,
         assignments,
         members,
-    })
+    ))
 }
 
 #[async_trait]
@@ -130,8 +140,8 @@ impl ServerUnitOfWork for PostgresServerUnitOfWork {
 
 #[async_trait]
 impl ServerTransaction for PostgresServerTransaction {
-    async fn authorization(&mut self) -> Result<AuthorizationSnapshot, RepositoryError> {
-        load_authorization(&mut self.tx, &self.server_id).await
+    async fn load_server(&mut self) -> Result<Server, RepositoryError> {
+        load_server(&mut self.tx, &self.server_id).await
     }
 
     async fn insert_role(&mut self, role: &ServerRole) -> Result<(), RepositoryError> {

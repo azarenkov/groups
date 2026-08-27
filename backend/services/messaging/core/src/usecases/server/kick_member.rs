@@ -3,7 +3,7 @@ use std::sync::Arc;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
-use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 
 use crate::ports::voice_service::VoiceService;
 
@@ -58,20 +58,13 @@ where
         target: UserId,
     ) -> Result<(), KickMemberError> {
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::kick(&snapshot, &actor, &target)?;
-
-        let member_event = messaging_domain::server::events::ServerEvent::MemberLeft(
-            messaging_domain::server::events::lifecycle::ServerMemberLeft::record(
-                server_id,
-                target,
-                chrono::Utc::now(),
-            ),
-        );
+        let mut server = tx.load_server().await?;
+        server.kick_member(&actor, &target, chrono::Utc::now())?;
         if !tx.remove_member(&target).await? {
             return Err(KickMemberError::NotMember);
         }
-        tx.save_events(&[MessagingEvent::from(member_event)], None).await?;
+        let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
+        tx.save_events(&events, None).await?;
         tx.commit().await?;
 
         let voice_channel_ids = self

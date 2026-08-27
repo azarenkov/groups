@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use messaging_domain::{server::id::ServerId, server::invite_code::InviteCode, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{server::id::ServerId, server::invite_code::InviteCode, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
@@ -61,8 +61,8 @@ impl<W: ServerUnitOfWork> CreateInviteCode<W> {
 
         loop {
             let mut tx = self.unit_of_work.begin(&server_id).await?;
-            let snapshot = tx.authorization().await?;
-            ModerationPolicy::manage_invites(&snapshot, &user_id)?;
+            let server = tx.load_server().await?;
+            server.ensure_can_manage_invites(&user_id)?;
             let code = generate_code();
             match tx
                 .create_invite_code(&user_id, &code, max_uses, expires_at)
@@ -117,8 +117,8 @@ impl<S: ServerRepository, W: ServerUnitOfWork> ListInviteCodes<S, W> {
         user_id: UserId,
     ) -> Result<Vec<InviteCode>, ListInviteCodesError> {
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        ModerationPolicy::manage_invites(&snapshot, &user_id)?;
+        let server = tx.load_server().await?;
+        server.ensure_can_manage_invites(&user_id)?;
         drop(tx);
         let invites = self.server_repository.list_invite_codes(&server_id).await?;
         Ok(invites)
@@ -149,11 +149,11 @@ impl<W: ServerUnitOfWork> RevokeInviteCode<W> {
         user_id: UserId,
     ) -> Result<(), RevokeInviteCodeError> {
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let snapshot = tx.authorization().await?;
-        if !snapshot.is_member(&user_id) {
+        let server = tx.load_server().await?;
+        if !server.is_member(&user_id) {
             return Err(RevokeInviteCodeError::NotFound);
         }
-        let any_creator = ModerationPolicy::can_revoke_any_invite(&snapshot, &user_id);
+        let any_creator = server.can_revoke_any_invite(&user_id);
         if !tx.revoke_invite_code(&code, &user_id, any_creator).await? {
             return Err(RevokeInviteCodeError::NotFound);
         }

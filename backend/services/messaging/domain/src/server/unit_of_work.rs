@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
+use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -12,7 +12,7 @@ pub trait ServerUnitOfWork: Send + Sync {
 
 #[async_trait::async_trait]
 pub trait ServerTransaction: Send {
-    async fn authorization(&mut self) -> Result<AuthorizationSnapshot, RepositoryError>;
+    async fn load_server(&mut self) -> Result<Server, RepositoryError>;
     async fn insert_role(&mut self, role: &ServerRole) -> Result<(), RepositoryError>;
     async fn update_role(
         &mut self,
