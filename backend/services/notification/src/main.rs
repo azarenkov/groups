@@ -1,6 +1,6 @@
 use std::{error::Error, sync::Arc};
 
-use platform::ports::{
+use ports::{
     event_consumer::{ConsumedMessage, EventConsumer, StartPosition, SubscribeOptions},
     mailer::Mailer,
 };

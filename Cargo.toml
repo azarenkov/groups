@@ -12,6 +12,7 @@ members = [
     "backend/services/messaging/infrastructure",
     "backend/services/voice/infrastructure",
     "backend/libs/domain",
+    "backend/libs/ports",
     "backend/services/messaging/domain",
     "backend/services/identity/domain",
     "backend/services/media/domain",
@@ -63,6 +64,7 @@ messaging-infrastructure = { path = "backend/services/messaging/infrastructure" 
 voice-infrastructure = { path = "backend/services/voice/infrastructure" }
 api-common = { path = "backend/libs/api-common" }
 domain = { path = "backend/libs/domain" }
+ports = { path = "backend/libs/ports" }
 messaging-domain = { path = "backend/services/messaging/domain" }
 identity-domain = { path = "backend/services/identity/domain" }
 media-domain = { path = "backend/services/media/domain" }

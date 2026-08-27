@@ -1,4 +1,4 @@
-use platform::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use contracts::events::{
     friendship::{
         FriendRequestAcceptedV1 as FriendAcceptedDto, FriendRequestSentV1 as FriendRequestSentDto,

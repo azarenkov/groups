@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 contracts = { workspace = true }
 domain = { workspace = true }
+ports = { workspace = true }
 media-domain = { workspace = true }
-platform = { workspace = true }
 shared = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

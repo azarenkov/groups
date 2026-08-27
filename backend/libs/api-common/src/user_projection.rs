@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use platform::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use domain::{user::id::UserId, user_profile::UserProfileRepository};
 use futures::StreamExt;
 use tracing::Instrument;

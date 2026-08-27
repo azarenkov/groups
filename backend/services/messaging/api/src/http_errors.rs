@@ -1965,3 +1965,75 @@ impl HttpMapping for DmMessageError {
         }
     }
 }
+
+impl HttpMapping for ports::voice_service::VoiceServiceError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn to_user_message(&self) -> String {
+        "Voice service error".to_string()
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ports::voice_service::VoiceServiceError::TokenCreation(_) => "VOICE_TOKEN_CREATION_FAILED",
+            ports::voice_service::VoiceServiceError::VoiceChannelCreation(_) => "VOICE_CHANNEL_CREATION_FAILED",
+            ports::voice_service::VoiceServiceError::VoiceChannelDeletion(_) => "VOICE_CHANNEL_DELETION_FAILED",
+            ports::voice_service::VoiceServiceError::ParticipantRemoval(_) => "VOICE_PARTICIPANT_REMOVAL_FAILED",
+        }
+    }
+}
+
+impl HttpMapping for ports::hasher::HashError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn to_user_message(&self) -> String {
+        "Authentication error".to_string()
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        "INTERNAL_ERROR"
+    }
+}
+
+impl HttpMapping for ports::mailer::MailerError {
+    fn to_http_status(&self) -> StatusCode {
+        StatusCode::BAD_GATEWAY
+    }
+
+    fn to_user_message(&self) -> String {
+        "Could not send email. Please try again in a moment.".to_string()
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        "MAILER_UNAVAILABLE"
+    }
+}
+
+impl HttpMapping for ports::file_storage::FileStorageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ports::file_storage::FileStorageError::NotFound => StatusCode::NOT_FOUND,
+            ports::file_storage::FileStorageError::Internal(_) => StatusCode::BAD_GATEWAY,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ports::file_storage::FileStorageError::NotFound => "File not found.".to_string(),
+            ports::file_storage::FileStorageError::Internal(_) => {
+                "File storage is temporarily unavailable.".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ports::file_storage::FileStorageError::NotFound => "ATTACHMENT_NOT_FOUND",
+            ports::file_storage::FileStorageError::Internal(_) => "STORAGE_UNAVAILABLE",
+        }
+    }
+}

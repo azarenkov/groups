@@ -5,7 +5,7 @@ use async_nats::jetstream::{Context, kv};
 use futures::StreamExt;
 use tokio::sync::watch;
 
-use platform::ports::event_consumer::StartPosition;
+use ports::event_consumer::StartPosition;
 
 use crate::{
     config::DispatcherConfig,

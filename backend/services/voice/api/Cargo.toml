@@ -11,6 +11,7 @@ path = "src/main.rs"
 api-common = { workspace = true }
 contracts = { workspace = true }
 domain = { workspace = true }
+ports = { workspace = true }
 voice-domain = { workspace = true }
 platform = { workspace = true }
 shared = { workspace = true }

@@ -1,5 +1,5 @@
 use actix_web::{HttpMessage, HttpRequest};
-use shared::context::RequestContext;
+use domain::context::RequestContext;
 use shared::middleware::request_id::RequestId;
 
 pub fn request_context(req: &HttpRequest) -> RequestContext {

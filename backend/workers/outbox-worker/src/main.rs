@@ -1,6 +1,6 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
-use platform::ports::outbox_publisher::OutboxPublisher;
+use ports::outbox_publisher::OutboxPublisher;
 use platform::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
     database::postgres::connection::{create_postgres_pool, ping_pool},

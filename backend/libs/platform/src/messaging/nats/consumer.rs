@@ -1,4 +1,4 @@
-use crate::ports::event_consumer::{
+use ports::event_consumer::{
     ConsumedMessage, EventConsumer, EventConsumerError, StartPosition, SubscribeOptions,
 };
 use async_nats::jetstream::{

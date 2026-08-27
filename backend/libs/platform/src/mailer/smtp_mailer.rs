@@ -1,5 +1,5 @@
 use crate::config::mailer::MailerConfig;
-use crate::ports::mailer::{Mailer, MailerError};
+use ports::mailer::{Mailer, MailerError};
 use async_trait::async_trait;
 use domain::user::{email::Email, locale::Locale};
 use lettre::message::{Mailbox, header::ContentType};

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use platform::ports::event_consumer::{
+use ports::event_consumer::{
     EventConsumer, StartPosition, SubscribeOptions,
 };
 use futures::StreamExt;

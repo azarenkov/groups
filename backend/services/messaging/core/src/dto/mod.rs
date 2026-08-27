@@ -1,4 +1,4 @@
 pub mod requests;
 pub mod responses;
-pub use shared::context;
-pub use shared::context::RequestContext;
+pub use domain::context;
+pub use domain::context::RequestContext;

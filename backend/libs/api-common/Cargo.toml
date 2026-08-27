@@ -7,6 +7,7 @@ edition = "2024"
 name = "api_common"
 
 [dependencies]
+ports = { workspace = true }
 contracts = { workspace = true }
 domain = { workspace = true }
 platform = { workspace = true }

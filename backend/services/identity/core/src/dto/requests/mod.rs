@@ -1,2 +1,2 @@
 pub mod auth;
-pub use shared::client_context;
+pub use domain::context as client_context;

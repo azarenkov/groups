@@ -7,6 +7,7 @@ edition = "2024"
 media = { workspace = true }
 contracts = { workspace = true }
 domain = { workspace = true }
+ports = { workspace = true }
 media-domain = { workspace = true }
 platform = { workspace = true }
 shared = { workspace = true }
