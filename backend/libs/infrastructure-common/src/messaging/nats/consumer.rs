@@ -1,7 +1,7 @@
-use ports::event_consumer::{
+use ports::event_consumer::{Disposition, DispositionFn, 
     ConsumedMessage, EventConsumer, EventConsumerError, StartPosition, SubscribeOptions,
 };
-use async_nats::jetstream::{
+use async_nats::jetstream::{AckKind, 
     Context,
     consumer::{AckPolicy, Consumer, DeliverPolicy, pull},
 };
@@ -119,14 +119,13 @@ impl EventConsumer for NatsEventConsumer {
                                 .map(|v| v.as_str().to_string());
                             let subject =
                                 crate::messaging::partitions::normalize_subject(msg.subject.as_str());
-                            let ack_fn: Box<
-                                dyn FnOnce() -> BoxFuture<
-                                        'static,
-                                        Result<(), EventConsumerError>,
-                                    > + Send,
-                            > = Box::new(move || {
+                            let ack_fn: DispositionFn = Box::new(move |disposition| {
                                 async move {
-                                    msg.ack()
+                                    let kind = match disposition {
+                                        Disposition::Ack => AckKind::Ack,
+                                        Disposition::Retry(delay) => AckKind::Nak(delay),
+                                    };
+                                    msg.ack_with(kind)
                                         .await
                                         .map_err(|e| EventConsumerError::Ack(e.to_string()))
                                 }

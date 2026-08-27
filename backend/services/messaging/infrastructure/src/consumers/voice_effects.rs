@@ -15,6 +15,7 @@ use tracing::Instrument;
 
 const MAX_DELIVER: u32 = 20;
 const ACK_WAIT: std::time::Duration = std::time::Duration::from_secs(300);
+const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
 
 pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
@@ -152,7 +153,10 @@ async fn run<F, Fut>(
                                         }
                                     }
                                     Err(e) => {
-                                        tracing::warn!(error = %e, subject = %m.subject, "Voice effect failed; message will be redelivered");
+                                        tracing::warn!(error = %e, subject = %m.subject, "Voice effect failed; scheduling retry");
+                                        if let Err(e) = m.retry_after(RETRY_DELAY).await {
+                                            tracing::warn!(error = %e, "Voice effect nak failed");
+                                        }
                                     }
                                 }
                             }
