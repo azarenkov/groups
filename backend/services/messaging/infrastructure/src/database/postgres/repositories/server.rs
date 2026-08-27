@@ -450,6 +450,20 @@ impl ServerRepository for PostgresServerRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        let target_server = sqlx::query_scalar!(
+            r#"SELECT server_id FROM server_invite_codes WHERE code = $1"#,
+            code,
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let Some(target_server) = target_server else {
+            return Ok(None);
+        };
+
+        lock_server(&mut tx, &ServerId::new(target_server)).await?;
+
         let invite = sqlx::query!(
             r#"
             SELECT server_id
@@ -469,8 +483,6 @@ impl ServerRepository for PostgresServerRepository {
         let Some(invite) = invite else {
             return Ok(None);
         };
-
-        lock_server(&mut tx, &ServerId::new(invite.server_id)).await?;
 
         let inserted = sqlx::query!(
             r#"

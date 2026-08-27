@@ -58,10 +58,22 @@ where
             return Ok(());
         }
         let removal = async {
+            let mut first_error = None;
             for channel_id in &voice_channel_ids {
-                self.voice_service.remove_participant(channel_id, &user_id).await?;
+                if let Err(e) = self.voice_service.remove_participant(channel_id, &user_id).await {
+                    tracing::warn!(
+                        channel_id = %channel_id.uuid(),
+                        user_id = %user_id.uuid(),
+                        error = %e,
+                        "Failed to remove departed participant from voice room; continuing with remaining rooms",
+                    );
+                    first_error.get_or_insert(e);
+                }
             }
-            Ok::<(), VoiceServiceError>(())
+            match first_error {
+                Some(e) => Err(e),
+                None => Ok::<(), VoiceServiceError>(()),
+            }
         };
         let outcome = tokio::time::timeout(LOCKED_ENFORCEMENT_BUDGET, removal).await;
         drop(tx);
