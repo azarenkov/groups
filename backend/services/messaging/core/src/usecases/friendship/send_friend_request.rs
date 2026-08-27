@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus};
+use messaging_domain::{friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
 
 use crate::dto::requests::friendship::send_friend_request::SendFriendRequestRequest;
@@ -28,23 +28,27 @@ pub enum SendFriendRequestError {
     IncomingPending,
 }
 
-pub struct SendFriendRequest<F, U>
+pub struct SendFriendRequest<F, W, U>
 where
     F: FriendshipRepository,
+    W: FriendshipUnitOfWork,
     U: domain::user_profile::UserProfileRepository,
 {
     friendship_repository: Arc<F>,
+    unit_of_work: Arc<W>,
     user_repository: Arc<U>,
 }
 
-impl<F, U> SendFriendRequest<F, U>
+impl<F, W, U> SendFriendRequest<F, W, U>
 where
     F: FriendshipRepository,
+    W: FriendshipUnitOfWork,
     U: domain::user_profile::UserProfileRepository,
 {
-    pub fn new(friendship_repository: Arc<F>, user_repository: Arc<U>) -> Self {
+    pub fn new(friendship_repository: Arc<F>, unit_of_work: Arc<W>, user_repository: Arc<U>) -> Self {
         Self {
             friendship_repository,
+            unit_of_work,
             user_repository,
         }
     }
@@ -99,9 +103,10 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        self.friendship_repository
-            .save_request_with_events(&outgoing, &incoming, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        tx.insert_request_pair(&outgoing, &incoming).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(target_id)
     }

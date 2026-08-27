@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::RefreshToken, refresh_token::repository::RefreshTokenRepository, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
+use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError};
 
 use crate::{
@@ -31,36 +31,36 @@ pub struct LoginOutcome {
     pub requires_verification: bool,
 }
 
-pub struct LoginUser<T, H, R, I>
+pub struct LoginUser<T, H, W, I>
 where
     T: UserRepository,
     H: Hasher,
-    R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     I: TokenIssuer,
 {
     user_repository: Arc<T>,
     hasher: Arc<H>,
-    refresh_token_repository: Arc<R>,
+    unit_of_work: Arc<W>,
     token_issuer: Arc<I>,
 }
 
-impl<T, H, R, I> LoginUser<T, H, R, I>
+impl<T, H, W, I> LoginUser<T, H, W, I>
 where
     T: UserRepository,
     H: Hasher,
-    R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     I: TokenIssuer,
 {
     pub fn new(
         user_repository: Arc<T>,
         hasher: Arc<H>,
-        refresh_token_repository: Arc<R>,
+        unit_of_work: Arc<W>,
         token_issuer: Arc<I>,
     ) -> Self {
         Self {
             user_repository,
             hasher,
-            refresh_token_repository,
+            unit_of_work,
             token_issuer,
         }
     }
@@ -103,9 +103,10 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(request.ctx.request_id)?];
 
-        self.refresh_token_repository
-            .save_refresh_token_with_events(&refresh_token, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        tx.insert_refresh_token(&refresh_token).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(LoginOutcome {
             tokens,

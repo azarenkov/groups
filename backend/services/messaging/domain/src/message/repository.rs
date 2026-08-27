@@ -1,26 +1,10 @@
 use async_trait::async_trait;
 
-use domain::{attachment::AttachmentLink, user::id::UserId, shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError};
+use domain::{attachment::AttachmentLink, user::id::UserId, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError};
 use crate::{channel::id::ChannelId, message::Message, message::id::MessageId, message::view::MessageView};
 
 #[async_trait]
 pub trait MessageRepository {
-    async fn save_message_with_events(
-        &self,
-        message: &Message,
-        events: &[OutboxRecord],
-        attachments: &[AttachmentLink],
-        mentions: &[uuid::Uuid],
-    ) -> Result<(), RepositoryError>;
-
-    async fn update_message_with_events(
-        &self,
-        message: &Message,
-        events: &[OutboxRecord],
-        add_attachments: &[AttachmentLink],
-        remove_attachment_ids: &[uuid::Uuid],
-        mentions: &[uuid::Uuid],
-    ) -> Result<(), RepositoryError>;
 
     async fn list_attachment_links_for_messages(
         &self,

@@ -63,6 +63,10 @@ use messaging_infrastructure::{
         read_state::PostgresReadStateRepository,
         server::PostgresServerRepository,
         server_role::PostgresServerRoleRepository,
+        channel_unit_of_work::PostgresChannelUnitOfWork,
+        dm_unit_of_work::PostgresDmUnitOfWork,
+        friendship_unit_of_work::PostgresFriendshipUnitOfWork,
+        message_unit_of_work::PostgresMessageUnitOfWork,
         server_unit_of_work::PostgresServerUnitOfWork,
         user_profile::PostgresUserProfileRepository,
     },
@@ -96,12 +100,17 @@ pub struct AppState {
         DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerUnitOfWork>,
     pub list_channel_participants_usecase:
         ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
-    pub join_text_channel_usecase:
-        JoinTextChannel<PostgresChannelRepository, PostgresServerRepository, BcryptHasher>,
+    pub join_text_channel_usecase: JoinTextChannel<
+        PostgresChannelRepository,
+        PostgresServerRepository,
+        PostgresChannelUnitOfWork,
+        BcryptHasher,
+    >,
     pub send_channel_message_usecase: SendChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
+        PostgresMessageUnitOfWork,
         MediaClaimsClient,
         IdentityUsersClient,
     >,
@@ -109,6 +118,7 @@ pub struct AppState {
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
+        PostgresMessageUnitOfWork,
         MediaClaimsClient,
         IdentityUsersClient,
     >,
@@ -131,10 +141,15 @@ pub struct AppState {
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
     pub get_attachment_usecase:
         GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
-    pub send_friend_request_usecase:
-        SendFriendRequest<PostgresFriendshipRepository, PostgresUserProfileRepository>,
-    pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipRepository>,
-    pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipRepository>,
+    pub send_friend_request_usecase: SendFriendRequest<
+        PostgresFriendshipRepository,
+        PostgresFriendshipUnitOfWork,
+        PostgresUserProfileRepository,
+    >,
+    pub accept_friend_request_usecase:
+        AcceptFriendRequest<PostgresFriendshipRepository, PostgresFriendshipUnitOfWork>,
+    pub remove_friendship_usecase:
+        RemoveFriendship<PostgresFriendshipRepository, PostgresFriendshipUnitOfWork>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
@@ -161,7 +176,7 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresFriendshipRepository,
     >,
-    pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub log_call_usecase: LogCall<PostgresDmUnitOfWork, PostgresFriendshipRepository>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
@@ -169,11 +184,13 @@ pub struct AppState {
     pub presence_preference_subject: String,
     pub send_dm_message_usecase: SendDmMessage<
         PostgresDmMessageRepository,
+        PostgresDmUnitOfWork,
         PostgresFriendshipRepository,
         MediaClaimsClient,
     >,
-    pub edit_dm_message_usecase: EditDmMessage<PostgresDmMessageRepository, MediaClaimsClient>,
-    pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository>,
+    pub edit_dm_message_usecase:
+        EditDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork, MediaClaimsClient>,
+    pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase:
         ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
@@ -186,13 +203,18 @@ pub struct AppState {
         PostgresServerUnitOfWork,
     >,
     pub accept_server_invite_usecase:
-        AcceptServerInvite<PostgresDmMessageRepository, PostgresServerRepository>,
-    pub decline_server_invite_usecase: DeclineServerInvite<PostgresDmMessageRepository>,
+        AcceptServerInvite<PostgresDmMessageRepository, PostgresServerUnitOfWork>,
+    pub decline_server_invite_usecase:
+        DeclineServerInvite<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_sent_server_invites_usecase:
         ListSentServerInvites<PostgresDmMessageRepository, PostgresServerRepository>,
-    pub create_server_usecase: CreateServer<PostgresServerRepository>,
-    pub delete_server_usecase:
-        DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+    pub create_server_usecase: CreateServer<PostgresServerUnitOfWork>,
+    pub delete_server_usecase: DeleteServer<
+        PostgresServerRepository,
+        PostgresChannelRepository,
+        PostgresServerUnitOfWork,
+        LiveKitService,
+    >,
     pub update_server_usecase: UpdateServer<PostgresServerUnitOfWork>,
     pub create_invite_code_usecase: CreateInviteCode<PostgresServerUnitOfWork>,
     pub list_invite_codes_usecase:

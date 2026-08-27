@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
-use identity_domain::{user::events::UserEvent, user::events::lifecycle::UserRenamed, user::repository::UserRepository};
+use identity_domain::{unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserRenamed, user::repository::UserRepository};
 
 use crate::ports::text_moderation::{TextModeration, TextModerationError};
 
@@ -22,28 +22,33 @@ pub enum RenameUserError {
     ModerationUnavailable(String),
 }
 
-pub struct RenameUser<U, TM>
+pub struct RenameUser<U, W, TM>
 where
     U: UserRepository,
+    W: IdentityUnitOfWork,
     TM: TextModeration,
 {
     user_repository: Arc<U>,
+    unit_of_work: Arc<W>,
     text_moderation: Arc<TM>,
     reserved_names: Arc<ReservedNames>,
 }
 
-impl<U, TM> RenameUser<U, TM>
+impl<U, W, TM> RenameUser<U, W, TM>
 where
     U: UserRepository,
+    W: IdentityUnitOfWork,
     TM: TextModeration,
 {
     pub fn new(
         user_repository: Arc<U>,
+        unit_of_work: Arc<W>,
         text_moderation: Arc<TM>,
         reserved_names: Arc<ReservedNames>,
     ) -> Self {
         Self {
             user_repository,
+            unit_of_work,
             text_moderation,
             reserved_names,
         }
@@ -68,19 +73,22 @@ where
             }
         }
 
-        let event = UserEvent::Renamed(UserRenamed::record(user_id, name.clone(), Utc::now()));
-        let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
-
-        match self
-            .user_repository
-            .set_name_with_events(&user_id, &name, &records)
-            .await
-        {
+        let persisted = async {
+            let mut tx = self.unit_of_work.begin().await?;
+            tx.set_user_name(&user_id, &name).await?;
+            let event = UserEvent::Renamed(UserRenamed::record(user_id, name.clone(), Utc::now()));
+            let records: Vec<OutboxRecord> = vec![event.to_outbox_record()?];
+            tx.save_outbox(&records).await?;
+            tx.commit().await?;
+            Ok::<(), RenameUserError>(())
+        }
+        .await;
+        match persisted {
             Ok(()) => {}
-            Err(RepositoryError::AlreadyExists) => {
+            Err(RenameUserError::Repository(RepositoryError::AlreadyExists)) => {
                 return Err(RenameUserError::NameTaken);
             }
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         }
 
         Ok(name.as_str().to_string())

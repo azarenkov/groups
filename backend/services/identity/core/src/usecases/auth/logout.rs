@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::repository::RefreshTokenRepository, user::events::UserEvent, user::events::lifecycle::UserLoggedOut};
+use identity_domain::{refresh_token::repository::RefreshTokenRepository, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserLoggedOut};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::{
@@ -23,23 +23,27 @@ pub enum LogoutError {
     UserMismatch,
 }
 
-pub struct Logout<R, I>
+pub struct Logout<R, W, I>
 where
     R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     I: TokenIssuer,
 {
     refresh_token_repository: Arc<R>,
+    unit_of_work: Arc<W>,
     token_issuer: Arc<I>,
 }
 
-impl<R, I> Logout<R, I>
+impl<R, W, I> Logout<R, W, I>
 where
     R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     I: TokenIssuer,
 {
-    pub fn new(refresh_token_repository: Arc<R>, token_issuer: Arc<I>) -> Self {
+    pub fn new(refresh_token_repository: Arc<R>, unit_of_work: Arc<W>, token_issuer: Arc<I>) -> Self {
         Self {
             refresh_token_repository,
+            unit_of_work,
             token_issuer,
         }
     }
@@ -82,9 +86,12 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(request.ctx.request_id)?];
 
-        self.refresh_token_repository
-            .revoke_with_events(&refresh_token, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        if !tx.revoke_refresh_token(&refresh_token).await? {
+            return Ok(());
+        }
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(())
     }

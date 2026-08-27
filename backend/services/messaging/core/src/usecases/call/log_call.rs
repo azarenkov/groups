@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
@@ -17,23 +17,23 @@ pub enum LogCallError {
     NotFriends,
 }
 
-pub struct LogCall<M, F>
+pub struct LogCall<W, F>
 where
-    M: DmMessageRepository,
+    W: DmUnitOfWork,
     F: FriendshipRepository,
 {
-    dm_repository: Arc<M>,
+    unit_of_work: Arc<W>,
     friendship_repository: Arc<F>,
 }
 
-impl<M, F> LogCall<M, F>
+impl<W, F> LogCall<W, F>
 where
-    M: DmMessageRepository,
+    W: DmUnitOfWork,
     F: FriendshipRepository,
 {
-    pub fn new(dm_repository: Arc<M>, friendship_repository: Arc<F>) -> Self {
+    pub fn new(unit_of_work: Arc<W>, friendship_repository: Arc<F>) -> Self {
         Self {
-            dm_repository,
+            unit_of_work,
             friendship_repository,
         }
     }
@@ -75,9 +75,10 @@ where
             "call_duration_seconds",
             serde_json::json!(duration_seconds),
         );
-        self.dm_repository
-            .save_with_events(&message, &records, &[])
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        tx.insert_message(&message, &[]).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
         Ok(())
     }
 }

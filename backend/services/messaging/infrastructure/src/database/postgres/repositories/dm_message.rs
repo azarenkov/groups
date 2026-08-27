@@ -1,13 +1,10 @@
 use async_trait::async_trait;
-use domain::{attachment::AttachmentLink, shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{attachment::AttachmentLink, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId};
 use messaging_domain::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository, dm_message::view::DmMessageView, message::content::MessageContent, server::id::ServerId};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
-use crate::database::postgres::{
-    error::map_sqlx_error_to_domain_error,
-    repositories::outbox_record::save_outbox_records,
-};
+use crate::database::postgres::error::map_sqlx_error_to_domain_error;
 
 pub struct PostgresDmMessageRepository {
     pool: Pool<Postgres>,
@@ -51,7 +48,6 @@ struct MessageCursor {
     id: uuid::Uuid,
     created_at: chrono::DateTime<chrono::Utc>,
 }
-
 
 pub(crate) async fn insert_dm_message(
     tx: &mut sqlx::Transaction<'_, Postgres>,
@@ -98,166 +94,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(rows)
-    }
-
-    async fn save_with_events(
-        &self,
-        message: &DmMessage,
-        events: &[OutboxRecord],
-        attachments: &[AttachmentLink],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        insert_dm_message(&mut tx, message).await?;
-        insert_dm_links(&mut tx, message.id().uuid(), attachments).await?;
-        save_outbox_records(&mut tx, events).await?;
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
-    async fn update_with_events(
-        &self,
-        message: &DmMessage,
-        events: &[OutboxRecord],
-        add_attachments: &[AttachmentLink],
-        remove_attachment_ids: &[Uuid],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        let result = sqlx::query!(
-            r#"
-            UPDATE dm_messages
-            SET content = $2, edited_at = $3
-            WHERE id = $1
-            "#,
-            message.id().uuid(),
-            message.content().as_str(),
-            message.edited_at(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-        if !remove_attachment_ids.is_empty() {
-            let removed_keys = sqlx::query_scalar!(
-                r#"
-                DELETE FROM dm_message_attachments
-                WHERE attachment_id = ANY($1) AND dm_message_id = $2
-                RETURNING storage_key
-                "#,
-                remove_attachment_ids,
-                message.id().uuid(),
-            )
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-            let distinct: std::collections::HashSet<&Uuid> =
-                remove_attachment_ids.iter().collect();
-            if removed_keys.len() != distinct.len() {
-                return Err(RepositoryError::InvalidData(
-                    "attachments unavailable".to_string(),
-                ));
-            }
-            sqlx::query!(
-                r#"
-                INSERT INTO storage_cleanup_queue (storage_key)
-                SELECT * FROM UNNEST($1::text[])
-                ON CONFLICT (storage_key) DO NOTHING
-                "#,
-                &removed_keys,
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        }
-        insert_dm_links(&mut tx, message.id().uuid(), add_attachments).await?;
-        let final_count = sqlx::query_scalar!(
-            r#"
-            SELECT COUNT(*) AS "count!" FROM dm_message_attachments WHERE dm_message_id = $1
-            "#,
-            message.id().uuid(),
-        )
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if final_count > 10 || (final_count == 0 && message.content().as_str().is_empty()) {
-            return Err(RepositoryError::InvalidData(
-                "attachments unavailable".to_string(),
-            ));
-        }
-        save_outbox_records(&mut tx, events).await?;
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
-    async fn delete_with_events(
-        &self,
-        id: &DmMessageId,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let locked = sqlx::query_scalar!(
-            r#"SELECT id FROM dm_messages WHERE id = $1 FOR UPDATE"#,
-            id.uuid(),
-        )
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if locked.is_none() {
-            return Err(RepositoryError::NotFound);
-        }
-
-        let removed_keys = sqlx::query_scalar!(
-            r#"
-            DELETE FROM dm_message_attachments WHERE dm_message_id = $1
-            RETURNING storage_key
-            "#,
-            id.uuid(),
-        )
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT * FROM UNNEST($1::text[])
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            &removed_keys,
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        let result = sqlx::query!(
-            r#"
-            DELETE FROM dm_messages WHERE id = $1
-            "#,
-            id.uuid(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-        save_outbox_records(&mut tx, events).await?;
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
     }
 
     async fn list_attachment_links_for_dm_messages(
@@ -640,7 +476,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     }
 }
 
-async fn insert_dm_links(
+pub(crate) async fn insert_dm_links(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     dm_message_id: Uuid,
     attachments: &[AttachmentLink],

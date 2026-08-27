@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{server::Server, server::description::ServerDescription, server::name::ServerName, server::repository::ServerRepository};
+use messaging_domain::{server::Server, server::description::ServerDescription, server::name::ServerName, server::unit_of_work::ServerUnitOfWork};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::server::create_server::CreateServerRequest;
@@ -13,19 +13,19 @@ pub enum CreateServerError {
     Outbox(#[from] OutboxError),
 }
 
-pub struct CreateServer<T>
+pub struct CreateServer<W>
 where
-    T: ServerRepository,
+    W: ServerUnitOfWork,
 {
-    server_repository: Arc<T>,
+    unit_of_work: Arc<W>,
 }
 
-impl<T> CreateServer<T>
+impl<W> CreateServer<W>
 where
-    T: ServerRepository,
+    W: ServerUnitOfWork,
 {
-    pub fn new(server_repository: Arc<T>) -> Self {
-        Self { server_repository }
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -47,9 +47,10 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        self.server_repository
-            .save_server_with_events(&server, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin(server.id()).await?;
+        tx.insert_server(&server).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(server)
     }

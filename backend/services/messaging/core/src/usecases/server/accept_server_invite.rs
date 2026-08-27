@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, server::repository::ServerRepository};
+use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
@@ -19,24 +19,24 @@ pub enum AcceptServerInviteError {
     NotRecipient,
 }
 
-pub struct AcceptServerInvite<M, S>
+pub struct AcceptServerInvite<M, W>
 where
     M: DmMessageRepository,
-    S: ServerRepository,
+    W: ServerUnitOfWork,
 {
     dm_repository: Arc<M>,
-    server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
 }
 
-impl<M, S> AcceptServerInvite<M, S>
+impl<M, W> AcceptServerInvite<M, W>
 where
     M: DmMessageRepository,
-    S: ServerRepository,
+    W: ServerUnitOfWork,
 {
-    pub fn new(dm_repository: Arc<M>, server_repository: Arc<S>) -> Self {
+    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>) -> Self {
         Self {
             dm_repository,
-            server_repository,
+            unit_of_work,
         }
     }
 
@@ -74,9 +74,10 @@ where
         );
         records.push(member_event.to_outbox_record_with_request_id(request_id.clone())?);
 
-        self.server_repository
-            .accept_invite(&message_id, &server_id, &requester_id, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        tx.accept_invite(&message_id, &requester_id).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(server_id.uuid())
     }

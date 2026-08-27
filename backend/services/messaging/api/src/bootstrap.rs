@@ -69,6 +69,10 @@ use messaging_infrastructure::{
             notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
             server_role::PostgresServerRoleRepository,
+            channel_unit_of_work::PostgresChannelUnitOfWork,
+            dm_unit_of_work::PostgresDmUnitOfWork,
+            friendship_unit_of_work::PostgresFriendshipUnitOfWork,
+            message_unit_of_work::PostgresMessageUnitOfWork,
             server_unit_of_work::PostgresServerUnitOfWork,
             user_profile::PostgresUserProfileRepository,
         },
@@ -112,6 +116,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let server_role_repository =
         Arc::new(PostgresServerRoleRepository::new(postgres_pool.clone()));
     let server_unit_of_work = Arc::new(PostgresServerUnitOfWork::new(postgres_pool.clone()));
+    let message_unit_of_work = Arc::new(PostgresMessageUnitOfWork::new(postgres_pool.clone()));
+    let dm_unit_of_work = Arc::new(PostgresDmUnitOfWork::new(postgres_pool.clone()));
+    let friendship_unit_of_work =
+        Arc::new(PostgresFriendshipUnitOfWork::new(postgres_pool.clone()));
+    let channel_unit_of_work = Arc::new(PostgresChannelUnitOfWork::new(postgres_pool.clone()));
     let notification_preference_repository = Arc::new(
         PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
     );
@@ -194,12 +203,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         join_text_channel_usecase: JoinTextChannel::new(
             channel_repository.clone(),
             server_repository.clone(),
+            channel_unit_of_work.clone(),
             hasher.clone(),
         ),
         send_channel_message_usecase: SendChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
+            message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
         ),
@@ -207,6 +218,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
+            message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
         ),
@@ -236,10 +248,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         send_friend_request_usecase: SendFriendRequest::new(
             friendship_repository.clone(),
+            friendship_unit_of_work.clone(),
             user_repository.clone(),
         ),
-        accept_friend_request_usecase: AcceptFriendRequest::new(friendship_repository.clone()),
-        remove_friendship_usecase: RemoveFriendship::new(friendship_repository.clone()),
+        accept_friend_request_usecase: AcceptFriendRequest::new(
+            friendship_repository.clone(),
+            friendship_unit_of_work.clone(),
+        ),
+        remove_friendship_usecase: RemoveFriendship::new(
+            friendship_repository.clone(),
+            friendship_unit_of_work.clone(),
+        ),
         list_friends_usecase: ListFriends::new(friendship_repository.clone()),
         mark_channel_read_usecase: MarkChannelRead::new(
             read_state_repository.clone(),
@@ -280,7 +299,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             friendship_repository.clone(),
         ),
-        log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
+        log_call_usecase: LogCall::new(dm_unit_of_work.clone(), friendship_repository.clone()),
         server_repository: server_repository.clone(),
         message_repository: message_repository.clone(),
         friendship_repository: friendship_repository.clone(),
@@ -288,14 +307,19 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         presence_preference_subject,
         send_dm_message_usecase: SendDmMessage::new(
             dm_repository.clone(),
+            dm_unit_of_work.clone(),
             friendship_repository.clone(),
             attachment_claims.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),
+            dm_unit_of_work.clone(),
             attachment_claims.clone(),
         ),
-        delete_dm_message_usecase: DeleteDmMessage::new(dm_repository.clone()),
+        delete_dm_message_usecase: DeleteDmMessage::new(
+            dm_repository.clone(),
+            dm_unit_of_work.clone(),
+        ),
         list_dm_previews_usecase: ListDmPreviews::new(dm_repository.clone()),
         list_dm_messages_usecase: ListDmMessages::new(
             dm_repository.clone(),
@@ -313,17 +337,21 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         accept_server_invite_usecase: AcceptServerInvite::new(
             dm_repository.clone(),
-            server_repository.clone(),
+            server_unit_of_work.clone(),
         ),
-        decline_server_invite_usecase: DeclineServerInvite::new(dm_repository.clone()),
+        decline_server_invite_usecase: DeclineServerInvite::new(
+            dm_repository.clone(),
+            dm_unit_of_work.clone(),
+        ),
         list_sent_server_invites_usecase: ListSentServerInvites::new(
             dm_repository.clone(),
             server_repository.clone(),
         ),
-        create_server_usecase: CreateServer::new(server_repository.clone()),
+        create_server_usecase: CreateServer::new(server_unit_of_work.clone()),
         delete_server_usecase: DeleteServer::new(
             server_repository.clone(),
             channel_repository.clone(),
+            server_unit_of_work.clone(),
             livekit_service.clone(),
         ),
         update_server_usecase: UpdateServer::new(server_unit_of_work.clone()),

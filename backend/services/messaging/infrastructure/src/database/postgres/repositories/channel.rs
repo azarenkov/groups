@@ -28,42 +28,6 @@ impl PostgresChannelRepository {
 
 #[async_trait]
 impl ChannelRepository for PostgresChannelRepository {
-    async fn update_channel_with_events(
-        &self,
-        channel: &Channel,
-        events: &[OutboxRecord],
-        voice_changes: &[VoiceChange],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let result = sqlx::query!(
-            r#"
-            UPDATE channels
-            SET last_join = GREATEST(last_join, $2)
-            WHERE id = $1
-            "#,
-            channel.id().uuid(),
-            channel.last_join(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-
-        apply_voice_changes(&mut tx, channel.id(), voice_changes).await?;
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
 
     async fn apply_participant_joined(
         &self,
@@ -296,41 +260,6 @@ impl ChannelRepository for PostgresChannelRepository {
         }
 
         Ok(PaginatedResult::new(Vec::new(), 0, pagination))
-    }
-
-    async fn join_text_with_events(
-        &self,
-        channel: &Channel,
-        joined_user_id: &UserId,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let result = sqlx::query!(
-            r#"
-            INSERT INTO channel_text_participants (channel_id, user_id)
-            VALUES ($1, $2)
-            ON CONFLICT DO NOTHING
-            "#,
-            channel.id().uuid(),
-            joined_user_id.uuid(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if result.rows_affected() == 0 {
-            return Ok(());
-        }
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
     }
 
     async fn list_voice_presence_for_server(

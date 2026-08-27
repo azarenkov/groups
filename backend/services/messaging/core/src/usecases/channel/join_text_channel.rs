@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, channel::unit_of_work::ChannelUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::{
@@ -31,27 +31,36 @@ pub enum JoinTextChannelError {
     InvalidPassword,
 }
 
-pub struct JoinTextChannel<C, S, H>
+pub struct JoinTextChannel<C, S, W, H>
 where
     C: ChannelRepository,
     S: ServerRepository,
+    W: ChannelUnitOfWork,
     H: Hasher,
 {
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
     hasher: Arc<H>,
 }
 
-impl<C, S, H> JoinTextChannel<C, S, H>
+impl<C, S, W, H> JoinTextChannel<C, S, W, H>
 where
     C: ChannelRepository,
     S: ServerRepository,
+    W: ChannelUnitOfWork,
     H: Hasher,
 {
-    pub fn new(channel_repository: Arc<C>, server_repository: Arc<S>, hasher: Arc<H>) -> Self {
+    pub fn new(
+        channel_repository: Arc<C>,
+        server_repository: Arc<S>,
+        unit_of_work: Arc<W>,
+        hasher: Arc<H>,
+    ) -> Self {
         Self {
             channel_repository,
             server_repository,
+            unit_of_work,
             hasher,
         }
     }
@@ -130,9 +139,12 @@ where
             crate::usecases::enrichment::recipient_ids_value(&recipient_ids),
         );
 
-        self.channel_repository
-            .join_text_with_events(&channel, &requester_id, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        if !tx.join_text(&channel_id, &requester_id).await? {
+            return Ok(());
+        }
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(())
     }
