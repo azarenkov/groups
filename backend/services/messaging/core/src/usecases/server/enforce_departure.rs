@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use domain::user::id::UserId;
 use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
@@ -12,7 +12,11 @@ pub enum EnforceServerDepartureError {
     Repository(#[from] RepositoryError),
     #[error("Voice service error: {0}")]
     VoiceService(#[from] VoiceServiceError),
+    #[error("Voice service did not respond within {0:?}")]
+    Timeout(Duration),
 }
+
+const LOCKED_ENFORCEMENT_BUDGET: Duration = Duration::from_secs(5);
 
 pub struct EnforceServerDeparture<W, C, V>
 where
@@ -53,10 +57,17 @@ where
         if server.is_member(&user_id) {
             return Ok(());
         }
-        for channel_id in &voice_channel_ids {
-            self.voice_service.remove_participant(channel_id, &user_id).await?;
-        }
+        let removal = async {
+            for channel_id in &voice_channel_ids {
+                self.voice_service.remove_participant(channel_id, &user_id).await?;
+            }
+            Ok::<(), VoiceServiceError>(())
+        };
+        let outcome = tokio::time::timeout(LOCKED_ENFORCEMENT_BUDGET, removal).await;
         drop(tx);
-        Ok(())
+        match outcome {
+            Ok(result) => result.map_err(EnforceServerDepartureError::from),
+            Err(_) => Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET)),
+        }
     }
 }
