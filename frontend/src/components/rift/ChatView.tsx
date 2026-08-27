@@ -2936,6 +2936,7 @@ const Message: React.FC<MessageProps> = ({
         {!isMine &&
           !editing &&
           !msg.inviteServerId &&
+          !msg.callStatus &&
           (msg.content.length > 0 || canModerate) && (
             <div className="msg-actions">
               {msg.content.length > 0 && (
