@@ -10,7 +10,7 @@ use messaging::{
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
     usecases::server::enforce_departure::EnforceServerDeparture,
 };
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 use tracing::Instrument;
 
 const MAX_DELIVER: u32 = 20;
@@ -21,22 +21,22 @@ pub struct VoiceEffectsSpec {
     pub server_stream: String,
 }
 
-pub fn spawn<C, S, V>(
+pub fn spawn<C, W, V>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
-    server_repository: Arc<S>,
+    server_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
-    S: ServerRepository + Send + Sync + 'static,
+    W: ServerUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
     let enforce_mute = Arc::new(EnforceVoiceMute::new(channel_repository.clone(), voice_service.clone()));
     let enforce_departure = Arc::new(EnforceServerDeparture::new(
-        server_repository,
+        server_unit_of_work,
         channel_repository,
         voice_service,
     ));

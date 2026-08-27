@@ -159,7 +159,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_stream,
         },
         channel_repository.clone(),
-        server_repository.clone(),
+        server_unit_of_work.clone(),
         livekit_service.clone(),
     );
 

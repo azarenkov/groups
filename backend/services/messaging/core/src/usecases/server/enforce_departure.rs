@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::user::id::UserId;
-use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
@@ -14,42 +14,49 @@ pub enum EnforceServerDepartureError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct EnforceServerDeparture<S, C, V>
+pub struct EnforceServerDeparture<W, C, V>
 where
-    S: ServerRepository,
+    W: ServerUnitOfWork,
     C: ChannelRepository,
     V: VoiceService,
 {
-    server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
 }
 
-impl<S, C, V> EnforceServerDeparture<S, C, V>
+impl<W, C, V> EnforceServerDeparture<W, C, V>
 where
-    S: ServerRepository,
+    W: ServerUnitOfWork,
     C: ChannelRepository,
     V: VoiceService,
 {
-    pub fn new(server_repository: Arc<S>, channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
+    pub fn new(unit_of_work: Arc<W>, channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
         Self {
-            server_repository,
+            unit_of_work,
             channel_repository,
             voice_service,
         }
     }
 
     pub async fn execute(&self, server_id: ServerId, user_id: UserId) -> Result<(), EnforceServerDepartureError> {
-        if self.server_repository.is_server_member(&server_id, &user_id).await? {
-            return Ok(());
-        }
-        for channel_id in self
+        let voice_channel_ids = self
             .channel_repository
             .list_voice_channel_ids_by_server(&server_id)
-            .await?
-        {
-            self.voice_service.remove_participant(&channel_id, &user_id).await?;
+            .await?;
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let server = match tx.load_server().await {
+            Ok(server) => server,
+            Err(RepositoryError::NotFound) => return Ok(()),
+            Err(e) => return Err(e.into()),
+        };
+        if server.is_member(&user_id) {
+            return Ok(());
         }
+        for channel_id in &voice_channel_ids {
+            self.voice_service.remove_participant(channel_id, &user_id).await?;
+        }
+        drop(tx);
         Ok(())
     }
 }
