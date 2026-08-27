@@ -132,7 +132,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let channel_stream = std::env::var("MESSAGING_CHANNEL_STREAM")
         .unwrap_or_else(|_| "RIFT_CHANNEL_EVENTS".to_string());
-    crate::webhook_projection::spawn(
+    messaging_infrastructure::consumers::voice_webhooks::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         channel_stream,

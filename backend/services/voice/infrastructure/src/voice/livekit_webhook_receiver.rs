@@ -1,9 +1,9 @@
+use contracts::events::webhook::{ConnectionAbortReasonV1, LeaveReasonV1, MediaSourceV1};
 use voice::ports::voice_webhook_verifier::{
     VerifiedVoiceWebhookEvent, VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError,
     WebhookSource,
 };
 use chrono::{DateTime, Utc};
-use domain::voice::{ConnectionAbortReason, LeaveReason, MediaSource};
 use livekit_api::{access_token::TokenVerifier, webhooks::WebhookReceiver};
 use livekit_protocol::{DisconnectReason, ParticipantInfo, Room, TrackInfo, TrackSource};
 use uuid::Uuid;
@@ -196,10 +196,10 @@ fn map_leave_reason(
     }
 }
 
-fn media_source_from(track: &TrackInfo) -> Option<MediaSource> {
+fn media_source_from(track: &TrackInfo) -> Option<MediaSourceV1> {
     match TrackSource::try_from(track.source).ok()? {
-        TrackSource::Camera => Some(MediaSource::Camera),
-        TrackSource::ScreenShare => Some(MediaSource::Screen),
+        TrackSource::Camera => Some(MediaSourceV1::Camera),
+        TrackSource::ScreenShare => Some(MediaSourceV1::Screen),
         _ => None,
     }
 }
@@ -211,26 +211,26 @@ fn require_sid(participant: &ParticipantInfo) -> Result<String, VoiceWebhookVeri
     Ok(participant.sid.clone())
 }
 
-fn leave_reason_from(reason: DisconnectReason) -> LeaveReason {
+fn leave_reason_from(reason: DisconnectReason) -> LeaveReasonV1 {
     match reason {
-        DisconnectReason::ClientInitiated => LeaveReason::ClientInitiated,
-        DisconnectReason::ParticipantRemoved => LeaveReason::Kicked,
-        DisconnectReason::DuplicateIdentity => LeaveReason::DuplicateIdentity,
-        DisconnectReason::ServerShutdown => LeaveReason::ServerShutdown,
-        DisconnectReason::RoomDeleted | DisconnectReason::RoomClosed => LeaveReason::RoomClosed,
-        _ => LeaveReason::Unknown,
+        DisconnectReason::ClientInitiated => LeaveReasonV1::ClientInitiated,
+        DisconnectReason::ParticipantRemoved => LeaveReasonV1::Kicked,
+        DisconnectReason::DuplicateIdentity => LeaveReasonV1::DuplicateIdentity,
+        DisconnectReason::ServerShutdown => LeaveReasonV1::ServerShutdown,
+        DisconnectReason::RoomDeleted | DisconnectReason::RoomClosed => LeaveReasonV1::RoomClosed,
+        _ => LeaveReasonV1::Unknown,
     }
 }
 
-fn abort_reason_from(reason: DisconnectReason) -> ConnectionAbortReason {
+fn abort_reason_from(reason: DisconnectReason) -> ConnectionAbortReasonV1 {
     match reason {
-        DisconnectReason::SignalClose => ConnectionAbortReason::SignalClose,
-        DisconnectReason::MediaFailure => ConnectionAbortReason::MediaFailure,
-        DisconnectReason::ConnectionTimeout => ConnectionAbortReason::ConnectionTimeout,
-        DisconnectReason::StateMismatch => ConnectionAbortReason::StateMismatch,
-        DisconnectReason::JoinFailure => ConnectionAbortReason::JoinFailure,
-        DisconnectReason::UnknownReason => ConnectionAbortReason::Unknown,
-        _ => ConnectionAbortReason::Other,
+        DisconnectReason::SignalClose => ConnectionAbortReasonV1::SignalClose,
+        DisconnectReason::MediaFailure => ConnectionAbortReasonV1::MediaFailure,
+        DisconnectReason::ConnectionTimeout => ConnectionAbortReasonV1::ConnectionTimeout,
+        DisconnectReason::StateMismatch => ConnectionAbortReasonV1::StateMismatch,
+        DisconnectReason::JoinFailure => ConnectionAbortReasonV1::JoinFailure,
+        DisconnectReason::UnknownReason => ConnectionAbortReasonV1::Unknown,
+        _ => ConnectionAbortReasonV1::Other,
     }
 }
 

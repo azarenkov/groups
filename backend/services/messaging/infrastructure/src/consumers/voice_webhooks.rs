@@ -46,7 +46,7 @@ pub fn spawn<T, S, V>(
     S: messaging_domain::server::repository::ServerRepository + Send + Sync + 'static,
     V: messaging::ports::voice_service::VoiceService + Send + Sync + 'static,
 {
-    actix_web::rt::spawn(async move {
+    tokio::spawn(async move {
         let prefix = subject_prefix.trim_end_matches('.').to_string();
         let consumer = NatsEventConsumer::new(jetstream, stream.clone());
         let admit_uc = AdmitVoiceParticipant::new(
@@ -120,7 +120,7 @@ pub fn spawn<T, S, V>(
                     tracing::warn!(error = %e, "Webhook projection subscribe failed; retrying");
                 }
             }
-            actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });
 }

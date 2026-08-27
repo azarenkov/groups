@@ -14,7 +14,6 @@ mod roles;
 mod routes;
 mod server;
 mod state;
-mod webhook_projection;
 
 use std::error::Error;
 

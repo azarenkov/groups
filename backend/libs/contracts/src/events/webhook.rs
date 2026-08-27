@@ -10,6 +10,30 @@ pub enum MediaSourceV1 {
     Screen,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LeaveReasonV1 {
+    ClientInitiated,
+    Kicked,
+    DuplicateIdentity,
+    ServerShutdown,
+    RoomClosed,
+    Unknown,
+}
+
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConnectionAbortReasonV1 {
+    SignalClose,
+    MediaFailure,
+    ConnectionTimeout,
+    StateMismatch,
+    JoinFailure,
+    Unknown,
+    Other,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookEventV1 {
     pub channel_id: Uuid,
