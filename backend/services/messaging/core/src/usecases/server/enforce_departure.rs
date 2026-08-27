@@ -57,29 +57,29 @@ where
         if server.is_member(&user_id) {
             return Ok(());
         }
-        let removal = async {
-            let mut first_error = None;
-            for channel_id in &voice_channel_ids {
-                if let Err(e) = self.voice_service.remove_participant(channel_id, &user_id).await {
-                    tracing::warn!(
-                        channel_id = %channel_id.uuid(),
-                        user_id = %user_id.uuid(),
-                        error = %e,
-                        "Failed to remove departed participant from voice room; continuing with remaining rooms",
-                    );
-                    first_error.get_or_insert(e);
-                }
+        let removals = voice_channel_ids.iter().map(|channel_id| async move {
+            let outcome = tokio::time::timeout(
+                LOCKED_ENFORCEMENT_BUDGET,
+                self.voice_service.remove_participant(channel_id, &user_id),
+            )
+            .await;
+            let result = match outcome {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(e)) => Err(EnforceServerDepartureError::VoiceService(e)),
+                Err(_) => Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET)),
+            };
+            if let Err(e) = &result {
+                tracing::warn!(
+                    channel_id = %channel_id.uuid(),
+                    user_id = %user_id.uuid(),
+                    error = %e,
+                    "Failed to remove departed participant from voice room",
+                );
             }
-            match first_error {
-                Some(e) => Err(e),
-                None => Ok::<(), VoiceServiceError>(()),
-            }
-        };
-        let outcome = tokio::time::timeout(LOCKED_ENFORCEMENT_BUDGET, removal).await;
+            result
+        });
+        let results = futures::future::join_all(removals).await;
         drop(tx);
-        match outcome {
-            Ok(result) => result.map_err(EnforceServerDepartureError::from),
-            Err(_) => Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET)),
-        }
+        results.into_iter().find(Result::is_err).unwrap_or(Ok(()))
     }
 }
