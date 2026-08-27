@@ -173,7 +173,7 @@ where
         let outcome = channel.unmute(target, initiator, can_override, now)?;
         let downgrade = outcome == domain::channel::UnmuteOutcome::DowngradedToSelfMute;
         let expected_muted_by = observed_muted_by.as_ref();
-        let inherent = is_server_owner || channel.owner_id() == &initiator;
+        let inherent = is_server_owner;
         let delegated = !inherent && target != initiator;
 
         let request_id = request.ctx.request_id.clone();

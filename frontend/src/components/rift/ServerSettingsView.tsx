@@ -867,7 +867,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                           <Icon name="lock" size={11} />
                         </span>
                       )}
-                      {(canManageChannels || c.ownerId === currentUserId) && (
+                      {canManageChannels && (
                         <button
                           type="button"
                           className="ssv-row-delete"

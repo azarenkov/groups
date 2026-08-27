@@ -199,8 +199,7 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        let inherent = server_owner.as_ref() == Some(&initiator)
-            || channel.owner_id() == &initiator;
+        let inherent = server_owner.as_ref() == Some(&initiator);
         let delegated = target != initiator && !inherent;
         let moderator_mute = target != initiator;
         let muted_sids = if moderator_mute {

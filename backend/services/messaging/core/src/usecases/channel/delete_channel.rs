@@ -93,8 +93,7 @@ where
             .server_repository
             .find_server_owner(&server_id)
             .await?;
-        let inherent = channel.owner_id() == &deleted_by
-            || server_owner.as_ref() == Some(&deleted_by);
+        let inherent = server_owner.as_ref() == Some(&deleted_by);
         let allowed = inherent
             || has_permission(
                 self.role_repository
