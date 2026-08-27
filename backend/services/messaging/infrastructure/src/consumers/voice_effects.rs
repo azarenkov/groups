@@ -50,7 +50,11 @@ pub fn spawn<C, W, V>(
     {
         let jetstream = jetstream.clone();
         let subject = format!("{prefix}.channel.*.participant.muted");
-        let extra = vec![format!("{prefix}.channel.*.participant.unmuted")];
+        let extra = vec![
+            format!("{prefix}.channel.*.participant.unmuted"),
+            format!("{prefix}.channel.participant.muted"),
+            format!("{prefix}.channel.participant.unmuted"),
+        ];
         let dlq = dlq.clone();
         tokio::spawn(async move {
             run(
@@ -90,7 +94,7 @@ pub fn spawn<C, W, V>(
                 spec.server_stream,
                 "messaging-voice-effects-server".to_string(),
                 subject,
-                Vec::new(),
+                vec![format!("{prefix}.server.member_left")],
                 dlq,
                 move |subject, payload| {
                     let enforce_departure = enforce_departure.clone();

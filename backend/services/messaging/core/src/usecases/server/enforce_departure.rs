@@ -24,7 +24,7 @@ pub struct EnforceServerDeparture<W, C, V>
 where
     W: ServerUnitOfWork,
     C: ChannelRepository,
-    V: VoiceService,
+    V: VoiceService + Send + Sync + 'static,
 {
     unit_of_work: Arc<W>,
     channel_repository: Arc<C>,
@@ -35,7 +35,7 @@ impl<W, C, V> EnforceServerDeparture<W, C, V>
 where
     W: ServerUnitOfWork,
     C: ChannelRepository,
-    V: VoiceService,
+    V: VoiceService + Send + Sync + 'static,
 {
     pub fn new(unit_of_work: Arc<W>, channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
         Self {
@@ -71,16 +71,19 @@ where
         let effects = stream::iter(actions).map(|(channel_id, action)| {
             let voice_service = self.voice_service.clone();
             async move {
-                let call = async {
+                let call = tokio::spawn(async move {
                     match action {
                         VoiceAction::Remove => voice_service.remove_participant(&channel_id, &user_id).await,
                         VoiceAction::Mute => voice_service.mute_participant(&channel_id, &user_id).await,
                         VoiceAction::Unmute => voice_service.unmute_participant(&channel_id, &user_id).await,
                     }
-                };
+                });
                 let result = match tokio::time::timeout(LOCKED_ENFORCEMENT_BUDGET, call).await {
-                    Ok(Ok(())) => Ok(()),
-                    Ok(Err(e)) => Err(EnforceServerDepartureError::VoiceService(e)),
+                    Ok(Ok(Ok(()))) => Ok(()),
+                    Ok(Ok(Err(e))) => Err(EnforceServerDepartureError::VoiceService(e)),
+                    Ok(Err(join)) => Err(EnforceServerDepartureError::VoiceService(
+                        VoiceServiceError::ParticipantRemoval(join.to_string()),
+                    )),
                     Err(_) => Err(EnforceServerDepartureError::Timeout(LOCKED_ENFORCEMENT_BUDGET)),
                 };
                 if let Err(e) = &result {
