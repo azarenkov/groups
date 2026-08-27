@@ -218,9 +218,12 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
 
   clearChannel: (channelId) =>
     set((state) => {
-      if (!(channelId in state.byChannel)) return state;
+      const hasRoster = channelId in state.byChannel;
+      const hasPending = channelId in state.pendingMutes;
+      if (!hasRoster && !hasPending) return state;
       const { [channelId]: _gone, ...rest } = state.byChannel;
-      return { byChannel: rest };
+      const { [channelId]: _pendingGone, ...pendingRest } = state.pendingMutes;
+      return { byChannel: rest, pendingMutes: pendingRest };
     }),
 
   clearAll: () => set({ byChannel: {}, pendingMutes: {} }),
