@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use voice::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
-use domain::{user::id::UserId, user_profile::UserProfileRepository};
+use domain::user::id::UserId;
+use ports::user_profile::UserProfileRepository;
 use futures::StreamExt;
 use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;

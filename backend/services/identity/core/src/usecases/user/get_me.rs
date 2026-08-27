@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use identity_domain::{user::locale::Locale, user::repository::UserRepository};
 use uuid::Uuid;
 

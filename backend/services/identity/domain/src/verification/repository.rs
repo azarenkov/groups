@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use domain::shared::repository::error::RepositoryError;
+use ports::repository::RepositoryError;
 use crate::{user::id::UserId, verification::code::VerificationCode, verification::id::VerificationCodeId};
 
 #[async_trait]

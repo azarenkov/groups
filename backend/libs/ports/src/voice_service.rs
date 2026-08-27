@@ -1,9 +1,5 @@
 use async_trait::async_trait;
-use domain::{
-    channel::{id::ChannelId, token::ChannelToken},
-    server::id::ServerId,
-    user::{id::UserId, name::UserName},
-};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, user::id::UserId, user::name::UserName};
 
 #[async_trait]
 pub trait VoiceService {

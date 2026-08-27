@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use media_domain::media::repository::MediaRepository;
-use domain::{server::id::ServerId, shared::repository::error::RepositoryError};
+use domain::server::id::ServerId;
+use ports::repository::RepositoryError;
 
 use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
 

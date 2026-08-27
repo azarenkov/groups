@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use crate::{channel::Channel, channel::ChannelError, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::session_id::SessionId};
-use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use domain::{pagination::PaginatedResult, pagination::Pagination, user::id::UserId, user::name::UserName};
+use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ChannelOperationError {

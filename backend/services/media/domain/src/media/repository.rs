@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use domain::{server::id::ServerId, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{server::id::ServerId, user::id::UserId};
+use ports::repository::RepositoryError;
 
 #[async_trait]
 pub trait MediaRepository {

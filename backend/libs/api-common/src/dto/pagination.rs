@@ -1,6 +1,4 @@
-use domain::shared::pagination::{
-    DEFAULT_PAGE, DEFAULT_PER_PAGE, MAX_PER_PAGE, MIN_PAGES, MIN_PER_PAGE,
-};
+use domain::{pagination::DEFAULT_PAGE, pagination::DEFAULT_PER_PAGE, pagination::MAX_PER_PAGE, pagination::MIN_PAGES, pagination::MIN_PER_PAGE};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 

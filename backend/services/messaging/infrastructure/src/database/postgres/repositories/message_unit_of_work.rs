@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
-use domain::{attachment::AttachmentLink, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError};
+use domain::attachment::AttachmentLink;
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use messaging_domain::{message::Message, message::unit_of_work::MessageTransaction, message::unit_of_work::MessageUnitOfWork};
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;

@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::repository::ServerRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 use crate::dto::{
     requests::channel::list_channel_messages::ListChannelMessagesRequest,

@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use crate::{user::User, user::email::Email, user::id::UserId, user::locale::Locale, user::name::UserName};
-use domain::{shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash};
+use domain::password_hash::PasswordHash;
+use ports::repository::RepositoryError;
 
 #[async_trait]
 pub trait UserRepository {

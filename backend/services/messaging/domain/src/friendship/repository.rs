@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 
 use crate::{friendship::status::FriendshipStatus, friendship::view::FriendshipView, friendship::Friendship};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[async_trait]
 pub trait FriendshipRepository {

@@ -4,14 +4,6 @@ pub const MIN_PAGES: u32 = 1;
 pub const DEFAULT_PER_PAGE: u32 = 20;
 pub const DEFAULT_PAGE: u32 = 1;
 
-#[derive(Debug, thiserror::Error)]
-pub enum PaginationError {
-    #[error("page must be >= 1")]
-    InvalidPage,
-    #[error("per_page must be between 1 and {0}")]
-    InvalidPerPage(u32),
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct Pagination {
     page: u32,
@@ -19,14 +11,11 @@ pub struct Pagination {
 }
 
 impl Pagination {
-    pub fn new(page: u32, per_page: u32) -> Result<Self, PaginationError> {
-        if page < MIN_PER_PAGE {
-            return Err(PaginationError::InvalidPage);
+    pub fn new(page: u32, per_page: u32) -> Option<Self> {
+        if page < MIN_PAGES || !(MIN_PER_PAGE..=MAX_PER_PAGE).contains(&per_page) {
+            return None;
         }
-        if !(MIN_PER_PAGE..=MAX_PER_PAGE).contains(&per_page) {
-            return Err(PaginationError::InvalidPerPage(MAX_PER_PAGE));
-        }
-        Ok(Self { page, per_page })
+        Some(Self { page, per_page })
     }
     pub fn offset(&self) -> i64 {
         (self.page as i64 - 1) * self.per_page as i64

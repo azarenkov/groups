@@ -1,7 +1,7 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, put, web};
 use messaging::dto::requests::server::delete_server::DeleteServerRequest;
 use messaging_domain::server::id::ServerId;
-use domain::{shared::pagination::Pagination, user::id::UserId};
+use domain::user::id::UserId;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;
@@ -42,7 +42,7 @@ async fn list_servers_by_user(
     query.validate()?;
 
     let user_id = UserId::new(auth_token.id);
-    let pagination = Pagination::new(query.page, query.per_page)?;
+    let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let result = app_state
         .list_servers_by_user_usecase
@@ -66,7 +66,7 @@ async fn list_server_members(
 
     let server_id = ServerId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
-    let pagination = Pagination::new(query.page, query.per_page)?;
+    let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_members_usecase
@@ -90,7 +90,7 @@ async fn list_server_channels(
 
     let server_id = ServerId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
-    let pagination = Pagination::new(query.page, query.per_page)?;
+    let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let result = app_state
         .list_server_channels_usecase

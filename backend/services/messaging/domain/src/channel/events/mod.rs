@@ -3,7 +3,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, server::id::ServerId};
-use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord};
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord};
 
 pub mod lifecycle;
 pub mod participant;

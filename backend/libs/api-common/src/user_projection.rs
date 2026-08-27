@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
-use domain::{user::id::UserId, user_profile::UserProfileRepository};
+use domain::user::id::UserId;
+use ports::{event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, user_profile::UserProfileRepository};
 use futures::StreamExt;
 use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;

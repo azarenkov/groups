@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelOperationError, channel::repository::ChannelRepository, channel::session_id::SessionId};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 use crate::dto::requests::channel::join_voice_connection::JoinVoiceConnectionRequest;
 

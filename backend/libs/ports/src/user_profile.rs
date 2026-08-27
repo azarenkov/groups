@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+
+use crate::repository::RepositoryError;
 
 #[async_trait]
 pub trait UserProfileRepository {

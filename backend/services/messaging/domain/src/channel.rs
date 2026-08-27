@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 
 use crate::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, channel::visibility::ChannelVisibility, server::id::ServerId};
-use domain::{shared::value_objects::password_hash::PasswordHash, user::id::UserId};
+use domain::{password_hash::PasswordHash, user::id::UserId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnmuteOutcome {

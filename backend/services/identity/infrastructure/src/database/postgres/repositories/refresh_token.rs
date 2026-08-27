@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use identity_domain::{refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, refresh_token::repository::RefreshTokenRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{

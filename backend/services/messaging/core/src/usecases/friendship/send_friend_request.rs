@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use messaging_domain::{friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use domain::{user::id::UserId, user::name::UserName};
+use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 
 use crate::dto::requests::friendship::send_friend_request::SendFriendRequestRequest;
 
@@ -32,7 +33,7 @@ pub struct SendFriendRequest<F, W, U>
 where
     F: FriendshipRepository,
     W: FriendshipUnitOfWork,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
 {
     friendship_repository: Arc<F>,
     unit_of_work: Arc<W>,
@@ -43,7 +44,7 @@ impl<F, W, U> SendFriendRequest<F, W, U>
 where
     F: FriendshipRepository,
     W: FriendshipUnitOfWork,
-    U: domain::user_profile::UserProfileRepository,
+    U: ports::user_profile::UserProfileRepository,
 {
     pub fn new(friendship_repository: Arc<F>, unit_of_work: Arc<W>, user_repository: Arc<U>) -> Self {
         Self {

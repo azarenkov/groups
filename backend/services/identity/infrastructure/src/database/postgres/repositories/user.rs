@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 
 use identity_domain::{user::User, user::email::Email, user::locale::Locale, user::repository::UserRepository};
-use domain::{shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use domain::{password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{

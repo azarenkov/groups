@@ -1,4 +1,4 @@
-use crate::shared::outbox::outbox_record::OutboxRecord;
+use crate::outbox::record::OutboxRecord;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OutboxError {

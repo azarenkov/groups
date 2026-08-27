@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use voice_domain::call::repository::CallRepository;
-use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use serde_json::json;
 use uuid::Uuid;
 

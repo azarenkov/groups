@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use domain::{attachment::AttachmentLink, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
+use ports::repository::RepositoryError;
 use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use identity_domain::{verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::repository::VerificationCodeRepository};
 use sqlx::{Pool, Postgres};
 

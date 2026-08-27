@@ -20,7 +20,7 @@ use messaging::{
 };
 use chrono::Utc;
 use messaging_domain::{channel::events::participant::ConnectionAbortReason, channel::events::participant::MediaSource, channel::repository::ChannelRepository};
-use domain::shared::repository::error::RepositoryError;
+use ports::repository::RepositoryError;
 use livekit_api::services::room::RoomClient;
 use sqlx::{PgPool, Row};
 use tokio::time::timeout;

@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use messaging_domain::{channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId};
+use domain::{password_hash::PasswordHash, user::id::UserId};
+use ports::{outbox::record::OutboxRecord, outbox::to_outbox::OutboxError, outbox::to_outbox::ToOutboxRecord, repository::RepositoryError};
 
 use crate::{
     dto::requests::channel::create_channel::CreateChannelRequest,

@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::friendship::repository::FriendshipRepository;
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 use crate::dto::{
     requests::friendship::list_friends::ListFriendsRequest,

@@ -1,4 +1,5 @@
-use domain::{attachment::AttachmentLink, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError};
+use domain::attachment::AttachmentLink;
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use uuid::Uuid;
 
 use crate::{dm_message::DmMessage, dm_message::id::DmMessageId};

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::shared::outbox::outbox_record::OutboxRecord;
+use crate::outbox::record::OutboxRecord;
 
 #[async_trait]
 pub trait OutboxPublisher: Send + Sync {

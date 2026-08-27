@@ -9,9 +9,8 @@ use validator::{ValidationErrors, ValidationErrorsKind};
 
 use crate::middleware::request_id::{self, REQUEST_ID_HEADER};
 
-use domain::shared::outbox::to_outbox::OutboxError;
-use domain::shared::pagination::PaginationError;
-use domain::shared::repository::error::RepositoryError;
+use crate::pagination::PaginationError;
+use ports::{outbox::to_outbox::OutboxError, repository::RepositoryError};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

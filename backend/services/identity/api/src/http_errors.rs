@@ -57,14 +57,14 @@ impl From<validator::ValidationErrors> for HttpError {
     }
 }
 
-impl From<domain::shared::repository::error::RepositoryError> for HttpError {
-    fn from(error: domain::shared::repository::error::RepositoryError) -> Self {
+impl From<ports::repository::RepositoryError> for HttpError {
+    fn from(error: ports::repository::RepositoryError) -> Self {
         Self(ApiError::from(error))
     }
 }
 
-impl From<domain::shared::pagination::PaginationError> for HttpError {
-    fn from(error: domain::shared::pagination::PaginationError) -> Self {
+impl From<api_common::pagination::PaginationError> for HttpError {
+    fn from(error: api_common::pagination::PaginationError) -> Self {
         Self(ApiError::from(error))
     }
 }
@@ -93,8 +93,8 @@ use identity::usecases::user::get_me::GetMeError;
 use identity::usecases::user::rename::RenameUserError;
 use identity::usecases::user::search_users::SearchUsersError;
 use identity::usecases::user::update_locale::UpdateLocaleError;
-use domain::shared::repository::error::RepositoryError;
 use domain::user::name::UserNameError;
+use ports::repository::RepositoryError;
 
 impl HttpMapping for TokenIssuerError {
     fn to_http_status(&self) -> StatusCode {

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError};
+use crate::{outbox::record::OutboxRecord, repository::RepositoryError};
 
 #[async_trait]
 pub trait OutboxWriter {

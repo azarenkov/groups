@@ -1,4 +1,5 @@
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use domain::{user::id::UserId, user::name::UserName};
+use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 
 use crate::{refresh_token::RefreshToken, user::User, verification::code::VerificationCode};
 

@@ -6,7 +6,7 @@ pub mod repository;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use domain::shared::value_objects::password_hash::PasswordHash;
+use domain::password_hash::PasswordHash;
 use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::id::UserId, user::locale::Locale, user::name::UserName};
 
 #[derive(Debug, Serialize)]

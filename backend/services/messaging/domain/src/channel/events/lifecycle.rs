@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId};
-use domain::{shared::event::event_id::EventId, user::id::UserId};
+use domain::{event::EventId, user::id::UserId};
 
 #[derive(Debug, Serialize)]
 pub struct ChannelCreated {

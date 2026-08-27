@@ -1,4 +1,4 @@
-use domain::user::{id::UserId, name::UserName};
+use domain::{user::id::UserId, user::name::UserName};
 use uuid::Uuid;
 
 #[derive(Debug)]

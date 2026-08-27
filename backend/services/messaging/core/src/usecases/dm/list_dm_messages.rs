@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 use crate::dto::{
     requests::dm::list_dm_messages::ListDmMessagesRequest,

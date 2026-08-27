@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use messaging_domain::{server::id::ServerId, server::role::ServerRole, server::role::ServerRoleRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

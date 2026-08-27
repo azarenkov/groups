@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, notification::NotificationLevel, notification::NotificationScope, notification::repository::NotificationPreference, notification::repository::NotificationPreferenceRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]

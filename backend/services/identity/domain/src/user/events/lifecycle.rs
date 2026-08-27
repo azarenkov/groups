@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::{refresh_token::id::RefreshTokenId, user::email::Email, user::id::UserId, user::name::UserName};
-use domain::shared::event::event_id::EventId;
+use domain::event::EventId;
 
 #[derive(Debug, Serialize)]
 pub struct UserRegistered {

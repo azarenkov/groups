@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, read_state::repository::ReadStateRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MarkChannelReadError {

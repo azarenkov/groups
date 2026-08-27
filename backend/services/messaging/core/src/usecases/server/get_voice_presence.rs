@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use messaging_domain::{channel::repository::ChannelRepository, channel::repository::StreamViewerCountRow, channel::repository::VoicePresenceRow, server::id::ServerId, server::repository::ServerRepository};
-use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use domain::user::id::UserId;
+use ports::repository::RepositoryError;
 
 pub struct VoicePresenceSnapshot {
     pub presence: Vec<VoicePresenceRow>,
