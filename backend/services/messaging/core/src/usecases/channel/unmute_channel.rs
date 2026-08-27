@@ -164,6 +164,12 @@ where
             .find(|m| m.user_id == target)
             .map(|m| m.muted_by);
         let moderator_record = observed_muted_by.is_some_and(|by| by != target);
+        let authored_by_owner = observed_muted_by
+            .as_ref()
+            .is_some_and(|by| server_owner.as_ref() == Some(by) && by != &target);
+        if authored_by_owner && !is_server_owner {
+            return Err(UnmuteChannelError::Domain(ChannelError::NotOwner));
+        }
         let outcome = channel.unmute(target, initiator, can_override, now)?;
         let downgrade = outcome == domain::channel::UnmuteOutcome::DowngradedToSelfMute;
         let expected_muted_by = observed_muted_by.as_ref();

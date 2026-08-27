@@ -54,6 +54,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     isConnected,
     isMuted,
     isModeratorMuted,
+    moderatorMutedBy,
     isCameraEnabled,
     isScreenShareEnabled,
     error,
@@ -149,6 +150,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
         ?.ownerId,
   );
   const isChannelOwner = !!currentUserId && channelOwnerId === currentUserId;
+  const muteLocked =
+    isModeratorMuted &&
+    serverOwnerId !== currentUserId &&
+    (!isChannelOwner || moderatorMutedBy === serverOwnerId);
   const canModerateMute =
     !!currentUserId &&
     (serverOwnerId === currentUserId ||
@@ -283,7 +288,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           title={channelName}
           meta={meta}
           isMuted={isMuted}
-          muteLocked={isModeratorMuted && serverOwnerId !== currentUserId && !isChannelOwner}
+          muteLocked={muteLocked}
           onToggleMute={toggleMute}
           onLeave={handleLeave}
           className={qualityClass(localQuality)}
@@ -298,7 +303,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             screenTile={screenTile}
             liveName={sharerName}
             isMuted={isMuted}
-            muteLocked={isModeratorMuted && serverOwnerId !== currentUserId && !isChannelOwner}
+            muteLocked={muteLocked}
             cameraOn={isCameraEnabled}
             screenOn={isScreenShareEnabled}
             onToggleMute={toggleMute}

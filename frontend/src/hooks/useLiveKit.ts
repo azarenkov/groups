@@ -24,6 +24,7 @@ interface UseLiveKitResult {
   isConnected: boolean;
   isMuted: boolean;
   isModeratorMuted: boolean;
+  moderatorMutedBy: string | null;
   isConnecting: boolean;
   error: string | null;
   localQuality: ConnectionQuality;
@@ -128,7 +129,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           const selfId =
             auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
           const locked = !!response.mutedBy && response.mutedBy !== selfId;
-          setLock(locked);
+          setLock(locked, response.mutedBy ?? null);
           selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
           setIsMuted(true);
         }
@@ -201,9 +202,11 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const moderatorLockedRef = useRef(false);
   const selfMutedBeforeLockRef = useRef(false);
   const [isModeratorMuted, setIsModeratorMuted] = useState(false);
-  const setLock = (locked: boolean) => {
+  const [moderatorMutedBy, setModeratorMutedBy] = useState<string | null>(null);
+  const setLock = (locked: boolean, by?: string | null) => {
     moderatorLockedRef.current = locked;
     setIsModeratorMuted(locked);
+    setModeratorMutedBy(locked ? (by ?? null) : null);
   };
 
   const restoreSelfMute = () => {
@@ -243,7 +246,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
       if (moderatorMuted && !moderatorLockedRef.current) {
         selfMutedBeforeLockRef.current = isMutedRef.current;
-        setLock(true);
+        setLock(true, me.mutedBy ?? null);
         serviceRef.current?.setMicrophoneMuted(true);
         setIsMuted(true);
       } else if (!moderatorMuted && moderatorLockedRef.current) {
@@ -260,7 +263,9 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   }, []);
   useEffect(() => {
     const onModeratorMute = (e: Event) => {
-      const detail = (e as CustomEvent<{ channelId?: string }>).detail;
+      const detail = (
+        e as CustomEvent<{ channelId?: string; mutedBy?: string }>
+      ).detail;
       const active = activeChannelRef.current;
       if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
         return;
@@ -270,7 +275,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       }
       serviceRef.current?.setMicrophoneMuted(true);
       setIsMuted(true);
-      setLock(true);
+      setLock(true, detail.mutedBy ?? null);
     };
     const onModeratorUnmute = (e: Event) => {
       const detail = (e as CustomEvent<{ channelId?: string }>).detail;
@@ -383,6 +388,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     isConnected,
     isMuted,
     isModeratorMuted,
+    moderatorMutedBy,
     isConnecting,
     error,
     localQuality,

@@ -550,7 +550,7 @@ function dispatch(env: WsEnvelope) {
         window.dispatchEvent(
           new CustomEvent(
             isMuted ? "rift:moderator-mute" : "rift:moderator-unmute",
-            { detail: { channelId } },
+            { detail: { channelId, mutedBy } },
           ),
         );
       }
