@@ -34,7 +34,11 @@ pub fn spawn<C, W, V>(
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
-    let enforce_mute = Arc::new(EnforceVoiceMute::new(channel_repository.clone(), voice_service.clone()));
+    let enforce_mute = Arc::new(EnforceVoiceMute::new(
+        channel_repository.clone(),
+        server_unit_of_work.clone(),
+        voice_service.clone(),
+    ));
     let enforce_departure = Arc::new(EnforceServerDeparture::new(
         server_unit_of_work,
         channel_repository,
@@ -43,7 +47,8 @@ pub fn spawn<C, W, V>(
 
     {
         let jetstream = jetstream.clone();
-        let subject = format!("{prefix}.channel.>");
+        let subject = format!("{prefix}.channel.*.participant.muted");
+        let extra = vec![format!("{prefix}.channel.*.participant.unmuted")];
         let dlq = dlq.clone();
         tokio::spawn(async move {
             run(
@@ -51,6 +56,7 @@ pub fn spawn<C, W, V>(
                 spec.channel_stream,
                 "messaging-voice-effects-channel".to_string(),
                 subject,
+                extra,
                 dlq,
                 move |subject, payload| {
                     let enforce_mute = enforce_mute.clone();
@@ -75,13 +81,14 @@ pub fn spawn<C, W, V>(
         });
     }
     {
-        let subject = format!("{prefix}.server.>");
+        let subject = format!("{prefix}.server.*.member_left");
         tokio::spawn(async move {
             run(
                 jetstream,
                 spec.server_stream,
                 "messaging-voice-effects-server".to_string(),
                 subject,
+                Vec::new(),
                 dlq,
                 move |subject, payload| {
                     let enforce_departure = enforce_departure.clone();
@@ -107,6 +114,7 @@ async fn run<F, Fut>(
     stream: String,
     consumer_name: String,
     subject: String,
+    extra_subjects: Vec<String>,
     dlq: String,
     handler: F,
 ) where
@@ -121,7 +129,7 @@ async fn run<F, Fut>(
             start_position: StartPosition::All,
             max_deliver: Some(MAX_DELIVER),
             dlq_subject: Some(dlq.clone()),
-            extra_subjects: vec![],
+            extra_subjects: extra_subjects.clone(),
         };
         match consumer.subscribe(opts).await {
             Ok(mut messages) => {
