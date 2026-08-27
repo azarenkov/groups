@@ -1,9 +1,6 @@
 use async_trait::async_trait;
-use domain::{
-    attachment::{Attachment, repository::AttachmentRepository},
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use domain::{attachment::Attachment, shared::repository::error::RepositoryError, user::id::UserId};
+use media_domain::attachment::repository::AttachmentRepository;
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

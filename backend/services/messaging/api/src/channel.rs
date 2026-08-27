@@ -10,10 +10,8 @@ use messaging::dto::requests::channel::{
     send_channel_message::SendChannelMessageRequest, unmute_channel::UnmuteChannelRequest,
 };
 use serde::Deserialize;
-use domain::{
-    channel::id::ChannelId, server::id::ServerId, shared::pagination::Pagination,
-    user::id::UserId,
-};
+use messaging_domain::{channel::id::ChannelId, server::id::ServerId};
+use domain::{shared::pagination::Pagination, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;

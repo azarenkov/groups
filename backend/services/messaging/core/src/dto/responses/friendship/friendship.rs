@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::friendship::{status::FriendshipStatus, view::FriendshipView};
+use messaging_domain::friendship::{status::FriendshipStatus, view::FriendshipView};
 use uuid::Uuid;
 
 #[derive(Debug)]

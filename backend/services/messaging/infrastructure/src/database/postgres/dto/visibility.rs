@@ -1,4 +1,4 @@
-use domain::channel::visibility::ChannelVisibility;
+use messaging_domain::channel::visibility::ChannelVisibility;
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "visibility", rename_all = "lowercase")]

@@ -1,61 +1,6 @@
 use chrono::Utc;
-use domain::{
-    channel::{
-        events::{
-            ChannelEvent,
-            lifecycle::{ChannelCreated, ChannelDeleted, ChannelRenamed},
-            participant::{
-                ConnectionAbortReason, LeaveReason, MediaSource, ParticipantConnectionAborted,
-                ParticipantJoined, ParticipantLeft, ParticipantMediaChanged, ParticipantMuted,
-                ParticipantUnmuted, TextChannelJoined,
-            },
-        },
-        id::ChannelId,
-        kind::ChannelKind,
-        name::ChannelName,
-        visibility::ChannelVisibility,
-    },
-    dm_message::{
-        events::{
-            DmMessageDomainEvent,
-            lifecycle::{DmMessageDeleted, DmMessageEdited, DmMessageSent},
-        },
-        id::DmMessageId,
-    },
-    friendship::events::{
-        FriendshipDomainEvent,
-        lifecycle::{FriendRequestAccepted, FriendRequestSent, FriendshipRemoved},
-    },
-    message::{
-        content::MessageContent,
-        events::{
-            MessageDomainEvent,
-            lifecycle::{MessageDeleted, MessageEdited, MessageSent},
-        },
-        id::MessageId,
-    },
-    server::{
-        description::ServerDescription,
-        events::{
-            ServerEvent,
-            lifecycle::{
-                ServerCreated, ServerDeleted, ServerMemberJoined, ServerMemberLeft, ServerUpdated,
-            },
-        },
-        id::ServerId,
-        name::ServerName,
-    },
-    shared::outbox::to_outbox::ToOutboxRecord,
-    user::{
-        email::Email,
-        events::{
-            UserEvent,
-            lifecycle::{UserRegistered, UserRenamed},
-        },
-        id::UserId,
-        name::UserName,
-    },
-};
+use messaging_domain::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, friendship::events::FriendshipDomainEvent, friendship::events::lifecycle::FriendRequestAccepted, friendship::events::lifecycle::FriendRequestSent, friendship::events::lifecycle::FriendshipRemoved, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberJoined, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerUpdated, server::id::ServerId, server::name::ServerName};
+use domain::{shared::outbox::to_outbox::ToOutboxRecord, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::name::UserName};
 use serde_json::Value;
 
 fn payload<E: ToOutboxRecord>(event: &E) -> Value {

@@ -3,26 +3,8 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
-use domain::{
-    channel::{
-        Channel, MediaChange, VoiceChange,
-        events::participant::{ConnectionAbortReason, LeaveReason, MediaSource},
-        id::ChannelId,
-        kind::ChannelKind,
-        name::ChannelName,
-        participant_mute::ParticipantMute,
-        repository::{ChannelOperationError, ChannelRepository},
-        session_id::SessionId,
-    },
-    server::id::ServerId,
-    shared::{
-        outbox::{outbox_record::OutboxRecord, to_outbox::ToOutboxRecord},
-        pagination::{PaginatedResult, Pagination},
-        repository::error::RepositoryError,
-        value_objects::password_hash::PasswordHash,
-    },
-    user::{id::UserId, name::UserName},
-};
+use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelOperationError, channel::repository::ChannelRepository, channel::session_id::SessionId, server::id::ServerId};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::ToOutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
@@ -354,7 +336,7 @@ impl ChannelRepository for PostgresChannelRepository {
     async fn list_voice_presence_for_server(
         &self,
         server_id: &ServerId,
-    ) -> Result<Vec<domain::channel::repository::VoicePresenceRow>, RepositoryError> {
+    ) -> Result<Vec<messaging_domain::channel::repository::VoicePresenceRow>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
             SELECT
@@ -387,7 +369,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
         Ok(rows
             .into_iter()
-            .map(|r| domain::channel::repository::VoicePresenceRow {
+            .map(|r| messaging_domain::channel::repository::VoicePresenceRow {
                 channel_id: ChannelId::new(r.channel_id),
                 user_id: UserId::new(r.user_id),
                 user_name: r.user_name,
@@ -484,7 +466,7 @@ impl ChannelRepository for PostgresChannelRepository {
     async fn list_stream_viewer_counts_for_server(
         &self,
         server_id: &ServerId,
-    ) -> Result<Vec<domain::channel::repository::StreamViewerCountRow>, RepositoryError> {
+    ) -> Result<Vec<messaging_domain::channel::repository::StreamViewerCountRow>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
             SELECT
@@ -517,7 +499,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
         Ok(rows
             .into_iter()
-            .map(|r| domain::channel::repository::StreamViewerCountRow {
+            .map(|r| messaging_domain::channel::repository::StreamViewerCountRow {
                 channel_id: ChannelId::new(r.channel_id),
                 streamer_id: UserId::new(r.streamer_id),
                 count: r.count,
@@ -984,7 +966,7 @@ async fn apply_voice_operation<F>(
     mutate: F,
 ) -> Result<bool, ChannelOperationError>
 where
-    F: FnOnce(&mut Channel) -> Result<(), domain::channel::ChannelError>,
+    F: FnOnce(&mut Channel) -> Result<(), messaging_domain::channel::ChannelError>,
 {
     let mut tx = pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
 

@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    read_state::repository::{ChannelUnread, DmUnread, ReadStateRepository},
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use messaging_domain::{read_state::repository::ChannelUnread, read_state::repository::DmUnread, read_state::repository::ReadStateRepository};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetUnreadCountsError {

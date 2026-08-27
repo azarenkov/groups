@@ -1,25 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    refresh_token::{RefreshToken, repository::RefreshTokenRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-        value_objects::password_hash::PasswordHash,
-    },
-    user::{
-        User,
-        email::Email,
-        events::{UserEvent, lifecycle::UserLoggedIn},
-        id::UserId,
-        name::{ReservedNames, UserName, UserNameError},
-        repository::UserRepository,
-    },
-};
+use identity_domain::{refresh_token::RefreshToken, refresh_token::repository::RefreshTokenRepository, user::User, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
 
 use crate::{
     dto::requests::{
@@ -261,7 +244,7 @@ where
         username: UserName,
         email: Email,
         identity: &OAuthIdentity,
-        locale: domain::user::locale::Locale,
+        locale: identity_domain::user::locale::Locale,
         client: ClientContext,
         request_id: Option<String>,
     ) -> Result<IssuedTokens, GoogleLoginError> {

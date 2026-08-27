@@ -1,4 +1,4 @@
-use domain::channel::kind::ChannelKind;
+use messaging_domain::channel::kind::ChannelKind;
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "kind", rename_all = "lowercase")]

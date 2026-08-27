@@ -4,10 +4,8 @@ use messaging::dto::requests::dm::{
     list_dm_messages::ListDmMessagesRequest, search_dm_messages::SearchDmMessagesRequest,
     send_dm_message::SendDmMessageRequest,
 };
-use domain::{
-    dm_message::id::DmMessageId, server::id::ServerId, shared::pagination::Pagination,
-    user::id::UserId,
-};
+use messaging_domain::{dm_message::id::DmMessageId, server::id::ServerId};
+use domain::{shared::pagination::Pagination, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;

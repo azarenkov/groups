@@ -1,17 +1,8 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use domain::{
-    server::{
-        id::ServerId,
-        invite_code::InviteCode,
-        policy::{ModerationPolicy, PolicyError},
-        repository::ServerRepository,
-        unit_of_work::ServerUnitOfWork,
-    },
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use messaging_domain::{server::id::ServerId, server::invite_code::InviteCode, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
 const CODE_ALPHABET: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -193,7 +184,7 @@ impl<S: ServerRepository> RedeemInviteCode<S> {
         &self,
         code: String,
         user_id: UserId,
-    ) -> Result<domain::server::Server, RedeemInviteCodeError> {
+    ) -> Result<messaging_domain::server::Server, RedeemInviteCodeError> {
         let server_id = self
             .server_repository
             .redeem_invite_code(code.trim(), &user_id)

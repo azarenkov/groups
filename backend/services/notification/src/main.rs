@@ -4,7 +4,7 @@ use platform::ports::{
     event_consumer::{ConsumedMessage, EventConsumer, StartPosition, SubscribeOptions},
     mailer::Mailer,
 };
-use domain::verification::events::VerificationEvent;
+use identity_domain::verification::events::VerificationEvent;
 use futures::StreamExt;
 use platform::{
     config::{mailer::MailerConfig, nats::NatsConfig},

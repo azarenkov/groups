@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason, MediaSource};
+use domain::voice::{ConnectionAbortReason, LeaveReason, MediaSource};
 use uuid::Uuid;
 
 pub use contracts::events::webhook::WebhookSource;

@@ -11,6 +11,7 @@ path = "src/main.rs"
 api-common = { workspace = true }
 contracts = { workspace = true }
 domain = { workspace = true }
+media-domain = { workspace = true }
 platform = { workspace = true }
 shared = { workspace = true }
 media = { workspace = true }

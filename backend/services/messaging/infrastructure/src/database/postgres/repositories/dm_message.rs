@@ -1,21 +1,6 @@
 use async_trait::async_trait;
-use domain::{
-    attachment::AttachmentLink,
-    dm_message::{
-        DmMessage, id::DmMessageId,
-        repository::{DmConversationPreview, DmMessageRepository},
-        view::DmMessageView,
-    },
-    message::content::MessageContent,
-    server::id::ServerId,
-
-    shared::{
-        outbox::outbox_record::OutboxRecord,
-        pagination::{PaginatedResult, Pagination},
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use domain::{attachment::AttachmentLink, shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId};
+use messaging_domain::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository, dm_message::view::DmMessageView, message::content::MessageContent, server::id::ServerId};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

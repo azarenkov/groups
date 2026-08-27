@@ -2,12 +2,8 @@ use std::sync::Arc;
 
 use domain::shared::outbox::to_outbox::ToOutboxRecord;
 
-use domain::{
-    channel::repository::ChannelRepository,
-    server::{id::ServerId, unit_of_work::ServerUnitOfWork},
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::ports::voice_service::VoiceService;
 
@@ -64,8 +60,8 @@ where
             .list_voice_channel_ids_by_server(&server_id)
             .await?;
 
-        let member_event = domain::server::events::ServerEvent::MemberLeft(
-            domain::server::events::lifecycle::ServerMemberLeft::record(
+        let member_event = messaging_domain::server::events::ServerEvent::MemberLeft(
+            messaging_domain::server::events::lifecycle::ServerMemberLeft::record(
                 server_id,
                 user_id,
                 chrono::Utc::now(),

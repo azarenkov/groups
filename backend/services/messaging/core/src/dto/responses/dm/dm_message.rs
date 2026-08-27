@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::dm_message::view::DmMessageView;
+use messaging_domain::dm_message::view::DmMessageView;
 use uuid::Uuid;
 
 #[derive(Debug)]

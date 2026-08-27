@@ -1,14 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::{
-    channel::id::ChannelId,
-    read_state::repository::{ChannelUnread, DmUnread, MemberRead, ReadStateRepository},
-    shared::{
-        outbox::outbox_record::{AggregateType, OutboxRecord},
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
+use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

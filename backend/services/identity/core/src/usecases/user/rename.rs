@@ -1,21 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::{
-        events::{UserEvent, lifecycle::UserRenamed},
-        id::UserId,
-        name::{ReservedNames, UserName, UserNameError},
-        repository::UserRepository,
-    },
-};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
+use identity_domain::{user::events::UserEvent, user::events::lifecycle::UserRenamed, user::repository::UserRepository};
 
 use crate::ports::text_moderation::{TextModeration, TextModerationError};
 

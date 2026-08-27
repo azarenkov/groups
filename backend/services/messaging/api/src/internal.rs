@@ -5,12 +5,8 @@ use contracts::internal::{
     servers::{CanManageResponseV1, OwnerResponseV1},
     users::StateResponseV1,
 };
-use domain::{
-    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
-    message::repository::MessageRepository,
-    server::{id::ServerId, repository::ServerRepository},
-    user::id::UserId,
-};
+use messaging_domain::{friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::repository::MessageRepository, server::id::ServerId, server::repository::ServerRepository};
+use domain::user::id::UserId;
 use uuid::Uuid;
 
 use crate::state::AppState;

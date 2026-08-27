@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    shared::repository::error::RepositoryError,
-    user::{id::UserId, repository::UserRepository},
-};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
+use identity_domain::user::repository::UserRepository;
 use uuid::Uuid;
 
 const MAX_LIMIT: i64 = 20;

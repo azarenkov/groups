@@ -1,6 +1,7 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use chrono::{DateTime, Utc};
-use domain::{channel::id::ChannelId, user::id::UserId};
+use messaging_domain::channel::id::ChannelId;
+use domain::user::id::UserId;
 use serde::Serialize;
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;

@@ -9,10 +9,6 @@ use validator::{ValidationErrors, ValidationErrorsKind};
 
 use crate::middleware::request_id::{self, REQUEST_ID_HEADER};
 
-use domain::channel::ChannelError;
-use domain::dm_message::DmMessageError;
-use domain::friendship::FriendshipError;
-use domain::message::MessageError;
 use domain::shared::outbox::to_outbox::OutboxError;
 use domain::shared::pagination::PaginationError;
 use domain::shared::repository::error::RepositoryError;
@@ -73,120 +69,6 @@ impl ToHttpStatus for RepositoryError {
     }
 }
 
-impl ToHttpStatus for ChannelError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            ChannelError::PrivateChannelRequiresPassword
-            | ChannelError::PublicChannelCannotHavePassword
-            | ChannelError::NameUnchanged => StatusCode::BAD_REQUEST,
-            ChannelError::NotOwner => StatusCode::FORBIDDEN,
-            ChannelError::AlreadyMuted | ChannelError::NotMuted => StatusCode::CONFLICT,
-            ChannelError::VoiceNotSupported | ChannelError::TextNotSupported => {
-                StatusCode::BAD_REQUEST
-            }
-            ChannelError::ParticipantNotJoined => StatusCode::CONFLICT,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            ChannelError::PrivateChannelRequiresPassword => {
-                "Private channel requires a password".to_string()
-            }
-            ChannelError::PublicChannelCannotHavePassword => {
-                "Public channel cannot have a password".to_string()
-            }
-            ChannelError::NameUnchanged => "Channel name is unchanged".to_string(),
-            ChannelError::NotOwner => "Only the channel owner can perform this action".to_string(),
-            ChannelError::AlreadyMuted => "Participant is already muted".to_string(),
-            ChannelError::NotMuted => "Participant is not muted".to_string(),
-            ChannelError::VoiceNotSupported => {
-                "Voice is not supported for this channel".to_string()
-            }
-            ChannelError::TextNotSupported => {
-                "Text is not supported for this channel".to_string()
-            }
-            ChannelError::ParticipantNotJoined => {
-                "Participant has not joined the voice session yet".to_string()
-            }
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            ChannelError::PrivateChannelRequiresPassword => "CHANNEL_PASSWORD_REQUIRED",
-            ChannelError::PublicChannelCannotHavePassword => "CHANNEL_PASSWORD_NOT_ALLOWED",
-            ChannelError::NameUnchanged => "CHANNEL_NAME_UNCHANGED",
-            ChannelError::NotOwner => "CHANNEL_NOT_OWNER",
-            ChannelError::AlreadyMuted => "PARTICIPANT_ALREADY_MUTED",
-            ChannelError::NotMuted => "PARTICIPANT_NOT_MUTED",
-            ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
-            ChannelError::TextNotSupported => "CHANNEL_NOT_TEXT",
-            ChannelError::ParticipantNotJoined => "PARTICIPANT_NOT_JOINED",
-        }
-    }
-}
-
-impl ToHttpStatus for MessageError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            MessageError::ContentEmpty
-            | MessageError::ContentTooLong
-            | MessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
-            MessageError::NotAuthor => StatusCode::FORBIDDEN,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            MessageError::ContentEmpty => "Message content cannot be empty".to_string(),
-            MessageError::ContentTooLong => {
-                "Message content exceeds maximum length".to_string()
-            }
-            MessageError::ContentUnchanged => "Message content unchanged".to_string(),
-            MessageError::NotAuthor => {
-                "Only the message author can perform this action".to_string()
-            }
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            MessageError::ContentEmpty => "MESSAGE_CONTENT_EMPTY",
-            MessageError::ContentTooLong => "MESSAGE_CONTENT_TOO_LONG",
-            MessageError::ContentUnchanged => "MESSAGE_CONTENT_UNCHANGED",
-            MessageError::NotAuthor => "MESSAGE_NOT_AUTHOR",
-        }
-    }
-}
-
-impl ToHttpStatus for FriendshipError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            FriendshipError::SelfFriendship => StatusCode::BAD_REQUEST,
-            FriendshipError::AlreadyRequested
-            | FriendshipError::AlreadyFriends => StatusCode::CONFLICT,
-            FriendshipError::NoPendingRequest | FriendshipError::NotFriends => {
-                StatusCode::NOT_FOUND
-            }
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        self.to_string()
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            FriendshipError::SelfFriendship => "FRIENDSHIP_SELF",
-            FriendshipError::AlreadyRequested => "FRIEND_REQUEST_ALREADY_SENT",
-            FriendshipError::AlreadyFriends => "ALREADY_FRIENDS",
-            FriendshipError::NoPendingRequest => "NO_PENDING_REQUEST",
-            FriendshipError::NotFriends => "NOT_FRIENDS",
-        }
-    }
-}
-
 impl ToHttpStatus for OutboxError {
     fn to_http_status(&self) -> StatusCode {
         StatusCode::INTERNAL_SERVER_ERROR
@@ -238,26 +120,6 @@ macro_rules! impl_to_http_status_delegate {
             }
         }
     };
-}
-
-impl ToHttpStatus for DmMessageError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            DmMessageError::NotSender => StatusCode::FORBIDDEN,
-            DmMessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
-            DmMessageError::NotEditable => StatusCode::BAD_REQUEST,
-        }
-    }
-    fn to_user_message(&self) -> String {
-        self.to_string()
-    }
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            DmMessageError::NotSender => "DM_NOT_SENDER",
-            DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
-            DmMessageError::NotEditable => "DM_NOT_EDITABLE",
-        }
-    }
 }
 
 #[derive(Debug)]

@@ -1,7 +1,8 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use identity::dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest;
 use identity::usecases::auth::google_login::GoogleLoginOutcome;
-use domain::{user::id::UserId, verification::purpose::VerificationPurpose};
+use domain::user::id::UserId;
+use identity_domain::verification::purpose::VerificationPurpose;
 use shared::middleware::auth::AuthToken;
 use validator::Validate;
 

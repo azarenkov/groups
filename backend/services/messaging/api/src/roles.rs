@@ -1,5 +1,6 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, put, web};
-use domain::{server::id::ServerId, user::id::UserId};
+use messaging_domain::server::id::ServerId;
+use domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
@@ -122,7 +123,7 @@ async fn update_role(
             ServerId::new(server_id),
             user_id,
             role_id,
-            domain::server::role::RolePatch {
+            messaging_domain::server::role::RolePatch {
                 name: body.name,
                 color: body.color,
                 add_permissions: body.permissions_add,

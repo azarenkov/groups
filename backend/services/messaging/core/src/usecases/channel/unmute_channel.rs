@@ -1,17 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::{id::UserId},
-};
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::channel::unmute_channel::UnmuteChannelRequest;
 
@@ -34,10 +25,10 @@ pub enum UnmuteChannelError {
     VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
 
-impl From<domain::server::policy::PolicyError> for UnmuteChannelError {
-    fn from(err: domain::server::policy::PolicyError) -> Self {
+impl From<messaging_domain::server::policy::PolicyError> for UnmuteChannelError {
+    fn from(err: messaging_domain::server::policy::PolicyError) -> Self {
         match err {
-            domain::server::policy::PolicyError::TargetNotMember => UnmuteChannelError::TargetUserNotFound,
+            messaging_domain::server::policy::PolicyError::TargetNotMember => UnmuteChannelError::TargetUserNotFound,
             _ => UnmuteChannelError::Domain(ChannelError::NotOwner),
         }
     }
@@ -48,7 +39,7 @@ pub struct UnmuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
-    W: domain::server::unit_of_work::ServerUnitOfWork,
+    W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {
     channel_repository: Arc<C>,
@@ -61,7 +52,7 @@ impl<C, U, W, V> UnmuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
-    W: domain::server::unit_of_work::ServerUnitOfWork,
+    W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {
     pub fn new(
@@ -119,7 +110,7 @@ where
 
         let now = Utc::now();
 
-        let server_id = domain::server::id::ServerId::new(request.server_id);
+        let server_id = messaging_domain::server::id::ServerId::new(request.server_id);
         let observed_muted_by = channel
             .muted_participants_list()
             .find(|m| m.user_id == target)
@@ -128,7 +119,7 @@ where
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let snapshot = tx.authorization().await?;
-        domain::server::policy::ModerationPolicy::unmute(
+        messaging_domain::server::policy::ModerationPolicy::unmute(
             &snapshot,
             &initiator,
             &target,
@@ -136,7 +127,7 @@ where
         )?;
         let can_override = snapshot.is_owner(&initiator) || target != initiator;
         let outcome = channel.unmute(target, initiator, can_override, now)?;
-        let downgrade = outcome == domain::channel::UnmuteOutcome::DowngradedToSelfMute;
+        let downgrade = outcome == messaging_domain::channel::UnmuteOutcome::DowngradedToSelfMute;
 
         let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel

@@ -4,7 +4,7 @@ use domain::user::id::UserId;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use domain::attachment::repository::AttachmentRepository;
+use media_domain::attachment::repository::AttachmentRepository;
 
 use crate::state::AppState;
 use crate::http_errors::HttpError;

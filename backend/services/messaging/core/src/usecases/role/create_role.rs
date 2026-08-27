@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use domain::{
-    server::{id::ServerId, policy::RolePolicy, unit_of_work::ServerUnitOfWork},
-    user::id::UserId,
-};
+use messaging_domain::{server::id::ServerId, server::policy::RolePolicy, server::unit_of_work::ServerUnitOfWork};
+use domain::user::id::UserId;
 use chrono::Utc;
-use domain::server::role::{PERM_ALL, ServerRole};
+use messaging_domain::server::role::{PERM_ALL, ServerRole};
 use uuid::Uuid;
 
 use super::validate_role_input;

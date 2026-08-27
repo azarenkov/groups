@@ -3,23 +3,8 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use domain::shared::outbox::to_outbox::ToOutboxRecord;
-use domain::{
-    channel::{
-        Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
-        participant_mute::ParticipantMute, session_id::SessionId,
-    },
-    dm_message::id::DmMessageId,
-    server::{
-        Server, id::ServerId, invite_code::InviteCode, repository::ServerRepository,
-    },
-    shared::{
-        outbox::outbox_record::OutboxRecord,
-        pagination::{PaginatedResult, Pagination},
-        repository::error::RepositoryError,
-        value_objects::password_hash::PasswordHash,
-    },
-    user::{id::UserId, name::UserName},
-};
+use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, dm_message::id::DmMessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -697,8 +682,8 @@ impl ServerRepository for PostgresServerRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-            let member_event = domain::server::events::ServerEvent::MemberJoined(
-                domain::server::events::lifecycle::ServerMemberJoined::record(
+            let member_event = messaging_domain::server::events::ServerEvent::MemberJoined(
+                messaging_domain::server::events::lifecycle::ServerMemberJoined::record(
                     ServerId::new(invite.server_id),
                     UserId::new(user_id.uuid()),
                     chrono::Utc::now(),

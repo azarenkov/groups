@@ -7,11 +7,8 @@ pub mod swap_roles;
 pub mod update_role;
 
 use chrono::Utc;
-use domain::{
-    server::{authorization::AuthorizationSnapshot, id::ServerId, policy::PolicyError, repository::ServerRepository},
-    shared::{outbox::outbox_record::{AggregateType, OutboxRecord}, repository::error::RepositoryError},
-    user::id::UserId,
-};
+use messaging_domain::{server::authorization::AuthorizationSnapshot, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository};
+use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]

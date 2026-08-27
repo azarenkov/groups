@@ -1,22 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    server::{
-        description::ServerDescription,
-        events::{ServerEvent, lifecycle::ServerUpdated},
-        name::ServerName,
-        policy::{ModerationPolicy, PolicyError},
-        unit_of_work::ServerUnitOfWork,
-    },
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-};
+use messaging_domain::{server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerUpdated, server::name::ServerName, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError};
 
 use crate::dto::requests::server::update_server::UpdateServerRequest;
 

@@ -10,5 +10,6 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 
 [dev-dependencies]
-domain = { workspace = true }
 messaging = { workspace = true }
+domain = { workspace = true }
+messaging-domain = { workspace = true }

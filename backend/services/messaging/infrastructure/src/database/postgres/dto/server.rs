@@ -1,8 +1,6 @@
 use chrono::{DateTime, Utc};
-use domain::{
-    server::{Server, description::ServerDescription, id::ServerId, name::ServerName},
-    user::id::UserId,
-};
+use messaging_domain::{server::Server, server::description::ServerDescription, server::id::ServerId, server::name::ServerName};
+use domain::user::id::UserId;
 use sqlx::{FromRow, types::Uuid};
 
 #[derive(Debug, FromRow)]

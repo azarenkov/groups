@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use domain::attachment::repository::AttachmentRepository;
+use media_domain::attachment::repository::AttachmentRepository;
 
 use crate::ports::{
     attachment_links_lookup::AttachmentLinksLookup,

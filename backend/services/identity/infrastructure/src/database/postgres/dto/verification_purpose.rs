@@ -1,4 +1,4 @@
-use domain::verification::purpose::VerificationPurpose;
+use identity_domain::verification::purpose::VerificationPurpose;
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "verification_purpose", rename_all = "snake_case")]

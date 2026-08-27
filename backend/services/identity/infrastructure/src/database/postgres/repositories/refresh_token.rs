@@ -1,9 +1,6 @@
 use async_trait::async_trait;
-use domain::{
-    refresh_token::{RefreshToken, id::RefreshTokenId, repository::RefreshTokenRepository},
-    shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
-    user::id::UserId,
-};
+use identity_domain::{refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, refresh_token::repository::RefreshTokenRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{

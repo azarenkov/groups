@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    call::repository::CallRepository,
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use voice_domain::call::repository::CallRepository;
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::{
     dto::requests::call::add_participants::AddCallParticipantsRequest,

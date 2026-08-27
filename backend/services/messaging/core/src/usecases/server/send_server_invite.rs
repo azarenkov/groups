@@ -1,25 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    dm_message::{DmMessage, repository::DmMessageRepository},
-    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
-    message::{MessageError, content::MessageContent},
-    server::{
-        id::ServerId,
-        policy::{ModerationPolicy, PolicyError},
-        repository::ServerRepository,
-        unit_of_work::ServerUnitOfWork,
-    },
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::{RequestContext, responses::dm::send_dm_message::SendDmMessageResponse};
 

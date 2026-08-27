@@ -1,4 +1,4 @@
-use domain::channel::token::ChannelToken;
+use messaging_domain::channel::token::ChannelToken;
 
 #[derive(Debug)]
 pub struct JoinVoiceChannelResponse {

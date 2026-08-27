@@ -1,8 +1,6 @@
 use actix_web::{HttpResponse, Responder, get, put, web};
-use domain::{
-    notification::{NotificationLevel, NotificationScope},
-    user::id::UserId,
-};
+use messaging_domain::{notification::NotificationLevel, notification::NotificationScope};
+use domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;

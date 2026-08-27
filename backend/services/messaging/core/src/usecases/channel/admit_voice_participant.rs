@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    channel::{id::ChannelId, repository::ChannelRepository},
-    server::repository::ServerRepository,
-    shared::repository::error::RepositoryError,
-    user::id::UserId,
-};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::repository::ServerRepository};
+use domain::{shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
 

@@ -1,18 +1,7 @@
 use std::sync::Arc;
 
-use domain::{
-    server::{
-        Server, description::ServerDescription, name::ServerName, repository::ServerRepository,
-    },
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{server::Server, server::description::ServerDescription, server::name::ServerName, server::repository::ServerRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::server::create_server::CreateServerRequest;
 

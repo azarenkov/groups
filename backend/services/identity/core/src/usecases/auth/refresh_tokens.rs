@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    refresh_token::{RefreshToken, repository::RefreshTokenRepository},
-    shared::repository::error::RepositoryError,
-    user::repository::UserRepository,
-};
+use identity_domain::{refresh_token::RefreshToken, refresh_token::repository::RefreshTokenRepository, user::repository::UserRepository};
+use domain::shared::repository::error::RepositoryError;
 
 use crate::{
     dto::requests::auth::refresh_tokens::RefreshTokensRequest,

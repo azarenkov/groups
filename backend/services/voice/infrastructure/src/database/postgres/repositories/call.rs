@@ -1,13 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::{
-    call::{repository::CallRepository, CallParticipantStatus},
-    shared::{
-        outbox::outbox_record::{AggregateType, OutboxRecord},
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use voice_domain::{call::repository::CallRepository, call::CallParticipantStatus};
+use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -392,7 +386,7 @@ impl CallRepository for PostgresCallRepository {
     async fn list_active(
         &self,
         call_id: Uuid,
-    ) -> Result<Vec<domain::call::repository::CallParticipantView>, RepositoryError> {
+    ) -> Result<Vec<voice_domain::call::repository::CallParticipantView>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
             SELECT p.user_id, u.name AS user_name
@@ -407,7 +401,7 @@ impl CallRepository for PostgresCallRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(rows
             .into_iter()
-            .map(|r| domain::call::repository::CallParticipantView {
+            .map(|r| voice_domain::call::repository::CallParticipantView {
                 user_id: UserId::new(r.user_id),
                 user_name: r.user_name,
             })

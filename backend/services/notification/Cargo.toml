@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 platform = { workspace = true }
 domain = { workspace = true }
+identity-domain = { workspace = true }
 
 shared = { workspace = true }
 

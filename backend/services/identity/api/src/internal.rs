@@ -1,6 +1,6 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use contracts::internal::users::{ResolveUsersRequestV1, ResolvedUserV1};
-use domain::user::repository::UserRepository;
+use identity_domain::user::repository::UserRepository;
 
 use crate::state::AppState;
 use crate::http_errors::HttpError;

@@ -1,4 +1,4 @@
-use domain::friendship::status::FriendshipStatus;
+use messaging_domain::friendship::status::FriendshipStatus;
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "friendship_status", rename_all = "snake_case")]

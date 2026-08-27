@@ -3,7 +3,7 @@ use voice::ports::voice_webhook_verifier::{
     WebhookSource,
 };
 use chrono::{DateTime, Utc};
-use domain::channel::events::participant::{ConnectionAbortReason, LeaveReason, MediaSource};
+use domain::voice::{ConnectionAbortReason, LeaveReason, MediaSource};
 use livekit_api::{access_token::TokenVerifier, webhooks::WebhookReceiver};
 use livekit_protocol::{DisconnectReason, ParticipantInfo, Room, TrackInfo, TrackSource};
 use uuid::Uuid;

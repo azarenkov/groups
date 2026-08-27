@@ -1,17 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    channel::{ChannelError, id::ChannelId, repository::ChannelRepository},
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::{id::UserId},
-};
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::channel::mute_channel::MuteChannelRequest;
 
@@ -34,10 +25,10 @@ pub enum MuteChannelError {
     VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
 
-impl From<domain::server::policy::PolicyError> for MuteChannelError {
-    fn from(err: domain::server::policy::PolicyError) -> Self {
+impl From<messaging_domain::server::policy::PolicyError> for MuteChannelError {
+    fn from(err: messaging_domain::server::policy::PolicyError) -> Self {
         match err {
-            domain::server::policy::PolicyError::TargetNotMember => MuteChannelError::TargetUserNotFound,
+            messaging_domain::server::policy::PolicyError::TargetNotMember => MuteChannelError::TargetUserNotFound,
             _ => MuteChannelError::Domain(ChannelError::NotOwner),
         }
     }
@@ -48,7 +39,7 @@ pub struct MuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
-    W: domain::server::unit_of_work::ServerUnitOfWork,
+    W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {
     channel_repository: Arc<C>,
@@ -61,7 +52,7 @@ impl<C, U, W, V> MuteChannel<C, U, W, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
-    W: domain::server::unit_of_work::ServerUnitOfWork,
+    W: messaging_domain::server::unit_of_work::ServerUnitOfWork,
     V: crate::ports::voice_service::VoiceService,
 {
     pub fn new(
@@ -144,10 +135,10 @@ where
 
         let now = Utc::now();
 
-        let server_id = domain::server::id::ServerId::new(request.server_id);
+        let server_id = messaging_domain::server::id::ServerId::new(request.server_id);
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let snapshot = tx.authorization().await?;
-        domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
+        messaging_domain::server::policy::ModerationPolicy::mute(&snapshot, &initiator, &target)?;
         let moderator_mute = target != initiator;
         channel.mute(target, initiator, moderator_mute, now)?;
 

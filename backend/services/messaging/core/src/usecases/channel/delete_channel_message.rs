@@ -1,23 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    channel::{id::ChannelId, repository::ChannelRepository},
-    message::{MessageError, id::MessageId, repository::MessageRepository},
-    server::{
-        id::ServerId,
-        policy::{ModerationPolicy, PolicyError},
-        unit_of_work::ServerUnitOfWork,
-    },
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::policy::ModerationPolicy, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::channel::delete_channel_message::DeleteChannelMessageRequest;
 

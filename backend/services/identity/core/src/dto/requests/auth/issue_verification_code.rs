@@ -1,4 +1,4 @@
-use domain::verification::{channel::VerificationChannel, purpose::VerificationPurpose};
+use identity_domain::verification::{channel::VerificationChannel, purpose::VerificationPurpose};
 
 use crate::dto::RequestContext;
 

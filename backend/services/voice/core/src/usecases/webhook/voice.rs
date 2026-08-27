@@ -1,15 +1,8 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use domain::{
-    call::repository::CallRepository,
-    channel::events::participant::MediaSource,
-    shared::{
-        outbox::outbox_record::{AggregateType, OutboxRecord},
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use voice_domain::call::repository::CallRepository;
+use domain::{voice::MediaSource, shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use serde_json::json;
 use uuid::Uuid;
 

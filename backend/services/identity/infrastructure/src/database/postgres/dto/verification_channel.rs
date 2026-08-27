@@ -1,4 +1,4 @@
-use domain::verification::channel::VerificationChannel;
+use identity_domain::verification::channel::VerificationChannel;
 
 #[derive(Debug, sqlx::Type)]
 #[sqlx(type_name = "verification_channel", rename_all = "snake_case")]

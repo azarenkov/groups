@@ -1,18 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{
-    dm_message::{id::DmMessageId, repository::DmMessageRepository},
-    server::repository::ServerRepository,
-    shared::{
-        outbox::{
-            outbox_record::OutboxRecord,
-            to_outbox::{OutboxError, ToOutboxRecord},
-        },
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, server::repository::ServerRepository};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
 use crate::dto::RequestContext;
@@ -75,8 +65,8 @@ where
             .iter()
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
-        let member_event = domain::server::events::ServerEvent::MemberJoined(
-            domain::server::events::lifecycle::ServerMemberJoined::record(
+        let member_event = messaging_domain::server::events::ServerEvent::MemberJoined(
+            messaging_domain::server::events::lifecycle::ServerMemberJoined::record(
                 server_id,
                 requester_id,
                 Utc::now(),

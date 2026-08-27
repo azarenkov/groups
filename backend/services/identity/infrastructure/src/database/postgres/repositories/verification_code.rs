@@ -1,12 +1,6 @@
 use async_trait::async_trait;
-use domain::{
-    shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
-    user::id::UserId,
-    verification::{
-        code::VerificationCode, code_hash::CodeHash, id::VerificationCodeId,
-        repository::VerificationCodeRepository,
-    },
-};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
+use identity_domain::{verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::repository::VerificationCodeRepository};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{

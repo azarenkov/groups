@@ -9,6 +9,7 @@ messaging = { workspace = true }
 messaging-infrastructure = { workspace = true }
 contracts = { workspace = true }
 domain = { workspace = true }
+messaging-domain = { workspace = true }
 
 shared = { workspace = true }
 

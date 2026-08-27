@@ -1,18 +1,6 @@
 use async_trait::async_trait;
-use domain::{
-    notification::{
-        NotificationLevel, NotificationScope,
-        repository::{
-            NotificationPreference, NotificationPreferenceRepository,
-            StoredNotificationPreference,
-        },
-    },
-    shared::{
-        outbox::outbox_record::{AggregateType, OutboxRecord},
-        repository::error::RepositoryError,
-    },
-    user::id::UserId,
-};
+use messaging_domain::{notification::NotificationLevel, notification::NotificationScope, notification::repository::NotificationPreference, notification::repository::NotificationPreferenceRepository, notification::repository::StoredNotificationPreference};
+use domain::{shared::outbox::outbox_record::AggregateType, shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 

@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, types::Uuid};
 
-use domain::{channel::participant_mute::ParticipantMute, user::id::UserId};
+use messaging_domain::channel::participant_mute::ParticipantMute;
+use domain::user::id::UserId;
 
 #[derive(Debug, FromRow)]
 pub struct MutedParticipantDto {

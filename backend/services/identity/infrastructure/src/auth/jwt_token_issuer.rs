@@ -3,7 +3,8 @@ use identity::ports::token_issuer::{
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
-use domain::{refresh_token::id::RefreshTokenId, user::id::UserId};
+use identity_domain::refresh_token::id::RefreshTokenId;
+use domain::user::id::UserId;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use shared::middleware::jwt::claims::{AccessTokenClaims, RefreshTokenClaims, TokenType};
 use uuid::Uuid;

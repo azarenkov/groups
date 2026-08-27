@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::channel::events::participant::MediaSource;
+use messaging_domain::channel::events::participant::MediaSource;
 use uuid::Uuid;
 
 use contracts::events::webhook::WebhookSource;

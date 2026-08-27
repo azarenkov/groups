@@ -722,6 +722,7 @@ dependencies = [
  "chrono",
  "domain",
  "messaging",
+ "messaging-domain",
  "serde",
  "serde_json",
  "uuid",
@@ -1864,6 +1865,7 @@ dependencies = [
  "contracts",
  "domain",
  "futures",
+ "identity-domain",
  "platform",
  "serde",
  "serde_json",
@@ -1871,6 +1873,20 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "identity-domain"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "domain",
+ "rand 0.10.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
  "uuid",
 ]
 
@@ -1885,6 +1901,7 @@ dependencies = [
  "domain",
  "futures",
  "identity",
+ "identity-domain",
  "jsonwebtoken 10.3.0",
  "platform",
  "reqwest",
@@ -1913,6 +1930,7 @@ dependencies = [
  "envy",
  "futures",
  "identity",
+ "identity-domain",
  "identity-infrastructure",
  "platform",
  "serde",
@@ -2215,6 +2233,7 @@ dependencies = [
  "envy",
  "livekit-api",
  "messaging",
+ "messaging-domain",
  "messaging-infrastructure",
  "platform",
  "serde",
@@ -2336,6 +2355,7 @@ dependencies = [
  "contracts",
  "domain",
  "futures",
+ "media-domain",
  "platform",
  "serde",
  "serde_json",
@@ -2343,6 +2363,20 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "media-domain"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "domain",
+ "rand 0.10.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
  "uuid",
 ]
 
@@ -2356,6 +2390,7 @@ dependencies = [
  "domain",
  "futures",
  "media",
+ "media-domain",
  "platform",
  "reqwest",
  "serde",
@@ -2385,6 +2420,7 @@ dependencies = [
  "futures",
  "image",
  "media",
+ "media-domain",
  "media-infrastructure",
  "platform",
  "serde",
@@ -2412,6 +2448,7 @@ dependencies = [
  "contracts",
  "domain",
  "futures",
+ "messaging-domain",
  "platform",
  "serde",
  "serde_json",
@@ -2419,6 +2456,20 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "messaging-domain"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "domain",
+ "rand 0.10.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
  "uuid",
 ]
 
@@ -2433,6 +2484,7 @@ dependencies = [
  "domain",
  "futures",
  "messaging",
+ "messaging-domain",
  "platform",
  "reqwest",
  "serde",
@@ -2461,6 +2513,7 @@ dependencies = [
  "envy",
  "futures",
  "messaging",
+ "messaging-domain",
  "messaging-infrastructure",
  "platform",
  "serde",
@@ -2574,6 +2627,7 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
+ "identity-domain",
  "platform",
  "serde",
  "serde_json",
@@ -4735,6 +4789,21 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "voice-domain",
+]
+
+[[package]]
+name = "voice-domain"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "domain",
+ "rand 0.10.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uuid",
 ]
 
 [[package]]
@@ -4759,6 +4828,7 @@ dependencies = [
  "tracing",
  "uuid",
  "voice",
+ "voice-domain",
 ]
 
 [[package]]
@@ -4785,6 +4855,7 @@ dependencies = [
  "uuid",
  "validator",
  "voice",
+ "voice-domain",
  "voice-infrastructure",
 ]
 

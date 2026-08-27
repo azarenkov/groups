@@ -1,6 +1,7 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, put, web};
 use messaging::dto::requests::server::delete_server::DeleteServerRequest;
-use domain::{server::id::ServerId, shared::pagination::Pagination, user::id::UserId};
+use messaging_domain::server::id::ServerId;
+use domain::{shared::pagination::Pagination, user::id::UserId};
 use shared::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 use validator::Validate;

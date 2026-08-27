@@ -19,11 +19,8 @@ use messaging::{
         track_media_connection::{TrackMediaConnection, TrackMediaConnectionError},
     },
 };
-use domain::{
-    channel::events::participant::{ConnectionAbortReason, LeaveReason, MediaSource},
-    channel::repository::ChannelRepository,
-    shared::repository::error::RepositoryError,
-};
+use messaging_domain::{channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::repository::ChannelRepository};
+use domain::shared::repository::error::RepositoryError;
 use chrono::Utc;
 use futures::StreamExt;
 use tracing::Instrument;
@@ -46,7 +43,7 @@ pub fn spawn<T, S, V>(
     voice_service: Arc<V>,
 ) where
     T: ChannelRepository + Send + Sync + 'static,
-    S: domain::server::repository::ServerRepository + Send + Sync + 'static,
+    S: messaging_domain::server::repository::ServerRepository + Send + Sync + 'static,
     V: messaging::ports::voice_service::VoiceService + Send + Sync + 'static,
 {
     actix_web::rt::spawn(async move {
@@ -163,7 +160,7 @@ async fn apply<T, S, V>(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     T: ChannelRepository + Send + Sync,
-    S: domain::server::repository::ServerRepository + Send + Sync,
+    S: messaging_domain::server::repository::ServerRepository + Send + Sync,
     V: messaging::ports::voice_service::VoiceService + Send + Sync,
 {
     let evt: WebhookEventDto = match serde_json::from_slice(payload) {
@@ -183,7 +180,7 @@ where
         WebhookKind::Joined => {
             let admission = admit_uc
                 .execute(
-                    domain::channel::id::ChannelId::new(evt.channel_id),
+                    messaging_domain::channel::id::ChannelId::new(evt.channel_id),
                     domain::user::id::UserId::new(evt.user_id),
                 )
                 .await?;
@@ -288,7 +285,7 @@ where
             match result {
                 Ok(_) => Ok(()),
                 Err(TrackMediaConnectionError::Domain(
-                    domain::channel::ChannelError::ParticipantNotJoined,
+                    messaging_domain::channel::ChannelError::ParticipantNotJoined,
                 )) => {
                     let expired = Utc::now().signed_duration_since(occurred_at)
                         >= chrono::Duration::seconds(TRACK_JOIN_GRACE_SECS);

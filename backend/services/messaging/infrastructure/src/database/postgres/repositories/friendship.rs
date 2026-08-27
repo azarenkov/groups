@@ -1,12 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::{
-    friendship::{
-        Friendship, repository::FriendshipRepository, status::FriendshipStatus, view::FriendshipView,
-    },
-    shared::{outbox::outbox_record::OutboxRecord, repository::error::RepositoryError},
-    user::id::UserId,
-};
+use messaging_domain::{friendship::Friendship, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::view::FriendshipView};
+use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
