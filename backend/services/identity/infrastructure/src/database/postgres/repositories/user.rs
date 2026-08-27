@@ -1,13 +1,12 @@
 use async_trait::async_trait;
 
-use identity_domain::{refresh_token::RefreshToken, user::User, user::email::Email, user::locale::Locale, user::repository::UserRepository, verification::code::VerificationCode};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use identity_domain::{user::User, user::email::Email, user::locale::Locale, user::repository::UserRepository};
+use domain::{shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use sqlx::{Pool, Postgres};
 
 use crate::database::postgres::{
     dto::user::UserDto,
     error::map_sqlx_error_to_domain_error,
-    repositories::outbox_record::save_outbox_records,
 };
 
 pub struct PostgresUserRepository {
@@ -39,68 +38,6 @@ impl UserRepository for PostgresUserRepository {
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(())
-    }
-
-    async fn register_user(
-        &self,
-        user: &User,
-        refresh_token: &RefreshToken,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-                INSERT INTO users (
-                    id, name, email, password_hash, created_at, updated_at,
-                    locale, email_verified_at, phone_verified_at
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            "#,
-            user.id().uuid(),
-            user.name().as_str(),
-            user.email().as_str(),
-            user.password_hash().as_str(),
-            user.created_at(),
-            user.updated_at(),
-            user.locale().as_str(),
-            user.email_verified_at(),
-            user.phone_verified_at(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-                INSERT INTO refresh_tokens (
-                    id, user_id, expires_at, revoked_at, created_at,
-                    last_used_at, last_ip, last_user_agent
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            "#,
-            refresh_token.id().uuid(),
-            refresh_token.user_id().uuid(),
-            refresh_token.expires_at(),
-            refresh_token.revoked_at(),
-            refresh_token.created_at(),
-            refresh_token.last_used_at(),
-            refresh_token.last_ip(),
-            refresh_token.last_user_agent(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(())
     }
@@ -298,61 +235,6 @@ impl UserRepository for PostgresUserRepository {
         }
     }
 
-    async fn confirm_registration(
-        &self,
-        user: &User,
-        verification_code: &VerificationCode,
-        events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let user_result = sqlx::query!(
-            r#"
-                UPDATE users
-                SET email_verified_at = $2,
-                    phone_verified_at = $3
-                WHERE id = $1
-            "#,
-            user.id().uuid(),
-            user.email_verified_at(),
-            user.phone_verified_at(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if user_result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-
-        let code_result = sqlx::query!(
-            r#"
-                UPDATE verification_codes
-                SET consumed_at = $2
-                WHERE id = $1 AND consumed_at IS NULL
-            "#,
-            verification_code.id().uuid(),
-            verification_code.consumed_at(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if code_result.rows_affected() == 0 {
-            return Ok(false);
-        }
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(true)
-    }
-
     async fn update_locale(
         &self,
         user_id: &UserId,
@@ -374,54 +256,6 @@ impl UserRepository for PostgresUserRepository {
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
-        Ok(())
-    }
-
-    async fn set_name_with_events(
-        &self,
-        user_id: &UserId,
-        name: &UserName,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let result = sqlx::query!(
-            r#"
-                UPDATE users
-                SET name = $2, updated_at = now()
-                WHERE id = $1
-            "#,
-            user_id.uuid(),
-            name.as_str(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-
-        let committed_at = chrono::Utc::now();
-        let mut stamped = events.to_vec();
-        for record in &mut stamped {
-            record.occurred_at = committed_at;
-            if let Some(payload) = record.payload.as_object_mut() {
-                payload.insert(
-                    "occurred_at".to_string(),
-                    serde_json::to_value(committed_at)
-                        .map_err(|e| RepositoryError::InvalidData(e.to_string()))?,
-                );
-            }
-        }
-
-        save_outbox_records(&mut tx, &stamped).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 

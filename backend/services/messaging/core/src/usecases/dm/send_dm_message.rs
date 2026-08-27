@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::{
@@ -28,30 +28,35 @@ pub enum SendDmMessageError {
     AttachmentsUnavailable(String),
 }
 
-pub struct SendDmMessage<M, F, A>
+pub struct SendDmMessage<M, W, F, A>
 where
     M: DmMessageRepository,
+    W: DmUnitOfWork,
     F: FriendshipRepository,
     A: AttachmentClaims,
 {
     dm_repository: Arc<M>,
+    unit_of_work: Arc<W>,
     friendship_repository: Arc<F>,
     attachment_claims: Arc<A>,
 }
 
-impl<M, F, A> SendDmMessage<M, F, A>
+impl<M, W, F, A> SendDmMessage<M, W, F, A>
 where
     M: DmMessageRepository,
+    W: DmUnitOfWork,
     F: FriendshipRepository,
     A: AttachmentClaims,
 {
     pub fn new(
         dm_repository: Arc<M>,
+        unit_of_work: Arc<W>,
         friendship_repository: Arc<F>,
         attachment_claims: Arc<A>,
     ) -> Self {
         Self {
             dm_repository,
+            unit_of_work,
             friendship_repository,
             attachment_claims,
         }
@@ -116,11 +121,14 @@ where
             "attachments",
             crate::usecases::enrichment::attachment_links_value(&attachments),
         );
-        if let Err(e) = self
-            .dm_repository
-            .save_with_events(&message, &records, &attachments)
-            .await
-        {
+        let persisted = async {
+            let mut tx = self.unit_of_work.begin().await?;
+            tx.insert_message(&message, &attachments).await?;
+            tx.save_outbox(&records).await?;
+            tx.commit().await
+        }
+        .await;
+        if let Err(e) = persisted {
             if !request.attachment_ids.is_empty() {
                 match self.dm_repository.linked_attachment_subset(&request.attachment_ids).await {
                     Ok(linked) if linked.is_empty() => {

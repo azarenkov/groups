@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::RefreshToken, refresh_token::repository::RefreshTokenRepository, user::User, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
+use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::User, user::email::Email, user::events::UserEvent, user::events::lifecycle::UserLoggedIn, user::repository::UserRepository};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
 
 use crate::{
@@ -51,10 +51,10 @@ pub enum GoogleLoginOutcome {
     NeedsUsername,
 }
 
-pub struct GoogleLogin<U, R, I, V, H, TM, SL>
+pub struct GoogleLogin<U, W, I, V, H, TM, SL>
 where
     U: UserRepository,
-    R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     I: TokenIssuer,
     V: OAuthIdentityVerifier,
     H: Hasher,
@@ -62,7 +62,7 @@ where
     SL: UserStateLookup,
 {
     user_repository: Arc<U>,
-    refresh_token_repository: Arc<R>,
+    unit_of_work: Arc<W>,
     token_issuer: Arc<I>,
     verifier: Arc<V>,
     hasher: Arc<H>,
@@ -71,10 +71,10 @@ where
     user_state_lookup: Arc<SL>,
 }
 
-impl<U, R, I, V, H, TM, SL> GoogleLogin<U, R, I, V, H, TM, SL>
+impl<U, W, I, V, H, TM, SL> GoogleLogin<U, W, I, V, H, TM, SL>
 where
     U: UserRepository,
-    R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     I: TokenIssuer,
     V: OAuthIdentityVerifier,
     H: Hasher,
@@ -84,7 +84,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         user_repository: Arc<U>,
-        refresh_token_repository: Arc<R>,
+        unit_of_work: Arc<W>,
         token_issuer: Arc<I>,
         verifier: Arc<V>,
         hasher: Arc<H>,
@@ -94,7 +94,7 @@ where
     ) -> Self {
         Self {
             user_repository,
-            refresh_token_repository,
+            unit_of_work,
             token_issuer,
             verifier,
             hasher,
@@ -279,11 +279,15 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<Vec<_>, _>>()?;
 
-        match self
-            .user_repository
-            .register_user(&user, &refresh_token, &records)
-            .await
-        {
+        let persisted = async {
+            let mut tx = self.unit_of_work.begin().await?;
+            tx.insert_user(&user).await?;
+            tx.insert_refresh_token(&refresh_token).await?;
+            tx.save_outbox(&records).await?;
+            tx.commit().await
+        }
+        .await;
+        match persisted {
             Ok(()) => {}
             Err(RepositoryError::AlreadyExists) => {
                 if self.user_repository.find_by_name(&name_check).await?.is_some() {
@@ -331,9 +335,10 @@ where
         ));
         let records: Vec<OutboxRecord> = vec![event.to_outbox_record_with_request_id(request_id)?];
 
-        self.refresh_token_repository
-            .save_refresh_token_with_events(&refresh_token, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        tx.insert_refresh_token(&refresh_token).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(tokens)
     }

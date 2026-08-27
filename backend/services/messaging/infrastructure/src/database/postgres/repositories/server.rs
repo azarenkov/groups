@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use domain::shared::outbox::to_outbox::ToOutboxRecord;
-use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, dm_message::id::DmMessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository};
+use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -65,53 +65,6 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(result.exists)
-    }
-
-    async fn save_server_with_events(
-        &self,
-        server: &Server,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-                INSERT INTO servers (id, name, owner_id, description, accent_color, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-            "#,
-            server.id().uuid(),
-            server.name().as_str(),
-            server.owner_id().uuid(),
-            server.description().map(|d| d.as_str()),
-            server.accent_color(),
-            server.created_at(),
-            server.updated_at()
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-                INSERT INTO server_members (server_id, user_id, joined_at)
-                VALUES ($1, $2, NOW())
-            "#,
-            server.id().uuid(),
-            server.owner_id().uuid()
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(())
     }
 
     async fn find_servers_by_user_id(
@@ -389,147 +342,6 @@ impl ServerRepository for PostgresServerRepository {
             .collect();
 
         Ok(PaginatedResult::new(items, total, pagination))
-    }
-
-    async fn accept_invite(
-        &self,
-        invite_message_id: &DmMessageId,
-        server_id: &ServerId,
-        user_id: &UserId,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let deleted = sqlx::query!(
-            r#"
-                DELETE FROM dm_messages
-                WHERE id = $1 AND recipient_id = $2 AND invite_server_id = $3
-            "#,
-            invite_message_id.uuid(),
-            user_id.uuid(),
-            server_id.uuid(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if deleted.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-
-        sqlx::query!(
-            r#"
-                INSERT INTO server_members (server_id, user_id, joined_at)
-                VALUES ($1, $2, NOW())
-                ON CONFLICT (server_id, user_id) DO NOTHING
-            "#,
-            server_id.uuid(),
-            user_id.uuid(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
-    async fn delete_server_by_owner_with_events(
-        &self,
-        server_id: &ServerId,
-        owner_id: &UserId,
-        events: &[OutboxRecord],
-    ) -> Result<Option<Vec<String>>, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"SELECT id FROM servers WHERE id = $1 FOR UPDATE"#,
-            server_id.uuid(),
-        )
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"SELECT id FROM channels WHERE server_id = $1 FOR UPDATE"#,
-            server_id.uuid(),
-        )
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-            SELECT m.id
-            FROM messages m
-            INNER JOIN channels c ON c.id = m.channel_id
-            WHERE c.server_id = $1
-            FOR UPDATE OF m
-            "#,
-            server_id.uuid(),
-        )
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        let storage_keys = sqlx::query_scalar!(
-            r#"
-            WITH removed AS (
-                DELETE FROM message_attachments a
-                USING messages m, channels c
-                WHERE m.id = a.message_id AND c.id = m.channel_id AND c.server_id = $1
-                RETURNING a.storage_key
-            )
-            SELECT storage_key AS "storage_key!" FROM removed
-            "#,
-            server_id.uuid(),
-        )
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        sqlx::query!(
-            r#"
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT * FROM UNNEST($1::text[])
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            &storage_keys,
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        let result = sqlx::query!(
-            r#"
-                DELETE FROM servers WHERE id = $1 AND owner_id = $2
-            "#,
-            server_id.uuid(),
-            owner_id.uuid()
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if result.rows_affected() == 0 {
-            return Ok(None);
-        }
-
-        save_outbox_records(&mut tx, events).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(Some(storage_keys))
     }
 
     async fn find_server_owner(

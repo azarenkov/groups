@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus};
+use messaging_domain::{friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::requests::friendship::accept_friend_request::AcceptFriendRequestRequest;
@@ -18,20 +18,24 @@ pub enum AcceptFriendRequestError {
     NoPendingRequest,
 }
 
-pub struct AcceptFriendRequest<F>
+pub struct AcceptFriendRequest<F, W>
 where
     F: FriendshipRepository,
+    W: FriendshipUnitOfWork,
 {
     friendship_repository: Arc<F>,
+    unit_of_work: Arc<W>,
 }
 
-impl<F> AcceptFriendRequest<F>
+impl<F, W> AcceptFriendRequest<F, W>
 where
     F: FriendshipRepository,
+    W: FriendshipUnitOfWork,
 {
-    pub fn new(friendship_repository: Arc<F>) -> Self {
+    pub fn new(friendship_repository: Arc<F>, unit_of_work: Arc<W>) -> Self {
         Self {
             friendship_repository,
+            unit_of_work,
         }
     }
 
@@ -60,13 +64,12 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        let updated = self
-            .friendship_repository
-            .accept_pair_with_events(&accepter_id, &sender_id, &records)
-            .await?;
-        if !updated {
+        let mut tx = self.unit_of_work.begin().await?;
+        if !tx.accept_pair(&accepter_id, &sender_id).await? {
             return Err(AcceptFriendRequestError::NoPendingRequest);
         }
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
         Ok(())
     }
 }

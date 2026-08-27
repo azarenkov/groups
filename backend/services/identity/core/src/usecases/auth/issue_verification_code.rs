@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
-use identity_domain::{user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose, verification::repository::VerificationCodeRepository};
+use identity_domain::{unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
 
 use crate::{
     dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest,
@@ -22,31 +22,31 @@ pub enum IssueVerificationCodeError {
     UserAlreadyVerified,
 }
 
-pub struct IssueVerificationCode<U, V, H>
+pub struct IssueVerificationCode<U, W, H>
 where
     U: UserRepository,
-    V: VerificationCodeRepository,
+    W: IdentityUnitOfWork,
     H: Hasher,
 {
     user_repository: Arc<U>,
-    verification_code_repository: Arc<V>,
+    unit_of_work: Arc<W>,
     hasher: Arc<H>,
 }
 
-impl<U, V, H> IssueVerificationCode<U, V, H>
+impl<U, W, H> IssueVerificationCode<U, W, H>
 where
     U: UserRepository,
-    V: VerificationCodeRepository,
+    W: IdentityUnitOfWork,
     H: Hasher,
 {
     pub fn new(
         user_repository: Arc<U>,
-        verification_code_repository: Arc<V>,
+        unit_of_work: Arc<W>,
         hasher: Arc<H>,
     ) -> Self {
         Self {
             user_repository,
-            verification_code_repository,
+            unit_of_work,
             hasher,
         }
     }
@@ -90,9 +90,10 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<Vec<_>, _>>()?;
 
-        self.verification_code_repository
-            .save_verification_code_with_events(&verification_code, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        tx.insert_verification_code(&verification_code).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(())
     }

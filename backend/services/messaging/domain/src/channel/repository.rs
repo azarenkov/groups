@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::{channel::Channel, channel::ChannelError, channel::VoiceChange, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::session_id::SessionId};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use crate::{channel::Channel, channel::ChannelError, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::session_id::SessionId};
+use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ChannelOperationError {
@@ -15,12 +15,6 @@ pub enum ChannelOperationError {
 #[async_trait]
 #[allow(clippy::too_many_arguments)]
 pub trait ChannelRepository {
-    async fn update_channel_with_events(
-        &self,
-        channel: &Channel,
-        events: &[OutboxRecord],
-        voice_changes: &[VoiceChange],
-    ) -> Result<(), RepositoryError>;
 
     async fn apply_participant_joined(
         &self,
@@ -94,13 +88,6 @@ pub trait ChannelRepository {
         channel_id: &ChannelId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError>;
-
-    async fn join_text_with_events(
-        &self,
-        channel: &Channel,
-        joined_user_id: &UserId,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
 
     async fn is_text_channel_member(
         &self,

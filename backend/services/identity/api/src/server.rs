@@ -26,6 +26,7 @@ use identity_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
+            identity_unit_of_work::PostgresIdentityUnitOfWork,
             refresh_token::PostgresRefreshTokenRepository, user::PostgresUserRepository,
             verification_code::PostgresVerificationCodeRepository,
         },
@@ -61,6 +62,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     ));
     let refresh_token_repository =
         Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
+    let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
     let token_issuer = Arc::new(JwtTokenIssuer::new(server_config.jwt_secret.clone()));
@@ -81,6 +83,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let app_state = web::Data::new(AppState {
         register_user_usecase: RegisterUser::new(
             user_repository.clone(),
+            unit_of_work.clone(),
             hasher.clone(),
             token_issuer.clone(),
             nsfw_detector.clone(),
@@ -88,18 +91,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         issue_verification_code_usecase: IssueVerificationCode::new(
             user_repository.clone(),
-            verification_code_repository.clone(),
+            unit_of_work.clone(),
             hasher.clone(),
         ),
         login_user_usecase: LoginUser::new(
             user_repository.clone(),
             hasher.clone(),
-            refresh_token_repository.clone(),
+            unit_of_work.clone(),
             token_issuer.clone(),
         ),
         google_login_usecase: GoogleLogin::new(
             user_repository.clone(),
-            refresh_token_repository.clone(),
+            unit_of_work.clone(),
             token_issuer.clone(),
             google_token_verifier.clone(),
             hasher.clone(),
@@ -111,18 +114,24 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             hasher.clone(),
             verification_code_repository.clone(),
+            unit_of_work.clone(),
         ),
         refresh_tokens_usecase: RefreshTokens::new(
             refresh_token_repository.clone(),
             user_repository.clone(),
             token_issuer.clone(),
         ),
-        logout_usecase: Logout::new(refresh_token_repository.clone(), token_issuer.clone()),
+        logout_usecase: Logout::new(
+            refresh_token_repository.clone(),
+            unit_of_work.clone(),
+            token_issuer.clone(),
+        ),
         search_users_usecase: SearchUsers::new(user_repository.clone()),
         get_me_usecase: GetMe::new(user_repository.clone()),
         update_user_locale_usecase: UpdateUserLocale::new(user_repository.clone()),
         rename_user_usecase: RenameUser::new(
             user_repository.clone(),
+            unit_of_work.clone(),
             nsfw_detector.clone(),
             reserved_names.clone(),
         ),

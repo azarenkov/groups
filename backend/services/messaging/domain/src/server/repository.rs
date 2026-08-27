@@ -1,16 +1,11 @@
 use async_trait::async_trait;
 
-use crate::{channel::Channel, dm_message::id::DmMessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
+use crate::{channel::Channel, server::Server, server::id::ServerId, server::invite_code::InviteCode};
+use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId, user::name::UserName};
 
 #[async_trait]
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
-    async fn save_server_with_events(
-        &self,
-        server: &Server,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
     async fn find_servers_by_user_id(
         &self,
         user_id: &UserId,
@@ -30,19 +25,6 @@ pub trait ServerRepository {
         server_id: &ServerId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<Channel>, RepositoryError>;
-    async fn accept_invite(
-        &self,
-        invite_message_id: &DmMessageId,
-        server_id: &ServerId,
-        user_id: &UserId,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
-    async fn delete_server_by_owner_with_events(
-        &self,
-        server_id: &ServerId,
-        owner_id: &UserId,
-        events: &[OutboxRecord],
-    ) -> Result<Option<Vec<String>>, RepositoryError>;
     async fn find_server_owner(
         &self,
         server_id: &ServerId,

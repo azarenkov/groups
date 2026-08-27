@@ -1,18 +1,12 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::{refresh_token::RefreshToken, user::User, user::email::Email, user::id::UserId, user::locale::Locale, user::name::UserName, verification::code::VerificationCode};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash};
+use crate::{user::User, user::email::Email, user::id::UserId, user::locale::Locale, user::name::UserName};
+use domain::{shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash};
 
 #[async_trait]
 pub trait UserRepository {
     async fn save_user(&self, user: &User) -> Result<(), RepositoryError>;
-    async fn register_user(
-        &self,
-        user: &User,
-        refresh_token: &RefreshToken,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
     async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError>;
     async fn find_by_name(&self, name: &UserName) -> Result<Option<User>, RepositoryError>;
@@ -33,22 +27,10 @@ pub trait UserRepository {
     ) -> Result<PasswordHash, RepositoryError>;
     async fn get_username_by_id(&self, user_id: &UserId) -> Result<UserName, RepositoryError>;
     async fn get_user_id_by_email(&self, email: &Email) -> Result<UserId, RepositoryError>;
-    async fn confirm_registration(
-        &self,
-        user: &User,
-        verification_code: &VerificationCode,
-        events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
     async fn update_locale(
         &self,
         user_id: &UserId,
         locale: Locale,
-    ) -> Result<(), RepositoryError>;
-    async fn set_name_with_events(
-        &self,
-        user_id: &UserId,
-        name: &UserName,
-        events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
     async fn claim_with_oauth(
         &self,

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::{
@@ -33,26 +33,29 @@ pub enum SendChannelMessageError {
     AttachmentsUnavailable(String),
 }
 
-pub struct SendChannelMessage<M, C, S, A, R>
+pub struct SendChannelMessage<M, C, S, W, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    W: MessageUnitOfWork,
     A: crate::ports::attachment_claims::AttachmentClaims,
     R: crate::ports::mention_resolver::MentionResolver,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
     mention_resolver: Arc<R>,
 }
 
-impl<M, C, S, A, R> SendChannelMessage<M, C, S, A, R>
+impl<M, C, S, W, A, R> SendChannelMessage<M, C, S, W, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    W: MessageUnitOfWork,
     A: crate::ports::attachment_claims::AttachmentClaims,
     R: crate::ports::mention_resolver::MentionResolver,
 {
@@ -60,6 +63,7 @@ where
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
+        unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
         mention_resolver: Arc<R>,
     ) -> Self {
@@ -67,6 +71,7 @@ where
             message_repository,
             channel_repository,
             server_repository,
+            unit_of_work,
             attachment_claims,
             mention_resolver,
         }
@@ -180,11 +185,14 @@ where
             crate::usecases::enrichment::attachment_links_value(&attachments),
         );
 
-        if let Err(e) = self
-            .message_repository
-            .save_message_with_events(&message, &records, &attachments, &mentions)
-            .await
-        {
+        let persisted = async {
+            let mut tx = self.unit_of_work.begin().await?;
+            tx.insert_message(&message, &attachments, &mentions).await?;
+            tx.save_outbox(&records).await?;
+            tx.commit().await
+        }
+        .await;
+        if let Err(e) = persisted {
             if !request.attachment_ids.is_empty() {
                 match self.message_repository.linked_attachment_subset(&request.attachment_ids).await {
                     Ok(linked) if linked.is_empty() => {

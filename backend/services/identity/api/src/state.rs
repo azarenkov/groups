@@ -15,6 +15,7 @@ use infrastructure_common::{
 use identity_infrastructure::{
     auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
     database::postgres::repositories::{
+        identity_unit_of_work::PostgresIdentityUnitOfWork,
         refresh_token::PostgresRefreshTokenRepository, user::PostgresUserRepository,
         verification_code::PostgresVerificationCodeRepository,
     },
@@ -23,22 +24,27 @@ use identity_infrastructure::{
 };
 
 pub struct AppState {
-    pub register_user_usecase:
-        RegisterUser<PostgresUserRepository, BcryptHasher, JwtTokenIssuer, NsfwDetector>,
+    pub register_user_usecase: RegisterUser<
+        PostgresUserRepository,
+        PostgresIdentityUnitOfWork,
+        BcryptHasher,
+        JwtTokenIssuer,
+        NsfwDetector,
+    >,
     pub issue_verification_code_usecase: IssueVerificationCode<
         PostgresUserRepository,
-        PostgresVerificationCodeRepository,
+        PostgresIdentityUnitOfWork,
         BcryptHasher,
     >,
     pub login_user_usecase: LoginUser<
         PostgresUserRepository,
         BcryptHasher,
-        PostgresRefreshTokenRepository,
+        PostgresIdentityUnitOfWork,
         JwtTokenIssuer,
     >,
     pub google_login_usecase: GoogleLogin<
         PostgresUserRepository,
-        PostgresRefreshTokenRepository,
+        PostgresIdentityUnitOfWork,
         JwtTokenIssuer,
         GoogleIdTokenVerifier,
         BcryptHasher,
@@ -49,14 +55,15 @@ pub struct AppState {
         PostgresUserRepository,
         BcryptHasher,
         PostgresVerificationCodeRepository,
+        PostgresIdentityUnitOfWork,
     >,
     pub refresh_tokens_usecase:
         RefreshTokens<PostgresRefreshTokenRepository, PostgresUserRepository, JwtTokenIssuer>,
-    pub logout_usecase: Logout<PostgresRefreshTokenRepository, JwtTokenIssuer>,
+    pub logout_usecase: Logout<PostgresRefreshTokenRepository, PostgresIdentityUnitOfWork, JwtTokenIssuer>,
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresUserRepository>,
-    pub rename_user_usecase: RenameUser<PostgresUserRepository, NsfwDetector>,
+    pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
     pub user_repository: std::sync::Arc<PostgresUserRepository>,
     pub trust_forwarded_headers: bool,
 }

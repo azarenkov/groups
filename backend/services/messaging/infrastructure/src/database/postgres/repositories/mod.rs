@@ -1,7 +1,11 @@
 pub mod channel;
+pub mod channel_unit_of_work;
 pub mod dm_message;
+pub mod dm_unit_of_work;
 pub mod friendship;
+pub mod friendship_unit_of_work;
 pub mod message;
+pub mod message_unit_of_work;
 pub mod notification_preference;
 pub mod read_state;
 pub mod server;

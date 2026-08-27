@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use identity_domain::{refresh_token::RefreshToken, user::User, user::email::Email, user::repository::UserRepository};
+use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::User, user::email::Email, user::repository::UserRepository};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, shared::value_objects::password_hash::PasswordHash, user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
 
 
@@ -39,29 +39,33 @@ pub struct RegisteredUser {
     pub tokens: IssuedTokens,
 }
 
-pub struct RegisterUser<T, H, I, TM>
+pub struct RegisterUser<T, W, H, I, TM>
 where
     T: UserRepository,
+    W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
     TM: TextModeration,
 {
     user_repository: Arc<T>,
+    unit_of_work: Arc<W>,
     hasher: Arc<H>,
     token_issuer: Arc<I>,
     text_moderation: Arc<TM>,
     reserved_names: Arc<ReservedNames>,
 }
 
-impl<T, H, I, TM> RegisterUser<T, H, I, TM>
+impl<T, W, H, I, TM> RegisterUser<T, W, H, I, TM>
 where
     T: UserRepository,
+    W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
     TM: TextModeration,
 {
     pub fn new(
         user_repository: Arc<T>,
+        unit_of_work: Arc<W>,
         hasher: Arc<H>,
         token_issuer: Arc<I>,
         text_moderation: Arc<TM>,
@@ -69,6 +73,7 @@ where
     ) -> Self {
         Self {
             user_repository,
+            unit_of_work,
             hasher,
             token_issuer,
             text_moderation,
@@ -128,11 +133,15 @@ where
         let user_id = user.id_ownned();
         let email = user.email().clone();
 
-        match self
-            .user_repository
-            .register_user(&user, &refresh_token, &records)
-            .await
-        {
+        let persisted = async {
+            let mut tx = self.unit_of_work.begin().await?;
+            tx.insert_user(&user).await?;
+            tx.insert_refresh_token(&refresh_token).await?;
+            tx.save_outbox(&records).await?;
+            tx.commit().await
+        }
+        .await;
+        match persisted {
             Ok(()) => {}
             Err(RepositoryError::AlreadyExists) => {
                 if self.user_repository.find_by_name(&name_check).await?.is_some() {

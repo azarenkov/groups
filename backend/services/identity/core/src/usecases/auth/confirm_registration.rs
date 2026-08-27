@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
-use identity_domain::{user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::repository::VerificationCodeRepository};
+use identity_domain::{unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::repository::VerificationCodeRepository};
 
 use crate::{
     dto::requests::auth::confirm_registration::ConfirmRegistrationRequest,
@@ -31,32 +31,37 @@ pub enum ConfirmRegistrationError {
     Outbox(#[from] OutboxError),
 }
 
-pub struct ConfirmRegistration<T, H, V>
+pub struct ConfirmRegistration<T, H, V, W>
 where
     T: UserRepository,
     H: Hasher,
     V: VerificationCodeRepository,
+    W: IdentityUnitOfWork,
 {
     user_repository: Arc<T>,
     hasher: Arc<H>,
     verification_code_repository: Arc<V>,
+    unit_of_work: Arc<W>,
 }
 
-impl<T, H, V> ConfirmRegistration<T, H, V>
+impl<T, H, V, W> ConfirmRegistration<T, H, V, W>
 where
     T: UserRepository,
     H: Hasher,
     V: VerificationCodeRepository,
+    W: IdentityUnitOfWork,
 {
     pub fn new(
         user_repository: Arc<T>,
         hasher: Arc<H>,
         verification_code_repository: Arc<V>,
+        unit_of_work: Arc<W>,
     ) -> Self {
         Self {
             user_repository,
             hasher,
             verification_code_repository,
+            unit_of_work,
         }
     }
 
@@ -124,14 +129,13 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        let consumed = self
-            .user_repository
-            .confirm_registration(&user, &verification_code, &records)
-            .await?;
-
-        if !consumed {
+        let mut tx = self.unit_of_work.begin().await?;
+        tx.mark_user_verified(&user).await?;
+        if !tx.consume_verification_code(&verification_code).await? {
             return Err(ConfirmRegistrationError::UserAlreadyVerified);
         }
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(())
     }

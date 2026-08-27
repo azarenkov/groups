@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository};
+use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 
 use crate::dto::RequestContext;
@@ -18,19 +18,25 @@ pub enum DeclineServerInviteError {
     NotRecipient,
 }
 
-pub struct DeclineServerInvite<M>
+pub struct DeclineServerInvite<M, W>
 where
     M: DmMessageRepository,
+    W: DmUnitOfWork,
 {
     dm_repository: Arc<M>,
+    unit_of_work: Arc<W>,
 }
 
-impl<M> DeclineServerInvite<M>
+impl<M, W> DeclineServerInvite<M, W>
 where
     M: DmMessageRepository,
+    W: DmUnitOfWork,
 {
-    pub fn new(dm_repository: Arc<M>) -> Self {
-        Self { dm_repository }
+    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>) -> Self {
+        Self {
+            dm_repository,
+            unit_of_work,
+        }
     }
 
     pub async fn execute(
@@ -58,9 +64,10 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        self.dm_repository
-            .delete_with_events(&message_id, &records)
-            .await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        tx.delete_message(&message_id).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
         Ok(())
     }
 }

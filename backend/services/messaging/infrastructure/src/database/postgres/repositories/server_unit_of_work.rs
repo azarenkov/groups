@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::id::ChannelId, dm_message::DmMessage, message::id::MessageId, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::authorization::AuthorizationSnapshot, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
@@ -678,6 +678,142 @@ impl ServerTransaction for PostgresServerTransaction {
 
     async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError> {
         insert_dm_message(&mut self.tx, message).await
+    }
+
+    async fn insert_server(&mut self, server: &Server) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+                INSERT INTO servers (id, name, owner_id, description, accent_color, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            server.id().uuid(),
+            server.name().as_str(),
+            server.owner_id().uuid(),
+            server.description().map(|d| d.as_str()),
+            server.accent_color(),
+            server.created_at(),
+            server.updated_at()
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+                INSERT INTO server_members (server_id, user_id, joined_at)
+                VALUES ($1, $2, NOW())
+            "#,
+            server.id().uuid(),
+            server.owner_id().uuid()
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn accept_invite(
+        &mut self,
+        invite_message_id: &DmMessageId,
+        user_id: &UserId,
+    ) -> Result<(), RepositoryError> {
+        let deleted = sqlx::query!(
+            r#"
+                DELETE FROM dm_messages
+                WHERE id = $1 AND recipient_id = $2 AND invite_server_id = $3
+            "#,
+            invite_message_id.uuid(),
+            user_id.uuid(),
+            self.server_id.uuid(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if deleted.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        sqlx::query!(
+            r#"
+                INSERT INTO server_members (server_id, user_id, joined_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (server_id, user_id) DO NOTHING
+            "#,
+            self.server_id.uuid(),
+            user_id.uuid(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn delete_server_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError> {
+        sqlx::query!(
+            r#"SELECT id FROM servers WHERE id = $1 FOR UPDATE"#,
+            self.server_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"SELECT id FROM channels WHERE server_id = $1 FOR UPDATE"#,
+            self.server_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+            SELECT m.id
+            FROM messages m
+            INNER JOIN channels c ON c.id = m.channel_id
+            WHERE c.server_id = $1
+            FOR UPDATE OF m
+            "#,
+            self.server_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let storage_keys = sqlx::query_scalar!(
+            r#"
+            WITH removed AS (
+                DELETE FROM message_attachments a
+                USING messages m, channels c
+                WHERE m.id = a.message_id AND c.id = m.channel_id AND c.server_id = $1
+                RETURNING a.storage_key
+            )
+            SELECT storage_key AS "storage_key!" FROM removed
+            "#,
+            self.server_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT * FROM UNNEST($1::text[])
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            &storage_keys,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let result = sqlx::query!(
+            r#"
+                DELETE FROM servers WHERE id = $1 AND owner_id = $2
+            "#,
+            self.server_id.uuid(),
+            owner_id.uuid()
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+        Ok(Some(storage_keys))
     }
 
     async fn save_outbox(&mut self, records: &[OutboxRecord]) -> Result<(), RepositoryError> {

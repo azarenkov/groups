@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::repository::error::RepositoryError};
+use domain::shared::repository::error::RepositoryError;
 use crate::{user::id::UserId, verification::code::VerificationCode, verification::id::VerificationCodeId};
 
 #[async_trait]
@@ -8,11 +8,6 @@ pub trait VerificationCodeRepository {
     async fn save_verification_code(
         &self,
         verification_code: &VerificationCode,
-    ) -> Result<(), RepositoryError>;
-    async fn save_verification_code_with_events(
-        &self,
-        verification_code: &VerificationCode,
-        events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
     async fn find_verification_code_by_user_id(
         &self,

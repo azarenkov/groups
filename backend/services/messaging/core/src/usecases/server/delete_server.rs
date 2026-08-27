@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::repository::ChannelRepository, server::events::ServerEvent, server::events::lifecycle::ServerDeleted, server::repository::ServerRepository};
+use messaging_domain::{channel::repository::ChannelRepository, server::events::ServerEvent, server::events::lifecycle::ServerDeleted, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError};
 
 use crate::{
@@ -23,31 +23,36 @@ pub enum DeleteServerError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteServer<S, C, V>
+pub struct DeleteServer<S, C, W, V>
 where
     S: ServerRepository,
     C: ChannelRepository,
+    W: ServerUnitOfWork,
     V: VoiceService,
 {
     server_repository: Arc<S>,
     channel_repository: Arc<C>,
+    unit_of_work: Arc<W>,
     voice_service: Arc<V>,
 }
 
-impl<S, C, V> DeleteServer<S, C, V>
+impl<S, C, W, V> DeleteServer<S, C, W, V>
 where
     S: ServerRepository,
     C: ChannelRepository,
+    W: ServerUnitOfWork,
     V: VoiceService,
 {
     pub fn new(
         server_repository: Arc<S>,
         channel_repository: Arc<C>,
+        unit_of_work: Arc<W>,
         voice_service: Arc<V>,
     ) -> Self {
         Self {
             server_repository,
             channel_repository,
+            unit_of_work,
             voice_service,
         }
     }
@@ -88,14 +93,12 @@ where
         let records: Vec<OutboxRecord> =
             vec![event.to_outbox_record_with_request_id(ctx.request_id)?];
 
-        if self
-            .server_repository
-            .delete_server_by_owner_with_events(&server_id, &owner_id, &records)
-            .await?
-            .is_none()
-        {
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        if tx.delete_server_by_owner(&owner_id).await?.is_none() {
             return Ok(false);
         }
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         for channel_id in &voice_channel_ids {
             if let Err(err) = self.voice_service.delete_voice_channel(channel_id).await {

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, message::MessageError, message::content::MessageContent};
+use messaging_domain::{dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
 use domain::{shared::outbox::outbox_record::OutboxRecord, shared::outbox::to_outbox::OutboxError, shared::outbox::to_outbox::ToOutboxRecord, shared::repository::error::RepositoryError, user::id::UserId};
 use uuid::Uuid;
 
@@ -29,23 +29,27 @@ pub enum EditDmMessageError {
     AttachmentsUnavailable(String),
 }
 
-pub struct EditDmMessage<M, A>
+pub struct EditDmMessage<M, W, A>
 where
     M: DmMessageRepository,
+    W: DmUnitOfWork,
     A: AttachmentClaims,
 {
     dm_repository: Arc<M>,
+    unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
 }
 
-impl<M, A> EditDmMessage<M, A>
+impl<M, W, A> EditDmMessage<M, W, A>
 where
     M: DmMessageRepository,
+    W: DmUnitOfWork,
     A: AttachmentClaims,
 {
-    pub fn new(dm_repository: Arc<M>, attachment_claims: Arc<A>) -> Self {
+    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>, attachment_claims: Arc<A>) -> Self {
         Self {
             dm_repository,
+            unit_of_work,
             attachment_claims,
         }
     }
@@ -147,16 +151,15 @@ where
             "recipient_id",
             serde_json::json!(message.recipient_id().uuid()),
         );
-        if let Err(e) = self
-            .dm_repository
-            .update_with_events(
-                &message,
-                &records,
-                &added_attachments,
-                &request.remove_attachment_ids,
-            )
-            .await
-        {
+        let persisted = async {
+            let mut tx = self.unit_of_work.begin().await?;
+            tx.update_message(&message, &added_attachments, &request.remove_attachment_ids)
+                .await?;
+            tx.save_outbox(&records).await?;
+            tx.commit().await
+        }
+        .await;
+        if let Err(e) = persisted {
             if !request.add_attachment_ids.is_empty() {
                 match self.dm_repository.linked_attachment_subset(&request.add_attachment_ids).await {
                     Ok(linked) if linked.is_empty() => {

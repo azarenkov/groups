@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::view::DmMessageView, server::id::ServerId};
-use domain::{shared::outbox::outbox_record::OutboxRecord, shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId};
+use domain::{shared::pagination::PaginatedResult, shared::pagination::Pagination, shared::repository::error::RepositoryError, user::id::UserId};
 
 #[derive(Debug, Clone)]
 pub struct DmConversationPreview {
@@ -19,26 +19,6 @@ pub struct DmConversationPreview {
 
 #[async_trait]
 pub trait DmMessageRepository {
-    async fn save_with_events(
-        &self,
-        message: &DmMessage,
-        events: &[OutboxRecord],
-        attachments: &[domain::attachment::AttachmentLink],
-    ) -> Result<(), RepositoryError>;
-
-    async fn update_with_events(
-        &self,
-        message: &DmMessage,
-        events: &[OutboxRecord],
-        add_attachments: &[domain::attachment::AttachmentLink],
-        remove_attachment_ids: &[Uuid],
-    ) -> Result<(), RepositoryError>;
-
-    async fn delete_with_events(
-        &self,
-        id: &DmMessageId,
-        events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
 
     async fn linked_attachment_subset(
         &self,
