@@ -34,13 +34,6 @@ pub trait DmMessageRepository {
         attachments: &[crate::attachment::AttachmentLink],
     ) -> Result<(), RepositoryError>;
 
-    async fn save_server_invite_with_events(
-        &self,
-        message: &DmMessage,
-        events: &[OutboxRecord],
-        delegated: Option<(&crate::server::id::ServerId, &crate::user::id::UserId)>,
-    ) -> Result<bool, RepositoryError>;
-
     async fn update_with_events(
         &self,
         message: &DmMessage,

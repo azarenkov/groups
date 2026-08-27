@@ -12,26 +12,6 @@ use crate::{
     user::{id::UserId, name::UserName},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RevokeAuthority {
-    Owner,
-    Delegated,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UpdateServerOutcome {
-    Updated,
-    NotFound,
-    Denied,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RemoveMemberOutcome {
-    Removed,
-    NotMember,
-    Denied,
-}
-
 #[async_trait]
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
@@ -66,13 +46,6 @@ pub trait ServerRepository {
         user_id: &UserId,
         events: &[OutboxRecord],
     ) -> Result<(), RepositoryError>;
-    async fn remove_server_member(
-        &self,
-        server_id: &ServerId,
-        user_id: &UserId,
-        delegated_kicker: Option<&UserId>,
-        events: &[OutboxRecord],
-    ) -> Result<RemoveMemberOutcome, RepositoryError>;
     async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,
@@ -92,34 +65,10 @@ pub trait ServerRepository {
         server_id: &ServerId,
         user_id: &UserId,
     ) -> Result<bool, RepositoryError>;
-    async fn update_server_details(
-        &self,
-        server_id: &ServerId,
-        name: &str,
-        description: Option<&str>,
-        delegated_actor: Option<&UserId>,
-        events: &[OutboxRecord],
-    ) -> Result<UpdateServerOutcome, RepositoryError>;
-    async fn create_invite_code(
-        &self,
-        server_id: &ServerId,
-        created_by: &UserId,
-        code: &str,
-        max_uses: Option<i32>,
-        expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        delegated: bool,
-    ) -> Result<Option<InviteCode>, RepositoryError>;
     async fn list_invite_codes(
         &self,
         server_id: &ServerId,
     ) -> Result<Vec<InviteCode>, RepositoryError>;
-    async fn revoke_invite_code(
-        &self,
-        server_id: &ServerId,
-        code: &str,
-        requester: &UserId,
-        authority: RevokeAuthority,
-    ) -> Result<bool, RepositoryError>;
     async fn redeem_invite_code(
         &self,
         code: &str,

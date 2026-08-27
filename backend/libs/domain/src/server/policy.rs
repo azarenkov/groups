@@ -5,7 +5,11 @@ use uuid::Uuid;
 use crate::{
     server::{
         authorization::AuthorizationSnapshot,
-        role::{PERM_ALL, PERM_MANAGE_ROLES, RolePatch},
+        role::{
+            PERM_ALL, PERM_KICK_MEMBERS, PERM_MANAGE_CHANNELS, PERM_MANAGE_INVITES,
+            PERM_MANAGE_MESSAGES, PERM_MANAGE_ROLES, PERM_MANAGE_SERVER, PERM_MUTE_MEMBERS,
+            RolePatch,
+        },
     },
     user::id::UserId,
 };
@@ -165,5 +169,118 @@ impl RolePolicy {
             return Err(PolicyError::HierarchyViolation);
         }
         Ok(())
+    }
+}
+
+pub struct ModerationPolicy;
+
+impl ModerationPolicy {
+    fn ensure_member(snap: &AuthorizationSnapshot, actor: &UserId) -> Result<(), PolicyError> {
+        if snap.is_member(actor) {
+            Ok(())
+        } else {
+            Err(PolicyError::NotMember)
+        }
+    }
+
+    fn ensure_permission(
+        snap: &AuthorizationSnapshot,
+        actor: &UserId,
+        permission: i64,
+    ) -> Result<(), PolicyError> {
+        Self::ensure_member(snap, actor)?;
+        if snap.has(actor, permission) {
+            Ok(())
+        } else {
+            Err(PolicyError::NotAllowed)
+        }
+    }
+
+    pub fn kick(snap: &AuthorizationSnapshot, actor: &UserId, target: &UserId) -> Result<(), PolicyError> {
+        if actor == target || snap.is_owner(target) {
+            return Err(PolicyError::NotAllowed);
+        }
+        Self::ensure_permission(snap, actor, PERM_KICK_MEMBERS)?;
+        if !snap.is_member(target) {
+            return Err(PolicyError::TargetNotMember);
+        }
+        if !snap.outranks_member(actor, target) {
+            return Err(PolicyError::HierarchyViolation);
+        }
+        Ok(())
+    }
+
+    pub fn mute(snap: &AuthorizationSnapshot, actor: &UserId, target: &UserId) -> Result<(), PolicyError> {
+        Self::ensure_member(snap, actor)?;
+        if !snap.is_member(target) {
+            return Err(PolicyError::TargetNotMember);
+        }
+        if actor == target {
+            return Ok(());
+        }
+        if snap.is_owner(target) {
+            return Err(PolicyError::NotAllowed);
+        }
+        Self::ensure_permission(snap, actor, PERM_MUTE_MEMBERS)?;
+        if !snap.outranks_member(actor, target) {
+            return Err(PolicyError::HierarchyViolation);
+        }
+        Ok(())
+    }
+
+    pub fn unmute(
+        snap: &AuthorizationSnapshot,
+        actor: &UserId,
+        target: &UserId,
+        muted_by: Option<&UserId>,
+    ) -> Result<(), PolicyError> {
+        Self::ensure_member(snap, actor)?;
+        if snap.is_owner(actor) {
+            return Ok(());
+        }
+        if actor == target {
+            return if muted_by == Some(actor) {
+                Ok(())
+            } else {
+                Err(PolicyError::NotAllowed)
+            };
+        }
+        if muted_by.is_some_and(|by| snap.is_owner(by)) {
+            return Err(PolicyError::NotAllowed);
+        }
+        Self::ensure_permission(snap, actor, PERM_MUTE_MEMBERS)?;
+        if !snap.outranks_member(actor, target) {
+            return Err(PolicyError::HierarchyViolation);
+        }
+        Ok(())
+    }
+
+    pub fn manage_channels(snap: &AuthorizationSnapshot, actor: &UserId) -> Result<(), PolicyError> {
+        Self::ensure_permission(snap, actor, PERM_MANAGE_CHANNELS)
+    }
+
+    pub fn delete_message(
+        snap: &AuthorizationSnapshot,
+        actor: &UserId,
+        author: &UserId,
+    ) -> Result<(), PolicyError> {
+        Self::ensure_member(snap, actor)?;
+        if actor == author || snap.has(actor, PERM_MANAGE_MESSAGES) {
+            Ok(())
+        } else {
+            Err(PolicyError::NotAllowed)
+        }
+    }
+
+    pub fn manage_server(snap: &AuthorizationSnapshot, actor: &UserId) -> Result<(), PolicyError> {
+        Self::ensure_permission(snap, actor, PERM_MANAGE_SERVER)
+    }
+
+    pub fn manage_invites(snap: &AuthorizationSnapshot, actor: &UserId) -> Result<(), PolicyError> {
+        Self::ensure_permission(snap, actor, PERM_MANAGE_INVITES)
+    }
+
+    pub fn can_revoke_any_invite(snap: &AuthorizationSnapshot, actor: &UserId) -> bool {
+        snap.is_member(actor) && snap.has(actor, PERM_MANAGE_INVITES)
     }
 }

@@ -3,10 +3,15 @@ use std::sync::Arc;
 use chrono::Utc;
 use domain::{
     channel::{
-        Channel, ChannelError, kind::ChannelKind, name::ChannelName, repository::ChannelRepository,
+        Channel, ChannelError, kind::ChannelKind, name::ChannelName,
         visibility::ChannelVisibility,
     },
-    server::{id::ServerId, repository::ServerRepository},
+    server::{
+        id::ServerId,
+        policy::{ModerationPolicy, PolicyError},
+        repository::ServerRepository,
+        unit_of_work::ServerUnitOfWork,
+    },
     shared::{
         outbox::{
             outbox_record::OutboxRecord,
@@ -41,37 +46,34 @@ pub enum CreateChannelError {
     Outbox(#[from] OutboxError),
 }
 
-pub struct CreateChannel<T, H, S, R>
-where
-    T: ChannelRepository,
-    H: Hasher,
-    S: ServerRepository,
-    R: domain::server::role::ServerRoleRepository,
-{
-    role_repository: Arc<R>,
-    channel_repository: Arc<T>,
-    hasher: Arc<H>,
-    server_repository: Arc<S>,
+impl From<PolicyError> for CreateChannelError {
+    fn from(_: PolicyError) -> Self {
+        CreateChannelError::NotAllowed
+    }
 }
 
-impl<T, H, S, R> CreateChannel<T, H, S, R>
+pub struct CreateChannel<H, S, W>
 where
-    T: ChannelRepository,
     H: Hasher,
     S: ServerRepository,
-    R: domain::server::role::ServerRoleRepository,
+    W: ServerUnitOfWork,
 {
-    pub fn new(
-        channel_repository: Arc<T>,
-        hasher: Arc<H>,
-        server_repository: Arc<S>,
-        role_repository: Arc<R>,
-    ) -> Self {
+    hasher: Arc<H>,
+    server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
+}
+
+impl<H, S, W> CreateChannel<H, S, W>
+where
+    H: Hasher,
+    S: ServerRepository,
+    W: ServerUnitOfWork,
+{
+    pub fn new(hasher: Arc<H>, server_repository: Arc<S>, unit_of_work: Arc<W>) -> Self {
         Self {
-            role_repository,
-            channel_repository,
             hasher,
             server_repository,
+            unit_of_work,
         }
     }
 
@@ -86,21 +88,6 @@ where
             return Err(CreateChannelError::InvalidData);
         }
 
-        let server_owner = self
-            .server_repository
-            .find_server_owner(&server_id)
-            .await?;
-        let is_server_owner = server_owner.as_ref() == Some(&owner_id);
-        let allowed = is_server_owner
-            || domain::server::role::has_permission(
-                self.role_repository
-                    .user_permissions(&server_id, &owner_id)
-                    .await?,
-                domain::server::role::PERM_MANAGE_CHANNELS,
-            );
-        if !allowed {
-            return Err(CreateChannelError::NotAllowed);
-        }
 
         let channel_name = ChannelName::new(request.name);
         let kind: ChannelKind = request.kind.into();
@@ -128,10 +115,10 @@ where
             now,
         )?;
 
-        let member_ids = self
-            .server_repository
-            .find_member_ids_by_server_id(&server_id)
-            .await?;
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::manage_channels(&snapshot, &owner_id)?;
+        let member_ids: Vec<_> = snapshot.members.iter().copied().collect();
 
         let request_id = request.ctx.request_id.clone();
         let mut records: Vec<OutboxRecord> = channel
@@ -141,14 +128,9 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
-        let delegated = if is_server_owner { None } else { Some(&owner_id) };
-        if !self
-            .channel_repository
-            .save_channel_with_events(&channel, delegated, &records)
-            .await?
-        {
-            return Err(CreateChannelError::NotAllowed);
-        }
+        tx.insert_channel(&channel).await?;
+        tx.save_outbox(&records).await?;
+        tx.commit().await?;
 
         Ok(channel)
     }

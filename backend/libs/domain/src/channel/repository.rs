@@ -27,13 +27,6 @@ pub enum ChannelOperationError {
 #[async_trait]
 #[allow(clippy::too_many_arguments)]
 pub trait ChannelRepository {
-    async fn save_channel_with_events(
-        &self,
-        channel: &Channel,
-        delegated_actor: Option<&UserId>,
-        events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
-
     async fn update_channel_with_events(
         &self,
         channel: &Channel,
@@ -101,38 +94,6 @@ pub trait ChannelRepository {
     ) -> Result<bool, ChannelOperationError>;
 
     async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError>;
-
-    async fn mute_participant_with_events(
-        &self,
-        channel_id: &ChannelId,
-        target: &UserId,
-        muted_by: &UserId,
-        muted_at: DateTime<Utc>,
-        self_muted: bool,
-        server_id: &crate::server::id::ServerId,
-        delegated: bool,
-        events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
-
-    async fn unmute_participant_with_events(
-        &self,
-        channel_id: &ChannelId,
-        target: &UserId,
-        expected_muted_by: Option<&UserId>,
-        downgrade_to_self_mute: bool,
-        server_id: &crate::server::id::ServerId,
-        initiator: &UserId,
-        delegated: bool,
-        events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
-
-    async fn delete_channel_with_events(
-        &self,
-        channel_id: &ChannelId,
-        actor: &UserId,
-        delegated: bool,
-        events: &[OutboxRecord],
-    ) -> Result<Option<Vec<String>>, RepositoryError>;
 
     async fn list_voice_channel_ids_by_server(
         &self,

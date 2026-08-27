@@ -4,7 +4,7 @@ use domain::shared::outbox::to_outbox::ToOutboxRecord;
 
 use domain::{
     channel::repository::ChannelRepository,
-    server::{id::ServerId, repository::ServerRepository},
+    server::{id::ServerId, unit_of_work::ServerUnitOfWork},
     shared::repository::error::RepositoryError,
     user::id::UserId,
 };
@@ -23,30 +23,26 @@ pub enum LeaveServerError {
     OwnerCannotLeave,
 }
 
-pub struct LeaveServer<S, C, V>
+pub struct LeaveServer<W, C, V>
 where
-    S: ServerRepository,
+    W: ServerUnitOfWork,
     C: ChannelRepository,
     V: VoiceService,
 {
-    server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
 }
 
-impl<S, C, V> LeaveServer<S, C, V>
+impl<W, C, V> LeaveServer<W, C, V>
 where
-    S: ServerRepository,
+    W: ServerUnitOfWork,
     C: ChannelRepository,
     V: VoiceService,
 {
-    pub fn new(
-        server_repository: Arc<S>,
-        channel_repository: Arc<C>,
-        voice_service: Arc<V>,
-    ) -> Self {
+    pub fn new(unit_of_work: Arc<W>, channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
         Self {
-            server_repository,
+            unit_of_work,
             channel_repository,
             voice_service,
         }
@@ -57,8 +53,9 @@ where
         server_id: ServerId,
         user_id: UserId,
     ) -> Result<(), LeaveServerError> {
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        if owner.as_ref() == Some(&user_id) {
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        if snapshot.is_owner(&user_id) {
             return Err(LeaveServerError::OwnerCannotLeave);
         }
 
@@ -74,14 +71,11 @@ where
                 chrono::Utc::now(),
             ),
         );
-        let member_records = vec![member_event.to_outbox_record()?];
-        let removed = self
-            .server_repository
-            .remove_server_member(&server_id, &user_id, None, &member_records)
-            .await?;
-        if removed != domain::server::repository::RemoveMemberOutcome::Removed {
+        if !tx.remove_member(&user_id).await? {
             return Err(LeaveServerError::NotMember);
         }
+        tx.save_outbox(&[member_event.to_outbox_record()?]).await?;
+        tx.commit().await?;
 
         for channel_id in &voice_channel_ids {
             if let Err(err) = self

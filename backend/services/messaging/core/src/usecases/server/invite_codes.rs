@@ -2,7 +2,13 @@ use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 use domain::{
-    server::{id::ServerId, invite_code::InviteCode, repository::ServerRepository},
+    server::{
+        id::ServerId,
+        invite_code::InviteCode,
+        policy::{ModerationPolicy, PolicyError},
+        repository::ServerRepository,
+        unit_of_work::ServerUnitOfWork,
+    },
     shared::repository::error::RepositoryError,
     user::id::UserId,
 };
@@ -32,19 +38,22 @@ pub enum CreateInviteCodeError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct CreateInviteCode<S: ServerRepository, R: domain::server::role::ServerRoleRepository> {
-    server_repository: Arc<S>,
-    role_repository: Arc<R>,
+impl From<PolicyError> for CreateInviteCodeError {
+    fn from(err: PolicyError) -> Self {
+        match err {
+            PolicyError::NotMember => CreateInviteCodeError::NotMember,
+            _ => CreateInviteCodeError::NotAllowed,
+        }
+    }
 }
 
-impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
-    CreateInviteCode<S, R>
-{
-    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
-        Self {
-            server_repository,
-            role_repository,
-        }
+pub struct CreateInviteCode<W: ServerUnitOfWork> {
+    unit_of_work: Arc<W>,
+}
+
+impl<W: ServerUnitOfWork> CreateInviteCode<W> {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -54,39 +63,23 @@ impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
         expires_days: Option<i64>,
         max_uses: Option<i32>,
     ) -> Result<InviteCode, CreateInviteCodeError> {
-        let is_member = self
-            .server_repository
-            .is_server_member(&server_id, &user_id)
-            .await?;
-        if !is_member {
-            return Err(CreateInviteCodeError::NotMember);
-        }
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let is_owner = owner.as_ref() == Some(&user_id);
-        let allowed = is_owner
-            || domain::server::role::has_permission(
-                self.role_repository
-                    .user_permissions(&server_id, &user_id)
-                    .await?,
-                domain::server::role::PERM_MANAGE_INVITES,
-            );
-        if !allowed {
-            return Err(CreateInviteCodeError::NotAllowed);
-        }
-
         let expires_at = expires_days
             .filter(|d| *d > 0)
             .map(|d| Utc::now() + Duration::days(d));
 
         loop {
+            let mut tx = self.unit_of_work.begin(&server_id).await?;
+            let snapshot = tx.authorization().await?;
+            ModerationPolicy::manage_invites(&snapshot, &user_id)?;
             let code = generate_code();
-            match self
-                .server_repository
-                .create_invite_code(&server_id, &user_id, &code, max_uses, expires_at, !is_owner)
+            match tx
+                .create_invite_code(&user_id, &code, max_uses, expires_at)
                 .await
             {
-                Ok(Some(invite)) => return Ok(invite),
-                Ok(None) => return Err(CreateInviteCodeError::NotAllowed),
+                Ok(invite) => {
+                    tx.commit().await?;
+                    return Ok(invite);
+                }
                 Err(RepositoryError::AlreadyExists) => continue,
                 Err(e) => return Err(e.into()),
             }
@@ -104,18 +97,25 @@ pub enum ListInviteCodesError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct ListInviteCodes<S: ServerRepository, R: domain::server::role::ServerRoleRepository> {
-    server_repository: Arc<S>,
-    role_repository: Arc<R>,
+impl From<PolicyError> for ListInviteCodesError {
+    fn from(err: PolicyError) -> Self {
+        match err {
+            PolicyError::NotMember => ListInviteCodesError::NotMember,
+            _ => ListInviteCodesError::NotAllowed,
+        }
+    }
 }
 
-impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
-    ListInviteCodes<S, R>
-{
-    pub fn new(server_repository: Arc<S>, role_repository: Arc<R>) -> Self {
+pub struct ListInviteCodes<S: ServerRepository, W: ServerUnitOfWork> {
+    server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
+}
+
+impl<S: ServerRepository, W: ServerUnitOfWork> ListInviteCodes<S, W> {
+    pub fn new(server_repository: Arc<S>, unit_of_work: Arc<W>) -> Self {
         Self {
             server_repository,
-            role_repository,
+            unit_of_work,
         }
     }
 
@@ -124,24 +124,10 @@ impl<S: ServerRepository, R: domain::server::role::ServerRoleRepository>
         server_id: ServerId,
         user_id: UserId,
     ) -> Result<Vec<InviteCode>, ListInviteCodesError> {
-        let is_member = self
-            .server_repository
-            .is_server_member(&server_id, &user_id)
-            .await?;
-        if !is_member {
-            return Err(ListInviteCodesError::NotMember);
-        }
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let allowed = owner.as_ref() == Some(&user_id)
-            || domain::server::role::has_permission(
-                self.role_repository
-                    .user_permissions(&server_id, &user_id)
-                    .await?,
-                domain::server::role::PERM_MANAGE_INVITES,
-            );
-        if !allowed {
-            return Err(ListInviteCodesError::NotAllowed);
-        }
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        ModerationPolicy::manage_invites(&snapshot, &user_id)?;
+        drop(tx);
         let invites = self.server_repository.list_invite_codes(&server_id).await?;
         Ok(invites)
     }
@@ -155,13 +141,13 @@ pub enum RevokeInviteCodeError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct RevokeInviteCode<S: ServerRepository> {
-    server_repository: Arc<S>,
+pub struct RevokeInviteCode<W: ServerUnitOfWork> {
+    unit_of_work: Arc<W>,
 }
 
-impl<S: ServerRepository> RevokeInviteCode<S> {
-    pub fn new(server_repository: Arc<S>) -> Self {
-        Self { server_repository }
+impl<W: ServerUnitOfWork> RevokeInviteCode<W> {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -170,19 +156,16 @@ impl<S: ServerRepository> RevokeInviteCode<S> {
         code: String,
         user_id: UserId,
     ) -> Result<(), RevokeInviteCodeError> {
-        let owner = self.server_repository.find_server_owner(&server_id).await?;
-        let authority = if owner.as_ref() == Some(&user_id) {
-            domain::server::repository::RevokeAuthority::Owner
-        } else {
-            domain::server::repository::RevokeAuthority::Delegated
-        };
-        let revoked = self
-            .server_repository
-            .revoke_invite_code(&server_id, &code, &user_id, authority)
-            .await?;
-        if !revoked {
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let snapshot = tx.authorization().await?;
+        if !snapshot.is_member(&user_id) {
             return Err(RevokeInviteCodeError::NotFound);
         }
+        let any_creator = ModerationPolicy::can_revoke_any_invite(&snapshot, &user_id);
+        if !tx.revoke_invite_code(&code, &user_id, any_creator).await? {
+            return Err(RevokeInviteCodeError::NotFound);
+        }
+        tx.commit().await?;
         Ok(())
     }
 }

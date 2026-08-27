@@ -158,10 +158,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let app_state = web::Data::new(AppState {
         create_channel_usecase: CreateChannel::new(
-            channel_repository.clone(),
             hasher.clone(),
             server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         join_voice_channel_usecase: JoinVoiceChannel::new(
             livekit_service.clone(),
@@ -173,22 +172,19 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
             livekit_service.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
             livekit_service.clone(),
         ),
         delete_channel_usecase: DeleteChannel::new(
             channel_repository.clone(),
             livekit_service.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),
@@ -216,8 +212,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
-            server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         list_channel_messages_usecase: ListChannelMessages::new(
             message_repository.clone(),
@@ -310,7 +305,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_repository.clone(),
             friendship_repository.clone(),
             server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
         accept_server_invite_usecase: AcceptServerInvite::new(
             dm_repository.clone(),
@@ -327,30 +322,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             livekit_service.clone(),
         ),
-        update_server_usecase: UpdateServer::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
-        create_invite_code_usecase: CreateInviteCode::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
-        ),
+        update_server_usecase: UpdateServer::new(server_unit_of_work.clone()),
+        create_invite_code_usecase: CreateInviteCode::new(server_unit_of_work.clone()),
         list_invite_codes_usecase: ListInviteCodes::new(
             server_repository.clone(),
-            server_role_repository.clone(),
+            server_unit_of_work.clone(),
         ),
-        revoke_invite_code_usecase: RevokeInviteCode::new(server_repository.clone()),
+        revoke_invite_code_usecase: RevokeInviteCode::new(server_unit_of_work.clone()),
         redeem_invite_code_usecase: RedeemInviteCode::new(server_repository.clone()),
         leave_server_usecase: LeaveServer::new(
-            server_repository.clone(),
+            server_unit_of_work.clone(),
             channel_repository.clone(),
             livekit_service.clone(),
         ),
         kick_member_usecase: KickMember::new(
-            server_repository.clone(),
+            server_unit_of_work.clone(),
             channel_repository.clone(),
             livekit_service.clone(),
-            server_role_repository.clone(),
         ),
         list_servers_by_user_usecase: ListServersByUser::new(server_repository.clone()),
         list_server_members_usecase: ListServerMembers::new(server_repository.clone()),
