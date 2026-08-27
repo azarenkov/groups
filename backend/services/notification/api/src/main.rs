@@ -50,20 +50,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
-    let consumer = actix_web::rt::spawn(async move {
-        if let Err(e) = verification::run(jetstream, spec, send_verification_email, shutdown_rx).await {
-            tracing::error!(error = %e, "Verification consumer stopped");
-        }
-    });
+    let consumer = actix_web::rt::spawn(verification::run(
+        jetstream,
+        spec,
+        send_verification_email,
+        shutdown_rx,
+    ));
+    tokio::pin!(consumer);
 
     tracing::info!("Notification service started");
     readiness.mark_ready();
 
-    signal::ctrl_c().await?;
-    tracing::info!("Shutdown signal received, exiting");
-    let _ = shutdown_tx.send(true);
-    let _ = consumer.await;
-    health_handle.abort();
+    let outcome = tokio::select! {
+        signal = signal::ctrl_c() => {
+            signal?;
+            tracing::info!("Shutdown signal received, exiting");
+            let _ = shutdown_tx.send(true);
+            match consumer.await {
+                Ok(result) => result,
+                Err(e) => Err(Box::<dyn Error>::from(e)),
+            }
+        }
+        finished = &mut consumer => match finished {
+            Ok(Ok(())) => Err(Box::<dyn Error>::from("verification consumer ended unexpectedly")),
+            Ok(Err(e)) => Err(e),
+            Err(e) => Err(Box::<dyn Error>::from(e)),
+        },
+    };
 
-    Ok(())
+    health_handle.abort();
+    outcome
 }
