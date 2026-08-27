@@ -1,4 +1,5 @@
 mod attachment;
+mod http_errors;
 mod internal;
 mod avatar;
 mod projection;

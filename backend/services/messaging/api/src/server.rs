@@ -9,7 +9,7 @@ use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
 use crate::dto::{requests::server::{ create_server::CreateServerRequestBody, update_server::UpdateServerRequestBody, }, responses::server::{ create_server::CreateServerResponse, invite_codes::{InviteCodeResponse, ListInviteCodesResponse}, list_sent_server_invites::ListSentServerInvitesResponse, list_server_channels::ListServerChannelsResponse, list_server_members::ListServerMembersResponse, list_servers_by_user::ListServersByUserResponse, }};
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("")]
 async fn create_server(
@@ -17,7 +17,7 @@ async fn create_server(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<CreateServerRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body: CreateServerRequestBody = body.into_inner();
     body.validate()?;
 
@@ -37,7 +37,7 @@ async fn list_servers_by_user(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     query: web::Query<PaginationQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     query.validate()?;
 
     let user_id = UserId::new(auth_token.id);
@@ -60,7 +60,7 @@ async fn list_server_members(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<PaginationQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
@@ -84,7 +84,7 @@ async fn list_server_channels(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<PaginationQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     query.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
@@ -107,7 +107,7 @@ async fn list_voice_presence(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
 
@@ -189,7 +189,7 @@ async fn update_stream_viewer(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<UpdateStreamViewerBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let viewer_id = UserId::new(auth_token.id);
     let body = body.into_inner();
@@ -218,7 +218,7 @@ async fn list_sent_server_invites(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let sender_id = UserId::new(auth_token.id);
 
@@ -237,7 +237,7 @@ async fn kick_member(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let actor = UserId::new(auth_token.id);
     let (server_id, member_id) = path.into_inner();
     app_state
@@ -252,7 +252,7 @@ async fn leave_server(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
 
@@ -275,7 +275,7 @@ async fn create_invite_code(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<CreateInviteCodeBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body = body.into_inner();
     body.validate()?;
 
@@ -295,7 +295,7 @@ async fn list_invite_codes(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
 
@@ -315,7 +315,7 @@ async fn revoke_invite_code(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, String)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let (server_id, code) = path.into_inner();
     let server_id = ServerId::new(server_id);
     let user_id = UserId::new(auth_token.id);
@@ -333,7 +333,7 @@ async fn redeem_invite_code(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<String>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let code = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
@@ -352,7 +352,7 @@ async fn update_server(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<UpdateServerRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let body: UpdateServerRequestBody = body.into_inner();
     body.validate()?;
 
@@ -373,7 +373,7 @@ async fn delete_server(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let owner_id = UserId::new(auth_token.id);
 

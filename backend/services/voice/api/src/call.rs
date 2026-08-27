@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::responses::ApiResponse;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,7 +60,7 @@ async fn start_call(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<StartCallBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let caller_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
     let result = app_state
@@ -94,7 +94,7 @@ async fn get_active_call(
     _req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let result = app_state
         .get_active_call_usecase
@@ -123,7 +123,7 @@ async fn accept_call(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
     let result = app_state
@@ -151,7 +151,7 @@ async fn active_call_with(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let call_id = app_state
         .get_active_call_with_usecase
@@ -166,7 +166,7 @@ async fn join_call(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let result = app_state
         .join_call_usecase
@@ -193,7 +193,7 @@ async fn decline_call(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
     app_state
@@ -209,7 +209,7 @@ async fn leave_call(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
     app_state
@@ -226,7 +226,7 @@ async fn add_call_participants(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<AddParticipantsBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let caller_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
     app_state

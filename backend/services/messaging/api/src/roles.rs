@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::state::AppState;
 use api_common::dto::responses::ApiResponse;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +36,7 @@ async fn list_roles(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let server_id = ServerId::new(path.into_inner());
     let overview = app_state
@@ -78,7 +78,7 @@ async fn create_role(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<RoleBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let server_id = ServerId::new(path.into_inner());
     let body = body.into_inner();
@@ -112,7 +112,7 @@ async fn update_role(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<UpdateRoleBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let (server_id, role_id) = path.into_inner();
     let body = body.into_inner();
@@ -138,7 +138,7 @@ async fn delete_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let (server_id, role_id) = path.into_inner();
     app_state
@@ -153,7 +153,7 @@ async fn assign_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let (server_id, member_id, role_id) = path.into_inner();
     app_state
@@ -173,7 +173,7 @@ async fn revoke_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let (server_id, member_id, role_id) = path.into_inner();
     app_state
@@ -193,7 +193,7 @@ async fn swap_roles(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let (server_id, role_a, role_b) = path.into_inner();
     app_state

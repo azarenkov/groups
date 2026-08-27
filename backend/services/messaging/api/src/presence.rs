@@ -4,7 +4,7 @@ use serde::Deserialize;
 use shared::middleware::auth::RateLimitedAuthToken;
 
 use crate::state::AppState;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,7 @@ async fn set_presence(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<PresenceBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = auth_token.id;
     let payload = serde_json::to_vec(&PresencePreferenceV1 {
         user_id,
@@ -34,7 +34,7 @@ async fn set_presence(
         .await
         .map_err(|e| {
             tracing::error!(error = %e, %user_id, "Failed to publish presence preference");
-            ApiError::new(
+            HttpError::new(
                 "Failed to publish presence preference".to_string(),
                 actix_web::http::StatusCode::BAD_GATEWAY,
                 "PRESENCE_PUBLISH_FAILED",

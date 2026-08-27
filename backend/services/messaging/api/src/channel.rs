@@ -22,7 +22,7 @@ use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
 use crate::dto::{requests::channel::{ create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody, join_text_channel::JoinTextChannelRequestBody, join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody, search_messages::SearchMessagesQuery, send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody, }, responses::channel::{ create_channel::CreateChannelResponse, join_voice_channel::JoinVoiceChannelResponse, list_channel_participants::ListChannelParticipantsResponse, message::{ ListChannelMessagesResponse, MessageResponse, SearchChannelMessagesResponse, }, }};
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("/{server_id}/channels")]
 async fn create_channel(
@@ -31,7 +31,7 @@ async fn create_channel(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<CreateChannelRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = path.into_inner();
     let body: CreateChannelRequestBody = body.into_inner();
     body.validate()?;
@@ -63,7 +63,7 @@ async fn join_voice_channel(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<JoinVoiceChannelRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let (server_id, channel_id) = path.into_inner();
     let body = body.into_inner();
 
@@ -87,7 +87,7 @@ async fn mute_channel(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<MuteRequestBody>,
-) -> Result<HttpResponse, ApiError> {
+) -> Result<HttpResponse, HttpError> {
     let (server_id, channel_id) = path.into_inner();
 
     let user_id = UserId::new(auth_token.id);
@@ -113,7 +113,7 @@ async fn unmute_channel(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<UnmuteRequestBody>,
-) -> Result<HttpResponse, ApiError> {
+) -> Result<HttpResponse, HttpError> {
     let (server_id, channel_id) = path.into_inner();
 
     let user_id = UserId::new(auth_token.id);
@@ -139,7 +139,7 @@ async fn list_channel_participants(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     query: web::Query<PaginationQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     query.validate()?;
 
     let (server_id, channel_id) = path.into_inner();
@@ -171,7 +171,7 @@ async fn join_text_channel(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Bytes,
-) -> Result<HttpResponse, ApiError> {
+) -> Result<HttpResponse, HttpError> {
     let (server_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
     let password = if body.is_empty() {
@@ -179,7 +179,7 @@ async fn join_text_channel(
     } else {
         serde_json::from_slice::<JoinTextChannelRequestBody>(&body)
             .map_err(|e| {
-                ApiError::new(
+                HttpError::new(
                     format!("Invalid request body: {e}"),
                     actix_web::http::StatusCode::BAD_REQUEST,
                     "INVALID_BODY",
@@ -214,7 +214,7 @@ async fn list_channel_messages(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     query: web::Query<ListMessagesQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let (server_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
@@ -256,7 +256,7 @@ async fn search_channel_messages(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     query: web::Query<SearchMessagesQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     query.validate()?;
     let (server_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
@@ -300,7 +300,7 @@ async fn send_channel_message(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<SendMessageRequestBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let (server_id, channel_id) = path.into_inner();
     let body = body.into_inner();
     body.validate()?;
@@ -330,7 +330,7 @@ async fn edit_channel_message(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
     body: web::Json<EditMessageRequestBody>,
-) -> Result<HttpResponse, ApiError> {
+) -> Result<HttpResponse, HttpError> {
     let (server_id, channel_id, message_id) = path.into_inner();
     let body = body.into_inner();
     body.validate()?;
@@ -361,7 +361,7 @@ async fn delete_channel_message(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
-) -> Result<HttpResponse, ApiError> {
+) -> Result<HttpResponse, HttpError> {
     let (server_id, channel_id, message_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
@@ -386,7 +386,7 @@ async fn delete_channel(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let (server_id, channel_id) = path.into_inner();
     let channel_id = ChannelId::new(channel_id);
     let server_id = ServerId::new(server_id);

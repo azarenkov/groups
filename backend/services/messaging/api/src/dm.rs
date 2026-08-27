@@ -16,7 +16,7 @@ use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{pagination::PaginationMeta, responses::ApiResponse};
 use crate::dto::{requests::dm::{ EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody, SendServerInviteBody, }, responses::dm::{ AcceptServerInviteResponse, DmMessageResponse, ListDmMessagesResponse, SearchDmMessagesResponse, }};
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[post("/me/dms/{friend_id}/messages")]
 async fn send_dm_message(
@@ -25,7 +25,7 @@ async fn send_dm_message(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<SendDmMessageBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let friend_id = path.into_inner();
     let body = body.into_inner();
     body.validate()?;
@@ -53,7 +53,7 @@ async fn send_server_invite(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<SendServerInviteBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let friend_id = UserId::new(path.into_inner());
     let server_id = ServerId::new(body.into_inner().server_id);
     let sender_id = UserId::new(auth_token.id);
@@ -72,7 +72,7 @@ async fn accept_server_invite(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let message_id = DmMessageId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
 
@@ -90,7 +90,7 @@ async fn decline_server_invite(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let message_id = DmMessageId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
 
@@ -124,7 +124,7 @@ struct ListDmPreviewsResponse {
 async fn list_dm_previews(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let previews = app_state
         .list_dm_previews_usecase
@@ -155,7 +155,7 @@ async fn list_dm_messages(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<ListDmMessagesQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let friend_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
@@ -196,7 +196,7 @@ async fn edit_dm_message(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     body: web::Json<EditDmMessageBody>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let message_id = path.into_inner();
     let body = body.into_inner();
     body.validate()?;
@@ -223,7 +223,7 @@ async fn delete_dm_message(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let message_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
@@ -243,7 +243,7 @@ async fn search_dm_messages(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<SearchDmMessagesQuery>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     query.validate()?;
     let friend_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);

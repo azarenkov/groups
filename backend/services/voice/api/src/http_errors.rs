@@ -1,16 +1,97 @@
-use shared::api_error::{StatusCode, ToHttpStatus};
-use crate::ports::voice_webhook_verifier::VoiceWebhookVerifierError;
-use crate::usecases::call::accept_call::AcceptCallError;
-use crate::usecases::call::add_participants::AddCallParticipantsError;
-use crate::usecases::call::decline_call::DeclineCallError;
-use crate::usecases::call::get_active_call::GetActiveCallError;
-use crate::usecases::call::get_active_call_with::GetActiveCallWithError;
-use crate::usecases::call::join_call::JoinCallError;
-use crate::usecases::call::leave_call::LeaveCallError;
-use crate::usecases::call::start_call::StartCallError;
-use crate::usecases::webhook::voice::HandleVoiceWebhookError;
+use actix_web::{HttpResponse, ResponseError};
+use shared::api_error::{ApiError, StatusCode, ToHttpStatus};
 
-impl ToHttpStatus for VoiceWebhookVerifierError {
+pub trait HttpMapping {
+    fn to_http_status(&self) -> StatusCode;
+    fn to_user_message(&self) -> String;
+    fn to_error_code(&self) -> &'static str;
+}
+
+#[derive(Debug)]
+pub struct HttpError(pub ApiError);
+
+impl std::fmt::Display for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl ResponseError for HttpError {
+    fn status_code(&self) -> StatusCode {
+        self.0.status_code()
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        self.0.error_response()
+    }
+}
+
+#[allow(dead_code)]
+impl HttpError {
+    pub fn new(message: String, status: StatusCode, code: &'static str) -> Self {
+        Self(ApiError::new(message, status, code))
+    }
+
+    pub fn bad_request(message: String) -> Self {
+        Self(ApiError::bad_request(message))
+    }
+
+    pub fn payload_too_large() -> Self {
+        Self(ApiError::payload_too_large())
+    }
+
+    pub fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
+        Self(ApiError::from_error(error))
+    }
+}
+
+impl From<ApiError> for HttpError {
+    fn from(error: ApiError) -> Self {
+        Self(error)
+    }
+}
+
+impl From<validator::ValidationErrors> for HttpError {
+    fn from(error: validator::ValidationErrors) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::repository::error::RepositoryError> for HttpError {
+    fn from(error: domain::shared::repository::error::RepositoryError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::pagination::PaginationError> for HttpError {
+    fn from(error: domain::shared::pagination::PaginationError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
+    fn from(error: E) -> Self {
+        tracing::error!("API Error: {:?}", error);
+        Self(ApiError::new(
+            error.to_user_message(),
+            error.to_http_status(),
+            error.to_error_code(),
+        ))
+    }
+}
+
+use voice::ports::voice_webhook_verifier::VoiceWebhookVerifierError;
+use voice::usecases::call::accept_call::AcceptCallError;
+use voice::usecases::call::add_participants::AddCallParticipantsError;
+use voice::usecases::call::decline_call::DeclineCallError;
+use voice::usecases::call::get_active_call::GetActiveCallError;
+use voice::usecases::call::get_active_call_with::GetActiveCallWithError;
+use voice::usecases::call::join_call::JoinCallError;
+use voice::usecases::call::leave_call::LeaveCallError;
+use voice::usecases::call::start_call::StartCallError;
+use voice::usecases::webhook::voice::HandleVoiceWebhookError;
+
+impl HttpMapping for VoiceWebhookVerifierError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             VoiceWebhookVerifierError::InvalidSignature => StatusCode::UNAUTHORIZED,
@@ -43,7 +124,7 @@ impl ToHttpStatus for VoiceWebhookVerifierError {
     }
 }
 
-impl ToHttpStatus for HandleVoiceWebhookError {
+impl HttpMapping for HandleVoiceWebhookError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
@@ -66,7 +147,7 @@ impl ToHttpStatus for HandleVoiceWebhookError {
     }
 }
 
-impl ToHttpStatus for StartCallError {
+impl HttpMapping for StartCallError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             StartCallError::Repository(e) => e.to_http_status(),
@@ -101,7 +182,7 @@ impl ToHttpStatus for StartCallError {
     }
 }
 
-impl ToHttpStatus for AcceptCallError {
+impl HttpMapping for AcceptCallError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AcceptCallError::Repository(e) => e.to_http_status(),
@@ -128,7 +209,7 @@ impl ToHttpStatus for AcceptCallError {
     }
 }
 
-impl ToHttpStatus for DeclineCallError {
+impl HttpMapping for DeclineCallError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeclineCallError::Repository(e) => e.to_http_status(),
@@ -146,7 +227,7 @@ impl ToHttpStatus for DeclineCallError {
     }
 }
 
-impl ToHttpStatus for JoinCallError {
+impl HttpMapping for JoinCallError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             JoinCallError::Repository(e) => e.to_http_status(),
@@ -173,7 +254,7 @@ impl ToHttpStatus for JoinCallError {
     }
 }
 
-impl ToHttpStatus for GetActiveCallWithError {
+impl HttpMapping for GetActiveCallWithError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetActiveCallWithError::Repository(e) => e.to_http_status(),
@@ -191,7 +272,7 @@ impl ToHttpStatus for GetActiveCallWithError {
     }
 }
 
-impl ToHttpStatus for GetActiveCallError {
+impl HttpMapping for GetActiveCallError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetActiveCallError::Repository(e) => e.to_http_status(),
@@ -215,7 +296,7 @@ impl ToHttpStatus for GetActiveCallError {
     }
 }
 
-impl ToHttpStatus for LeaveCallError {
+impl HttpMapping for LeaveCallError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LeaveCallError::Repository(e) => e.to_http_status(),
@@ -233,7 +314,7 @@ impl ToHttpStatus for LeaveCallError {
     }
 }
 
-impl ToHttpStatus for AddCallParticipantsError {
+impl HttpMapping for AddCallParticipantsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AddCallParticipantsError::Repository(e) => e.to_http_status(),
@@ -269,14 +350,3 @@ impl ToHttpStatus for AddCallParticipantsError {
     }
 }
 
-shared::impl_from_for_api_error!(
-    AcceptCallError,
-    AddCallParticipantsError,
-    DeclineCallError,
-    GetActiveCallError,
-    GetActiveCallWithError,
-    HandleVoiceWebhookError,
-    JoinCallError,
-    LeaveCallError,
-    StartCallError,
-);

@@ -1,14 +1,95 @@
-use shared::api_error::{StatusCode, ToHttpStatus};
-use crate::ports::image_moderation::ImageModerationError;
-use crate::usecases::attachment::delete_attachment::DeleteAttachmentError;
-use crate::usecases::attachment::upload_attachment::UploadAttachmentError;
-use crate::usecases::server::get_logo::GetServerLogoError;
-use crate::usecases::server::update_logo::UpdateServerLogoError;
-use crate::usecases::user::delete_avatar::DeleteUserAvatarError;
-use crate::usecases::user::get_avatar::GetUserAvatarError;
-use crate::usecases::user::update_avatar::UpdateUserAvatarError;
+use actix_web::{HttpResponse, ResponseError};
+use shared::api_error::{ApiError, StatusCode, ToHttpStatus};
 
-impl ToHttpStatus for UploadAttachmentError {
+pub trait HttpMapping {
+    fn to_http_status(&self) -> StatusCode;
+    fn to_user_message(&self) -> String;
+    fn to_error_code(&self) -> &'static str;
+}
+
+#[derive(Debug)]
+pub struct HttpError(pub ApiError);
+
+impl std::fmt::Display for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl ResponseError for HttpError {
+    fn status_code(&self) -> StatusCode {
+        self.0.status_code()
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        self.0.error_response()
+    }
+}
+
+#[allow(dead_code)]
+impl HttpError {
+    pub fn new(message: String, status: StatusCode, code: &'static str) -> Self {
+        Self(ApiError::new(message, status, code))
+    }
+
+    pub fn bad_request(message: String) -> Self {
+        Self(ApiError::bad_request(message))
+    }
+
+    pub fn payload_too_large() -> Self {
+        Self(ApiError::payload_too_large())
+    }
+
+    pub fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
+        Self(ApiError::from_error(error))
+    }
+}
+
+impl From<ApiError> for HttpError {
+    fn from(error: ApiError) -> Self {
+        Self(error)
+    }
+}
+
+impl From<validator::ValidationErrors> for HttpError {
+    fn from(error: validator::ValidationErrors) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::repository::error::RepositoryError> for HttpError {
+    fn from(error: domain::shared::repository::error::RepositoryError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::pagination::PaginationError> for HttpError {
+    fn from(error: domain::shared::pagination::PaginationError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
+    fn from(error: E) -> Self {
+        tracing::error!("API Error: {:?}", error);
+        Self(ApiError::new(
+            error.to_user_message(),
+            error.to_http_status(),
+            error.to_error_code(),
+        ))
+    }
+}
+
+use media::ports::image_moderation::ImageModerationError;
+use media::usecases::attachment::delete_attachment::DeleteAttachmentError;
+use media::usecases::attachment::upload_attachment::UploadAttachmentError;
+use media::usecases::server::get_logo::GetServerLogoError;
+use media::usecases::server::update_logo::UpdateServerLogoError;
+use media::usecases::user::delete_avatar::DeleteUserAvatarError;
+use media::usecases::user::get_avatar::GetUserAvatarError;
+use media::usecases::user::update_avatar::UpdateUserAvatarError;
+
+impl HttpMapping for UploadAttachmentError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UploadAttachmentError::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
@@ -45,7 +126,7 @@ impl ToHttpStatus for UploadAttachmentError {
     }
 }
 
-impl ToHttpStatus for ImageModerationError {
+impl HttpMapping for ImageModerationError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ImageModerationError::Rejected => StatusCode::UNPROCESSABLE_ENTITY,
@@ -70,7 +151,7 @@ impl ToHttpStatus for ImageModerationError {
     }
 }
 
-impl ToHttpStatus for UpdateUserAvatarError {
+impl HttpMapping for UpdateUserAvatarError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UpdateUserAvatarError::Repository(e) => e.to_http_status(),
@@ -94,7 +175,7 @@ impl ToHttpStatus for UpdateUserAvatarError {
     }
 }
 
-impl ToHttpStatus for DeleteUserAvatarError {
+impl HttpMapping for DeleteUserAvatarError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeleteUserAvatarError::Repository(e) => e.to_http_status(),
@@ -115,7 +196,7 @@ impl ToHttpStatus for DeleteUserAvatarError {
     }
 }
 
-impl ToHttpStatus for GetUserAvatarError {
+impl HttpMapping for GetUserAvatarError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetUserAvatarError::NotFound => StatusCode::NOT_FOUND,
@@ -139,7 +220,7 @@ impl ToHttpStatus for GetUserAvatarError {
     }
 }
 
-impl ToHttpStatus for UpdateServerLogoError {
+impl HttpMapping for UpdateServerLogoError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UpdateServerLogoError::ServerNotFound => StatusCode::NOT_FOUND,
@@ -176,7 +257,7 @@ impl ToHttpStatus for UpdateServerLogoError {
     }
 }
 
-impl ToHttpStatus for GetServerLogoError {
+impl HttpMapping for GetServerLogoError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetServerLogoError::NotFound => StatusCode::NOT_FOUND,
@@ -200,7 +281,7 @@ impl ToHttpStatus for GetServerLogoError {
     }
 }
 
-impl ToHttpStatus for DeleteAttachmentError {
+impl HttpMapping for DeleteAttachmentError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeleteAttachmentError::NotFound => StatusCode::NOT_FOUND,
@@ -221,12 +302,3 @@ impl ToHttpStatus for DeleteAttachmentError {
     }
 }
 
-shared::impl_from_for_api_error!(
-    DeleteAttachmentError,
-    DeleteUserAvatarError,
-    GetServerLogoError,
-    GetUserAvatarError,
-    UpdateServerLogoError,
-    UpdateUserAvatarError,
-    UploadAttachmentError,
-);

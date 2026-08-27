@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::state::AppState;
 use api_common::dto::responses::ApiResponse;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,7 +29,7 @@ struct PreferencesResponse {
 async fn list_notification_preferences(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let preferences = app_state
         .list_notification_preferences_usecase
@@ -62,13 +62,13 @@ async fn set_notification_preference(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<SetPreferenceRequest>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
     let scope = NotificationScope::parse(&body.scope_type).ok_or_else(|| {
-        ApiError::bad_request("Unknown notification scope".to_string())
+        HttpError::bad_request("Unknown notification scope".to_string())
     })?;
     let level = NotificationLevel::parse(&body.level).ok_or_else(|| {
-        ApiError::bad_request("Unknown notification level".to_string())
+        HttpError::bad_request("Unknown notification level".to_string())
     })?;
     let version = app_state
         .set_notification_preference_usecase

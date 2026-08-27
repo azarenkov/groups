@@ -1,21 +1,102 @@
-use shared::api_error::{StatusCode, ToHttpStatus};
-use crate::ports::oauth_verifier::OAuthVerifyError;
-use crate::ports::token_issuer::TokenIssuerError;
-use crate::usecases::auth::confirm_registration::ConfirmRegistrationError;
-use crate::usecases::auth::google_login::GoogleLoginError;
-use crate::usecases::auth::issue_verification_code::IssueVerificationCodeError;
-use crate::usecases::auth::login::LoginError;
-use crate::usecases::auth::logout::LogoutError;
-use crate::usecases::auth::refresh_tokens::RefreshTokensError;
-use crate::usecases::auth::register::RegistrationError;
-use crate::usecases::user::get_me::GetMeError;
-use crate::usecases::user::rename::RenameUserError;
-use crate::usecases::user::search_users::SearchUsersError;
-use crate::usecases::user::update_locale::UpdateLocaleError;
+use actix_web::{HttpResponse, ResponseError};
+use shared::api_error::{ApiError, StatusCode, ToHttpStatus};
+
+pub trait HttpMapping {
+    fn to_http_status(&self) -> StatusCode;
+    fn to_user_message(&self) -> String;
+    fn to_error_code(&self) -> &'static str;
+}
+
+#[derive(Debug)]
+pub struct HttpError(pub ApiError);
+
+impl std::fmt::Display for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl ResponseError for HttpError {
+    fn status_code(&self) -> StatusCode {
+        self.0.status_code()
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        self.0.error_response()
+    }
+}
+
+#[allow(dead_code)]
+impl HttpError {
+    pub fn new(message: String, status: StatusCode, code: &'static str) -> Self {
+        Self(ApiError::new(message, status, code))
+    }
+
+    pub fn bad_request(message: String) -> Self {
+        Self(ApiError::bad_request(message))
+    }
+
+    pub fn payload_too_large() -> Self {
+        Self(ApiError::payload_too_large())
+    }
+
+    pub fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
+        Self(ApiError::from_error(error))
+    }
+}
+
+impl From<ApiError> for HttpError {
+    fn from(error: ApiError) -> Self {
+        Self(error)
+    }
+}
+
+impl From<validator::ValidationErrors> for HttpError {
+    fn from(error: validator::ValidationErrors) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::repository::error::RepositoryError> for HttpError {
+    fn from(error: domain::shared::repository::error::RepositoryError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::pagination::PaginationError> for HttpError {
+    fn from(error: domain::shared::pagination::PaginationError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
+    fn from(error: E) -> Self {
+        tracing::error!("API Error: {:?}", error);
+        Self(ApiError::new(
+            error.to_user_message(),
+            error.to_http_status(),
+            error.to_error_code(),
+        ))
+    }
+}
+
+use identity::ports::oauth_verifier::OAuthVerifyError;
+use identity::ports::token_issuer::TokenIssuerError;
+use identity::usecases::auth::confirm_registration::ConfirmRegistrationError;
+use identity::usecases::auth::google_login::GoogleLoginError;
+use identity::usecases::auth::issue_verification_code::IssueVerificationCodeError;
+use identity::usecases::auth::login::LoginError;
+use identity::usecases::auth::logout::LogoutError;
+use identity::usecases::auth::refresh_tokens::RefreshTokensError;
+use identity::usecases::auth::register::RegistrationError;
+use identity::usecases::user::get_me::GetMeError;
+use identity::usecases::user::rename::RenameUserError;
+use identity::usecases::user::search_users::SearchUsersError;
+use identity::usecases::user::update_locale::UpdateLocaleError;
 use domain::shared::repository::error::RepositoryError;
 use domain::user::name::UserNameError;
 
-impl ToHttpStatus for TokenIssuerError {
+impl HttpMapping for TokenIssuerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             TokenIssuerError::Encoding(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -43,7 +124,7 @@ impl ToHttpStatus for TokenIssuerError {
     }
 }
 
-impl ToHttpStatus for LoginError {
+impl HttpMapping for LoginError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LoginError::Repository(e) => e.to_http_status(),
@@ -75,7 +156,7 @@ impl ToHttpStatus for LoginError {
     }
 }
 
-impl ToHttpStatus for GoogleLoginError {
+impl HttpMapping for GoogleLoginError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GoogleLoginError::Repository(e) => e.to_http_status(),
@@ -157,7 +238,7 @@ impl ToHttpStatus for GoogleLoginError {
     }
 }
 
-impl ToHttpStatus for RefreshTokensError {
+impl HttpMapping for RefreshTokensError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RefreshTokensError::Repository(e) => e.to_http_status(),
@@ -196,7 +277,7 @@ impl ToHttpStatus for RefreshTokensError {
     }
 }
 
-impl ToHttpStatus for LogoutError {
+impl HttpMapping for LogoutError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LogoutError::Repository(e) => e.to_http_status(),
@@ -228,7 +309,7 @@ impl ToHttpStatus for LogoutError {
     }
 }
 
-impl ToHttpStatus for ConfirmRegistrationError {
+impl HttpMapping for ConfirmRegistrationError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ConfirmRegistrationError::UserAlreadyVerified => StatusCode::CONFLICT,
@@ -280,7 +361,7 @@ impl ToHttpStatus for ConfirmRegistrationError {
     }
 }
 
-impl ToHttpStatus for RegistrationError {
+impl HttpMapping for RegistrationError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RegistrationError::Repository(e) => e.to_http_status(),
@@ -331,7 +412,7 @@ impl ToHttpStatus for RegistrationError {
     }
 }
 
-impl ToHttpStatus for IssueVerificationCodeError {
+impl HttpMapping for IssueVerificationCodeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             IssueVerificationCodeError::Repository(e) => e.to_http_status(),
@@ -365,7 +446,7 @@ impl ToHttpStatus for IssueVerificationCodeError {
     }
 }
 
-impl ToHttpStatus for GetMeError {
+impl HttpMapping for GetMeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetMeError::Repository(e) => e.to_http_status(),
@@ -388,7 +469,7 @@ impl ToHttpStatus for GetMeError {
     }
 }
 
-impl ToHttpStatus for UpdateLocaleError {
+impl HttpMapping for UpdateLocaleError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UpdateLocaleError::Repository(e) => e.to_http_status(),
@@ -408,7 +489,7 @@ impl ToHttpStatus for UpdateLocaleError {
     }
 }
 
-impl ToHttpStatus for SearchUsersError {
+impl HttpMapping for SearchUsersError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SearchUsersError::Repository(e) => e.to_http_status(),
@@ -431,7 +512,7 @@ impl ToHttpStatus for SearchUsersError {
     }
 }
 
-impl ToHttpStatus for RenameUserError {
+impl HttpMapping for RenameUserError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RenameUserError::Repository(e) => e.to_http_status(),
@@ -473,16 +554,3 @@ impl ToHttpStatus for RenameUserError {
     }
 }
 
-shared::impl_from_for_api_error!(
-    ConfirmRegistrationError,
-    GetMeError,
-    GoogleLoginError,
-    IssueVerificationCodeError,
-    LoginError,
-    LogoutError,
-    RefreshTokensError,
-    RegistrationError,
-    RenameUserError,
-    SearchUsersError,
-    UpdateLocaleError,
-);

@@ -14,19 +14,19 @@ use domain::{
 use uuid::Uuid;
 
 use crate::state::AppState;
-use shared::api_error::ApiError;
+use crate::http_errors::HttpError;
 
 #[get("/servers/{server_id}/can-manage/{user_id}")]
 async fn server_can_manage(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let (server_id, user_id) = path.into_inner();
     let allowed = app_state
         .can_manage_server_usecase
         .execute(ServerId::new(server_id), UserId::new(user_id))
         .await
-        .map_err(ApiError::from)?;
+        .map_err(HttpError::from)?;
     Ok(HttpResponse::Ok().json(CanManageResponseV1 { allowed }))
 }
 
@@ -34,13 +34,13 @@ async fn server_can_manage(
 async fn server_owner(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     match app_state
         .server_repository
         .find_server_owner(&server_id)
         .await
-        .map_err(ApiError::from)?
+        .map_err(HttpError::from)?
     {
         Some(owner) => Ok(HttpResponse::Ok().json(OwnerResponseV1 {
             owner_id: owner.uuid(),
@@ -53,12 +53,12 @@ async fn server_owner(
 async fn user_has_state(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let has_state = app_state
         .server_repository
         .has_user_messaging_state(path.into_inner())
         .await
-        .map_err(ApiError::from)?;
+        .map_err(HttpError::from)?;
     Ok(HttpResponse::Ok().json(StateResponseV1 { has_state }))
 }
 
@@ -66,13 +66,13 @@ async fn user_has_state(
 async fn friendship_pair(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let (a, b) = path.into_inner();
     let pair = app_state
         .friendship_repository
         .find_pair(&UserId::new(a), &UserId::new(b))
         .await
-        .map_err(ApiError::from)?;
+        .map_err(HttpError::from)?;
     let friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
     Ok(HttpResponse::Ok().json(FriendsResponseV1 { friends }))
 }
@@ -81,12 +81,12 @@ async fn friendship_pair(
 async fn linked_attachments(
     app_state: web::Data<AppState>,
     body: web::Json<LinkedRequestV1>,
-) -> Result<impl Responder, ApiError> {
+) -> Result<impl Responder, HttpError> {
     let linked_ids = app_state
         .message_repository
         .linked_attachment_subset(&body.attachment_ids)
         .await
-        .map_err(ApiError::from)?;
+        .map_err(HttpError::from)?;
     Ok(HttpResponse::Ok().json(LinkedResponseV1 { linked_ids }))
 }
 

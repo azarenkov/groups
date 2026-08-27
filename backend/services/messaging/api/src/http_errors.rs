@@ -1,61 +1,163 @@
-use shared::api_error::{StatusCode, ToHttpStatus};
-use crate::usecases::attachment::get_attachment::GetAttachmentError;
-use crate::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
-use crate::usecases::call::log_call::LogCallError;
-use crate::usecases::channel::abort_voice_connection::AbortVoiceConnectionError;
-use crate::usecases::channel::create_channel::CreateChannelError;
-use crate::usecases::channel::delete_channel::DeleteChannelError;
-use crate::usecases::channel::delete_channel_message::DeleteChannelMessageError;
-use crate::usecases::channel::edit_channel_message::EditChannelMessageError;
-use crate::usecases::channel::join_text_channel::JoinTextChannelError;
-use crate::usecases::channel::join_voice_channel::JoinVoiceChannelError;
-use crate::usecases::channel::join_voice_connection::JoinVoiceConnectionError;
-use crate::usecases::channel::leave_voice_connection::LeaveVoiceConnectionError;
-use crate::usecases::channel::list_channel_messages::ListChannelMessagesError;
-use crate::usecases::channel::list_channel_participants::ListChannelParticipantsError;
-use crate::usecases::channel::mute_channel::MuteChannelError;
-use crate::usecases::channel::search_channel_messages::SearchChannelMessagesError;
-use crate::usecases::channel::send_channel_message::SendChannelMessageError;
-use crate::usecases::channel::track_media_connection::TrackMediaConnectionError;
-use crate::usecases::channel::unmute_channel::UnmuteChannelError;
-use crate::usecases::channel::update_stream_viewer::UpdateStreamViewerError;
-use crate::usecases::dm::delete_dm_message::DeleteDmMessageError;
-use crate::usecases::dm::edit_dm_message::EditDmMessageError;
-use crate::usecases::dm::list_dm_messages::ListDmMessagesError;
-use crate::usecases::dm::list_dm_previews::ListDmPreviewsError;
-use crate::usecases::dm::search_dm_messages::SearchDmMessagesError;
-use crate::usecases::dm::send_dm_message::SendDmMessageError;
-use crate::usecases::friendship::accept_friend_request::AcceptFriendRequestError;
-use crate::usecases::friendship::list_friends::ListFriendsError;
-use crate::usecases::friendship::remove_friendship::RemoveFriendshipError;
-use crate::usecases::friendship::send_friend_request::SendFriendRequestError;
-use crate::usecases::notification::list_notification_preferences::ListNotificationPreferencesError;
-use crate::usecases::notification::set_notification_preference::SetNotificationPreferenceError;
-use crate::usecases::read_state::get_channel_read_receipts::GetChannelReadReceiptsError;
-use crate::usecases::role::RoleError;
-use crate::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
-use crate::usecases::read_state::get_unread_counts::GetUnreadCountsError;
-use crate::usecases::read_state::mark_channel_read::MarkChannelReadError;
-use crate::usecases::read_state::mark_dm_read::MarkDmReadError;
-use crate::usecases::server::accept_server_invite::AcceptServerInviteError;
-use crate::usecases::server::create_server::CreateServerError;
-use crate::usecases::server::decline_server_invite::DeclineServerInviteError;
-use crate::usecases::server::delete_server::DeleteServerError;
-use crate::usecases::server::get_voice_presence::GetVoicePresenceError;
-use crate::usecases::server::invite_codes::CreateInviteCodeError;
-use crate::usecases::server::invite_codes::ListInviteCodesError;
-use crate::usecases::server::invite_codes::RedeemInviteCodeError;
-use crate::usecases::server::invite_codes::RevokeInviteCodeError;
-use crate::usecases::server::kick_member::KickMemberError;
-use crate::usecases::server::leave_server::LeaveServerError;
-use crate::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
-use crate::usecases::server::list_server_channels::ListServerChannelsError;
-use crate::usecases::server::list_server_members::ListServerMembersError;
-use crate::usecases::server::list_servers_by_user::ListServersByUserError;
-use crate::usecases::server::send_server_invite::SendServerInviteError;
-use crate::usecases::server::update_server::UpdateServerError;
+use actix_web::{HttpResponse, ResponseError};
+use shared::api_error::{ApiError, StatusCode, ToHttpStatus};
 
-impl ToHttpStatus for CreateChannelError {
+pub trait HttpMapping {
+    fn to_http_status(&self) -> StatusCode;
+    fn to_user_message(&self) -> String;
+    fn to_error_code(&self) -> &'static str;
+}
+
+#[derive(Debug)]
+pub struct HttpError(pub ApiError);
+
+impl std::fmt::Display for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl ResponseError for HttpError {
+    fn status_code(&self) -> StatusCode {
+        self.0.status_code()
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        self.0.error_response()
+    }
+}
+
+#[allow(dead_code)]
+impl HttpError {
+    pub fn new(message: String, status: StatusCode, code: &'static str) -> Self {
+        Self(ApiError::new(message, status, code))
+    }
+
+    pub fn bad_request(message: String) -> Self {
+        Self(ApiError::bad_request(message))
+    }
+
+    pub fn payload_too_large() -> Self {
+        Self(ApiError::payload_too_large())
+    }
+
+    pub fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
+        Self(ApiError::from_error(error))
+    }
+}
+
+impl From<ApiError> for HttpError {
+    fn from(error: ApiError) -> Self {
+        Self(error)
+    }
+}
+
+impl From<validator::ValidationErrors> for HttpError {
+    fn from(error: validator::ValidationErrors) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::repository::error::RepositoryError> for HttpError {
+    fn from(error: domain::shared::repository::error::RepositoryError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl From<domain::shared::pagination::PaginationError> for HttpError {
+    fn from(error: domain::shared::pagination::PaginationError) -> Self {
+        Self(ApiError::from(error))
+    }
+}
+
+impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
+    fn from(error: E) -> Self {
+        tracing::error!("API Error: {:?}", error);
+        Self(ApiError::new(
+            error.to_user_message(),
+            error.to_http_status(),
+            error.to_error_code(),
+        ))
+    }
+}
+
+macro_rules! impl_http_mapping_delegate {
+    ($err:ident, $variant:ident) => {
+        impl HttpMapping for $err {
+            fn to_http_status(&self) -> StatusCode {
+                let $err::$variant(e) = self;
+                e.to_http_status()
+            }
+
+            fn to_user_message(&self) -> String {
+                let $err::$variant(e) = self;
+                e.to_user_message()
+            }
+
+            fn to_error_code(&self) -> &'static str {
+                let $err::$variant(e) = self;
+                e.to_error_code()
+            }
+        }
+    };
+}
+
+use messaging::usecases::attachment::get_attachment::GetAttachmentError;
+use messaging::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
+use messaging::usecases::call::log_call::LogCallError;
+use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnectionError;
+use messaging::usecases::channel::create_channel::CreateChannelError;
+use messaging::usecases::channel::delete_channel::DeleteChannelError;
+use messaging::usecases::channel::delete_channel_message::DeleteChannelMessageError;
+use messaging::usecases::channel::edit_channel_message::EditChannelMessageError;
+use messaging::usecases::channel::join_text_channel::JoinTextChannelError;
+use messaging::usecases::channel::join_voice_channel::JoinVoiceChannelError;
+use messaging::usecases::channel::join_voice_connection::JoinVoiceConnectionError;
+use messaging::usecases::channel::leave_voice_connection::LeaveVoiceConnectionError;
+use messaging::usecases::channel::list_channel_messages::ListChannelMessagesError;
+use messaging::usecases::channel::list_channel_participants::ListChannelParticipantsError;
+use messaging::usecases::channel::mute_channel::MuteChannelError;
+use messaging::usecases::channel::search_channel_messages::SearchChannelMessagesError;
+use messaging::usecases::channel::send_channel_message::SendChannelMessageError;
+use messaging::usecases::channel::track_media_connection::TrackMediaConnectionError;
+use messaging::usecases::channel::unmute_channel::UnmuteChannelError;
+use messaging::usecases::channel::update_stream_viewer::UpdateStreamViewerError;
+use messaging::usecases::dm::delete_dm_message::DeleteDmMessageError;
+use messaging::usecases::dm::edit_dm_message::EditDmMessageError;
+use messaging::usecases::dm::list_dm_messages::ListDmMessagesError;
+use messaging::usecases::dm::list_dm_previews::ListDmPreviewsError;
+use messaging::usecases::dm::search_dm_messages::SearchDmMessagesError;
+use messaging::usecases::dm::send_dm_message::SendDmMessageError;
+use messaging::usecases::friendship::accept_friend_request::AcceptFriendRequestError;
+use messaging::usecases::friendship::list_friends::ListFriendsError;
+use messaging::usecases::friendship::remove_friendship::RemoveFriendshipError;
+use messaging::usecases::friendship::send_friend_request::SendFriendRequestError;
+use messaging::usecases::notification::list_notification_preferences::ListNotificationPreferencesError;
+use messaging::usecases::notification::set_notification_preference::SetNotificationPreferenceError;
+use messaging::usecases::read_state::get_channel_read_receipts::GetChannelReadReceiptsError;
+use messaging::usecases::role::RoleError;
+use messaging::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
+use messaging::usecases::read_state::get_unread_counts::GetUnreadCountsError;
+use messaging::usecases::read_state::mark_channel_read::MarkChannelReadError;
+use messaging::usecases::read_state::mark_dm_read::MarkDmReadError;
+use messaging::usecases::server::accept_server_invite::AcceptServerInviteError;
+use messaging::usecases::server::create_server::CreateServerError;
+use messaging::usecases::server::decline_server_invite::DeclineServerInviteError;
+use messaging::usecases::server::delete_server::DeleteServerError;
+use messaging::usecases::server::get_voice_presence::GetVoicePresenceError;
+use messaging::usecases::server::invite_codes::CreateInviteCodeError;
+use messaging::usecases::server::invite_codes::ListInviteCodesError;
+use messaging::usecases::server::invite_codes::RedeemInviteCodeError;
+use messaging::usecases::server::invite_codes::RevokeInviteCodeError;
+use messaging::usecases::server::kick_member::KickMemberError;
+use messaging::usecases::server::leave_server::LeaveServerError;
+use messaging::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
+use messaging::usecases::server::list_server_channels::ListServerChannelsError;
+use messaging::usecases::server::list_server_members::ListServerMembersError;
+use messaging::usecases::server::list_servers_by_user::ListServersByUserError;
+use messaging::usecases::server::send_server_invite::SendServerInviteError;
+use messaging::usecases::server::update_server::UpdateServerError;
+
+impl HttpMapping for CreateChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             CreateChannelError::Repository(e) => e.to_http_status(),
@@ -97,7 +199,7 @@ impl ToHttpStatus for CreateChannelError {
     }
 }
 
-impl ToHttpStatus for DeleteChannelError {
+impl HttpMapping for DeleteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeleteChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
@@ -134,7 +236,7 @@ impl ToHttpStatus for DeleteChannelError {
     }
 }
 
-impl ToHttpStatus for MuteChannelError {
+impl HttpMapping for MuteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MuteChannelError::ChannelNotFound | MuteChannelError::TargetUserNotFound => {
@@ -175,7 +277,7 @@ impl ToHttpStatus for MuteChannelError {
     }
 }
 
-impl ToHttpStatus for UnmuteChannelError {
+impl HttpMapping for UnmuteChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UnmuteChannelError::ChannelNotFound | UnmuteChannelError::TargetUserNotFound => {
@@ -216,7 +318,7 @@ impl ToHttpStatus for UnmuteChannelError {
     }
 }
 
-impl ToHttpStatus for AbortVoiceConnectionError {
+impl HttpMapping for AbortVoiceConnectionError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AbortVoiceConnectionError::Repository(e) => e.to_http_status(),
@@ -239,7 +341,7 @@ impl ToHttpStatus for AbortVoiceConnectionError {
     }
 }
 
-impl ToHttpStatus for LeaveVoiceConnectionError {
+impl HttpMapping for LeaveVoiceConnectionError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LeaveVoiceConnectionError::Repository(e) => e.to_http_status(),
@@ -262,7 +364,7 @@ impl ToHttpStatus for LeaveVoiceConnectionError {
     }
 }
 
-impl ToHttpStatus for JoinVoiceConnectionError {
+impl HttpMapping for JoinVoiceConnectionError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             JoinVoiceConnectionError::Repository(e) => e.to_http_status(),
@@ -285,7 +387,7 @@ impl ToHttpStatus for JoinVoiceConnectionError {
     }
 }
 
-impl ToHttpStatus for TrackMediaConnectionError {
+impl HttpMapping for TrackMediaConnectionError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             TrackMediaConnectionError::Repository(e) => e.to_http_status(),
@@ -308,7 +410,7 @@ impl ToHttpStatus for TrackMediaConnectionError {
     }
 }
 
-impl ToHttpStatus for CreateServerError {
+impl HttpMapping for CreateServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             CreateServerError::Repository(e) => e.to_http_status(),
@@ -331,7 +433,7 @@ impl ToHttpStatus for CreateServerError {
     }
 }
 
-impl ToHttpStatus for DeleteServerError {
+impl HttpMapping for DeleteServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeleteServerError::ServerNotFound => StatusCode::NOT_FOUND,
@@ -365,7 +467,7 @@ impl ToHttpStatus for DeleteServerError {
     }
 }
 
-impl ToHttpStatus for UpdateServerError {
+impl HttpMapping for UpdateServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UpdateServerError::ServerNotFound => StatusCode::NOT_FOUND,
@@ -397,7 +499,7 @@ impl ToHttpStatus for UpdateServerError {
     }
 }
 
-impl ToHttpStatus for CreateInviteCodeError {
+impl HttpMapping for CreateInviteCodeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             CreateInviteCodeError::NotMember => StatusCode::FORBIDDEN,
@@ -425,7 +527,7 @@ impl ToHttpStatus for CreateInviteCodeError {
     }
 }
 
-impl ToHttpStatus for ListInviteCodesError {
+impl HttpMapping for ListInviteCodesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListInviteCodesError::NotMember => StatusCode::FORBIDDEN,
@@ -453,7 +555,7 @@ impl ToHttpStatus for ListInviteCodesError {
     }
 }
 
-impl ToHttpStatus for RevokeInviteCodeError {
+impl HttpMapping for RevokeInviteCodeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RevokeInviteCodeError::NotFound => StatusCode::NOT_FOUND,
@@ -474,7 +576,7 @@ impl ToHttpStatus for RevokeInviteCodeError {
     }
 }
 
-impl ToHttpStatus for RedeemInviteCodeError {
+impl HttpMapping for RedeemInviteCodeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RedeemInviteCodeError::InvalidCode => StatusCode::NOT_FOUND,
@@ -500,7 +602,7 @@ impl ToHttpStatus for RedeemInviteCodeError {
     }
 }
 
-impl ToHttpStatus for JoinVoiceChannelError {
+impl HttpMapping for JoinVoiceChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             JoinVoiceChannelError::ChannelNotFound | JoinVoiceChannelError::UserNotFound => {
@@ -555,7 +657,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
     }
 }
 
-impl ToHttpStatus for LogCallError {
+impl HttpMapping for LogCallError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LogCallError::Repository(e) => e.to_http_status(),
@@ -582,9 +684,9 @@ impl ToHttpStatus for LogCallError {
     }
 }
 
-shared::impl_to_http_status_delegate!(ListServersByUserError, Repository);
+impl_http_mapping_delegate!(ListServersByUserError, Repository);
 
-impl ToHttpStatus for ListServerMembersError {
+impl HttpMapping for ListServerMembersError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListServerMembersError::Repository(e) => e.to_http_status(),
@@ -609,7 +711,7 @@ impl ToHttpStatus for ListServerMembersError {
     }
 }
 
-impl ToHttpStatus for GetVoicePresenceError {
+impl HttpMapping for GetVoicePresenceError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetVoicePresenceError::Repository(e) => e.to_http_status(),
@@ -634,7 +736,7 @@ impl ToHttpStatus for GetVoicePresenceError {
     }
 }
 
-impl ToHttpStatus for UpdateStreamViewerError {
+impl HttpMapping for UpdateStreamViewerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             UpdateStreamViewerError::Repository(e) => e.to_http_status(),
@@ -659,7 +761,7 @@ impl ToHttpStatus for UpdateStreamViewerError {
     }
 }
 
-impl ToHttpStatus for ListServerChannelsError {
+impl HttpMapping for ListServerChannelsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListServerChannelsError::Repository(e) => e.to_http_status(),
@@ -684,7 +786,7 @@ impl ToHttpStatus for ListServerChannelsError {
     }
 }
 
-impl ToHttpStatus for JoinTextChannelError {
+impl HttpMapping for JoinTextChannelError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             JoinTextChannelError::Repository(e) => e.to_http_status(),
@@ -732,7 +834,7 @@ impl ToHttpStatus for JoinTextChannelError {
     }
 }
 
-impl ToHttpStatus for SendChannelMessageError {
+impl HttpMapping for SendChannelMessageError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SendChannelMessageError::Repository(e) => e.to_http_status(),
@@ -789,7 +891,7 @@ impl ToHttpStatus for SendChannelMessageError {
     }
 }
 
-impl ToHttpStatus for EditChannelMessageError {
+impl HttpMapping for EditChannelMessageError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             EditChannelMessageError::Repository(e) => e.to_http_status(),
@@ -833,7 +935,7 @@ impl ToHttpStatus for EditChannelMessageError {
     }
 }
 
-impl ToHttpStatus for DeleteChannelMessageError {
+impl HttpMapping for DeleteChannelMessageError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeleteChannelMessageError::Repository(e) => e.to_http_status(),
@@ -867,7 +969,7 @@ impl ToHttpStatus for DeleteChannelMessageError {
     }
 }
 
-impl ToHttpStatus for ListChannelMessagesError {
+impl HttpMapping for ListChannelMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListChannelMessagesError::Repository(e) => e.to_http_status(),
@@ -913,7 +1015,7 @@ impl ToHttpStatus for ListChannelMessagesError {
     }
 }
 
-impl ToHttpStatus for SearchChannelMessagesError {
+impl HttpMapping for SearchChannelMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SearchChannelMessagesError::Repository(e) => e.to_http_status(),
@@ -954,7 +1056,7 @@ impl ToHttpStatus for SearchChannelMessagesError {
     }
 }
 
-impl ToHttpStatus for SendFriendRequestError {
+impl HttpMapping for SendFriendRequestError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SendFriendRequestError::Repository(e) => e.to_http_status(),
@@ -1006,7 +1108,7 @@ impl ToHttpStatus for SendFriendRequestError {
     }
 }
 
-impl ToHttpStatus for AcceptFriendRequestError {
+impl HttpMapping for AcceptFriendRequestError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AcceptFriendRequestError::Repository(e) => e.to_http_status(),
@@ -1037,7 +1139,7 @@ impl ToHttpStatus for AcceptFriendRequestError {
     }
 }
 
-impl ToHttpStatus for RemoveFriendshipError {
+impl HttpMapping for RemoveFriendshipError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RemoveFriendshipError::Repository(e) => e.to_http_status(),
@@ -1063,7 +1165,7 @@ impl ToHttpStatus for RemoveFriendshipError {
     }
 }
 
-impl ToHttpStatus for SendDmMessageError {
+impl HttpMapping for SendDmMessageError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SendDmMessageError::Repository(e) => e.to_http_status(),
@@ -1102,7 +1204,7 @@ impl ToHttpStatus for SendDmMessageError {
     }
 }
 
-impl ToHttpStatus for SendServerInviteError {
+impl HttpMapping for SendServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SendServerInviteError::Repository(e) => e.to_http_status(),
@@ -1154,7 +1256,7 @@ impl ToHttpStatus for SendServerInviteError {
     }
 }
 
-impl ToHttpStatus for KickMemberError {
+impl HttpMapping for KickMemberError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             KickMemberError::Outbox(e) => e.to_http_status(),
@@ -1185,7 +1287,7 @@ impl ToHttpStatus for KickMemberError {
     }
 }
 
-impl ToHttpStatus for LeaveServerError {
+impl HttpMapping for LeaveServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             LeaveServerError::Repository(e) => e.to_http_status(),
@@ -1216,7 +1318,7 @@ impl ToHttpStatus for LeaveServerError {
     }
 }
 
-impl ToHttpStatus for ListSentServerInvitesError {
+impl HttpMapping for ListSentServerInvitesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListSentServerInvitesError::Repository(e) => e.to_http_status(),
@@ -1239,7 +1341,7 @@ impl ToHttpStatus for ListSentServerInvitesError {
     }
 }
 
-impl ToHttpStatus for DeclineServerInviteError {
+impl HttpMapping for DeclineServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeclineServerInviteError::Repository(e) => e.to_http_status(),
@@ -1270,7 +1372,7 @@ impl ToHttpStatus for DeclineServerInviteError {
     }
 }
 
-impl ToHttpStatus for AcceptServerInviteError {
+impl HttpMapping for AcceptServerInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AcceptServerInviteError::Repository(e) => e.to_http_status(),
@@ -1301,7 +1403,7 @@ impl ToHttpStatus for AcceptServerInviteError {
     }
 }
 
-impl ToHttpStatus for EditDmMessageError {
+impl HttpMapping for EditDmMessageError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             EditDmMessageError::Repository(e) => e.to_http_status(),
@@ -1341,7 +1443,7 @@ impl ToHttpStatus for EditDmMessageError {
     }
 }
 
-impl ToHttpStatus for DeleteDmMessageError {
+impl HttpMapping for DeleteDmMessageError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeleteDmMessageError::Repository(e) => e.to_http_status(),
@@ -1368,7 +1470,7 @@ impl ToHttpStatus for DeleteDmMessageError {
     }
 }
 
-impl ToHttpStatus for GetAttachmentError {
+impl HttpMapping for GetAttachmentError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetAttachmentError::NotFound => StatusCode::NOT_FOUND,
@@ -1397,7 +1499,7 @@ impl ToHttpStatus for GetAttachmentError {
     }
 }
 
-impl ToHttpStatus for ListMessageAttachmentsError {
+impl HttpMapping for ListMessageAttachmentsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListMessageAttachmentsError::Repository(e) => e.to_http_status(),
@@ -1415,7 +1517,7 @@ impl ToHttpStatus for ListMessageAttachmentsError {
     }
 }
 
-impl ToHttpStatus for ListDmPreviewsError {
+impl HttpMapping for ListDmPreviewsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListDmPreviewsError::Repository(e) => e.to_http_status(),
@@ -1433,7 +1535,7 @@ impl ToHttpStatus for ListDmPreviewsError {
     }
 }
 
-impl ToHttpStatus for ListDmMessagesError {
+impl HttpMapping for ListDmMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListDmMessagesError::Repository(e) => e.to_http_status(),
@@ -1464,7 +1566,7 @@ impl ToHttpStatus for ListDmMessagesError {
     }
 }
 
-impl ToHttpStatus for SearchDmMessagesError {
+impl HttpMapping for SearchDmMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SearchDmMessagesError::Repository(e) => e.to_http_status(),
@@ -1490,7 +1592,7 @@ impl ToHttpStatus for SearchDmMessagesError {
     }
 }
 
-impl ToHttpStatus for MarkChannelReadError {
+impl HttpMapping for MarkChannelReadError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MarkChannelReadError::Repository(e) => e.to_http_status(),
@@ -1513,7 +1615,7 @@ impl ToHttpStatus for MarkChannelReadError {
     }
 }
 
-impl ToHttpStatus for MarkDmReadError {
+impl HttpMapping for MarkDmReadError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MarkDmReadError::Repository(e) => e.to_http_status(),
@@ -1536,7 +1638,7 @@ impl ToHttpStatus for MarkDmReadError {
     }
 }
 
-impl ToHttpStatus for GetUnreadCountsError {
+impl HttpMapping for GetUnreadCountsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetUnreadCountsError::Repository(e) => e.to_http_status(),
@@ -1554,7 +1656,7 @@ impl ToHttpStatus for GetUnreadCountsError {
     }
 }
 
-impl ToHttpStatus for GetDmReadReceiptError {
+impl HttpMapping for GetDmReadReceiptError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_http_status(),
@@ -1577,7 +1679,7 @@ impl ToHttpStatus for GetDmReadReceiptError {
     }
 }
 
-impl ToHttpStatus for GetChannelReadReceiptsError {
+impl HttpMapping for GetChannelReadReceiptsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetChannelReadReceiptsError::Repository(e) => e.to_http_status(),
@@ -1600,7 +1702,7 @@ impl ToHttpStatus for GetChannelReadReceiptsError {
     }
 }
 
-impl ToHttpStatus for ListFriendsError {
+impl HttpMapping for ListFriendsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListFriendsError::Repository(e) => e.to_http_status(),
@@ -1620,7 +1722,7 @@ impl ToHttpStatus for ListFriendsError {
     }
 }
 
-impl ToHttpStatus for ListChannelParticipantsError {
+impl HttpMapping for ListChannelParticipantsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListChannelParticipantsError::Repository(e) => e.to_http_status(),
@@ -1653,7 +1755,7 @@ impl ToHttpStatus for ListChannelParticipantsError {
     }
 }
 
-impl ToHttpStatus for RoleError {
+impl HttpMapping for RoleError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             RoleError::Repository(e) => e.to_http_status(),
@@ -1690,7 +1792,7 @@ impl ToHttpStatus for RoleError {
     }
 }
 
-impl ToHttpStatus for SetNotificationPreferenceError {
+impl HttpMapping for SetNotificationPreferenceError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SetNotificationPreferenceError::Repository(e) => e.to_http_status(),
@@ -1723,58 +1825,5 @@ impl ToHttpStatus for SetNotificationPreferenceError {
     }
 }
 
-shared::impl_to_http_status_delegate!(ListNotificationPreferencesError, Repository);
+impl_http_mapping_delegate!(ListNotificationPreferencesError, Repository);
 
-shared::impl_from_for_api_error!(
-    AcceptFriendRequestError,
-    AcceptServerInviteError,
-    CreateChannelError,
-    CreateInviteCodeError,
-    CreateServerError,
-    DeclineServerInviteError,
-    DeleteChannelError,
-    DeleteChannelMessageError,
-    DeleteDmMessageError,
-    DeleteServerError,
-    EditChannelMessageError,
-    EditDmMessageError,
-    GetAttachmentError,
-    GetChannelReadReceiptsError,
-    GetDmReadReceiptError,
-    GetUnreadCountsError,
-    GetVoicePresenceError,
-    JoinTextChannelError,
-    JoinVoiceChannelError,
-    KickMemberError,
-    LeaveServerError,
-    ListChannelMessagesError,
-    ListChannelParticipantsError,
-    ListDmMessagesError,
-    ListDmPreviewsError,
-    ListFriendsError,
-    ListInviteCodesError,
-    ListMessageAttachmentsError,
-    ListNotificationPreferencesError,
-    ListSentServerInvitesError,
-    ListServerChannelsError,
-    ListServerMembersError,
-    ListServersByUserError,
-    LogCallError,
-    MarkChannelReadError,
-    MarkDmReadError,
-    MuteChannelError,
-    RedeemInviteCodeError,
-    RemoveFriendshipError,
-    RevokeInviteCodeError,
-    RoleError,
-    SearchChannelMessagesError,
-    SearchDmMessagesError,
-    SendChannelMessageError,
-    SendDmMessageError,
-    SendFriendRequestError,
-    SendServerInviteError,
-    SetNotificationPreferenceError,
-    UnmuteChannelError,
-    UpdateServerError,
-    UpdateStreamViewerError,
-);

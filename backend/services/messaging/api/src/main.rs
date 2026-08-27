@@ -1,4 +1,5 @@
 mod dto;
+mod http_errors;
 mod bootstrap;
 mod attachments;
 mod calls;
