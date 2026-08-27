@@ -8,21 +8,11 @@ api-common = { workspace = true }
 infrastructure-common = { workspace = true }
 messaging = { workspace = true }
 messaging-infrastructure = { workspace = true }
-contracts = { workspace = true }
-domain = { workspace = true }
-ports = { workspace = true }
-messaging-domain = { workspace = true }
-
 
 tracing = { workspace = true }
 dotenv = { workspace = true }
 envy = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
-chrono = { workspace = true }
-uuid = { workspace = true }
 
 tokio = { workspace = true, features = ["macros", "signal", "time", "rt-multi-thread"] }
 actix-web = { workspace = true }
-sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "uuid"] }
-livekit-api = "0.4.14"

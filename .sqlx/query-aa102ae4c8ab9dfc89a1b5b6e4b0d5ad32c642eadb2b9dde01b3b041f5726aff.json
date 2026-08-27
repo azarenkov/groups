@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT channel_id, user_id, session_id, camera_on, screen_on\n            FROM channel_voice_participants\n            WHERE joined_at < $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "session_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "camera_on",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "screen_on",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "aa102ae4c8ab9dfc89a1b5b6e4b0d5ad32c642eadb2b9dde01b3b041f5726aff"
+}

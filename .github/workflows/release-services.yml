@@ -72,6 +72,8 @@ jobs:
             livekit-pooler:
               - *shared
               - 'backend/services/messaging/core/**'
+              - 'backend/services/messaging/domain/**'
+              - 'backend/services/messaging/infrastructure/**'
               - 'backend/workers/livekit-pooler/**'
               - 'docker/livekit-pooler/**'
             nsfw-detector:

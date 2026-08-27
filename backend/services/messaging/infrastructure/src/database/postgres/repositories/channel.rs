@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelOperationError, channel::repository::ChannelRepository, channel::session_id::SessionId, server::id::ServerId};
+use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelOperationError, channel::repository::ChannelRepository, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -433,6 +433,33 @@ impl ChannelRepository for PostgresChannelRepository {
                 channel_id: ChannelId::new(r.channel_id),
                 streamer_id: UserId::new(r.streamer_id),
                 count: r.count,
+            })
+            .collect())
+    }
+
+    async fn list_voice_participants_joined_before(
+        &self,
+        cutoff: DateTime<Utc>,
+    ) -> Result<Vec<VoiceParticipantRow>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT channel_id, user_id, session_id, camera_on, screen_on
+            FROM channel_voice_participants
+            WHERE joined_at < $1
+            "#,
+            cutoff,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| VoiceParticipantRow {
+                channel_id: ChannelId::new(r.channel_id),
+                user_id: UserId::new(r.user_id),
+                session_id: r.session_id,
+                camera_on: r.camera_on,
+                screen_on: r.screen_on,
             })
             .collect())
     }

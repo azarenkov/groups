@@ -1150,30 +1150,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "event-dispatcher"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "anyhow",
- "api-common",
- "async-nats",
- "chrono",
- "contracts",
- "dotenv",
- "envy",
- "futures",
- "infrastructure-common",
- "ports",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "event-listener"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2259,23 +2235,14 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "api-common",
- "chrono",
- "contracts",
- "domain",
  "dotenv",
  "envy",
  "infrastructure-common",
- "livekit-api",
  "messaging",
- "messaging-domain",
  "messaging-infrastructure",
- "ports",
  "serde",
- "sqlx",
- "thiserror 2.0.18",
  "tokio",
  "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -2518,6 +2485,7 @@ dependencies = [
  "domain",
  "futures",
  "infrastructure-common",
+ "livekit-api",
  "messaging",
  "messaging-domain",
  "ports",
@@ -2652,22 +2620,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38bf9645c8b145698bb0b18a4637dcacbc421ea49bef2317e4fd8065a387cf21"
 
 [[package]]
+name = "notification-core"
+version = "0.1.0"
+dependencies = [
+ "domain",
+ "ports",
+]
+
+[[package]]
+name = "notification-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "api-common",
+ "async-nats",
+ "contracts",
+ "domain",
+ "futures",
+ "infrastructure-common",
+ "notification-core",
+ "ports",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "notification-service"
 version = "0.1.0"
 dependencies = [
  "actix-web",
  "api-common",
- "async-nats",
- "contracts",
- "domain",
  "dotenv",
  "envy",
- "futures",
  "infrastructure-common",
- "ports",
+ "notification-core",
+ "notification-infrastructure",
  "serde",
- "serde_json",
- "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
@@ -3353,11 +3341,71 @@ dependencies = [
 name = "realtime"
 version = "0.1.0"
 dependencies = [
+ "actix-cors",
  "actix-web",
- "event-dispatcher",
+ "actix-ws",
+ "api-common",
+ "async-nats",
+ "dotenv",
+ "envy",
+ "futures",
  "infrastructure-common",
+ "jsonwebtoken 10.3.0",
+ "realtime-core",
+ "realtime-infrastructure",
+ "serde",
  "tokio",
- "websocket",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "realtime-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "contracts",
+ "ports",
+ "realtime-domain",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "realtime-domain"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "realtime-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "async-nats",
+ "async-trait",
+ "chrono",
+ "contracts",
+ "dashmap",
+ "futures",
+ "infrastructure-common",
+ "ports",
+ "realtime-core",
+ "realtime-domain",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -5023,31 +5071,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22cfaf3c063993ff62e73cb4311efde4db1efb31ab78a3e5c457939ad5cc0bed"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "websocket"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-web",
- "actix-ws",
- "api-common",
- "async-nats",
- "contracts",
- "dashmap",
- "dotenv",
- "envy",
- "futures",
- "infrastructure-common",
- "jsonwebtoken 10.3.0",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]

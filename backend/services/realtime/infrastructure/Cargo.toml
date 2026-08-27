@@ -1,0 +1,24 @@
+[package]
+name = "realtime-infrastructure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+realtime-core = { workspace = true }
+realtime-domain = { workspace = true }
+contracts = { workspace = true }
+ports = { workspace = true }
+infrastructure-common = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+futures = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["macros", "time", "rt-multi-thread", "sync"] }
+actix-web = { workspace = true }
+async-nats = { workspace = true }
+dashmap = "6.1"
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
