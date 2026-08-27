@@ -177,7 +177,7 @@ body.electron .titlebar { padding-left: 84px; }
   min-width: 16px; height: 16px; padding: 0 4px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 8px;
-  background: var(--danger, #e5484d);
+  background: var(--accent);
   color: #fff;
   font-size: 10px; font-weight: 700;
   box-sizing: border-box;
@@ -453,7 +453,7 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
   min-width: 13px; height: 13px;
   padding: 0 3px;
   border-radius: 7px;
-  background: var(--danger);
+  background: var(--accent);
   color: #fff;
   font-size: 9px;
   font-weight: 700;
@@ -681,15 +681,12 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
 }
 .sb-vhead-add:hover { background: var(--surface-hover); color: var(--fg-1); }
 
-.sb-seg-badge {
+.sb-seg-dot {
   margin-left: 6px;
-  min-width: 16px; height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  background: #ff453a;
-  color: #fff;
-  font-size: 10px; font-weight: 700;
-  display: inline-flex; align-items: center; justify-content: center;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
 }
 
 .sb-add-row-badge {
@@ -697,7 +694,7 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
   min-width: 18px; height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: #ff453a;
+  background: var(--accent);
   color: #fff;
   font-size: 11px; font-weight: 700;
   display: inline-flex; align-items: center; justify-content: center;
@@ -5015,7 +5012,7 @@ button.ssv-row-delete:focus-visible {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.82);
   display: flex; align-items: center; justify-content: center;
-  z-index: 200;
+  z-index: 3500;
   cursor: zoom-out;
   animation: fade-in var(--dur-fast) forwards;
 }
@@ -5337,3 +5334,134 @@ button.ssv-row-delete:focus-visible {
   cursor: pointer;
 }
 .m-empty-cta:hover { background: var(--accent-hover, var(--accent)); }
+
+.ssv-role-colors { display: flex; gap: 8px; margin-top: 14px; }
+.ssv-role-color {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.ssv-role-color.on { border-color: var(--fg-1); }
+.ssv-role-perms {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-top: 14px;
+}
+.ssv-role-perm {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; color: var(--fg-2);
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: var(--surface-inset, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--hairline);
+}
+.ssv-role-perm .s-switch { flex: 0 0 auto; }
+.ssv-role-perm .s-switch:disabled { opacity: 0.4; cursor: default; }
+.ssv-role-row { cursor: pointer; }
+.ssv-role-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  flex-shrink: 0;
+  margin: 0 6px;
+}
+.ssv-role-detail {
+  padding: 4px 16px 16px 36px;
+}
+.ssv-role-detail .ssv-section-label { margin-top: 18px; }
+.ssv-role-members {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.ssv-role-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 9px;
+}
+.ssv-role-member-row:hover { background: var(--surface-hover); }
+.ssv-role-member-ava {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50%;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+.ssv-role-member-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--fg-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ssv-role-member-row .s-switch { flex: 0 0 auto; }
+
+.flip-y { transform: scaleY(-1); }
+.ssv-role-reorder { display: inline-flex; gap: 0; }
+.ssv-role-reorder .ssv-row-delete:disabled { opacity: 0.3; cursor: default; }
+.ssv-role-reorder .ssv-row-delete:disabled:hover { background: transparent; color: var(--fg-3); }
+
+.sb-voice-mute-btn {
+  width: 20px; height: 20px;
+  display: inline-flex;
+  opacity: 0;
+  pointer-events: none;
+  align-items: center; justify-content: center;
+  border: 0; border-radius: 5px;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.sb-voice-member:hover .sb-voice-mute-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sb-voice-mute-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
+
+.member-row .member-role-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+.member-row .member-role-badge.owner {
+  color: #e8b339;
+  background: rgba(232, 179, 57, 0.14);
+}
+
+.cs-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.cs-menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+}
+.ssv-role-member-row .s-switch:disabled { opacity: 0.4; cursor: default; }
+.cp-btn:disabled,
+.vp-btn:disabled { opacity: 0.45; cursor: default; }

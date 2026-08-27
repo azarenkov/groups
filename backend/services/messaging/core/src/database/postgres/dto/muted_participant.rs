@@ -9,6 +9,7 @@ pub struct MutedParticipantDto {
     pub user_id: Uuid,
     pub muted_by: Uuid,
     pub muted_at: DateTime<Utc>,
+    pub self_muted: bool,
 }
 
 impl From<MutedParticipantDto> for ParticipantMute {
@@ -17,6 +18,7 @@ impl From<MutedParticipantDto> for ParticipantMute {
             UserId::new(dto.user_id),
             UserId::new(dto.muted_by),
             dto.muted_at,
+            dto.self_muted,
         )
     }
 }

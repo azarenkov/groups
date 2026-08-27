@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import i18nTheater from "../../i18n";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
@@ -6,10 +7,11 @@ import { VideoTileCell } from "./VideoStage";
 import { getLiveKitService, VideoTile } from "../../services/livekit";
 import { UserAvatar } from "./Avatar";
 
-const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
-  id,
-  className,
-}) => {
+const TileVolumeMenu: React.FC<{
+  id: string;
+  className?: string;
+  moderate?: { muted: boolean; onToggle: () => void };
+}> = ({ id, className, moderate }) => {
   const [open, setOpen] = useState(false);
   const [vol, setVol] = useState(100);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -49,7 +51,7 @@ const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
       const menuW = 216;
-      const menuH = 54;
+      const menuH = moderate ? 96 : 54;
       let left = r.left - menuW - 8;
       if (left < 8) left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
       let top = r.top;
@@ -103,6 +105,23 @@ const TileVolumeMenu: React.FC<{ id: string; className?: string }> = ({
               />
               <span className="cs-menu-pct">{vol}%</span>
             </div>
+            {moderate && (
+              <button
+                type="button"
+                className="cs-menu-item"
+                onClick={() => {
+                  moderate.onToggle();
+                  setOpen(false);
+                }}
+              >
+                <Icon name={moderate.muted ? "mic" : "mic-off"} size={15} />
+                <span>
+                  {moderate.muted
+                    ? i18nTheater.t("voice:unmuteMember")
+                    : i18nTheater.t("voice:muteMember")}
+                </span>
+              </button>
+            )}
           </div>,
           document.body,
         )}
@@ -126,6 +145,7 @@ interface VoiceTheaterProps {
   screenTile: VideoTile | null;
   liveName?: string | null;
   isMuted: boolean;
+  muteLocked?: boolean;
   cameraOn: boolean;
   screenOn: boolean;
   onToggleMute: () => void;
@@ -139,6 +159,8 @@ interface VoiceTheaterProps {
   };
   viewersFor?: (id: string) => number | undefined;
   onWatchChange?: (id: string, watching: boolean) => void;
+  onModerateMute?: (id: string, currentlyMuted: boolean) => void;
+  moderationExcluded?: string[];
 }
 
 const STRIP_MAX = 6;
@@ -148,6 +170,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   screenTile,
   liveName,
   isMuted,
+  muteLocked,
   cameraOn,
   screenOn,
   onToggleMute,
@@ -158,6 +181,8 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   invite,
   viewersFor,
   onWatchChange,
+  onModerateMute,
+  moderationExcluded,
 }) => {
   const { t } = useTranslation(["call", "voice"]);
   const [addOpen, setAddOpen] = useState(false);
@@ -255,7 +280,18 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                       </span>
                     )}
                     {!r.isSelf && (
-                      <TileVolumeMenu id={r.id} className="call-orb-menu" />
+                      <TileVolumeMenu
+                        id={r.id}
+                        className="call-orb-menu"
+                        moderate={
+                          onModerateMute && !moderationExcluded?.includes(r.id)
+                            ? {
+                                muted: r.muted,
+                                onToggle: () => onModerateMute(r.id, r.muted),
+                              }
+                            : undefined
+                        }
+                      />
                     )}
                   </UserAvatar>
                   <div className="call-empty-name">
@@ -271,7 +307,14 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           <button
             type="button"
             className={"cp-btn" + (isMuted ? " danger" : "")}
-            title={isMuted ? t("voice:unmuteSelf") : t("voice:muteSelf")}
+            disabled={muteLocked}
+            title={
+              muteLocked
+                ? t("voice:mutedByModerator")
+                : isMuted
+                  ? t("voice:unmuteSelf")
+                  : t("voice:muteSelf")
+            }
             onClick={onToggleMute}
           >
             <Icon name={isMuted ? "mic-off" : "mic"} size={18} />
@@ -388,7 +431,18 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                 <span>{r.isSelf ? t("you") : r.name}</span>
               </div>
               {!r.isSelf && (
-                <TileVolumeMenu id={r.id} className="cs-tile-menu" />
+                <TileVolumeMenu
+                  id={r.id}
+                  className="cs-tile-menu"
+                  moderate={
+                    onModerateMute && !moderationExcluded?.includes(r.id)
+                      ? {
+                          muted: r.muted,
+                          onToggle: () => onModerateMute(r.id, r.muted),
+                        }
+                      : undefined
+                  }
+                />
               )}
             </div>
           ))}

@@ -142,6 +142,19 @@ function dispatch(env: WsEnvelope) {
       for (const c of channels) {
         receipts.removeChannelMember(c.id, userId);
       }
+      useVoicePresenceStore
+        .getState()
+        .purgePendingMutes(channels.map((c) => c.id), userId, serverId);
+      window.dispatchEvent(
+        new CustomEvent("rift:server-members-changed", { detail: { serverId } }),
+      );
+      void import("../store/rolesStore").then(({ useRolesStore }) => {
+        const roles = useRolesStore.getState();
+        roles.removeMember(serverId, userId);
+        if (roles.byServer[serverId]) {
+          void roles.fetch(serverId).catch(() => {});
+        }
+      });
       return;
     }
 
@@ -205,6 +218,14 @@ function dispatch(env: WsEnvelope) {
       if (applied) {
         useVoicePresenceStore.getState().renameMember(userId, userName);
         useCallStore.getState().participantRenamed(userId, userName);
+      }
+      const joinedServerId = asString(d.serverId);
+      if (joinedServerId) {
+        window.dispatchEvent(
+          new CustomEvent("rift:server-members-changed", {
+            detail: { serverId: joinedServerId },
+          }),
+        );
       }
       return;
     }
@@ -407,6 +428,18 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "server.roles.changed": {
+      const serverId = asString(d.serverId);
+      if (!serverId) return;
+      void import("../store/rolesStore").then(({ useRolesStore }) => {
+        const roles = useRolesStore.getState();
+        if (roles.byServer[serverId] || roles.isTracked(serverId)) {
+          void roles.fetch(serverId).catch(() => {});
+        }
+      });
+      return;
+    }
+
     case "notification_preference.updated": {
       const scopeType = asString(d.scopeType);
       const scopeId = asString(d.scopeId);
@@ -504,7 +537,23 @@ function dispatch(env: WsEnvelope) {
       const isMuted = env.type === "channel.participant.muted";
       useVoicePresenceStore
         .getState()
-        .setChannelMute(channelId, userId, isMuted);
+        .setChannelMute(
+          channelId,
+          userId,
+          isMuted,
+          isMuted ? (asString(d.mutedBy) ?? undefined) : undefined,
+          asString(d.serverId) ?? undefined,
+        );
+      const selfId = useAuthStore.getState().user?.id;
+      const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);
+      if (userId === selfId && mutedBy && mutedBy !== selfId) {
+        window.dispatchEvent(
+          new CustomEvent(
+            isMuted ? "rift:moderator-mute" : "rift:moderator-unmute",
+            { detail: { channelId, mutedBy } },
+          ),
+        );
+      }
       return;
     }
 
@@ -541,11 +590,15 @@ function dispatch(env: WsEnvelope) {
 }
 
 function purgeServerLocally(id: string) {
+  void import("../store/rolesStore").then(({ useRolesStore }) => {
+    useRolesStore.getState().clearServer(id);
+  });
   const serverState = useServerStore.getState();
   const channelState = useChannelStore.getState();
   const voiceState = useVoicePresenceStore.getState();
   const unreadState = useUnreadStore.getState();
   const channelIds = (channelState.channelsByServer[id] ?? []).map((c) => c.id);
+  voiceState.purgePendingForServer(id, channelIds);
   for (const cid of channelIds) {
     voiceState.clearChannel(cid);
     unreadState.resetChannel(cid);
@@ -586,6 +639,16 @@ export function installWsBootstrap() {
       if (gen !== prefsReloadGen) return;
       scheduleUnreadRefetch();
     })();
+    void import("../store/rolesStore").then(({ useRolesStore }) => {
+      const roles = useRolesStore.getState();
+      const tracked = new Set([
+        ...Object.keys(roles.byServer),
+        ...roles.trackedServers(),
+      ]);
+      for (const serverId of tracked) {
+        void roles.fetch(serverId).catch(() => {});
+      }
+    });
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void useFriendshipStore

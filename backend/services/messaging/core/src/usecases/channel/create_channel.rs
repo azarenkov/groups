@@ -25,6 +25,8 @@ use crate::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateChannelError {
+    #[error("Missing permission to manage channels")]
+    NotAllowed,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Hash error: {0}")]
@@ -39,25 +41,34 @@ pub enum CreateChannelError {
     Outbox(#[from] OutboxError),
 }
 
-pub struct CreateChannel<T, H, S>
+pub struct CreateChannel<T, H, S, R>
 where
     T: ChannelRepository,
     H: Hasher,
     S: ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
 {
+    role_repository: Arc<R>,
     channel_repository: Arc<T>,
     hasher: Arc<H>,
     server_repository: Arc<S>,
 }
 
-impl<T, H, S> CreateChannel<T, H, S>
+impl<T, H, S, R> CreateChannel<T, H, S, R>
 where
     T: ChannelRepository,
     H: Hasher,
     S: ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
 {
-    pub fn new(channel_repository: Arc<T>, hasher: Arc<H>, server_repository: Arc<S>) -> Self {
+    pub fn new(
+        channel_repository: Arc<T>,
+        hasher: Arc<H>,
+        server_repository: Arc<S>,
+        role_repository: Arc<R>,
+    ) -> Self {
         Self {
+            role_repository,
             channel_repository,
             hasher,
             server_repository,
@@ -73,6 +84,22 @@ where
 
         if !self.server_repository.server_exists(&server_id).await? {
             return Err(CreateChannelError::InvalidData);
+        }
+
+        let server_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?;
+        let is_server_owner = server_owner.as_ref() == Some(&owner_id);
+        let allowed = is_server_owner
+            || domain::server::role::has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &owner_id)
+                    .await?,
+                domain::server::role::PERM_MANAGE_CHANNELS,
+            );
+        if !allowed {
+            return Err(CreateChannelError::NotAllowed);
         }
 
         let channel_name = ChannelName::new(request.name);
@@ -114,9 +141,14 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
-        self.channel_repository
-            .save_channel_with_events(&channel, &records)
-            .await?;
+        let delegated = if is_server_owner { None } else { Some(&owner_id) };
+        if !self
+            .channel_repository
+            .save_channel_with_events(&channel, delegated, &records)
+            .await?
+        {
+            return Err(CreateChannelError::NotAllowed);
+        }
 
         Ok(channel)
     }

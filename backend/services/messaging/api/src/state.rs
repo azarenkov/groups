@@ -26,6 +26,11 @@ use messaging::usecases::{
         list_notification_preferences::ListNotificationPreferences,
         set_notification_preference::SetNotificationPreference,
     },
+    role::{
+        assign_role::AssignRole, create_role::CreateRole, delete_role::DeleteRole,
+        list_roles::ListRoles, revoke_role::RevokeRole, swap_roles::SwapRoles,
+        update_role::UpdateRole,
+    },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
@@ -36,7 +41,8 @@ use messaging::usecases::{
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_voice_presence::GetVoicePresence,
         invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
-        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
+        kick_member::KickMember, leave_server::LeaveServer,
+        list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
         update_server::UpdateServer,
@@ -49,7 +55,9 @@ use messaging::{
         message::PostgresMessageRepository,
         notification_preference::PostgresNotificationPreferenceRepository,
         read_state::PostgresReadStateRepository,
-        server::PostgresServerRepository, user_profile::PostgresUserProfileRepository,
+        server::PostgresServerRepository,
+        server_role::PostgresServerRoleRepository,
+        user_profile::PostgresUserProfileRepository,
     },
     hasher::bcrypt_hasher::BcryptHasher,
     media_client::claims::MediaClaimsClient,
@@ -60,17 +68,39 @@ use messaging::{
 
 pub struct AppState {
     pub create_channel_usecase:
-        CreateChannel<PostgresChannelRepository, BcryptHasher, PostgresServerRepository>,
+        CreateChannel<
+            PostgresChannelRepository,
+            BcryptHasher,
+            PostgresServerRepository,
+            PostgresServerRoleRepository,
+        >,
     pub join_voice_channel_usecase: JoinVoiceChannel<
         LiveKitService,
         PostgresChannelRepository,
         PostgresUserProfileRepository,
         BcryptHasher,
+        PostgresServerRepository,
     >,
-    pub mute_channel_usecase: MuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
-    pub unmute_channel_usecase: UnmuteChannel<PostgresChannelRepository, PostgresUserProfileRepository>,
-    pub delete_channel_usecase:
-        DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerRepository>,
+    pub mute_channel_usecase: MuteChannel<
+        PostgresChannelRepository,
+        PostgresUserProfileRepository,
+        PostgresServerRepository,
+        PostgresServerRoleRepository,
+        LiveKitService,
+    >,
+    pub unmute_channel_usecase: UnmuteChannel<
+        PostgresChannelRepository,
+        PostgresUserProfileRepository,
+        PostgresServerRepository,
+        PostgresServerRoleRepository,
+        LiveKitService,
+    >,
+    pub delete_channel_usecase: DeleteChannel<
+        PostgresChannelRepository,
+        LiveKitService,
+        PostgresServerRepository,
+        PostgresServerRoleRepository,
+    >,
     pub list_channel_participants_usecase:
         ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
     pub join_text_channel_usecase:
@@ -93,6 +123,7 @@ pub struct AppState {
         PostgresMessageRepository,
         PostgresChannelRepository,
         PostgresServerRepository,
+        PostgresServerRoleRepository,
     >,
     pub list_channel_messages_usecase: ListChannelMessages<
         PostgresMessageRepository,
@@ -122,6 +153,13 @@ pub struct AppState {
         GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
+    pub list_roles_usecase: ListRoles<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub create_role_usecase: CreateRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub update_role_usecase: UpdateRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub delete_role_usecase: DeleteRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub assign_role_usecase: AssignRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub revoke_role_usecase: RevokeRole<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub swap_roles_usecase: SwapRoles<PostgresServerRepository, PostgresServerRoleRepository>,
     pub list_notification_preferences_usecase:
         ListNotificationPreferences<PostgresNotificationPreferenceRepository>,
     pub set_notification_preference_usecase: SetNotificationPreference<
@@ -131,6 +169,7 @@ pub struct AppState {
     >,
     pub log_call_usecase: LogCall<PostgresDmMessageRepository, PostgresFriendshipRepository>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
+    pub server_role_repository: std::sync::Arc<PostgresServerRoleRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
     pub nats_core: async_nats::Client,
@@ -151,6 +190,7 @@ pub struct AppState {
         PostgresDmMessageRepository,
         PostgresFriendshipRepository,
         PostgresServerRepository,
+        PostgresServerRoleRepository,
     >,
     pub accept_server_invite_usecase:
         AcceptServerInvite<PostgresDmMessageRepository, PostgresServerRepository>,
@@ -160,13 +200,22 @@ pub struct AppState {
     pub create_server_usecase: CreateServer<PostgresServerRepository>,
     pub delete_server_usecase:
         DeleteServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
-    pub update_server_usecase: UpdateServer<PostgresServerRepository>,
-    pub create_invite_code_usecase: CreateInviteCode<PostgresServerRepository>,
-    pub list_invite_codes_usecase: ListInviteCodes<PostgresServerRepository>,
+    pub update_server_usecase:
+        UpdateServer<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub create_invite_code_usecase:
+        CreateInviteCode<PostgresServerRepository, PostgresServerRoleRepository>,
+    pub list_invite_codes_usecase:
+        ListInviteCodes<PostgresServerRepository, PostgresServerRoleRepository>,
     pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerRepository>,
     pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
     pub leave_server_usecase:
         LeaveServer<PostgresServerRepository, PostgresChannelRepository, LiveKitService>,
+    pub kick_member_usecase: KickMember<
+        PostgresServerRepository,
+        PostgresChannelRepository,
+        LiveKitService,
+        PostgresServerRoleRepository,
+    >,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,

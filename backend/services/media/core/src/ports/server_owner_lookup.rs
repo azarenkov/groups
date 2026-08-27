@@ -13,4 +13,10 @@ pub trait ServerOwnerLookup {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, ServerOwnerLookupError>;
+
+    async fn can_manage(
+        &self,
+        server_id: &ServerId,
+        user_id: &UserId,
+    ) -> Result<bool, ServerOwnerLookupError>;
 }

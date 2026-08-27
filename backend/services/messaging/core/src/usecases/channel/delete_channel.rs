@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    server::role::{PERM_MANAGE_CHANNELS, ServerRoleRepository, has_permission},
     channel::{ChannelError, repository::ChannelRepository},
     server::repository::ServerRepository,
     shared::{
@@ -34,32 +35,37 @@ pub enum DeleteChannelError {
     VoiceService(#[from] VoiceServiceError),
 }
 
-pub struct DeleteChannel<C, V, S>
+pub struct DeleteChannel<C, V, S, R>
 where
     C: ChannelRepository,
     V: VoiceService,
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<C, V, S> DeleteChannel<C, V, S>
+impl<C, V, S, R> DeleteChannel<C, V, S, R>
 where
     C: ChannelRepository,
     V: VoiceService,
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
     pub fn new(
         channel_repository: Arc<C>,
         voice_service: Arc<V>,
         server_repository: Arc<S>,
+        role_repository: Arc<R>,
     ) -> Self {
         Self {
             channel_repository,
             voice_service,
             server_repository,
+            role_repository,
         }
     }
 
@@ -83,7 +89,22 @@ where
         let now = Utc::now();
         let supports_voice = channel.supports_voice();
 
-        channel.delete(deleted_by, now).map_err(|e| match e {
+        let server_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?;
+        let inherent = server_owner.as_ref() == Some(&deleted_by);
+        let allowed = inherent
+            || has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &deleted_by)
+                    .await?,
+                PERM_MANAGE_CHANNELS,
+            );
+        if !allowed {
+            return Err(DeleteChannelError::NotOwner);
+        }
+        channel.delete(deleted_by, true, now).map_err(|e| match e {
             ChannelError::NotOwner => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;
@@ -101,9 +122,14 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &member_ids);
 
-        self.channel_repository
-            .delete_channel_with_events(&channel_id, &records)
-            .await?;
+        if self
+            .channel_repository
+            .delete_channel_with_events(&channel_id, &deleted_by, !inherent, &records)
+            .await?
+            .is_none()
+        {
+            return Err(DeleteChannelError::NotOwner);
+        }
 
         if supports_voice
             && let Err(err) = self.voice_service.delete_voice_channel(&channel_id).await

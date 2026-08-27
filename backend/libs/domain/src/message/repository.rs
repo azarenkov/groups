@@ -34,8 +34,11 @@ pub trait MessageRepository {
     async fn delete_message_with_events(
         &self,
         message_id: &MessageId,
+        server_id: &crate::server::id::ServerId,
+        actor: &crate::user::id::UserId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn list_attachment_links_for_messages(
         &self,

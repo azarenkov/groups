@@ -30,6 +30,11 @@ use messaging::usecases::{
         list_notification_preferences::ListNotificationPreferences,
         set_notification_preference::SetNotificationPreference,
     },
+    role::{
+        assign_role::AssignRole, create_role::CreateRole, delete_role::DeleteRole,
+        list_roles::ListRoles, revoke_role::RevokeRole, swap_roles::SwapRoles,
+        update_role::UpdateRole,
+    },
     read_state::{
         get_channel_read_receipts::GetChannelReadReceipts,
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
@@ -40,7 +45,8 @@ use messaging::usecases::{
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_voice_presence::GetVoicePresence,
         invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
-        leave_server::LeaveServer, list_sent_server_invites::ListSentServerInvites,
+        kick_member::KickMember, leave_server::LeaveServer,
+        list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
         list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
         update_server::UpdateServer,
@@ -56,6 +62,7 @@ use messaging::{
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, server::PostgresServerRepository,
+            server_role::PostgresServerRoleRepository,
             user_profile::PostgresUserProfileRepository,
         },
     },
@@ -98,6 +105,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
     let read_state_repository =
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
+    let server_role_repository =
+        Arc::new(PostgresServerRoleRepository::new(postgres_pool.clone()));
     let notification_preference_repository = Arc::new(
         PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
     );
@@ -123,6 +132,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         channel_stream,
         channel_repository.clone(),
+        server_repository.clone(),
+        livekit_service.clone(),
     );
 
     let user_stream = std::env::var("MESSAGING_USER_STREAM")
@@ -146,25 +157,34 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             hasher.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         join_voice_channel_usecase: JoinVoiceChannel::new(
             livekit_service.clone(),
             channel_repository.clone(),
             user_repository.clone(),
             hasher.clone(),
+            server_repository.clone(),
         ),
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
+            server_repository.clone(),
+            server_role_repository.clone(),
+            livekit_service.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
+            server_repository.clone(),
+            server_role_repository.clone(),
+            livekit_service.clone(),
         ),
         delete_channel_usecase: DeleteChannel::new(
             channel_repository.clone(),
             livekit_service.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),
@@ -193,6 +213,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_repository.clone(),
             channel_repository.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         list_channel_messages_usecase: ListChannelMessages::new(
             message_repository.clone(),
@@ -237,6 +258,34 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             read_state_repository.clone(),
             channel_repository.clone(),
         ),
+        list_roles_usecase: ListRoles::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        create_role_usecase: CreateRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        update_role_usecase: UpdateRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        delete_role_usecase: DeleteRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        assign_role_usecase: AssignRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        revoke_role_usecase: RevokeRole::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        swap_roles_usecase: SwapRoles::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
         list_notification_preferences_usecase: ListNotificationPreferences::new(
             notification_preference_repository.clone(),
         ),
@@ -247,6 +296,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         log_call_usecase: LogCall::new(dm_repository.clone(), friendship_repository.clone()),
         server_repository: server_repository.clone(),
+        server_role_repository: server_role_repository.clone(),
         message_repository: message_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         nats_core,
@@ -274,6 +324,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_repository.clone(),
             friendship_repository.clone(),
             server_repository.clone(),
+            server_role_repository.clone(),
         ),
         accept_server_invite_usecase: AcceptServerInvite::new(
             dm_repository.clone(),
@@ -290,15 +341,30 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             livekit_service.clone(),
         ),
-        update_server_usecase: UpdateServer::new(server_repository.clone()),
-        create_invite_code_usecase: CreateInviteCode::new(server_repository.clone()),
-        list_invite_codes_usecase: ListInviteCodes::new(server_repository.clone()),
+        update_server_usecase: UpdateServer::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        create_invite_code_usecase: CreateInviteCode::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
+        list_invite_codes_usecase: ListInviteCodes::new(
+            server_repository.clone(),
+            server_role_repository.clone(),
+        ),
         revoke_invite_code_usecase: RevokeInviteCode::new(server_repository.clone()),
         redeem_invite_code_usecase: RedeemInviteCode::new(server_repository.clone()),
         leave_server_usecase: LeaveServer::new(
             server_repository.clone(),
             channel_repository.clone(),
             livekit_service.clone(),
+        ),
+        kick_member_usecase: KickMember::new(
+            server_repository.clone(),
+            channel_repository.clone(),
+            livekit_service.clone(),
+            server_role_repository.clone(),
         ),
         list_servers_by_user_usecase: ListServersByUser::new(server_repository.clone()),
         list_server_members_usecase: ListServerMembers::new(server_repository.clone()),

@@ -10,6 +10,7 @@ import {
 } from "../services/livekit";
 import { channelAPI } from "../api/channel";
 import { useAuthStore } from "../store/authStore";
+import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { decodeAccessToken } from "../utils/jwt";
 import { useLocalQuality } from "./useLocalQuality";
 
@@ -22,6 +23,8 @@ interface UseLiveKitResult {
   toggleScreenShare: () => Promise<void>;
   isConnected: boolean;
   isMuted: boolean;
+  isModeratorMuted: boolean;
+  moderatorMutedBy: string | null;
   isConnecting: boolean;
   error: string | null;
   localQuality: ConnectionQuality;
@@ -108,6 +111,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(true);
         setError(null);
         activeChannelRef.current = { serverId, channelId };
+        setLock(false);
+        selfMutedBeforeLockRef.current = false;
 
         console.log(
           `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
@@ -119,12 +124,28 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
-        await service.connect(response.token, response.url, channelId);
+        if (response.muted) {
+          const auth = useAuthStore.getState();
+          const selfId =
+            auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+          const locked = !!response.mutedBy && response.mutedBy !== selfId;
+          setLock(locked, response.mutedBy ?? null);
+          selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
+          setIsMuted(true);
+        }
+        await service.connect(
+          response.token,
+          response.url,
+          channelId,
+          !!response.muted,
+        );
 
         setIsConnecting(false);
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
         activeChannelRef.current = null;
+        setLock(false);
+        selfMutedBeforeLockRef.current = false;
         setError(err instanceof Error ? err.message : "Failed to join channel");
         setIsConnecting(false);
         throw err;
@@ -178,10 +199,125 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     }
   }, []);
 
+  const moderatorLockedRef = useRef(false);
+  const selfMutedBeforeLockRef = useRef(false);
+  const [isModeratorMuted, setIsModeratorMuted] = useState(false);
+  const [moderatorMutedBy, setModeratorMutedBy] = useState<string | null>(null);
+  const setLock = (locked: boolean, by?: string | null) => {
+    moderatorLockedRef.current = locked;
+    setIsModeratorMuted(locked);
+    setModeratorMutedBy(locked ? (by ?? null) : null);
+  };
+
+  const restoreSelfMute = () => {
+    const active = activeChannelRef.current;
+    const auth = useAuthStore.getState();
+    const userId =
+      auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+    if (!active || !userId) return;
+    channelAPI.mute(active.serverId, active.channelId, userId).catch((err) => {
+      console.warn("[useLiveKit] failed to restore self-mute:", err);
+    });
+  };
+
+  const liftModeratorLock = () => {
+    setLock(false);
+    if (selfMutedBeforeLockRef.current) {
+      selfMutedBeforeLockRef.current = false;
+      restoreSelfMute();
+      return;
+    }
+    serviceRef.current?.setMicrophoneMuted(false);
+    setIsMuted(false);
+  };
+  useEffect(() => {
+    const reconcile = () => {
+      const active = activeChannelRef.current;
+      if (!active || !isConnectedRef.current) return;
+      const auth = useAuthStore.getState();
+      const selfId =
+        auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+      if (!selfId) return;
+      const me = useVoicePresenceStore
+        .getState()
+        .byChannel[active.channelId]?.find((m) => m.id === selfId);
+      if (!me) return;
+      const moderatorMuted =
+        me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
+      if (moderatorMuted && !moderatorLockedRef.current) {
+        selfMutedBeforeLockRef.current = isMutedRef.current;
+        setLock(true, me.mutedBy ?? null);
+        serviceRef.current?.setMicrophoneMuted(true);
+        setIsMuted(true);
+      } else if (!moderatorMuted && moderatorLockedRef.current) {
+        if (me.isMuted) {
+          setLock(false);
+          selfMutedBeforeLockRef.current = false;
+        } else {
+          liftModeratorLock();
+        }
+      }
+    };
+    const unsub = useVoicePresenceStore.subscribe(reconcile);
+    return unsub;
+  }, []);
+  useEffect(() => {
+    const onModeratorMute = (e: Event) => {
+      const detail = (
+        e as CustomEvent<{ channelId?: string; mutedBy?: string }>
+      ).detail;
+      const active = activeChannelRef.current;
+      if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
+        return;
+      }
+      if (!moderatorLockedRef.current) {
+        selfMutedBeforeLockRef.current = isMutedRef.current;
+      }
+      serviceRef.current?.setMicrophoneMuted(true);
+      setIsMuted(true);
+      setLock(true, detail.mutedBy ?? null);
+    };
+    const onModeratorUnmute = (e: Event) => {
+      const detail = (e as CustomEvent<{ channelId?: string }>).detail;
+      const active = activeChannelRef.current;
+      if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
+        return;
+      }
+      if (moderatorLockedRef.current) {
+        liftModeratorLock();
+      }
+    };
+    window.addEventListener("rift:moderator-mute", onModeratorMute);
+    window.addEventListener("rift:moderator-unmute", onModeratorUnmute);
+    return () => {
+      window.removeEventListener("rift:moderator-mute", onModeratorMute);
+      window.removeEventListener("rift:moderator-unmute", onModeratorUnmute);
+    };
+  }, []);
+
   const toggleMute = useCallback(() => {
     const service = serviceRef.current;
     if (!service) return;
     const next = !isMutedRef.current;
+    if (!next && moderatorLockedRef.current) {
+      const active = activeChannelRef.current;
+      const auth = useAuthStore.getState();
+      const userId =
+        auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+      if (!active || !userId) return;
+      channelAPI
+        .unmute(active.serverId, active.channelId, userId)
+        .then(() => {
+          setLock(false);
+          selfMutedBeforeLockRef.current = false;
+          serviceRef.current?.setMicrophoneMuted(false);
+          setIsMuted(false);
+        })
+        .catch((err) => {
+          console.warn("[useLiveKit] moderator mute is still active:", err);
+        });
+      return;
+    }
     service.setMicrophoneMuted(next);
     setIsMuted(next);
 
@@ -251,6 +387,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     toggleScreenShare,
     isConnected,
     isMuted,
+    isModeratorMuted,
+    moderatorMutedBy,
     isConnecting,
     error,
     localQuality,

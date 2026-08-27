@@ -10,11 +10,23 @@ import { colorForId } from "../../utils/avatar";
 import { ServerLogo, UserAvatar } from "./Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { useUserNamesStore } from "../../store/userNamesStore";
+import {
+  PERM_MANAGE_CHANNELS,
+  PERM_MANAGE_INVITES,
+  PERM_MANAGE_MESSAGES,
+  PERM_MANAGE_ROLES,
+  PERM_KICK_MEMBERS,
+  PERM_MANAGE_SERVER,
+  PERM_MUTE_MEMBERS,
+  topRoleFor,
+  useRolesStore,
+  userPermissions,
+} from "../../store/rolesStore";
 import type { Friendship } from "../../types/friendship";
 import type { InviteCode, Server } from "../../types/server";
 import type { Channel, ChannelKind, ChannelVisibility } from "../../types/channel";
 
-type SectionId = "overview" | "channels" | "invites" | "members" | "danger";
+type SectionId = "overview" | "channels" | "roles" | "invites" | "members" | "danger";
 
 const EXPIRY_OPTIONS = [1, 7, 30, 0] as const;
 const MAX_USES_OPTIONS = [0, 10, 25, 50, 100] as const;
@@ -53,6 +65,7 @@ const copyText = async (text: string): Promise<boolean> => {
 const SECTIONS: { id: SectionId; icon: IconName }[] = [
   { id: "overview", icon: "grid" },
   { id: "channels", icon: "hash" },
+  { id: "roles", icon: "shield" },
   { id: "invites", icon: "user-plus" },
   { id: "members", icon: "users" },
 ];
@@ -86,6 +99,210 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const { t } = useTranslation(["serverSettings", "common", "modals"]);
   const [section, setSection] = React.useState<SectionId>("overview");
   const isOwner = currentUserId === server.ownerId;
+
+  const rolesData = useRolesStore((st) => st.byServer[server.id]);
+  const fetchRoles = useRolesStore((st) => st.fetch);
+  React.useEffect(() => {
+    void fetchRoles(server.id).catch(() => {});
+  }, [server.id, fetchRoles]);
+  const myPerms = currentUserId
+    ? userPermissions(rolesData, currentUserId)
+    : 0;
+  const canManageRoles = isOwner || (myPerms & PERM_MANAGE_ROLES) !== 0;
+  const myTopPosition = isOwner
+    ? Number.POSITIVE_INFINITY
+    : currentUserId
+      ? (topRoleFor(rolesData, currentUserId)?.position ?? Number.NEGATIVE_INFINITY)
+      : Number.NEGATIVE_INFINITY;
+  const canTouchRole = (position: number) =>
+    canManageRoles && position < myTopPosition;
+  const grantableBits = isOwner ? ~0 : myPerms;
+  const canManageServer = isOwner || (myPerms & PERM_MANAGE_SERVER) !== 0;
+  const canManageChannels = isOwner || (myPerms & PERM_MANAGE_CHANNELS) !== 0;
+  const canManageInvites = isOwner || (myPerms & PERM_MANAGE_INVITES) !== 0;
+  const canKickMembers = isOwner || (myPerms & PERM_KICK_MEMBERS) !== 0;
+  const outranksMember = (memberId: string) => {
+    if (isOwner) return true;
+    if (memberId === server.ownerId) return false;
+    const targetTop = topRoleFor(rolesData, memberId)?.position;
+    return (
+      myTopPosition !== Number.NEGATIVE_INFINITY &&
+      (targetTop === undefined || targetTop < myTopPosition)
+    );
+  };
+  const outranksAllHolders = (roleId: string) => {
+    if (isOwner) return true;
+    const holders = Object.entries(rolesData?.memberRoles ?? {})
+      .filter(([, roleIds]) => roleIds.includes(roleId))
+      .map(([id]) => id);
+    return holders.every((id) => outranksMember(id));
+  };
+  const canKick = (memberId: string) =>
+    canKickMembers && memberId !== currentUserId && outranksMember(memberId);
+  const kickMember = async (memberId: string) => {
+    try {
+      await serverAPI.kickMember(server.id, memberId);
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
+  const visibleSections = SECTIONS.filter(
+    (sec) => sec.id !== "invites" || canManageInvites,
+  );
+  React.useEffect(() => {
+    if (canManageInvites) return;
+    setInvites([]);
+    setPrimaryCode(null);
+    setSection((cur) => (cur === "invites" ? "overview" : cur));
+  }, [canManageInvites]);
+
+  const ROLE_COLORS = [
+    "#5865f2", "#3ba55c", "#faa61a", "#ed4245", "#eb459e", "#9b59b6", "#00b0f4", "#8e8e93",
+  ];
+  const PERMS: { bit: number; key: string }[] = [
+    { bit: PERM_MANAGE_CHANNELS, key: "permManageChannels" },
+    { bit: PERM_MANAGE_INVITES, key: "permManageInvites" },
+    { bit: PERM_MANAGE_MESSAGES, key: "permManageMessages" },
+    { bit: PERM_MUTE_MEMBERS, key: "permMuteMembers" },
+    { bit: PERM_MANAGE_ROLES, key: "permManageRoles" },
+    { bit: PERM_MANAGE_SERVER, key: "permManageServer" },
+    { bit: PERM_KICK_MEMBERS, key: "permKickMembers" },
+  ];
+  const [newRoleName, setNewRoleName] = React.useState("");
+  const [newRoleColor, setNewRoleColor] = React.useState(ROLE_COLORS[0]);
+  const [newRolePerms, setNewRolePerms] = React.useState(0);
+  const [roleBusy, setRoleBusy] = React.useState(false);
+  const [roleError, setRoleError] = React.useState<string | null>(null);
+  const [expandedRoleId, setExpandedRoleId] = React.useState<string | null>(null);
+  const [rolePermsDraft, setRolePermsDraft] = React.useState<Record<string, number>>({});
+
+  const refreshRoles = () => void fetchRoles(server.id).catch(() => {});
+
+  const submitCreateRole = async () => {
+    const name = newRoleName.trim();
+    if (!name) {
+      setRoleError(t("roleNameRequired"));
+      return;
+    }
+    setRoleBusy(true);
+    setRoleError(null);
+    try {
+      await serverAPI.createRole(server.id, name, newRoleColor, newRolePerms);
+      setNewRoleName("");
+      setNewRolePerms(0);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    } finally {
+      setRoleBusy(false);
+    }
+  };
+
+
+  type RoleDraft = { name?: string; color?: string; add: number; remove: number };
+  const roleWriteChainsRef = React.useRef<Record<string, Promise<void>>>({});
+  const roleLatestRef = React.useRef<Record<string, RoleDraft>>({});
+
+  const enqueueRoleEdit = (
+    role: { id: string; name: string; color: string; permissions: number },
+    patch: { name?: string; color?: string; add?: number; remove?: number },
+  ) => {
+    const base = roleLatestRef.current[role.id] ?? { add: 0, remove: 0 };
+    const next: RoleDraft = {
+      name: patch.name ?? base.name,
+      color: patch.color ?? base.color,
+      add: (base.add | (patch.add ?? 0)) & ~(patch.remove ?? 0),
+      remove: (base.remove | (patch.remove ?? 0)) & ~(patch.add ?? 0),
+    };
+    roleLatestRef.current[role.id] = next;
+    setRolePermsDraft((prev) => ({
+      ...prev,
+      [role.id]: (role.permissions | next.add) & ~next.remove,
+    }));
+    const chain = roleWriteChainsRef.current[role.id] ?? Promise.resolve();
+    roleWriteChainsRef.current[role.id] = chain.then(async () => {
+      const target = roleLatestRef.current[role.id];
+      if (!target) return;
+      const empty =
+        target.name === undefined &&
+        target.color === undefined &&
+        target.add === 0 &&
+        target.remove === 0;
+      if (empty) {
+        delete roleLatestRef.current[role.id];
+        return;
+      }
+      delete roleLatestRef.current[role.id];
+      try {
+        await serverAPI.updateRole(server.id, role.id, {
+          name: target.name,
+          color: target.color,
+          permissionsAdd: target.add || undefined,
+          permissionsRemove: target.remove || undefined,
+        });
+        if (!roleLatestRef.current[role.id]) {
+          setRolePermsDraft((cur) => {
+            const nextDraft = { ...cur };
+            delete nextDraft[role.id];
+            return nextDraft;
+          });
+        }
+        refreshRoles();
+      } catch (e) {
+        setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+        if (!roleLatestRef.current[role.id]) {
+          setRolePermsDraft((cur) => {
+            const nextDraft = { ...cur };
+            delete nextDraft[role.id];
+            return nextDraft;
+          });
+        }
+        refreshRoles();
+      }
+    });
+  };
+
+  const toggleRolePerm = (
+    role: { id: string; name: string; color: string; permissions: number },
+    bit: number,
+    checked: boolean,
+  ) => {
+    enqueueRoleEdit(role, checked ? { add: bit } : { remove: bit });
+  };
+
+  const swapRoles = async (
+    a: { id: string; position: number },
+    b: { id: string; position: number },
+  ) => {
+    try {
+      await serverAPI.swapRoles(server.id, a.id, b.id);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
+
+  const removeRole = async (roleId: string) => {
+    try {
+      await serverAPI.deleteRole(server.id, roleId);
+      if (expandedRoleId === roleId) setExpandedRoleId(null);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
+
+  const toggleAssignment = async (roleId: string, memberId: string, has: boolean) => {
+    try {
+      if (has) await serverAPI.revokeRole(server.id, memberId, roleId);
+      else await serverAPI.assignRole(server.id, memberId, roleId);
+      refreshRoles();
+    } catch (e) {
+      setRoleError(e instanceof ApiError ? e.message : t("common:error"));
+    }
+  };
 
   const [newChName, setNewChName] = React.useState("");
   const [newChKind, setNewChKind] = React.useState<ChannelKind>("text");
@@ -168,6 +385,16 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   };
 
   const [members, setMembers] = React.useState<{ id: string; name: string }[]>([]);
+  const [membersTick, setMembersTick] = React.useState(0);
+  React.useEffect(() => {
+    const onChanged = (e: Event) => {
+      const detail = (e as CustomEvent<{ serverId?: string }>).detail;
+      if (detail?.serverId === server.id) setMembersTick((n) => n + 1);
+    };
+    window.addEventListener("rift:server-members-changed", onChanged);
+    return () =>
+      window.removeEventListener("rift:server-members-changed", onChanged);
+  }, [server.id]);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const nameSyncTick = useUserNamesStore((s) => s.syncTick);
   const [invitedIds, setInvitedIds] = React.useState<Set<string>>(new Set());
@@ -188,6 +415,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
+    if (!canManageInvites) return;
     let cancelled = false;
     (async () => {
       try {
@@ -203,7 +431,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [server.id, currentUserId]);
+  }, [server.id, currentUserId, canManageInvites]);
 
   const copyCode = (code: string) => {
     void copyText(`rift.server/${code}`).then((ok) => {
@@ -267,7 +495,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [server.id, nameSyncTick]);
+  }, [server.id, nameSyncTick, membersTick]);
 
   const memberIds = React.useMemo(
     () => new Set(members.map((m) => m.id)),
@@ -380,7 +608,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
           </div>
         </div>
         <div className="rail-section">{t("navTitle")}</div>
-        {SECTIONS.map((s) => (
+        {visibleSections.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -440,11 +668,11 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                   className="ssv-hero-ava"
                   style={{
                     background: accent,
-                    cursor: isOwner ? "pointer" : undefined,
+                    cursor: canManageServer ? "pointer" : undefined,
                   }}
-                  title={isOwner ? t("uploadLogo") : undefined}
+                  title={canManageServer ? t("uploadLogo") : undefined}
                 >
-                  {isOwner && (
+                  {canManageServer && (
                     <span
                       className="edit-badge ssv-logo-badge"
                       role="button"
@@ -460,7 +688,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                     </span>
                   )}
                 </ServerLogo>
-                {isOwner && (
+                {canManageServer && (
                   <div className="ssv-logo-actions">
                     <button
                       type="button"
@@ -488,7 +716,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 className="ssv-input"
                 value={name}
                 maxLength={20}
-                disabled={!isOwner}
+                disabled={!canManageServer}
                 onChange={(e) => {
                   setName(e.target.value);
                   setSaveError(null);
@@ -499,12 +727,12 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 className="ssv-input ssv-textarea"
                 value={description}
                 maxLength={300}
-                disabled={!isOwner}
+                disabled={!canManageServer}
                 onChange={(e) => setDescription(e.target.value)}
               />
               <div className="ssv-hint">{t("descriptionHint")}</div>
               {saveError && <div className="ssv-error">{saveError}</div>}
-              {isOwner && (
+              {canManageServer && (
                 <div className="ssv-actions">
                   <button
                     type="button"
@@ -536,6 +764,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
               <p className="lead">
                 {t("channelsLead", { count: channels.length, server: server.name })}
               </p>
+              {canManageChannels && (
               <form
                 className="ssv-invite-card"
                 onSubmit={(e) => {
@@ -611,6 +840,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                 </div>
                 {newChError && <div className="ssv-error">{newChError}</div>}
               </form>
+              )}
               <div className="ssv-section-label">
                 {t("channelList", { count: channels.length })}
               </div>
@@ -637,7 +867,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                           <Icon name="lock" size={11} />
                         </span>
                       )}
-                      {c.ownerId === currentUserId && (
+                      {canManageChannels && (
                         <button
                           type="button"
                           className="ssv-row-delete"
@@ -654,7 +884,250 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
             </>
           )}
 
-          {section === "invites" && (
+          {section === "roles" && (
+            <>
+              <h1>{t("nav.roles")}</h1>
+              <p className="lead">{t("rolesLead", { server: server.name })}</p>
+              {canManageRoles && (
+                <form
+                  className="ssv-invite-card"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void submitCreateRole();
+                  }}
+                >
+                  <div className="ssv-invite-head">
+                    <Icon name="shield" size={16} />
+                    <span>{t("createRole")}</span>
+                  </div>
+                  <div className="ssv-invite-row">
+                    <input
+                      className="ssv-input ssv-create-input"
+                      placeholder={t("roleName")}
+                      value={newRoleName}
+                      maxLength={40}
+                      disabled={roleBusy}
+                      onChange={(e) => {
+                        setNewRoleName(e.target.value);
+                        setRoleError(null);
+                      }}
+                    />
+                    <button type="submit" className="ssv-btn primary" disabled={roleBusy}>
+                      <Icon name="plus" size={14} />
+                      {t("createRole")}
+                    </button>
+                  </div>
+                  <div className="ssv-role-colors">
+                    {ROLE_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={
+                          "ssv-role-color" + (newRoleColor === c ? " on" : "")
+                        }
+                        style={{ background: c }}
+                        onClick={() => setNewRoleColor(c)}
+                      />
+                    ))}
+                  </div>
+                  <div className="ssv-role-perms">
+                    {PERMS.map((perm) => {
+                      const on = (newRolePerms & perm.bit) !== 0;
+                      const locked =
+                        roleBusy || (!on && (grantableBits & perm.bit) === 0);
+                      return (
+                      <div key={perm.bit} className="ssv-role-perm">
+                        <span>{t(perm.key)}</span>
+                        <button
+                          type="button"
+                          className={"s-switch" + (on ? " on" : "")}
+                          disabled={locked}
+                          onClick={() =>
+                            setNewRolePerms((prev) =>
+                              on ? prev & ~perm.bit : prev | perm.bit,
+                            )
+                          }
+                        />
+                      </div>
+                      );
+                    })}
+                  </div>
+                </form>
+              )}
+              {roleError && <div className="ssv-error">{roleError}</div>}
+              <div className="ssv-section-label">
+                {t("roleList", { count: rolesData?.roles.length ?? 0 })}
+              </div>
+              <div className="ssv-card">
+                {(rolesData?.roles.length ?? 0) === 0 && (
+                  <div className="ssv-empty">{t("noRoles")}</div>
+                )}
+                {(() => {
+                  const sortedRoles = rolesData?.roles ?? [];
+                  return sortedRoles.map((role, i) => {
+                  const expanded = expandedRoleId === role.id;
+                  const holders = effectiveMembers.filter((m) =>
+                    (rolesData?.memberRoles[m.id] ?? []).includes(role.id),
+                  );
+                  return (
+                    <React.Fragment key={role.id}>
+                      {i > 0 && <div className="ssv-divider" />}
+                      <div
+                        className="ssv-row ssv-role-row"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() =>
+                          setExpandedRoleId(expanded ? null : role.id)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setExpandedRoleId(expanded ? null : role.id);
+                          }
+                        }}
+                      >
+                        <span
+                          className="ssv-role-dot"
+                          style={{ background: role.color }}
+                        />
+                        <div className="ssv-row-main">
+                          <div className="ssv-row-name">{role.name}</div>
+                          <div className="ssv-row-sub">
+                            {PERMS.filter((p2) => (role.permissions & p2.bit) !== 0)
+                              .map((p2) => t(p2.key))
+                              .join(" · ") || "—"}
+                          </div>
+                        </div>
+                        <span className="ssv-tag">{holders.length}</span>
+                        {canManageRoles && (
+                          <span
+                            className="ssv-role-reorder"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="ssv-row-delete"
+                              disabled={
+                                i === 0 ||
+                                !canTouchRole(role.position) ||
+                                !canTouchRole(sortedRoles[i - 1].position)
+                              }
+                              title="↑"
+                              onClick={() => void swapRoles(role, sortedRoles[i - 1])}
+                            >
+                              <Icon name="chev" size={13} className="flip-y" />
+                            </button>
+                            <button
+                              type="button"
+                              className="ssv-row-delete"
+                              disabled={
+                                i === sortedRoles.length - 1 ||
+                                !canTouchRole(role.position) ||
+                                !canTouchRole(sortedRoles[i + 1].position)
+                              }
+                              title="↓"
+                              onClick={() => void swapRoles(role, sortedRoles[i + 1])}
+                            >
+                              <Icon name="chev" size={13} />
+                            </button>
+                          </span>
+                        )}
+                        {canTouchRole(role.position) && outranksAllHolders(role.id) && (
+                          <button
+                            type="button"
+                            className="ssv-row-delete"
+                            title={t("deleteRole")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void removeRole(role.id);
+                            }}
+                          >
+                            <Icon name="trash" size={14} />
+                          </button>
+                        )}
+                      </div>
+                      {expanded && canTouchRole(role.position) && (
+                        <div className="ssv-role-detail">
+                          <div className="ssv-role-colors">
+                            {ROLE_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                className={
+                                  "ssv-role-color" + (role.color === c ? " on" : "")
+                                }
+                                style={{ background: c }}
+                                onClick={() => enqueueRoleEdit(role, { color: c })}
+                              />
+                            ))}
+                          </div>
+                          <div className="ssv-role-perms">
+                            {PERMS.map((perm) => {
+                              const on =
+                                ((rolePermsDraft[role.id] ?? role.permissions) &
+                                  perm.bit) !==
+                                0;
+                              const locked = on
+                                ? !outranksAllHolders(role.id)
+                                : (grantableBits & perm.bit) === 0;
+                              return (
+                                <div key={perm.bit} className="ssv-role-perm">
+                                  <span>{t(perm.key)}</span>
+                                  <button
+                                    type="button"
+                                    className={"s-switch" + (on ? " on" : "")}
+                                    disabled={locked}
+                                    onClick={() =>
+                                      toggleRolePerm(role, perm.bit, !on)
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="ssv-section-label">{t("roleMembers")}</div>
+                          <div className="ssv-role-members">
+                            {effectiveMembers.map((m) => {
+                              const has = (rolesData?.memberRoles[m.id] ?? []).includes(
+                                role.id,
+                              );
+                              return (
+                                <div key={m.id} className="ssv-role-member-row">
+                                  <UserAvatar
+                                    userId={m.id}
+                                    name={m.name}
+                                    className="ssv-role-member-ava"
+                                  />
+                                  <span className="ssv-role-member-name">
+                                    {m.name}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className={"s-switch" + (has ? " on" : "")}
+                                    disabled={
+                                      !outranksMember(m.id) ||
+                                      (!has &&
+                                        (role.permissions & ~grantableBits) !== 0)
+                                    }
+                                    onClick={() =>
+                                      void toggleAssignment(role.id, m.id, has)
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                  });
+                })()}
+              </div>
+            </>
+          )}
+
+          {section === "invites" && canManageInvites && (
             <>
               <h1>{t("nav.invites")}</h1>
               <p className="lead">{t("invitesLead", { server: server.name })}</p>
@@ -919,6 +1392,20 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                               : t("offline")}
                           </div>
                         </div>
+                        {(() => {
+                          const top = topRoleFor(rolesData, m.id);
+                          return top ? (
+                            <span
+                              className="ssv-tag"
+                              style={{
+                                color: top.color,
+                                background: `color-mix(in srgb, ${top.color} 16%, transparent)`,
+                              }}
+                            >
+                              {top.name}
+                            </span>
+                          ) : null;
+                        })()}
                         <span
                           className={
                             "ssv-tag" + (m.id === server.ownerId ? " owner" : "")
@@ -926,6 +1413,16 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                         >
                           {m.id === server.ownerId ? t("roleOwner") : t("roleMember")}
                         </span>
+                        {canKick(m.id) && (
+                          <button
+                            type="button"
+                            className="ssv-row-delete"
+                            title={t("kickMember")}
+                            onClick={() => void kickMember(m.id)}
+                          >
+                            <Icon name="logout" size={14} />
+                          </button>
+                        )}
                       </div>
                     </React.Fragment>
                   );

@@ -212,13 +212,65 @@ impl MessageRepository for PostgresMessageRepository {
     async fn delete_message_with_events(
         &self,
         message_id: &MessageId,
+        server_id: &domain::server::id::ServerId,
+        actor: &domain::user::id::UserId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            actor.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(false);
+        }
+
+        if delegated {
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_MESSAGES,
+            ) {
+                return Ok(false);
+            }
+        }
 
         let locked = sqlx::query_scalar!(
             r#"
@@ -273,7 +325,7 @@ impl MessageRepository for PostgresMessageRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(true)
     }
 
     async fn list_attachment_links_for_messages(

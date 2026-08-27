@@ -179,6 +179,7 @@ export class LiveKitService {
     token: string,
     url: string,
     roomName?: string,
+    startMuted?: boolean,
   ): Promise<void> {
     if (this.isConnecting) {
       console.log("[LiveKitService] Connection already in progress, skipping");
@@ -219,7 +220,9 @@ export class LiveKitService {
         this.addParticipant(participant);
       });
 
-      await this.enableMicrophone();
+      if (!startMuted) {
+        await this.enableMicrophone();
+      }
 
       this.isConnecting = false;
       this.onConnectionStateChange?.(true);
@@ -366,6 +369,13 @@ export class LiveKitService {
     const audioTracks = Array.from(
       this.room.localParticipant.audioTrackPublications.values(),
     );
+
+    if (!muted && audioTracks.length === 0) {
+      void this.enableMicrophone().catch((err) =>
+        console.warn("[livekit] failed to publish microphone on unmute:", err),
+      );
+      return;
+    }
 
     for (const publication of audioTracks) {
       if (publication.track) {

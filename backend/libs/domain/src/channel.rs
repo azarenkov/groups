@@ -35,6 +35,12 @@ use crate::{
     user::id::UserId,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnmuteOutcome {
+    Removed,
+    DowngradedToSelfMute,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ChannelError {
     #[error("Private channel requires a password")]
@@ -229,8 +235,13 @@ impl Channel {
         Ok(())
     }
 
-    pub fn delete(&mut self, deleted_by: UserId, now: DateTime<Utc>) -> Result<(), ChannelError> {
-        if self.owner_id != deleted_by {
+    pub fn delete(
+        &mut self,
+        deleted_by: UserId,
+        can_override: bool,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        if self.owner_id != deleted_by && !can_override {
             return Err(ChannelError::NotOwner);
         }
 
@@ -537,19 +548,26 @@ impl Channel {
         &mut self,
         target: UserId,
         initiator: UserId,
+        can_override: bool,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
-        if target != initiator && self.owner_id != initiator {
+        if target != initiator && self.owner_id != initiator && !can_override {
             return Err(ChannelError::NotOwner);
         }
         let muted = self
             .muted_participants
             .as_mut()
             .ok_or(ChannelError::VoiceNotSupported)?;
-        if muted.contains_key(&target) {
-            return Err(ChannelError::AlreadyMuted);
+        let mut self_muted = target == initiator;
+        if let Some(existing) = muted.get(&target) {
+            let replaces_self_mute =
+                existing.muted_by == target && initiator != target;
+            if !replaces_self_mute {
+                return Err(ChannelError::AlreadyMuted);
+            }
+            self_muted = self_muted || existing.self_muted;
         }
-        muted.insert(target, ParticipantMute::new(target, initiator, now));
+        muted.insert(target, ParticipantMute::new(target, initiator, now, self_muted));
 
         self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
             self.id,
@@ -566,8 +584,9 @@ impl Channel {
         &mut self,
         target: UserId,
         initiator: UserId,
+        can_override: bool,
         now: DateTime<Utc>,
-    ) -> Result<(), ChannelError> {
+    ) -> Result<UnmuteOutcome, ChannelError> {
         let muted = self
             .muted_participants
             .as_ref()
@@ -577,8 +596,25 @@ impl Channel {
         let is_self_unmute_of_self_mute = target == initiator && mute_record.muted_by == initiator;
         let is_owner = self.owner_id == initiator;
 
-        if !is_self_unmute_of_self_mute && !is_owner {
+        if !is_self_unmute_of_self_mute && !is_owner && !can_override {
             return Err(ChannelError::NotOwner);
+        }
+
+        let keeps_self_mute =
+            mute_record.muted_by != target && mute_record.self_muted && initiator != target;
+        if keeps_self_mute {
+            self.muted_participants
+                .as_mut()
+                .ok_or(ChannelError::VoiceNotSupported)?
+                .insert(target, ParticipantMute::new(target, target, now, true));
+            self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
+                self.id,
+                self.server_id,
+                target,
+                target,
+                now,
+            )));
+            return Ok(UnmuteOutcome::DowngradedToSelfMute);
         }
 
         self.muted_participants
@@ -590,7 +626,7 @@ impl Channel {
             ParticipantUnmuted::record(self.id, self.server_id, target, initiator, now),
         ));
 
-        Ok(())
+        Ok(UnmuteOutcome::Removed)
     }
 
     pub fn muted_participants_list(&self) -> impl Iterator<Item = &ParticipantMute> {

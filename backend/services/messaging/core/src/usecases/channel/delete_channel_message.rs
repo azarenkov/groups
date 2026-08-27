@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{
+    server::role::{PERM_MANAGE_MESSAGES, ServerRoleRepository, has_permission},
     channel::{id::ChannelId, repository::ChannelRepository},
     message::{MessageError, id::MessageId, repository::MessageRepository},
     server::{id::ServerId, repository::ServerRepository},
@@ -31,32 +32,37 @@ pub enum DeleteChannelMessageError {
     MessageNotFound,
 }
 
-pub struct DeleteChannelMessage<M, C, S>
+pub struct DeleteChannelMessage<M, C, S, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
+    role_repository: Arc<R>,
 }
 
-impl<M, C, S> DeleteChannelMessage<M, C, S>
+impl<M, C, S, R> DeleteChannelMessage<M, C, S, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: ServerRepository,
+    R: ServerRoleRepository,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
         server_repository: Arc<S>,
+        role_repository: Arc<R>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
             server_repository,
+            role_repository,
         }
     }
 
@@ -103,7 +109,21 @@ where
             return Err(DeleteChannelMessageError::MessageNotFound);
         }
 
-        let is_owner = channel.owner_id() == &deleter_id;
+        let inherent = message.author_id() == &deleter_id
+            || {
+                let server_owner = self
+                    .server_repository
+                    .find_server_owner(&server_id)
+                    .await?;
+                server_owner.as_ref() == Some(&deleter_id)
+            };
+        let is_owner = inherent
+            || has_permission(
+                self.role_repository
+                    .user_permissions(&server_id, &deleter_id)
+                    .await?,
+                PERM_MANAGE_MESSAGES,
+            );
 
         let now = Utc::now();
         message.mark_deleted(deleter_id, is_owner, now)?;
@@ -121,9 +141,15 @@ where
             .collect::<Result<_, _>>()?;
         crate::usecases::channel::recipients::inject_recipient_ids(&mut records, &recipient_ids);
 
-        self.message_repository
-            .delete_message_with_events(&message_id, &records)
-            .await?;
+        if !self
+            .message_repository
+            .delete_message_with_events(&message_id, &server_id, &deleter_id, !inherent, &records)
+            .await?
+        {
+            return Err(DeleteChannelMessageError::Domain(
+                domain::message::MessageError::NotAuthor,
+            ));
+        }
 
         Ok(())
     }

@@ -32,6 +32,7 @@ use crate::usecases::friendship::send_friend_request::SendFriendRequestError;
 use crate::usecases::notification::list_notification_preferences::ListNotificationPreferencesError;
 use crate::usecases::notification::set_notification_preference::SetNotificationPreferenceError;
 use crate::usecases::read_state::get_channel_read_receipts::GetChannelReadReceiptsError;
+use crate::usecases::role::RoleError;
 use crate::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use crate::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use crate::usecases::read_state::mark_channel_read::MarkChannelReadError;
@@ -45,6 +46,7 @@ use crate::usecases::server::invite_codes::CreateInviteCodeError;
 use crate::usecases::server::invite_codes::ListInviteCodesError;
 use crate::usecases::server::invite_codes::RedeemInviteCodeError;
 use crate::usecases::server::invite_codes::RevokeInviteCodeError;
+use crate::usecases::server::kick_member::KickMemberError;
 use crate::usecases::server::leave_server::LeaveServerError;
 use crate::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
 use crate::usecases::server::list_server_channels::ListServerChannelsError;
@@ -58,6 +60,7 @@ impl ToHttpStatus for CreateChannelError {
         match self {
             CreateChannelError::Repository(e) => e.to_http_status(),
             CreateChannelError::Hash(e) => e.to_http_status(),
+            CreateChannelError::NotAllowed => StatusCode::FORBIDDEN,
             CreateChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
             CreateChannelError::InvalidData => StatusCode::BAD_REQUEST,
             CreateChannelError::Domain(e) => e.to_http_status(),
@@ -69,6 +72,9 @@ impl ToHttpStatus for CreateChannelError {
         match self {
             CreateChannelError::Repository(e) => e.to_user_message(),
             CreateChannelError::Hash(e) => e.to_user_message(),
+            CreateChannelError::NotAllowed => {
+                "You don't have permission to manage channels".to_string()
+            }
             CreateChannelError::PasswordRequired => {
                 "Password is required for private channels".to_string()
             }
@@ -82,6 +88,7 @@ impl ToHttpStatus for CreateChannelError {
         match self {
             CreateChannelError::Repository(e) => e.to_error_code(),
             CreateChannelError::Hash(e) => e.to_error_code(),
+            CreateChannelError::NotAllowed => "CHANNEL_NOT_ALLOWED",
             CreateChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
             CreateChannelError::InvalidData => "CHANNEL_INVALID_DATA",
             CreateChannelError::Domain(e) => e.to_error_code(),
@@ -137,6 +144,7 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::Repository(e) => e.to_http_status(),
             MuteChannelError::Domain(e) => e.to_http_status(),
             MuteChannelError::Outbox(e) => e.to_http_status(),
+            MuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
 
@@ -150,6 +158,7 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::Repository(e) => e.to_user_message(),
             MuteChannelError::Domain(e) => e.to_user_message(),
             MuteChannelError::Outbox(e) => e.to_user_message(),
+            MuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
 
@@ -161,6 +170,7 @@ impl ToHttpStatus for MuteChannelError {
             MuteChannelError::Repository(e) => e.to_error_code(),
             MuteChannelError::Domain(e) => e.to_error_code(),
             MuteChannelError::Outbox(e) => e.to_error_code(),
+            MuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
@@ -175,6 +185,7 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Repository(e) => e.to_http_status(),
             UnmuteChannelError::Domain(e) => e.to_http_status(),
             UnmuteChannelError::Outbox(e) => e.to_http_status(),
+            UnmuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
 
@@ -188,6 +199,7 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Repository(e) => e.to_user_message(),
             UnmuteChannelError::Domain(e) => e.to_user_message(),
             UnmuteChannelError::Outbox(e) => e.to_user_message(),
+            UnmuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
 
@@ -199,6 +211,7 @@ impl ToHttpStatus for UnmuteChannelError {
             UnmuteChannelError::Repository(e) => e.to_error_code(),
             UnmuteChannelError::Domain(e) => e.to_error_code(),
             UnmuteChannelError::Outbox(e) => e.to_error_code(),
+            UnmuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
@@ -388,11 +401,15 @@ impl ToHttpStatus for CreateInviteCodeError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             CreateInviteCodeError::NotMember => StatusCode::FORBIDDEN,
+            CreateInviteCodeError::NotAllowed => StatusCode::FORBIDDEN,
             CreateInviteCodeError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
+            CreateInviteCodeError::NotAllowed => {
+                "You don't have permission to manage invites".to_string()
+            }
             CreateInviteCodeError::NotMember => {
                 "You are not a member of this server.".to_string()
             }
@@ -402,6 +419,7 @@ impl ToHttpStatus for CreateInviteCodeError {
     fn to_error_code(&self) -> &'static str {
         match self {
             CreateInviteCodeError::NotMember => "SERVER_NOT_MEMBER",
+            CreateInviteCodeError::NotAllowed => "INVITE_NOT_ALLOWED",
             CreateInviteCodeError::Repository(e) => e.to_error_code(),
         }
     }
@@ -411,11 +429,15 @@ impl ToHttpStatus for ListInviteCodesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListInviteCodesError::NotMember => StatusCode::FORBIDDEN,
+            ListInviteCodesError::NotAllowed => StatusCode::FORBIDDEN,
             ListInviteCodesError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
+            ListInviteCodesError::NotAllowed => {
+                "You don't have permission to manage invites".to_string()
+            }
             ListInviteCodesError::NotMember => {
                 "You are not a member of this server.".to_string()
             }
@@ -425,6 +447,7 @@ impl ToHttpStatus for ListInviteCodesError {
     fn to_error_code(&self) -> &'static str {
         match self {
             ListInviteCodesError::NotMember => "SERVER_NOT_MEMBER",
+            ListInviteCodesError::NotAllowed => "INVITE_NOT_ALLOWED",
             ListInviteCodesError::Repository(e) => e.to_error_code(),
         }
     }
@@ -486,6 +509,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
             JoinVoiceChannelError::InvalidPassword => StatusCode::FORBIDDEN,
             JoinVoiceChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            JoinVoiceChannelError::NotMember => StatusCode::FORBIDDEN,
             JoinVoiceChannelError::Repository(e) => e.to_http_status(),
             JoinVoiceChannelError::VoiceService(e) => e.to_http_status(),
             JoinVoiceChannelError::Hash(e) => e.to_http_status(),
@@ -505,6 +529,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::VoiceNotSupported => {
                 "Voice is not supported for this channel".to_string()
             }
+            JoinVoiceChannelError::NotMember => "You are not a member of this server".to_string(),
             JoinVoiceChannelError::Repository(e) => e.to_user_message(),
             JoinVoiceChannelError::VoiceService(e) => e.to_user_message(),
             JoinVoiceChannelError::Hash(e) => e.to_user_message(),
@@ -520,6 +545,7 @@ impl ToHttpStatus for JoinVoiceChannelError {
             JoinVoiceChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
             JoinVoiceChannelError::InvalidPassword => "INVALID_CHANNEL_PASSWORD",
             JoinVoiceChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            JoinVoiceChannelError::NotMember => "SERVER_NOT_MEMBER",
             JoinVoiceChannelError::Repository(e) => e.to_error_code(),
             JoinVoiceChannelError::VoiceService(e) => e.to_error_code(),
             JoinVoiceChannelError::Hash(e) => e.to_error_code(),
@@ -1085,6 +1111,7 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
             SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
             SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
+            SendServerInviteError::NotAllowed => StatusCode::FORBIDDEN,
             SendServerInviteError::AlreadyMember => StatusCode::CONFLICT,
             SendServerInviteError::InviteAlreadyPending => StatusCode::CONFLICT,
         }
@@ -1100,6 +1127,9 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::ServerNotFound => "Server not found".to_string(),
             SendServerInviteError::NotServerMember => {
                 "Only members of this server can invite people".to_string()
+            }
+            SendServerInviteError::NotAllowed => {
+                "You don't have permission to manage invites".to_string()
             }
             SendServerInviteError::AlreadyMember => {
                 "This user is already a member of the server".to_string()
@@ -1117,8 +1147,40 @@ impl ToHttpStatus for SendServerInviteError {
             SendServerInviteError::NotFriends => "NOT_FRIENDS",
             SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
             SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
+            SendServerInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
             SendServerInviteError::AlreadyMember => "ALREADY_MEMBER",
             SendServerInviteError::InviteAlreadyPending => "INVITE_ALREADY_PENDING",
+        }
+    }
+}
+
+impl ToHttpStatus for KickMemberError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            KickMemberError::Outbox(e) => e.to_http_status(),
+            KickMemberError::Repository(e) => e.to_http_status(),
+            KickMemberError::NotMember => StatusCode::NOT_FOUND,
+            KickMemberError::NotAllowed => StatusCode::FORBIDDEN,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            KickMemberError::Outbox(e) => e.to_user_message(),
+            KickMemberError::Repository(e) => e.to_user_message(),
+            KickMemberError::NotMember => "User is not a member of this server".to_string(),
+            KickMemberError::NotAllowed => {
+                "You don't have permission to kick this member".to_string()
+            }
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            KickMemberError::Outbox(e) => e.to_error_code(),
+            KickMemberError::Repository(e) => e.to_error_code(),
+            KickMemberError::NotMember => "SERVER_NOT_MEMBER",
+            KickMemberError::NotAllowed => "KICK_NOT_ALLOWED",
         }
     }
 }
@@ -1591,6 +1653,43 @@ impl ToHttpStatus for ListChannelParticipantsError {
     }
 }
 
+impl ToHttpStatus for RoleError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RoleError::Repository(e) => e.to_http_status(),
+            RoleError::NotMember => StatusCode::FORBIDDEN,
+            RoleError::NotAllowed => StatusCode::FORBIDDEN,
+            RoleError::HierarchyViolation => StatusCode::FORBIDDEN,
+            RoleError::RoleNotFound => StatusCode::NOT_FOUND,
+            RoleError::InvalidData => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RoleError::Repository(e) => e.to_user_message(),
+            RoleError::NotMember => "You are not a member of this server".to_string(),
+            RoleError::NotAllowed => {
+                "You don't have permission to manage roles".to_string()
+            }
+            RoleError::HierarchyViolation => {
+                "You can only manage roles below your highest role".to_string()
+            }
+            RoleError::RoleNotFound => "Role not found".to_string(),
+            RoleError::InvalidData => "Invalid role data".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RoleError::Repository(e) => e.to_error_code(),
+            RoleError::NotMember => "SERVER_NOT_MEMBER",
+            RoleError::NotAllowed => "ROLE_NOT_ALLOWED",
+            RoleError::HierarchyViolation => "ROLE_HIERARCHY",
+            RoleError::RoleNotFound => "ROLE_NOT_FOUND",
+            RoleError::InvalidData => "ROLE_INVALID",
+        }
+    }
+}
+
 impl ToHttpStatus for SetNotificationPreferenceError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1646,6 +1745,7 @@ shared::impl_from_for_api_error!(
     GetVoicePresenceError,
     JoinTextChannelError,
     JoinVoiceChannelError,
+    KickMemberError,
     LeaveServerError,
     ListChannelMessagesError,
     ListChannelParticipantsError,
@@ -1666,6 +1766,7 @@ shared::impl_from_for_api_error!(
     RedeemInviteCodeError,
     RemoveFriendshipError,
     RevokeInviteCodeError,
+    RoleError,
     SearchChannelMessagesError,
     SearchDmMessagesError,
     SendChannelMessageError,

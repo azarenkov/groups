@@ -105,6 +105,12 @@ const App: React.FC = () => {
       ({ useNotificationPrefsStore }) =>
         useNotificationPrefsStore.getState().clearAll(),
     );
+    void import("./store/rolesStore").then(({ useRolesStore }) =>
+      useRolesStore.getState().clearAll(),
+    );
+    void import("./store/voicePresenceStore").then(({ useVoicePresenceStore }) =>
+      useVoicePresenceStore.getState().clearAll(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

@@ -3,5 +3,6 @@
   "online": "Online — {{count}}",
   "offline": "Offline — {{count}}",
   "noMembers": "No members yet.",
-  "you": "You"
+  "you": "You",
+  "owner": "Owner"
 }

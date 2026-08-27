@@ -23,7 +23,8 @@ use contracts::events::{
     },
     server::{
         ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerDeletedDto,
-        ServerMemberV1 as ServerMemberDto, ServerUpdatedV1 as ServerUpdatedDto,
+        ServerMemberV1 as ServerMemberDto, ServerRolesChangedV1 as ServerRolesChangedDto,
+        ServerUpdatedV1 as ServerUpdatedDto,
     },
     user::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
@@ -149,6 +150,20 @@ pub async fn dispatch(
         let envelope = Envelope::new("notification_preference.updated", data);
         publisher
             .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".server.roles.changed") {
+        let evt: ServerRolesChangedDto = serde_json::from_slice(payload)?;
+        let mut recipients = resolver.server_members(evt.server_id).await?;
+        recipients.extend(evt.recipients);
+        let envelope = Envelope::new(
+            "server.roles.changed",
+            json!({ "serverId": evt.server_id }),
+        );
+        publisher
+            .publish_to_users(unique(recipients), &envelope)
             .await?;
         return Ok(());
     }

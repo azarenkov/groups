@@ -77,9 +77,9 @@ where
         let member_records = vec![member_event.to_outbox_record()?];
         let removed = self
             .server_repository
-            .remove_server_member(&server_id, &user_id, &member_records)
+            .remove_server_member(&server_id, &user_id, None, &member_records)
             .await?;
-        if !removed {
+        if removed != domain::server::repository::RemoveMemberOutcome::Removed {
             return Err(LeaveServerError::NotMember);
         }
 

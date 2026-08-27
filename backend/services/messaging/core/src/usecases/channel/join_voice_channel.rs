@@ -39,40 +39,47 @@ pub enum JoinVoiceChannelError {
     Outbox(#[from] OutboxError),
     #[error("Voice not supported for this channel")]
     VoiceNotSupported,
+    #[error("Not a member of this server")]
+    NotMember,
 }
 
 #[derive(Debug)]
-pub struct JoinVoiceChannel<T, U, R, H>
+pub struct JoinVoiceChannel<T, U, R, H, S>
 where
     T: VoiceService,
     U: ChannelRepository,
     R: domain::user_profile::UserProfileRepository,
     H: Hasher,
+    S: domain::server::repository::ServerRepository,
 {
     voice_service: Arc<T>,
     channel_repository: Arc<U>,
     user_repository: Arc<R>,
     hasher: Arc<H>,
+    server_repository: Arc<S>,
 }
 
-impl<T, U, R, H> JoinVoiceChannel<T, U, R, H>
+impl<T, U, R, H, S> JoinVoiceChannel<T, U, R, H, S>
 where
     T: VoiceService,
     U: ChannelRepository,
     R: domain::user_profile::UserProfileRepository,
     H: Hasher,
+    S: domain::server::repository::ServerRepository,
 {
     pub fn new(
         voice_service: Arc<T>,
         channel_repository: Arc<U>,
         user_repository: Arc<R>,
         hasher: Arc<H>,
+        server_repository: Arc<S>,
     ) -> Self {
         Self {
             voice_service,
             channel_repository,
             user_repository,
             hasher,
+            server_repository,
         }
     }
 
@@ -90,6 +97,15 @@ where
 
         if channel.server_id().uuid() != request.server_id {
             return Err(JoinVoiceChannelError::ChannelNotFound);
+        }
+
+        let server_id = domain::server::id::ServerId::new(request.server_id);
+        if !self
+            .server_repository
+            .is_server_member(&server_id, &user_id)
+            .await?
+        {
+            return Err(JoinVoiceChannelError::NotMember);
         }
 
         if !channel.kind().supports_voice() {
@@ -116,13 +132,28 @@ where
             .create_voice_channel(channel.id(), channel.server_id())
             .await?;
 
-        let channel_token = self
-            .voice_service
-            .create_token(&user_id, &user_name, channel.id())
-            .await?;
+        let mute_record = channel
+            .muted_participants_list()
+            .find(|m| m.user_id == user_id);
+        let moderator_muted = mute_record.is_some_and(|m| m.muted_by != user_id);
+        let channel_token = if moderator_muted {
+            self.voice_service
+                .create_token_without_microphone(&user_id, &user_name, channel.id())
+                .await?
+        } else {
+            self.voice_service
+                .create_token(&user_id, &user_name, channel.id())
+                .await?
+        };
 
-        let response =
-            JoinVoiceChannelResponse::new(channel_token, self.voice_service.client_url());
+
+        let response = JoinVoiceChannelResponse::new(
+            channel_token,
+            self.voice_service.client_url(),
+            mute_record.is_some(),
+            mute_record.map(|m| m.muted_by.uuid()),
+            mute_record.is_some_and(|m| m.self_muted),
+        );
         Ok(response)
     }
 }

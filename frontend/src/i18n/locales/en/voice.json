@@ -42,5 +42,8 @@
   "splashRoomLabel": "{{name}} — voice room",
   "splashTitle": "No one is here yet",
   "splashSub": "Connect to the room and start the conversation — others will follow.",
-  "splashInvite": "Invite people"
+  "splashInvite": "Invite people",
+  "muteMember": "Mute member",
+  "unmuteMember": "Unmute member",
+  "mutedByModerator": "Muted by a moderator"
 }

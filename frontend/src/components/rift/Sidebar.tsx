@@ -6,6 +6,15 @@ import type { Channel, ChannelKind } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 import { colorForId } from "../../utils/avatar";
 import { ServerLogo, UserAvatar } from "./Avatar";
+import { channelAPI } from "../../api/channel";
+import {
+  PERM_MANAGE_CHANNELS,
+  PERM_MANAGE_INVITES,
+  PERM_MUTE_MEMBERS,
+  topRoleFor,
+  useRolesStore,
+  userPermissions,
+} from "../../store/rolesStore";
 
 interface SidebarProps {
   servers: Server[];
@@ -38,6 +47,7 @@ interface SidebarProps {
     initials: string;
     color: string;
     isMuted?: boolean;
+    mutedBy?: string;
     isSharingScreen?: boolean;
     isCameraOn?: boolean;
   }[];
@@ -49,6 +59,7 @@ interface SidebarProps {
       initials: string;
       color: string;
       isMuted?: boolean;
+      mutedBy?: string;
       isSharingScreen?: boolean;
       isCameraOn?: boolean;
     }[]
@@ -184,6 +195,51 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChannelId]);
+  const rolesByServer = useRolesStore((st) => st.byServer);
+  const fetchRoles = useRolesStore((st) => st.fetch);
+  React.useEffect(() => {
+    if (openServerId) void fetchRoles(openServerId).catch(() => {});
+  }, [openServerId, fetchRoles]);
+  const canInviteIn = (server: Server) =>
+    !!currentUserId &&
+    (server.ownerId === currentUserId ||
+      (userPermissions(rolesByServer[server.id], currentUserId) &
+        PERM_MANAGE_INVITES) !==
+        0);
+  const canManageChannelsIn = (server: Server) =>
+    !!currentUserId &&
+    (server.ownerId === currentUserId ||
+      (userPermissions(rolesByServer[server.id], currentUserId) &
+        PERM_MANAGE_CHANNELS) !==
+        0);
+  const outranksIn = (server: Server, memberId: string) => {
+    if (!currentUserId) return false;
+    if (server.ownerId === currentUserId) return true;
+    if (memberId === server.ownerId) return false;
+    const data = rolesByServer[server.id];
+    const myTop = topRoleFor(data, currentUserId)?.position;
+    if (myTop === undefined) return false;
+    const targetTop = topRoleFor(data, memberId)?.position;
+    return targetTop === undefined || targetTop < myTop;
+  };
+  const canMuteIn = (server: Server) =>
+    !!currentUserId &&
+    (server.ownerId === currentUserId ||
+      (userPermissions(rolesByServer[server.id], currentUserId) &
+        PERM_MUTE_MEMBERS) !==
+        0);
+  const moderateMute = (
+    server: Server,
+    channelId: string,
+    m: { id: string; isMuted?: boolean; mutedBy?: string },
+  ) => {
+    const moderatorMuted = !!m.isMuted && !!m.mutedBy && m.mutedBy !== m.id;
+    const call = moderatorMuted
+      ? channelAPI.unmute(server.id, channelId, m.id)
+      : channelAPI.mute(server.id, channelId, m.id);
+    call.catch((err) => console.warn("[sidebar] mute toggle failed:", err));
+  };
+
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
   const statusMenuRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -372,7 +428,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         }}
         onContextMenu={(e) => {
           e.preventDefault();
-          onDeleteChannel(server, channel);
+          if (canManageChannelsIn(server)) onDeleteChannel(server, channel);
         }}
       >
         <span className="sb-icon">
@@ -434,6 +490,32 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <Icon name="mic-off" size={11} />
                     </span>
                   )}
+                  {m.id !== currentUserId &&
+                    canMuteIn(server) &&
+                    outranksIn(server, m.id) && (
+                    <button
+                      type="button"
+                      className="sb-voice-mute-btn"
+                      title={
+                        m.isMuted && m.mutedBy && m.mutedBy !== m.id
+                          ? t("unmuteMember")
+                          : t("muteMember")
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moderateMute(server, channel.id, m);
+                      }}
+                    >
+                      <Icon
+                        name={
+                          m.isMuted && m.mutedBy && m.mutedBy !== m.id
+                            ? "mic"
+                            : "mic-off"
+                        }
+                        size={12}
+                      />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -475,14 +557,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             style={{ background: accent }}
           />
           <span className="sb-srv-name">{server.name}</span>
-          <button
-            type="button"
-            className="sb-section-add"
-            title={t("inviteFriends")}
-            onClick={() => onInviteServer(server)}
-          >
-            <Icon name="user-plus" size={14} />
-          </button>
+          {canInviteIn(server) && (
+            <button
+              type="button"
+              className="sb-section-add"
+              title={t("inviteFriends")}
+              onClick={() => onInviteServer(server)}
+            >
+              <Icon name="user-plus" size={14} />
+            </button>
+          )}
           <button
             type="button"
             className="sb-section-add"
@@ -496,14 +580,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           <>
             <div className="sb-vhead">
               <span className="sb-vhead-label">{t("textChannels")}</span>
-              <button
-                type="button"
-                className="sb-vhead-add"
-                title={t("addChannel")}
-                onClick={() => onAddChannel(server, "text")}
-              >
-                <Icon name="plus" size={14} />
-              </button>
+              {canManageChannelsIn(server) && (
+                <button
+                  type="button"
+                  className="sb-vhead-add"
+                  title={t("addChannel")}
+                  onClick={() => onAddChannel(server, "text")}
+                >
+                  <Icon name="plus" size={14} />
+                </button>
+              )}
             </div>
             <div className="sb-srv-channels">
               {textChannels.map((c) => renderChannelRow(server, c))}
@@ -514,14 +600,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           <>
             <div className="sb-vhead">
               <span className="sb-vhead-label">{t("voiceChannels")}</span>
-              <button
-                type="button"
-                className="sb-vhead-add"
-                title={t("addChannel")}
-                onClick={() => onAddChannel(server, "voice")}
-              >
-                <Icon name="plus" size={14} />
-              </button>
+              {canManageChannelsIn(server) && (
+                <button
+                  type="button"
+                  className="sb-vhead-add"
+                  title={t("addChannel")}
+                  onClick={() => onAddChannel(server, "voice")}
+                >
+                  <Icon name="plus" size={14} />
+                </button>
+              )}
             </div>
             <div className="sb-srv-channels">
               {voiceChannels.map((c) => renderChannelRow(server, c))}
@@ -694,9 +782,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
           </svg>
           {t("tabDirects")}
-          {totalDmUnread + pendingCount > 0 && (
-            <span className="sb-seg-badge">{totalDmUnread + pendingCount}</span>
-          )}
+          {totalDmUnread + pendingCount > 0 && <span className="sb-seg-dot" />}
         </button>
         <button
           type="button"
@@ -722,9 +808,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <path d="M6 6h.01M6 18h.01" />
           </svg>
           {t("tabServers")}
-          {totalServerUnread > 0 && (
-            <span className="sb-seg-badge">{totalServerUnread}</span>
-          )}
+          {totalServerUnread > 0 && <span className="sb-seg-dot" />}
         </button>
       </div>
 

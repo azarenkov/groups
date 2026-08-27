@@ -124,6 +124,7 @@ async fn list_voice_presence(
             user_id: r.user_id.uuid(),
             user_name: r.user_name,
             is_muted: r.is_muted,
+            muted_by: r.muted_by.map(|u| u.uuid()),
             camera_on: r.camera_on,
             screen_on: r.screen_on,
         })
@@ -152,6 +153,7 @@ struct VoicePresenceItem {
     user_id: Uuid,
     user_name: String,
     is_muted: bool,
+    muted_by: Option<Uuid>,
     camera_on: bool,
     screen_on: bool,
 }
@@ -228,6 +230,21 @@ async fn list_sent_server_invites(
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         ListSentServerInvitesResponse::new(recipient_ids),
     )))
+}
+
+#[delete("/{server_id}/members/{member_id}")]
+async fn kick_member(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let actor = UserId::new(auth_token.id);
+    let (server_id, member_id) = path.into_inner();
+    app_state
+        .kick_member_usecase
+        .execute(ServerId::new(server_id), actor, UserId::new(member_id))
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[delete("/{server_id}/members/me")]

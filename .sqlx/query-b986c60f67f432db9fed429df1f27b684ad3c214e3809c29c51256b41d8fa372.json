@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT position, permissions FROM server_roles\n            WHERE id = $1 AND server_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "position",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "permissions",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b986c60f67f432db9fed429df1f27b684ad3c214e3809c29c51256b41d8fa372"
+}

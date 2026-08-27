@@ -237,7 +237,7 @@ const ServersPage: React.FC = () => {
   useEffect(() => {
     return ws.onOpen(() => {
       presenceSyncedRef.current.clear();
-      useVoicePresenceStore.getState().clearAll();
+      useVoicePresenceStore.getState().resetRosters();
       usePresenceStore.getState().clearAll();
       setPresenceSyncTick((n) => n + 1);
     });
@@ -257,6 +257,7 @@ const ServersPage: React.FC = () => {
               id: string;
               name: string;
               isMuted: boolean;
+              mutedBy?: string;
               cameraOn: boolean;
               screenOn: boolean;
             }[]
@@ -266,6 +267,7 @@ const ServersPage: React.FC = () => {
               id: item.userId,
               name: item.userName,
               isMuted: item.isMuted,
+              mutedBy: item.mutedBy ?? undefined,
               cameraOn: item.cameraOn,
               screenOn: item.screenOn,
             });
@@ -788,6 +790,7 @@ const ServersPage: React.FC = () => {
       initials: string;
       color: string;
       isMuted?: boolean;
+      mutedBy?: string;
       isSharingScreen?: boolean;
       isCameraOn?: boolean;
     }[]
@@ -800,6 +803,7 @@ const ServersPage: React.FC = () => {
         initials: string;
         color: string;
         isMuted?: boolean;
+        mutedBy?: string;
         isSharingScreen?: boolean;
         isCameraOn?: boolean;
       }[]
@@ -811,6 +815,7 @@ const ServersPage: React.FC = () => {
         initials: initialFor(m.name),
         color: colorForId(m.id),
         isMuted: m.isMuted,
+        mutedBy: m.mutedBy,
         isSharingScreen: m.screenOn,
         isCameraOn: m.cameraOn,
       }));

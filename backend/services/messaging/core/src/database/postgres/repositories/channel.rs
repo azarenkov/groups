@@ -49,13 +49,47 @@ impl ChannelRepository for PostgresChannelRepository {
     async fn save_channel_with_events(
         &self,
         channel: &Channel,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        if let Some(actor) = delegated_actor {
+            let server_id = channel.server_id();
+            sqlx::query!(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+                server_id.uuid().to_string(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_CHANNELS,
+            ) {
+                return Ok(false);
+            }
+        }
 
         let kind_dto = ChannelKindDto::from(channel.kind());
         let visibility_dto = ChannelVisibilityDto::from(&channel.visibility());
@@ -87,13 +121,14 @@ impl ChannelRepository for PostgresChannelRepository {
             sqlx::query!(
                 r#"
                 INSERT INTO channel_muted_participants
-                    (channel_id, user_id, muted_by, muted_at)
-                VALUES ($1, $2, $3, $4)
+                    (channel_id, user_id, muted_by, muted_at, self_muted)
+                VALUES ($1, $2, $3, $4, $5)
                 "#,
                 channel.id().uuid(),
                 mute.user_id.uuid(),
                 mute.muted_by.uuid(),
                 mute.muted_at,
+                mute.self_muted,
             )
             .execute(&mut *tx)
             .await
@@ -121,7 +156,7 @@ impl ChannelRepository for PostgresChannelRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(true)
     }
 
     async fn update_channel_with_events(
@@ -273,13 +308,73 @@ impl ChannelRepository for PostgresChannelRepository {
     async fn delete_channel_with_events(
         &self,
         channel_id: &ChannelId,
+        actor: &UserId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<Vec<String>, RepositoryError> {
+    ) -> Result<Option<Vec<String>>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        let server_id = sqlx::query_scalar!(
+            r#"SELECT server_id FROM channels WHERE id = $1"#,
+            channel_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(server_id) = server_id.map(ServerId::new) else {
+            return Err(RepositoryError::NotFound);
+        };
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            actor.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(None);
+        }
+        if delegated {
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_CHANNELS,
+            ) {
+                return Ok(None);
+            }
+        }
 
         sqlx::query!(
             r#"SELECT id FROM channels WHERE id = $1 FOR UPDATE"#,
@@ -337,7 +432,7 @@ impl ChannelRepository for PostgresChannelRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(storage_keys)
+        Ok(Some(storage_keys))
     }
 
     async fn list_voice_channel_ids_by_server(
@@ -365,25 +460,117 @@ impl ChannelRepository for PostgresChannelRepository {
         target: &UserId,
         muted_by: &UserId,
         muted_at: DateTime<Utc>,
+        self_muted: bool,
+        server_id: &ServerId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let target_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            target.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !target_is_member {
+            return Ok(false);
+        }
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            muted_by.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(false);
+        }
+
+        if delegated {
+            let actor = sqlx::query!(
+                r#"
+                SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                muted_by.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let target_top = sqlx::query_scalar!(
+                r#"
+                SELECT max(r.position) AS "top"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                target.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let has_mute = domain::server::role::has_permission(
+                actor.perms.unwrap_or(0),
+                domain::server::role::PERM_MUTE_MEMBERS,
+            );
+            let outranks = match (actor.top, target_top) {
+                (Some(a), Some(t)) => a > t,
+                (Some(_), None) => true,
+                _ => false,
+            };
+            if !has_mute || !outranks {
+                return Ok(false);
+            }
+        }
+
         let result = sqlx::query!(
             r#"
             INSERT INTO channel_muted_participants
-                (channel_id, user_id, muted_by, muted_at)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (channel_id, user_id) DO NOTHING
+                (channel_id, user_id, muted_by, muted_at, self_muted)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (channel_id, user_id) DO UPDATE
+                SET muted_by = EXCLUDED.muted_by,
+                    muted_at = EXCLUDED.muted_at,
+                    self_muted = channel_muted_participants.self_muted OR EXCLUDED.self_muted
+                WHERE channel_muted_participants.muted_by = EXCLUDED.user_id
             "#,
             channel_id.uuid(),
             target.uuid(),
             muted_by.uuid(),
             muted_at,
+            self_muted,
         )
         .execute(&mut *tx)
         .await
@@ -396,32 +583,124 @@ impl ChannelRepository for PostgresChannelRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(true)
     }
 
     async fn unmute_participant_with_events(
         &self,
         channel_id: &ChannelId,
         target: &UserId,
+        expected_muted_by: Option<&UserId>,
+        downgrade_to_self_mute: bool,
+        server_id: &ServerId,
+        initiator: &UserId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        let result = sqlx::query!(
-            r#"
-            DELETE FROM channel_muted_participants
-            WHERE channel_id = $1 AND user_id = $2
-            "#,
-            channel_id.uuid(),
-            target.uuid(),
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
         )
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        let actor_is_member = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM server_members
+                WHERE server_id = $1 AND user_id = $2
+            ) AS "exists!"
+            "#,
+            server_id.uuid(),
+            initiator.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !actor_is_member {
+            return Ok(false);
+        }
+
+        if delegated {
+            let actor = initiator;
+            let actor_state = sqlx::query!(
+                r#"
+                SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let target_top = sqlx::query_scalar!(
+                r#"
+                SELECT max(r.position) AS "top"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                target.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let has_mute = domain::server::role::has_permission(
+                actor_state.perms.unwrap_or(0),
+                domain::server::role::PERM_MUTE_MEMBERS,
+            );
+            let outranks = match (actor_state.top, target_top) {
+                (Some(a), Some(t)) => a > t,
+                (Some(_), None) => true,
+                _ => false,
+            };
+            if !has_mute || !outranks {
+                return Ok(false);
+            }
+        }
+
+        let result = if downgrade_to_self_mute {
+            sqlx::query!(
+                r#"
+                UPDATE channel_muted_participants
+                SET muted_by = $2, muted_at = now(), self_muted = true
+                WHERE channel_id = $1 AND user_id = $2
+                  AND ($3::uuid IS NULL OR muted_by = $3)
+                "#,
+                channel_id.uuid(),
+                target.uuid(),
+                expected_muted_by.map(|u| u.uuid()),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+        } else {
+            sqlx::query!(
+                r#"
+                DELETE FROM channel_muted_participants
+                WHERE channel_id = $1 AND user_id = $2
+                  AND ($3::uuid IS NULL OR muted_by = $3)
+                "#,
+                channel_id.uuid(),
+                target.uuid(),
+                expected_muted_by.map(|u| u.uuid()),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+        };
 
         if result.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
@@ -430,7 +709,7 @@ impl ChannelRepository for PostgresChannelRepository {
         save_outbox_records(&mut tx, events).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(true)
     }
 
     async fn list_channel_participants(
@@ -589,7 +868,12 @@ impl ChannelRepository for PostgresChannelRepository {
                     SELECT 1 FROM channel_muted_participants cmp
                     WHERE cmp.channel_id = cvp.channel_id
                       AND cmp.user_id = cvp.user_id
-                ) AS "is_muted!"
+                ) AS "is_muted!",
+                (
+                    SELECT cmp.muted_by FROM channel_muted_participants cmp
+                    WHERE cmp.channel_id = cvp.channel_id
+                      AND cmp.user_id = cvp.user_id
+                ) AS "muted_by?"
             FROM channel_voice_participants cvp
             INNER JOIN channels c ON c.id = cvp.channel_id
             INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id
@@ -609,6 +893,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 user_id: UserId::new(r.user_id),
                 user_name: r.user_name,
                 is_muted: r.is_muted,
+                muted_by: r.muted_by.map(UserId::new),
                 camera_on: r.camera_on,
                 screen_on: r.screen_on,
             })
@@ -831,7 +1116,7 @@ impl ChannelRepository for PostgresChannelRepository {
         let muted_dtos = sqlx::query_as!(
             MutedParticipantDto,
             r#"
-            SELECT channel_id, user_id, muted_by, muted_at
+            SELECT channel_id, user_id, muted_by, muted_at, self_muted
             FROM channel_muted_participants
             WHERE channel_id = $1
             "#,
@@ -1388,7 +1673,7 @@ async fn load_channel_for_update(
     let muted_dtos = sqlx::query_as!(
         MutedParticipantDto,
         r#"
-        SELECT channel_id, user_id, muted_by, muted_at
+        SELECT channel_id, user_id, muted_by, muted_at, self_muted
         FROM channel_muted_participants
         WHERE channel_id = $1
         "#,

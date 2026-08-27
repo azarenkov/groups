@@ -15,6 +15,30 @@ use domain::{
 
 use crate::dto::requests::channel::unmute_channel::UnmuteChannelRequest;
 
+
+async fn outranks_target<R: domain::server::role::ServerRoleRepository>(
+    role_repository: &R,
+    server_id: &domain::server::id::ServerId,
+    actor: &UserId,
+    target: &UserId,
+) -> Result<bool, domain::shared::repository::error::RepositoryError> {
+    let roles = role_repository.list_roles(server_id).await?;
+    let assignments = role_repository.member_role_ids(server_id).await?;
+    let top_of = |user: &UserId| {
+        assignments
+            .iter()
+            .filter(|(uid, _)| uid == &user.uuid())
+            .filter_map(|(_, rid)| roles.iter().find(|r| &r.id == rid))
+            .map(|r| r.position)
+            .max()
+    };
+    Ok(match (top_of(actor), top_of(target)) {
+        (Some(a), Some(t)) => a > t,
+        (Some(_), None) => true,
+        _ => false,
+    })
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum UnmuteChannelError {
     #[error("Channel not found")]
@@ -29,27 +53,60 @@ pub enum UnmuteChannelError {
     Domain(#[from] ChannelError),
     #[error("Outbox error: {0}")]
     Outbox(#[from] OutboxError),
+    #[error("Voice service error: {0}")]
+    VoiceService(#[from] crate::ports::voice_service::VoiceServiceError),
 }
 
 #[derive(Debug)]
-pub struct UnmuteChannel<C, U>
+pub struct UnmuteChannel<C, U, S, R, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
+    S: domain::server::repository::ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
+    V: crate::ports::voice_service::VoiceService,
 {
     channel_repository: Arc<C>,
     user_repository: Arc<U>,
+    server_repository: Arc<S>,
+    role_repository: Arc<R>,
+    voice_service: Arc<V>,
 }
 
-impl<C, U> UnmuteChannel<C, U>
+impl<C, U, S, R, V> UnmuteChannel<C, U, S, R, V>
 where
     C: ChannelRepository,
     U: domain::user_profile::UserProfileRepository,
+    S: domain::server::repository::ServerRepository,
+    R: domain::server::role::ServerRoleRepository,
+    V: crate::ports::voice_service::VoiceService,
 {
-    pub fn new(channel_repository: Arc<C>, user_repository: Arc<U>) -> Self {
+    pub fn new(
+        channel_repository: Arc<C>,
+        user_repository: Arc<U>,
+        server_repository: Arc<S>,
+        role_repository: Arc<R>,
+        voice_service: Arc<V>,
+    ) -> Self {
         Self {
             channel_repository,
             user_repository,
+            server_repository,
+            role_repository,
+            voice_service,
+        }
+    }
+
+    async fn compensate_livekit(&self, channel_id: &ChannelId, target: &UserId) {
+        let still_muted = match self.channel_repository.find_channel_by_id(channel_id).await {
+            Ok(channel) => channel
+                .muted_participants_list()
+                .find(|m| &m.user_id == target)
+                .is_some_and(|m| &m.muted_by != target),
+            Err(_) => true,
+        };
+        if still_muted {
+            let _ = self.voice_service.mute_participant(channel_id, target).await;
         }
     }
 
@@ -81,7 +138,43 @@ where
 
         let now = Utc::now();
 
-        channel.unmute(target, initiator, now)?;
+        let server_id = domain::server::id::ServerId::new(request.server_id);
+        let server_owner = self
+            .server_repository
+            .find_server_owner(&server_id)
+            .await?;
+        let is_server_owner = server_owner.as_ref() == Some(&initiator);
+        let can_override = is_server_owner
+            || (target != initiator
+                && domain::server::role::has_permission(
+                    self.role_repository
+                        .user_permissions(&server_id, &initiator)
+                        .await?,
+                    domain::server::role::PERM_MUTE_MEMBERS,
+                )
+                && outranks_target(
+                    self.role_repository.as_ref(),
+                    &server_id,
+                    &initiator,
+                    &target,
+                )
+                .await?);
+        let observed_muted_by = channel
+            .muted_participants_list()
+            .find(|m| m.user_id == target)
+            .map(|m| m.muted_by);
+        let moderator_record = observed_muted_by.is_some_and(|by| by != target);
+        let authored_by_owner = observed_muted_by
+            .as_ref()
+            .is_some_and(|by| server_owner.as_ref() == Some(by) && by != &target);
+        if authored_by_owner && !is_server_owner {
+            return Err(UnmuteChannelError::Domain(ChannelError::NotOwner));
+        }
+        let outcome = channel.unmute(target, initiator, can_override, now)?;
+        let downgrade = outcome == domain::channel::UnmuteOutcome::DowngradedToSelfMute;
+        let expected_muted_by = observed_muted_by.as_ref();
+        let inherent = is_server_owner;
+        let delegated = !inherent && target != initiator;
 
         let request_id = request.ctx.request_id.clone();
         let records: Vec<OutboxRecord> = channel
@@ -90,10 +183,39 @@ where
             .map(|e| e.to_outbox_record_with_request_id(request_id.clone()))
             .collect::<Result<_, _>>()?;
 
-        self.channel_repository
-            .unmute_participant_with_events(&channel_id, &target, &records)
-            .await?;
+        if moderator_record {
+            self.voice_service
+                .unmute_participant(&channel_id, &target)
+                .await?;
+        }
 
-        Ok(())
+        let persisted = self
+            .channel_repository
+            .unmute_participant_with_events(
+                &channel_id,
+                &target,
+                expected_muted_by,
+                downgrade,
+                &server_id,
+                &initiator,
+                delegated,
+                &records,
+            )
+            .await;
+        match persisted {
+            Ok(true) => Ok(()),
+            Ok(false) => {
+                if moderator_record {
+                    self.compensate_livekit(&channel_id, &target).await;
+                }
+                Err(UnmuteChannelError::Domain(ChannelError::NotOwner))
+            }
+            Err(err) => {
+                if moderator_record {
+                    self.compensate_livekit(&channel_id, &target).await;
+                }
+                Err(err.into())
+            }
+        }
     }
 }

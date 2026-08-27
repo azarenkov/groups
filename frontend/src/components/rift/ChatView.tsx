@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import CallJoinBanner from "./CallJoinBanner";
@@ -33,6 +34,11 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
+import {
+  PERM_MANAGE_MESSAGES,
+  useRolesStore,
+  userPermissions,
+} from "../../store/rolesStore";
 import { MENTION_REGEX, activeMentionQuery } from "../../utils/mentions";
 import type { ChannelParticipant } from "../../types/channel";
 
@@ -539,6 +545,23 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const composerRef = React.useRef<HTMLInputElement>(null);
   const wasSendingRef = React.useRef(false);
+
+  const rolesData = useRolesStore((s) =>
+    serverId ? s.byServer[serverId] : undefined,
+  );
+  const fetchRoles = useRolesStore((s) => s.fetch);
+  React.useEffect(() => {
+    if (serverId) void fetchRoles(serverId).catch(() => {});
+  }, [serverId, fetchRoles]);
+  const serverOwnerId = React.useMemo(
+    () => servers?.find((sv) => sv.id === serverId)?.ownerId,
+    [servers, serverId],
+  );
+  const canModerateMessages =
+    !!channel &&
+    !!currentUserId &&
+    (serverOwnerId === currentUserId ||
+      (userPermissions(rolesData, currentUserId) & PERM_MANAGE_MESSAGES) !== 0);
 
   const [mentionQuery, setMentionQuery] = React.useState<{
     query: string;
@@ -1651,6 +1674,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                   inviteIsMember={
                     !!m.inviteServerId && myServerIds.has(m.inviteServerId)
                   }
+                  canModerate={canModerateMessages}
                   editRemovedIds={editRemovedIds}
                   editFiles={editFiles}
                   editSaving={savingEdit}
@@ -2501,20 +2525,23 @@ const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
             </span>
           )}
         </button>
-        {viewerOpen && url && (
-          <div
-            className="image-viewer-overlay"
-            onClick={() => {
-              setViewerOpen(false);
-              if (!visible && urlRef.current) {
-                releaseImageUrl(attachment.id, urlRef.current);
-                setUrl(null);
-              }
-            }}
-          >
-            <img src={url} alt={attachment.fileName} />
-          </div>
-        )}
+        {viewerOpen &&
+          url &&
+          createPortal(
+            <div
+              className="image-viewer-overlay"
+              onClick={() => {
+                setViewerOpen(false);
+                if (!visible && urlRef.current) {
+                  releaseImageUrl(attachment.id, urlRef.current);
+                  setUrl(null);
+                }
+              }}
+            >
+              <img src={url} alt={attachment.fileName} />
+            </div>,
+            document.body,
+          )}
       </>
     );
   }
@@ -2556,6 +2583,7 @@ const ReadTicks: React.FC<{ read: boolean }> = ({ read }) => (
 );
 
 interface MessageProps {
+  canModerate?: boolean;
   msg: ChannelMessage;
   displayName: string;
   continued: boolean;
@@ -2583,6 +2611,7 @@ interface MessageProps {
 }
 
 const Message: React.FC<MessageProps> = ({
+  canModerate,
   msg,
   displayName,
   continued,
@@ -2886,14 +2915,16 @@ const Message: React.FC<MessageProps> = ({
         )}
         {isMine && !editing && !msg.inviteServerId && (
           <div className="msg-actions">
-            <button
-              type="button"
-              className="icon-btn"
-              title="Edit"
-              onClick={onStartEdit}
-            >
-              <Icon name="edit" size={13} />
-            </button>
+            {!msg.callStatus && (
+              <button
+                type="button"
+                className="icon-btn"
+                title="Edit"
+                onClick={onStartEdit}
+              >
+                <Icon name="edit" size={13} />
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn"
@@ -2907,16 +2938,28 @@ const Message: React.FC<MessageProps> = ({
         {!isMine &&
           !editing &&
           !msg.inviteServerId &&
-          msg.content.length > 0 && (
+          ((msg.content.length > 0 && !msg.callStatus) || canModerate) && (
             <div className="msg-actions">
-              <button
-                type="button"
-                className="icon-btn"
-                title={i18n.t("copyMessage", { ns: "chat" })}
-                onClick={handleCopy}
-              >
-                <Icon name={copied ? "check" : "copy"} size={13} />
-              </button>
+              {msg.content.length > 0 && !msg.callStatus && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={i18n.t("copyMessage", { ns: "chat" })}
+                  onClick={handleCopy}
+                >
+                  <Icon name={copied ? "check" : "copy"} size={13} />
+                </button>
+              )}
+              {canModerate && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title="Delete"
+                  onClick={onDelete}
+                >
+                  <Icon name="trash" size={13} />
+                </button>
+              )}
             </div>
           )}
       </div>

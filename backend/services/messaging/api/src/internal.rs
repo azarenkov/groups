@@ -2,19 +2,48 @@ use actix_web::{HttpResponse, Responder, get, post, web};
 use contracts::internal::{
     attachments::{LinkedRequestV1, LinkedResponseV1},
     friendships::FriendsResponseV1,
-    servers::OwnerResponseV1,
+    servers::{CanManageResponseV1, OwnerResponseV1},
     users::StateResponseV1,
 };
 use domain::{
     friendship::{repository::FriendshipRepository, status::FriendshipStatus},
     message::repository::MessageRepository,
-    server::{id::ServerId, repository::ServerRepository},
+    server::{
+        id::ServerId,
+        repository::ServerRepository,
+        role::{PERM_MANAGE_SERVER, ServerRoleRepository, has_permission},
+    },
     user::id::UserId,
 };
 use uuid::Uuid;
 
 use crate::state::AppState;
 use shared::api_error::ApiError;
+
+#[get("/servers/{server_id}/can-manage/{user_id}")]
+async fn server_can_manage(
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, ApiError> {
+    let (server_id, user_id) = path.into_inner();
+    let server_id = ServerId::new(server_id);
+    let user_id = UserId::new(user_id);
+    let owner = app_state
+        .server_repository
+        .find_server_owner(&server_id)
+        .await
+        .map_err(ApiError::from)?;
+    let allowed = owner.as_ref() == Some(&user_id)
+        || has_permission(
+            app_state
+                .server_role_repository
+                .user_permissions(&server_id, &user_id)
+                .await
+                .map_err(ApiError::from)?,
+            PERM_MANAGE_SERVER,
+        );
+    Ok(HttpResponse::Ok().json(CanManageResponseV1 { allowed }))
+}
 
 #[get("/servers/{server_id}/owner")]
 async fn server_owner(
@@ -79,6 +108,7 @@ async fn linked_attachments(
 pub fn internal_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/internal")
+            .service(server_can_manage)
             .service(server_owner)
             .service(user_has_state)
             .service(friendship_pair)

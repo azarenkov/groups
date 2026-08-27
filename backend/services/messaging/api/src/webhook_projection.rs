@@ -36,13 +36,17 @@ fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
 use messaging::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto, WebhookSource};
 
-pub fn spawn<T>(
+pub fn spawn<T, S, V>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
     channel_repository: Arc<T>,
+    server_repository: Arc<S>,
+    voice_service: Arc<V>,
 ) where
     T: ChannelRepository + Send + Sync + 'static,
+    S: domain::server::repository::ServerRepository + Send + Sync + 'static,
+    V: messaging::ports::voice_service::VoiceService + Send + Sync + 'static,
 {
     actix_web::rt::spawn(async move {
         let prefix = subject_prefix.trim_end_matches('.').to_string();
@@ -85,6 +89,9 @@ pub fn spawn<T>(
                                         &abort_uc,
                                         &leave_uc,
                                         &track_uc,
+                                        &channel_repository,
+                                        &server_repository,
+                                        &voice_service,
                                     )
                                     .await
                                     {
@@ -139,7 +146,8 @@ fn webhook_kind(subject: &str) -> Option<WebhookKind> {
     }
 }
 
-async fn apply<T>(
+#[allow(clippy::too_many_arguments)]
+async fn apply<T, S, V>(
     kind: WebhookKind,
     payload: &[u8],
     request_id: Option<String>,
@@ -147,9 +155,14 @@ async fn apply<T>(
     abort_uc: &AbortVoiceConnection<T>,
     leave_uc: &LeaveVoiceConnection<T>,
     track_uc: &TrackMediaConnection<T>,
+    channel_repository: &Arc<T>,
+    server_repository: &Arc<S>,
+    voice_service: &Arc<V>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     T: ChannelRepository + Send + Sync,
+    S: domain::server::repository::ServerRepository + Send + Sync,
+    V: messaging::ports::voice_service::VoiceService + Send + Sync,
 {
     let evt: WebhookEventDto = match serde_json::from_slice(payload) {
         Ok(evt) => evt,
@@ -166,6 +179,17 @@ where
 
     match kind {
         WebhookKind::Joined => {
+            let admitted = enforce_membership(
+                channel_repository.as_ref(),
+                server_repository.as_ref(),
+                voice_service.as_ref(),
+                evt.channel_id,
+                evt.user_id,
+            )
+            .await?;
+            if !admitted {
+                return Ok(());
+            }
             let result = join_uc
                 .execute(JoinVoiceConnectionRequest {
                     channel_id: evt.channel_id,
@@ -314,4 +338,57 @@ fn is_leave_stale(e: &LeaveVoiceConnectionError) -> bool {
         LeaveVoiceConnectionError::Repository(RepositoryError::NotFound)
             | LeaveVoiceConnectionError::Domain(_)
     )
+}
+
+async fn enforce_membership<T, S, V>(
+    channel_repository: &T,
+    server_repository: &S,
+    voice_service: &V,
+    channel_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>
+where
+    T: ChannelRepository + Send + Sync,
+    S: domain::server::repository::ServerRepository + Send + Sync,
+    V: messaging::ports::voice_service::VoiceService + Send + Sync,
+{
+    let channel_id = domain::channel::id::ChannelId::new(channel_id);
+    let user_id = domain::user::id::UserId::new(user_id);
+    let channel = match channel_repository.find_channel_by_id(&channel_id).await {
+        Ok(c) => c,
+        Err(domain::shared::repository::error::RepositoryError::NotFound) => {
+            voice_service.delete_voice_channel(&channel_id).await?;
+            tracing::info!(
+                channel_id = %channel_id.uuid(),
+                user_id = %user_id.uuid(),
+                "Closed orphaned LiveKit room after join into a deleted channel",
+            );
+            return Ok(false);
+        }
+        Err(e) => return Err(e.into()),
+    };
+    let is_member = server_repository
+        .is_server_member(channel.server_id(), &user_id)
+        .await?;
+    if is_member {
+        let moderator_muted = channel
+            .muted_participants_list()
+            .find(|m| m.user_id == user_id)
+            .is_some_and(|m| m.muted_by != user_id);
+        if moderator_muted {
+            voice_service.mute_participant(&channel_id, &user_id).await?;
+        } else {
+            voice_service.unmute_participant(&channel_id, &user_id).await?;
+        }
+        return Ok(true);
+    }
+    voice_service
+        .remove_participant(&channel_id, &user_id)
+        .await?;
+    tracing::info!(
+        channel_id = %channel_id.uuid(),
+        user_id = %user_id.uuid(),
+        "Disconnected non-member voice participant",
+    );
+    Ok(false)
 }

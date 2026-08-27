@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use domain::shared::outbox::to_outbox::ToOutboxRecord;
 use domain::{
+    server::repository::{RemoveMemberOutcome, RevokeAuthority, UpdateServerOutcome},
     channel::{
         Channel, id::ChannelId, kind::ChannelKind, name::ChannelName,
         participant_mute::ParticipantMute, session_id::SessionId,
@@ -275,7 +276,7 @@ impl ServerRepository for PostgresServerRepository {
         let muted_dtos = sqlx::query_as!(
             MutedParticipantDto,
             r#"
-            SELECT channel_id, user_id, muted_by, muted_at
+            SELECT channel_id, user_id, muted_by, muted_at, self_muted
             FROM channel_muted_participants
             WHERE channel_id = ANY($1)
             "#,
@@ -288,7 +289,12 @@ impl ServerRepository for PostgresServerRepository {
         let mut muted_by_channel: HashMap<Uuid, HashMap<UserId, ParticipantMute>> = HashMap::new();
         for dto in muted_dtos {
             let user_id = UserId::new(dto.user_id);
-            let mute = ParticipantMute::new(user_id, UserId::new(dto.muted_by), dto.muted_at);
+            let mute = ParticipantMute::new(
+                user_id,
+                UserId::new(dto.muted_by),
+                dto.muted_at,
+                dto.self_muted,
+            );
             muted_by_channel
                 .entry(dto.channel_id)
                 .or_default()
@@ -455,13 +461,66 @@ impl ServerRepository for PostgresServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        delegated_kicker: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<RemoveMemberOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if let Some(actor) = delegated_kicker {
+            let actor_state = sqlx::query!(
+                r#"
+                SELECT max(r.position) AS "top", bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let target_top = sqlx::query_scalar!(
+                r#"
+                SELECT max(r.position) AS "top"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                user_id.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let perms = actor_state.perms.unwrap_or(0);
+            let has_kick = domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_KICK_MEMBERS,
+            );
+            let outranks = match (actor_state.top, target_top) {
+                (Some(a), Some(t)) => a > t,
+                (Some(_), None) => true,
+                _ => false,
+            };
+            if !has_kick || !outranks {
+                return Ok(RemoveMemberOutcome::Denied);
+            }
+        }
 
         let result = sqlx::query!(
             r#"
@@ -476,7 +535,7 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if result.rows_affected() == 0 {
-            return Ok(false);
+            return Ok(RemoveMemberOutcome::NotMember);
         }
 
         sqlx::query!(
@@ -487,6 +546,18 @@ impl ServerRepository for PostgresServerRepository {
             "#,
             user_id.uuid(),
             server_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            r#"
+                DELETE FROM server_member_roles
+                WHERE server_id = $1 AND user_id = $2
+            "#,
+            server_id.uuid(),
+            user_id.uuid(),
         )
         .execute(&mut *tx)
         .await
@@ -586,7 +657,7 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(RemoveMemberOutcome::Removed)
     }
 
     async fn delete_server_by_owner_with_events(
@@ -746,7 +817,47 @@ impl ServerRepository for PostgresServerRepository {
         code: &str,
         max_uses: Option<i32>,
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> Result<InviteCode, RepositoryError> {
+        delegated: bool,
+    ) -> Result<Option<InviteCode>, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        if delegated {
+            let actor = created_by;
+            sqlx::query!(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+                server_id.uuid().to_string(),
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_INVITES,
+            ) {
+                return Ok(None);
+            }
+        }
+
         let row = sqlx::query!(
             r#"
             INSERT INTO server_invite_codes (code, server_id, created_by, max_uses, expires_at)
@@ -759,11 +870,13 @@ impl ServerRepository for PostgresServerRepository {
             max_uses,
             expires_at,
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(InviteCode {
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(Some(InviteCode {
             code: row.code,
             server_id: row.server_id,
             created_by: row.created_by,
@@ -772,7 +885,7 @@ impl ServerRepository for PostgresServerRepository {
             uses: row.uses,
             expires_at: row.expires_at,
             created_at: row.created_at,
-        })
+        }))
     }
 
     async fn list_invite_codes(
@@ -819,8 +932,48 @@ impl ServerRepository for PostgresServerRepository {
         server_id: &ServerId,
         code: &str,
         requester: &UserId,
-        is_owner: bool,
+        authority: RevokeAuthority,
     ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        let any_creator = match authority {
+            RevokeAuthority::Owner => true,
+            RevokeAuthority::Delegated => {
+                let actor = requester;
+                sqlx::query!(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+                    server_id.uuid().to_string(),
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                let perms = sqlx::query_scalar!(
+                    r#"
+                    SELECT bit_or(r.permissions) AS "perms"
+                    FROM server_member_roles mr
+                    INNER JOIN server_roles r ON r.id = mr.role_id
+                    INNER JOIN server_members m
+                        ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                    WHERE mr.server_id = $1 AND mr.user_id = $2
+                    "#,
+                    server_id.uuid(),
+                    actor.uuid(),
+                )
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?
+                .unwrap_or(0);
+                domain::server::role::has_permission(
+                    perms,
+                    domain::server::role::PERM_MANAGE_INVITES,
+                )
+            }
+        };
+
         let updated = sqlx::query!(
             r#"
             UPDATE server_invite_codes
@@ -831,12 +984,13 @@ impl ServerRepository for PostgresServerRepository {
             code,
             server_id.uuid(),
             requester.uuid(),
-            is_owner,
+            any_creator,
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(updated.rows_affected() > 0)
     }
 
@@ -915,13 +1069,47 @@ impl ServerRepository for PostgresServerRepository {
         server_id: &ServerId,
         name: &str,
         description: Option<&str>,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<UpdateServerOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 42))",
+            server_id.uuid().to_string(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if let Some(actor) = delegated_actor {
+            let perms = sqlx::query_scalar!(
+                r#"
+                SELECT bit_or(r.permissions) AS "perms"
+                FROM server_member_roles mr
+                INNER JOIN server_roles r ON r.id = mr.role_id
+                INNER JOIN server_members m
+                    ON m.server_id = mr.server_id AND m.user_id = mr.user_id
+                WHERE mr.server_id = $1 AND mr.user_id = $2
+                "#,
+                server_id.uuid(),
+                actor.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .unwrap_or(0);
+            if !domain::server::role::has_permission(
+                perms,
+                domain::server::role::PERM_MANAGE_SERVER,
+            ) {
+                return Ok(UpdateServerOutcome::Denied);
+            }
+        }
 
         let updated = sqlx::query!(
             r#"
@@ -938,12 +1126,12 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         if updated.rows_affected() == 0 {
-            return Ok(false);
+            return Ok(UpdateServerOutcome::NotFound);
         }
 
         save_outbox_records(&mut tx, events).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(UpdateServerOutcome::Updated)
     }
 
 }

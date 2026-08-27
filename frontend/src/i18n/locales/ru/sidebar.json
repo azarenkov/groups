@@ -39,5 +39,7 @@
   "previewAttachment": "📎 Вложение",
   "textChannels": "Текстовые каналы",
   "voiceChannels": "Голосовые каналы",
-  "noChannels": "Каналов пока нет"
+  "noChannels": "Каналов пока нет",
+  "muteMember": "Замьютить",
+  "unmuteMember": "Размьютить"
 }

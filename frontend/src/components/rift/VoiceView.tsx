@@ -4,6 +4,14 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import VoicePill from "./VoicePill";
 import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
+import { channelAPI } from "../../api/channel";
+import { useServerStore } from "../../store/serverStore";
+import {
+  PERM_MUTE_MEMBERS,
+  topRoleFor,
+  useRolesStore,
+  userPermissions,
+} from "../../store/rolesStore";
 import { useLiveKit } from "../../hooks/useLiveKit";
 import { qualityClass, qualityLabel } from "../../utils/quality";
 import { useVoicePresenceStore } from "../../store/voicePresenceStore";
@@ -44,6 +52,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     videoTiles,
     isConnected,
     isMuted,
+    isModeratorMuted,
     isCameraEnabled,
     isScreenShareEnabled,
     error,
@@ -125,6 +134,45 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     : 0;
 
   const selfId = currentUserId || "you";
+  const serverOwnerId = useServerStore(
+    (s) => s.servers.find((sv) => sv.id === serverId)?.ownerId,
+  );
+  const rolesData = useRolesStore((s) => s.byServer[serverId]);
+  const fetchRoles = useRolesStore((s) => s.fetch);
+  useEffect(() => {
+    void fetchRoles(serverId).catch(() => {});
+  }, [serverId, fetchRoles]);
+  const muteLocked = isModeratorMuted && serverOwnerId !== currentUserId;
+  const canModerateMute =
+    !!currentUserId &&
+    (serverOwnerId === currentUserId ||
+      (userPermissions(rolesData, currentUserId) & PERM_MUTE_MEMBERS) !== 0);
+  const presenceMembers = useVoicePresenceStore((s) => s.byChannel[channelId]);
+  const moderationExcluded = React.useMemo(() => {
+    if (!currentUserId) return undefined;
+    const isOwner = serverOwnerId === currentUserId;
+    const myTop = topRoleFor(rolesData, currentUserId)?.position;
+    return (presenceMembers ?? [])
+      .filter((m) => {
+        if (m.id === currentUserId) return false;
+        if (m.id === serverOwnerId) return true;
+        if (isOwner) return false;
+        if (myTop === undefined) return true;
+        const targetTop = topRoleFor(rolesData, m.id)?.position;
+        return targetTop !== undefined && targetTop >= myTop;
+      })
+      .map((m) => m.id);
+  }, [currentUserId, serverOwnerId, rolesData, presenceMembers]);
+  const moderateMute = (id: string, currentlyMuted: boolean) => {
+    if (id === serverOwnerId) return;
+    const rec = presenceMembers?.find((m) => m.id === id);
+    const moderatorMuted =
+      currentlyMuted && !!rec?.mutedBy && rec.mutedBy !== id;
+    const call = moderatorMuted
+      ? channelAPI.unmute(serverId, channelId, id)
+      : channelAPI.mute(serverId, channelId, id);
+    call.catch((err) => console.warn("[voice] moderate mute failed:", err));
+  };
   const selfName = userName || "You";
 
   const cameraByIdentity = useMemo(() => {
@@ -228,6 +276,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           title={channelName}
           meta={meta}
           isMuted={isMuted}
+          muteLocked={muteLocked}
           onToggleMute={toggleMute}
           onLeave={handleLeave}
           className={qualityClass(localQuality)}
@@ -242,6 +291,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             screenTile={screenTile}
             liveName={sharerName}
             isMuted={isMuted}
+            muteLocked={muteLocked}
             cameraOn={isCameraEnabled}
             screenOn={isScreenShareEnabled}
             onToggleMute={toggleMute}
@@ -250,6 +300,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             onLeave={handleLeave}
             viewersFor={viewersFor}
             onWatchChange={onStreamWatch}
+            onModerateMute={canModerateMute ? moderateMute : undefined}
+            moderationExcluded={moderationExcluded}
           />,
           stageMount,
         )}

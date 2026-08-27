@@ -15,6 +15,7 @@ interface VoicePillProps {
   title: string;
   meta: string;
   isMuted: boolean;
+  muteLocked?: boolean;
   onToggleMute: () => void;
   onLeave: () => void;
   className?: string;
@@ -30,6 +31,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
   title,
   meta,
   isMuted,
+  muteLocked,
   onToggleMute,
   onLeave,
   className,
@@ -253,7 +255,14 @@ const VoicePill: React.FC<VoicePillProps> = ({
           type="button"
           className={"vp-btn" + (isMuted ? " muted" : "")}
           onClick={onToggleMute}
-          title={isMuted ? t("unmuteSelf") : t("muteSelf")}
+          disabled={muteLocked}
+          title={
+            muteLocked
+              ? t("mutedByModerator")
+              : isMuted
+                ? t("unmuteSelf")
+                : t("muteSelf")
+          }
         >
           <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
         </button>

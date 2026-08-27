@@ -27,6 +27,28 @@ pub trait VoiceService {
         channel_id: &ChannelId,
         user_id: &UserId,
     ) -> Result<(), VoiceServiceError>;
+    async fn create_token_without_microphone(
+        &self,
+        user_id: &UserId,
+        username: &UserName,
+        channel_id: &ChannelId,
+    ) -> Result<ChannelToken, VoiceServiceError>;
+    async fn mute_participant(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<Vec<String>, VoiceServiceError>;
+    async fn unmute_participant(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<(), VoiceServiceError>;
+    async fn unmute_tracks(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+        track_sids: &[String],
+    ) -> Result<(), VoiceServiceError>;
     fn client_url(&self) -> String;
 }
 

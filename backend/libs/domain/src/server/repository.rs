@@ -12,6 +12,26 @@ use crate::{
     user::{id::UserId, name::UserName},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevokeAuthority {
+    Owner,
+    Delegated,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpdateServerOutcome {
+    Updated,
+    NotFound,
+    Denied,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoveMemberOutcome {
+    Removed,
+    NotMember,
+    Denied,
+}
+
 #[async_trait]
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
@@ -50,8 +70,9 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
         user_id: &UserId,
+        delegated_kicker: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<RemoveMemberOutcome, RepositoryError>;
     async fn delete_server_by_owner_with_events(
         &self,
         server_id: &ServerId,
@@ -76,8 +97,9 @@ pub trait ServerRepository {
         server_id: &ServerId,
         name: &str,
         description: Option<&str>,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<UpdateServerOutcome, RepositoryError>;
     async fn create_invite_code(
         &self,
         server_id: &ServerId,
@@ -85,7 +107,8 @@ pub trait ServerRepository {
         code: &str,
         max_uses: Option<i32>,
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> Result<InviteCode, RepositoryError>;
+        delegated: bool,
+    ) -> Result<Option<InviteCode>, RepositoryError>;
     async fn list_invite_codes(
         &self,
         server_id: &ServerId,
@@ -95,7 +118,7 @@ pub trait ServerRepository {
         server_id: &ServerId,
         code: &str,
         requester: &UserId,
-        is_owner: bool,
+        authority: RevokeAuthority,
     ) -> Result<bool, RepositoryError>;
     async fn redeem_invite_code(
         &self,

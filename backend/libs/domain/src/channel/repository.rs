@@ -30,8 +30,9 @@ pub trait ChannelRepository {
     async fn save_channel_with_events(
         &self,
         channel: &Channel,
+        delegated_actor: Option<&UserId>,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn update_channel_with_events(
         &self,
@@ -107,21 +108,31 @@ pub trait ChannelRepository {
         target: &UserId,
         muted_by: &UserId,
         muted_at: DateTime<Utc>,
+        self_muted: bool,
+        server_id: &crate::server::id::ServerId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn unmute_participant_with_events(
         &self,
         channel_id: &ChannelId,
         target: &UserId,
+        expected_muted_by: Option<&UserId>,
+        downgrade_to_self_mute: bool,
+        server_id: &crate::server::id::ServerId,
+        initiator: &UserId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn delete_channel_with_events(
         &self,
         channel_id: &ChannelId,
+        actor: &UserId,
+        delegated: bool,
         events: &[OutboxRecord],
-    ) -> Result<Vec<String>, RepositoryError>;
+    ) -> Result<Option<Vec<String>>, RepositoryError>;
 
     async fn list_voice_channel_ids_by_server(
         &self,
@@ -195,6 +206,7 @@ pub struct VoicePresenceRow {
     pub user_id: UserId,
     pub user_name: String,
     pub is_muted: bool,
+    pub muted_by: Option<UserId>,
     pub camera_on: bool,
     pub screen_on: bool,
 }
