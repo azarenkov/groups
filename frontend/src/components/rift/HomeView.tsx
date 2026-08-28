@@ -24,8 +24,7 @@ export interface HomeViewProps {
   onCall: (friendId: string) => void;
   onAcceptRequest: (friendId: string) => void;
   onIgnoreRequest: (friendId: string) => void;
-  onNewRoom: () => void;
-  canCreateRoom: boolean;
+  onAddFriend: () => void;
 }
 
 const greetingKey = (hour: number) =>
@@ -66,8 +65,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   onCall,
   onAcceptRequest,
   onIgnoreRequest,
-  onNewRoom,
-  canCreateRoom,
+  onAddFriend,
 }) => {
   const { t } = useTranslation("home");
   const now = useNow(30_000);
@@ -128,12 +126,6 @@ const HomeView: React.FC<HomeViewProps> = ({
         <span className="home-sub">
           {t(greetingKey(new Date(now).getHours()))}, {userName}
         </span>
-        {canCreateRoom && (
-          <button type="button" className="home-btn-primary" onClick={onNewRoom}>
-            <Icon name="plus" size={14} />
-            {t("newRoom")}
-          </button>
-        )}
       </header>
       <div className="home-scroll">
         <div className="home-grid">
@@ -141,7 +133,11 @@ const HomeView: React.FC<HomeViewProps> = ({
             <section>
               <h6 className="home-label">{t("activeNow", { count: activeFriends.length })}</h6>
               {activeFriends.length === 0 ? (
-                <div className="home-empty">{t("emptyActive")}</div>
+                <div className="home-empty home-card">
+                  <span className="home-empty-ico"><Icon name="headphones" size={20} /></span>
+                  <div className="home-empty-title">{t("emptyActiveTitle")}</div>
+                  <div className="home-empty-text">{t("emptyActive")}</div>
+                </div>
               ) : (
                 <div className="home-active-grid">
                   {activeFriends.map((f) => {
@@ -190,7 +186,15 @@ const HomeView: React.FC<HomeViewProps> = ({
             <section>
               <h6 className="home-label">{t("online", { count: onlineCount })}</h6>
               {onlineFriends.length === 0 && activeFriends.length === 0 ? (
-                <div className="home-empty">{t("emptyOnline")}</div>
+                <div className="home-empty home-card">
+                  <span className="home-empty-ico"><Icon name="users" size={20} /></span>
+                  <div className="home-empty-title">{t("emptyOnlineTitle")}</div>
+                  <div className="home-empty-text">{t("emptyOnline")}</div>
+                  <button type="button" className="home-btn-secondary sm" onClick={onAddFriend}>
+                    <Icon name="user-plus" size={13} />
+                    {t("addFriend")}
+                  </button>
+                </div>
               ) : (
                 <div className="home-online-list">
                   {onlineFriends.map((f) => (
@@ -268,7 +272,10 @@ const HomeView: React.FC<HomeViewProps> = ({
             <div className="home-card home-side-card">
               <h6 className="home-label">{t("jumpBackIn")}</h6>
               {recentRooms.length === 0 ? (
-                <div className="home-empty">{t("emptyRooms")}</div>
+                <div className="home-empty compact">
+                  <span className="home-empty-ico"><Icon name="volume" size={16} /></span>
+                  <div className="home-empty-text">{t("emptyRooms")}</div>
+                </div>
               ) : (
                 recentRooms.map((room) => (
                   <button
@@ -297,7 +304,10 @@ const HomeView: React.FC<HomeViewProps> = ({
             <div className="home-card home-side-card">
               <h6 className="home-label">{t("unread")}</h6>
               {unread.length === 0 ? (
-                <div className="home-empty">{t("emptyUnread")}</div>
+                <div className="home-empty compact">
+                  <span className="home-empty-ico ok"><Icon name="check" size={16} /></span>
+                  <div className="home-empty-text">{t("emptyUnread")}</div>
+                </div>
               ) : (
                 unread.map(({ friend, preview }) => (
                   <button

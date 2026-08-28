@@ -4,7 +4,6 @@
   "greetingMorning": "Доброе утро",
   "greetingAfternoon": "Добрый день",
   "greetingEvening": "Добрый вечер",
-  "newRoom": "Новая комната",
   "activeNow": "Сейчас в голосе — {{count}}",
   "online": "В сети — {{count}}",
   "friendRequests": "Заявки в друзья — {{count}}",
@@ -27,5 +26,8 @@
   "previewCall": "Голосовой звонок",
   "previewInvite": "Приглашение на сервер",
   "previewAttachment": "Вложение",
-  "previewYou": "Вы:"
+  "previewYou": "Вы:",
+  "emptyActiveTitle": "Пока тихо",
+  "emptyOnlineTitle": "Никого в сети",
+  "addFriend": "Добавить друга"
 }

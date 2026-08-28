@@ -4,7 +4,6 @@
   "greetingMorning": "Good morning",
   "greetingAfternoon": "Good afternoon",
   "greetingEvening": "Good evening",
-  "newRoom": "New room",
   "activeNow": "Active now — {{count}}",
   "online": "Online — {{count}}",
   "friendRequests": "Friend requests — {{count}}",
@@ -27,5 +26,8 @@
   "previewCall": "Voice call",
   "previewInvite": "Server invite",
   "previewAttachment": "Attachment",
-  "previewYou": "You:"
+  "previewYou": "You:",
+  "emptyActiveTitle": "Quiet for now",
+  "emptyOnlineTitle": "Nobody online",
+  "addFriend": "Add friend"
 }

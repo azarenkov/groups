@@ -336,16 +336,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="sb-view">
       {!isFiltering && (
         <>
-          <button
-            type="button"
-            className={"sb-add-row home-nav" + (homeActive ? " active" : "")}
-            onClick={onGoHome}
-          >
-            <span className="sb-add-row-ico">
-              <Icon name="home" size={13} />
-            </span>
-            <span>{t("home")}</span>
-          </button>
           <button type="button" className="sb-add-row" onClick={onAddFriend}>
             <span className="sb-add-row-ico">
               <Icon name="user-plus" size={13} />
@@ -741,6 +731,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => goHistory(1)}
         >
           <Icon name="chev-left" size={15} className="flip-x" />
+        </button>
+        <button
+          type="button"
+          className={"sb-nav-btn sb-nav-home" + (homeActive ? " active" : "")}
+          title={t("home")}
+          onClick={onGoHome}
+        >
+          <Icon name="home" size={15} />
         </button>
       </div>
       <div className="sb-search">

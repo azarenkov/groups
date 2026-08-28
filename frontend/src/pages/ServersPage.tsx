@@ -36,7 +36,6 @@ import { homeAPI } from "../api/home";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import HomeView from "../components/rift/HomeView";
 import { colorForId, initialFor } from "../utils/avatar";
-import { PERM_MANAGE_CHANNELS, useRolesStore, userPermissions } from "../store/rolesStore";
 import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
 import { ApiError } from "../utils/apiError";
@@ -860,56 +859,6 @@ const ServersPage: React.FC = () => {
     cs.start([friendId]).catch((e) => console.warn("[call] start failed:", e));
   };
 
-  const rolesByServer = useRolesStore((st) => st.byServer);
-  const fetchRoles = useRolesStore((st) => st.fetch);
-  const isRolesTracked = useRolesStore((st) => st.isTracked);
-  React.useEffect(() => {
-    if (!tokens?.accessToken || !homeActive || !user?.id) return;
-    const userId = user.id;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let attempt = 0;
-    const load = async () => {
-      const pending = servers.filter(
-        (server) => server.ownerId !== userId && !isRolesTracked(server.id),
-      );
-      if (pending.length === 0) return;
-      const results = await Promise.allSettled(
-        pending.map((server) => fetchRoles(server.id)),
-      );
-      if (cancelled || results.every((r) => r.status === "fulfilled")) return;
-      attempt += 1;
-      timer = setTimeout(() => void load(), Math.min(30000, 2000 * 2 ** attempt));
-    };
-    void load();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [tokens?.accessToken, homeActive, user?.id, servers, fetchRoles, isRolesTracked]);
-  const canManageChannelsIn = (server: Server) =>
-    !!user?.id &&
-    (server.ownerId === user.id ||
-      (userPermissions(rolesByServer[server.id], user.id) &
-        PERM_MANAGE_CHANNELS) !==
-        0);
-  const roomCreationTargets = servers.filter(canManageChannelsIn);
-  const canCreateRoom = servers.length === 0 || roomCreationTargets.length > 0;
-
-  const handleNewRoom = () => {
-    if (servers.length === 0) {
-      setServerModalView("choose");
-      setIsServerModalOpen(true);
-      return;
-    }
-    const recent = homeOverview?.recentRooms.find((r) =>
-      roomCreationTargets.some((s) => s.id === r.serverId),
-    );
-    const target = recent?.serverId ?? roomCreationTargets[0]?.id;
-    if (!target) return;
-    setChannelModal({ serverId: target, kind: "voice" });
-  };
-
   const voiceMembersByChannel: Record<
     string,
     {
@@ -1057,8 +1006,7 @@ const ServersPage: React.FC = () => {
                     console.warn("[home] ignore request failed:", err);
                   })
                 }
-                onNewRoom={handleNewRoom}
-                canCreateRoom={canCreateRoom}
+                onAddFriend={() => setIsAddFriendOpen(true)}
               />
             ) : selectedDm ? (
               <ChatView
