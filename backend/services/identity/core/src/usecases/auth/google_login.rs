@@ -6,6 +6,7 @@ use domain::{password_hash::PasswordHash, user::id::UserId, user::name::Reserved
 use ports::repository::RepositoryError;
 
 use crate::{
+    usecases::auth::reactivation::wait_past_cutoff,
     dto::requests::{
         auth::{google_complete::GoogleCompleteRequest, google_login::GoogleLoginRequest},
         client_context::ClientContext,
@@ -330,25 +331,8 @@ where
         client: ClientContext,
         request_id: Option<String>,
     ) -> Result<IssuedTokens, GoogleLoginError> {
-        let tokens = self.token_issuer.issue(&user_id, true).await?;
-
-        let refresh_token = RefreshToken::issue(
-            tokens.refresh_token_id,
-            user_id,
-            tokens.refresh_token_expires_at,
-            client.ip.clone(),
-            client.user_agent.clone(),
-        );
-
-        let event = UserEvent::LoggedIn(UserLoggedIn::record(
-            user_id,
-            tokens.refresh_token_id,
-            client.ip,
-            client.user_agent,
-            Utc::now(),
-        ));
         let mut tx = self.unit_of_work.begin().await?;
-        let mut events = vec![IdentityEvent::from(event)];
+        let mut events = Vec::new();
         let mut locked = tx
             .load_user_for_update(&user_id)
             .await?
@@ -356,11 +340,28 @@ where
         if locked.is_deleted() {
             return Err(GoogleLoginError::AccountDeleted);
         }
-        if locked.is_disabled() {
+        if let Some(disabled_at) = locked.disabled_at() {
             locked.reactivate(Utc::now());
             events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
             tx.save_user(&locked).await?;
+            wait_past_cutoff(disabled_at).await;
         }
+
+        let tokens = self.token_issuer.issue(&user_id, true).await?;
+        let refresh_token = RefreshToken::issue(
+            tokens.refresh_token_id,
+            user_id,
+            tokens.refresh_token_expires_at,
+            client.ip.clone(),
+            client.user_agent.clone(),
+        );
+        events.push(IdentityEvent::from(UserEvent::LoggedIn(UserLoggedIn::record(
+            user_id,
+            tokens.refresh_token_id,
+            client.ip,
+            client.user_agent,
+            Utc::now(),
+        ))));
         tx.insert_refresh_token(&refresh_token).await?;
         tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;

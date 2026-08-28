@@ -87,8 +87,8 @@ where
         tx.delete_oauth_identities(&user_id).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
         tx.save_events(&events, request_id).await?;
-        tx.commit().await?;
         self.access_revoker.revoke_access_issued_before(&user_id, now).await?;
+        tx.commit().await?;
         Ok(())
     }
 }

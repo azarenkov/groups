@@ -127,8 +127,8 @@ where
         );
         tx.insert_refresh_token(&refresh_token).await?;
         tx.save_events(&events, request.request_id.as_deref()).await?;
-        tx.commit().await?;
         self.access_revoker.revoke_access_issued_before(&user_id, cutoff).await?;
+        tx.commit().await?;
         Ok(tokens)
     }
 }
