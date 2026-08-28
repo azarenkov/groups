@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use chrono::Utc;
 use domain::channel::webhook_source::WebhookSource;
-use messaging_domain::{channel::events::participant::ConnectionAbortReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::repository::ChannelRepository, channel::repository::VoiceParticipantRow};
+use messaging_domain::{channel::events::participant::ConnectionAbortReason, channel::events::participant::MediaSource, channel::id::ChannelId, channel::repository::ChannelRepository, channel::repository::VoiceParticipantRow, channel::unit_of_work::ChannelUnitOfWork};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -48,29 +48,31 @@ struct TrackCorrection {
     enabled: bool,
 }
 
-pub struct ReconcileVoicePresence<C, I>
+pub struct ReconcileVoicePresence<C, W, I>
 where
     C: ChannelRepository,
+    W: ChannelUnitOfWork,
     I: VoiceRoomInspector,
 {
     channel_repository: Arc<C>,
     inspector: Arc<I>,
-    abort: Arc<AbortVoiceConnection<C>>,
-    track: Arc<TrackMediaConnection<C>>,
+    abort: Arc<AbortVoiceConnection<W>>,
+    track: Arc<TrackMediaConnection<W>>,
     grace: Duration,
     max_aborts_per_pass: usize,
 }
 
-impl<C, I> ReconcileVoicePresence<C, I>
+impl<C, W, I> ReconcileVoicePresence<C, W, I>
 where
     C: ChannelRepository,
+    W: ChannelUnitOfWork,
     I: VoiceRoomInspector,
 {
     pub fn new(
         channel_repository: Arc<C>,
         inspector: Arc<I>,
-        abort: Arc<AbortVoiceConnection<C>>,
-        track: Arc<TrackMediaConnection<C>>,
+        abort: Arc<AbortVoiceConnection<W>>,
+        track: Arc<TrackMediaConnection<W>>,
         grace: Duration,
         max_aborts_per_pass: usize,
     ) -> Self {

@@ -25,7 +25,7 @@ impl From<PolicyError> for MuteChannelError {
     fn from(err: PolicyError) -> Self {
         match err {
             PolicyError::TargetNotMember => MuteChannelError::TargetUserNotFound,
-            _ => MuteChannelError::Domain(ChannelError::NotOwner),
+            _ => MuteChannelError::Domain(ChannelError::NotAllowed),
         }
     }
 }
@@ -64,7 +64,7 @@ where
         let channel_id = ChannelId::new(request.channel_id);
         let target = UserId::new(request.target_user_id);
 
-        let mut channel = self
+        let channel = self
             .channel_repository
             .find_channel_by_id(&channel_id)
             .await?;
@@ -86,18 +86,13 @@ where
         let server_id = ServerId::new(request.server_id);
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let server = tx.load_server().await?;
-        server.ensure_can_mute(&initiator, &target)?;
+        let grant = server.ensure_can_mute(&initiator, &target)?;
 
-        let moderator_mute = target != initiator;
-        channel.mute(target, initiator, moderator_mute, now)?;
+        let mut channel = tx.load_channel(&channel_id).await?;
+        channel.mute(target, initiator, grant, now)?;
         let events: Vec<MessagingEvent> = channel.pull_events().into_iter().map(MessagingEvent::from).collect();
-
-        if !tx
-            .mute_participant(&channel_id, &target, &initiator, now, !moderator_mute)
-            .await?
-        {
-            return Err(MuteChannelError::Domain(ChannelError::AlreadyMuted));
-        }
+        tx.save_mute_state(&channel_id, &target, channel.mute_record(&target))
+            .await?;
         tx.save_events(&events, request.ctx.request_id.as_deref()).await?;
         tx.commit().await?;
         Ok(())

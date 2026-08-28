@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use domain::user::id::UserId;
 use futures::{StreamExt, stream};
-use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::moderation::Publication, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
@@ -59,11 +59,15 @@ where
         let mut actions = Vec::with_capacity(voice_channel_ids.len());
         if server.is_member(&user_id) {
             for channel_id in voice_channel_ids {
-                let moderator_muted = tx
-                    .participant_muted_by(&channel_id, &user_id)
-                    .await?
-                    .is_some_and(|muted_by| muted_by != user_id);
-                actions.push((channel_id, if moderator_muted { VoiceAction::Mute } else { VoiceAction::Unmute }));
+                let action = match tx.load_channel(&channel_id).await {
+                    Ok(channel) => match channel.publication_for(&user_id) {
+                        Publication::Restricted => VoiceAction::Mute,
+                        Publication::Full => VoiceAction::Unmute,
+                    },
+                    Err(RepositoryError::NotFound) => continue,
+                    Err(e) => return Err(e.into()),
+                };
+                actions.push((channel_id, action));
             }
         } else {
             actions.extend(voice_channel_ids.into_iter().map(|c| (c, VoiceAction::Remove)));

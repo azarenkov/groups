@@ -76,9 +76,9 @@ where
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let server = tx.load_server().await?;
-        server.ensure_can_manage_channels(&deleted_by)?;
-        channel.delete(deleted_by, true, now).map_err(|e| match e {
-            ChannelError::NotOwner => DeleteChannelError::NotOwner,
+        let grant = server.ensure_can_manage_channels(&deleted_by)?;
+        channel.delete(deleted_by, grant, now).map_err(|e| match e {
+            ChannelError::NotAllowed => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;
 

@@ -1760,7 +1760,7 @@ impl HttpMapping for ChannelError {
             ChannelError::PrivateChannelRequiresPassword
             | ChannelError::PublicChannelCannotHavePassword
             | ChannelError::NameUnchanged => StatusCode::BAD_REQUEST,
-            ChannelError::NotOwner => StatusCode::FORBIDDEN,
+            ChannelError::NotAllowed => StatusCode::FORBIDDEN,
             ChannelError::AlreadyMuted | ChannelError::NotMuted => StatusCode::CONFLICT,
             ChannelError::VoiceNotSupported | ChannelError::TextNotSupported => {
                 StatusCode::BAD_REQUEST
@@ -1778,7 +1778,7 @@ impl HttpMapping for ChannelError {
                 "Public channel cannot have a password".to_string()
             }
             ChannelError::NameUnchanged => "Channel name is unchanged".to_string(),
-            ChannelError::NotOwner => "Only the channel owner can perform this action".to_string(),
+            ChannelError::NotAllowed => "You are not allowed to perform this channel action".to_string(),
             ChannelError::AlreadyMuted => "Participant is already muted".to_string(),
             ChannelError::NotMuted => "Participant is not muted".to_string(),
             ChannelError::VoiceNotSupported => {
@@ -1798,7 +1798,7 @@ impl HttpMapping for ChannelError {
             ChannelError::PrivateChannelRequiresPassword => "CHANNEL_PASSWORD_REQUIRED",
             ChannelError::PublicChannelCannotHavePassword => "CHANNEL_PASSWORD_NOT_ALLOWED",
             ChannelError::NameUnchanged => "CHANNEL_NAME_UNCHANGED",
-            ChannelError::NotOwner => "CHANNEL_NOT_OWNER",
+            ChannelError::NotAllowed => "CHANNEL_NOT_ALLOWED",
             ChannelError::AlreadyMuted => "PARTICIPANT_ALREADY_MUTED",
             ChannelError::NotMuted => "PARTICIPANT_NOT_MUTED",
             ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",

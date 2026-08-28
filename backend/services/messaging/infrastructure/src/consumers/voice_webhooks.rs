@@ -35,15 +35,17 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto};
 use domain::channel::webhook_source::WebhookSource;
 
-pub fn spawn<T, S, V>(
+pub fn spawn<T, W, S, V>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
     channel_repository: Arc<T>,
+    channel_unit_of_work: Arc<W>,
     server_repository: Arc<S>,
     voice_service: Arc<V>,
 ) where
     T: ChannelRepository + Send + Sync + 'static,
+    W: messaging_domain::channel::unit_of_work::ChannelUnitOfWork + Send + Sync + 'static,
     S: messaging_domain::server::repository::ServerRepository + Send + Sync + 'static,
     V: messaging::ports::voice_service::VoiceService + Send + Sync + 'static,
 {
@@ -55,10 +57,10 @@ pub fn spawn<T, S, V>(
             server_repository.clone(),
             voice_service.clone(),
         );
-        let join_uc = JoinVoiceConnection::new(channel_repository.clone());
-        let abort_uc = AbortVoiceConnection::new(channel_repository.clone());
-        let leave_uc = LeaveVoiceConnection::new(channel_repository.clone());
-        let track_uc = TrackMediaConnection::new(channel_repository.clone());
+        let join_uc = JoinVoiceConnection::new(channel_unit_of_work.clone());
+        let abort_uc = AbortVoiceConnection::new(channel_unit_of_work.clone());
+        let leave_uc = LeaveVoiceConnection::new(channel_unit_of_work.clone());
+        let track_uc = TrackMediaConnection::new(channel_unit_of_work.clone());
         loop {
             let opts = SubscribeOptions {
                 consumer_name: "messaging-voice-webhooks".to_string(),
@@ -150,18 +152,19 @@ fn webhook_kind(subject: &str) -> Option<WebhookKind> {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn apply<T, S, V>(
+async fn apply<T, W, S, V>(
     kind: WebhookKind,
     payload: &[u8],
     request_id: Option<String>,
-    join_uc: &JoinVoiceConnection<T>,
-    abort_uc: &AbortVoiceConnection<T>,
-    leave_uc: &LeaveVoiceConnection<T>,
-    track_uc: &TrackMediaConnection<T>,
+    join_uc: &JoinVoiceConnection<W>,
+    abort_uc: &AbortVoiceConnection<W>,
+    leave_uc: &LeaveVoiceConnection<W>,
+    track_uc: &TrackMediaConnection<W>,
     admit_uc: &AdmitVoiceParticipant<T, S, V>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     T: ChannelRepository + Send + Sync,
+    W: messaging_domain::channel::unit_of_work::ChannelUnitOfWork + Send + Sync,
     S: messaging_domain::server::repository::ServerRepository + Send + Sync,
     V: messaging::ports::voice_service::VoiceService + Send + Sync,
 {

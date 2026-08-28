@@ -2,16 +2,21 @@ pub use domain::channel::{id, session_id, token};
 
 pub mod events;
 pub mod kind;
+pub mod moderation;
 pub mod name;
 pub mod participant_mute;
 pub mod repository;
+pub mod unit_of_work;
 pub mod visibility;
+
+#[cfg(test)]
+mod tests;
 
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 
-use crate::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, channel::visibility::ChannelVisibility, server::id::ServerId};
+use crate::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::moderation::ModerationGrant, channel::moderation::Publication, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, channel::visibility::ChannelVisibility, server::id::ServerId};
 use domain::{password_hash::PasswordHash, user::id::UserId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,7 +25,7 @@ pub enum UnmuteOutcome {
     DowngradedToSelfMute,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ChannelError {
     #[error("Private channel requires a password")]
     PrivateChannelRequiresPassword,
@@ -28,8 +33,8 @@ pub enum ChannelError {
     PublicChannelCannotHavePassword,
     #[error("Channel name unchanged")]
     NameUnchanged,
-    #[error("Channel deleting requires owner")]
-    NotOwner,
+    #[error("Not allowed to perform this channel action")]
+    NotAllowed,
     #[error("Participant not muted")]
     NotMuted,
     #[error("Participant already muted")]
@@ -217,11 +222,11 @@ impl Channel {
     pub fn delete(
         &mut self,
         deleted_by: UserId,
-        can_override: bool,
+        grant: ModerationGrant,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
-        if !can_override {
-            return Err(ChannelError::NotOwner);
+        if !grant.overrides_others() {
+            return Err(ChannelError::NotAllowed);
         }
 
         self.record(ChannelEvent::Deleted(ChannelDeleted::record(
@@ -527,11 +532,11 @@ impl Channel {
         &mut self,
         target: UserId,
         initiator: UserId,
-        can_override: bool,
+        grant: ModerationGrant,
         now: DateTime<Utc>,
     ) -> Result<(), ChannelError> {
-        if target != initiator && !can_override {
-            return Err(ChannelError::NotOwner);
+        if target != initiator && !grant.overrides_others() {
+            return Err(ChannelError::NotAllowed);
         }
         let muted = self
             .muted_participants
@@ -563,7 +568,7 @@ impl Channel {
         &mut self,
         target: UserId,
         initiator: UserId,
-        can_override: bool,
+        grant: ModerationGrant,
         now: DateTime<Utc>,
     ) -> Result<UnmuteOutcome, ChannelError> {
         let muted = self
@@ -574,8 +579,8 @@ impl Channel {
 
         let is_self_unmute_of_self_mute = target == initiator && mute_record.muted_by == initiator;
 
-        if !is_self_unmute_of_self_mute && !can_override {
-            return Err(ChannelError::NotOwner);
+        if !is_self_unmute_of_self_mute && !grant.overrides_others() {
+            return Err(ChannelError::NotAllowed);
         }
 
         let keeps_self_mute =
@@ -609,6 +614,17 @@ impl Channel {
 
     pub fn muted_participants_list(&self) -> impl Iterator<Item = &ParticipantMute> {
         self.muted_participants.iter().flat_map(|m| m.values())
+    }
+
+    pub fn mute_record(&self, user_id: &UserId) -> Option<&ParticipantMute> {
+        self.muted_participants.as_ref().and_then(|m| m.get(user_id))
+    }
+
+    pub fn publication_for(&self, user_id: &UserId) -> Publication {
+        match self.mute_record(user_id) {
+            Some(record) if record.muted_by != *user_id => Publication::Restricted,
+            _ => Publication::Full,
+        }
     }
 
     pub fn requires_password(&self) -> bool {
@@ -702,4 +718,3 @@ impl Channel {
         self.text_participants.as_ref()
     }
 }
-pub mod unit_of_work;
