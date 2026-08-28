@@ -75,7 +75,6 @@ where
         }
         self.reauthenticator.verify(&user, reauth).await?;
 
-        let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
         let snapshot = user;
         let mut user = tx
@@ -87,6 +86,7 @@ where
         {
             self.reauthenticator.verify(&user, reauth).await?;
         }
+        let now = Utc::now();
         user.delete(now).map_err(|_| DeleteAccountError::UserNotFound)?;
         let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         tx.save_user(&user).await?;

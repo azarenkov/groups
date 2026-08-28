@@ -117,11 +117,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_state_lookup.clone(),
         ),
         confirm_registration_usecase: ConfirmRegistration::new(hasher.clone(), unit_of_work.clone()),
-        refresh_tokens_usecase: RefreshTokens::new(
-            unit_of_work.clone(),
-            user_repository.clone(),
-            token_issuer.clone(),
-        ),
+        refresh_tokens_usecase: RefreshTokens::new(unit_of_work.clone(), token_issuer.clone()),
         logout_usecase: Logout::new(unit_of_work.clone(), token_issuer.clone()),
         search_users_usecase: SearchUsers::new(user_repository.clone()),
         get_me_usecase: GetMe::new(user_repository.clone()),

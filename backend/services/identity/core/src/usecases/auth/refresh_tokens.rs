@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::RefreshToken, refresh_token::RefreshTokenError, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
+use identity_domain::{refresh_token::RefreshToken, refresh_token::RefreshTokenError, unit_of_work::IdentityUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -37,27 +37,23 @@ impl From<RefreshTokenError> for RefreshTokensError {
     }
 }
 
-pub struct RefreshTokens<W, U, I>
+pub struct RefreshTokens<W, I>
 where
     W: IdentityUnitOfWork,
-    U: UserRepository,
     I: TokenIssuer,
 {
     unit_of_work: Arc<W>,
-    user_repository: Arc<U>,
     token_issuer: Arc<I>,
 }
 
-impl<W, U, I> RefreshTokens<W, U, I>
+impl<W, I> RefreshTokens<W, I>
 where
     W: IdentityUnitOfWork,
-    U: UserRepository,
     I: TokenIssuer,
 {
-    pub fn new(unit_of_work: Arc<W>, user_repository: Arc<U>, token_issuer: Arc<I>) -> Self {
+    pub fn new(unit_of_work: Arc<W>, token_issuer: Arc<I>) -> Self {
         Self {
             unit_of_work,
-            user_repository,
             token_issuer,
         }
     }
@@ -67,26 +63,25 @@ where
         request: RefreshTokensRequest,
     ) -> Result<IssuedTokens, RefreshTokensError> {
         let decoded = self.token_issuer.decode_refresh(&request.refresh_token)?;
-        let user = self
-            .user_repository
-            .find_by_id(&decoded.user_id)
+
+        let mut tx = self.unit_of_work.begin().await?;
+        let user = tx
+            .load_user_for_update(&decoded.user_id)
             .await?
             .ok_or(RefreshTokensError::UserNotFound)?;
         if user.is_deleted() || user.is_disabled() {
             return Err(RefreshTokensError::UserNotFound);
         }
-        let tokens = self
-            .token_issuer
-            .issue(&decoded.user_id, user.is_verified())
-            .await?;
-
         let now = Utc::now();
-        let mut tx = self.unit_of_work.begin().await?;
         let mut refresh_token = tx
             .load_refresh_token_for_update(&decoded.refresh_token_id)
             .await?
             .ok_or(RefreshTokensError::RefreshTokenNotFound)?;
         refresh_token.rotate(&decoded.user_id, now)?;
+        let tokens = self
+            .token_issuer
+            .issue(&decoded.user_id, user.is_verified())
+            .await?;
         let new_refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,
             decoded.user_id,

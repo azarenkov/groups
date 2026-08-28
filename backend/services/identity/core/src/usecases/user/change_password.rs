@@ -104,8 +104,6 @@ where
         }
         let new_hash = PasswordHash::new(self.hasher.hash(&request.new_password)?);
 
-        let now = Utc::now();
-        let cutoff = now;
         let snapshot = user;
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
@@ -120,6 +118,8 @@ where
         {
             self.reauthenticator.verify(&user, &request.reauth).await?;
         }
+        let now = Utc::now();
+        let cutoff = now;
         user.change_password(new_hash, now);
         let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         tx.save_user(&user).await?;

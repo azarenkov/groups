@@ -54,7 +54,7 @@ pub struct AppState {
     >,
     pub confirm_registration_usecase: ConfirmRegistration<BcryptHasher, PostgresIdentityUnitOfWork>,
     pub refresh_tokens_usecase:
-        RefreshTokens<PostgresIdentityUnitOfWork, PostgresUserRepository, JwtTokenIssuer>,
+        RefreshTokens<PostgresIdentityUnitOfWork, JwtTokenIssuer>,
     pub logout_usecase: Logout<PostgresIdentityUnitOfWork, JwtTokenIssuer>,
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
