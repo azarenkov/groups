@@ -35,6 +35,8 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onAddFriend: () => void;
   onOpenPending: () => void;
+  onGoHome: () => void;
+  homeActive: boolean;
   pendingCount: number;
   onCreateServer: () => void;
   onJoinServer: () => void;
@@ -91,6 +93,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onAddFriend,
   onOpenPending,
+  onGoHome,
+  homeActive,
   pendingCount,
   onCreateServer,
   onJoinServer,
@@ -332,6 +336,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="sb-view">
       {!isFiltering && (
         <>
+          <button
+            type="button"
+            className={"sb-add-row home-nav" + (homeActive ? " active" : "")}
+            onClick={onGoHome}
+          >
+            <span className="sb-add-row-ico">
+              <Icon name="home" size={13} />
+            </span>
+            <span>{t("home")}</span>
+          </button>
           <button type="button" className="sb-add-row" onClick={onAddFriend}>
             <span className="sb-add-row-ico">
               <Icon name="user-plus" size={13} />

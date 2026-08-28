@@ -40,6 +40,7 @@
   "textChannels": "Text channels",
   "voiceChannels": "Voice channels",
   "noChannels": "No channels yet",
+  "home": "Home",
   "muteMember": "Mute",
   "unmuteMember": "Unmute"
 }
