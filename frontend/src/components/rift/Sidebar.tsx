@@ -839,17 +839,19 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div id="voice-dock-slot" className="sb-voice-dock" />
 
+      {openServerId && (
+        <button
+          type="button"
+          className="sb-footer-back"
+          onClick={() => setOpenServerId(null)}
+        >
+          <span className="sb-footer-back-ico">
+            <Icon name="chev-left" size={13} />
+          </span>
+          <span>{t("backToServers")}</span>
+        </button>
+      )}
       <div className="sb-footer">
-        {openServerId && (
-          <button
-            type="button"
-            className="sb-footer-back"
-            onClick={() => setOpenServerId(null)}
-          >
-            <Icon name="chev-left" size={14} />
-            <span>{t("backToServers")}</span>
-          </button>
-        )}
         <div className="user-pill">
           <UserAvatar
             userId={currentUserId}
