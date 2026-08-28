@@ -341,10 +341,10 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
 }
 .sb-dm-sub.unread { color: var(--fg-2); }
 .sb-dm-badge {
-  flex: 0 0 auto; min-width: 20px; height: 20px; padding: 0 6px;
-  border-radius: 10px; background: var(--accent); color: #fff;
-  font-size: 12px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; min-width: 20px; height: 18px; padding: 0 6px;
+  border-radius: 999px; background: var(--accent); color: #fff;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 
 /* ---- Server rows ---- */
@@ -691,12 +691,12 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
 
 .sb-add-row-badge {
   margin-left: auto;
-  min-width: 18px; height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  min-width: 20px; height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
   background: var(--accent);
   color: #fff;
-  font-size: 11px; font-weight: 700;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center; justify-content: center;
 }
 
