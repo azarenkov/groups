@@ -96,6 +96,13 @@ where
         if locked.is_deleted() {
             return Err(LoginError::InvalidCredentials);
         }
+        if locked.password_hash().as_str() != user.password_hash().as_str()
+            && !self
+                .hasher
+                .verify(&request.password, locked.password_hash().as_str())?
+        {
+            return Err(LoginError::InvalidCredentials);
+        }
         if let Some(disabled_at) = locked.disabled_at() {
             locked.reactivate(Utc::now());
             events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));

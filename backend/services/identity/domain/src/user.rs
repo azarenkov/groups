@@ -342,6 +342,14 @@ impl User {
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
     }
 
+    pub fn claim_with_oauth(&mut self, password_hash: PasswordHash, now: DateTime<Utc>) {
+        self.password_hash = password_hash;
+        self.updated_at = now;
+        if self.email_verified_at.is_none() {
+            self.verify_email(now);
+        }
+    }
+
     pub fn verify_email(&mut self, now: DateTime<Utc>) {
         self.email_verified_at = Some(now);
         self.record(UserEvent::EmailVerified(UserEmailVerified::record(

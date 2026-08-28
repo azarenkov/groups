@@ -48,6 +48,13 @@ pub enum GoogleLoginError {
     StateLookupUnavailable(#[from] UserStateLookupError),
 }
 
+struct OAuthLink<'a> {
+    provider: &'a str,
+    subject: String,
+    email: Email,
+    claim_password: Option<PasswordHash>,
+}
+
 pub enum GoogleLoginOutcome {
     Authenticated(IssuedTokens),
     NeedsUsername,
@@ -129,7 +136,7 @@ where
         {
             self.ensure_linked_user_active(&user_id).await?;
             let tokens = self
-                .issue_session(user_id, request.client, request.ctx.request_id)
+                .issue_session(user_id, request.client, request.ctx.request_id, None)
                 .await?;
             return Ok(GoogleLoginOutcome::Authenticated(tokens));
         }
@@ -150,10 +157,8 @@ where
                     return Err(GoogleLoginError::AccountConflict);
                 }
 
-                if user.is_email_verified() {
-                    self.user_repository
-                        .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
-                        .await?;
+                let claim_password = if user.is_email_verified() {
+                    None
                 } else {
                     if self
                         .user_state_lookup
@@ -163,21 +168,21 @@ where
                         return Err(GoogleLoginError::AccountConflict);
                     }
                     let random_secret = uuid::Uuid::new_v4().to_string();
-                    let password_hash = PasswordHash::new(self.hasher.hash(&random_secret)?);
-                    self.user_repository
-                        .claim_with_oauth(
-                            &user_id,
-                            &password_hash,
-                            Utc::now(),
-                            provider_str,
-                            &identity.subject,
-                            &email,
-                        )
-                        .await?;
-                }
+                    Some(PasswordHash::new(self.hasher.hash(&random_secret)?))
+                };
 
                 let tokens = self
-                    .issue_session(user_id, request.client, request.ctx.request_id)
+                    .issue_session(
+                        user_id,
+                        request.client,
+                        request.ctx.request_id,
+                        Some(OAuthLink {
+                            provider: provider_str,
+                            subject: identity.subject.clone(),
+                            email: email.clone(),
+                            claim_password,
+                        }),
+                    )
                     .await?;
                 Ok(GoogleLoginOutcome::Authenticated(tokens))
             }
@@ -207,7 +212,7 @@ where
         {
             self.ensure_linked_user_active(&user_id).await?;
             return self
-                .issue_session(user_id, request.client, request.ctx.request_id)
+                .issue_session(user_id, request.client, request.ctx.request_id, None)
                 .await;
         }
 
@@ -285,6 +290,12 @@ where
         let persisted = async {
             let mut tx = self.unit_of_work.begin().await?;
             tx.insert_user(&user).await?;
+            if !tx
+                .link_oauth_identity(identity.provider.as_str(), &identity.subject, &user_id, &email)
+                .await?
+            {
+                return Err(RepositoryError::AlreadyExists);
+            }
             tx.insert_refresh_token(&refresh_token).await?;
             tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
@@ -300,15 +311,6 @@ where
             }
             Err(e) => return Err(e.into()),
         }
-
-        self.user_repository
-            .link_oauth_identity(
-                identity.provider.as_str(),
-                &identity.subject,
-                &user_id,
-                &email,
-            )
-            .await?;
 
         Ok(tokens)
     }
@@ -330,6 +332,7 @@ where
         user_id: UserId,
         client: ClientContext,
         request_id: Option<String>,
+        link: Option<OAuthLink<'_>>,
     ) -> Result<IssuedTokens, GoogleLoginError> {
         let mut tx = self.unit_of_work.begin().await?;
         let mut events = Vec::new();
@@ -339,6 +342,19 @@ where
             .ok_or(GoogleLoginError::AccountDeleted)?;
         if locked.is_deleted() {
             return Err(GoogleLoginError::AccountDeleted);
+        }
+        if let Some(link) = link {
+            if let Some(password_hash) = link.claim_password {
+                locked.claim_with_oauth(password_hash, Utc::now());
+                events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
+                tx.save_user(&locked).await?;
+            }
+            if !tx
+                .link_oauth_identity(link.provider, &link.subject, &user_id, &link.email)
+                .await?
+            {
+                return Err(GoogleLoginError::AccountConflict);
+            }
         }
         if let Some(disabled_at) = locked.disabled_at() {
             locked.reactivate(Utc::now());

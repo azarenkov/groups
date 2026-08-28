@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
@@ -218,6 +218,24 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                 row.created_at,
             )
         }))
+    }
+
+    async fn link_oauth_identity(&mut self, provider: &str, subject: &str, user_id: &UserId, email: &Email) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                INSERT INTO oauth_identities (provider, subject, user_id, email)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (provider, subject) DO NOTHING
+            "#,
+            provider,
+            subject,
+            user_id.uuid(),
+            email.as_str(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(result.rows_affected() > 0)
     }
 
     async fn delete_oauth_identities(&mut self, user_id: &UserId) -> Result<(), RepositoryError> {
