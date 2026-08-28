@@ -187,11 +187,16 @@ const ServersPage: React.FC = () => {
         unread: 0,
         lastMessage: previewText(dmPreviews[f.friendId]),
         isFriend: true,
+        friendship: "accepted" as const,
       }));
     const known = new Set(items.map((d) => d.id));
+    const pendingById = new Map(
+      friends.filter((f) => f.status !== "accepted").map((f) => [f.friendId, f] as const),
+    );
     for (const [peerId, p] of Object.entries(dmPreviews)) {
       if (known.has(peerId) || !p.peerName) continue;
-      const name = nameOverrides[peerId] ?? p.peerName;
+      const pending = pendingById.get(peerId);
+      const name = nameOverrides[peerId] ?? pending?.friendName ?? p.peerName;
       items.push({
         id: peerId,
         name,
@@ -201,6 +206,10 @@ const ServersPage: React.FC = () => {
         unread: 0,
         lastMessage: previewText(p),
         isFriend: false,
+        friendship:
+          pending?.status === "pending_outgoing" || pending?.status === "pending_incoming"
+            ? pending.status
+            : "none",
       });
     }
     return items;
@@ -210,10 +219,15 @@ const ServersPage: React.FC = () => {
     if (!selectedDm) return;
     const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
     if (!fresh) return;
-    if (fresh.name === selectedDm.name && fresh.isFriend === selectedDm.isFriend) return;
+    if (
+      fresh.name === selectedDm.name &&
+      fresh.isFriend === selectedDm.isFriend &&
+      fresh.friendship === selectedDm.friendship
+    )
+      return;
     setSelectedDm((prev) =>
       prev && prev.id === fresh.id
-        ? { ...prev, name: fresh.name, initials: fresh.initials, isFriend: fresh.isFriend }
+        ? { ...prev, name: fresh.name, initials: fresh.initials, isFriend: fresh.isFriend, friendship: fresh.friendship }
         : prev,
     );
   }, [acceptedFriends, selectedDm]);
@@ -1019,6 +1033,7 @@ const ServersPage: React.FC = () => {
                   color: selectedDm.color,
                   online: selectedDm.isFriend !== false && !!onlineUsers[selectedDm.id],
                   isFriend: selectedDm.isFriend !== false,
+                  friendship: selectedDm.friendship ?? "accepted",
                 }}
                 currentUserId={user?.id}
                 servers={servers}

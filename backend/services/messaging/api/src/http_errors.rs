@@ -1537,21 +1537,16 @@ impl HttpMapping for MarkDmReadError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MarkDmReadError::Repository(e) => e.to_http_status(),
-            MarkDmReadError::NotFriends => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             MarkDmReadError::Repository(e) => e.to_user_message(),
-            MarkDmReadError::NotFriends => {
-                "You are not friends with this user".to_string()
-            }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             MarkDmReadError::Repository(e) => e.to_error_code(),
-            MarkDmReadError::NotFriends => "NOT_FRIENDS",
         }
     }
 }
@@ -1578,21 +1573,16 @@ impl HttpMapping for GetDmReadReceiptError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_http_status(),
-            GetDmReadReceiptError::NotFriends => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_user_message(),
-            GetDmReadReceiptError::NotFriends => {
-                "You are not friends with this user".to_string()
-            }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_error_code(),
-            GetDmReadReceiptError::NotFriends => "NOT_FRIENDS",
         }
     }
 }

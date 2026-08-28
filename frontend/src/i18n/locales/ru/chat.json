@@ -74,5 +74,9 @@
   "editCaptionPlaceholder": "Подпись к файлам (необязательно)",
   "editRemoveAttachment": "Открепить вложение",
   "editConfirm": "Сохранить изменения",
-  "notFriendsNotice": "Вы больше не в друзьях с {{user}}. Добавьте снова, чтобы продолжить переписку."
+  "notFriendsNotice": "Вы больше не в друзьях с {{user}}. Добавьте снова, чтобы продолжить переписку.",
+  "friendRequestPending": "Вы отправили заявку {{user}}. Чат откроется после принятия.",
+  "friendRequestSent": "Заявка отправлена",
+  "friendRequestIncoming": "{{user}} отправил(а) вам заявку в друзья.",
+  "acceptFriendRequest": "Принять"
 }

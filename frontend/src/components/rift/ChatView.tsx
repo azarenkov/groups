@@ -112,6 +112,7 @@ interface DmMeta {
   color: string;
   online: boolean;
   isFriend?: boolean;
+  friendship?: "accepted" | "pending_outgoing" | "pending_incoming" | "none";
 }
 
 interface PendingFile {
@@ -1711,20 +1712,47 @@ const ChatView: React.FC<ChatViewProps> = ({
       </div>
       {!callMode && dm && dm.isFriend === false && (
         <div className="composer-locked">
-          <span className="composer-locked-text">{t("notFriendsNotice", { user: dm.name })}</span>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() =>
-              useFriendshipStore
-                .getState()
-                .sendRequest(dm.name)
-                .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
-            }
-          >
-            <Icon name="user-plus" size={13} />
-            {t("addFriend")}
-          </button>
+          <span className="composer-locked-text">
+            {dm.friendship === "pending_outgoing"
+              ? t("friendRequestPending", { user: dm.name })
+              : dm.friendship === "pending_incoming"
+                ? t("friendRequestIncoming", { user: dm.name })
+                : t("notFriendsNotice", { user: dm.name })}
+          </span>
+          {dm.friendship === "pending_outgoing" ? (
+            <button type="button" className="btn" disabled>
+              <Icon name="check" size={13} />
+              {t("friendRequestSent")}
+            </button>
+          ) : dm.friendship === "pending_incoming" ? (
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() =>
+                useFriendshipStore
+                  .getState()
+                  .accept(dm.friendId)
+                  .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
+              }
+            >
+              <Icon name="check" size={13} />
+              {t("acceptFriendRequest")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() =>
+                useFriendshipStore
+                  .getState()
+                  .sendRequest(dm.name)
+                  .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
+              }
+            >
+              <Icon name="user-plus" size={13} />
+              {t("addFriend")}
+            </button>
+          )}
           {composerError && <div className="composer-error">{composerError}</div>}
         </div>
       )}

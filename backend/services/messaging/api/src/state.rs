@@ -147,10 +147,10 @@ pub struct AppState {
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:
-        MarkDmRead<PostgresReadStateRepository, PostgresFriendshipRepository>,
+        MarkDmRead<PostgresReadStateRepository>,
     pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
     pub get_dm_read_receipt_usecase:
-        GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
+        GetDmReadReceipt<PostgresReadStateRepository>,
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
     pub list_roles_usecase: ListRoles<PostgresServerRepository, PostgresServerRoleRepository>,

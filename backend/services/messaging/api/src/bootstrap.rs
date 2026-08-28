@@ -269,15 +269,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             read_state_repository.clone(),
             channel_repository.clone(),
         ),
-        mark_dm_read_usecase: MarkDmRead::new(
-            read_state_repository.clone(),
-            friendship_repository.clone(),
-        ),
+        mark_dm_read_usecase: MarkDmRead::new(read_state_repository.clone()),
         get_unread_counts_usecase: GetUnreadCounts::new(read_state_repository.clone()),
-        get_dm_read_receipt_usecase: GetDmReadReceipt::new(
-            read_state_repository.clone(),
-            friendship_repository.clone(),
-        ),
+        get_dm_read_receipt_usecase: GetDmReadReceipt::new(read_state_repository.clone()),
         get_channel_read_receipts_usecase: GetChannelReadReceipts::new(
             read_state_repository.clone(),
             channel_repository.clone(),
