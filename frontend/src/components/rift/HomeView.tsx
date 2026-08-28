@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import type { ActiveFriend, RecentRoom } from "../../api/home";
 import type { Friendship } from "../../types/friendship";
-import type { DmPreview } from "../../store/dmPreviewStore";
 import { colorForId } from "../../utils/avatar";
 import { UserAvatar } from "./Avatar";
 import Icon from "./Icon";
@@ -11,13 +10,10 @@ import "../../styles/home.css";
 
 export interface HomeViewProps {
   userName: string;
-  currentUserId?: string;
   activeFriends: ActiveFriend[];
   recentRooms: RecentRoom[];
   friends: Friendship[];
   onlineUsers: Record<string, true>;
-  unreadByDm: Record<string, number>;
-  dmPreviews: Record<string, DmPreview>;
   joinedChannelId: string | null;
   onJoinRoom: (serverId: string, channelId: string) => void;
   onOpenDm: (friendId: string) => void;
@@ -45,20 +41,12 @@ const useNow = (intervalMs: number) => {
   return now;
 };
 
-const formatClock = (iso: string) => {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-};
-
 const HomeView: React.FC<HomeViewProps> = ({
   userName,
-  currentUserId,
   activeFriends,
   recentRooms,
   friends,
   onlineUsers,
-  unreadByDm,
-  dmPreviews,
   joinedChannelId,
   onJoinRoom,
   onOpenDm,
@@ -93,29 +81,6 @@ const HomeView: React.FC<HomeViewProps> = ({
     () => friends.filter((f) => f.status === "pending_incoming"),
     [friends],
   );
-  const unread = useMemo(
-    () =>
-      accepted
-        .filter((f) => (unreadByDm[f.friendId] ?? 0) > 0)
-        .map((f) => ({ friend: f, preview: dmPreviews[f.friendId] }))
-        .sort((a, b) => {
-          const ta = a.preview ? new Date(a.preview.createdAt).getTime() : 0;
-          const tb = b.preview ? new Date(b.preview.createdAt).getTime() : 0;
-          return tb - ta;
-        }),
-    [accepted, unreadByDm, dmPreviews],
-  );
-
-  const previewText = (p: DmPreview | undefined) => {
-    if (!p) return "";
-    const body = p.callStatus
-      ? t("previewCall")
-      : p.inviteServerId
-        ? t("previewInvite")
-        : p.content || (p.hasAttachments ? t("previewAttachment") : "");
-    return p.senderId === currentUserId ? `${t("previewYou")} ${body}` : body;
-  };
-
   const onlineCount = onlineFriends.length + activeFriends.length;
 
   return (
@@ -130,35 +95,6 @@ const HomeView: React.FC<HomeViewProps> = ({
       <div className="home-scroll">
         <div className="home-grid">
           <div className="home-col-main">
-            {unread.length > 0 && (
-              <section>
-                <h6 className="home-label">{t("unread")}</h6>
-                <div className="home-unread-list">
-                {unread.map(({ friend, preview }) => (
-                  <button
-                    key={friend.friendId}
-                    type="button"
-                    className="home-unread-row"
-                    onClick={() => onOpenDm(friend.friendId)}
-                  >
-                    <UserAvatar
-                      userId={friend.friendId}
-                      name={friend.friendName}
-                      className="home-avatar"
-                      style={{ background: colorForId(friend.friendId), width: 34, height: 34 }}
-                    />
-                    <span className="who">
-                      <span className="line">
-                        <span className="name">{friend.friendName}</span>
-                        {preview && <span className="time">{formatClock(preview.createdAt)}</span>}
-                      </span>
-                      <span className="text">{previewText(preview)}</span>
-                    </span>
-                  </button>
-                ))}
-                </div>
-              </section>
-            )}
             <section>
               <h6 className="home-label">{t("online", { count: onlineCount })}</h6>
               {onlineFriends.length === 0 && activeFriends.length === 0 ? (

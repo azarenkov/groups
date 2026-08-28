@@ -985,13 +985,10 @@ const ServersPage: React.FC = () => {
             ) : !selectedServer && !selectedDm ? (
               <HomeView
                 userName={userName}
-                currentUserId={user?.id}
                 activeFriends={homeOverview?.activeFriends ?? []}
                 recentRooms={homeOverview?.recentRooms ?? []}
                 friends={friends}
                 onlineUsers={onlineUsers}
-                unreadByDm={unreadByDm}
-                dmPreviews={dmPreviews}
                 joinedChannelId={joinedChannel?.channel.id ?? null}
                 onJoinRoom={(serverId, channelId) => void handleJoinFromHome(serverId, channelId)}
                 onOpenDm={handleOpenDmFromHome}
