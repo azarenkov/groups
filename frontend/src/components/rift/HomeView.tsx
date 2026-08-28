@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { ActiveFriend, RecentRoom } from "../../api/home";
+import type { ActiveFriend, HomeOverview, RecentRoom } from "../../api/home";
 import type { Friendship } from "../../types/friendship";
 import { colorForId } from "../../utils/avatar";
 import { UserAvatar } from "./Avatar";
@@ -10,8 +10,9 @@ import "../../styles/home.css";
 
 export interface HomeViewProps {
   userName: string;
-  activeFriends: ActiveFriend[];
-  recentRooms: RecentRoom[];
+  overview: HomeOverview | null;
+  overviewFailed: boolean;
+  onRetry: () => void;
   friends: Friendship[];
   onlineUsers: Record<string, true>;
   joinedChannelId: string | null;
@@ -41,8 +42,9 @@ const useNow = (intervalMs: number) => {
 
 const HomeView: React.FC<HomeViewProps> = ({
   userName,
-  activeFriends,
-  recentRooms,
+  overview,
+  overviewFailed,
+  onRetry,
   friends,
   onlineUsers,
   joinedChannelId,
@@ -53,6 +55,8 @@ const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const { t } = useTranslation("home");
   const now = useNow(30_000);
+  const activeFriends = useMemo<ActiveFriend[]>(() => overview?.activeFriends ?? [], [overview]);
+  const recentRooms = useMemo<RecentRoom[]>(() => overview?.recentRooms ?? [], [overview]);
 
   const duration = (joinedAt: string) => {
     const minutes = Math.max(0, Math.floor((now - new Date(joinedAt).getTime()) / 60_000));
@@ -93,6 +97,21 @@ const HomeView: React.FC<HomeViewProps> = ({
         </span>
       </header>
       <div className="home-scroll">
+        {!overview ? (
+          <div className="home-state">
+            {overviewFailed ? (
+              <>
+                <div className="home-empty-text">{t("loadFailed")}</div>
+                <button type="button" className="home-btn-secondary sm" onClick={onRetry}>
+                  <Icon name="refresh" size={13} />
+                  {t("retry")}
+                </button>
+              </>
+            ) : (
+              <span className="loading-spinner" />
+            )}
+          </div>
+        ) : (
         <div className="home-grid">
           <div className="home-col-main">
             <section>
@@ -239,6 +258,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

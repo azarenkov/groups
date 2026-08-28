@@ -36,6 +36,8 @@ interface ServerState {
   deleteServer: (serverId: string) => Promise<void>;
 }
 
+let removedDuringFetch = new Set<string>();
+
 export const useServerStore = create<ServerState>((set, get) => ({
   servers: [],
   selectedServerId: null,
@@ -61,10 +63,12 @@ export const useServerStore = create<ServerState>((set, get) => ({
       ),
     })),
 
-  removeServer: (serverId) =>
+  removeServer: (serverId) => {
+    removedDuringFetch.add(serverId);
     set((state) => ({
       servers: state.servers.filter((s) => s.id !== serverId),
-    })),
+    }));
+  },
 
   setLoading: (loading) => set({ isLoading: loading }),
 
@@ -79,11 +83,14 @@ export const useServerStore = create<ServerState>((set, get) => ({
     try {
       const loaded: Server[] = [];
       const before = new Set(get().servers.map((s) => s.id));
+      removedDuringFetch = new Set();
+      const alive = () => loaded.filter((s) => !removedDuringFetch.has(s.id));
       const mergeWithCached = () =>
         set((state) => {
-          const seen = new Set(loaded.map((s) => s.id));
+          const fresh = alive();
+          const seen = new Set(fresh.map((s) => s.id));
           const cached = state.servers.filter((s) => !seen.has(s.id));
-          return { servers: [...loaded, ...cached] };
+          return { servers: [...fresh, ...cached] };
         });
       const first = await serverAPI.listServers(page, perPage);
       loaded.push(...first.servers);
@@ -97,9 +104,10 @@ export const useServerStore = create<ServerState>((set, get) => ({
         mergeWithCached();
       }
       set((state) => {
-        const seen = new Set(loaded.map((s) => s.id));
+        const fresh = alive();
+        const seen = new Set(fresh.map((s) => s.id));
         const addedMeanwhile = state.servers.filter((s) => !seen.has(s.id) && !before.has(s.id));
-        return { servers: [...addedMeanwhile, ...loaded], isLoading: false };
+        return { servers: [...addedMeanwhile, ...fresh], isLoading: false };
       });
     } catch (error) {
       set({

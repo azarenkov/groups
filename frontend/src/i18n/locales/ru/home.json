@@ -21,5 +21,7 @@
   "emptyActiveTitle": "Пока тихо",
   "emptyOnlineTitle": "Никого в сети",
   "addFriend": "Добавить друга",
-  "statusInVoice": "В голосовом канале"
+  "statusInVoice": "В голосовом канале",
+  "loadFailed": "Не удалось загрузить главную.",
+  "retry": "Повторить"
 }

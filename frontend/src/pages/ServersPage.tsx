@@ -786,6 +786,7 @@ const ServersPage: React.FC = () => {
   }, []);
 
   const homeOverview = useHomeStore((s) => s.overview);
+  const homeFailed = useHomeStore((s) => s.failed);
   const fetchHome = useHomeStore((s) => s.fetch);
   const homeActive = !selectedServer && !selectedDm;
   useEffect(() => {
@@ -985,8 +986,9 @@ const ServersPage: React.FC = () => {
             ) : !selectedServer && !selectedDm ? (
               <HomeView
                 userName={userName}
-                activeFriends={homeOverview?.activeFriends ?? []}
-                recentRooms={homeOverview?.recentRooms ?? []}
+                overview={homeOverview}
+                overviewFailed={homeFailed}
+                onRetry={() => void fetchHome()}
                 friends={friends}
                 onlineUsers={onlineUsers}
                 joinedChannelId={joinedChannel?.channel.id ?? null}

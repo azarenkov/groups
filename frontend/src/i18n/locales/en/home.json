@@ -21,5 +21,7 @@
   "emptyActiveTitle": "Quiet for now",
   "emptyOnlineTitle": "Nobody online",
   "addFriend": "Add friend",
-  "statusInVoice": "In voice"
+  "statusInVoice": "In voice",
+  "loadFailed": "Couldn't load your home page.",
+  "retry": "Retry"
 }

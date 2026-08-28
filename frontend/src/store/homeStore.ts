@@ -5,6 +5,7 @@ import { homeAPI, HomeOverview } from "../api/home";
 interface HomeState {
   overview: HomeOverview | null;
   isLoading: boolean;
+  failed: boolean;
   fetch: () => Promise<void>;
   clear: () => void;
 }
@@ -16,6 +17,7 @@ let generation = 0;
 export const useHomeStore = create<HomeState>()((set) => ({
   overview: null,
   isLoading: false,
+  failed: false,
 
   fetch: async () => {
     if (inflight) return inflight;
@@ -24,12 +26,12 @@ export const useHomeStore = create<HomeState>()((set) => ({
     const request: Promise<void> = homeAPI
       .overview()
       .then((overview) => {
-        if (gen === generation) set({ overview, isLoading: false });
+        if (gen === generation) set({ overview, isLoading: false, failed: false });
       })
       .catch((err) => {
         if (gen !== generation) return;
         console.warn("[home] overview fetch failed:", err);
-        set({ isLoading: false });
+        set({ isLoading: false, failed: true });
       })
       .finally(() => {
         if (inflight === request) inflight = null;
@@ -45,7 +47,7 @@ export const useHomeStore = create<HomeState>()((set) => ({
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
-    set({ overview: null, isLoading: false });
+    set({ overview: null, isLoading: false, failed: false });
   },
 }));
 
