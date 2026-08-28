@@ -865,10 +865,27 @@ const ServersPage: React.FC = () => {
   const isRolesTracked = useRolesStore((st) => st.isTracked);
   React.useEffect(() => {
     if (!tokens?.accessToken || !homeActive || !user?.id) return;
-    for (const server of servers) {
-      if (server.ownerId === user.id || isRolesTracked(server.id)) continue;
-      void fetchRoles(server.id).catch(() => {});
-    }
+    const userId = user.id;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+    const load = async () => {
+      const pending = servers.filter(
+        (server) => server.ownerId !== userId && !isRolesTracked(server.id),
+      );
+      if (pending.length === 0) return;
+      const results = await Promise.allSettled(
+        pending.map((server) => fetchRoles(server.id)),
+      );
+      if (cancelled || results.every((r) => r.status === "fulfilled")) return;
+      attempt += 1;
+      timer = setTimeout(() => void load(), Math.min(30000, 2000 * 2 ** attempt));
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [tokens?.accessToken, homeActive, user?.id, servers, fetchRoles, isRolesTracked]);
   const canManageChannelsIn = (server: Server) =>
     !!user?.id &&
