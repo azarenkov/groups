@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO channel_voice_visits (channel_id, user_id, last_joined_at)\n                    VALUES ($1, $2, $3)\n                    ON CONFLICT (channel_id, user_id) DO UPDATE\n                    SET last_joined_at = GREATEST(channel_voice_visits.last_joined_at, EXCLUDED.last_joined_at)\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "05c8bcd484d6928d6a7a86ee7285c1c13a18d3c1834494c87d3ae6cb24d5d6e0"
+}

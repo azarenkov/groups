@@ -6,6 +6,7 @@ mod calls;
 mod channel;
 mod dm;
 mod friendship;
+mod home;
 mod internal;
 mod notifications;
 mod presence;

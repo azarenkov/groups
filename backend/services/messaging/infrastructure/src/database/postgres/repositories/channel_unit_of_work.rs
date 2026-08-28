@@ -115,7 +115,7 @@ impl ChannelTransaction for PostgresChannelTransaction {
         let added_sessions: Vec<(uuid::Uuid, String)> = voice_changes
             .iter()
             .filter_map(|vc| match vc {
-                VoiceChange::Added { user_id, session_id } => {
+                VoiceChange::Added { user_id, session_id, .. } => {
                     Some((user_id.uuid(), session_id.as_str().to_string()))
                 }
                 VoiceChange::Removed { .. } => None,

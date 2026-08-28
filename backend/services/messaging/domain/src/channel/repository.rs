@@ -66,6 +66,41 @@ pub trait ChannelRepository {
         &self,
         cutoff: DateTime<Utc>,
     ) -> Result<Vec<VoiceParticipantRow>, RepositoryError>;
+
+    async fn list_friends_voice_presence(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<FriendVoicePresenceRow>, RepositoryError>;
+
+    async fn list_recent_voice_rooms(
+        &self,
+        user_id: &UserId,
+        limit: i64,
+    ) -> Result<Vec<RecentVoiceRoomRow>, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct FriendVoicePresenceRow {
+    pub user_id: UserId,
+    pub user_name: String,
+    pub channel_id: ChannelId,
+    pub channel_name: String,
+    pub server_id: crate::server::id::ServerId,
+    pub server_name: String,
+    pub joined_at: DateTime<Utc>,
+    pub is_muted: bool,
+    pub camera_on: bool,
+    pub screen_on: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecentVoiceRoomRow {
+    pub channel_id: ChannelId,
+    pub channel_name: String,
+    pub server_id: crate::server::id::ServerId,
+    pub server_name: String,
+    pub live_count: i64,
+    pub last_join: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]

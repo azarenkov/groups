@@ -12,6 +12,7 @@ use crate::dm::{
     list_dm_messages, list_dm_previews, search_dm_messages, send_dm_message,
     send_server_invite,
 };
+use crate::home::get_home_overview;
 use crate::internal::internal_routes;
 use crate::friendship::{
     accept_friend_request, list_friends, remove_friendship, send_friend_request,
@@ -81,7 +82,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(send_friend_request)
                         .service(accept_friend_request)
                         .service(remove_friendship)
-                        .service(list_friends),
+                        .service(list_friends)
+                        .service(get_home_overview),
                 )
                 .service(
                     web::scope("/v1")

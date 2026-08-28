@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
+use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -355,6 +355,106 @@ impl ChannelRepository for PostgresChannelRepository {
             .collect())
     }
 
+    async fn list_friends_voice_presence(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<FriendVoicePresenceRow>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                cvp.user_id,
+                u.name AS user_name,
+                c.id AS channel_id,
+                c.name AS channel_name,
+                s.id AS server_id,
+                s.name AS server_name,
+                MIN(cvp.joined_at) AS "joined_at!",
+                bool_or(cvp.camera_on) AS "camera_on!",
+                bool_or(cvp.screen_on) AS "screen_on!",
+                EXISTS (
+                    SELECT 1 FROM channel_muted_participants cmp
+                    WHERE cmp.channel_id = c.id
+                      AND cmp.user_id = cvp.user_id
+                ) AS "is_muted!"
+            FROM channel_voice_participants cvp
+            INNER JOIN channels c ON c.id = cvp.channel_id
+            INNER JOIN servers s ON s.id = c.server_id
+            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $1
+            INNER JOIN friendships f
+                ON f.user_id = $1 AND f.friend_id = cvp.user_id AND f.status = 'accepted'
+            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id
+            GROUP BY cvp.user_id, u.name, c.id, c.name, s.id, s.name
+            ORDER BY MIN(cvp.joined_at) DESC
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| FriendVoicePresenceRow {
+                user_id: UserId::new(r.user_id),
+                user_name: r.user_name,
+                channel_id: ChannelId::new(r.channel_id),
+                channel_name: r.channel_name,
+                server_id: ServerId::new(r.server_id),
+                server_name: r.server_name,
+                joined_at: r.joined_at,
+                is_muted: r.is_muted,
+                camera_on: r.camera_on,
+                screen_on: r.screen_on,
+            })
+            .collect())
+    }
+
+    async fn list_recent_voice_rooms(
+        &self,
+        user_id: &UserId,
+        limit: i64,
+    ) -> Result<Vec<RecentVoiceRoomRow>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                c.id AS channel_id,
+                c.name AS channel_name,
+                s.id AS server_id,
+                s.name AS server_name,
+                cvv.last_joined_at AS last_join,
+                (
+                    SELECT COUNT(DISTINCT v.user_id)
+                    FROM channel_voice_participants v
+                    WHERE v.channel_id = c.id
+                ) AS "live_count!"
+            FROM channel_voice_visits cvv
+            INNER JOIN channels c ON c.id = cvv.channel_id
+            INNER JOIN servers s ON s.id = c.server_id
+            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = cvv.user_id
+            WHERE cvv.user_id = $1
+              AND c.kind = 'voice'
+              AND cvv.last_joined_at > now() - interval '7 days'
+            ORDER BY cvv.last_joined_at DESC
+            LIMIT $2
+            "#,
+            user_id.uuid(),
+            limit,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| RecentVoiceRoomRow {
+                channel_id: ChannelId::new(r.channel_id),
+                channel_name: r.channel_name,
+                server_id: ServerId::new(r.server_id),
+                server_name: r.server_name,
+                live_count: r.live_count,
+                last_join: r.last_join,
+            })
+            .collect())
+    }
+
     async fn is_text_channel_member(
         &self,
         channel_id: &ChannelId,
@@ -536,16 +636,32 @@ pub(crate) async fn apply_voice_changes(
             VoiceChange::Added {
                 user_id,
                 session_id,
+                joined_at,
             } => {
                 sqlx::query!(
                     r#"
-                    INSERT INTO channel_voice_participants (channel_id, user_id, session_id)
-                    VALUES ($1, $2, $3)
+                    INSERT INTO channel_voice_participants (channel_id, user_id, session_id, joined_at)
+                    VALUES ($1, $2, $3, $4)
                     ON CONFLICT DO NOTHING
                     "#,
                     channel_id.uuid(),
                     user_id.uuid(),
                     session_id.as_str(),
+                    joined_at,
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                sqlx::query!(
+                    r#"
+                    INSERT INTO channel_voice_visits (channel_id, user_id, last_joined_at)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (channel_id, user_id) DO UPDATE
+                    SET last_joined_at = GREATEST(channel_voice_visits.last_joined_at, EXCLUDED.last_joined_at)
+                    "#,
+                    channel_id.uuid(),
+                    user_id.uuid(),
+                    joined_at,
                 )
                 .execute(&mut **tx)
                 .await

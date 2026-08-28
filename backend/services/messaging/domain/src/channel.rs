@@ -52,6 +52,7 @@ pub enum VoiceChange {
     Added {
         user_id: UserId,
         session_id: SessionId,
+        joined_at: DateTime<Utc>,
     },
     Removed {
         user_id: UserId,
@@ -290,6 +291,7 @@ impl Channel {
         self.voice_changes.push(VoiceChange::Added {
             user_id,
             session_id,
+            joined_at: now,
         });
 
         if was_empty {

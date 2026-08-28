@@ -40,6 +40,8 @@
   "textChannels": "Текстовые каналы",
   "voiceChannels": "Голосовые каналы",
   "noChannels": "Каналов пока нет",
+  "home": "Главная",
   "muteMember": "Замьютить",
-  "unmuteMember": "Размьютить"
+  "unmuteMember": "Размьютить",
+  "backToServers": "Вернуться к списку серверов"
 }

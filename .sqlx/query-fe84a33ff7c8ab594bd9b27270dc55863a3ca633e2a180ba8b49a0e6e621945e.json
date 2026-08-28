@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                c.id AS channel_id,\n                c.name AS channel_name,\n                s.id AS server_id,\n                s.name AS server_name,\n                cvv.last_joined_at AS last_join,\n                (\n                    SELECT COUNT(DISTINCT v.user_id)\n                    FROM channel_voice_participants v\n                    WHERE v.channel_id = c.id\n                ) AS \"live_count!\"\n            FROM channel_voice_visits cvv\n            INNER JOIN channels c ON c.id = cvv.channel_id\n            INNER JOIN servers s ON s.id = c.server_id\n            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = cvv.user_id\n            WHERE cvv.user_id = $1\n              AND c.kind = 'voice'\n              AND cvv.last_joined_at > now() - interval '7 days'\n            ORDER BY cvv.last_joined_at DESC\n            LIMIT $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "server_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "server_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_join",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "live_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "fe84a33ff7c8ab594bd9b27270dc55863a3ca633e2a180ba8b49a0e6e621945e"
+}

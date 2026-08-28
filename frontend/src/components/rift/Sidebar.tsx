@@ -35,6 +35,8 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onAddFriend: () => void;
   onOpenPending: () => void;
+  onGoHome: () => void;
+  homeActive: boolean;
   pendingCount: number;
   onCreateServer: () => void;
   onJoinServer: () => void;
@@ -91,6 +93,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onAddFriend,
   onOpenPending,
+  onGoHome,
+  homeActive,
   pendingCount,
   onCreateServer,
   onJoinServer,
@@ -712,6 +716,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="sb-nav">
         <button
           type="button"
+          className={"sb-nav-btn sb-nav-home" + (homeActive ? " active" : "")}
+          title={t("home")}
+          onClick={onGoHome}
+        >
+          <Icon name="home" size={15} />
+        </button>
+        <button
+          type="button"
           className="sb-nav-btn"
           title={t("common:back")}
           disabled={!navState.back}
@@ -827,6 +839,18 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div id="voice-dock-slot" className="sb-voice-dock" />
 
+      {openServerId && (
+        <button
+          type="button"
+          className="sb-add-row secondary sb-footer-back"
+          onClick={() => setOpenServerId(null)}
+        >
+          <span className="sb-add-row-ico">
+            <Icon name="chev-left" size={13} />
+          </span>
+          <span>{t("backToServers")}</span>
+        </button>
+      )}
       <div className="sb-footer">
         <div className="user-pill">
           <UserAvatar

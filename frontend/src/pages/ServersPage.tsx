@@ -32,6 +32,9 @@ import { useCallStore } from "../store/callStore";
 import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
 import { dmAPI } from "../api/dm";
+import { homeAPI } from "../api/home";
+import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
+import HomeView from "../components/rift/HomeView";
 import { colorForId, initialFor } from "../utils/avatar";
 import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
@@ -75,7 +78,6 @@ const ServersPage: React.FC = () => {
   const {
     servers,
     selectedServerId,
-    isLoading: serversLoading,
     error: serversError,
     setSelectedServer,
     fetchServers,
@@ -216,6 +218,7 @@ const ServersPage: React.FC = () => {
       channelAPI.setAuthToken(tokens.accessToken);
       friendshipAPI.setAuthToken(tokens.accessToken);
       dmAPI.setAuthToken(tokens.accessToken);
+      homeAPI.setAuthToken(tokens.accessToken);
       callAPI.setAuthToken(tokens.accessToken);
       attachmentAPI.setAuthToken(tokens.accessToken);
       fetchServers();
@@ -320,8 +323,7 @@ const ServersPage: React.FC = () => {
     if (servers.length === 0) return;
     didInitialExpandRef.current = true;
     setExpandedServerIds(new Set([servers[0].id]));
-    setSelectedServer(servers[0].id);
-  }, [servers, setSelectedServer]);
+  }, [servers]);
 
   useEffect(() => {
     if (!selectedServerId || selectedDm) return;
@@ -745,6 +747,7 @@ const ServersPage: React.FC = () => {
     channelAPI.removeAuthToken();
     friendshipAPI.removeAuthToken();
     dmAPI.removeAuthToken();
+    homeAPI.removeAuthToken();
     callAPI.removeAuthToken();
     await signOut();
   };
@@ -781,6 +784,81 @@ const ServersPage: React.FC = () => {
       localStorage.setItem("rift:appearOffline", next ? "1" : "0");
     } catch {}
   }, []);
+
+  const homeOverview = useHomeStore((s) => s.overview);
+  const homeFailed = useHomeStore((s) => s.failed);
+  const fetchHome = useHomeStore((s) => s.fetch);
+  const homeActive = !selectedServer && !selectedDm;
+  useEffect(() => {
+    if (!tokens?.accessToken || !homeActive) return;
+    void fetchHome();
+    const interval = window.setInterval(() => void fetchHome(), 60_000);
+    const onFocus = () => void fetchHome();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [tokens?.accessToken, homeActive, fetchHome]);
+  const homeRefreshArmedRef = useRef(false);
+  useEffect(() => {
+    if (!homeActive) {
+      homeRefreshArmedRef.current = false;
+      return;
+    }
+    if (!homeRefreshArmedRef.current) {
+      homeRefreshArmedRef.current = true;
+      return;
+    }
+    scheduleHomeRefresh();
+  }, [homeActive, voicePresenceByChannel, onlineUsers, friends]);
+
+  const handleGoHome = () => {
+    useCallStore.getState().setFocused(false);
+    setSelectedServer(null);
+    setSelectedChannel(null);
+    setSelectedDm(null);
+  };
+
+  const handleJoinFromHome = async (serverId: string, channelId: string) => {
+      const server = servers.find((s) => s.id === serverId);
+      if (!server) return;
+      let channel = channelsByServer[serverId]?.find((c) => c.id === channelId);
+      if (!channel) {
+        await fetchChannels(serverId);
+        channel = useChannelStore
+          .getState()
+          .channelsByServer[serverId]?.find((c) => c.id === channelId);
+      }
+      if (!channel) return;
+      setExpandedServerIds((prev) => {
+        if (prev.has(serverId)) return prev;
+        const next = new Set(prev);
+        next.add(serverId);
+        return next;
+      });
+      handleSelectChannel(server, channel);
+  };
+
+  const handleOpenDmFromHome = (friendId: string) => {
+    const dm = acceptedFriends.find((d) => d.id === friendId);
+    if (dm) handleSelectDm(dm);
+  };
+
+  const handleCallFromHome = (friendId: string) => {
+    handleOpenDmFromHome(friendId);
+    const cs = useCallStore.getState();
+    const inCallWithFriend =
+      !!cs.activeCallId &&
+      (cs.peerId === friendId ||
+        friendId in cs.participants ||
+        cs.ringing.includes(friendId));
+    if (inCallWithFriend) {
+      cs.setFocused(true);
+      return;
+    }
+    cs.start([friendId]).catch((e) => console.warn("[call] start failed:", e));
+  };
 
   const voiceMembersByChannel: Record<
     string,
@@ -876,6 +954,8 @@ const ServersPage: React.FC = () => {
           onOpenSettings={() => setSettingsOpen(true)}
           onAddFriend={() => setIsAddFriendOpen(true)}
           onOpenPending={() => setIsPendingOpen(true)}
+          onGoHome={handleGoHome}
+          homeActive={homeActive}
           pendingCount={pendingCount}
           onCreateServer={() => {
             setServerModalView("create");
@@ -904,12 +984,18 @@ const ServersPage: React.FC = () => {
                 onMinimize={() => useCallStore.getState().setFocused(false)}
               />
             ) : !selectedServer && !selectedDm ? (
-              <Welcome
-                loading={serversLoading && servers.length === 0}
-                onCreate={() => {
-                  setServerModalView("choose");
-                  setIsServerModalOpen(true);
-                }}
+              <HomeView
+                userName={userName}
+                overview={homeOverview}
+                overviewFailed={homeFailed}
+                onRetry={() => void fetchHome()}
+                friends={friends}
+                onlineUsers={onlineUsers}
+                joinedChannelId={joinedChannel?.channel.id ?? null}
+                onJoinRoom={(serverId, channelId) => void handleJoinFromHome(serverId, channelId)}
+                onOpenDm={handleOpenDmFromHome}
+                onCall={handleCallFromHome}
+                onAddFriend={() => setIsAddFriendOpen(true)}
               />
             ) : selectedDm ? (
               <ChatView
@@ -1323,39 +1409,6 @@ const ServersPage: React.FC = () => {
           </button>
         </div>
       )}
-    </div>
-  );
-};
-
-interface WelcomeProps {
-  loading: boolean;
-  onCreate: () => void;
-}
-
-const Welcome: React.FC<WelcomeProps> = ({ loading, onCreate }) => {
-  const { t } = useTranslation("sidebar");
-  return (
-    <div className="empty-state" style={{ padding: 60 }}>
-      <div className="icon-wrap" style={{ width: 64, height: 64 }}>
-        <Icon name="hash" size={26} />
-      </div>
-      <h3>{t("welcomeTitle")}</h3>
-      <p>{t("welcomeSubtitle")}</p>
-      <div style={{ marginTop: 20 }}>
-        {loading ? (
-          <span className="loading-spinner" />
-        ) : (
-          <button
-            type="button"
-            className="btn primary"
-            onClick={onCreate}
-            style={{ height: 38, padding: "0 18px", whiteSpace: "nowrap" }}
-          >
-            <Icon name="plus" size={14} />
-            {t("createServerCta")}
-          </button>
-        )}
-      </div>
     </div>
   );
 };

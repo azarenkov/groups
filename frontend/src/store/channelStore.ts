@@ -29,6 +29,9 @@ interface ChannelState {
   deleteChannel: (serverId: string, channelId: string) => Promise<void>;
 }
 
+const removedDuringFetch = new Map<string, Set<string>>();
+const patchedDuringFetch = new Map<string, Set<string>>();
+
 export const useChannelStore = create<ChannelState>((set, get) => ({
   channelsByServer: {},
   selectedChannelId: null,
@@ -57,7 +60,8 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
       };
     }),
 
-  removeChannel: (serverId, channelId) =>
+  removeChannel: (serverId, channelId) => {
+    removedDuringFetch.get(serverId)?.add(channelId);
     set((state) => ({
       channelsByServer: {
         ...state.channelsByServer,
@@ -65,9 +69,11 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
           (c) => c.id !== channelId,
         ),
       },
-    })),
+    }));
+  },
 
-  renameChannel: (serverId, channelId, name) =>
+  renameChannel: (serverId, channelId, name) => {
+    patchedDuringFetch.get(serverId)?.add(channelId);
     set((state) => ({
       channelsByServer: {
         ...state.channelsByServer,
@@ -75,7 +81,8 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
           c.id === channelId ? { ...c, name } : c,
         ),
       },
-    })),
+    }));
+  },
 
   setLoading: (loading) => set({ isLoading: loading }),
 
@@ -93,14 +100,51 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
   fetchChannels: async (serverId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await channelAPI.listByServer(serverId);
-      set((state) => ({
-        channelsByServer: {
-          ...state.channelsByServer,
-          [serverId]: response.channels,
-        },
-        isLoading: false,
-      }));
+      const loaded: Channel[] = [];
+      const before = new Set((get().channelsByServer[serverId] ?? []).map((c) => c.id));
+      const removed = new Set<string>();
+      const patched = new Set<string>();
+      removedDuringFetch.set(serverId, removed);
+      patchedDuringFetch.set(serverId, patched);
+      const alive = (current: Channel[]) =>
+        loaded
+          .filter((c) => !removed.has(c.id))
+          .map((c) => (patched.has(c.id) ? (current.find((x) => x.id === c.id) ?? c) : c));
+      const mergeWithCached = () =>
+        set((state) => {
+          const fresh = alive(state.channelsByServer[serverId] ?? []);
+          const seen = new Set(fresh.map((c) => c.id));
+          const cached = (state.channelsByServer[serverId] ?? []).filter((c) => !seen.has(c.id));
+          return {
+            channelsByServer: {
+              ...state.channelsByServer,
+              [serverId]: [...fresh, ...cached],
+            },
+          };
+        });
+      const first = await channelAPI.listByServer(serverId);
+      loaded.push(...first.channels);
+      mergeWithCached();
+      const totalPages = first.pagination?.totalPages ?? 1;
+      for (let p = 2; p <= totalPages; p++) {
+        const next = await channelAPI.listByServer(serverId, p);
+        const known = new Set(loaded.map((c) => c.id));
+        loaded.push(...next.channels.filter((c) => !known.has(c.id)));
+        mergeWithCached();
+      }
+      set((state) => {
+        const fresh = alive(state.channelsByServer[serverId] ?? []);
+        const seen = new Set(fresh.map((c) => c.id));
+        const addedMeanwhile = (state.channelsByServer[serverId] ?? []).filter(
+          (c) => !seen.has(c.id) && !before.has(c.id),
+        );
+        return {
+          channelsByServer: { ...state.channelsByServer, [serverId]: [...addedMeanwhile, ...fresh] },
+          isLoading: false,
+        };
+      });
+      if (removedDuringFetch.get(serverId) === removed) removedDuringFetch.delete(serverId);
+      if (patchedDuringFetch.get(serverId) === patched) patchedDuringFetch.delete(serverId);
     } catch (error) {
       set({
         error:

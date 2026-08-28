@@ -200,7 +200,7 @@ body.electron .titlebar { padding-left: 84px; }
   background: transparent;  padding: 10px 8px 8px;
   gap: 2px;
 }
-.sb-nav { display: flex; gap: 2px; margin: 0 0 6px 2px; }
+.sb-nav { display: flex; align-items: center; gap: 2px; margin: 0 4px 6px; }
 body.electron .sb-nav {
   position: absolute;
   top: 7px; left: 84px;
@@ -208,7 +208,7 @@ body.electron .sb-nav {
   z-index: 45;
   transition: left var(--dur-base, 200ms) var(--ease-standard, ease);
 }
-body.electron.electron-fullscreen .sb-nav { left: 10px; }
+body.electron.electron-fullscreen .sb-nav { left: 12px; }
 body.electron .sb { position: relative; }
 .sb-nav-btn {
   width: 28px; height: 26px;
@@ -341,10 +341,10 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
 }
 .sb-dm-sub.unread { color: var(--fg-2); }
 .sb-dm-badge {
-  flex: 0 0 auto; min-width: 20px; height: 20px; padding: 0 6px;
-  border-radius: 10px; background: var(--accent); color: #fff;
-  font-size: 12px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; min-width: 20px; height: 18px; padding: 0 6px;
+  border-radius: 999px; background: var(--accent); color: #fff;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 
 /* ---- Server rows ---- */
@@ -573,6 +573,17 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
   padding: 8px 6px 4px;
   margin-top: 4px;
 }
+.sb-footer-back {
+  margin: 6px 6px 8px;
+  width: calc(100% - 12px);
+  height: 36px;
+  padding: 0 10px 0 6px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--fg-1);
+}
+.sb-footer-back:hover { background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--hairline-strong); }
+.sb-footer-back .sb-add-row-ico { background: var(--accent-tint); color: var(--accent); }
 
 .main {
   flex: 1;
@@ -691,12 +702,12 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
 
 .sb-add-row-badge {
   margin-left: auto;
-  min-width: 18px; height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  min-width: 20px; height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
   background: var(--accent);
   color: #fff;
-  font-size: 11px; font-weight: 700;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center; justify-content: center;
 }
 

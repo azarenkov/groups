@@ -152,6 +152,7 @@ use messaging::usecases::server::invite_codes::CreateInviteCodeError;
 use messaging::usecases::server::invite_codes::ListInviteCodesError;
 use messaging::usecases::server::invite_codes::RedeemInviteCodeError;
 use messaging::usecases::server::invite_codes::RevokeInviteCodeError;
+use messaging::usecases::server::get_home_overview::GetHomeOverviewError;
 use messaging::usecases::server::kick_member::KickMemberError;
 use messaging::usecases::server::leave_server::LeaveServerError;
 use messaging::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
@@ -656,6 +657,7 @@ impl HttpMapping for LogCallError {
 }
 
 impl_http_mapping_delegate!(ListServersByUserError, Repository);
+impl_http_mapping_delegate!(GetHomeOverviewError, Repository);
 
 impl HttpMapping for ListServerMembersError {
     fn to_http_status(&self) -> StatusCode {
