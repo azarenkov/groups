@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use domain::{password_hash::PasswordHash, user::id::UserId};
 use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
 use ports::repository::RepositoryError;
@@ -12,6 +12,7 @@ use crate::{
         oauth_verifier::OAuthIdentityVerifier,
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
+    usecases::auth::reactivation::wait_past_cutoff,
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -104,7 +105,8 @@ where
         let new_hash = PasswordHash::new(self.hasher.hash(&request.new_password)?);
 
         let now = Utc::now();
-        let cutoff = now - Duration::seconds(1);
+        let cutoff = now;
+        let snapshot = user;
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
@@ -113,10 +115,16 @@ where
         if user.is_deleted() {
             return Err(ChangePasswordError::UserNotFound);
         }
+        if user.password_hash().as_str() != snapshot.password_hash().as_str()
+            || user.updated_at() != snapshot.updated_at()
+        {
+            self.reauthenticator.verify(&user, &request.reauth).await?;
+        }
         user.change_password(new_hash, now);
         let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         tx.save_user(&user).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
+        wait_past_cutoff(cutoff).await;
         let tokens = self.token_issuer.issue(&user_id, user.is_verified()).await?;
         let refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,

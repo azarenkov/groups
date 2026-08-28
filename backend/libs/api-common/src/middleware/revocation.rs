@@ -84,19 +84,12 @@ impl AccessRevocations {
         Ok(())
     }
 
-    pub async fn is_revoked(&self, user_id: &Uuid, issued_at_unix: i64) -> bool {
+    pub async fn is_revoked(&self, user_id: &Uuid, issued_at_unix: i64) -> Result<bool, RevocationError> {
         let Some(connection) = &self.connection else {
-            return false;
+            return Ok(false);
         };
         let mut connection = connection.clone();
-        let cutoff: Result<Option<i64>, redis::RedisError> = connection.get(Self::key(user_id)).await;
-        match cutoff {
-            Ok(Some(cutoff)) => issued_at_unix <= cutoff,
-            Ok(None) => false,
-            Err(e) => {
-                tracing::warn!(error = %e, "Redis unavailable; skipping access token revocation check");
-                false
-            }
-        }
+        let cutoff: Option<i64> = connection.get(Self::key(user_id)).await?;
+        Ok(cutoff.is_some_and(|cutoff| issued_at_unix <= cutoff))
     }
 }

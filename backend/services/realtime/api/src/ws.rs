@@ -68,14 +68,18 @@ async fn authenticate_request(req: &HttpRequest, state: &WsState) -> Option<Uuid
     if decoded.claims.token_type != TokenType::Access || !decoded.claims.verified {
         return None;
     }
-    if state
+    match state
         .access_revocations
         .is_revoked(&decoded.claims.sub, decoded.claims.iat)
         .await
     {
-        return None;
+        Ok(false) => Some(decoded.claims.sub),
+        Ok(true) => None,
+        Err(e) => {
+            tracing::warn!(error = %e, "Revocation check failed; rejecting request");
+            None
+        }
     }
-    Some(decoded.claims.sub)
 }
 
 #[post("/presence")]
@@ -116,12 +120,17 @@ pub async fn ws_handler(
             if !decoded.claims.verified {
                 return Ok(HttpResponse::Forbidden().body("email not verified"));
             }
-            if state
+            match state
                 .access_revocations
                 .is_revoked(&decoded.claims.sub, decoded.claims.iat)
                 .await
             {
-                return Ok(HttpResponse::Unauthorized().body("token revoked"));
+                Ok(false) => {}
+                Ok(true) => return Ok(HttpResponse::Unauthorized().body("token revoked")),
+                Err(e) => {
+                    tracing::warn!(error = %e, "Revocation check failed; rejecting websocket");
+                    return Ok(HttpResponse::ServiceUnavailable().body("revocation check unavailable"));
+                }
             }
             (decoded.claims.sub, decoded.claims.exp, decoded.claims.iat)
         }
@@ -214,9 +223,16 @@ async fn connection_task(
             }
 
             _ = hb_interval.tick() => {
-                if access_revocations.is_revoked(&user_id, token_iat).await {
-                    tracing::info!(%user_id, %conn_id, "WS access token revoked; closing");
-                    break Some((actix_ws::CloseCode::Other(4001), "token revoked"));
+                match access_revocations.is_revoked(&user_id, token_iat).await {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        tracing::info!(%user_id, %conn_id, "WS access token revoked; closing");
+                        break Some((actix_ws::CloseCode::Other(4001), "token revoked"));
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, %user_id, %conn_id, "WS revocation check failed; closing");
+                        break Some((actix_ws::CloseCode::Error, "revocation check unavailable"));
+                    }
                 }
                 if last_seen.elapsed() >= CLIENT_TIMEOUT {
                     tracing::info!(%user_id, %conn_id, "WS client timed out");

@@ -77,10 +77,16 @@ where
 
         let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
+        let snapshot = user;
         let mut user = tx
             .load_user_for_update(&user_id)
             .await?
             .ok_or(DisableAccountError::UserNotFound)?;
+        if user.password_hash().as_str() != snapshot.password_hash().as_str()
+            || user.updated_at() != snapshot.updated_at()
+        {
+            self.reauthenticator.verify(&user, reauth).await?;
+        }
         user.disable(now).map_err(|_| DisableAccountError::UserNotFound)?;
         let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         tx.save_user(&user).await?;

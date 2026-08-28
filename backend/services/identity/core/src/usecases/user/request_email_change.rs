@@ -87,11 +87,17 @@ where
         let plain_code = VerificationCode::generate();
         let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
 
+        let snapshot = user;
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
             .await?
             .ok_or(RequestEmailChangeError::UserNotFound)?;
+        if user.password_hash().as_str() != snapshot.password_hash().as_str()
+            || user.updated_at() != snapshot.updated_at()
+        {
+            self.reauthenticator.verify(&user, &request.reauth).await?;
+        }
         let mut code = user
             .request_email_change(new_email, plain_code, code_hash, Utc::now())
             .map_err(|e| match e {

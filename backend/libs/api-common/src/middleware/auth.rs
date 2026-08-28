@@ -3,7 +3,8 @@ use std::sync::LazyLock;
 use actix_web::{
     Error as ActixWebError, FromRequest, HttpRequest, dev::Payload,
     error::{
-        ErrorForbidden, ErrorInternalServerError, ErrorTooManyRequests, ErrorUnauthorized,
+        ErrorForbidden, ErrorInternalServerError, ErrorServiceUnavailable, ErrorTooManyRequests,
+        ErrorUnauthorized,
     },
     http, web,
 };
@@ -48,10 +49,15 @@ async fn ensure_not_revoked(
     revocations: Option<&AccessRevocations>,
     access: &ValidatedAccess,
 ) -> Result<(), ActixWebError> {
-    if let Some(store) = revocations
-        && store.is_revoked(&access.user_id, access.issued_at).await
-    {
-        return Err(ErrorUnauthorized("Unauthorized"));
+    if let Some(store) = revocations {
+        match store.is_revoked(&access.user_id, access.issued_at).await {
+            Ok(false) => {}
+            Ok(true) => return Err(ErrorUnauthorized("Unauthorized")),
+            Err(e) => {
+                tracing::warn!(error = %e, "Access token revocation check failed; rejecting request");
+                return Err(ErrorServiceUnavailable("Revocation check unavailable"));
+            }
+        }
     }
     Ok(())
 }
