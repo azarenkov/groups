@@ -278,7 +278,7 @@ pub struct PasswordBody {
 #[post("/me/disable")]
 async fn disable_me(
     req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
+    auth_token: AuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<PasswordBody>,
 ) -> Result<impl Responder, HttpError> {
