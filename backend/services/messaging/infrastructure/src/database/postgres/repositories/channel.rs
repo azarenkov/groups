@@ -375,7 +375,6 @@ impl ChannelRepository for PostgresChannelRepository {
                     SELECT 1 FROM channel_muted_participants cmp
                     WHERE cmp.channel_id = c.id
                       AND cmp.user_id = cvp.user_id
-                      AND cmp.muted_by <> cvp.user_id
                 ) AS "is_muted!"
             FROM channel_voice_participants cvp
             INNER JOIN channels c ON c.id = cvp.channel_id
@@ -421,17 +420,18 @@ impl ChannelRepository for PostgresChannelRepository {
                 c.name AS channel_name,
                 s.id AS server_id,
                 s.name AS server_name,
-                c.last_join,
+                cvv.last_joined_at AS last_join,
                 (
                     SELECT COUNT(DISTINCT v.user_id)
                     FROM channel_voice_participants v
                     WHERE v.channel_id = c.id
                 ) AS "live_count!"
-            FROM channels c
+            FROM channel_voice_visits cvv
+            INNER JOIN channels c ON c.id = cvv.channel_id
             INNER JOIN servers s ON s.id = c.server_id
-            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $1
-            WHERE c.kind = 'voice'
-            ORDER BY c.last_join DESC
+            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = cvv.user_id
+            WHERE cvv.user_id = $1 AND c.kind = 'voice'
+            ORDER BY cvv.last_joined_at DESC
             LIMIT $2
             "#,
             user_id.uuid(),
@@ -644,6 +644,18 @@ pub(crate) async fn apply_voice_changes(
                     channel_id.uuid(),
                     user_id.uuid(),
                     session_id.as_str(),
+                )
+                .execute(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                sqlx::query!(
+                    r#"
+                    INSERT INTO channel_voice_visits (channel_id, user_id, last_joined_at)
+                    VALUES ($1, $2, now())
+                    ON CONFLICT (channel_id, user_id) DO UPDATE SET last_joined_at = now()
+                    "#,
+                    channel_id.uuid(),
+                    user_id.uuid(),
                 )
                 .execute(&mut **tx)
                 .await
