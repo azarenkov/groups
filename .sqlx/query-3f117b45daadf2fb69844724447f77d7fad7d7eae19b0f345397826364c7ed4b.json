@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                m.sender_id AS friend_id,\n                COUNT(*) AS \"count!\"\n            FROM dm_messages m\n            LEFT JOIN dm_read_state r\n                ON r.user_id = $1 AND r.friend_id = m.sender_id\n            LEFT JOIN notification_preferences np\n                ON np.user_id = $1\n               AND np.scope_type = 'dm'\n               AND np.scope_id = m.sender_id\n            WHERE m.recipient_id = $1\n              AND m.created_at > COALESCE(r.last_read_at, '1970-01-01T00:00:00Z'::timestamptz)\n              AND COALESCE(np.level, 'all') <> 'none'\n            GROUP BY m.sender_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "friend_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "3f117b45daadf2fb69844724447f77d7fad7d7eae19b0f345397826364c7ed4b"
+}

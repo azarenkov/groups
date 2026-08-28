@@ -201,9 +201,14 @@ function dispatch(env: WsEnvelope) {
     }
 
     case "friendship.requestSent":
-    case "friendship.requestAccepted":
+    case "friendship.requestAccepted": {
+      void useFriendshipStore.getState().fetchFriends();
+      return;
+    }
+
     case "friendship.removed": {
       void useFriendshipStore.getState().fetchFriends();
+      refetchDmPreviews();
       return;
     }
 

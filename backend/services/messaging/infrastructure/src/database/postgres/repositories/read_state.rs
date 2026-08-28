@@ -193,8 +193,6 @@ impl ReadStateRepository for PostgresReadStateRepository {
                 m.sender_id AS friend_id,
                 COUNT(*) AS "count!"
             FROM dm_messages m
-            INNER JOIN friendships f
-                ON f.user_id = $1 AND f.friend_id = m.sender_id AND f.status = 'accepted'
             LEFT JOIN dm_read_state r
                 ON r.user_id = $1 AND r.friend_id = m.sender_id
             LEFT JOIN notification_preferences np
