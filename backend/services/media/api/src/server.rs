@@ -104,9 +104,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let server_stream = std::env::var("MEDIA_SERVER_STREAM")
         .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
     crate::projection::spawn(
-        nats_jetstream,
+        nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         server_stream,
+        media_repository.clone(),
+        minio_storage.clone(),
+    );
+    let user_stream = std::env::var("MEDIA_USER_STREAM")
+        .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    crate::user_projection::spawn(
+        nats_jetstream,
+        nats_config.subject_prefix.clone(),
+        user_stream,
         media_repository.clone(),
         minio_storage.clone(),
     );

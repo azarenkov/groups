@@ -100,7 +100,11 @@ where
             })?;
         let mut events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         events.extend(code.pull_events().into_iter().map(IdentityEvent::from));
-        tx.save_user(&user).await?;
+        match tx.save_user(&user).await {
+            Ok(()) => {}
+            Err(RepositoryError::AlreadyExists) => return Err(RequestEmailChangeError::EmailTaken),
+            Err(e) => return Err(e.into()),
+        }
         tx.insert_verification_code(&code).await?;
         tx.save_events(&events, request.request_id.as_deref()).await?;
         tx.commit().await?;

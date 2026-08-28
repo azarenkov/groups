@@ -3,6 +3,17 @@ use std::time::Duration;
 use redis::AsyncCommands;
 use uuid::Uuid;
 
+const SET_MAX_SCRIPT: &str = r#"
+local current = tonumber(redis.call('GET', KEYS[1]))
+local proposed = tonumber(ARGV[1])
+if current == nil or proposed > current then
+  redis.call('SET', KEYS[1], proposed, 'EX', ARGV[2])
+  return proposed
+end
+redis.call('EXPIRE', KEYS[1], ARGV[2])
+return current
+"#;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RevocationError {
     #[error("access token revocation store is not configured")]
@@ -64,8 +75,11 @@ impl AccessRevocations {
             return Err(RevocationError::Disabled);
         };
         let mut connection = connection.clone();
-        let _: () = connection
-            .set_ex(Self::key(user_id), cutoff_unix, ttl.as_secs().max(1))
+        let _: i64 = redis::Script::new(SET_MAX_SCRIPT)
+            .key(Self::key(user_id))
+            .arg(cutoff_unix)
+            .arg(ttl.as_secs().max(1))
+            .invoke_async(&mut connection)
             .await?;
         Ok(())
     }

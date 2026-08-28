@@ -87,8 +87,8 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         sqlx::query(&format!(
             r#"
             UPDATE {table}
-            SET active = $2, updated_at = GREATEST(updated_at, $3)
-            WHERE user_id = $1
+            SET active = $2, updated_at = $3
+            WHERE user_id = $1 AND updated_at <= $3
             "#,
             table = self.table
         ))

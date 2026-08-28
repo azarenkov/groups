@@ -15,6 +15,8 @@ pub enum ConfirmEmailChangeError {
     Hash(#[from] HashError),
     #[error("No pending email change")]
     NoPendingChange,
+    #[error("Email is already in use")]
+    EmailTaken,
     #[error("Too many attempts for verification code")]
     TooManyAttempts,
     #[error("Verification code has expired")]
@@ -86,7 +88,11 @@ where
         match outcome {
             Ok(()) => {
                 let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
-                tx.save_user(&user).await?;
+                match tx.save_user(&user).await {
+                    Ok(()) => {}
+                    Err(RepositoryError::AlreadyExists) => return Err(ConfirmEmailChangeError::EmailTaken),
+                    Err(e) => return Err(e.into()),
+                }
                 tx.save_events(&events, request.request_id.as_deref()).await?;
                 tx.commit().await?;
                 Ok(user.email().as_str().to_string())
