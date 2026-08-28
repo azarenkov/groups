@@ -94,19 +94,29 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const first = await channelAPI.listByServer(serverId);
-      const channels = [...first.channels];
-      const totalPages = first.pagination?.totalPages ?? 1;
-      for (let p = 2; p <= totalPages; p++) {
-        const next = await channelAPI.listByServer(serverId, p);
-        channels.push(...next.channels);
-      }
       set((state) => ({
         channelsByServer: {
           ...state.channelsByServer,
-          [serverId]: channels,
+          [serverId]: first.channels,
         },
-        isLoading: false,
       }));
+      const totalPages = first.pagination?.totalPages ?? 1;
+      for (let p = 2; p <= totalPages; p++) {
+        const next = await channelAPI.listByServer(serverId, p);
+        set((state) => {
+          const current = state.channelsByServer[serverId] ?? [];
+          const known = new Set(current.map((c) => c.id));
+          const fresh = next.channels.filter((c) => !known.has(c.id));
+          if (!fresh.length) return state;
+          return {
+            channelsByServer: {
+              ...state.channelsByServer,
+              [serverId]: [...current, ...fresh],
+            },
+          };
+        });
+      }
+      set({ isLoading: false });
     } catch (error) {
       set({
         error:

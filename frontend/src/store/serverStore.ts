@@ -78,17 +78,17 @@ export const useServerStore = create<ServerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const first = await serverAPI.listServers(page, perPage);
-      const servers = [...first.servers];
+      set({ servers: first.servers, pagination: first.pagination });
       const totalPages = first.pagination?.totalPages ?? 1;
       for (let p = page + 1; p <= totalPages; p++) {
         const next = await serverAPI.listServers(p, perPage);
-        servers.push(...next.servers);
+        set((state) => {
+          const known = new Set(state.servers.map((s) => s.id));
+          const fresh = next.servers.filter((s) => !known.has(s.id));
+          return fresh.length ? { servers: [...state.servers, ...fresh] } : state;
+        });
       }
-      set({
-        servers,
-        pagination: first.pagination,
-        isLoading: false,
-      });
+      set({ isLoading: false });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Failed to fetch servers",
