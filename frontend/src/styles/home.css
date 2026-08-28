@@ -16,10 +16,13 @@
 .home-scroll { flex: 1; overflow-y: auto; }
 .home-scroll::-webkit-scrollbar { width: 6px; }
 .home-scroll::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 3px; }
-.home-grid { max-width: 1040px; margin: 0 auto; padding: 28px 32px 40px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 32px; align-items: start; }
+.home-scroll { display: flex; flex-direction: column; }
+.home-grid { flex: 1; min-height: 100%; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 34%); gap: 20px; align-items: stretch; }
 @media (max-width: 900px) { .home-grid { grid-template-columns: minmax(0, 1fr); } }
-.home-col-main { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.home-col-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.home-col-main > section { flex: 1; display: flex; flex-direction: column; }
 .home-col-side { display: flex; flex-direction: column; gap: 20px; }
+.home-col-side > .home-card:last-child { flex: 1; }
 
 .home-label { margin: 0; font-size: 11px; font-weight: 600; color: var(--fg-3); letter-spacing: 0.06em; text-transform: uppercase; }
 .home-empty { margin-top: 12px; padding: 28px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; border: 1px dashed var(--hairline-strong); background: transparent; box-shadow: none; }
