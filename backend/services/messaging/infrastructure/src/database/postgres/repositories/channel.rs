@@ -430,7 +430,9 @@ impl ChannelRepository for PostgresChannelRepository {
             INNER JOIN channels c ON c.id = cvv.channel_id
             INNER JOIN servers s ON s.id = c.server_id
             INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = cvv.user_id
-            WHERE cvv.user_id = $1 AND c.kind = 'voice'
+            WHERE cvv.user_id = $1
+              AND c.kind = 'voice'
+              AND cvv.last_joined_at > now() - interval '7 days'
             ORDER BY cvv.last_joined_at DESC
             LIMIT $2
             "#,
