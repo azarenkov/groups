@@ -218,7 +218,10 @@ const ServersPage: React.FC = () => {
   useEffect(() => {
     if (!selectedDm) return;
     const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
-    if (!fresh) return;
+    if (!fresh) {
+      setSelectedDm(null);
+      return;
+    }
     if (
       fresh.name === selectedDm.name &&
       fresh.isFriend === selectedDm.isFriend &&
