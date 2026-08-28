@@ -104,7 +104,7 @@ pub async fn ws_handler(
         return Ok(HttpResponse::Unauthorized().body("missing token"));
     };
 
-    let (user_id, token_exp) = match decode::<AccessTokenClaims>(
+    let (user_id, token_exp, token_iat) = match decode::<AccessTokenClaims>(
         &token,
         &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
         &Validation::new(jsonwebtoken::Algorithm::HS256),
@@ -123,7 +123,7 @@ pub async fn ws_handler(
             {
                 return Ok(HttpResponse::Unauthorized().body("token revoked"));
             }
-            (decoded.claims.sub, decoded.claims.exp)
+            (decoded.claims.sub, decoded.claims.exp, decoded.claims.iat)
         }
         Err(_) => return Ok(HttpResponse::Unauthorized().body("invalid token")),
     };
@@ -150,10 +150,20 @@ pub async fn ws_handler(
         session,
         msg_stream,
         outbound_buffer,
-        token_ttl,
+        ConnectionAuth {
+            token_ttl,
+            token_iat,
+            access_revocations: state.access_revocations.clone(),
+        },
     ));
 
     Ok(response)
+}
+
+struct ConnectionAuth {
+    token_ttl: Duration,
+    token_iat: i64,
+    access_revocations: api_common::middleware::revocation::AccessRevocations,
 }
 
 async fn connection_task(
@@ -162,8 +172,13 @@ async fn connection_task(
     mut session: actix_ws::Session,
     msg_stream: actix_ws::MessageStream,
     outbound_buffer: usize,
-    token_ttl: Duration,
+    auth: ConnectionAuth,
 ) {
+    let ConnectionAuth {
+        token_ttl,
+        token_iat,
+        access_revocations,
+    } = auth;
     let (tx, mut rx) = mpsc::channel::<String>(outbound_buffer);
     let conn = Connection::new(user_id, tx);
     let conn_id = conn.id;
@@ -199,6 +214,10 @@ async fn connection_task(
             }
 
             _ = hb_interval.tick() => {
+                if access_revocations.is_revoked(&user_id, token_iat).await {
+                    tracing::info!(%user_id, %conn_id, "WS access token revoked; closing");
+                    break Some((actix_ws::CloseCode::Other(4001), "token revoked"));
+                }
                 if last_seen.elapsed() >= CLIENT_TIMEOUT {
                     tracing::info!(%user_id, %conn_id, "WS client timed out");
                     break Some((actix_ws::CloseCode::Away, "client timeout"));

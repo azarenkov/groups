@@ -158,7 +158,8 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await userAPI.changePassword(reauth, next, useAuthStore.getState().tokens?.refreshToken);
+      const tokens = await userAPI.changePassword(reauth, next);
+      useAuthStore.getState().setTokens(tokens);
       const user = useAuthStore.getState().user;
       if (user) {
         useAuthStore.getState().setUser({ ...user, passwordChangedAt: new Date().toISOString() });

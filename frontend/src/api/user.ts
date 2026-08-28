@@ -90,14 +90,13 @@ class UserAPI {
   async changePassword(
     reauth: Reauth,
     newPassword: string,
-    refreshToken?: string | null,
-  ): Promise<void> {
-    await this.client.patch("/v1/users/me/password", {
+  ): Promise<{ accessToken: string; refreshToken: string; tokenType: string; expiresIn: number }> {
+    const response = await this.client.patch("/v1/users/me/password", {
       currentPassword: reauth.password,
       googleIdToken: reauth.googleIdToken,
       newPassword,
-      refreshToken: refreshToken ?? undefined,
     });
+    return response.data.data;
   }
 
   async requestEmailChange(reauth: Reauth, newEmail: string): Promise<void> {

@@ -66,6 +66,7 @@ pub struct AppState {
         BcryptHasher,
         JwtTokenIssuer,
         GoogleIdTokenVerifier,
+        RedisAccessRevoker,
     >,
     pub request_email_change_usecase: RequestEmailChange<
         PostgresUserRepository,

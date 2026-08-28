@@ -104,9 +104,14 @@ where
         ));
         let mut tx = self.unit_of_work.begin().await?;
         let mut events = vec![IdentityEvent::from(event)];
-        if user.is_disabled()
-            && let Some(mut locked) = tx.load_user_for_update(&user_id).await?
-        {
+        let mut locked = tx
+            .load_user_for_update(&user_id)
+            .await?
+            .ok_or(LoginError::InvalidCredentials)?;
+        if locked.is_deleted() {
+            return Err(LoginError::InvalidCredentials);
+        }
+        if locked.is_disabled() {
             locked.reactivate(Utc::now());
             events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
             tx.save_user(&locked).await?;

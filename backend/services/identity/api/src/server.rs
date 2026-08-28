@@ -138,6 +138,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             hasher.clone(),
             token_issuer.clone(),
             reauthenticator.clone(),
+            access_revoker.clone(),
         ),
         request_email_change_usecase: RequestEmailChange::new(
             user_repository.clone(),

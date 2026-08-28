@@ -7,7 +7,9 @@ use identity::usecases::user::{
 use validator::Validate;
 use identity_domain::user::{id::UserId, locale::Locale};
 use serde::{Deserialize, Serialize};
-use api_common::middleware::auth::RateLimitedAuthToken;
+use api_common::client::extract_client_context;
+use api_common::middleware::auth::{AuthToken, RateLimitedAuthToken};
+use crate::dto::responses::auth::token_pair::TokenPairResponse;
 use uuid::Uuid;
 
 use crate::state::AppState;
@@ -150,7 +152,6 @@ pub struct UpdatePasswordBody {
     pub google_id_token: Option<String>,
     #[validate(length(min = 4, max = 30))]
     pub new_password: String,
-    pub refresh_token: Option<String>,
 }
 
 fn reauth_from(password: Option<String>, google_id_token: Option<String>) -> Result<Reauth, HttpError> {
@@ -176,19 +177,22 @@ async fn update_me_password(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
-    app_state
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let tokens = app_state
         .change_password_usecase
         .execute(
             user_id,
             ChangePasswordRequest {
                 reauth: reauth_from(body.current_password, body.google_id_token)?,
                 new_password: body.new_password,
-                refresh_token: body.refresh_token,
+                ip: client.ip,
+                user_agent: client.user_agent,
                 request_id: ctx.request_id,
             },
         )
         .await?;
-    Ok(HttpResponse::NoContent().finish())
+    let response: TokenPairResponse = tokens.into();
+    Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -293,7 +297,7 @@ async fn disable_me(
 #[delete("/me")]
 async fn delete_me(
     req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
+    auth_token: AuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<PasswordBody>,
 ) -> Result<impl Responder, HttpError> {

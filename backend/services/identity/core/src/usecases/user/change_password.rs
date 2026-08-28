@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use domain::{password_hash::PasswordHash, user::id::UserId};
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
 use ports::repository::RepositoryError;
 
 use crate::{
     ports::{
+        access_revoker::{AccessRevoker, AccessRevokerError},
         hasher::{HashError, Hasher},
         oauth_verifier::OAuthIdentityVerifier,
-        token_issuer::{TokenIssuer, TokenIssuerError},
+        token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
@@ -22,6 +23,8 @@ pub enum ChangePasswordError {
     Hash(#[from] HashError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
+    #[error("Access revocation error: {0}")]
+    AccessRevoker(#[from] AccessRevokerError),
     #[error("Re-authentication failed: {0}")]
     Reauth(#[from] ReauthError),
     #[error("New password must differ from the current one")]
@@ -33,32 +36,36 @@ pub enum ChangePasswordError {
 pub struct ChangePasswordRequest {
     pub reauth: Reauth,
     pub new_password: String,
-    pub refresh_token: Option<String>,
+    pub ip: Option<String>,
+    pub user_agent: Option<String>,
     pub request_id: Option<String>,
 }
 
-pub struct ChangePassword<U, W, H, I, V>
+pub struct ChangePassword<U, W, H, I, V, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
     V: OAuthIdentityVerifier,
+    R: AccessRevoker,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
     token_issuer: Arc<I>,
     reauthenticator: Arc<Reauthenticator<U, H, V>>,
+    access_revoker: Arc<R>,
 }
 
-impl<U, W, H, I, V> ChangePassword<U, W, H, I, V>
+impl<U, W, H, I, V, R> ChangePassword<U, W, H, I, V, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
     V: OAuthIdentityVerifier,
+    R: AccessRevoker,
 {
     pub fn new(
         user_repository: Arc<U>,
@@ -66,6 +73,7 @@ where
         hasher: Arc<H>,
         token_issuer: Arc<I>,
         reauthenticator: Arc<Reauthenticator<U, H, V>>,
+        access_revoker: Arc<R>,
     ) -> Self {
         Self {
             user_repository,
@@ -73,10 +81,11 @@ where
             hasher,
             token_issuer,
             reauthenticator,
+            access_revoker,
         }
     }
 
-    pub async fn execute(&self, user_id: UserId, request: ChangePasswordRequest) -> Result<(), ChangePasswordError> {
+    pub async fn execute(&self, user_id: UserId, request: ChangePasswordRequest) -> Result<IssuedTokens, ChangePasswordError> {
         let user = self
             .user_repository
             .find_by_id(&user_id)
@@ -92,27 +101,34 @@ where
         {
             return Err(ChangePasswordError::SamePassword);
         }
-        let keep = match request.refresh_token.as_deref() {
-            Some(token) => {
-                let decoded = self.token_issuer.decode_refresh(token)?;
-                (decoded.user_id.uuid() == user_id.uuid()).then_some(decoded.refresh_token_id)
-            }
-            None => None,
-        };
         let new_hash = PasswordHash::new(self.hasher.hash(&request.new_password)?);
 
         let now = Utc::now();
+        let cutoff = now - Duration::seconds(1);
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
             .await?
             .ok_or(ChangePasswordError::UserNotFound)?;
+        if user.is_deleted() {
+            return Err(ChangePasswordError::UserNotFound);
+        }
         user.change_password(new_hash, now);
         let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         tx.save_user(&user).await?;
-        tx.revoke_refresh_tokens_for_user(&user_id, keep.as_ref(), now).await?;
+        tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
+        let tokens = self.token_issuer.issue(&user_id, user.is_verified()).await?;
+        let refresh_token = RefreshToken::issue(
+            tokens.refresh_token_id,
+            user_id,
+            tokens.refresh_token_expires_at,
+            request.ip,
+            request.user_agent,
+        );
+        tx.insert_refresh_token(&refresh_token).await?;
         tx.save_events(&events, request.request_id.as_deref()).await?;
         tx.commit().await?;
-        Ok(())
+        self.access_revoker.revoke_access_issued_before(&user_id, cutoff).await?;
+        Ok(tokens)
     }
 }
