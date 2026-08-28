@@ -171,6 +171,7 @@ impl HttpMapping for GoogleLoginError {
             GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
             GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
             GoogleLoginError::AccountConflict => StatusCode::CONFLICT,
+            GoogleLoginError::AccountDeleted => StatusCode::FORBIDDEN,
             GoogleLoginError::UsernameTaken => StatusCode::CONFLICT,
             GoogleLoginError::InvalidName(UserNameError::Reserved) => {
                 StatusCode::UNPROCESSABLE_ENTITY
@@ -200,6 +201,7 @@ impl HttpMapping for GoogleLoginError {
             GoogleLoginError::AccountConflict => {
                 "This email is already linked to a different Google account".to_string()
             }
+            GoogleLoginError::AccountDeleted => "This account has been deleted".to_string(),
             GoogleLoginError::UsernameTaken => "This username is already taken".to_string(),
             GoogleLoginError::InvalidName(UserNameError::Reserved)
             | GoogleLoginError::NameNotAllowed => "This username is not allowed.".to_string(),
@@ -227,6 +229,7 @@ impl HttpMapping for GoogleLoginError {
             GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
             GoogleLoginError::AccountConflict => "GOOGLE_ACCOUNT_CONFLICT",
+            GoogleLoginError::AccountDeleted => "ACCOUNT_DELETED",
             GoogleLoginError::UsernameTaken => "GOOGLE_USERNAME_TAKEN",
             GoogleLoginError::InvalidName(UserNameError::Reserved)
             | GoogleLoginError::NameNotAllowed => "NAME_NOT_ALLOWED",
@@ -718,6 +721,7 @@ impl HttpMapping for DisableAccountError {
         match self {
             DisableAccountError::Repository(e) => e.to_http_status(),
             DisableAccountError::Hash(e) => e.to_http_status(),
+            DisableAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DisableAccountError::InvalidPassword => StatusCode::FORBIDDEN,
             DisableAccountError::UserNotFound => StatusCode::NOT_FOUND,
         }
@@ -726,6 +730,7 @@ impl HttpMapping for DisableAccountError {
         match self {
             DisableAccountError::Repository(e) => e.to_user_message(),
             DisableAccountError::Hash(e) => e.to_user_message(),
+            DisableAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DisableAccountError::InvalidPassword => "Password is incorrect".to_string(),
             DisableAccountError::UserNotFound => "User not found".to_string(),
         }
@@ -734,6 +739,7 @@ impl HttpMapping for DisableAccountError {
         match self {
             DisableAccountError::Repository(e) => e.to_error_code(),
             DisableAccountError::Hash(e) => e.to_error_code(),
+            DisableAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DisableAccountError::InvalidPassword => "INVALID_PASSWORD",
             DisableAccountError::UserNotFound => "USER_NOT_FOUND",
         }
@@ -745,6 +751,7 @@ impl HttpMapping for DeleteAccountError {
         match self {
             DeleteAccountError::Repository(e) => e.to_http_status(),
             DeleteAccountError::Hash(e) => e.to_http_status(),
+            DeleteAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DeleteAccountError::InvalidPassword => StatusCode::FORBIDDEN,
             DeleteAccountError::UserNotFound => StatusCode::NOT_FOUND,
         }
@@ -753,6 +760,7 @@ impl HttpMapping for DeleteAccountError {
         match self {
             DeleteAccountError::Repository(e) => e.to_user_message(),
             DeleteAccountError::Hash(e) => e.to_user_message(),
+            DeleteAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DeleteAccountError::InvalidPassword => "Password is incorrect".to_string(),
             DeleteAccountError::UserNotFound => "User not found".to_string(),
         }
@@ -761,6 +769,7 @@ impl HttpMapping for DeleteAccountError {
         match self {
             DeleteAccountError::Repository(e) => e.to_error_code(),
             DeleteAccountError::Hash(e) => e.to_error_code(),
+            DeleteAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DeleteAccountError::InvalidPassword => "INVALID_PASSWORD",
             DeleteAccountError::UserNotFound => "USER_NOT_FOUND",
         }

@@ -163,6 +163,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .await
             .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);
+    let access_revocations_data =
+        web::Data::new(api_common::middleware::revocation::AccessRevocations::from_env().await);
 
     let readiness = Readiness::builder()
         .add_probe({
@@ -188,6 +190,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())
+            .app_data(access_revocations_data.clone())
             .wrap(RequestIdMiddleware)
             .wrap(Logger::default())
             .wrap(cors)

@@ -33,6 +33,8 @@ pub enum GoogleLoginError {
     EmailNotVerified,
     #[error("This email is already linked to a different Google account")]
     AccountConflict,
+    #[error("This account has been deleted")]
+    AccountDeleted,
     #[error("This username is already taken")]
     UsernameTaken,
     #[error("Invalid username: {0}")]
@@ -124,6 +126,7 @@ where
             .find_user_id_by_oauth(provider_str, &identity.subject)
             .await?
         {
+            self.ensure_linked_user_active(&user_id).await?;
             let tokens = self
                 .issue_session(user_id, request.client, request.ctx.request_id)
                 .await?;
@@ -133,7 +136,7 @@ where
         match self.user_repository.find_by_email(&email).await? {
             Some(user) => {
                 if user.is_deleted() {
-                    return Err(GoogleLoginError::AccountConflict);
+                    return Err(GoogleLoginError::AccountDeleted);
                 }
                 let user_id = user.id_ownned();
 
@@ -201,6 +204,7 @@ where
             .find_user_id_by_oauth(provider_str, &identity.subject)
             .await?
         {
+            self.ensure_linked_user_active(&user_id).await?;
             return self
                 .issue_session(user_id, request.client, request.ctx.request_id)
                 .await;
@@ -308,6 +312,18 @@ where
         Ok(tokens)
     }
 
+    async fn ensure_linked_user_active(&self, user_id: &UserId) -> Result<(), GoogleLoginError> {
+        let user = self
+            .user_repository
+            .find_by_id(user_id)
+            .await?
+            .ok_or(GoogleLoginError::AccountDeleted)?;
+        if user.is_deleted() {
+            return Err(GoogleLoginError::AccountDeleted);
+        }
+        Ok(())
+    }
+
     async fn issue_session(
         &self,
         user_id: UserId,
@@ -332,8 +348,16 @@ where
             Utc::now(),
         ));
         let mut tx = self.unit_of_work.begin().await?;
+        let mut events = vec![IdentityEvent::from(event)];
+        if let Some(mut locked) = tx.load_user_for_update(&user_id).await?
+            && locked.is_disabled()
+        {
+            locked.reactivate(Utc::now());
+            events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
+            tx.save_user(&locked).await?;
+        }
         tx.insert_refresh_token(&refresh_token).await?;
-        tx.save_events(&[IdentityEvent::from(event)], request_id.as_deref()).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(tokens)

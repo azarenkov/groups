@@ -1,4 +1,3 @@
-use std::future::{Ready, ready};
 use std::sync::LazyLock;
 
 use actix_web::{
@@ -11,7 +10,11 @@ use actix_web::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{middleware::jwt::validation::validate_access_token, rate_limiting::KeyedRateLimiter};
+use crate::{
+    middleware::jwt::validation::{ValidatedAccess, validate_access_token},
+    middleware::revocation::AccessRevocations,
+    rate_limiting::KeyedRateLimiter,
+};
 
 static JWT_SECRET: LazyLock<String> =
     LazyLock::new(|| std::env::var("JWT_SECRET").expect("JWT_SECRET must be set"));
@@ -28,11 +31,29 @@ pub struct RateLimitedAuthToken {
 
 impl FromRequest for AuthToken {
     type Error = ActixWebError;
-    type Future = Ready<Result<Self, Self::Error>>;
+    type Future = futures::future::LocalBoxFuture<'static, Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        ready(authenticate(req).map(|(id, _verified)| AuthToken { id }))
+        let auth_result = authenticate(req);
+        let revocations = req.app_data::<web::Data<AccessRevocations>>().cloned();
+        Box::pin(async move {
+            let access = auth_result?;
+            ensure_not_revoked(revocations.as_ref().map(|d| d.get_ref()), &access).await?;
+            Ok(AuthToken { id: access.user_id })
+        })
     }
+}
+
+async fn ensure_not_revoked(
+    revocations: Option<&AccessRevocations>,
+    access: &ValidatedAccess,
+) -> Result<(), ActixWebError> {
+    if let Some(store) = revocations
+        && store.is_revoked(&access.user_id, access.issued_at).await
+    {
+        return Err(ErrorUnauthorized("Unauthorized"));
+    }
+    Ok(())
 }
 
 impl FromRequest for RateLimitedAuthToken {
@@ -42,8 +63,11 @@ impl FromRequest for RateLimitedAuthToken {
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         let auth_result = authenticate(req);
         let limiter = req.app_data::<web::Data<KeyedRateLimiter>>().cloned();
+        let revocations = req.app_data::<web::Data<AccessRevocations>>().cloned();
         Box::pin(async move {
-            let (id, verified) = auth_result?;
+            let access = auth_result?;
+            ensure_not_revoked(revocations.as_ref().map(|d| d.get_ref()), &access).await?;
+            let ValidatedAccess { user_id: id, verified, .. } = access;
             if !verified {
                 return Err(ErrorForbidden("Email not verified"));
             }
@@ -58,7 +82,7 @@ impl FromRequest for RateLimitedAuthToken {
     }
 }
 
-fn authenticate(req: &HttpRequest) -> Result<(Uuid, bool), ActixWebError> {
+fn authenticate(req: &HttpRequest) -> Result<ValidatedAccess, ActixWebError> {
     let auth_header = req
         .headers()
         .get(http::header::AUTHORIZATION)

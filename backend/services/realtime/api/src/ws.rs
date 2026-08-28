@@ -21,6 +21,7 @@ pub struct WsState {
     pub manager: ConnectionManager<PostgresRealtimeProjection>,
     pub jwt_secret: String,
     pub outbound_buffer: usize,
+    pub access_revocations: api_common::middleware::revocation::AccessRevocations,
 }
 
 fn extract_bearer_token(req: &HttpRequest) -> Option<(String, String)> {
@@ -55,7 +56,8 @@ fn extract_bearer_token_from_auth_header(req: &HttpRequest) -> Option<String> {
     raw.strip_prefix("Bearer ").map(|s| s.trim().to_string())
 }
 
-fn authenticate_request(req: &HttpRequest, secret: &str) -> Option<Uuid> {
+async fn authenticate_request(req: &HttpRequest, state: &WsState) -> Option<Uuid> {
+    let secret = state.jwt_secret.as_str();
     let token = extract_bearer_token_from_auth_header(req)?;
     let decoded = decode::<AccessTokenClaims>(
         &token,
@@ -64,6 +66,13 @@ fn authenticate_request(req: &HttpRequest, secret: &str) -> Option<Uuid> {
     )
     .ok()?;
     if decoded.claims.token_type != TokenType::Access || !decoded.claims.verified {
+        return None;
+    }
+    if state
+        .access_revocations
+        .is_revoked(&decoded.claims.sub, decoded.claims.iat)
+        .await
+    {
         return None;
     }
     Some(decoded.claims.sub)
@@ -75,7 +84,7 @@ pub async fn presence_preference(
     state: web::Data<WsState>,
     body: web::Json<PresencePreferenceBody>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let Some(user_id) = authenticate_request(&req, &state.jwt_secret) else {
+    let Some(user_id) = authenticate_request(&req, &state).await else {
         return Ok(HttpResponse::Unauthorized().body("invalid token"));
     };
     state
@@ -106,6 +115,13 @@ pub async fn ws_handler(
             }
             if !decoded.claims.verified {
                 return Ok(HttpResponse::Forbidden().body("email not verified"));
+            }
+            if state
+                .access_revocations
+                .is_revoked(&decoded.claims.sub, decoded.claims.iat)
+                .await
+            {
+                return Ok(HttpResponse::Unauthorized().body("token revoked"));
             }
             (decoded.claims.sub, decoded.claims.exp)
         }

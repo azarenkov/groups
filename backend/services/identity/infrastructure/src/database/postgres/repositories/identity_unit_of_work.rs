@@ -220,6 +220,14 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         }))
     }
 
+    async fn delete_oauth_identities(&mut self, user_id: &UserId) -> Result<(), RepositoryError> {
+        sqlx::query!("DELETE FROM oauth_identities WHERE user_id = $1", user_id.uuid())
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn revoke_refresh_tokens_for_user(&mut self, user_id: &UserId, keep: Option<&RefreshTokenId>, now: DateTime<Utc>) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"

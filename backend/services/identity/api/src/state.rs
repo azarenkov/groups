@@ -15,7 +15,7 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{
-    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
+    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker},
     database::postgres::repositories::{
         identity_unit_of_work::PostgresIdentityUnitOfWork,
         user::PostgresUserRepository,
@@ -66,9 +66,9 @@ pub struct AppState {
         RequestEmailChange<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher>,
     pub confirm_email_change_usecase: ConfirmEmailChange<PostgresIdentityUnitOfWork, BcryptHasher>,
     pub disable_account_usecase:
-        DisableAccount<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher>,
+        DisableAccount<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher, RedisAccessRevoker>,
     pub delete_account_usecase:
-        DeleteAccount<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher>,
+        DeleteAccount<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher, RedisAccessRevoker>,
     pub user_repository: std::sync::Arc<PostgresUserRepository>,
     pub trust_forwarded_headers: bool,
 }

@@ -25,7 +25,7 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{
-    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
+    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker},
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -76,6 +76,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let user_state_lookup = Arc::new(MessagingStateClient::new(&messaging_internal_url));
+
+    let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
+    let access_revocations_data = web::Data::new(access_revocations.clone());
+    let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
 
     let app_state = web::Data::new(AppState {
         register_user_usecase: RegisterUser::new(
@@ -139,11 +143,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             unit_of_work.clone(),
             hasher.clone(),
+            access_revoker.clone(),
         ),
         delete_account_usecase: DeleteAccount::new(
             user_repository.clone(),
             unit_of_work.clone(),
             hasher.clone(),
+            access_revoker.clone(),
         ),
         user_repository: user_repository.clone(),
         trust_forwarded_headers: server_config.trust_forwarded_headers,
@@ -179,6 +185,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())
+            .app_data(access_revocations_data.clone())
             .wrap(RequestIdMiddleware)
             .wrap(Logger::default())
             .wrap(cors)
