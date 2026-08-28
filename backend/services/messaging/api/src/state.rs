@@ -185,10 +185,8 @@ pub struct AppState {
         EditDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork, MediaClaimsClient>,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
-    pub list_dm_messages_usecase:
-        ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
-    pub search_dm_messages_usecase:
-        SearchDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub list_dm_messages_usecase: ListDmMessages<PostgresDmMessageRepository>,
+    pub search_dm_messages_usecase: SearchDmMessages<PostgresDmMessageRepository>,
     pub send_server_invite_usecase: SendServerInvite<
         PostgresDmMessageRepository,
         PostgresFriendshipRepository,

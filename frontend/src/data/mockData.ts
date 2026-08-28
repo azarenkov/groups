@@ -6,6 +6,7 @@ export interface MockDirect {
   online: boolean;
   unread: number;
   lastMessage?: string;
+  isFriend?: boolean;
 }
 
 export interface MockMember {

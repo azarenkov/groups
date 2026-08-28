@@ -10,6 +10,7 @@ use ports::repository::RepositoryError;
 pub struct DmConversationPreview {
     pub message_id: Uuid,
     pub peer_id: Uuid,
+    pub peer_name: String,
     pub sender_id: Uuid,
     pub content: String,
     pub call_status: Option<String>,

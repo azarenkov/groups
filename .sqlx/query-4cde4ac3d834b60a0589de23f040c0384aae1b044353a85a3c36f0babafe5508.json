@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT DISTINCT ON (m.peer)\n                m.id AS \"message_id!\",\n                m.peer AS \"peer!\",\n                u.name AS \"peer_name!\",\n                m.sender_id AS \"sender_id!\",\n                m.content AS \"content!\",\n                m.call_status,\n                m.invite_server_id,\n                EXISTS(\n                    SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id\n                ) AS \"has_attachments!\",\n                m.created_at AS \"created_at!\"\n            FROM (\n                SELECT\n                    id,\n                    CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer,\n                    sender_id,\n                    content,\n                    call_status,\n                    invite_server_id,\n                    created_at\n                FROM dm_messages\n                WHERE sender_id = $1 OR recipient_id = $1\n            ) m\n            INNER JOIN messaging_user_profiles u ON u.user_id = m.peer\n            ORDER BY m.peer, m.created_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "peer!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "peer_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "sender_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "content!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "call_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "invite_server_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "has_attachments!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      true,
+      true,
+      null,
+      false
+    ]
+  },
+  "hash": "4cde4ac3d834b60a0589de23f040c0384aae1b044353a85a3c36f0babafe5508"
+}

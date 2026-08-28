@@ -103,6 +103,7 @@ class DmAPI {
     previews: {
       messageId: string;
       peerId: string;
+      peerName: string;
       senderId: string;
       content: string;
       callStatus: string | null;

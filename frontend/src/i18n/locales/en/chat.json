@@ -73,5 +73,6 @@
   "editHint": "escape to cancel · enter to save",
   "editCaptionPlaceholder": "Add a caption (optional)",
   "editRemoveAttachment": "Remove attachment",
-  "editConfirm": "Save changes"
+  "editConfirm": "Save changes",
+  "notFriendsNotice": "You're no longer friends with {{user}}. Add them back to keep chatting."
 }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus};
+use messaging_domain::dm_message::repository::DmMessageRepository;
 use domain::{pagination::PaginatedResult, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -13,31 +13,23 @@ use crate::dto::{
 pub enum SearchDmMessagesError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Not friends with this user")]
-    NotFriends,
     #[error("Search query cannot be empty")]
     EmptyQuery,
 }
 
-pub struct SearchDmMessages<M, F>
+pub struct SearchDmMessages<M>
 where
     M: DmMessageRepository,
-    F: FriendshipRepository,
 {
     dm_repository: Arc<M>,
-    friendship_repository: Arc<F>,
 }
 
-impl<M, F> SearchDmMessages<M, F>
+impl<M> SearchDmMessages<M>
 where
     M: DmMessageRepository,
-    F: FriendshipRepository,
 {
-    pub fn new(dm_repository: Arc<M>, friendship_repository: Arc<F>) -> Self {
-        Self {
-            dm_repository,
-            friendship_repository,
-        }
+    pub fn new(dm_repository: Arc<M>) -> Self {
+        Self { dm_repository }
     }
 
     pub async fn execute(
@@ -51,14 +43,6 @@ where
         }
 
         let friend_id = UserId::new(request.friend_id);
-
-        let pair = self
-            .friendship_repository
-            .find_pair(&requester_id, &friend_id)
-            .await?;
-        if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
-            return Err(SearchDmMessagesError::NotFriends);
-        }
 
         let result = self
             .dm_repository

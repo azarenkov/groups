@@ -433,6 +433,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             SELECT DISTINCT ON (m.peer)
                 m.id AS "message_id!",
                 m.peer AS "peer!",
+                u.name AS "peer_name!",
                 m.sender_id AS "sender_id!",
                 m.content AS "content!",
                 m.call_status,
@@ -453,6 +454,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 FROM dm_messages
                 WHERE sender_id = $1 OR recipient_id = $1
             ) m
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.peer
             ORDER BY m.peer, m.created_at DESC
             "#,
             user_id.uuid(),
@@ -466,6 +468,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .map(|r| DmConversationPreview {
                 message_id: r.message_id,
                 peer_id: r.peer,
+                peer_name: r.peer_name,
                 sender_id: r.sender_id,
                 content: r.content,
                 call_status: r.call_status,

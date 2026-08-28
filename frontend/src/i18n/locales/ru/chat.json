@@ -73,5 +73,6 @@
   "editHint": "esc — отменить · enter — сохранить",
   "editCaptionPlaceholder": "Подпись к файлам (необязательно)",
   "editRemoveAttachment": "Открепить вложение",
-  "editConfirm": "Сохранить изменения"
+  "editConfirm": "Сохранить изменения",
+  "notFriendsNotice": "Вы больше не в друзьях с {{user}}. Добавьте снова, чтобы продолжить переписку."
 }

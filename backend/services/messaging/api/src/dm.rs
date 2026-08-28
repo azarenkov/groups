@@ -105,6 +105,7 @@ async fn decline_server_invite(
 struct DmPreviewItem {
     message_id: Uuid,
     peer_id: Uuid,
+    peer_name: String,
     sender_id: Uuid,
     content: String,
     call_status: Option<String>,
@@ -134,6 +135,7 @@ async fn list_dm_previews(
             .map(|p| DmPreviewItem {
                 message_id: p.message_id,
                 peer_id: p.peer_id,
+                peer_name: p.peer_name,
                 sender_id: p.sender_id,
                 content: p.content,
                 call_status: p.call_status,

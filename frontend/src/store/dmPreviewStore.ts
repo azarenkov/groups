@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export interface DmPreview {
   messageId: string;
+  peerName?: string;
   senderId: string;
   content: string;
   callStatus: string | null;
@@ -42,6 +43,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
         }
         map[it.peerId] = {
           messageId: it.messageId,
+          peerName: it.peerName ?? cur?.peerName,
           senderId: it.senderId,
           content: it.content,
           callStatus: it.callStatus,
@@ -62,7 +64,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
       ) {
         return s;
       }
-      return { byFriend: { ...s.byFriend, [friendId]: preview } };
+      return { byFriend: { ...s.byFriend, [friendId]: { ...preview, peerName: preview.peerName ?? cur?.peerName } } };
     }),
 
   editMessage: (messageId, newContent, hasAttachments) =>

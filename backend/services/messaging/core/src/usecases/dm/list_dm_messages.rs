@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus};
+use messaging_domain::{dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -16,33 +16,25 @@ const MAX_LIMIT: i64 = 100;
 pub enum ListDmMessagesError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Not friends with this user")]
-    NotFriends,
     #[error("Invalid pagination cursor")]
     InvalidCursor,
     #[error("Cannot specify both before and after cursors")]
     ConflictingCursors,
 }
 
-pub struct ListDmMessages<M, F>
+pub struct ListDmMessages<M>
 where
     M: DmMessageRepository,
-    F: FriendshipRepository,
 {
     dm_repository: Arc<M>,
-    friendship_repository: Arc<F>,
 }
 
-impl<M, F> ListDmMessages<M, F>
+impl<M> ListDmMessages<M>
 where
     M: DmMessageRepository,
-    F: FriendshipRepository,
 {
-    pub fn new(dm_repository: Arc<M>, friendship_repository: Arc<F>) -> Self {
-        Self {
-            dm_repository,
-            friendship_repository,
-        }
+    pub fn new(dm_repository: Arc<M>) -> Self {
+        Self { dm_repository }
     }
 
     pub async fn execute(
@@ -51,14 +43,6 @@ where
         requester_id: UserId,
     ) -> Result<Vec<DmMessageDto>, ListDmMessagesError> {
         let friend_id = UserId::new(request.friend_id);
-
-        let pair = self
-            .friendship_repository
-            .find_pair(&requester_id, &friend_id)
-            .await?;
-        if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
-            return Err(ListDmMessagesError::NotFriends);
-        }
 
         let limit = clamp_limit(request.limit);
         let before = request.before.map(DmMessageId::new);

@@ -326,14 +326,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_unit_of_work.clone(),
         ),
         list_dm_previews_usecase: ListDmPreviews::new(dm_repository.clone()),
-        list_dm_messages_usecase: ListDmMessages::new(
-            dm_repository.clone(),
-            friendship_repository.clone(),
-        ),
-        search_dm_messages_usecase: SearchDmMessages::new(
-            dm_repository.clone(),
-            friendship_repository.clone(),
-        ),
+        list_dm_messages_usecase: ListDmMessages::new(dm_repository.clone()),
+        search_dm_messages_usecase: SearchDmMessages::new(dm_repository.clone()),
         send_server_invite_usecase: SendServerInvite::new(
             dm_repository.clone(),
             friendship_repository.clone(),

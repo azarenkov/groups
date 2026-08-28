@@ -34,6 +34,7 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
+import { useFriendshipStore } from "../../store/friendshipStore";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -110,6 +111,7 @@ interface DmMeta {
   initials: string;
   color: string;
   online: boolean;
+  isFriend?: boolean;
 }
 
 interface PendingFile {
@@ -1707,7 +1709,26 @@ const ChatView: React.FC<ChatViewProps> = ({
         )}
       </div>
       </div>
-      {!callMode && (
+      {!callMode && dm && dm.isFriend === false && (
+        <div className="composer-locked">
+          <span className="composer-locked-text">{t("notFriendsNotice", { user: dm.name })}</span>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() =>
+              useFriendshipStore
+                .getState()
+                .sendRequest(dm.name)
+                .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
+            }
+          >
+            <Icon name="user-plus" size={13} />
+            {t("addFriend")}
+          </button>
+          {composerError && <div className="composer-error">{composerError}</div>}
+        </div>
+      )}
+      {!callMode && !(dm && dm.isFriend === false) && (
       <form className="composer" onSubmit={handleSend}>
         {pendingFiles.length > 0 && (
           <div className="attach-chips">
@@ -2035,6 +2056,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         <span className="sep" />
         <span className="topic">{dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}</span>
         <div className="right">
+          {dm.isFriend !== false && (
           <button
             type="button"
             className="icon-btn"
@@ -2058,6 +2080,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           >
             <Icon name="phone" size={16} />
           </button>
+          )}
           {bellPopover(
             i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),
             [
@@ -2075,7 +2098,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               <Icon name="search" size={15} />
             </button>
           )}
-          {onRemoveFriend && (
+          {onRemoveFriend && dm.isFriend !== false && (
             <button
               type="button"
               className="icon-btn"
