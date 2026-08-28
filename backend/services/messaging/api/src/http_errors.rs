@@ -243,7 +243,6 @@ impl HttpMapping for MuteChannelError {
             MuteChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             MuteChannelError::Repository(e) => e.to_http_status(),
             MuteChannelError::Domain(e) => e.to_http_status(),
-            MuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
 
@@ -256,7 +255,6 @@ impl HttpMapping for MuteChannelError {
             }
             MuteChannelError::Repository(e) => e.to_user_message(),
             MuteChannelError::Domain(e) => e.to_user_message(),
-            MuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
 
@@ -267,7 +265,6 @@ impl HttpMapping for MuteChannelError {
             MuteChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             MuteChannelError::Repository(e) => e.to_error_code(),
             MuteChannelError::Domain(e) => e.to_error_code(),
-            MuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
@@ -281,7 +278,6 @@ impl HttpMapping for UnmuteChannelError {
             UnmuteChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             UnmuteChannelError::Repository(e) => e.to_http_status(),
             UnmuteChannelError::Domain(e) => e.to_http_status(),
-            UnmuteChannelError::VoiceService(e) => e.to_http_status(),
         }
     }
 
@@ -294,7 +290,6 @@ impl HttpMapping for UnmuteChannelError {
             }
             UnmuteChannelError::Repository(e) => e.to_user_message(),
             UnmuteChannelError::Domain(e) => e.to_user_message(),
-            UnmuteChannelError::VoiceService(e) => e.to_user_message(),
         }
     }
 
@@ -305,7 +300,6 @@ impl HttpMapping for UnmuteChannelError {
             UnmuteChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             UnmuteChannelError::Repository(e) => e.to_error_code(),
             UnmuteChannelError::Domain(e) => e.to_error_code(),
-            UnmuteChannelError::VoiceService(e) => e.to_error_code(),
         }
     }
 }

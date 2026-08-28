@@ -19,6 +19,7 @@ pub struct SubscribeOptions {
     pub max_deliver: Option<u32>,
     pub dlq_subject: Option<String>,
     pub extra_subjects: Vec<String>,
+    pub ack_wait: Option<std::time::Duration>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -27,11 +28,20 @@ pub enum StartPosition {
     All,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Disposition {
+    Ack,
+    Retry(Option<std::time::Duration>),
+}
+
+pub type DispositionFn =
+    Box<dyn FnOnce(Disposition) -> BoxFuture<'static, Result<(), EventConsumerError>> + Send>;
+
 pub struct ConsumedMessage {
     pub payload: Vec<u8>,
     pub request_id: Option<String>,
     pub subject: String,
-    ack_fn: Box<dyn FnOnce() -> BoxFuture<'static, Result<(), EventConsumerError>> + Send>,
+    ack_fn: DispositionFn,
 }
 
 impl ConsumedMessage {
@@ -39,7 +49,7 @@ impl ConsumedMessage {
         payload: Vec<u8>,
         request_id: Option<String>,
         subject: String,
-        ack_fn: Box<dyn FnOnce() -> BoxFuture<'static, Result<(), EventConsumerError>> + Send>,
+        ack_fn: DispositionFn,
     ) -> Self {
         Self {
             payload,
@@ -50,7 +60,11 @@ impl ConsumedMessage {
     }
 
     pub async fn ack(self) -> Result<(), EventConsumerError> {
-        (self.ack_fn)().await
+        (self.ack_fn)(Disposition::Ack).await
+    }
+
+    pub async fn retry_after(self, delay: std::time::Duration) -> Result<(), EventConsumerError> {
+        (self.ack_fn)(Disposition::Retry(Some(delay))).await
     }
 }
 

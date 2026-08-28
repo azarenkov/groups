@@ -36,6 +36,7 @@ pub async fn run<M: Mailer>(
             max_deliver: Some(spec.max_deliver),
             dlq_subject: Some(dlq_subject.clone()),
             extra_subjects: vec![partitioned_filter_subject],
+            ack_wait: None,
         })
         .await?;
 

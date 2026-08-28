@@ -453,6 +453,26 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(result.rows_affected() > 0)
     }
 
+    async fn participant_muted_by(
+        &mut self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<Option<UserId>, RepositoryError> {
+        let muted_by = sqlx::query_scalar!(
+            r#"
+            SELECT muted_by
+            FROM channel_muted_participants
+            WHERE channel_id = $1 AND user_id = $2
+            "#,
+            channel_id.uuid(),
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(muted_by.map(UserId::new))
+    }
+
     async fn insert_channel(&mut self, channel: &Channel) -> Result<(), RepositoryError> {
         let kind_dto = ChannelKindDto::from(channel.kind());
         let visibility_dto = ChannelVisibilityDto::from(&channel.visibility());

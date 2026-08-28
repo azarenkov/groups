@@ -3,9 +3,7 @@ use std::sync::Arc;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
-use messaging_domain::{events::MessagingEvent, channel::repository::ChannelRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
-
-use crate::ports::voice_service::VoiceService;
+use messaging_domain::{events::MessagingEvent, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LeaveServerError {
@@ -26,29 +24,13 @@ impl From<PolicyError> for LeaveServerError {
     }
 }
 
-pub struct LeaveServer<W, C, V>
-where
-    W: ServerUnitOfWork,
-    C: ChannelRepository,
-    V: VoiceService,
-{
+pub struct LeaveServer<W: ServerUnitOfWork> {
     unit_of_work: Arc<W>,
-    channel_repository: Arc<C>,
-    voice_service: Arc<V>,
 }
 
-impl<W, C, V> LeaveServer<W, C, V>
-where
-    W: ServerUnitOfWork,
-    C: ChannelRepository,
-    V: VoiceService,
-{
-    pub fn new(unit_of_work: Arc<W>, channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
-        Self {
-            unit_of_work,
-            channel_repository,
-            voice_service,
-        }
+impl<W: ServerUnitOfWork> LeaveServer<W> {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -56,11 +38,6 @@ where
         server_id: ServerId,
         user_id: UserId,
     ) -> Result<(), LeaveServerError> {
-        let voice_channel_ids = self
-            .channel_repository
-            .list_voice_channel_ids_by_server(&server_id)
-            .await?;
-
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let mut server = tx.load_server().await?;
         server.leave(&user_id, chrono::Utc::now())?;
@@ -70,22 +47,6 @@ where
         let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
         tx.save_events(&events, None).await?;
         tx.commit().await?;
-
-        for channel_id in &voice_channel_ids {
-            if let Err(err) = self
-                .voice_service
-                .remove_participant(channel_id, &user_id)
-                .await
-            {
-                tracing::warn!(
-                    channel_id = %channel_id.uuid(),
-                    user_id = %user_id.uuid(),
-                    error = %err,
-                    "Failed to disconnect LiveKit participant after leave",
-                );
-            }
-        }
-
         Ok(())
     }
 }

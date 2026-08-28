@@ -3,6 +3,7 @@ pub mod can_manage_server;
 pub mod create_server;
 pub mod decline_server_invite;
 pub mod delete_server;
+pub mod enforce_departure;
 pub mod get_voice_presence;
 pub mod invite_codes;
 pub mod kick_member;

@@ -41,6 +41,11 @@ pub trait ServerTransaction: Send {
         expected_muted_by: Option<&UserId>,
         downgrade_to_self_mute: bool,
     ) -> Result<bool, RepositoryError>;
+    async fn participant_muted_by(
+        &mut self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+    ) -> Result<Option<UserId>, RepositoryError>;
     async fn insert_channel(&mut self, channel: &Channel) -> Result<(), RepositoryError>;
     async fn delete_channel(&mut self, channel_id: &ChannelId) -> Result<Vec<String>, RepositoryError>;
     async fn delete_message(&mut self, message_id: &MessageId) -> Result<(), RepositoryError>;

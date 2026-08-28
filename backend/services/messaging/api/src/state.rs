@@ -88,13 +88,11 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresUserProfileRepository,
         PostgresServerUnitOfWork,
-        LiveKitService,
     >,
     pub unmute_channel_usecase: UnmuteChannel<
         PostgresChannelRepository,
         PostgresUserProfileRepository,
         PostgresServerUnitOfWork,
-        LiveKitService,
     >,
     pub delete_channel_usecase:
         DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerUnitOfWork>,
@@ -222,9 +220,9 @@ pub struct AppState {
     pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerUnitOfWork>,
     pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
     pub leave_server_usecase:
-        LeaveServer<PostgresServerUnitOfWork, PostgresChannelRepository, LiveKitService>,
+        LeaveServer<PostgresServerUnitOfWork>,
     pub kick_member_usecase:
-        KickMember<PostgresServerUnitOfWork, PostgresChannelRepository, LiveKitService>,
+        KickMember<PostgresServerUnitOfWork>,
     pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,

@@ -14,9 +14,7 @@ use crate::database::postgres::{
         server::ServerDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
-    repositories::{
-        outbox_record::save_outbox_records,
-    },
+    repositories::{outbox_record::save_outbox_records, server_unit_of_work::lock_server},
 };
 
 pub struct PostgresServerRepository {
@@ -451,6 +449,20 @@ impl ServerRepository for PostgresServerRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        let target_server = sqlx::query_scalar!(
+            r#"SELECT server_id FROM server_invite_codes WHERE code = $1"#,
+            code,
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let Some(target_server) = target_server else {
+            return Ok(None);
+        };
+
+        lock_server(&mut tx, &ServerId::new(target_server)).await?;
 
         let invite = sqlx::query!(
             r#"
