@@ -30,6 +30,7 @@ interface ChannelState {
 }
 
 const removedDuringFetch = new Map<string, Set<string>>();
+const patchedDuringFetch = new Map<string, Set<string>>();
 
 export const useChannelStore = create<ChannelState>((set, get) => ({
   channelsByServer: {},
@@ -71,7 +72,8 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
     }));
   },
 
-  renameChannel: (serverId, channelId, name) =>
+  renameChannel: (serverId, channelId, name) => {
+    patchedDuringFetch.get(serverId)?.add(channelId);
     set((state) => ({
       channelsByServer: {
         ...state.channelsByServer,
@@ -79,7 +81,8 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
           c.id === channelId ? { ...c, name } : c,
         ),
       },
-    })),
+    }));
+  },
 
   setLoading: (loading) => set({ isLoading: loading }),
 
@@ -100,11 +103,16 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
       const loaded: Channel[] = [];
       const before = new Set((get().channelsByServer[serverId] ?? []).map((c) => c.id));
       const removed = new Set<string>();
+      const patched = new Set<string>();
       removedDuringFetch.set(serverId, removed);
-      const alive = () => loaded.filter((c) => !removed.has(c.id));
+      patchedDuringFetch.set(serverId, patched);
+      const alive = (current: Channel[]) =>
+        loaded
+          .filter((c) => !removed.has(c.id))
+          .map((c) => (patched.has(c.id) ? (current.find((x) => x.id === c.id) ?? c) : c));
       const mergeWithCached = () =>
         set((state) => {
-          const fresh = alive();
+          const fresh = alive(state.channelsByServer[serverId] ?? []);
           const seen = new Set(fresh.map((c) => c.id));
           const cached = (state.channelsByServer[serverId] ?? []).filter((c) => !seen.has(c.id));
           return {
@@ -125,7 +133,7 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
         mergeWithCached();
       }
       set((state) => {
-        const fresh = alive();
+        const fresh = alive(state.channelsByServer[serverId] ?? []);
         const seen = new Set(fresh.map((c) => c.id));
         const addedMeanwhile = (state.channelsByServer[serverId] ?? []).filter(
           (c) => !seen.has(c.id) && !before.has(c.id),
@@ -136,6 +144,7 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
         };
       });
       if (removedDuringFetch.get(serverId) === removed) removedDuringFetch.delete(serverId);
+      if (patchedDuringFetch.get(serverId) === patched) patchedDuringFetch.delete(serverId);
     } catch (error) {
       set({
         error:

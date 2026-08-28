@@ -37,6 +37,7 @@ interface ServerState {
 }
 
 let removedDuringFetch = new Set<string>();
+let patchedDuringFetch = new Set<string>();
 
 export const useServerStore = create<ServerState>((set, get) => ({
   servers: [],
@@ -56,12 +57,14 @@ export const useServerStore = create<ServerState>((set, get) => ({
         : { servers: [server, ...state.servers] },
     ),
 
-  patchServer: (serverId, patch) =>
+  patchServer: (serverId, patch) => {
+    patchedDuringFetch.add(serverId);
     set((state) => ({
       servers: state.servers.map((s) =>
         s.id === serverId ? { ...s, ...patch } : s,
       ),
-    })),
+    }));
+  },
 
   removeServer: (serverId) => {
     removedDuringFetch.add(serverId);
@@ -84,10 +87,14 @@ export const useServerStore = create<ServerState>((set, get) => ({
       const loaded: Server[] = [];
       const before = new Set(get().servers.map((s) => s.id));
       removedDuringFetch = new Set();
-      const alive = () => loaded.filter((s) => !removedDuringFetch.has(s.id));
+      patchedDuringFetch = new Set();
+      const alive = (current: Server[]) =>
+        loaded
+          .filter((s) => !removedDuringFetch.has(s.id))
+          .map((s) => (patchedDuringFetch.has(s.id) ? (current.find((c) => c.id === s.id) ?? s) : s));
       const mergeWithCached = () =>
         set((state) => {
-          const fresh = alive();
+          const fresh = alive(state.servers);
           const seen = new Set(fresh.map((s) => s.id));
           const cached = state.servers.filter((s) => !seen.has(s.id));
           return { servers: [...fresh, ...cached] };
@@ -104,7 +111,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
         mergeWithCached();
       }
       set((state) => {
-        const fresh = alive();
+        const fresh = alive(state.servers);
         const seen = new Set(fresh.map((s) => s.id));
         const addedMeanwhile = state.servers.filter((s) => !seen.has(s.id) && !before.has(s.id));
         return { servers: [...addedMeanwhile, ...fresh], isLoading: false };
