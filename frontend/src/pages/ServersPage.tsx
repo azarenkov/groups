@@ -1017,7 +1017,7 @@ const ServersPage: React.FC = () => {
                   name: nameOverrides[selectedDm.id] ?? selectedDm.name,
                   initials: selectedDm.initials,
                   color: selectedDm.color,
-                  online: !!onlineUsers[selectedDm.id],
+                  online: selectedDm.isFriend !== false && !!onlineUsers[selectedDm.id],
                   isFriend: selectedDm.isFriend !== false,
                 }}
                 currentUserId={user?.id}

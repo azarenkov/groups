@@ -2081,7 +2081,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             <Icon name="phone" size={16} />
           </button>
           )}
-          {bellPopover(
+          {dm.isFriend !== false && bellPopover(
             i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),
             [
               { k: "all", ttl: i18n.t("notifications.all", { ns: "chat" }), sub: i18n.t("notifications.allHint", { ns: "chat" }) },
