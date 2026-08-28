@@ -111,6 +111,9 @@ const App: React.FC = () => {
     void import("./store/voicePresenceStore").then(({ useVoicePresenceStore }) =>
       useVoicePresenceStore.getState().clearAll(),
     );
+    void import("./store/homeStore").then(({ useHomeStore }) =>
+      useHomeStore.getState().clear(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

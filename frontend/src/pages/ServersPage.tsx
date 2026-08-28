@@ -36,6 +36,7 @@ import { homeAPI } from "../api/home";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import HomeView from "../components/rift/HomeView";
 import { colorForId, initialFor } from "../utils/avatar";
+import { PERM_MANAGE_CHANNELS, useRolesStore, userPermissions } from "../store/rolesStore";
 import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
 import { ApiError } from "../utils/apiError";
@@ -846,8 +847,27 @@ const ServersPage: React.FC = () => {
 
   const handleCallFromHome = (friendId: string) => {
     handleOpenDmFromHome(friendId);
-    void useCallStore.getState().start([friendId]);
+    const cs = useCallStore.getState();
+    const inCallWithFriend =
+      !!cs.activeCallId &&
+      (cs.peerId === friendId ||
+        friendId in cs.participants ||
+        cs.ringing.includes(friendId));
+    if (inCallWithFriend) {
+      cs.setFocused(true);
+      return;
+    }
+    cs.start([friendId]).catch((e) => console.warn("[call] start failed:", e));
   };
+
+  const canManageChannelsIn = (server: Server) =>
+    !!user?.id &&
+    (server.ownerId === user.id ||
+      (userPermissions(useRolesStore.getState().byServer[server.id], user.id) &
+        PERM_MANAGE_CHANNELS) !==
+        0);
+  const roomCreationTargets = servers.filter(canManageChannelsIn);
+  const canCreateRoom = servers.length === 0 || roomCreationTargets.length > 0;
 
   const handleNewRoom = () => {
     if (servers.length === 0) {
@@ -855,7 +875,11 @@ const ServersPage: React.FC = () => {
       setIsServerModalOpen(true);
       return;
     }
-    const target = homeOverview?.recentRooms[0]?.serverId ?? servers[0].id;
+    const recent = homeOverview?.recentRooms.find((r) =>
+      roomCreationTargets.some((s) => s.id === r.serverId),
+    );
+    const target = recent?.serverId ?? roomCreationTargets[0]?.id;
+    if (!target) return;
     setChannelModal({ serverId: target, kind: "voice" });
   };
 
@@ -1007,6 +1031,7 @@ const ServersPage: React.FC = () => {
                   })
                 }
                 onNewRoom={handleNewRoom}
+                canCreateRoom={canCreateRoom}
               />
             ) : selectedDm ? (
               <ChatView

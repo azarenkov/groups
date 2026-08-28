@@ -25,6 +25,7 @@ export interface HomeViewProps {
   onAcceptRequest: (friendId: string) => void;
   onIgnoreRequest: (friendId: string) => void;
   onNewRoom: () => void;
+  canCreateRoom: boolean;
 }
 
 const greetingKey = (hour: number) =>
@@ -66,6 +67,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   onAcceptRequest,
   onIgnoreRequest,
   onNewRoom,
+  canCreateRoom,
 }) => {
   const { t } = useTranslation("home");
   const now = useNow(30_000);
@@ -126,10 +128,12 @@ const HomeView: React.FC<HomeViewProps> = ({
         <span className="home-sub">
           {t(greetingKey(new Date(now).getHours()))}, {userName}
         </span>
-        <button type="button" className="home-btn-primary" onClick={onNewRoom}>
-          <Icon name="plus" size={14} />
-          {t("newRoom")}
-        </button>
+        {canCreateRoom && (
+          <button type="button" className="home-btn-primary" onClick={onNewRoom}>
+            <Icon name="plus" size={14} />
+            {t("newRoom")}
+          </button>
+        )}
       </header>
       <div className="home-scroll">
         <div className="home-grid">
