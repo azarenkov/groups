@@ -110,7 +110,7 @@ where
             .load_user_for_update(&user_id)
             .await?
             .ok_or(ChangePasswordError::UserNotFound)?;
-        if user.is_deleted() {
+        if user.is_deleted() || user.is_disabled() {
             return Err(ChangePasswordError::UserNotFound);
         }
         if user.password_hash().as_str() != snapshot.password_hash().as_str()
