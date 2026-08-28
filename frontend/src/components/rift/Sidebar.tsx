@@ -716,6 +716,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="sb-nav">
         <button
           type="button"
+          className={"sb-nav-btn sb-nav-home" + (homeActive ? " active" : "")}
+          title={t("home")}
+          onClick={onGoHome}
+        >
+          <Icon name="home" size={15} />
+        </button>
+        <button
+          type="button"
           className="sb-nav-btn"
           title={t("common:back")}
           disabled={!navState.back}
@@ -731,14 +739,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => goHistory(1)}
         >
           <Icon name="chev-left" size={15} className="flip-x" />
-        </button>
-        <button
-          type="button"
-          className={"sb-nav-btn sb-nav-home" + (homeActive ? " active" : "")}
-          title={t("home")}
-          onClick={onGoHome}
-        >
-          <Icon name="home" size={15} />
         </button>
       </div>
       <div className="sb-search">

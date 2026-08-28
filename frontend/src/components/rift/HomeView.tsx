@@ -130,59 +130,35 @@ const HomeView: React.FC<HomeViewProps> = ({
       <div className="home-scroll">
         <div className="home-grid">
           <div className="home-col-main">
-            <section>
-              <h6 className="home-label">{t("activeNow", { count: activeFriends.length })}</h6>
-              {activeFriends.length === 0 ? (
-                <div className="home-empty home-card">
-                  <span className="home-empty-ico"><Icon name="headphones" size={20} /></span>
-                  <div className="home-empty-title">{t("emptyActiveTitle")}</div>
-                  <div className="home-empty-text">{t("emptyActive")}</div>
+            {unread.length > 0 && (
+              <section>
+                <h6 className="home-label">{t("unread")}</h6>
+                <div className="home-unread-list">
+                {unread.map(({ friend, preview }) => (
+                  <button
+                    key={friend.friendId}
+                    type="button"
+                    className="home-unread-row"
+                    onClick={() => onOpenDm(friend.friendId)}
+                  >
+                    <UserAvatar
+                      userId={friend.friendId}
+                      name={friend.friendName}
+                      className="home-avatar"
+                      style={{ background: colorForId(friend.friendId), width: 26, height: 26 }}
+                    />
+                    <span className="who">
+                      <span className="line">
+                        <span className="name">{friend.friendName}</span>
+                        {preview && <span className="time">{formatClock(preview.createdAt)}</span>}
+                      </span>
+                      <span className="text">{previewText(preview)}</span>
+                    </span>
+                  </button>
+                ))}
                 </div>
-              ) : (
-                <div className="home-active-grid">
-                  {activeFriends.map((f) => {
-                    const connected = joinedChannelId === f.channelId;
-                    return (
-                      <div key={`${f.userId}:${f.channelId}`} className="home-card home-active-card">
-                        <div className="head">
-                          <span className="home-avatar-wrap">
-                            <UserAvatar
-                              userId={f.userId}
-                              name={f.userName}
-                              className="home-avatar"
-                              style={{ background: colorForId(f.userId), width: 36, height: 36 }}
-                            />
-                            <span className="home-avatar-dot live" />
-                          </span>
-                          <span className="who">
-                            <span className="name">{f.userName}</span>
-                            <span className="state">
-                              {f.isMuted && <Icon name="mic-off" size={11} />}
-                              {t("inVoice", { duration: duration(f.joinedAt) })}
-                            </span>
-                          </span>
-                        </div>
-                        <div className="foot">
-                          <span className="room">
-                            <Icon name="volume" size={13} />
-                            <span>
-                              {f.channelName} · {f.serverName}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            className={connected ? "home-btn-joined" : "home-btn-secondary"}
-                            onClick={() => !connected && onJoinRoom(f.serverId, f.channelId)}
-                          >
-                            {connected ? t("connected") : t("join")}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+              </section>
+            )}
             <section>
               <h6 className="home-label">{t("online", { count: onlineCount })}</h6>
               {onlineFriends.length === 0 && activeFriends.length === 0 ? (
@@ -235,7 +211,91 @@ const HomeView: React.FC<HomeViewProps> = ({
             </section>
           </div>
           <div className="home-col-side">
-            {requests.length > 0 && (
+            <div className="home-card home-side-card">
+              <h6 className="home-label">{t("activeNow", { count: activeFriends.length })}</h6>
+              {activeFriends.length === 0 ? (
+                <div className="home-empty compact">
+                  <span className="home-empty-ico"><Icon name="headphones" size={16} /></span>
+                  <div className="home-empty-text">{t("emptyActive")}</div>
+                </div>
+              ) : (
+                <div className="home-active-grid">
+                  {activeFriends.map((f) => {
+                    const connected = joinedChannelId === f.channelId;
+                    return (
+                      <div key={`${f.userId}:${f.channelId}`} className="home-card home-active-card">
+                        <div className="head">
+                          <span className="home-avatar-wrap">
+                            <UserAvatar
+                              userId={f.userId}
+                              name={f.userName}
+                              className="home-avatar"
+                              style={{ background: colorForId(f.userId), width: 36, height: 36 }}
+                            />
+                            <span className="home-avatar-dot live" />
+                          </span>
+                          <span className="who">
+                            <span className="name">{f.userName}</span>
+                            <span className="state">
+                              {f.isMuted && <Icon name="mic-off" size={11} />}
+                              {t("inVoice", { duration: duration(f.joinedAt) })}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="foot">
+                          <span className="room">
+                            <Icon name="volume" size={13} />
+                            <span>
+                              {f.channelName} · {f.serverName}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            className={connected ? "home-btn-joined" : "home-btn-secondary"}
+                            onClick={() => !connected && onJoinRoom(f.serverId, f.channelId)}
+                          >
+                            {connected ? t("connected") : t("join")}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="home-card home-side-card">
+              <h6 className="home-label">{t("jumpBackIn")}</h6>
+              {recentRooms.length === 0 ? (
+                <div className="home-empty compact">
+                  <span className="home-empty-ico"><Icon name="volume" size={16} /></span>
+                  <div className="home-empty-text">{t("emptyRooms")}</div>
+                </div>
+              ) : (
+                recentRooms.map((room) => (
+                  <button
+                    key={room.channelId}
+                    type="button"
+                    className="home-room-row"
+                    onClick={() => onJoinRoom(room.serverId, room.channelId)}
+                  >
+                    <span className="ico">
+                      <Icon name="volume" size={14} />
+                    </span>
+                    <span className="who">
+                      <span className="name">{room.channelName}</span>
+                      <span className="server">{room.serverName}</span>
+                    </span>
+                    {room.liveCount > 0 && (
+                      <span className="home-live-pill">
+                        <i />
+                        {room.liveCount}
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          {requests.length > 0 && (
               <div className="home-card home-side-card">
                 <h6 className="home-label">{t("friendRequests", { count: requests.length })}</h6>
                 {requests.map((r) => (
@@ -269,70 +329,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                 ))}
               </div>
             )}
-            <div className="home-card home-side-card">
-              <h6 className="home-label">{t("jumpBackIn")}</h6>
-              {recentRooms.length === 0 ? (
-                <div className="home-empty compact">
-                  <span className="home-empty-ico"><Icon name="volume" size={16} /></span>
-                  <div className="home-empty-text">{t("emptyRooms")}</div>
-                </div>
-              ) : (
-                recentRooms.map((room) => (
-                  <button
-                    key={room.channelId}
-                    type="button"
-                    className="home-room-row"
-                    onClick={() => onJoinRoom(room.serverId, room.channelId)}
-                  >
-                    <span className="ico">
-                      <Icon name="volume" size={14} />
-                    </span>
-                    <span className="who">
-                      <span className="name">{room.channelName}</span>
-                      <span className="server">{room.serverName}</span>
-                    </span>
-                    {room.liveCount > 0 && (
-                      <span className="home-live-pill">
-                        <i />
-                        {room.liveCount}
-                      </span>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="home-card home-side-card">
-              <h6 className="home-label">{t("unread")}</h6>
-              {unread.length === 0 ? (
-                <div className="home-empty compact">
-                  <span className="home-empty-ico ok"><Icon name="check" size={16} /></span>
-                  <div className="home-empty-text">{t("emptyUnread")}</div>
-                </div>
-              ) : (
-                unread.map(({ friend, preview }) => (
-                  <button
-                    key={friend.friendId}
-                    type="button"
-                    className="home-unread-row"
-                    onClick={() => onOpenDm(friend.friendId)}
-                  >
-                    <UserAvatar
-                      userId={friend.friendId}
-                      name={friend.friendName}
-                      className="home-avatar"
-                      style={{ background: colorForId(friend.friendId), width: 26, height: 26 }}
-                    />
-                    <span className="who">
-                      <span className="line">
-                        <span className="name">{friend.friendName}</span>
-                        {preview && <span className="time">{formatClock(preview.createdAt)}</span>}
-                      </span>
-                      <span className="text">{previewText(preview)}</span>
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
           </div>
         </div>
       </div>
