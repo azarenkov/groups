@@ -636,6 +636,7 @@ pub(crate) async fn apply_voice_changes(
             VoiceChange::Added {
                 user_id,
                 session_id,
+                joined_at,
             } => {
                 sqlx::query!(
                     r#"
@@ -653,11 +654,13 @@ pub(crate) async fn apply_voice_changes(
                 sqlx::query!(
                     r#"
                     INSERT INTO channel_voice_visits (channel_id, user_id, last_joined_at)
-                    VALUES ($1, $2, now())
-                    ON CONFLICT (channel_id, user_id) DO UPDATE SET last_joined_at = now()
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (channel_id, user_id) DO UPDATE
+                    SET last_joined_at = GREATEST(channel_voice_visits.last_joined_at, EXCLUDED.last_joined_at)
                     "#,
                     channel_id.uuid(),
                     user_id.uuid(),
+                    joined_at,
                 )
                 .execute(&mut **tx)
                 .await
