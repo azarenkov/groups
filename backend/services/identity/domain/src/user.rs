@@ -105,6 +105,13 @@ impl User {
         }
     }
 
+    pub fn ensure_can_request_verification(&self, purpose: VerificationPurpose) -> Result<(), UserError> {
+        if purpose.is_registration() && self.is_verified() {
+            return Err(UserError::AlreadyVerified);
+        }
+        Ok(())
+    }
+
     pub fn issue_verification(
         &self,
         channel: VerificationChannel,
@@ -112,9 +119,7 @@ impl User {
         plain_code: String,
         code_hash: CodeHash,
     ) -> Result<VerificationCode, UserError> {
-        if purpose.is_registration() && self.is_verified() {
-            return Err(UserError::AlreadyVerified);
-        }
+        self.ensure_can_request_verification(purpose)?;
         Ok(VerificationCode::issue(
             self.id,
             self.email.clone(),
