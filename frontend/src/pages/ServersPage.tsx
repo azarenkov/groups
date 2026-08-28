@@ -860,10 +860,20 @@ const ServersPage: React.FC = () => {
     cs.start([friendId]).catch((e) => console.warn("[call] start failed:", e));
   };
 
+  const rolesByServer = useRolesStore((st) => st.byServer);
+  const fetchRoles = useRolesStore((st) => st.fetch);
+  const isRolesTracked = useRolesStore((st) => st.isTracked);
+  React.useEffect(() => {
+    if (!tokens?.accessToken || !homeActive || !user?.id) return;
+    for (const server of servers) {
+      if (server.ownerId === user.id || isRolesTracked(server.id)) continue;
+      void fetchRoles(server.id).catch(() => {});
+    }
+  }, [tokens?.accessToken, homeActive, user?.id, servers, fetchRoles, isRolesTracked]);
   const canManageChannelsIn = (server: Server) =>
     !!user?.id &&
     (server.ownerId === user.id ||
-      (userPermissions(useRolesStore.getState().byServer[server.id], user.id) &
+      (userPermissions(rolesByServer[server.id], user.id) &
         PERM_MANAGE_CHANNELS) !==
         0);
   const roomCreationTargets = servers.filter(canManageChannelsIn);
