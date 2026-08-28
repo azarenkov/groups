@@ -236,6 +236,7 @@ const HomeView: React.FC<HomeViewProps> = ({
           {requests.length > 0 && (
               <div className="home-card home-side-card">
                 <h6 className="home-label">{t("friendRequests", { count: requests.length })}</h6>
+                <div className="home-request-list">
                 {requests.map((r) => (
                   <div key={r.friendId} className="home-request-row">
                     <UserAvatar
@@ -265,6 +266,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
             )}
           </div>

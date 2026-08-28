@@ -13,15 +13,14 @@
 .home-sub { font-size: 13px; color: var(--fg-3); }
 .home-header .home-btn-primary { margin-left: auto; }
 
-.home-scroll { flex: 1; overflow-y: auto; }
-.home-scroll::-webkit-scrollbar { width: 6px; }
-.home-scroll::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 3px; }
+.home-scroll { flex: 1; min-height: 0; overflow: hidden; }
 .home-scroll { display: flex; flex-direction: column; }
-.home-grid { flex: 1; min-height: 100%; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 34%); gap: 20px; align-items: stretch; }
+.home-grid { flex: 1; min-height: 0; height: 100%; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 34%); gap: 20px; align-items: stretch; }
 @media (max-width: 900px) { .home-grid { grid-template-columns: minmax(0, 1fr); } }
 .home-col-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.home-col-main > section { flex: 1; display: flex; flex-direction: column; }
-.home-col-side { display: flex; flex-direction: column; gap: 20px; }
+.home-col-main > section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.home-col-side { display: flex; flex-direction: column; gap: 20px; min-height: 0; }
+.home-col-side > .home-card { min-height: 0; max-height: 50%; }
 .home-col-side > .home-card:last-child { flex: 1; }
 
 .home-label { margin: 0; font-size: 11px; font-weight: 600; color: var(--fg-3); letter-spacing: 0.06em; text-transform: uppercase; }
@@ -54,7 +53,10 @@
 .home-avatar-dot { position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface-panel); }
 .home-avatar-dot.live { background: var(--voice-live); }
 
-.home-active-grid { display: flex; flex-direction: column; gap: 10px; }
+.home-active-grid { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+.home-request-list { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+.home-online-list::-webkit-scrollbar, .home-room-list::-webkit-scrollbar, .home-active-grid::-webkit-scrollbar, .home-request-list::-webkit-scrollbar { width: 6px; }
+.home-online-list::-webkit-scrollbar-thumb, .home-room-list::-webkit-scrollbar-thumb, .home-active-grid::-webkit-scrollbar-thumb, .home-request-list::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 3px; }
 .home-active-card { background: var(--surface-sunken); box-shadow: none; border-color: var(--hairline); }
 .home-active-card { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .home-active-card .head { display: flex; align-items: center; gap: 10px; }
@@ -66,7 +68,7 @@
 .home-active-card .room svg { color: var(--fg-3); flex-shrink: 0; }
 .home-active-card .room span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.home-online-list { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0; }
+.home-online-list { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0; flex: 1; min-height: 0; overflow-y: auto; }
 .home-online-row { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 12px; margin: 0; border-radius: 10px; transition: background var(--dur-fast); }
 .home-online-row:hover { background: var(--surface-hover); }
 .home-online-row .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -74,12 +76,13 @@
 .home-online-row .status { font-size: 12px; color: var(--fg-3); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .home-side-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.home-side-card > .home-label { flex-shrink: 0; }
 .home-request-row { display: flex; align-items: center; gap: 10px; }
 .home-request-row .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .home-request-row .name { font-size: 13px; font-weight: 500; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-request-row .actions { display: flex; gap: 6px; }
 
-.home-room-list { display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; }
+.home-room-list { display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; min-height: 0; overflow-y: auto; }
 .home .home-room-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 12px; margin: 0; border-radius: 10px; transition: background var(--dur-fast); text-align: left; }
 .home-room-row:hover { background: var(--surface-hover); }
 .home-room-row .ico { width: 28px; height: 28px; border-radius: 8px; background: var(--surface-sunken); color: var(--fg-3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
