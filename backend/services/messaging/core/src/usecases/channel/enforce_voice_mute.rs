@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use domain::user::id::UserId;
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::id::ChannelId, channel::moderation::Publication, channel::repository::ChannelRepository, server::unit_of_work::ServerUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
@@ -56,18 +56,20 @@ where
             Err(e) => return Err(e.into()),
         };
         let is_member = server.is_member(&user_id);
-        let moderator_muted = is_member
-            && tx
-                .participant_muted_by(&channel_id, &user_id)
-                .await?
-                .is_some_and(|muted_by| muted_by != user_id);
+        let publication = if is_member {
+            match tx.load_channel(&channel_id).await {
+                Ok(channel) => Some(channel.publication_for(&user_id)),
+                Err(RepositoryError::NotFound) => return Ok(()),
+                Err(e) => return Err(e.into()),
+            }
+        } else {
+            None
+        };
         let enforcement = async {
-            if !is_member {
-                self.voice_service.remove_participant(&channel_id, &user_id).await
-            } else if moderator_muted {
-                self.voice_service.mute_participant(&channel_id, &user_id).await
-            } else {
-                self.voice_service.unmute_participant(&channel_id, &user_id).await
+            match publication {
+                None => self.voice_service.remove_participant(&channel_id, &user_id).await,
+                Some(Publication::Restricted) => self.voice_service.mute_participant(&channel_id, &user_id).await,
+                Some(Publication::Full) => self.voice_service.unmute_participant(&channel_id, &user_id).await,
             }
         };
         let outcome = tokio::time::timeout(LOCKED_ENFORCEMENT_BUDGET, enforcement).await;

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::moderation::Publication, channel::repository::ChannelRepository};
 use domain::{user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 
@@ -128,18 +128,18 @@ where
             .create_voice_channel(channel.id(), channel.server_id())
             .await?;
 
-        let mute_record = channel
-            .muted_participants_list()
-            .find(|m| m.user_id == user_id);
-        let moderator_muted = mute_record.is_some_and(|m| m.muted_by != user_id);
-        let channel_token = if moderator_muted {
-            self.voice_service
-                .create_token_without_microphone(&user_id, &user_name, channel.id())
-                .await?
-        } else {
-            self.voice_service
-                .create_token(&user_id, &user_name, channel.id())
-                .await?
+        let mute_record = channel.mute_record(&user_id);
+        let channel_token = match channel.publication_for(&user_id) {
+            Publication::Restricted => {
+                self.voice_service
+                    .create_token_without_microphone(&user_id, &user_name, channel.id())
+                    .await?
+            }
+            Publication::Full => {
+                self.voice_service
+                    .create_token(&user_id, &user_name, channel.id())
+                    .await?
+            }
         };
 
         let response = JoinVoiceChannelResponse::new(

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::UnmuteOutcome, channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 
@@ -25,7 +25,7 @@ impl From<PolicyError> for UnmuteChannelError {
     fn from(err: PolicyError) -> Self {
         match err {
             PolicyError::TargetNotMember => UnmuteChannelError::TargetUserNotFound,
-            _ => UnmuteChannelError::Domain(ChannelError::NotOwner),
+            _ => UnmuteChannelError::Domain(ChannelError::NotAllowed),
         }
     }
 }
@@ -64,7 +64,7 @@ where
         let channel_id = ChannelId::new(request.channel_id);
         let target = UserId::new(request.target_user_id);
 
-        let mut channel = self
+        let channel = self
             .channel_repository
             .find_channel_by_id(&channel_id)
             .await?;
@@ -84,26 +84,16 @@ where
 
         let now = Utc::now();
         let server_id = ServerId::new(request.server_id);
-        let observed_muted_by = channel
-            .muted_participants_list()
-            .find(|m| m.user_id == target)
-            .map(|m| m.muted_by);
-
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let server = tx.load_server().await?;
-        server.ensure_can_unmute(&initiator, &target, observed_muted_by.as_ref())?;
-        let can_override = server.is_owner(&initiator) || target != initiator;
+        let mut channel = tx.load_channel(&channel_id).await?;
+        let muted_by = channel.mute_record(&target).map(|m| m.muted_by);
+        let grant = server.ensure_can_unmute(&initiator, &target, muted_by.as_ref())?;
 
-        let outcome = channel.unmute(target, initiator, can_override, now)?;
-        let downgrade = outcome == UnmuteOutcome::DowngradedToSelfMute;
+        channel.unmute(target, initiator, grant, now)?;
         let events: Vec<MessagingEvent> = channel.pull_events().into_iter().map(MessagingEvent::from).collect();
-
-        if !tx
-            .unmute_participant(&channel_id, &target, observed_muted_by.as_ref(), downgrade)
-            .await?
-        {
-            return Err(UnmuteChannelError::Domain(ChannelError::NotMuted));
-        }
+        tx.save_mute_state(&channel_id, &target, channel.mute_record(&target))
+            .await?;
         tx.save_events(&events, request.ctx.request_id.as_deref()).await?;
         tx.commit().await?;
         Ok(())

@@ -146,6 +146,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         channel_stream.clone(),
         channel_repository.clone(),
+        channel_unit_of_work.clone(),
         server_repository.clone(),
         livekit_service.clone(),
     );

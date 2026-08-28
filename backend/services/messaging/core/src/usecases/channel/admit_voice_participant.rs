@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::moderation::Publication, channel::repository::ChannelRepository, server::repository::ServerRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -80,16 +80,9 @@ where
             return Ok(Admission::Rejected);
         }
 
-        let moderator_muted = channel
-            .muted_participants_list()
-            .find(|m| m.user_id == user_id)
-            .is_some_and(|m| m.muted_by != user_id);
-        if moderator_muted {
-            self.voice_service.mute_participant(&channel_id, &user_id).await?;
-        } else {
-            self.voice_service
-                .unmute_participant(&channel_id, &user_id)
-                .await?;
+        match channel.publication_for(&user_id) {
+            Publication::Restricted => self.voice_service.mute_participant(&channel_id, &user_id).await?,
+            Publication::Full => self.voice_service.unmute_participant(&channel_id, &user_id).await?,
         }
         Ok(Admission::Admitted)
     }

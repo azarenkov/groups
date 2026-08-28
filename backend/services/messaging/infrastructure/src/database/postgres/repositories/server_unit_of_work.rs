@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -12,7 +12,7 @@ use crate::database::postgres::{
     dto::{kind::ChannelKindDto, visibility::ChannelVisibilityDto},
     error::map_sqlx_error_to_domain_error,
     repositories::{
-        channel::{count_stream_viewers, stream_viewers_record},
+        channel::{count_stream_viewers, load_channel_for_update, stream_viewers_record},
         dm_message::insert_dm_message,
         outbox_record::save_outbox_records,
     },
@@ -382,95 +382,50 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(true)
     }
 
-    async fn mute_participant(
-        &mut self,
-        channel_id: &ChannelId,
-        target: &UserId,
-        muted_by: &UserId,
-        muted_at: DateTime<Utc>,
-        self_muted: bool,
-    ) -> Result<bool, RepositoryError> {
-        let result = sqlx::query!(
-            r#"
-            INSERT INTO channel_muted_participants
-                (channel_id, user_id, muted_by, muted_at, self_muted)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (channel_id, user_id) DO UPDATE
-                SET muted_by = EXCLUDED.muted_by,
-                    muted_at = EXCLUDED.muted_at,
-                    self_muted = channel_muted_participants.self_muted OR EXCLUDED.self_muted
-                WHERE channel_muted_participants.muted_by = EXCLUDED.user_id
-            "#,
-            channel_id.uuid(),
-            target.uuid(),
-            muted_by.uuid(),
-            muted_at,
-            self_muted,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(result.rows_affected() > 0)
+    async fn load_channel(&mut self, channel_id: &ChannelId) -> Result<Channel, RepositoryError> {
+        load_channel_for_update(&mut self.tx, channel_id).await
     }
 
-    async fn unmute_participant(
-        &mut self,
-        channel_id: &ChannelId,
-        target: &UserId,
-        expected_muted_by: Option<&UserId>,
-        downgrade_to_self_mute: bool,
-    ) -> Result<bool, RepositoryError> {
-        let result = if downgrade_to_self_mute {
-            sqlx::query!(
-                r#"
-                UPDATE channel_muted_participants
-                SET muted_by = $2, muted_at = now(), self_muted = true
-                WHERE channel_id = $1 AND user_id = $2
-                  AND ($3::uuid IS NULL OR muted_by = $3)
-                "#,
-                channel_id.uuid(),
-                target.uuid(),
-                expected_muted_by.map(|u| u.uuid()),
-            )
-            .execute(&mut *self.tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?
-        } else {
-            sqlx::query!(
-                r#"
-                DELETE FROM channel_muted_participants
-                WHERE channel_id = $1 AND user_id = $2
-                  AND ($3::uuid IS NULL OR muted_by = $3)
-                "#,
-                channel_id.uuid(),
-                target.uuid(),
-                expected_muted_by.map(|u| u.uuid()),
-            )
-            .execute(&mut *self.tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?
-        };
-        Ok(result.rows_affected() > 0)
-    }
-
-    async fn participant_muted_by(
+    async fn save_mute_state(
         &mut self,
         channel_id: &ChannelId,
         user_id: &UserId,
-    ) -> Result<Option<UserId>, RepositoryError> {
-        let muted_by = sqlx::query_scalar!(
-            r#"
-            SELECT muted_by
-            FROM channel_muted_participants
-            WHERE channel_id = $1 AND user_id = $2
-            "#,
-            channel_id.uuid(),
-            user_id.uuid(),
-        )
-        .fetch_optional(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(muted_by.map(UserId::new))
+        mute: Option<&ParticipantMute>,
+    ) -> Result<(), RepositoryError> {
+        match mute {
+            Some(mute) => {
+                sqlx::query!(
+                    r#"
+                    INSERT INTO channel_muted_participants
+                        (channel_id, user_id, muted_by, muted_at, self_muted)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (channel_id, user_id) DO UPDATE
+                        SET muted_by = EXCLUDED.muted_by,
+                            muted_at = EXCLUDED.muted_at,
+                            self_muted = EXCLUDED.self_muted
+                    "#,
+                    channel_id.uuid(),
+                    user_id.uuid(),
+                    mute.muted_by.uuid(),
+                    mute.muted_at,
+                    mute.self_muted,
+                )
+                .execute(&mut *self.tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+            None => {
+                sqlx::query!(
+                    r#"DELETE FROM channel_muted_participants WHERE channel_id = $1 AND user_id = $2"#,
+                    channel_id.uuid(),
+                    user_id.uuid(),
+                )
+                .execute(&mut *self.tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+        }
+        Ok(())
     }
 
     async fn insert_channel(&mut self, channel: &Channel) -> Result<(), RepositoryError> {

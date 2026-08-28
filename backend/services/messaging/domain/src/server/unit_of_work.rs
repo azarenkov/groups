@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
+use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -26,26 +26,13 @@ pub trait ServerTransaction: Send {
     async fn revoke_role(&mut self, user_id: &UserId, role_id: Uuid) -> Result<bool, RepositoryError>;
     async fn swap_role_positions(&mut self, role_a: Uuid, role_b: Uuid) -> Result<bool, RepositoryError>;
     async fn remove_member(&mut self, user_id: &UserId) -> Result<bool, RepositoryError>;
-    async fn mute_participant(
-        &mut self,
-        channel_id: &ChannelId,
-        target: &UserId,
-        muted_by: &UserId,
-        muted_at: DateTime<Utc>,
-        self_muted: bool,
-    ) -> Result<bool, RepositoryError>;
-    async fn unmute_participant(
-        &mut self,
-        channel_id: &ChannelId,
-        target: &UserId,
-        expected_muted_by: Option<&UserId>,
-        downgrade_to_self_mute: bool,
-    ) -> Result<bool, RepositoryError>;
-    async fn participant_muted_by(
+    async fn load_channel(&mut self, channel_id: &ChannelId) -> Result<Channel, RepositoryError>;
+    async fn save_mute_state(
         &mut self,
         channel_id: &ChannelId,
         user_id: &UserId,
-    ) -> Result<Option<UserId>, RepositoryError>;
+        mute: Option<&ParticipantMute>,
+    ) -> Result<(), RepositoryError>;
     async fn insert_channel(&mut self, channel: &Channel) -> Result<(), RepositoryError>;
     async fn delete_channel(&mut self, channel_id: &ChannelId) -> Result<Vec<String>, RepositoryError>;
     async fn delete_message(&mut self, message_id: &MessageId) -> Result<(), RepositoryError>;

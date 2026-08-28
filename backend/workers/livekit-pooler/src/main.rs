@@ -9,7 +9,7 @@ use messaging::usecases::channel::{
 use messaging_infrastructure::{
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
-        repositories::channel::PostgresChannelRepository,
+        repositories::{channel::PostgresChannelRepository, channel_unit_of_work::PostgresChannelUnitOfWork},
     },
     voice::livekit_room_inspector::LiveKitRoomInspector,
 };
@@ -46,7 +46,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    let channel_repository = Arc::new(PostgresChannelRepository::new(pool));
+    let channel_repository = Arc::new(PostgresChannelRepository::new(pool.clone()));
+    let channel_unit_of_work = Arc::new(PostgresChannelUnitOfWork::new(pool));
     let inspector = Arc::new(LiveKitRoomInspector::new(
         &livekit_config,
         Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs),
@@ -54,8 +55,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let reconcile = ReconcileVoicePresence::new(
         channel_repository.clone(),
         inspector,
-        Arc::new(AbortVoiceConnection::new(channel_repository.clone())),
-        Arc::new(TrackMediaConnection::new(channel_repository)),
+        Arc::new(AbortVoiceConnection::new(channel_unit_of_work.clone())),
+        Arc::new(TrackMediaConnection::new(channel_unit_of_work)),
         Duration::from_secs(pooler_config.livekit_pooler_grace_secs),
         pooler_config.livekit_pooler_max_aborts_per_pass,
     );

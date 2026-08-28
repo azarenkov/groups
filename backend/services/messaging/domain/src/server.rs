@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId, server::name::ServerName, server::policy::MAX_ROLES_PER_SERVER, server::policy::PolicyError, server::role::PERM_ALL, server::role::PERM_KICK_MEMBERS, server::role::PERM_MANAGE_CHANNELS, server::role::PERM_MANAGE_INVITES, server::role::PERM_MANAGE_MESSAGES, server::role::PERM_MANAGE_ROLES, server::role::PERM_MANAGE_SERVER, server::role::PERM_MUTE_MEMBERS, server::role::RolePatch, server::role::ServerRole, server::role::has_permission};
+use crate::{channel::moderation::ModerationGrant, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId, server::name::ServerName, server::policy::MAX_ROLES_PER_SERVER, server::policy::PolicyError, server::role::PERM_ALL, server::role::PERM_KICK_MEMBERS, server::role::PERM_MANAGE_CHANNELS, server::role::PERM_MANAGE_INVITES, server::role::PERM_MANAGE_MESSAGES, server::role::PERM_MANAGE_ROLES, server::role::PERM_MANAGE_SERVER, server::role::PERM_MUTE_MEMBERS, server::role::RolePatch, server::role::ServerRole, server::role::has_permission};
 use domain::user::id::UserId;
 
 #[derive(Debug)]
@@ -349,13 +349,13 @@ impl Server {
         Ok(())
     }
 
-    pub fn ensure_can_mute(&self, actor: &UserId, target: &UserId) -> Result<(), PolicyError> {
+    pub fn ensure_can_mute(&self, actor: &UserId, target: &UserId) -> Result<ModerationGrant, PolicyError> {
         self.ensure_member(actor)?;
         if !self.is_member(target) {
             return Err(PolicyError::TargetNotMember);
         }
         if actor == target {
-            return Ok(());
+            return Ok(self.grant_for(actor));
         }
         if self.is_owner(target) {
             return Err(PolicyError::NotAllowed);
@@ -364,7 +364,7 @@ impl Server {
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
-        Ok(())
+        Ok(self.grant_for(actor))
     }
 
     pub fn ensure_can_unmute(
@@ -372,14 +372,14 @@ impl Server {
         actor: &UserId,
         target: &UserId,
         muted_by: Option<&UserId>,
-    ) -> Result<(), PolicyError> {
+    ) -> Result<ModerationGrant, PolicyError> {
         self.ensure_member(actor)?;
         if self.is_owner(actor) {
-            return Ok(());
+            return Ok(ModerationGrant::Owner);
         }
         if actor == target {
             return if muted_by == Some(actor) {
-                Ok(())
+                Ok(ModerationGrant::SelfService)
             } else {
                 Err(PolicyError::NotAllowed)
             };
@@ -391,11 +391,22 @@ impl Server {
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
-        Ok(())
+        Ok(ModerationGrant::Moderator)
     }
 
-    pub fn ensure_can_manage_channels(&self, actor: &UserId) -> Result<(), PolicyError> {
-        self.ensure_permission(actor, PERM_MANAGE_CHANNELS)
+    pub fn ensure_can_manage_channels(&self, actor: &UserId) -> Result<ModerationGrant, PolicyError> {
+        self.ensure_permission(actor, PERM_MANAGE_CHANNELS)?;
+        Ok(self.grant_for(actor))
+    }
+
+    fn grant_for(&self, actor: &UserId) -> ModerationGrant {
+        if self.is_owner(actor) {
+            ModerationGrant::Owner
+        } else if self.has(actor, PERM_MUTE_MEMBERS) || self.has(actor, PERM_MANAGE_CHANNELS) {
+            ModerationGrant::Moderator
+        } else {
+            ModerationGrant::SelfService
+        }
     }
 
     pub fn ensure_can_delete_message(
