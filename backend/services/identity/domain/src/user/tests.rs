@@ -51,6 +51,7 @@ fn wrong_codes_count_attempts_and_lock_at_the_limit() {
     assert_eq!(user.confirm_registration(&mut code, false, Utc::now()).unwrap_err(), UserError::TooManyAttempts);
     assert_eq!(code.attempts(), VerificationCode::max_attempts());
     assert_eq!(user.confirm_registration(&mut code, true, Utc::now()).unwrap_err(), UserError::TooManyAttempts);
+    assert_eq!(user.ensure_can_confirm(&code, Utc::now()).unwrap_err(), UserError::TooManyAttempts);
     assert!(!user.is_verified());
 }
 

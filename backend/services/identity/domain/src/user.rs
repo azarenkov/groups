@@ -126,12 +126,7 @@ impl User {
         ))
     }
 
-    pub fn confirm_registration(
-        &mut self,
-        code: &mut VerificationCode,
-        code_matches: bool,
-        now: DateTime<Utc>,
-    ) -> Result<(), UserError> {
+    pub fn ensure_can_confirm(&self, code: &VerificationCode, now: DateTime<Utc>) -> Result<(), UserError> {
         if self.is_verified() {
             return Err(UserError::AlreadyVerified);
         }
@@ -150,6 +145,16 @@ impl User {
         if code.expires_at() < now {
             return Err(UserError::CodeExpired);
         }
+        Ok(())
+    }
+
+    pub fn confirm_registration(
+        &mut self,
+        code: &mut VerificationCode,
+        code_matches: bool,
+        now: DateTime<Utc>,
+    ) -> Result<(), UserError> {
+        self.ensure_can_confirm(code, now)?;
         if !code_matches {
             code.register_failed_attempt();
             return Err(if code.is_limit_attempts() {

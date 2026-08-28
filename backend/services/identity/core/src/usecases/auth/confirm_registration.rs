@@ -78,10 +78,12 @@ where
             .await?
             .ok_or(RepositoryError::NotFound)?;
 
+        let now = Utc::now();
+        user.ensure_can_confirm(&code, now)?;
         let code_matches = self
             .hasher
             .verify(request.verification_code.as_str(), code.code_hash().as_str())?;
-        let outcome = user.confirm_registration(&mut code, code_matches, Utc::now());
+        let outcome = user.confirm_registration(&mut code, code_matches, now);
         tx.save_verification_code(&code).await?;
         match outcome {
             Ok(()) => {
