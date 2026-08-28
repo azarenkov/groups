@@ -58,6 +58,7 @@
 .home-online-list::-webkit-scrollbar-thumb, .home-room-list::-webkit-scrollbar-thumb, .home-active-grid::-webkit-scrollbar-thumb-thumb { background: var(--hairline-strong); border-radius: 3px; }
 .home-active-card { background: var(--surface-sunken); box-shadow: none; border-color: var(--hairline); }
 .home-active-card { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.home-active-card .members { display: flex; flex-direction: column; gap: 10px; }
 .home-active-card .head { display: flex; align-items: center; gap: 10px; }
 .home-active-card .who { min-width: 0; display: flex; flex-direction: column; }
 .home-active-card .name { font-size: 14px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

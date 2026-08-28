@@ -69,11 +69,19 @@ const HomeView: React.FC<HomeViewProps> = ({
     [friends],
   );
   const onlineFriends = useMemo(
-    () =>
-      accepted.filter((f) => !!onlineUsers[f.friendId] && !activeIds.has(f.friendId)),
+    () => accepted.filter((f) => !!onlineUsers[f.friendId] || activeIds.has(f.friendId)),
     [accepted, onlineUsers, activeIds],
   );
-  const onlineCount = onlineFriends.length + activeFriends.length;
+  const onlineCount = onlineFriends.length;
+  const activeRooms = useMemo(() => {
+    const rooms = new Map<string, { channelId: string; channelName: string; serverId: string; serverName: string; members: ActiveFriend[] }>();
+    for (const f of activeFriends) {
+      const room = rooms.get(f.channelId);
+      if (room) room.members.push(f);
+      else rooms.set(f.channelId, { channelId: f.channelId, channelName: f.channelName, serverId: f.serverId, serverName: f.serverName, members: [f] });
+    }
+    return Array.from(rooms.values());
+  }, [activeFriends]);
 
   return (
     <div className="home">
@@ -114,7 +122,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </span>
                       <span className="who">
                         <span className="name">{f.friendName}</span>
-                        <span className="status">{t("statusOnline")}</span>
+                        <span className="status">{activeIds.has(f.friendId) ? t("statusInVoice") : t("statusOnline")}</span>
                       </span>
                       <button
                         type="button"
@@ -148,39 +156,43 @@ const HomeView: React.FC<HomeViewProps> = ({
                 </div>
               ) : (
                 <div className="home-active-grid">
-                  {activeFriends.map((f) => {
-                    const connected = joinedChannelId === f.channelId;
+                  {activeRooms.map((room) => {
+                    const connected = joinedChannelId === room.channelId;
                     return (
-                      <div key={`${f.userId}:${f.channelId}`} className="home-card home-active-card">
-                        <div className="head">
-                          <span className="home-avatar-wrap">
-                            <UserAvatar
-                              userId={f.userId}
-                              name={f.userName}
-                              className="home-avatar"
-                              style={{ background: colorForId(f.userId), width: 36, height: 36 }}
-                            />
-                            <span className="home-avatar-dot live" />
-                          </span>
-                          <span className="who">
-                            <span className="name">{f.userName}</span>
-                            <span className="state">
-                              {f.isMuted && <Icon name="mic-off" size={11} />}
-                              {t("inVoice", { duration: duration(f.joinedAt) })}
-                            </span>
-                          </span>
+                      <div key={room.channelId} className="home-card home-active-card">
+                        <div className="members">
+                          {room.members.map((f) => (
+                            <div key={f.userId} className="head">
+                              <span className="home-avatar-wrap">
+                                <UserAvatar
+                                  userId={f.userId}
+                                  name={f.userName}
+                                  className="home-avatar"
+                                  style={{ background: colorForId(f.userId), width: 32, height: 32 }}
+                                />
+                                <span className="home-avatar-dot live" />
+                              </span>
+                              <span className="who">
+                                <span className="name">{f.userName}</span>
+                                <span className="state">
+                                  {f.isMuted && <Icon name="mic-off" size={11} />}
+                                  {t("inVoice", { duration: duration(f.joinedAt) })}
+                                </span>
+                              </span>
+                            </div>
+                          ))}
                         </div>
                         <div className="foot">
                           <span className="room">
                             <Icon name="volume" size={13} />
                             <span>
-                              {f.channelName} · {f.serverName}
+                              {room.channelName} · {room.serverName}
                             </span>
                           </span>
                           <button
                             type="button"
                             className={connected ? "home-btn-joined" : "home-btn-secondary"}
-                            onClick={() => !connected && onJoinRoom(f.serverId, f.channelId)}
+                            onClick={() => !connected && onJoinRoom(room.serverId, room.channelId)}
                           >
                             {connected ? t("connected") : t("join")}
                           </button>

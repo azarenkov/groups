@@ -20,5 +20,6 @@
   "emptyRooms": "Здесь появятся голосовые каналы, в которые вы заходили.",
   "emptyActiveTitle": "Пока тихо",
   "emptyOnlineTitle": "Никого в сети",
-  "addFriend": "Добавить друга"
+  "addFriend": "Добавить друга",
+  "statusInVoice": "В голосовом канале"
 }

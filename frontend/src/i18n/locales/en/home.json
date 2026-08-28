@@ -20,5 +20,6 @@
   "emptyRooms": "Voice rooms from your servers will appear here.",
   "emptyActiveTitle": "Quiet for now",
   "emptyOnlineTitle": "Nobody online",
-  "addFriend": "Add friend"
+  "addFriend": "Add friend",
+  "statusInVoice": "In voice"
 }
