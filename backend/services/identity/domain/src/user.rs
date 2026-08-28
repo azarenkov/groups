@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum UserError {
@@ -28,6 +28,12 @@ pub enum UserError {
     BadCode,
     #[error("Verification code belongs to another user")]
     ForeignCode,
+    #[error("Verification code not for email change")]
+    NotEmailChangeCode,
+    #[error("No pending email change")]
+    NoPendingEmail,
+    #[error("User is deleted")]
+    Deleted,
 }
 
 #[derive(Debug, Serialize)]
@@ -41,6 +47,10 @@ pub struct User {
     email_verified_at: Option<DateTime<Utc>>,
     phone_verified_at: Option<DateTime<Utc>>,
     locale: Locale,
+    pending_email: Option<Email>,
+    password_changed_at: Option<DateTime<Utc>>,
+    disabled_at: Option<DateTime<Utc>>,
+    deleted_at: Option<DateTime<Utc>>,
     #[serde(skip)]
     events: Vec<UserEvent>,
 }
@@ -57,6 +67,10 @@ impl User {
         email_verified_at: Option<DateTime<Utc>>,
         phone_verified_at: Option<DateTime<Utc>>,
         locale: Locale,
+        pending_email: Option<Email>,
+        password_changed_at: Option<DateTime<Utc>>,
+        disabled_at: Option<DateTime<Utc>>,
+        deleted_at: Option<DateTime<Utc>>,
     ) -> Self {
         Self {
             id,
@@ -68,6 +82,10 @@ impl User {
             email_verified_at,
             phone_verified_at,
             locale,
+            pending_email,
+            password_changed_at,
+            disabled_at,
+            deleted_at,
             events: Vec::new(),
         }
     }
@@ -101,6 +119,10 @@ impl User {
             email_verified_at: None,
             phone_verified_at: None,
             locale,
+            pending_email: None,
+            password_changed_at: None,
+            disabled_at: None,
+            deleted_at: None,
             events: vec![event],
         }
     }
@@ -174,6 +196,145 @@ impl User {
         }
         code.consume(now);
         Ok(())
+    }
+
+    pub fn change_password(&mut self, password_hash: PasswordHash, now: DateTime<Utc>) {
+        self.password_hash = password_hash;
+        self.password_changed_at = Some(now);
+        self.updated_at = now;
+        self.record(UserEvent::PasswordChanged(UserPasswordChanged::record(self.id, now)));
+    }
+
+    pub fn request_email_change(
+        &mut self,
+        new_email: Email,
+        plain_code: String,
+        code_hash: CodeHash,
+        now: DateTime<Utc>,
+    ) -> Result<VerificationCode, UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        self.pending_email = Some(new_email.clone());
+        self.updated_at = now;
+        Ok(VerificationCode::issue(
+            self.id,
+            new_email,
+            plain_code,
+            VerificationChannel::Email,
+            code_hash,
+            VerificationPurpose::EmailChange,
+            self.locale,
+        ))
+    }
+
+    pub fn ensure_can_confirm_email_change(&self, code: &VerificationCode, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        if self.pending_email.is_none() {
+            return Err(UserError::NoPendingEmail);
+        }
+        if *code.user_id() != self.id {
+            return Err(UserError::ForeignCode);
+        }
+        if !matches!(code.purpose(), VerificationPurpose::EmailChange) {
+            return Err(UserError::NotEmailChangeCode);
+        }
+        if code.consumed_at().is_some() {
+            return Err(UserError::CodeConsumed);
+        }
+        if code.is_limit_attempts() {
+            return Err(UserError::TooManyAttempts);
+        }
+        if code.expires_at() < now {
+            return Err(UserError::CodeExpired);
+        }
+        Ok(())
+    }
+
+    pub fn confirm_email_change(
+        &mut self,
+        code: &mut VerificationCode,
+        code_matches: bool,
+        now: DateTime<Utc>,
+    ) -> Result<(), UserError> {
+        self.ensure_can_confirm_email_change(code, now)?;
+        if !code_matches {
+            code.register_failed_attempt();
+            return Err(if code.is_limit_attempts() {
+                UserError::TooManyAttempts
+            } else {
+                UserError::BadCode
+            });
+        }
+        let email = self.pending_email.take().ok_or(UserError::NoPendingEmail)?;
+        self.email = email.clone();
+        self.email_verified_at = Some(now);
+        self.updated_at = now;
+        code.consume(now);
+        self.record(UserEvent::EmailChanged(UserEmailChanged::record(self.id, email, now)));
+        Ok(())
+    }
+
+    pub fn disable(&mut self, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        if self.disabled_at.is_none() {
+            self.disabled_at = Some(now);
+            self.updated_at = now;
+            self.record(UserEvent::Disabled(UserDisabled::record(self.id, now)));
+        }
+        Ok(())
+    }
+
+    pub fn reactivate(&mut self, now: DateTime<Utc>) {
+        if self.disabled_at.is_some() {
+            self.disabled_at = None;
+            self.updated_at = now;
+            self.record(UserEvent::Reactivated(UserReactivated::record(self.id, now)));
+        }
+    }
+
+    pub fn delete(&mut self, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        let suffix: String = self.id.uuid().simple().to_string()[..8].to_string();
+        let name = UserName::new(format!("deleted_{suffix}"));
+        self.name = name.clone();
+        self.email = Email::new(format!("deleted+{}@deleted.invalid", self.id.uuid().simple()));
+        self.pending_email = None;
+        self.deleted_at = Some(now);
+        self.updated_at = now;
+        self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
+        self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
+        Ok(())
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.disabled_at.is_some()
+    }
+
+    pub fn is_deleted(&self) -> bool {
+        self.deleted_at.is_some()
+    }
+
+    pub fn pending_email(&self) -> Option<&Email> {
+        self.pending_email.as_ref()
+    }
+
+    pub fn password_changed_at(&self) -> Option<DateTime<Utc>> {
+        self.password_changed_at
+    }
+
+    pub fn disabled_at(&self) -> Option<DateTime<Utc>> {
+        self.disabled_at
+    }
+
+    pub fn deleted_at(&self) -> Option<DateTime<Utc>> {
+        self.deleted_at
     }
 
     pub fn rename(&mut self, name: UserName, now: DateTime<Utc>) {

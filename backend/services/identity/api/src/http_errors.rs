@@ -89,7 +89,12 @@ use identity::usecases::auth::login::LoginError;
 use identity::usecases::auth::logout::LogoutError;
 use identity::usecases::auth::refresh_tokens::RefreshTokensError;
 use identity::usecases::auth::register::RegistrationError;
+use identity::usecases::user::change_password::ChangePasswordError;
+use identity::usecases::user::confirm_email_change::ConfirmEmailChangeError;
+use identity::usecases::user::delete_account::DeleteAccountError;
+use identity::usecases::user::disable_account::DisableAccountError;
 use identity::usecases::user::get_me::GetMeError;
+use identity::usecases::user::request_email_change::RequestEmailChangeError;
 use identity::usecases::user::rename::RenameUserError;
 use identity::usecases::user::search_users::SearchUsersError;
 use identity::usecases::user::update_locale::UpdateLocaleError;
@@ -602,6 +607,162 @@ impl HttpMapping for ports::file_storage::FileStorageError {
         match self {
             ports::file_storage::FileStorageError::NotFound => "ATTACHMENT_NOT_FOUND",
             ports::file_storage::FileStorageError::Internal(_) => "STORAGE_UNAVAILABLE",
+        }
+    }
+}
+
+impl HttpMapping for ChangePasswordError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ChangePasswordError::Repository(e) => e.to_http_status(),
+            ChangePasswordError::Hash(e) => e.to_http_status(),
+            ChangePasswordError::TokenIssuer(e) => e.to_http_status(),
+            ChangePasswordError::InvalidPassword => StatusCode::FORBIDDEN,
+            ChangePasswordError::SamePassword => StatusCode::BAD_REQUEST,
+            ChangePasswordError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ChangePasswordError::Repository(e) => e.to_user_message(),
+            ChangePasswordError::Hash(e) => e.to_user_message(),
+            ChangePasswordError::TokenIssuer(e) => e.to_user_message(),
+            ChangePasswordError::InvalidPassword => "Current password is incorrect".to_string(),
+            ChangePasswordError::SamePassword => "New password must differ from the current one".to_string(),
+            ChangePasswordError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ChangePasswordError::Repository(e) => e.to_error_code(),
+            ChangePasswordError::Hash(e) => e.to_error_code(),
+            ChangePasswordError::TokenIssuer(e) => e.to_error_code(),
+            ChangePasswordError::InvalidPassword => "INVALID_PASSWORD",
+            ChangePasswordError::SamePassword => "SAME_PASSWORD",
+            ChangePasswordError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for RequestEmailChangeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RequestEmailChangeError::Repository(e) => e.to_http_status(),
+            RequestEmailChangeError::Hash(e) => e.to_http_status(),
+            RequestEmailChangeError::InvalidPassword => StatusCode::FORBIDDEN,
+            RequestEmailChangeError::EmailTaken => StatusCode::CONFLICT,
+            RequestEmailChangeError::SameEmail => StatusCode::BAD_REQUEST,
+            RequestEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RequestEmailChangeError::Repository(e) => e.to_user_message(),
+            RequestEmailChangeError::Hash(e) => e.to_user_message(),
+            RequestEmailChangeError::InvalidPassword => "Password is incorrect".to_string(),
+            RequestEmailChangeError::EmailTaken => "This email is already in use".to_string(),
+            RequestEmailChangeError::SameEmail => "This is already your email".to_string(),
+            RequestEmailChangeError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RequestEmailChangeError::Repository(e) => e.to_error_code(),
+            RequestEmailChangeError::Hash(e) => e.to_error_code(),
+            RequestEmailChangeError::InvalidPassword => "INVALID_PASSWORD",
+            RequestEmailChangeError::EmailTaken => "EMAIL_TAKEN",
+            RequestEmailChangeError::SameEmail => "SAME_EMAIL",
+            RequestEmailChangeError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for ConfirmEmailChangeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ConfirmEmailChangeError::Repository(e) => e.to_http_status(),
+            ConfirmEmailChangeError::Hash(e) => e.to_http_status(),
+            ConfirmEmailChangeError::NoPendingChange => StatusCode::CONFLICT,
+            ConfirmEmailChangeError::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            ConfirmEmailChangeError::CodeExpired => StatusCode::GONE,
+            ConfirmEmailChangeError::BadCode => StatusCode::BAD_REQUEST,
+            ConfirmEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ConfirmEmailChangeError::Repository(e) => e.to_user_message(),
+            ConfirmEmailChangeError::Hash(e) => e.to_user_message(),
+            ConfirmEmailChangeError::NoPendingChange => "No pending email change".to_string(),
+            ConfirmEmailChangeError::TooManyAttempts => "Too many attempts, request a new code".to_string(),
+            ConfirmEmailChangeError::CodeExpired => "Verification code has expired".to_string(),
+            ConfirmEmailChangeError::BadCode => "Incorrect verification code".to_string(),
+            ConfirmEmailChangeError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ConfirmEmailChangeError::Repository(e) => e.to_error_code(),
+            ConfirmEmailChangeError::Hash(e) => e.to_error_code(),
+            ConfirmEmailChangeError::NoPendingChange => "NO_PENDING_EMAIL_CHANGE",
+            ConfirmEmailChangeError::TooManyAttempts => "TOO_MANY_ATTEMPTS",
+            ConfirmEmailChangeError::CodeExpired => "CODE_EXPIRED",
+            ConfirmEmailChangeError::BadCode => "BAD_CODE",
+            ConfirmEmailChangeError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for DisableAccountError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DisableAccountError::Repository(e) => e.to_http_status(),
+            DisableAccountError::Hash(e) => e.to_http_status(),
+            DisableAccountError::InvalidPassword => StatusCode::FORBIDDEN,
+            DisableAccountError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DisableAccountError::Repository(e) => e.to_user_message(),
+            DisableAccountError::Hash(e) => e.to_user_message(),
+            DisableAccountError::InvalidPassword => "Password is incorrect".to_string(),
+            DisableAccountError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DisableAccountError::Repository(e) => e.to_error_code(),
+            DisableAccountError::Hash(e) => e.to_error_code(),
+            DisableAccountError::InvalidPassword => "INVALID_PASSWORD",
+            DisableAccountError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for DeleteAccountError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteAccountError::Repository(e) => e.to_http_status(),
+            DeleteAccountError::Hash(e) => e.to_http_status(),
+            DeleteAccountError::InvalidPassword => StatusCode::FORBIDDEN,
+            DeleteAccountError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteAccountError::Repository(e) => e.to_user_message(),
+            DeleteAccountError::Hash(e) => e.to_user_message(),
+            DeleteAccountError::InvalidPassword => "Password is incorrect".to_string(),
+            DeleteAccountError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteAccountError::Repository(e) => e.to_error_code(),
+            DeleteAccountError::Hash(e) => e.to_error_code(),
+            DeleteAccountError::InvalidPassword => "INVALID_PASSWORD",
+            DeleteAccountError::UserNotFound => "USER_NOT_FOUND",
         }
     }
 }

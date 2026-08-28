@@ -1,4 +1,10 @@
-use actix_web::{HttpResponse, Responder, get, patch, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, web};
+use api_common::context::request_context;
+use identity::usecases::user::{
+    change_password::ChangePasswordRequest, confirm_email_change::ConfirmEmailChangeRequest,
+    request_email_change::RequestEmailChangeRequest,
+};
+use validator::Validate;
 use identity_domain::user::{id::UserId, locale::Locale};
 use serde::{Deserialize, Serialize};
 use api_common::middleware::auth::RateLimitedAuthToken;
@@ -33,6 +39,8 @@ pub struct MeResponse {
     pub name: String,
     pub email: String,
     pub locale: String,
+    pub email_verified: bool,
+    pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[get("/me")]
@@ -47,6 +55,8 @@ async fn get_me(
         name: profile.name,
         email: profile.email,
         locale: profile.locale.as_str().to_string(),
+        email_verified: profile.email_verified,
+        password_changed_at: profile.password_changed_at,
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -128,4 +138,154 @@ async fn update_me_name(
         .execute(user_id, &body.name)
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateNameResponse { name })))
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePasswordBody {
+    #[validate(length(min = 1, max = 128))]
+    pub current_password: String,
+    #[validate(length(min = 4, max = 30))]
+    pub new_password: String,
+    pub refresh_token: Option<String>,
+}
+
+#[patch("/me/password")]
+async fn update_me_password(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<UpdatePasswordBody>,
+) -> Result<impl Responder, HttpError> {
+    let body = body.into_inner();
+    body.validate()?;
+    let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
+    app_state
+        .change_password_usecase
+        .execute(
+            user_id,
+            ChangePasswordRequest {
+                current_password: body.current_password,
+                new_password: body.new_password,
+                refresh_token: body.refresh_token,
+                request_id: ctx.request_id,
+            },
+        )
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeEmailBody {
+    #[validate(length(min = 1, max = 128))]
+    pub password: String,
+    #[validate(email)]
+    pub new_email: String,
+}
+
+#[post("/me/email/change")]
+async fn change_me_email(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<ChangeEmailBody>,
+) -> Result<impl Responder, HttpError> {
+    let body = body.into_inner();
+    body.validate()?;
+    let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
+    app_state
+        .request_email_change_usecase
+        .execute(
+            user_id,
+            RequestEmailChangeRequest {
+                password: body.password,
+                new_email: body.new_email,
+                request_id: ctx.request_id,
+            },
+        )
+        .await?;
+    Ok(HttpResponse::Accepted().finish())
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfirmEmailBody {
+    #[validate(length(min = 4, max = 12))]
+    pub verification_code: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfirmEmailResponse {
+    pub email: String,
+}
+
+#[post("/me/email/confirm")]
+async fn confirm_me_email(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<ConfirmEmailBody>,
+) -> Result<impl Responder, HttpError> {
+    let body = body.into_inner();
+    body.validate()?;
+    let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
+    let email = app_state
+        .confirm_email_change_usecase
+        .execute(
+            user_id,
+            ConfirmEmailChangeRequest {
+                verification_code: body.verification_code,
+                request_id: ctx.request_id,
+            },
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(ConfirmEmailResponse { email })))
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct PasswordBody {
+    #[validate(length(min = 1, max = 128))]
+    pub password: String,
+}
+
+#[post("/me/disable")]
+async fn disable_me(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<PasswordBody>,
+) -> Result<impl Responder, HttpError> {
+    let body = body.into_inner();
+    body.validate()?;
+    let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
+    app_state
+        .disable_account_usecase
+        .execute(user_id, &body.password, ctx.request_id.as_deref())
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[delete("/me")]
+async fn delete_me(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<PasswordBody>,
+) -> Result<impl Responder, HttpError> {
+    let body = body.into_inner();
+    body.validate()?;
+    let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
+    app_state
+        .delete_account_usecase
+        .execute(user_id, &body.password, ctx.request_id.as_deref())
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
 }

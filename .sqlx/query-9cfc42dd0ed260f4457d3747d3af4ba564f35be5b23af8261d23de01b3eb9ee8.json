@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE refresh_tokens\n                SET revoked_at = $2\n                WHERE user_id = $1\n                  AND revoked_at IS NULL\n                  AND ($3::uuid IS NULL OR id <> $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9cfc42dd0ed260f4457d3747d3af4ba564f35be5b23af8261d23de01b3eb9ee8"
+}

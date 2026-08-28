@@ -72,6 +72,9 @@ where
             .find_by_id(&decoded.user_id)
             .await?
             .ok_or(RefreshTokensError::UserNotFound)?;
+        if user.is_deleted() || user.is_disabled() {
+            return Err(RefreshTokensError::UserNotFound);
+        }
         let tokens = self
             .token_issuer
             .issue(&decoded.user_id, user.is_verified())

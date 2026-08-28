@@ -1,4 +1,9 @@
 pub mod get_me;
+pub mod change_password;
+pub mod confirm_email_change;
+pub mod delete_account;
+pub mod disable_account;
 pub mod rename;
+pub mod request_email_change;
 pub mod search_users;
 pub mod update_locale;

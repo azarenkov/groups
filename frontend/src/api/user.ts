@@ -11,6 +11,8 @@ export interface MeProfile {
   name: string;
   email: string;
   locale: string;
+  emailVerified: boolean;
+  passwordChangedAt: string | null;
 }
 
 class UserAPI {
@@ -77,6 +79,35 @@ class UserAPI {
 
   async deleteAvatar(): Promise<void> {
     await this.client.delete("/v1/users/me/avatar");
+  }
+
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+    refreshToken?: string | null,
+  ): Promise<void> {
+    await this.client.patch("/v1/users/me/password", {
+      currentPassword,
+      newPassword,
+      refreshToken: refreshToken ?? undefined,
+    });
+  }
+
+  async requestEmailChange(password: string, newEmail: string): Promise<void> {
+    await this.client.post("/v1/users/me/email/change", { password, newEmail });
+  }
+
+  async confirmEmailChange(verificationCode: string): Promise<string> {
+    const response = await this.client.post("/v1/users/me/email/confirm", { verificationCode });
+    return response.data.data.email as string;
+  }
+
+  async disableAccount(password: string): Promise<void> {
+    await this.client.post("/v1/users/me/disable", { password });
+  }
+
+  async deleteAccount(password: string): Promise<void> {
+    await this.client.delete("/v1/users/me", { data: { password } });
   }
 
   async rename(name: string): Promise<string> {

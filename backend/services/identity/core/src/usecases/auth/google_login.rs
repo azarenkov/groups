@@ -132,6 +132,9 @@ where
 
         match self.user_repository.find_by_email(&email).await? {
             Some(user) => {
+                if user.is_deleted() {
+                    return Err(GoogleLoginError::AccountConflict);
+                }
                 let user_id = user.id_ownned();
 
                 if self

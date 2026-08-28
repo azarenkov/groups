@@ -19,6 +19,8 @@ pub struct MeProfile {
     pub name: String,
     pub email: String,
     pub locale: Locale,
+    pub email_verified: bool,
+    pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 pub struct GetMe<U>
@@ -48,6 +50,8 @@ where
             name: user.name().as_str().to_string(),
             email: user.email().as_str().to_string(),
             locale: user.locale(),
+            email_verified: user.is_email_verified(),
+            password_changed_at: user.password_changed_at(),
         })
     }
 }

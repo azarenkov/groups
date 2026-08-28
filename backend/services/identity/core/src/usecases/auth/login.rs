@@ -71,6 +71,10 @@ where
             .await?
             .ok_or(LoginError::InvalidCredentials)?;
 
+        if user.is_deleted() {
+            return Err(LoginError::InvalidCredentials);
+        }
+
         if !self
             .hasher
             .verify(&request.password, user.password_hash().as_str())?
@@ -99,8 +103,16 @@ where
             Utc::now(),
         ));
         let mut tx = self.unit_of_work.begin().await?;
+        let mut events = vec![IdentityEvent::from(event)];
+        if user.is_disabled()
+            && let Some(mut locked) = tx.load_user_for_update(&user_id).await?
+        {
+            locked.reactivate(Utc::now());
+            events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
+            tx.save_user(&locked).await?;
+        }
         tx.insert_refresh_token(&refresh_token).await?;
-        tx.save_events(&[IdentityEvent::from(event)], request.ctx.request_id.as_deref())
+        tx.save_events(&events, request.ctx.request_id.as_deref())
             .await?;
         tx.commit().await?;
 

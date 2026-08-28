@@ -11,6 +11,9 @@ use identity::usecases::{
     user::{
         get_me::GetMe, rename::RenameUser, search_users::SearchUsers,
         update_locale::UpdateUserLocale,
+        change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
+        delete_account::DeleteAccount, disable_account::DisableAccount,
+        request_email_change::RequestEmailChange,
     },
 };
 use domain::user::name::ReservedNames;
@@ -119,6 +122,28 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             unit_of_work.clone(),
             nsfw_detector.clone(),
             reserved_names.clone(),
+        ),
+        change_password_usecase: ChangePassword::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
+            token_issuer.clone(),
+        ),
+        request_email_change_usecase: RequestEmailChange::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
+        ),
+        confirm_email_change_usecase: ConfirmEmailChange::new(unit_of_work.clone(), hasher.clone()),
+        disable_account_usecase: DisableAccount::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
+        ),
+        delete_account_usecase: DeleteAccount::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
         ),
         user_repository: user_repository.clone(),
         trust_forwarded_headers: server_config.trust_forwarded_headers,

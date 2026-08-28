@@ -5,7 +5,10 @@ use crate::auth::{
     register_user, request_verification_code,
 };
 use crate::internal::internal_routes;
-use crate::user::{get_me, search_users, update_me_locale, update_me_name};
+use crate::user::{
+    change_me_email, confirm_me_email, delete_me, disable_me, get_me, search_users,
+    update_me_locale, update_me_name, update_me_password,
+};
 use api_common::health::{livez, readyz};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
@@ -30,7 +33,12 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(get_me)
                         .service(search_users)
                         .service(update_me_locale)
-                        .service(update_me_name),
+                        .service(update_me_name)
+                        .service(update_me_password)
+                        .service(change_me_email)
+                        .service(confirm_me_email)
+                        .service(disable_me)
+                        .service(delete_me),
                 ),
         );
 }
