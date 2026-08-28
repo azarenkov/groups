@@ -89,6 +89,6 @@
 .home-live-pill i { width: 5px; height: 5px; border-radius: 50%; background: var(--voice-live); }
 
 
-.sb-nav-home { margin-right: 2px; }
+.sb-nav-home { margin-right: 6px; }
 .sb-nav-home.active { background: var(--accent); color: #fff; }
 .sb-nav-home.active:hover:not(:disabled) { background: var(--accent-hover); color: #fff; }
