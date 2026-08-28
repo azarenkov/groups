@@ -5,7 +5,7 @@ use ports::{event_consumer::EventConsumer, event_consumer::StartPosition, event_
 use futures::StreamExt;
 use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use contracts::events::user::UserNameV1 as UserNameDto;
+use contracts::events::user::{UserLifecycleV1 as UserLifecycleDto, UserNameV1 as UserNameDto};
 
 pub fn spawn<P>(
     jetstream: async_nats::jetstream::Context,
@@ -35,10 +35,39 @@ pub fn spawn<P>(
                     while let Some(msg) = messages.next().await {
                         match msg {
                             Ok(m) => {
-                                let relevant = m.subject.ends_with(".user.registered")
+                                let name_event = m.subject.ends_with(".user.registered")
                                     || m.subject.ends_with(".user.renamed");
-                                if !relevant {
+                                let active_state = if m.subject.ends_with(".user.disabled")
+                                    || m.subject.ends_with(".user.deleted")
+                                {
+                                    Some(false)
+                                } else if m.subject.ends_with(".user.reactivated") {
+                                    Some(true)
+                                } else {
+                                    None
+                                };
+                                if !name_event && active_state.is_none() {
                                     let _ = m.ack().await;
+                                    continue;
+                                }
+                                if let Some(active) = active_state {
+                                    match serde_json::from_slice::<UserLifecycleDto>(&m.payload) {
+                                        Ok(evt) => match repository
+                                            .set_active(&UserId::new(evt.user_id), active, evt.occurred_at)
+                                            .await
+                                        {
+                                            Ok(()) => {
+                                                let _ = m.ack().await;
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!(error = %e, "Profile active-state update failed; message will be redelivered");
+                                            }
+                                        },
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, subject = %m.subject, "Malformed user lifecycle event; dropping");
+                                            let _ = m.ack().await;
+                                        }
+                                    }
                                     continue;
                                 }
                                 let span = tracing::info_span!(

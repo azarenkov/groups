@@ -43,7 +43,7 @@ impl UserProfileRepository for PostgresUserProfileRepository {
 
     async fn find_user_by_name(&self, name: &str) -> Result<Option<UserId>, RepositoryError> {
         let row = sqlx::query(&format!(
-            r#"SELECT user_id FROM {} WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C")"#,
+            r#"SELECT user_id FROM {} WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C") AND active"#,
             self.table
         ))
         .bind(name)
@@ -71,6 +71,29 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         ))
         .bind(user_id.uuid())
         .bind(name)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn set_active(
+        &self,
+        user_id: &UserId,
+        active: bool,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(&format!(
+            r#"
+            UPDATE {table}
+            SET active = $2, updated_at = GREATEST(updated_at, $3)
+            WHERE user_id = $1
+            "#,
+            table = self.table
+        ))
+        .bind(user_id.uuid())
+        .bind(active)
         .bind(occurred_at)
         .execute(&self.pool)
         .await

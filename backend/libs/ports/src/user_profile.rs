@@ -15,4 +15,10 @@ pub trait UserProfileRepository {
         name: &str,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
+    async fn set_active(
+        &self,
+        user_id: &UserId,
+        active: bool,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError>;
 }

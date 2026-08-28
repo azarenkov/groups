@@ -92,5 +92,24 @@ where
         }
         return Ok(());
     }
+    let active = if subject.ends_with(".user.disabled") || subject.ends_with(".user.deleted") {
+        Some(false)
+    } else if subject.ends_with(".user.reactivated") {
+        Some(true)
+    } else {
+        None
+    };
+    if let Some(active) = active {
+        match serde_json::from_slice::<contracts::events::user::UserLifecycleV1>(payload) {
+            Ok(evt) => {
+                profiles
+                    .set_active(&UserId::new(evt.user_id), active, evt.occurred_at)
+                    .await?;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, %subject, "Malformed user lifecycle event; dropping");
+            }
+        }
+    }
     Ok(())
 }
