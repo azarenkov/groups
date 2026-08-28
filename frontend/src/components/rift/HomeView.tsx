@@ -207,7 +207,8 @@ const HomeView: React.FC<HomeViewProps> = ({
                   <div className="home-empty-text">{t("emptyRooms")}</div>
                 </div>
               ) : (
-                recentRooms.map((room) => (
+                <div className="home-room-list">
+                {recentRooms.map((room) => (
                   <button
                     key={room.channelId}
                     type="button"
@@ -228,7 +229,8 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </span>
                     )}
                   </button>
-                ))
+                ))}
+                </div>
               )}
             </div>
           {requests.length > 0 && (
