@@ -842,10 +842,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       {openServerId && (
         <button
           type="button"
-          className="sb-footer-back"
+          className="sb-add-row secondary sb-footer-back"
           onClick={() => setOpenServerId(null)}
         >
-          <span className="sb-footer-back-ico">
+          <span className="sb-add-row-ico">
             <Icon name="chev-left" size={13} />
           </span>
           <span>{t("backToServers")}</span>
