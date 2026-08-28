@@ -6,6 +6,8 @@ export interface MockDirect {
   online: boolean;
   unread: number;
   lastMessage?: string;
+  isFriend?: boolean;
+  friendship?: "accepted" | "pending_outgoing" | "pending_incoming" | "none";
 }
 
 export interface MockMember {

@@ -272,11 +272,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         mark_dm_read_usecase: MarkDmRead::new(
             read_state_repository.clone(),
             friendship_repository.clone(),
+            dm_repository.clone(),
         ),
         get_unread_counts_usecase: GetUnreadCounts::new(read_state_repository.clone()),
         get_dm_read_receipt_usecase: GetDmReadReceipt::new(
             read_state_repository.clone(),
             friendship_repository.clone(),
+            dm_repository.clone(),
         ),
         get_channel_read_receipts_usecase: GetChannelReadReceipts::new(
             read_state_repository.clone(),
@@ -326,14 +328,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_unit_of_work.clone(),
         ),
         list_dm_previews_usecase: ListDmPreviews::new(dm_repository.clone()),
-        list_dm_messages_usecase: ListDmMessages::new(
-            dm_repository.clone(),
-            friendship_repository.clone(),
-        ),
-        search_dm_messages_usecase: SearchDmMessages::new(
-            dm_repository.clone(),
-            friendship_repository.clone(),
-        ),
+        list_dm_messages_usecase: ListDmMessages::new(dm_repository.clone()),
+        search_dm_messages_usecase: SearchDmMessages::new(dm_repository.clone()),
         send_server_invite_usecase: SendServerInvite::new(
             dm_repository.clone(),
             friendship_repository.clone(),

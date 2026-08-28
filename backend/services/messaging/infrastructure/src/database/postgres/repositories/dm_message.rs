@@ -376,6 +376,28 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
+    async fn has_conversation(
+        &self,
+        user_id: &UserId,
+        peer_id: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM dm_messages
+                WHERE (sender_id = $1 AND recipient_id = $2)
+                   OR (sender_id = $2 AND recipient_id = $1)
+            ) AS "exists!"
+            "#,
+            user_id.uuid(),
+            peer_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.exists)
+    }
+
     async fn has_pending_server_invite(
         &self,
         sender_id: &UserId,
@@ -433,6 +455,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             SELECT DISTINCT ON (m.peer)
                 m.id AS "message_id!",
                 m.peer AS "peer!",
+                u.name AS "peer_name!",
                 m.sender_id AS "sender_id!",
                 m.content AS "content!",
                 m.call_status,
@@ -453,6 +476,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 FROM dm_messages
                 WHERE sender_id = $1 OR recipient_id = $1
             ) m
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.peer
             ORDER BY m.peer, m.created_at DESC
             "#,
             user_id.uuid(),
@@ -466,6 +490,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .map(|r| DmConversationPreview {
                 message_id: r.message_id,
                 peer_id: r.peer,
+                peer_name: r.peer_name,
                 sender_id: r.sender_id,
                 content: r.content,
                 call_status: r.call_status,

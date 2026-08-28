@@ -1467,7 +1467,6 @@ impl HttpMapping for ListDmMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListDmMessagesError::Repository(e) => e.to_http_status(),
-            ListDmMessagesError::NotFriends => StatusCode::FORBIDDEN,
             ListDmMessagesError::InvalidCursor
             | ListDmMessagesError::ConflictingCursors => StatusCode::BAD_REQUEST,
         }
@@ -1475,9 +1474,6 @@ impl HttpMapping for ListDmMessagesError {
     fn to_user_message(&self) -> String {
         match self {
             ListDmMessagesError::Repository(e) => e.to_user_message(),
-            ListDmMessagesError::NotFriends => {
-                "You can only view DMs with friends".to_string()
-            }
             ListDmMessagesError::InvalidCursor => "Invalid pagination cursor".to_string(),
             ListDmMessagesError::ConflictingCursors => {
                 "Cannot specify both before and after cursors".to_string()
@@ -1487,7 +1483,6 @@ impl HttpMapping for ListDmMessagesError {
     fn to_error_code(&self) -> &'static str {
         match self {
             ListDmMessagesError::Repository(e) => e.to_error_code(),
-            ListDmMessagesError::NotFriends => "NOT_FRIENDS",
             ListDmMessagesError::InvalidCursor => "INVALID_CURSOR",
             ListDmMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
         }
@@ -1498,23 +1493,18 @@ impl HttpMapping for SearchDmMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SearchDmMessagesError::Repository(e) => e.to_http_status(),
-            SearchDmMessagesError::NotFriends => StatusCode::FORBIDDEN,
             SearchDmMessagesError::EmptyQuery => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             SearchDmMessagesError::Repository(e) => e.to_user_message(),
-            SearchDmMessagesError::NotFriends => {
-                "You can only search DMs with friends".to_string()
-            }
             SearchDmMessagesError::EmptyQuery => "Search query cannot be empty".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             SearchDmMessagesError::Repository(e) => e.to_error_code(),
-            SearchDmMessagesError::NotFriends => "NOT_FRIENDS",
             SearchDmMessagesError::EmptyQuery => "EMPTY_QUERY",
         }
     }
@@ -1547,21 +1537,19 @@ impl HttpMapping for MarkDmReadError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MarkDmReadError::Repository(e) => e.to_http_status(),
-            MarkDmReadError::NotFriends => StatusCode::FORBIDDEN,
+            MarkDmReadError::NoConversation => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             MarkDmReadError::Repository(e) => e.to_user_message(),
-            MarkDmReadError::NotFriends => {
-                "You are not friends with this user".to_string()
-            }
+            MarkDmReadError::NoConversation => "No conversation with this user".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             MarkDmReadError::Repository(e) => e.to_error_code(),
-            MarkDmReadError::NotFriends => "NOT_FRIENDS",
+            MarkDmReadError::NoConversation => "NO_CONVERSATION",
         }
     }
 }
@@ -1588,21 +1576,19 @@ impl HttpMapping for GetDmReadReceiptError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_http_status(),
-            GetDmReadReceiptError::NotFriends => StatusCode::FORBIDDEN,
+            GetDmReadReceiptError::NoConversation => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_user_message(),
-            GetDmReadReceiptError::NotFriends => {
-                "You are not friends with this user".to_string()
-            }
+            GetDmReadReceiptError::NoConversation => "No conversation with this user".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_error_code(),
-            GetDmReadReceiptError::NotFriends => "NOT_FRIENDS",
+            GetDmReadReceiptError::NoConversation => "NO_CONVERSATION",
         }
     }
 }

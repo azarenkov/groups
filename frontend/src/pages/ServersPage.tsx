@@ -28,6 +28,7 @@ import { useUnreadStore } from "../store/unreadStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import { useDmPreviewStore } from "../store/dmPreviewStore";
+import type { DmPreview } from "../store/dmPreviewStore";
 import { useCallStore } from "../store/callStore";
 import { userAPI } from "../api/user";
 import { friendshipAPI } from "../api/friendship";
@@ -161,45 +162,80 @@ const ServersPage: React.FC = () => {
   const onlineUsers = usePresenceStore((s) => s.online);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const dmPreviews = useDmPreviewStore((s) => s.byFriend);
-  const acceptedFriends: MockDirect[] = React.useMemo(
-    () =>
-      friends
-        .filter((f) => f.status === "accepted")
-        .map((f) => {
-          const p = dmPreviews[f.friendId];
-          let lastMessage: string | undefined;
-          if (p) {
-            const body = p.callStatus
-              ? tSidebar("previewCall")
-              : p.inviteServerId
-                ? tSidebar("previewInvite")
-                : p.content ||
-                  (p.hasAttachments ? tSidebar("previewAttachment") : "");
-            lastMessage =
-              p.senderId === user?.id
-                ? `${tSidebar("previewYou")} ${body}`
-                : body;
-          }
-          return {
-            id: f.friendId,
-            name: f.friendName,
-            initials: initialFor(f.friendName),
-            color: colorForId(f.friendId),
-            online: !!onlineUsers[f.friendId],
-            unread: 0,
-            lastMessage,
-          };
-        }),
-    [friends, onlineUsers, dmPreviews, user?.id, tSidebar],
+  const previewText = React.useCallback(
+    (p: DmPreview | undefined) => {
+      if (!p) return undefined;
+      const body = p.callStatus
+        ? tSidebar("previewCall")
+        : p.inviteServerId
+          ? tSidebar("previewInvite")
+          : p.content ||
+            (p.hasAttachments ? tSidebar("previewAttachment") : "");
+      return p.senderId === user?.id ? `${tSidebar("previewYou")} ${body}` : body;
+    },
+    [tSidebar, user?.id],
   );
+  const acceptedFriends: MockDirect[] = React.useMemo(() => {
+    const items: MockDirect[] = friends
+      .filter((f) => f.status === "accepted")
+      .map((f) => ({
+        id: f.friendId,
+        name: f.friendName,
+        initials: initialFor(f.friendName),
+        color: colorForId(f.friendId),
+        online: !!onlineUsers[f.friendId],
+        unread: 0,
+        lastMessage: previewText(dmPreviews[f.friendId]),
+        isFriend: true,
+        friendship: "accepted" as const,
+      }));
+    const known = new Set(items.map((d) => d.id));
+    const pendingById = new Map(
+      friends.filter((f) => f.status !== "accepted").map((f) => [f.friendId, f] as const),
+    );
+    for (const [peerId, p] of Object.entries(dmPreviews)) {
+      if (known.has(peerId)) continue;
+      const pending = pendingById.get(peerId);
+      const name =
+        nameOverrides[peerId] ??
+        pending?.friendName ??
+        p.peerName ??
+        (selectedDm?.id === peerId ? selectedDm.name : undefined);
+      if (!name) continue;
+      items.push({
+        id: peerId,
+        name,
+        initials: initialFor(name),
+        color: colorForId(peerId),
+        online: false,
+        unread: 0,
+        lastMessage: previewText(p),
+        isFriend: false,
+        friendship:
+          pending?.status === "pending_outgoing" || pending?.status === "pending_incoming"
+            ? pending.status
+            : "none",
+      });
+    }
+    return items;
+  }, [friends, onlineUsers, dmPreviews, previewText, nameOverrides, selectedDm]);
 
   useEffect(() => {
     if (!selectedDm) return;
     const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
-    if (!fresh || fresh.name === selectedDm.name) return;
+    if (!fresh) {
+      setSelectedDm(null);
+      return;
+    }
+    if (
+      fresh.name === selectedDm.name &&
+      fresh.isFriend === selectedDm.isFriend &&
+      fresh.friendship === selectedDm.friendship
+    )
+      return;
     setSelectedDm((prev) =>
       prev && prev.id === fresh.id
-        ? { ...prev, name: fresh.name, initials: fresh.initials }
+        ? { ...prev, name: fresh.name, initials: fresh.initials, isFriend: fresh.isFriend, friendship: fresh.friendship }
         : prev,
     );
   }, [acceptedFriends, selectedDm]);
@@ -631,7 +667,6 @@ const ServersPage: React.FC = () => {
     if (deleteConfirm?.type !== "friend") return;
     try {
       await useFriendshipStore.getState().remove(deleteConfirm.id);
-      if (selectedDm?.id === deleteConfirm.id) setSelectedDm(null);
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to remove friend:", err);
@@ -1004,7 +1039,9 @@ const ServersPage: React.FC = () => {
                   name: nameOverrides[selectedDm.id] ?? selectedDm.name,
                   initials: selectedDm.initials,
                   color: selectedDm.color,
-                  online: !!onlineUsers[selectedDm.id],
+                  online: selectedDm.isFriend !== false && !!onlineUsers[selectedDm.id],
+                  isFriend: selectedDm.isFriend !== false,
+                  friendship: selectedDm.friendship ?? "accepted",
                 }}
                 currentUserId={user?.id}
                 servers={servers}

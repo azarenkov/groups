@@ -147,10 +147,10 @@ pub struct AppState {
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:
-        MarkDmRead<PostgresReadStateRepository, PostgresFriendshipRepository>,
+        MarkDmRead<PostgresReadStateRepository, PostgresFriendshipRepository, PostgresDmMessageRepository>,
     pub get_unread_counts_usecase: GetUnreadCounts<PostgresReadStateRepository>,
     pub get_dm_read_receipt_usecase:
-        GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository>,
+        GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository, PostgresDmMessageRepository>,
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
     pub list_roles_usecase: ListRoles<PostgresServerRepository, PostgresServerRoleRepository>,
@@ -185,10 +185,8 @@ pub struct AppState {
         EditDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork, MediaClaimsClient>,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
-    pub list_dm_messages_usecase:
-        ListDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
-    pub search_dm_messages_usecase:
-        SearchDmMessages<PostgresDmMessageRepository, PostgresFriendshipRepository>,
+    pub list_dm_messages_usecase: ListDmMessages<PostgresDmMessageRepository>,
+    pub search_dm_messages_usecase: SearchDmMessages<PostgresDmMessageRepository>,
     pub send_server_invite_usecase: SendServerInvite<
         PostgresDmMessageRepository,
         PostgresFriendshipRepository,

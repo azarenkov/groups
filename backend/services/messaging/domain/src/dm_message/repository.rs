@@ -10,6 +10,7 @@ use ports::repository::RepositoryError;
 pub struct DmConversationPreview {
     pub message_id: Uuid,
     pub peer_id: Uuid,
+    pub peer_name: String,
     pub sender_id: Uuid,
     pub content: String,
     pub call_status: Option<String>,
@@ -67,4 +68,10 @@ pub trait DmMessageRepository {
         &self,
         user_id: &UserId,
     ) -> Result<Vec<DmConversationPreview>, RepositoryError>;
+
+    async fn has_conversation(
+        &self,
+        user_id: &UserId,
+        peer_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
 }
