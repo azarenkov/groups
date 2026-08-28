@@ -331,8 +331,12 @@ function dispatch(env: WsEnvelope) {
       const selfId = useAuthStore.getState().user?.id;
       if (!senderId || !recipientId || !selfId) return;
       const peerId = senderId === selfId ? recipientId : senderId;
+      const peerName =
+        (senderId !== selfId ? asString(d.senderName) : undefined) ??
+        useFriendshipStore.getState().friends.find((f) => f.friendId === peerId)?.friendName;
       useDmPreviewStore.getState().push(peerId, {
         messageId: asString(d.id) ?? "",
+        peerName,
         senderId,
         content: asString(d.content) ?? "",
         callStatus: asString(d.callStatus) ?? null,

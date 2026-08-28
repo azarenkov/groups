@@ -194,9 +194,14 @@ const ServersPage: React.FC = () => {
       friends.filter((f) => f.status !== "accepted").map((f) => [f.friendId, f] as const),
     );
     for (const [peerId, p] of Object.entries(dmPreviews)) {
-      if (known.has(peerId) || !p.peerName) continue;
+      if (known.has(peerId)) continue;
       const pending = pendingById.get(peerId);
-      const name = nameOverrides[peerId] ?? pending?.friendName ?? p.peerName;
+      const name =
+        nameOverrides[peerId] ??
+        pending?.friendName ??
+        p.peerName ??
+        (selectedDm?.id === peerId ? selectedDm.name : undefined);
+      if (!name) continue;
       items.push({
         id: peerId,
         name,
@@ -213,7 +218,7 @@ const ServersPage: React.FC = () => {
       });
     }
     return items;
-  }, [friends, onlineUsers, dmPreviews, previewText, nameOverrides]);
+  }, [friends, onlineUsers, dmPreviews, previewText, nameOverrides, selectedDm]);
 
   useEffect(() => {
     if (!selectedDm) return;
