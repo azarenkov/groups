@@ -94,6 +94,7 @@ use identity::usecases::user::confirm_email_change::ConfirmEmailChangeError;
 use identity::usecases::user::delete_account::DeleteAccountError;
 use identity::usecases::user::disable_account::DisableAccountError;
 use identity::usecases::user::get_me::GetMeError;
+use identity::usecases::user::reauth::ReauthError;
 use identity::usecases::user::request_email_change::RequestEmailChangeError;
 use identity::usecases::user::rename::RenameUserError;
 use identity::usecases::user::search_users::SearchUsersError;
@@ -620,7 +621,7 @@ impl HttpMapping for ChangePasswordError {
             ChangePasswordError::Repository(e) => e.to_http_status(),
             ChangePasswordError::Hash(e) => e.to_http_status(),
             ChangePasswordError::TokenIssuer(e) => e.to_http_status(),
-            ChangePasswordError::InvalidPassword => StatusCode::FORBIDDEN,
+            ChangePasswordError::Reauth(e) => e.to_http_status(),
             ChangePasswordError::SamePassword => StatusCode::BAD_REQUEST,
             ChangePasswordError::UserNotFound => StatusCode::NOT_FOUND,
         }
@@ -630,7 +631,7 @@ impl HttpMapping for ChangePasswordError {
             ChangePasswordError::Repository(e) => e.to_user_message(),
             ChangePasswordError::Hash(e) => e.to_user_message(),
             ChangePasswordError::TokenIssuer(e) => e.to_user_message(),
-            ChangePasswordError::InvalidPassword => "Current password is incorrect".to_string(),
+            ChangePasswordError::Reauth(e) => e.to_user_message(),
             ChangePasswordError::SamePassword => "New password must differ from the current one".to_string(),
             ChangePasswordError::UserNotFound => "User not found".to_string(),
         }
@@ -640,7 +641,7 @@ impl HttpMapping for ChangePasswordError {
             ChangePasswordError::Repository(e) => e.to_error_code(),
             ChangePasswordError::Hash(e) => e.to_error_code(),
             ChangePasswordError::TokenIssuer(e) => e.to_error_code(),
-            ChangePasswordError::InvalidPassword => "INVALID_PASSWORD",
+            ChangePasswordError::Reauth(e) => e.to_error_code(),
             ChangePasswordError::SamePassword => "SAME_PASSWORD",
             ChangePasswordError::UserNotFound => "USER_NOT_FOUND",
         }
@@ -652,7 +653,7 @@ impl HttpMapping for RequestEmailChangeError {
         match self {
             RequestEmailChangeError::Repository(e) => e.to_http_status(),
             RequestEmailChangeError::Hash(e) => e.to_http_status(),
-            RequestEmailChangeError::InvalidPassword => StatusCode::FORBIDDEN,
+            RequestEmailChangeError::Reauth(e) => e.to_http_status(),
             RequestEmailChangeError::EmailTaken => StatusCode::CONFLICT,
             RequestEmailChangeError::SameEmail => StatusCode::BAD_REQUEST,
             RequestEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
@@ -662,7 +663,7 @@ impl HttpMapping for RequestEmailChangeError {
         match self {
             RequestEmailChangeError::Repository(e) => e.to_user_message(),
             RequestEmailChangeError::Hash(e) => e.to_user_message(),
-            RequestEmailChangeError::InvalidPassword => "Password is incorrect".to_string(),
+            RequestEmailChangeError::Reauth(e) => e.to_user_message(),
             RequestEmailChangeError::EmailTaken => "This email is already in use".to_string(),
             RequestEmailChangeError::SameEmail => "This is already your email".to_string(),
             RequestEmailChangeError::UserNotFound => "User not found".to_string(),
@@ -672,7 +673,7 @@ impl HttpMapping for RequestEmailChangeError {
         match self {
             RequestEmailChangeError::Repository(e) => e.to_error_code(),
             RequestEmailChangeError::Hash(e) => e.to_error_code(),
-            RequestEmailChangeError::InvalidPassword => "INVALID_PASSWORD",
+            RequestEmailChangeError::Reauth(e) => e.to_error_code(),
             RequestEmailChangeError::EmailTaken => "EMAIL_TAKEN",
             RequestEmailChangeError::SameEmail => "SAME_EMAIL",
             RequestEmailChangeError::UserNotFound => "USER_NOT_FOUND",
@@ -722,7 +723,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::Repository(e) => e.to_http_status(),
             DisableAccountError::Hash(e) => e.to_http_status(),
             DisableAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
-            DisableAccountError::InvalidPassword => StatusCode::FORBIDDEN,
+            DisableAccountError::Reauth(e) => e.to_http_status(),
             DisableAccountError::UserNotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -731,7 +732,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::Repository(e) => e.to_user_message(),
             DisableAccountError::Hash(e) => e.to_user_message(),
             DisableAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
-            DisableAccountError::InvalidPassword => "Password is incorrect".to_string(),
+            DisableAccountError::Reauth(e) => e.to_user_message(),
             DisableAccountError::UserNotFound => "User not found".to_string(),
         }
     }
@@ -740,7 +741,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::Repository(e) => e.to_error_code(),
             DisableAccountError::Hash(e) => e.to_error_code(),
             DisableAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
-            DisableAccountError::InvalidPassword => "INVALID_PASSWORD",
+            DisableAccountError::Reauth(e) => e.to_error_code(),
             DisableAccountError::UserNotFound => "USER_NOT_FOUND",
         }
     }
@@ -752,7 +753,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::Repository(e) => e.to_http_status(),
             DeleteAccountError::Hash(e) => e.to_http_status(),
             DeleteAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
-            DeleteAccountError::InvalidPassword => StatusCode::FORBIDDEN,
+            DeleteAccountError::Reauth(e) => e.to_http_status(),
             DeleteAccountError::UserNotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -761,7 +762,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::Repository(e) => e.to_user_message(),
             DeleteAccountError::Hash(e) => e.to_user_message(),
             DeleteAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
-            DeleteAccountError::InvalidPassword => "Password is incorrect".to_string(),
+            DeleteAccountError::Reauth(e) => e.to_user_message(),
             DeleteAccountError::UserNotFound => "User not found".to_string(),
         }
     }
@@ -770,8 +771,43 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::Repository(e) => e.to_error_code(),
             DeleteAccountError::Hash(e) => e.to_error_code(),
             DeleteAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
-            DeleteAccountError::InvalidPassword => "INVALID_PASSWORD",
+            DeleteAccountError::Reauth(e) => e.to_error_code(),
             DeleteAccountError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for ReauthError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ReauthError::Repository(e) => e.to_http_status(),
+            ReauthError::Hash(e) => e.to_http_status(),
+            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => StatusCode::SERVICE_UNAVAILABLE,
+            ReauthError::Verify(OAuthVerifyError::Transport(_)) => StatusCode::BAD_GATEWAY,
+            ReauthError::Verify(_) => StatusCode::UNAUTHORIZED,
+            ReauthError::InvalidPassword | ReauthError::OAuthNotLinked => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ReauthError::Repository(e) => e.to_user_message(),
+            ReauthError::Hash(e) => e.to_user_message(),
+            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => "Google sign-in is not configured".to_string(),
+            ReauthError::Verify(OAuthVerifyError::Transport(_)) => "Could not verify the Google token".to_string(),
+            ReauthError::Verify(_) => "Invalid Google token".to_string(),
+            ReauthError::InvalidPassword => "Password is incorrect".to_string(),
+            ReauthError::OAuthNotLinked => "This Google account is not linked to your profile".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ReauthError::Repository(e) => e.to_error_code(),
+            ReauthError::Hash(e) => e.to_error_code(),
+            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => "GOOGLE_NOT_CONFIGURED",
+            ReauthError::Verify(OAuthVerifyError::Transport(_)) => "GOOGLE_VERIFY_UNAVAILABLE",
+            ReauthError::Verify(_) => "GOOGLE_TOKEN_INVALID",
+            ReauthError::InvalidPassword => "INVALID_PASSWORD",
+            ReauthError::OAuthNotLinked => "OAUTH_NOT_LINKED",
         }
     }
 }

@@ -13,7 +13,7 @@ use identity::usecases::{
         update_locale::UpdateUserLocale,
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
         delete_account::DeleteAccount, disable_account::DisableAccount,
-        request_email_change::RequestEmailChange,
+        reauth::Reauthenticator, request_email_change::RequestEmailChange,
     },
 };
 use domain::user::name::ReservedNames;
@@ -80,6 +80,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
+    let reauthenticator = Arc::new(Reauthenticator::new(
+        user_repository.clone(),
+        hasher.clone(),
+        google_token_verifier.clone(),
+    ));
 
     let app_state = web::Data::new(AppState {
         register_user_usecase: RegisterUser::new(
@@ -132,24 +137,26 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             unit_of_work.clone(),
             hasher.clone(),
             token_issuer.clone(),
+            reauthenticator.clone(),
         ),
         request_email_change_usecase: RequestEmailChange::new(
             user_repository.clone(),
             unit_of_work.clone(),
             hasher.clone(),
+            reauthenticator.clone(),
         ),
         confirm_email_change_usecase: ConfirmEmailChange::new(unit_of_work.clone(), hasher.clone()),
         disable_account_usecase: DisableAccount::new(
             user_repository.clone(),
             unit_of_work.clone(),
-            hasher.clone(),
             access_revoker.clone(),
+            reauthenticator.clone(),
         ),
         delete_account_usecase: DeleteAccount::new(
             user_repository.clone(),
             unit_of_work.clone(),
-            hasher.clone(),
             access_revoker.clone(),
+            reauthenticator.clone(),
         ),
         user_repository: user_repository.clone(),
         trust_forwarded_headers: server_config.trust_forwarded_headers,

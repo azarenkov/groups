@@ -6,6 +6,11 @@ import { toApiError } from "../utils/apiError";
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
+export interface Reauth {
+  password?: string;
+  googleIdToken?: string;
+}
+
 export interface MeProfile {
   id: string;
   name: string;
@@ -13,6 +18,7 @@ export interface MeProfile {
   locale: string;
   emailVerified: boolean;
   passwordChangedAt: string | null;
+  linkedProviders: string[];
 }
 
 class UserAPI {
@@ -82,19 +88,20 @@ class UserAPI {
   }
 
   async changePassword(
-    currentPassword: string,
+    reauth: Reauth,
     newPassword: string,
     refreshToken?: string | null,
   ): Promise<void> {
     await this.client.patch("/v1/users/me/password", {
-      currentPassword,
+      currentPassword: reauth.password,
+      googleIdToken: reauth.googleIdToken,
       newPassword,
       refreshToken: refreshToken ?? undefined,
     });
   }
 
-  async requestEmailChange(password: string, newEmail: string): Promise<void> {
-    await this.client.post("/v1/users/me/email/change", { password, newEmail });
+  async requestEmailChange(reauth: Reauth, newEmail: string): Promise<void> {
+    await this.client.post("/v1/users/me/email/change", { ...reauth, newEmail });
   }
 
   async confirmEmailChange(verificationCode: string): Promise<string> {
@@ -102,12 +109,12 @@ class UserAPI {
     return response.data.data.email as string;
   }
 
-  async disableAccount(password: string): Promise<void> {
-    await this.client.post("/v1/users/me/disable", { password });
+  async disableAccount(reauth: Reauth): Promise<void> {
+    await this.client.post("/v1/users/me/disable", reauth);
   }
 
-  async deleteAccount(password: string): Promise<void> {
-    await this.client.delete("/v1/users/me", { data: { password } });
+  async deleteAccount(reauth: Reauth): Promise<void> {
+    await this.client.delete("/v1/users/me", { data: reauth });
   }
 
   async rename(name: string): Promise<string> {

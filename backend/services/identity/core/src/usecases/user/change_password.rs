@@ -5,9 +5,13 @@ use domain::{password_hash::PasswordHash, user::id::UserId};
 use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
 use ports::repository::RepositoryError;
 
-use crate::ports::{
-    hasher::{HashError, Hasher},
-    token_issuer::{TokenIssuer, TokenIssuerError},
+use crate::{
+    ports::{
+        hasher::{HashError, Hasher},
+        oauth_verifier::OAuthIdentityVerifier,
+        token_issuer::{TokenIssuer, TokenIssuerError},
+    },
+    usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -18,8 +22,8 @@ pub enum ChangePasswordError {
     Hash(#[from] HashError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
-    #[error("Current password is incorrect")]
-    InvalidPassword,
+    #[error("Re-authentication failed: {0}")]
+    Reauth(#[from] ReauthError),
     #[error("New password must differ from the current one")]
     SamePassword,
     #[error("User not found")]
@@ -27,38 +31,48 @@ pub enum ChangePasswordError {
 }
 
 pub struct ChangePasswordRequest {
-    pub current_password: String,
+    pub reauth: Reauth,
     pub new_password: String,
     pub refresh_token: Option<String>,
     pub request_id: Option<String>,
 }
 
-pub struct ChangePassword<U, W, H, I>
+pub struct ChangePassword<U, W, H, I, V>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
+    V: OAuthIdentityVerifier,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
     token_issuer: Arc<I>,
+    reauthenticator: Arc<Reauthenticator<U, H, V>>,
 }
 
-impl<U, W, H, I> ChangePassword<U, W, H, I>
+impl<U, W, H, I, V> ChangePassword<U, W, H, I, V>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
+    V: OAuthIdentityVerifier,
 {
-    pub fn new(user_repository: Arc<U>, unit_of_work: Arc<W>, hasher: Arc<H>, token_issuer: Arc<I>) -> Self {
+    pub fn new(
+        user_repository: Arc<U>,
+        unit_of_work: Arc<W>,
+        hasher: Arc<H>,
+        token_issuer: Arc<I>,
+        reauthenticator: Arc<Reauthenticator<U, H, V>>,
+    ) -> Self {
         Self {
             user_repository,
             unit_of_work,
             hasher,
             token_issuer,
+            reauthenticator,
         }
     }
 
@@ -71,13 +85,11 @@ where
         if user.is_deleted() {
             return Err(ChangePasswordError::UserNotFound);
         }
-        if !self
+        self.reauthenticator.verify(&user, &request.reauth).await?;
+        if self
             .hasher
-            .verify(&request.current_password, user.password_hash().as_str())?
+            .verify(&request.new_password, user.password_hash().as_str())?
         {
-            return Err(ChangePasswordError::InvalidPassword);
-        }
-        if request.current_password == request.new_password {
             return Err(ChangePasswordError::SamePassword);
         }
         let keep = match request.refresh_token.as_deref() {

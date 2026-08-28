@@ -5495,3 +5495,7 @@ button.ssv-row-delete:focus-visible {
 .account-dialog-link { border: 0; background: transparent; padding: 0; font: inherit; font-size: 13px; color: var(--accent); cursor: pointer; }
 .account-dialog-link:disabled { opacity: 0.5; cursor: default; }
 .modal .m-foot button.danger { background: var(--danger, #e5484d); color: #fff; border-color: transparent; }
+.reauth-switch { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 10px; border-radius: 8px; background: var(--surface-sunken); }
+.reauth-switch button { border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 500; color: var(--fg-2); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+.reauth-switch button.on { background: var(--surface-panel); color: var(--fg-1); box-shadow: var(--shadow-xs); }
+.reauth-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--voice-live); }

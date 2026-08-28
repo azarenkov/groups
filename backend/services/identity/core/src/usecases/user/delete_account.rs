@@ -5,9 +5,13 @@ use domain::user::id::UserId;
 use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
 use ports::repository::RepositoryError;
 
-use crate::ports::{
-    access_revoker::{AccessRevoker, AccessRevokerError},
-    hasher::{HashError, Hasher},
+use crate::{
+    ports::{
+        access_revoker::{AccessRevoker, AccessRevokerError},
+        hasher::{HashError, Hasher},
+        oauth_verifier::OAuthIdentityVerifier,
+    },
+    usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -18,42 +22,49 @@ pub enum DeleteAccountError {
     Hash(#[from] HashError),
     #[error("Access revocation error: {0}")]
     AccessRevoker(#[from] AccessRevokerError),
-    #[error("Password is incorrect")]
-    InvalidPassword,
+    #[error("Re-authentication failed: {0}")]
+    Reauth(#[from] ReauthError),
     #[error("User not found")]
     UserNotFound,
 }
 
-pub struct DeleteAccount<U, W, H, R>
+pub struct DeleteAccount<U, W, H, R, V>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     R: AccessRevoker,
+    V: OAuthIdentityVerifier,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
-    hasher: Arc<H>,
     access_revoker: Arc<R>,
+    reauthenticator: Arc<Reauthenticator<U, H, V>>,
 }
 
-impl<U, W, H, R> DeleteAccount<U, W, H, R>
+impl<U, W, H, R, V> DeleteAccount<U, W, H, R, V>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     R: AccessRevoker,
+    V: OAuthIdentityVerifier,
 {
-    pub fn new(user_repository: Arc<U>, unit_of_work: Arc<W>, hasher: Arc<H>, access_revoker: Arc<R>) -> Self {
+    pub fn new(
+        user_repository: Arc<U>,
+        unit_of_work: Arc<W>,
+        access_revoker: Arc<R>,
+        reauthenticator: Arc<Reauthenticator<U, H, V>>,
+    ) -> Self {
         Self {
             user_repository,
             unit_of_work,
-            hasher,
             access_revoker,
+            reauthenticator,
         }
     }
 
-    pub async fn execute(&self, user_id: UserId, password: &str, request_id: Option<&str>) -> Result<(), DeleteAccountError> {
+    pub async fn execute(&self, user_id: UserId, reauth: &Reauth, request_id: Option<&str>) -> Result<(), DeleteAccountError> {
         let user = self
             .user_repository
             .find_by_id(&user_id)
@@ -62,9 +73,7 @@ where
         if user.is_deleted() {
             return Err(DeleteAccountError::UserNotFound);
         }
-        if !self.hasher.verify(password, user.password_hash().as_str())? {
-            return Err(DeleteAccountError::InvalidPassword);
-        }
+        self.reauthenticator.verify(&user, reauth).await?;
 
         let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;

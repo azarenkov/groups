@@ -301,8 +301,7 @@ impl User {
         if self.deleted_at.is_some() {
             return Err(UserError::Deleted);
         }
-        let suffix: String = self.id.uuid().simple().to_string()[..8].to_string();
-        let name = UserName::new(format!("deleted_{suffix}"));
+        let name = UserName::new(format!("deleted_{}", self.id.uuid().simple()));
         self.name = name.clone();
         self.email = Email::new(format!("deleted+{}@deleted.invalid", self.id.uuid().simple()));
         self.pending_email = None;

@@ -21,6 +21,7 @@ pub struct MeProfile {
     pub locale: Locale,
     pub email_verified: bool,
     pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub linked_providers: Vec<String>,
 }
 
 pub struct GetMe<U>
@@ -45,6 +46,16 @@ where
             .await?
             .ok_or(GetMeError::NotFound)?;
 
+        let mut linked_providers = Vec::new();
+        if self
+            .user_repository
+            .find_oauth_subject_for_user("google", user.id())
+            .await?
+            .is_some()
+        {
+            linked_providers.push("google".to_string());
+        }
+
         Ok(MeProfile {
             id: user.id().uuid(),
             name: user.name().as_str().to_string(),
@@ -52,6 +63,7 @@ where
             locale: user.locale(),
             email_verified: user.is_email_verified(),
             password_changed_at: user.password_changed_at(),
+            linked_providers,
         })
     }
 }

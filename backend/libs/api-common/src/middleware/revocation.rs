@@ -3,6 +3,14 @@ use std::time::Duration;
 use redis::AsyncCommands;
 use uuid::Uuid;
 
+#[derive(Debug, thiserror::Error)]
+pub enum RevocationError {
+    #[error("access token revocation store is not configured")]
+    Disabled,
+    #[error("redis error: {0}")]
+    Redis(#[from] redis::RedisError),
+}
+
 #[derive(Clone)]
 pub struct AccessRevocations {
     connection: Option<redis::aio::ConnectionManager>,
@@ -51,9 +59,9 @@ impl AccessRevocations {
         user_id: &Uuid,
         cutoff_unix: i64,
         ttl: Duration,
-    ) -> Result<(), redis::RedisError> {
+    ) -> Result<(), RevocationError> {
         let Some(connection) = &self.connection else {
-            return Ok(());
+            return Err(RevocationError::Disabled);
         };
         let mut connection = connection.clone();
         let _: () = connection

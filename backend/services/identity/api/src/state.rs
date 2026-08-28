@@ -60,15 +60,34 @@ pub struct AppState {
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
-    pub change_password_usecase:
-        ChangePassword<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher, JwtTokenIssuer>,
-    pub request_email_change_usecase:
-        RequestEmailChange<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher>,
+    pub change_password_usecase: ChangePassword<
+        PostgresUserRepository,
+        PostgresIdentityUnitOfWork,
+        BcryptHasher,
+        JwtTokenIssuer,
+        GoogleIdTokenVerifier,
+    >,
+    pub request_email_change_usecase: RequestEmailChange<
+        PostgresUserRepository,
+        PostgresIdentityUnitOfWork,
+        BcryptHasher,
+        GoogleIdTokenVerifier,
+    >,
     pub confirm_email_change_usecase: ConfirmEmailChange<PostgresIdentityUnitOfWork, BcryptHasher>,
-    pub disable_account_usecase:
-        DisableAccount<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher, RedisAccessRevoker>,
-    pub delete_account_usecase:
-        DeleteAccount<PostgresUserRepository, PostgresIdentityUnitOfWork, BcryptHasher, RedisAccessRevoker>,
+    pub disable_account_usecase: DisableAccount<
+        PostgresUserRepository,
+        PostgresIdentityUnitOfWork,
+        BcryptHasher,
+        RedisAccessRevoker,
+        GoogleIdTokenVerifier,
+    >,
+    pub delete_account_usecase: DeleteAccount<
+        PostgresUserRepository,
+        PostgresIdentityUnitOfWork,
+        BcryptHasher,
+        RedisAccessRevoker,
+        GoogleIdTokenVerifier,
+    >,
     pub user_repository: std::sync::Arc<PostgresUserRepository>,
     pub trust_forwarded_headers: bool,
 }

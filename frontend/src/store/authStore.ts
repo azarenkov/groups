@@ -9,6 +9,7 @@ interface User {
   email: string;
   emailVerified?: boolean;
   passwordChangedAt?: string | null;
+  linkedProviders?: string[];
 }
 
 export interface TokenPair {
@@ -87,6 +88,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         email: me.email,
         emailVerified: me.emailVerified,
         passwordChangedAt: me.passwordChangedAt,
+        linkedProviders: me.linkedProviders,
       },
     });
     if (me.locale === "ru" || me.locale === "en") {

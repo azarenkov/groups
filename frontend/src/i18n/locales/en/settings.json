@@ -79,7 +79,12 @@
     "disableSub": "You'll be signed out everywhere and hidden from search. Signing in again reactivates the account.",
     "deleteTitle": "Delete account",
     "deleteSub": "Your login and email will be erased and you won't be able to sign in again. This cannot be undone.",
-    "genericError": "Something went wrong. Try again."
+    "genericError": "Something went wrong. Try again.",
+    "reauthPassword": "Password",
+    "reauthGoogle": "Google",
+    "reauthGoogleHint": "Confirm with the linked Google account",
+    "googleConfirmed": "Confirmed with Google",
+    "googleNotLinked": "This Google account is not linked to your profile."
   },
   "profile": {
     "title": "Profile",

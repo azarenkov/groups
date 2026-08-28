@@ -3,6 +3,7 @@ pub mod change_password;
 pub mod confirm_email_change;
 pub mod delete_account;
 pub mod disable_account;
+pub mod reauth;
 pub mod rename;
 pub mod request_email_change;
 pub mod search_users;
