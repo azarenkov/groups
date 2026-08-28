@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE refresh_tokens\n                SET revoked_at = $2, last_used_at = $3\n                WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e2d7574262d650fc69a53d877065bf33485b6eeabdddc3b5728d0844416ebd0e"
+}

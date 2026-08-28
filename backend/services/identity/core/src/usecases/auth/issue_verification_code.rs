@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash};
 
 use crate::{
     dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest,
@@ -65,22 +65,15 @@ where
             .await?
             .ok_or(RepositoryError::NotFound)?;
 
-        if matches!(request.purpose, VerificationPurpose::Registration) && user.is_verified() {
-            return Err(IssueVerificationCodeError::UserAlreadyVerified);
-        }
-
         let plain_code = VerificationCode::generate();
         let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
 
-        let mut verification_code = VerificationCode::issue(
-            user_id,
-            user.email().clone(),
-            plain_code,
-            request.channel,
-            code_hash,
-            request.purpose,
-            user.locale(),
-        );
+        let mut verification_code = user
+            .issue_verification(request.channel, request.purpose, plain_code, code_hash)
+            .map_err(|e| match e {
+                UserError::AlreadyVerified => IssueVerificationCodeError::UserAlreadyVerified,
+                _ => IssueVerificationCodeError::UserAlreadyVerified,
+            })?;
 
         let events: Vec<IdentityEvent> = verification_code
             .pull_events()

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use domain::{user::id::UserId, user::name::ReservedNames, user::name::UserName, user::name::UserNameError};
 use ports::repository::RepositoryError;
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserRenamed, user::repository::UserRepository};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
 
 use crate::ports::text_moderation::{TextModeration, TextModerationError};
 
@@ -74,9 +74,14 @@ where
 
         let persisted = async {
             let mut tx = self.unit_of_work.begin().await?;
-            tx.set_user_name(&user_id, &name).await?;
-            let event = UserEvent::Renamed(UserRenamed::record(user_id, name.clone(), Utc::now()));
-            tx.save_events(&[IdentityEvent::from(event)], None).await?;
+            let mut user = tx
+                .load_user_for_update(&user_id)
+                .await?
+                .ok_or(RepositoryError::NotFound)?;
+            user.rename(name.clone(), Utc::now());
+            let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
+            tx.save_user(&user).await?;
+            tx.save_events(&events, None).await?;
             tx.commit().await?;
             Ok::<(), RenameUserError>(())
         }

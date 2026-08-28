@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use identity_domain::{user::User, user::email::Email, user::locale::Locale, user::repository::UserRepository};
+use identity_domain::{user::User, user::email::Email, user::repository::UserRepository};
 use domain::{password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
@@ -234,30 +234,6 @@ impl UserRepository for PostgresUserRepository {
             Some(row) => Ok(UserId::new(row.id)),
             None => Err(RepositoryError::NotFound),
         }
-    }
-
-    async fn update_locale(
-        &self,
-        user_id: &UserId,
-        locale: Locale,
-    ) -> Result<(), RepositoryError> {
-        let result = sqlx::query!(
-            r#"
-                UPDATE users
-                SET locale = $2, updated_at = now()
-                WHERE id = $1
-            "#,
-            user_id.uuid(),
-            locale.as_str(),
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-        Ok(())
     }
 
     async fn claim_with_oauth(

@@ -27,8 +27,7 @@ use identity_infrastructure::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
             identity_unit_of_work::PostgresIdentityUnitOfWork,
-            refresh_token::PostgresRefreshTokenRepository, user::PostgresUserRepository,
-            verification_code::PostgresVerificationCodeRepository,
+            user::PostgresUserRepository,
         },
     },
     media_client::user_state::MessagingStateClient,
@@ -57,11 +56,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_pool = create_postgres_pool(postgres_config).await?;
 
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
-    let verification_code_repository = Arc::new(PostgresVerificationCodeRepository::new(
-        postgres_pool.clone(),
-    ));
-    let refresh_token_repository =
-        Arc::new(PostgresRefreshTokenRepository::new(postgres_pool.clone()));
     let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
@@ -110,25 +104,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             reserved_names.clone(),
             user_state_lookup.clone(),
         ),
-        confirm_registration_usecase: ConfirmRegistration::new(
-            user_repository.clone(),
-            hasher.clone(),
-            verification_code_repository.clone(),
-            unit_of_work.clone(),
-        ),
+        confirm_registration_usecase: ConfirmRegistration::new(hasher.clone(), unit_of_work.clone()),
         refresh_tokens_usecase: RefreshTokens::new(
-            refresh_token_repository.clone(),
+            unit_of_work.clone(),
             user_repository.clone(),
             token_issuer.clone(),
         ),
-        logout_usecase: Logout::new(
-            refresh_token_repository.clone(),
-            unit_of_work.clone(),
-            token_issuer.clone(),
-        ),
+        logout_usecase: Logout::new(unit_of_work.clone(), token_issuer.clone()),
         search_users_usecase: SearchUsers::new(user_repository.clone()),
         get_me_usecase: GetMe::new(user_repository.clone()),
-        update_user_locale_usecase: UpdateUserLocale::new(user_repository.clone()),
+        update_user_locale_usecase: UpdateUserLocale::new(unit_of_work.clone()),
         rename_user_usecase: RenameUser::new(
             user_repository.clone(),
             unit_of_work.clone(),

@@ -1,9 +1,24 @@
 pub mod id;
-pub mod repository;
 
 use chrono::{DateTime, Utc};
 
 use crate::{refresh_token::id::RefreshTokenId, user::id::UserId};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum RefreshTokenError {
+    #[error("Refresh token does not belong to user")]
+    ForeignToken,
+    #[error("Refresh token has been revoked")]
+    Revoked,
+    #[error("Refresh token has expired")]
+    Expired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevokeOutcome {
+    Revoked,
+    AlreadyRevoked,
+}
 
 #[derive(Debug)]
 pub struct RefreshToken {
@@ -73,10 +88,29 @@ impl RefreshToken {
         !self.is_revoked() && !self.is_expired(now)
     }
 
-    pub fn revoke(&mut self, now: DateTime<Utc>) {
-        if self.revoked_at.is_none() {
-            self.revoked_at = Some(now);
+    pub fn revoke_by(&mut self, user: &UserId, now: DateTime<Utc>) -> Result<RevokeOutcome, RefreshTokenError> {
+        if self.user_id != *user {
+            return Err(RefreshTokenError::ForeignToken);
         }
+        if self.revoked_at.is_some() {
+            return Ok(RevokeOutcome::AlreadyRevoked);
+        }
+        self.revoked_at = Some(now);
+        Ok(RevokeOutcome::Revoked)
+    }
+
+    pub fn rotate(&mut self, user: &UserId, now: DateTime<Utc>) -> Result<(), RefreshTokenError> {
+        if self.user_id != *user {
+            return Err(RefreshTokenError::ForeignToken);
+        }
+        if self.is_revoked() {
+            return Err(RefreshTokenError::Revoked);
+        }
+        if self.is_expired(now) {
+            return Err(RefreshTokenError::Expired);
+        }
+        self.revoked_at = Some(now);
+        Ok(())
     }
 
     pub fn id(&self) -> &RefreshTokenId {

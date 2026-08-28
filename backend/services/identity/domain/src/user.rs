@@ -3,11 +3,32 @@ pub use domain::user::{email, id, locale, name};
 pub mod events;
 pub mod repository;
 
+#[cfg(test)]
+mod tests;
+
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::id::UserId, user::locale::Locale, user::name::UserName};
+use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum UserError {
+    #[error("User already verified")]
+    AlreadyVerified,
+    #[error("Verification code not for registration")]
+    NotRegistrationCode,
+    #[error("Too many attempts for verification code")]
+    TooManyAttempts,
+    #[error("Verification code has expired")]
+    CodeExpired,
+    #[error("Verification code already consumed")]
+    CodeConsumed,
+    #[error("Bad verification code")]
+    BadCode,
+    #[error("Verification code belongs to another user")]
+    ForeignCode,
+}
 
 #[derive(Debug, Serialize)]
 pub struct User {
@@ -82,6 +103,73 @@ impl User {
             locale,
             events: vec![event],
         }
+    }
+
+    pub fn issue_verification(
+        &self,
+        channel: VerificationChannel,
+        purpose: VerificationPurpose,
+        plain_code: String,
+        code_hash: CodeHash,
+    ) -> Result<VerificationCode, UserError> {
+        if purpose.is_registration() && self.is_verified() {
+            return Err(UserError::AlreadyVerified);
+        }
+        Ok(VerificationCode::issue(
+            self.id,
+            self.email.clone(),
+            plain_code,
+            channel,
+            code_hash,
+            purpose,
+            self.locale,
+        ))
+    }
+
+    pub fn confirm_registration(
+        &mut self,
+        code: &mut VerificationCode,
+        code_matches: bool,
+        now: DateTime<Utc>,
+    ) -> Result<(), UserError> {
+        if self.is_verified() {
+            return Err(UserError::AlreadyVerified);
+        }
+        if *code.user_id() != self.id {
+            return Err(UserError::ForeignCode);
+        }
+        if !code.is_registration_purpose() {
+            return Err(UserError::NotRegistrationCode);
+        }
+        if code.consumed_at().is_some() {
+            return Err(UserError::CodeConsumed);
+        }
+        if code.is_limit_attempts() {
+            return Err(UserError::TooManyAttempts);
+        }
+        if code.expires_at() < now {
+            return Err(UserError::CodeExpired);
+        }
+        if !code_matches {
+            code.register_failed_attempt();
+            return Err(if code.is_limit_attempts() {
+                UserError::TooManyAttempts
+            } else {
+                UserError::BadCode
+            });
+        }
+        match code.channel() {
+            VerificationChannel::Email => self.verify_email(now),
+            VerificationChannel::Phone => self.verify_phone(now),
+        }
+        code.consume(now);
+        Ok(())
+    }
+
+    pub fn rename(&mut self, name: UserName, now: DateTime<Utc>) {
+        self.name = name.clone();
+        self.updated_at = now;
+        self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
     }
 
     pub fn verify_email(&mut self, now: DateTime<Utc>) {

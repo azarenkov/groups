@@ -1,12 +1,13 @@
 use async_trait::async_trait;
-use domain::{user::id::UserId, user::name::UserName};
+use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
     dto::{
-        verification_channel::VerificationChannelDto, verification_purpose::VerificationPurposeDto,
+        user::UserDto, verification_channel::VerificationChannelDto,
+        verification_purpose::VerificationPurposeDto,
     },
     error::map_sqlx_error_to_domain_error,
     repositories::outbox_record::save_outbox_records,
@@ -90,41 +91,6 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
-    async fn revoke_refresh_token(&mut self, refresh_token: &RefreshToken) -> Result<bool, RepositoryError> {
-        let result = sqlx::query!(
-            r#"
-                UPDATE refresh_tokens
-                SET revoked_at = $2
-                WHERE id = $1 AND revoked_at IS NULL
-            "#,
-            refresh_token.id().uuid(),
-            refresh_token.revoked_at(),
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(result.rows_affected() > 0)
-    }
-
-    async fn set_user_name(&mut self, user_id: &UserId, name: &UserName) -> Result<(), RepositoryError> {
-        let result = sqlx::query!(
-            r#"
-                UPDATE users
-                SET name = $2, updated_at = now()
-                WHERE id = $1
-            "#,
-            user_id.uuid(),
-            name.as_str(),
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-        Ok(())
-    }
-
     async fn insert_verification_code(&mut self, verification_code: &VerificationCode) -> Result<(), RepositoryError> {
         let channel = VerificationChannelDto::from(verification_code.channel());
         let purpose = VerificationPurposeDto::from(verification_code.purpose());
@@ -155,17 +121,108 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
-    async fn mark_user_verified(&mut self, user: &User) -> Result<(), RepositoryError> {
+    async fn load_user_for_update(&mut self, user_id: &UserId) -> Result<Option<User>, RepositoryError> {
+        let dto = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT id, name, email, password_hash, created_at, updated_at,
+                   email_verified_at, phone_verified_at, locale
+            FROM users
+            WHERE id = $1
+            FOR UPDATE
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(dto.map(User::from))
+    }
+
+    async fn load_pending_verification_for_update(&mut self, user_id: &UserId) -> Result<Option<VerificationCode>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+                SELECT
+                    id,
+                    user_id,
+                    channel AS "channel: VerificationChannelDto",
+                    code_hash,
+                    purpose AS "purpose: VerificationPurposeDto",
+                    expires_at,
+                    consumed_at,
+                    attempts,
+                    created_at
+                FROM verification_codes
+                WHERE user_id = $1 AND consumed_at IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+                FOR UPDATE
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|row| {
+            VerificationCode::restore(
+                VerificationCodeId::new(row.id),
+                UserId::new(row.user_id),
+                row.channel.into(),
+                CodeHash::new(row.code_hash),
+                row.purpose.into(),
+                row.expires_at,
+                row.consumed_at,
+                row.attempts as u8,
+                row.created_at,
+            )
+        }))
+    }
+
+    async fn load_refresh_token_for_update(&mut self, id: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+                SELECT id, user_id, expires_at, revoked_at, created_at,
+                       last_used_at, last_ip, last_user_agent
+                FROM refresh_tokens
+                WHERE id = $1
+                FOR UPDATE
+            "#,
+            id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|row| {
+            RefreshToken::restore(
+                RefreshTokenId::new(row.id),
+                UserId::new(row.user_id),
+                row.expires_at,
+                row.revoked_at,
+                row.created_at,
+                row.last_used_at,
+                row.last_ip,
+                row.last_user_agent,
+            )
+        }))
+    }
+
+    async fn save_user(&mut self, user: &User) -> Result<(), RepositoryError> {
         let result = sqlx::query!(
             r#"
                 UPDATE users
-                SET email_verified_at = $2,
-                    phone_verified_at = $3
+                SET name = $2,
+                    locale = $3,
+                    email_verified_at = $4,
+                    phone_verified_at = $5,
+                    updated_at = $6
                 WHERE id = $1
             "#,
             user.id().uuid(),
+            user.name().as_str(),
+            user.locale().as_str(),
             user.email_verified_at(),
             user.phone_verified_at(),
+            user.updated_at(),
         )
         .execute(&mut *self.tx)
         .await
@@ -176,20 +233,44 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
-    async fn consume_verification_code(&mut self, verification_code: &VerificationCode) -> Result<bool, RepositoryError> {
+    async fn save_refresh_token(&mut self, refresh_token: &RefreshToken) -> Result<(), RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                UPDATE refresh_tokens
+                SET revoked_at = $2, last_used_at = $3
+                WHERE id = $1
+            "#,
+            refresh_token.id().uuid(),
+            refresh_token.revoked_at(),
+            refresh_token.last_used_at(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(())
+    }
+
+    async fn save_verification_code(&mut self, verification_code: &VerificationCode) -> Result<(), RepositoryError> {
         let result = sqlx::query!(
             r#"
                 UPDATE verification_codes
-                SET consumed_at = $2
-                WHERE id = $1 AND consumed_at IS NULL
+                SET attempts = $2, consumed_at = $3
+                WHERE id = $1
             "#,
             verification_code.id().uuid(),
+            i16::from(verification_code.attempts()),
             verification_code.consumed_at(),
         )
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(result.rows_affected() > 0)
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(())
     }
 
     async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {

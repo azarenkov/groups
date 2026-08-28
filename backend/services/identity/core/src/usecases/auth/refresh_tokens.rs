@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{refresh_token::RefreshToken, refresh_token::repository::RefreshTokenRepository, user::repository::UserRepository};
+use identity_domain::{refresh_token::RefreshToken, refresh_token::RefreshTokenError, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -27,30 +27,36 @@ pub enum RefreshTokensError {
     UserNotFound,
 }
 
-pub struct RefreshTokens<R, U, I>
+impl From<RefreshTokenError> for RefreshTokensError {
+    fn from(err: RefreshTokenError) -> Self {
+        match err {
+            RefreshTokenError::ForeignToken => Self::UserMismatch,
+            RefreshTokenError::Revoked => Self::RefreshTokenRevoked,
+            RefreshTokenError::Expired => Self::RefreshTokenExpired,
+        }
+    }
+}
+
+pub struct RefreshTokens<W, U, I>
 where
-    R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     U: UserRepository,
     I: TokenIssuer,
 {
-    refresh_token_repository: Arc<R>,
+    unit_of_work: Arc<W>,
     user_repository: Arc<U>,
     token_issuer: Arc<I>,
 }
 
-impl<R, U, I> RefreshTokens<R, U, I>
+impl<W, U, I> RefreshTokens<W, U, I>
 where
-    R: RefreshTokenRepository,
+    W: IdentityUnitOfWork,
     U: UserRepository,
     I: TokenIssuer,
 {
-    pub fn new(
-        refresh_token_repository: Arc<R>,
-        user_repository: Arc<U>,
-        token_issuer: Arc<I>,
-    ) -> Self {
+    pub fn new(unit_of_work: Arc<W>, user_repository: Arc<U>, token_issuer: Arc<I>) -> Self {
         Self {
-            refresh_token_repository,
+            unit_of_work,
             user_repository,
             token_issuer,
         }
@@ -61,48 +67,23 @@ where
         request: RefreshTokensRequest,
     ) -> Result<IssuedTokens, RefreshTokensError> {
         let decoded = self.token_issuer.decode_refresh(&request.refresh_token)?;
-
-        let mut refresh_token = self
-            .refresh_token_repository
-            .find_by_id(&decoded.refresh_token_id)
-            .await?
-            .ok_or(RefreshTokensError::RefreshTokenNotFound)?;
-
-        if refresh_token.user_id().uuid() != decoded.user_id.uuid() {
-            return Err(RefreshTokensError::UserMismatch);
-        }
-
-        let now = Utc::now();
-
-        if refresh_token.is_revoked() {
-            return Err(RefreshTokensError::RefreshTokenRevoked);
-        }
-
-        if refresh_token.is_expired(now) {
-            return Err(RefreshTokensError::RefreshTokenExpired);
-        }
-
-        refresh_token.revoke(now);
-        let revoked = self
-            .refresh_token_repository
-            .revoke(&refresh_token)
-            .await?;
-
-        if !revoked {
-            return Err(RefreshTokensError::RefreshTokenRevoked);
-        }
-
         let user = self
             .user_repository
             .find_by_id(&decoded.user_id)
             .await?
             .ok_or(RefreshTokensError::UserNotFound)?;
-
         let tokens = self
             .token_issuer
             .issue(&decoded.user_id, user.is_verified())
             .await?;
 
+        let now = Utc::now();
+        let mut tx = self.unit_of_work.begin().await?;
+        let mut refresh_token = tx
+            .load_refresh_token_for_update(&decoded.refresh_token_id)
+            .await?
+            .ok_or(RefreshTokensError::RefreshTokenNotFound)?;
+        refresh_token.rotate(&decoded.user_id, now)?;
         let new_refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,
             decoded.user_id,
@@ -110,9 +91,9 @@ where
             request.client.ip.clone(),
             request.client.user_agent.clone(),
         );
-        self.refresh_token_repository
-            .save_refresh_token(&new_refresh_token)
-            .await?;
+        tx.save_refresh_token(&refresh_token).await?;
+        tx.insert_refresh_token(&new_refresh_token).await?;
+        tx.commit().await?;
 
         Ok(tokens)
     }
