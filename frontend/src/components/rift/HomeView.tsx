@@ -145,7 +145,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                       userId={friend.friendId}
                       name={friend.friendName}
                       className="home-avatar"
-                      style={{ background: colorForId(friend.friendId), width: 26, height: 26 }}
+                      style={{ background: colorForId(friend.friendId), width: 34, height: 34 }}
                     />
                     <span className="who">
                       <span className="line">
