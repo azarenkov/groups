@@ -233,9 +233,14 @@ const HomeView: React.FC<HomeViewProps> = ({
                 </div>
               )}
             </div>
-          {requests.length > 0 && (
-              <div className="home-card home-side-card">
-                <h6 className="home-label">{t("friendRequests", { count: requests.length })}</h6>
+            <div className="home-card home-side-card">
+              <h6 className="home-label">{t("friendRequests", { count: requests.length })}</h6>
+              {requests.length === 0 ? (
+                <div className="home-empty compact">
+                  <span className="home-empty-ico"><Icon name="mail" size={16} /></span>
+                  <div className="home-empty-text">{t("emptyRequests")}</div>
+                </div>
+              ) : (
                 <div className="home-request-list">
                 {requests.map((r) => (
                   <div key={r.friendId} className="home-request-row">
@@ -267,8 +272,8 @@ const HomeView: React.FC<HomeViewProps> = ({
                   </div>
                 ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
