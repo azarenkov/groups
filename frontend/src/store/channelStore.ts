@@ -93,11 +93,17 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
   fetchChannels: async (serverId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await channelAPI.listByServer(serverId);
+      const first = await channelAPI.listByServer(serverId);
+      const channels = [...first.channels];
+      const totalPages = first.pagination?.totalPages ?? 1;
+      for (let p = 2; p <= totalPages; p++) {
+        const next = await channelAPI.listByServer(serverId, p);
+        channels.push(...next.channels);
+      }
       set((state) => ({
         channelsByServer: {
           ...state.channelsByServer,
-          [serverId]: response.channels,
+          [serverId]: channels,
         },
         isLoading: false,
       }));

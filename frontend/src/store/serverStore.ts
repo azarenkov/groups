@@ -74,13 +74,19 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   setPagination: (pagination) => set({ pagination }),
 
-  fetchServers: async (page = 1, perPage = 20) => {
+  fetchServers: async (page = 1, perPage = 50) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await serverAPI.listServers(page, perPage);
+      const first = await serverAPI.listServers(page, perPage);
+      const servers = [...first.servers];
+      const totalPages = first.pagination?.totalPages ?? 1;
+      for (let p = page + 1; p <= totalPages; p++) {
+        const next = await serverAPI.listServers(p, perPage);
+        servers.push(...next.servers);
+      }
       set({
-        servers: response.servers,
-        pagination: response.pagination,
+        servers,
+        pagination: first.pagination,
         isLoading: false,
       });
     } catch (error) {

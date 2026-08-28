@@ -41,7 +41,13 @@ export const useRolesStore = create<RolesState>()((set) => ({
 
   fetch: async (serverId) => {
     const gen = (fetchGens[serverId] = ++nextGen);
-    const data = await serverAPI.listRoles(serverId);
+    let data: Awaited<ReturnType<typeof serverAPI.listRoles>>;
+    try {
+      data = await serverAPI.listRoles(serverId);
+    } catch (err) {
+      if (fetchGens[serverId] === gen) delete fetchGens[serverId];
+      throw err;
+    }
     if (fetchGens[serverId] !== gen) return;
     const memberRoles: Record<string, string[]> = {};
     for (const a of data.assignments) {
