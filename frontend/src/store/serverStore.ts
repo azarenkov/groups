@@ -78,6 +78,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const loaded: Server[] = [];
+      const before = new Set(get().servers.map((s) => s.id));
       const mergeWithCached = () =>
         set((state) => {
           const seen = new Set(loaded.map((s) => s.id));
@@ -95,7 +96,11 @@ export const useServerStore = create<ServerState>((set, get) => ({
         loaded.push(...next.servers.filter((s) => !known.has(s.id)));
         mergeWithCached();
       }
-      set({ servers: loaded, isLoading: false });
+      set((state) => {
+        const seen = new Set(loaded.map((s) => s.id));
+        const addedMeanwhile = state.servers.filter((s) => !seen.has(s.id) && !before.has(s.id));
+        return { servers: [...addedMeanwhile, ...loaded], isLoading: false };
+      });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Failed to fetch servers",

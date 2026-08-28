@@ -94,6 +94,7 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const loaded: Channel[] = [];
+      const before = new Set((get().channelsByServer[serverId] ?? []).map((c) => c.id));
       const mergeWithCached = () =>
         set((state) => {
           const seen = new Set(loaded.map((c) => c.id));
@@ -115,10 +116,16 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
         loaded.push(...next.channels.filter((c) => !known.has(c.id)));
         mergeWithCached();
       }
-      set((state) => ({
-        channelsByServer: { ...state.channelsByServer, [serverId]: loaded },
-        isLoading: false,
-      }));
+      set((state) => {
+        const seen = new Set(loaded.map((c) => c.id));
+        const addedMeanwhile = (state.channelsByServer[serverId] ?? []).filter(
+          (c) => !seen.has(c.id) && !before.has(c.id),
+        );
+        return {
+          channelsByServer: { ...state.channelsByServer, [serverId]: [...addedMeanwhile, ...loaded] },
+          isLoading: false,
+        };
+      });
     } catch (error) {
       set({
         error:
