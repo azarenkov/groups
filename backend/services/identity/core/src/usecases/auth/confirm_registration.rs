@@ -73,6 +73,9 @@ where
             .load_user_for_update(&user_id)
             .await?
             .ok_or(ConfirmRegistrationError::UserNotFound)?;
+        if user.is_verified() {
+            return Err(ConfirmRegistrationError::UserAlreadyVerified);
+        }
         let mut code = tx
             .load_pending_verification_for_update(&user_id)
             .await?
