@@ -4,4 +4,3 @@ pub mod code_hash;
 pub mod events;
 pub mod id;
 pub mod purpose;
-pub mod repository;

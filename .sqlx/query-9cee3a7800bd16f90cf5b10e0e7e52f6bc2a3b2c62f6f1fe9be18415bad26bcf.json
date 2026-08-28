@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE verification_codes\n                SET attempts = $2, consumed_at = $3\n                WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9cee3a7800bd16f90cf5b10e0e7e52f6bc2a3b2c62f6f1fe9be18415bad26bcf"
+}

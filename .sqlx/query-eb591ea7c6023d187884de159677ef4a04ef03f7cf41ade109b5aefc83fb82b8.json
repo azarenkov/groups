@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT\n                    id,\n                    user_id,\n                    channel AS \"channel: VerificationChannelDto\",\n                    code_hash,\n                    purpose AS \"purpose: VerificationPurposeDto\",\n                    expires_at,\n                    consumed_at,\n                    attempts,\n                    created_at\n                FROM verification_codes\n                WHERE user_id = $1 AND consumed_at IS NULL\n                ORDER BY created_at DESC\n                LIMIT 1\n            ",
+  "query": "\n                SELECT\n                    id,\n                    user_id,\n                    channel AS \"channel: VerificationChannelDto\",\n                    code_hash,\n                    purpose AS \"purpose: VerificationPurposeDto\",\n                    expires_at,\n                    consumed_at,\n                    attempts,\n                    created_at\n                FROM verification_codes\n                WHERE user_id = $1 AND consumed_at IS NULL\n                ORDER BY created_at DESC\n                LIMIT 1\n                FOR UPDATE\n            ",
   "describe": {
     "columns": [
       {
@@ -88,5 +88,5 @@
       false
     ]
   },
-  "hash": "3c941fd79c5caa78ff5346c73770d912f5e01f83d0b764e86cd8428b15afd4a2"
+  "hash": "eb591ea7c6023d187884de159677ef4a04ef03f7cf41ade109b5aefc83fb82b8"
 }

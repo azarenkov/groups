@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use identity_domain::{events::IdentityEvent, refresh_token::repository::RefreshTokenRepository, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserLoggedOut};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshTokenError, refresh_token::RevokeOutcome, unit_of_work::IdentityUnitOfWork, user::events::UserEvent, user::events::lifecycle::UserLoggedOut};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -22,26 +22,22 @@ pub enum LogoutError {
     UserMismatch,
 }
 
-pub struct Logout<R, W, I>
+pub struct Logout<W, I>
 where
-    R: RefreshTokenRepository,
     W: IdentityUnitOfWork,
     I: TokenIssuer,
 {
-    refresh_token_repository: Arc<R>,
     unit_of_work: Arc<W>,
     token_issuer: Arc<I>,
 }
 
-impl<R, W, I> Logout<R, W, I>
+impl<W, I> Logout<W, I>
 where
-    R: RefreshTokenRepository,
     W: IdentityUnitOfWork,
     I: TokenIssuer,
 {
-    pub fn new(refresh_token_repository: Arc<R>, unit_of_work: Arc<W>, token_issuer: Arc<I>) -> Self {
+    pub fn new(unit_of_work: Arc<W>, token_issuer: Arc<I>) -> Self {
         Self {
-            refresh_token_repository,
             unit_of_work,
             token_issuer,
         }
@@ -53,27 +49,22 @@ where
         request: LogoutRequest,
     ) -> Result<(), LogoutError> {
         let decoded = self.token_issuer.decode_refresh(&request.refresh_token)?;
-
         if decoded.user_id.uuid() != user_id.uuid() {
             return Err(LogoutError::UserMismatch);
         }
 
-        let mut refresh_token = self
-            .refresh_token_repository
-            .find_by_id(&decoded.refresh_token_id)
+        let now = Utc::now();
+        let mut tx = self.unit_of_work.begin().await?;
+        let mut refresh_token = tx
+            .load_refresh_token_for_update(&decoded.refresh_token_id)
             .await?
             .ok_or(LogoutError::RefreshTokenNotFound)?;
-
-        if refresh_token.user_id().uuid() != user_id.uuid() {
-            return Err(LogoutError::UserMismatch);
+        match refresh_token.revoke_by(&user_id, now) {
+            Ok(RevokeOutcome::Revoked) => {}
+            Ok(RevokeOutcome::AlreadyRevoked) => return Ok(()),
+            Err(RefreshTokenError::ForeignToken) => return Err(LogoutError::UserMismatch),
+            Err(RefreshTokenError::Revoked | RefreshTokenError::Expired) => return Ok(()),
         }
-
-        if refresh_token.is_revoked() {
-            return Ok(());
-        }
-
-        let now = Utc::now();
-        refresh_token.revoke(now);
 
         let event = UserEvent::LoggedOut(UserLoggedOut::record(
             user_id,
@@ -82,14 +73,10 @@ where
             request.client.user_agent,
             now,
         ));
-        let mut tx = self.unit_of_work.begin().await?;
-        if !tx.revoke_refresh_token(&refresh_token).await? {
-            return Ok(());
-        }
+        tx.save_refresh_token(&refresh_token).await?;
         tx.save_events(&[IdentityEvent::from(event)], request.ctx.request_id.as_deref())
             .await?;
         tx.commit().await?;
-
         Ok(())
     }
 }

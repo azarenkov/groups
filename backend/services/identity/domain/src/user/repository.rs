@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::{user::User, user::email::Email, user::id::UserId, user::locale::Locale, user::name::UserName};
+use crate::{user::User, user::email::Email, user::id::UserId, user::name::UserName};
 use domain::password_hash::PasswordHash;
 use ports::repository::RepositoryError;
 
@@ -28,11 +28,6 @@ pub trait UserRepository {
     ) -> Result<PasswordHash, RepositoryError>;
     async fn get_username_by_id(&self, user_id: &UserId) -> Result<UserName, RepositoryError>;
     async fn get_user_id_by_email(&self, email: &Email) -> Result<UserId, RepositoryError>;
-    async fn update_locale(
-        &self,
-        user_id: &UserId,
-        locale: Locale,
-    ) -> Result<(), RepositoryError>;
     async fn claim_with_oauth(
         &self,
         user_id: &UserId,

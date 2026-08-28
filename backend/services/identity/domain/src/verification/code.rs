@@ -149,7 +149,13 @@ impl VerificationCode {
         &self.id
     }
 
-    pub fn set_consumed_at(&mut self, consumed_at: Option<DateTime<Utc>>) {
-        self.consumed_at = consumed_at;
+    pub fn register_failed_attempt(&mut self) {
+        self.attempts = self.attempts.saturating_add(1);
+    }
+
+    pub fn consume(&mut self, now: DateTime<Utc>) {
+        if self.consumed_at.is_none() {
+            self.consumed_at = Some(now);
+        }
     }
 }

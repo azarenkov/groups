@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT\n                    id,\n                    user_id,\n                    expires_at,\n                    revoked_at,\n                    created_at,\n                    last_used_at,\n                    last_ip,\n                    last_user_agent\n                FROM refresh_tokens\n                WHERE id = $1\n            ",
+  "query": "\n                SELECT id, user_id, expires_at, revoked_at, created_at,\n                       last_used_at, last_ip, last_user_agent\n                FROM refresh_tokens\n                WHERE id = $1\n                FOR UPDATE\n            ",
   "describe": {
     "columns": [
       {
@@ -60,5 +60,5 @@
       true
     ]
   },
-  "hash": "0bac8d1bc6702c946c8f699cf1a092f7aa0c59d3b1770c2b5a2a40e069001710"
+  "hash": "fccf2b773797ea31d4df523f7897f24fe59c79bd2331b158782e3150894aba4d"
 }
