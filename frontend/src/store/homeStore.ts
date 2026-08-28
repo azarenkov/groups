@@ -21,7 +21,7 @@ export const useHomeStore = create<HomeState>()((set) => ({
     if (inflight) return inflight;
     const gen = generation;
     set({ isLoading: true });
-    inflight = homeAPI
+    const request: Promise<void> = homeAPI
       .overview()
       .then((overview) => {
         if (gen === generation) set({ overview, isLoading: false });
@@ -32,9 +32,10 @@ export const useHomeStore = create<HomeState>()((set) => ({
         set({ isLoading: false });
       })
       .finally(() => {
-        inflight = null;
+        if (inflight === request) inflight = null;
       });
-    return inflight;
+    inflight = request;
+    return request;
   },
 
   clear: () => {
