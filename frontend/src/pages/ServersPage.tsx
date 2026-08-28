@@ -191,10 +191,11 @@ const ServersPage: React.FC = () => {
     const known = new Set(items.map((d) => d.id));
     for (const [peerId, p] of Object.entries(dmPreviews)) {
       if (known.has(peerId) || !p.peerName) continue;
+      const name = nameOverrides[peerId] ?? p.peerName;
       items.push({
         id: peerId,
-        name: p.peerName,
-        initials: initialFor(p.peerName),
+        name,
+        initials: initialFor(name),
         color: colorForId(peerId),
         online: false,
         unread: 0,
@@ -203,15 +204,16 @@ const ServersPage: React.FC = () => {
       });
     }
     return items;
-  }, [friends, onlineUsers, dmPreviews, previewText]);
+  }, [friends, onlineUsers, dmPreviews, previewText, nameOverrides]);
 
   useEffect(() => {
     if (!selectedDm) return;
     const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
-    if (!fresh || fresh.name === selectedDm.name) return;
+    if (!fresh) return;
+    if (fresh.name === selectedDm.name && fresh.isFriend === selectedDm.isFriend) return;
     setSelectedDm((prev) =>
       prev && prev.id === fresh.id
-        ? { ...prev, name: fresh.name, initials: fresh.initials }
+        ? { ...prev, name: fresh.name, initials: fresh.initials, isFriend: fresh.isFriend }
         : prev,
     );
   }, [acceptedFriends, selectedDm]);
