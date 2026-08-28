@@ -97,7 +97,7 @@ where
         }
     };
     let user_id = UserId::new(evt.user_id);
-    if let Some(key) = media_repository.set_user_avatar_key(&user_id, None).await? {
+    if let Some(key) = media_repository.mark_user_deleted(&user_id, evt.occurred_at).await? {
         match storage.delete(&key).await {
             Ok(()) | Err(FileStorageError::NotFound) => {}
             Err(e) => {

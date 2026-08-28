@@ -38,29 +38,51 @@ impl MediaRepository for PostgresMediaRepository {
         key: Option<&str>,
     ) -> Result<Option<String>, RepositoryError> {
         match key {
-            Some(key) => sqlx::query_scalar!(
-                r#"
-                WITH old AS (
-                    SELECT user_id, storage_key FROM media_user_avatars
-                    WHERE user_id = $1 FOR UPDATE
-                ), ins AS (
-                    INSERT INTO media_user_avatars (user_id, storage_key)
-                    VALUES ($1, $2)
-                    ON CONFLICT (user_id) DO UPDATE SET storage_key = EXCLUDED.storage_key
-                ), q AS (
-                    INSERT INTO storage_cleanup_queue (storage_key)
-                    SELECT storage_key FROM old
-                    WHERE storage_key IS DISTINCT FROM $2
-                    ON CONFLICT (storage_key) DO NOTHING
+            Some(key) => {
+                let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+                sqlx::query!(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1, 44))",
+                    user_id.uuid().to_string()
                 )
-                SELECT storage_key FROM old
-                "#,
-                user_id.uuid(),
-                key,
-            )
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(map_sqlx_error_to_domain_error),
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                let deleted = sqlx::query_scalar!(
+                    r#"SELECT EXISTS(SELECT 1 FROM media_deleted_users WHERE user_id = $1) AS "exists!""#,
+                    user_id.uuid()
+                )
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                if deleted {
+                    return Err(RepositoryError::NotFound);
+                }
+                let old = sqlx::query_scalar!(
+                    r#"
+                    WITH old AS (
+                        SELECT user_id, storage_key FROM media_user_avatars
+                        WHERE user_id = $1 FOR UPDATE
+                    ), ins AS (
+                        INSERT INTO media_user_avatars (user_id, storage_key)
+                        VALUES ($1, $2)
+                        ON CONFLICT (user_id) DO UPDATE SET storage_key = EXCLUDED.storage_key
+                    ), q AS (
+                        INSERT INTO storage_cleanup_queue (storage_key)
+                        SELECT storage_key FROM old
+                        WHERE storage_key IS DISTINCT FROM $2
+                        ON CONFLICT (storage_key) DO NOTHING
+                    )
+                    SELECT storage_key FROM old
+                    "#,
+                    user_id.uuid(),
+                    key,
+                )
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+                Ok(old)
+            }
             None => sqlx::query_scalar!(
                 r#"
                 WITH old AS (
@@ -79,6 +101,52 @@ impl MediaRepository for PostgresMediaRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error),
         }
+    }
+
+    async fn mark_user_deleted(
+        &self,
+        user_id: &UserId,
+        deleted_at: DateTime<Utc>,
+    ) -> Result<Option<String>, RepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 44))",
+            user_id.uuid().to_string()
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+            INSERT INTO media_deleted_users (user_id, deleted_at)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id) DO NOTHING
+            "#,
+            user_id.uuid(),
+            deleted_at,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let old = sqlx::query_scalar!(
+            r#"
+            WITH old AS (
+                DELETE FROM media_user_avatars WHERE user_id = $1
+                RETURNING storage_key
+            ), q AS (
+                INSERT INTO storage_cleanup_queue (storage_key)
+                SELECT storage_key FROM old
+                ON CONFLICT (storage_key) DO NOTHING
+            )
+            SELECT storage_key FROM old
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(old)
     }
 
     async fn get_server_logo_key(
