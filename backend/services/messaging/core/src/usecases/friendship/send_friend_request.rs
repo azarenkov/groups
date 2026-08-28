@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::FriendshipError, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
+use messaging_domain::{events::MessagingEvent, friendship::FriendshipError, friendship::pair::FriendshipPair, friendship::unit_of_work::FriendshipUnitOfWork};
 use domain::{user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 
@@ -27,26 +27,22 @@ pub enum SendFriendRequestError {
     IncomingPending,
 }
 
-pub struct SendFriendRequest<F, W, U>
+pub struct SendFriendRequest<W, U>
 where
-    F: FriendshipRepository,
     W: FriendshipUnitOfWork,
     U: ports::user_profile::UserProfileRepository,
 {
-    friendship_repository: Arc<F>,
     unit_of_work: Arc<W>,
     user_repository: Arc<U>,
 }
 
-impl<F, W, U> SendFriendRequest<F, W, U>
+impl<W, U> SendFriendRequest<W, U>
 where
-    F: FriendshipRepository,
     W: FriendshipUnitOfWork,
     U: ports::user_profile::UserProfileRepository,
 {
-    pub fn new(friendship_repository: Arc<F>, unit_of_work: Arc<W>, user_repository: Arc<U>) -> Self {
+    pub fn new(unit_of_work: Arc<W>, user_repository: Arc<U>) -> Self {
         Self {
-            friendship_repository,
             unit_of_work,
             user_repository,
         }
@@ -73,34 +69,23 @@ where
             return Err(SendFriendRequestError::SelfTarget);
         }
 
-        if let Some(existing) = self
-            .friendship_repository
-            .find_pair(&sender_id, &target_id)
-            .await?
-        {
-            match existing.status {
-                FriendshipStatus::Accepted => {
-                    return Err(SendFriendRequestError::AlreadyFriends);
-                }
-                FriendshipStatus::PendingOutgoing => {
-                    return Err(SendFriendRequestError::AlreadyRequested);
-                }
-                FriendshipStatus::PendingIncoming => {
-                    return Err(SendFriendRequestError::IncomingPending);
-                }
-                FriendshipStatus::Declined => {}
-            }
-        }
-
         let now = Utc::now();
-        let (outgoing, incoming, events) =
-            Friendship::build_request_pair(sender_id, target_id, now)?;
-
-        let request_id = request.ctx.request_id.clone();
-        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
-        tx.insert_request_pair(&outgoing, &incoming).await?;
-        tx.save_events(&events, request_id.as_deref()).await?;
+        let mut pair = match tx.load_pair(&sender_id, &target_id).await? {
+            Some(mut pair) => {
+                pair.resend(sender_id, now).map_err(|e| match e {
+                    FriendshipError::AlreadyFriends => SendFriendRequestError::AlreadyFriends,
+                    FriendshipError::AlreadyRequested => SendFriendRequestError::AlreadyRequested,
+                    FriendshipError::IncomingPending => SendFriendRequestError::IncomingPending,
+                    other => SendFriendRequestError::Domain(other),
+                })?;
+                pair
+            }
+            None => FriendshipPair::request(sender_id, target_id, now)?,
+        };
+        let events: Vec<MessagingEvent> = pair.pull_events().into_iter().map(MessagingEvent::from).collect();
+        tx.save_pair(&pair).await?;
+        tx.save_events(&events, request.ctx.request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(target_id)

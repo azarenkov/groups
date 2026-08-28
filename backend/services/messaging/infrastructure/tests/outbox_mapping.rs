@@ -4,7 +4,7 @@ use contracts::events::{
     message::ChannelMessageSentV1, server::ServerRolesChangedV1,
 };
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
-use messaging_domain::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, dm_message::DmMessage, events::MessagingEvent, friendship::Friendship, message::Message, message::content::MessageContent, server::events::ServerEvent, server::events::lifecycle::ServerRolesChanged, server::id::ServerId};
+use messaging_domain::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, dm_message::DmMessage, events::MessagingEvent, friendship::pair::FriendshipPair, message::Message, message::content::MessageContent, server::events::ServerEvent, server::events::lifecycle::ServerRolesChanged, server::id::ServerId};
 use messaging_infrastructure::outbox::mapping::to_record;
 use ports::outbox::record::AggregateType;
 
@@ -125,8 +125,8 @@ fn roles_changed_keeps_its_subject_and_recipients() {
 fn friend_request_maps_both_parties() {
     let a = UserId::generate();
     let b = UserId::generate();
-    let (_, _, events) = Friendship::build_request_pair(a, b, Utc::now()).unwrap();
-    let record = to_record(&MessagingEvent::from(events.into_iter().next().unwrap()), None).unwrap();
+    let mut pair = FriendshipPair::request(a, b, Utc::now()).unwrap();
+    let record = to_record(&MessagingEvent::from(pair.pull_events().remove(0)), None).unwrap();
     assert_eq!(record.event_type, "request_sent");
     assert_eq!(record.aggregate_id, a.uuid());
     assert_eq!(record.parent_id, Some(b.uuid()));

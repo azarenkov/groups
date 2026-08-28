@@ -1,8 +1,7 @@
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
-use crate::events::MessagingEvent;
-use crate::friendship::Friendship;
+use crate::{events::MessagingEvent, friendship::pair::FriendshipPair};
 
 #[async_trait::async_trait]
 pub trait FriendshipUnitOfWork: Send + Sync {
@@ -11,14 +10,8 @@ pub trait FriendshipUnitOfWork: Send + Sync {
 
 #[async_trait::async_trait]
 pub trait FriendshipTransaction: Send {
-    async fn insert_request_pair(
-        &mut self,
-        outgoing: &Friendship,
-        incoming: &Friendship,
-    ) -> Result<(), RepositoryError>;
-    async fn accept_pair(&mut self, accepter: &UserId, sender: &UserId) -> Result<bool, RepositoryError>;
-    async fn decline_request(&mut self, decliner: &UserId, sender: &UserId) -> Result<bool, RepositoryError>;
-    async fn delete_pair(&mut self, user_id: &UserId, friend_id: &UserId) -> Result<bool, RepositoryError>;
+    async fn load_pair(&mut self, a: &UserId, b: &UserId) -> Result<Option<FriendshipPair>, RepositoryError>;
+    async fn save_pair(&mut self, pair: &FriendshipPair) -> Result<(), RepositoryError>;
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }

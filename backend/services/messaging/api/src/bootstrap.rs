@@ -259,18 +259,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_claims.clone(),
         ),
         send_friend_request_usecase: SendFriendRequest::new(
-            friendship_repository.clone(),
             friendship_unit_of_work.clone(),
             user_repository.clone(),
         ),
-        accept_friend_request_usecase: AcceptFriendRequest::new(
-            friendship_repository.clone(),
-            friendship_unit_of_work.clone(),
-        ),
-        remove_friendship_usecase: RemoveFriendship::new(
-            friendship_repository.clone(),
-            friendship_unit_of_work.clone(),
-        ),
+        accept_friend_request_usecase: AcceptFriendRequest::new(friendship_unit_of_work.clone()),
+        remove_friendship_usecase: RemoveFriendship::new(friendship_unit_of_work.clone()),
         list_friends_usecase: ListFriends::new(friendship_repository.clone()),
         mark_channel_read_usecase: MarkChannelRead::new(
             read_state_repository.clone(),
