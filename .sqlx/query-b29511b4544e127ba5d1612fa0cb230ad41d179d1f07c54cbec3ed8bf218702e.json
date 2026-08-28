@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM friendships\n            WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))\n              AND NOT (user_id = ANY($3))\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b29511b4544e127ba5d1612fa0cb230ad41d179d1f07c54cbec3ed8bf218702e"
+}

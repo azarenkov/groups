@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                user_id, friend_id,\n                status AS \"status: FriendshipStatusDto\",\n                created_at, updated_at\n            FROM friendships\n            WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "friend_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "status: FriendshipStatusDto",
+        "type_info": {
+          "Custom": {
+            "name": "friendship_status",
+            "kind": {
+              "Enum": [
+                "pending_outgoing",
+                "pending_incoming",
+                "accepted",
+                "declined"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b92890d47c991ff5ff2f4347d1e4ed0561e4e271ce3bfc492ab875df2ad3f0da"
+}

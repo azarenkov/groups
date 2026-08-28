@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipUnitOfWork};
+use messaging_domain::{events::MessagingEvent, friendship::unit_of_work::FriendshipUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -15,23 +15,19 @@ pub enum RemoveFriendshipError {
     NotFound,
 }
 
-pub struct RemoveFriendship<F, W>
+pub struct RemoveFriendship<W>
 where
-    F: FriendshipRepository,
     W: FriendshipUnitOfWork,
 {
-    friendship_repository: Arc<F>,
     unit_of_work: Arc<W>,
 }
 
-impl<F, W> RemoveFriendship<F, W>
+impl<W> RemoveFriendship<W>
 where
-    F: FriendshipRepository,
     W: FriendshipUnitOfWork,
 {
-    pub fn new(friendship_repository: Arc<F>, unit_of_work: Arc<W>) -> Self {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
         Self {
-            friendship_repository,
             unit_of_work,
         }
     }
@@ -43,29 +39,17 @@ where
     ) -> Result<(), RemoveFriendshipError> {
         let other_id = UserId::new(request.other_user_id);
 
-        let existing = self
-            .friendship_repository
-            .find_pair(&requester_id, &other_id)
+        let now = Utc::now();
+        let mut tx = self.unit_of_work.begin().await?;
+        let mut pair = tx
+            .load_pair(&requester_id, &other_id)
             .await?
             .ok_or(RemoveFriendshipError::NotFound)?;
-
-        let now = Utc::now();
-        let events = Friendship::removal_events(requester_id, other_id, now);
-
-        let request_id = request.ctx.request_id.clone();
-        
-        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
-        let mut tx = self.unit_of_work.begin().await?;
-        let success = match existing.status {
-            FriendshipStatus::PendingIncoming => {
-                tx.decline_request(&requester_id, &other_id).await?
-            }
-            _ => tx.delete_pair(&requester_id, &other_id).await?,
-        };
-        if !success {
-            return Err(RemoveFriendshipError::NotFound);
-        }
-        tx.save_events(&events, request_id.as_deref()).await?;
+        pair.remove(requester_id, now)
+            .map_err(|_| RemoveFriendshipError::NotFound)?;
+        let events: Vec<MessagingEvent> = pair.pull_events().into_iter().map(MessagingEvent::from).collect();
+        tx.save_pair(&pair).await?;
+        tx.save_events(&events, request.ctx.request_id.as_deref()).await?;
         tx.commit().await?;
         Ok(())
     }

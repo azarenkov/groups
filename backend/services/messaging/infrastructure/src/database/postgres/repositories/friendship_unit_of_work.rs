@@ -1,8 +1,7 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use domain::user::id::UserId;
+use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::pair::FriendshipPair, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipTransaction, friendship::unit_of_work::FriendshipUnitOfWork};
 use ports::repository::RepositoryError;
-use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::unit_of_work::FriendshipTransaction, friendship::unit_of_work::FriendshipUnitOfWork};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
@@ -36,19 +35,69 @@ impl FriendshipUnitOfWork for PostgresFriendshipUnitOfWork {
     }
 }
 
+fn pair_key(a: &UserId, b: &UserId) -> String {
+    let (lo, hi) = if a.uuid() <= b.uuid() { (a, b) } else { (b, a) };
+    format!("{}:{}", lo.uuid(), hi.uuid())
+}
+
 #[async_trait]
 impl FriendshipTransaction for PostgresFriendshipTransaction {
-    async fn insert_request_pair(
-        &mut self,
-        outgoing: &Friendship,
-        incoming: &Friendship,
-    ) -> Result<(), RepositoryError> {
-        let mut pair = [outgoing, incoming];
-        pair.sort_by(|a, b| {
-            (a.user_id.uuid(), a.friend_id.uuid())
-                .cmp(&(b.user_id.uuid(), b.friend_id.uuid()))
-        });
-        for row in pair {
+    async fn load_pair(&mut self, a: &UserId, b: &UserId) -> Result<Option<FriendshipPair>, RepositoryError> {
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))",
+            pair_key(a, b),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                user_id, friend_id,
+                status AS "status: FriendshipStatusDto",
+                created_at, updated_at
+            FROM friendships
+            WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)
+            "#,
+            a.uuid(),
+            b.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let rows: Vec<Friendship> = rows
+            .into_iter()
+            .map(|r| Friendship {
+                user_id: UserId::new(r.user_id),
+                friend_id: UserId::new(r.friend_id),
+                status: FriendshipStatus::from(r.status),
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+            })
+            .collect();
+        let a_to_b = rows.iter().find(|r| r.user_id == *a);
+        let b_to_a = rows.iter().find(|r| r.user_id == *b);
+        Ok(FriendshipPair::from_rows(a_to_b, b_to_a))
+    }
+
+    async fn save_pair(&mut self, pair: &FriendshipPair) -> Result<(), RepositoryError> {
+        let (a, b) = pair.users();
+        let rows = pair.rows();
+        let keep: Vec<uuid::Uuid> = rows.iter().map(|r| r.user_id.uuid()).collect();
+        sqlx::query!(
+            r#"
+            DELETE FROM friendships
+            WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+              AND NOT (user_id = ANY($3))
+            "#,
+            a.uuid(),
+            b.uuid(),
+            &keep,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        for row in rows {
             let status_dto = FriendshipStatusDto::from(row.status);
             sqlx::query!(
                 r#"
@@ -69,94 +118,6 @@ impl FriendshipTransaction for PostgresFriendshipTransaction {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
         Ok(())
-    }
-
-    async fn accept_pair(&mut self, accepter: &UserId, sender: &UserId) -> Result<bool, RepositoryError> {
-        let now = Utc::now();
-        let updated_accepter = sqlx::query!(
-            r#"
-            UPDATE friendships
-            SET status = $3, updated_at = $4
-            WHERE user_id = $1 AND friend_id = $2 AND status = $5
-            "#,
-            accepter.uuid(),
-            sender.uuid(),
-            FriendshipStatusDto::Accepted as FriendshipStatusDto,
-            now,
-            FriendshipStatusDto::PendingIncoming as FriendshipStatusDto,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .rows_affected();
-        let updated_sender = sqlx::query!(
-            r#"
-            UPDATE friendships
-            SET status = $3, updated_at = $4
-            WHERE user_id = $1 AND friend_id = $2 AND status = $5
-            "#,
-            sender.uuid(),
-            accepter.uuid(),
-            FriendshipStatusDto::Accepted as FriendshipStatusDto,
-            now,
-            FriendshipStatusDto::PendingOutgoing as FriendshipStatusDto,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .rows_affected();
-        Ok(updated_accepter > 0 && updated_sender > 0)
-    }
-
-    async fn decline_request(&mut self, decliner: &UserId, sender: &UserId) -> Result<bool, RepositoryError> {
-        let now = Utc::now();
-        let updated_sender = sqlx::query!(
-            r#"
-            UPDATE friendships
-            SET status = $3, updated_at = $4
-            WHERE user_id = $1 AND friend_id = $2 AND status = $5
-            "#,
-            sender.uuid(),
-            decliner.uuid(),
-            FriendshipStatusDto::Declined as FriendshipStatusDto,
-            now,
-            FriendshipStatusDto::PendingOutgoing as FriendshipStatusDto,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .rows_affected();
-        let deleted_self = sqlx::query!(
-            r#"
-            DELETE FROM friendships
-            WHERE user_id = $1 AND friend_id = $2 AND status = $3
-            "#,
-            decliner.uuid(),
-            sender.uuid(),
-            FriendshipStatusDto::PendingIncoming as FriendshipStatusDto,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .rows_affected();
-        Ok(updated_sender > 0 && deleted_self > 0)
-    }
-
-    async fn delete_pair(&mut self, user_id: &UserId, friend_id: &UserId) -> Result<bool, RepositoryError> {
-        let deleted = sqlx::query!(
-            r#"
-            DELETE FROM friendships
-            WHERE (user_id = $1 AND friend_id = $2)
-               OR (user_id = $2 AND friend_id = $1)
-            "#,
-            user_id.uuid(),
-            friend_id.uuid(),
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?
-        .rows_affected();
-        Ok(deleted > 0)
     }
 
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {

@@ -139,15 +139,10 @@ pub struct AppState {
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
     pub get_attachment_usecase:
         GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
-    pub send_friend_request_usecase: SendFriendRequest<
-        PostgresFriendshipRepository,
-        PostgresFriendshipUnitOfWork,
-        PostgresUserProfileRepository,
-    >,
-    pub accept_friend_request_usecase:
-        AcceptFriendRequest<PostgresFriendshipRepository, PostgresFriendshipUnitOfWork>,
-    pub remove_friendship_usecase:
-        RemoveFriendship<PostgresFriendshipRepository, PostgresFriendshipUnitOfWork>,
+    pub send_friend_request_usecase:
+        SendFriendRequest<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository>,
+    pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipUnitOfWork>,
+    pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipUnitOfWork>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,

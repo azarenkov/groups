@@ -1846,6 +1846,7 @@ impl HttpMapping for FriendshipError {
         match self {
             FriendshipError::SelfFriendship => StatusCode::BAD_REQUEST,
             FriendshipError::AlreadyRequested
+            | FriendshipError::IncomingPending
             | FriendshipError::AlreadyFriends => StatusCode::CONFLICT,
             FriendshipError::NoPendingRequest | FriendshipError::NotFriends => {
                 StatusCode::NOT_FOUND
@@ -1861,6 +1862,7 @@ impl HttpMapping for FriendshipError {
         match self {
             FriendshipError::SelfFriendship => "FRIENDSHIP_SELF",
             FriendshipError::AlreadyRequested => "FRIEND_REQUEST_ALREADY_SENT",
+            FriendshipError::IncomingPending => "FRIEND_REQUEST_INCOMING_PENDING",
             FriendshipError::AlreadyFriends => "ALREADY_FRIENDS",
             FriendshipError::NoPendingRequest => "NO_PENDING_REQUEST",
             FriendshipError::NotFriends => "NOT_FRIENDS",
