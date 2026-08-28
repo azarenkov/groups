@@ -993,16 +993,6 @@ const ServersPage: React.FC = () => {
                 onJoinRoom={(serverId, channelId) => void handleJoinFromHome(serverId, channelId)}
                 onOpenDm={handleOpenDmFromHome}
                 onCall={handleCallFromHome}
-                onAcceptRequest={(friendId) =>
-                  void useFriendshipStore.getState().accept(friendId).catch((err) => {
-                    console.warn("[home] accept request failed:", err);
-                  })
-                }
-                onIgnoreRequest={(friendId) =>
-                  void useFriendshipStore.getState().remove(friendId).catch((err) => {
-                    console.warn("[home] ignore request failed:", err);
-                  })
-                }
                 onAddFriend={() => setIsAddFriendOpen(true)}
               />
             ) : selectedDm ? (

@@ -18,8 +18,6 @@ export interface HomeViewProps {
   onJoinRoom: (serverId: string, channelId: string) => void;
   onOpenDm: (friendId: string) => void;
   onCall: (friendId: string) => void;
-  onAcceptRequest: (friendId: string) => void;
-  onIgnoreRequest: (friendId: string) => void;
   onAddFriend: () => void;
 }
 
@@ -51,8 +49,6 @@ const HomeView: React.FC<HomeViewProps> = ({
   onJoinRoom,
   onOpenDm,
   onCall,
-  onAcceptRequest,
-  onIgnoreRequest,
   onAddFriend,
 }) => {
   const { t } = useTranslation("home");
@@ -76,10 +72,6 @@ const HomeView: React.FC<HomeViewProps> = ({
     () =>
       accepted.filter((f) => !!onlineUsers[f.friendId] && !activeIds.has(f.friendId)),
     [accepted, onlineUsers, activeIds],
-  );
-  const requests = useMemo(
-    () => friends.filter((f) => f.status === "pending_incoming"),
-    [friends],
   );
   const onlineCount = onlineFriends.length + activeFriends.length;
 
@@ -229,47 +221,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </span>
                     )}
                   </button>
-                ))}
-                </div>
-              )}
-            </div>
-            <div className="home-card home-side-card">
-              <h6 className="home-label">{t("friendRequests", { count: requests.length })}</h6>
-              {requests.length === 0 ? (
-                <div className="home-empty compact">
-                  <span className="home-empty-ico"><Icon name="mail" size={16} /></span>
-                  <div className="home-empty-text">{t("emptyRequests")}</div>
-                </div>
-              ) : (
-                <div className="home-request-list">
-                {requests.map((r) => (
-                  <div key={r.friendId} className="home-request-row">
-                    <UserAvatar
-                      userId={r.friendId}
-                      name={r.friendName}
-                      className="home-avatar"
-                      style={{ background: colorForId(r.friendId), width: 30, height: 30 }}
-                    />
-                    <span className="who">
-                      <span className="name">{r.friendName}</span>
-                    </span>
-                    <div className="actions">
-                      <button
-                        type="button"
-                        className="home-btn-primary sm"
-                        onClick={() => onAcceptRequest(r.friendId)}
-                      >
-                        {t("accept")}
-                      </button>
-                      <button
-                        type="button"
-                        className="home-btn-secondary sm"
-                        onClick={() => onIgnoreRequest(r.friendId)}
-                      >
-                        {t("ignore")}
-                      </button>
-                    </div>
-                  </div>
                 ))}
                 </div>
               )}

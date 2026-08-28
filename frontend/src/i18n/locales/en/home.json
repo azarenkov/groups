@@ -6,15 +6,12 @@
   "greetingEvening": "Good evening",
   "activeNow": "Active now — {{count}}",
   "online": "Online — {{count}}",
-  "friendRequests": "Friend requests — {{count}}",
   "jumpBackIn": "Jump back in",
   "inVoice": "In voice — {{duration}}",
   "durationMinutes": "{{count}} min",
   "durationHours": "{{hours}} h {{minutes}} min",
   "join": "Join",
   "connected": "Connected",
-  "accept": "Accept",
-  "ignore": "Ignore",
   "message": "Message",
   "call": "Call",
   "statusOnline": "Online",
@@ -23,6 +20,5 @@
   "emptyRooms": "Voice rooms from your servers will appear here.",
   "emptyActiveTitle": "Quiet for now",
   "emptyOnlineTitle": "Nobody online",
-  "addFriend": "Add friend",
-  "emptyRequests": "No pending requests."
+  "addFriend": "Add friend"
 }

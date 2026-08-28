@@ -6,15 +6,12 @@
   "greetingEvening": "Добрый вечер",
   "activeNow": "В голосовых каналах — {{count}}",
   "online": "В сети — {{count}}",
-  "friendRequests": "Заявки в друзья — {{count}}",
   "jumpBackIn": "Недавние комнаты",
   "inVoice": "В канале — {{duration}}",
   "durationMinutes": "{{count}} мин",
   "durationHours": "{{hours}} ч {{minutes}} мин",
   "join": "Войти",
   "connected": "Подключено",
-  "accept": "Принять",
-  "ignore": "Отклонить",
   "message": "Написать",
   "call": "Позвонить",
   "statusOnline": "В сети",
@@ -23,6 +20,5 @@
   "emptyRooms": "Здесь появятся голосовые каналы, в которые вы заходили.",
   "emptyActiveTitle": "Пока тихо",
   "emptyOnlineTitle": "Никого в сети",
-  "addFriend": "Добавить друга",
-  "emptyRequests": "Новых заявок нет."
+  "addFriend": "Добавить друга"
 }
