@@ -93,30 +93,32 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
   fetchChannels: async (serverId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const first = await channelAPI.listByServer(serverId);
-      set((state) => ({
-        channelsByServer: {
-          ...state.channelsByServer,
-          [serverId]: first.channels,
-        },
-      }));
-      const totalPages = first.pagination?.totalPages ?? 1;
-      for (let p = 2; p <= totalPages; p++) {
-        const next = await channelAPI.listByServer(serverId, p);
+      const loaded: Channel[] = [];
+      const mergeWithCached = () =>
         set((state) => {
-          const current = state.channelsByServer[serverId] ?? [];
-          const known = new Set(current.map((c) => c.id));
-          const fresh = next.channels.filter((c) => !known.has(c.id));
-          if (!fresh.length) return state;
+          const seen = new Set(loaded.map((c) => c.id));
+          const cached = (state.channelsByServer[serverId] ?? []).filter((c) => !seen.has(c.id));
           return {
             channelsByServer: {
               ...state.channelsByServer,
-              [serverId]: [...current, ...fresh],
+              [serverId]: [...loaded, ...cached],
             },
           };
         });
+      const first = await channelAPI.listByServer(serverId);
+      loaded.push(...first.channels);
+      mergeWithCached();
+      const totalPages = first.pagination?.totalPages ?? 1;
+      for (let p = 2; p <= totalPages; p++) {
+        const next = await channelAPI.listByServer(serverId, p);
+        const known = new Set(loaded.map((c) => c.id));
+        loaded.push(...next.channels.filter((c) => !known.has(c.id)));
+        mergeWithCached();
       }
-      set({ isLoading: false });
+      set((state) => ({
+        channelsByServer: { ...state.channelsByServer, [serverId]: loaded },
+        isLoading: false,
+      }));
     } catch (error) {
       set({
         error:

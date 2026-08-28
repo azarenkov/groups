@@ -640,13 +640,14 @@ pub(crate) async fn apply_voice_changes(
             } => {
                 sqlx::query!(
                     r#"
-                    INSERT INTO channel_voice_participants (channel_id, user_id, session_id)
-                    VALUES ($1, $2, $3)
+                    INSERT INTO channel_voice_participants (channel_id, user_id, session_id, joined_at)
+                    VALUES ($1, $2, $3, $4)
                     ON CONFLICT DO NOTHING
                     "#,
                     channel_id.uuid(),
                     user_id.uuid(),
                     session_id.as_str(),
+                    joined_at,
                 )
                 .execute(&mut **tx)
                 .await
