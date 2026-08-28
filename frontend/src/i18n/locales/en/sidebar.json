@@ -42,5 +42,6 @@
   "noChannels": "No channels yet",
   "home": "Home",
   "muteMember": "Mute",
-  "unmuteMember": "Unmute"
+  "unmuteMember": "Unmute",
+  "backToServers": "All servers"
 }

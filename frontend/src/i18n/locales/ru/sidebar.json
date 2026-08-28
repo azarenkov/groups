@@ -42,5 +42,6 @@
   "noChannels": "Каналов пока нет",
   "home": "Главная",
   "muteMember": "Замьютить",
-  "unmuteMember": "Размьютить"
+  "unmuteMember": "Размьютить",
+  "backToServers": "Ко всем серверам"
 }
