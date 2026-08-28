@@ -16,7 +16,13 @@
 .home-scroll { flex: 1; min-height: 0; overflow: hidden; }
 .home-scroll { display: flex; flex-direction: column; }
 .home-grid { flex: 1; min-height: 0; height: 100%; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 34%); gap: 20px; align-items: stretch; }
-@media (max-width: 900px) { .home-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) {
+  .home-scroll { overflow-y: auto; }
+  .home-grid { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 100%; align-items: start; }
+  .home-col-main > section { flex: none; }
+  .home-col-side > .home-card, .home-col-side > .home-card:last-child { flex: none; max-height: none; }
+  .home-online-list, .home-room-list, .home-active-grid { overflow: visible; }
+}
 .home-col-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .home-col-main > section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .home-col-side { display: flex; flex-direction: column; gap: 20px; min-height: 0; }
