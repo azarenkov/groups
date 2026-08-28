@@ -512,6 +512,7 @@ impl HttpMapping for RenameUserError {
             }
             RenameUserError::InvalidName(_) => StatusCode::BAD_REQUEST,
             RenameUserError::NameTaken => StatusCode::CONFLICT,
+            RenameUserError::UserNotFound => StatusCode::NOT_FOUND,
             RenameUserError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
             RenameUserError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -524,6 +525,7 @@ impl HttpMapping for RenameUserError {
             | RenameUserError::NameNotAllowed => "This username is not allowed.".to_string(),
             RenameUserError::InvalidName(e) => e.to_string(),
             RenameUserError::NameTaken => "This username is already taken".to_string(),
+            RenameUserError::UserNotFound => "User not found".to_string(),
             RenameUserError::ModerationUnavailable(_) => {
                 "Username moderation is temporarily unavailable. Try again later.".to_string()
             }
@@ -537,6 +539,7 @@ impl HttpMapping for RenameUserError {
             | RenameUserError::NameNotAllowed => "NAME_NOT_ALLOWED",
             RenameUserError::InvalidName(_) => "NAME_INVALID_FORMAT",
             RenameUserError::NameTaken => "NAME_TAKEN",
+            RenameUserError::UserNotFound => "USER_NOT_FOUND",
             RenameUserError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
         }
     }

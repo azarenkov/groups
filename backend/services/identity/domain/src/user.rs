@@ -303,9 +303,9 @@ impl User {
         }
         let name = UserName::new(format!("deleted_{}", self.id.uuid().simple()));
         self.name = name.clone();
+        self.deleted_at = Some(now);
         self.email = Email::new(format!("deleted+{}@deleted.invalid", self.id.uuid().simple()));
         self.pending_email = None;
-        self.deleted_at = Some(now);
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
@@ -336,10 +336,14 @@ impl User {
         self.deleted_at
     }
 
-    pub fn rename(&mut self, name: UserName, now: DateTime<Utc>) {
+    pub fn rename(&mut self, name: UserName, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
         self.name = name.clone();
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
+        Ok(())
     }
 
     pub fn claim_with_oauth(&mut self, password_hash: PasswordHash, now: DateTime<Utc>) {

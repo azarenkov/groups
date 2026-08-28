@@ -113,7 +113,7 @@ fn refresh_tokens_only_serve_their_owner() {
 #[test]
 fn rename_updates_the_name_and_records_an_event() {
     let mut user = fresh_user();
-    user.rename(UserName::new("renamed".to_string()), Utc::now());
+    user.rename(UserName::new("renamed".to_string()), Utc::now()).unwrap();
     assert_eq!(user.name().as_str(), "renamed");
     assert!(matches!(user.pull_events().as_slice(), [UserEvent::Renamed(_)]));
 }
