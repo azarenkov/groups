@@ -208,7 +208,7 @@ body.electron .sb-nav {
   z-index: 45;
   transition: left var(--dur-base, 200ms) var(--ease-standard, ease);
 }
-body.electron.electron-fullscreen .sb-nav { left: 10px; }
+body.electron.electron-fullscreen .sb-nav { left: 12px; }
 body.electron .sb { position: relative; }
 .sb-nav-btn {
   width: 28px; height: 26px;
