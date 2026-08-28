@@ -39,6 +39,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
           cur &&
           new Date(cur.createdAt).getTime() > new Date(it.createdAt).getTime()
         ) {
+          if (it.peerName && !cur.peerName) map[it.peerId] = { ...cur, peerName: it.peerName };
           continue;
         }
         map[it.peerId] = {

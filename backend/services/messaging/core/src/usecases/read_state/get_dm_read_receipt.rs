@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::read_state::repository::ReadStateRepository;
+use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, read_state::repository::ReadStateRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -9,15 +9,38 @@ use ports::repository::RepositoryError;
 pub enum GetDmReadReceiptError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("No conversation with this user")]
+    NoConversation,
 }
 
-pub struct GetDmReadReceipt<R: ReadStateRepository> {
+pub struct GetDmReadReceipt<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> {
     repo: Arc<R>,
+    friendship_repo: Arc<F>,
+    dm_repo: Arc<M>,
 }
 
-impl<R: ReadStateRepository> GetDmReadReceipt<R> {
-    pub fn new(repo: Arc<R>) -> Self {
-        Self { repo }
+impl<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> GetDmReadReceipt<R, F, M> {
+    pub fn new(repo: Arc<R>, friendship_repo: Arc<F>, dm_repo: Arc<M>) -> Self {
+        Self {
+            repo,
+            friendship_repo,
+            dm_repo,
+        }
+    }
+
+    async fn ensure_conversation(
+        &self,
+        user_id: &UserId,
+        friend_id: &UserId,
+    ) -> Result<(), GetDmReadReceiptError> {
+        let pair = self.friendship_repo.find_pair(user_id, friend_id).await?;
+        if matches!(pair.as_ref().map(|f| &f.status), Some(&FriendshipStatus::Accepted)) {
+            return Ok(());
+        }
+        if self.dm_repo.has_conversation(user_id, friend_id).await? {
+            return Ok(());
+        }
+        Err(GetDmReadReceiptError::NoConversation)
     }
 
     pub async fn execute(
@@ -25,6 +48,7 @@ impl<R: ReadStateRepository> GetDmReadReceipt<R> {
         user_id: UserId,
         friend_id: UserId,
     ) -> Result<Option<DateTime<Utc>>, GetDmReadReceiptError> {
+        self.ensure_conversation(&user_id, &friend_id).await?;
         let read_at = self.repo.dm_peer_read_at(&user_id, &friend_id).await?;
         Ok(read_at)
     }

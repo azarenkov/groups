@@ -1537,16 +1537,19 @@ impl HttpMapping for MarkDmReadError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             MarkDmReadError::Repository(e) => e.to_http_status(),
+            MarkDmReadError::NoConversation => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             MarkDmReadError::Repository(e) => e.to_user_message(),
+            MarkDmReadError::NoConversation => "No conversation with this user".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             MarkDmReadError::Repository(e) => e.to_error_code(),
+            MarkDmReadError::NoConversation => "NO_CONVERSATION",
         }
     }
 }
@@ -1573,16 +1576,19 @@ impl HttpMapping for GetDmReadReceiptError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_http_status(),
+            GetDmReadReceiptError::NoConversation => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_user_message(),
+            GetDmReadReceiptError::NoConversation => "No conversation with this user".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_error_code(),
+            GetDmReadReceiptError::NoConversation => "NO_CONVERSATION",
         }
     }
 }

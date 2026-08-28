@@ -68,4 +68,10 @@ pub trait DmMessageRepository {
         &self,
         user_id: &UserId,
     ) -> Result<Vec<DmConversationPreview>, RepositoryError>;
+
+    async fn has_conversation(
+        &self,
+        user_id: &UserId,
+        peer_id: &UserId,
+    ) -> Result<bool, RepositoryError>;
 }
