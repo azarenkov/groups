@@ -620,6 +620,28 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(updated.rows_affected() > 0)
     }
 
+    async fn find_longest_member_excluding(&mut self, exclude: &UserId) -> Result<Option<UserId>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT sm.user_id
+            FROM server_members sm
+            INNER JOIN messaging_user_profiles p ON p.user_id = sm.user_id
+            WHERE sm.server_id = $1
+              AND sm.user_id <> $2
+              AND p.active
+              AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = sm.user_id)
+            ORDER BY sm.joined_at ASC, sm.user_id ASC
+            LIMIT 1
+            "#,
+            self.server_id.uuid(),
+            exclude.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| UserId::new(r.user_id)))
+    }
+
     async fn create_invite_code(
         &mut self,
         created_by: &UserId,

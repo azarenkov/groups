@@ -42,6 +42,7 @@ pub trait ServerTransaction: Send {
         description: Option<&str>,
     ) -> Result<bool, RepositoryError>;
     async fn update_server_owner(&mut self, owner_id: &UserId) -> Result<bool, RepositoryError>;
+    async fn find_longest_member_excluding(&mut self, exclude: &UserId) -> Result<Option<UserId>, RepositoryError>;
     async fn create_invite_code(
         &mut self,
         created_by: &UserId,

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO messaging_deleted_users (user_id, deleted_at)\n            VALUES ($1, $2)\n            ON CONFLICT (user_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dec75180a7ca429ddcc16a1f35f45100731800edb5d6ecaab4b8da6011962409"
+}

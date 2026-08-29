@@ -368,27 +368,20 @@ impl ServerRepository for PostgresServerRepository {
         Ok(rows.into_iter().map(|r| ServerId::new(r.id)).collect())
     }
 
-    async fn find_longest_member_excluding(
-        &self,
-        server_id: &ServerId,
-        exclude: &UserId,
-    ) -> Result<Option<UserId>, RepositoryError> {
-        let row = sqlx::query!(
+    async fn mark_user_deleted(&self, user_id: &UserId, deleted_at: chrono::DateTime<chrono::Utc>) -> Result<(), RepositoryError> {
+        sqlx::query!(
             r#"
-            SELECT sm.user_id
-            FROM server_members sm
-            INNER JOIN messaging_user_profiles p ON p.user_id = sm.user_id
-            WHERE sm.server_id = $1 AND sm.user_id <> $2 AND p.active
-            ORDER BY sm.joined_at ASC, sm.user_id ASC
-            LIMIT 1
+            INSERT INTO messaging_deleted_users (user_id, deleted_at)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id) DO NOTHING
             "#,
-            server_id.uuid(),
-            exclude.uuid(),
+            user_id.uuid(),
+            deleted_at,
         )
-        .fetch_optional(&self.pool)
+        .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| UserId::new(r.user_id)))
+        Ok(())
     }
 
     async fn find_server_by_id(

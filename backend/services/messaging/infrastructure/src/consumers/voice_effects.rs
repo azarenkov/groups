@@ -96,7 +96,9 @@ pub fn spawn<C, W, V, P, S>(
                             .execute(UserId::new(evt.user_id), evt.occurred_at)
                             .await?;
                         if subject.ends_with(".deleted") {
-                            resolve_servers.execute(UserId::new(evt.user_id), None).await?;
+                            resolve_servers
+                                .execute(UserId::new(evt.user_id), evt.occurred_at, None)
+                                .await?;
                         }
                         Ok(())
                     }

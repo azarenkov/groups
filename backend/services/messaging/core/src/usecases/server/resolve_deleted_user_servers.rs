@@ -47,13 +47,10 @@ where
         }
     }
 
-    pub async fn execute(&self, user_id: UserId, request_id: Option<&str>) -> Result<(), ResolveDeletedUserServersError> {
+    pub async fn execute(&self, user_id: UserId, deleted_at: chrono::DateTime<Utc>, request_id: Option<&str>) -> Result<(), ResolveDeletedUserServersError> {
+        self.server_repository.mark_user_deleted(&user_id, deleted_at).await?;
         let owned = self.server_repository.find_server_ids_owned_by(&user_id).await?;
         for server_id in owned {
-            let successor = self
-                .server_repository
-                .find_longest_member_excluding(&server_id, &user_id)
-                .await?;
             let voice_channel_ids = self
                 .channel_repository
                 .list_voice_channel_ids_by_server(&server_id)
@@ -69,6 +66,7 @@ where
                 continue;
             }
             let now = Utc::now();
+            let successor = tx.find_longest_member_excluding(&user_id).await?;
             let deleted_rooms = match successor.filter(|s| server.is_member(s)) {
                 Some(new_owner) => {
                     if server.transfer_ownership(new_owner, now).is_err() {
