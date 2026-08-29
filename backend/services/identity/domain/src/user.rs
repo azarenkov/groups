@@ -305,7 +305,8 @@ impl User {
         self.name = name.clone();
         self.deleted_at = Some(now);
         let id = self.id.uuid().simple().to_string();
-        self.email = Email::new(format!("deleted-{id}-{id}-{now}@deleted.invalid", now = now.timestamp()));
+        let nonce = UserId::generate().uuid().simple().to_string();
+        self.email = Email::new(format!("deleted-{id}-{nonce}-{nonce}@deleted.invalid"));
         self.pending_email = None;
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));

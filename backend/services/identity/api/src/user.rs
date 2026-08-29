@@ -208,7 +208,7 @@ pub struct ChangeEmailBody {
 #[post("/me/email/change")]
 async fn change_me_email(
     req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedUnverifiedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<ChangeEmailBody>,
 ) -> Result<impl Responder, HttpError> {
@@ -246,7 +246,7 @@ pub struct ConfirmEmailResponse {
 #[post("/me/email/confirm")]
 async fn confirm_me_email(
     req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedUnverifiedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<ConfirmEmailBody>,
 ) -> Result<impl Responder, HttpError> {
