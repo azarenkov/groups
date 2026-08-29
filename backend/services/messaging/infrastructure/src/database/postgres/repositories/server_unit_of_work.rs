@@ -625,12 +625,11 @@ impl ServerTransaction for PostgresServerTransaction {
             r#"
             SELECT sm.user_id
             FROM server_members sm
-            INNER JOIN messaging_user_profiles p ON p.user_id = sm.user_id
+            LEFT JOIN messaging_user_profiles p ON p.user_id = sm.user_id
             WHERE sm.server_id = $1
               AND sm.user_id <> $2
-              AND p.active
               AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = sm.user_id)
-            ORDER BY sm.joined_at ASC, sm.user_id ASC
+            ORDER BY COALESCE(p.active, true) DESC, sm.joined_at ASC, sm.user_id ASC
             LIMIT 1
             "#,
             self.server_id.uuid(),
