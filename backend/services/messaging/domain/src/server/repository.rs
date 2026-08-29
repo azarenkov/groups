@@ -30,6 +30,12 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError>;
+    async fn find_server_ids_owned_by(&self, owner_id: &UserId) -> Result<Vec<ServerId>, RepositoryError>;
+    async fn find_longest_member_excluding(
+        &self,
+        server_id: &ServerId,
+        exclude: &UserId,
+    ) -> Result<Option<UserId>, RepositoryError>;
     async fn find_server_by_id(
         &self,
         server_id: &ServerId,

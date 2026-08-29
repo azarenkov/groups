@@ -24,6 +24,15 @@ pub struct ServerUpdatedV1 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerOwnerChangedV1 {
+    pub server_id: Uuid,
+    pub owner_id: Uuid,
+    pub previous_owner_id: Uuid,
+    pub member_ids: Vec<Uuid>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerDeletedV1 {
     pub server_id: Uuid,
     pub owner_id: Uuid,

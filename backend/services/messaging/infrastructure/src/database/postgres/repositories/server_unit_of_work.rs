@@ -604,6 +604,22 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(updated.rows_affected() > 0)
     }
 
+    async fn update_server_owner(&mut self, owner_id: &UserId) -> Result<bool, RepositoryError> {
+        let updated = sqlx::query!(
+            r#"
+            UPDATE servers
+            SET owner_id = $2, updated_at = now()
+            WHERE id = $1
+            "#,
+            self.server_id.uuid(),
+            owner_id.uuid(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(updated.rows_affected() > 0)
+    }
+
     async fn create_invite_code(
         &mut self,
         created_by: &UserId,

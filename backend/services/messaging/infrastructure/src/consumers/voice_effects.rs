@@ -10,8 +10,9 @@ use messaging::{
     usecases::channel::enforce_user_deactivation::EnforceUserDeactivation,
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
     usecases::server::enforce_departure::EnforceServerDeparture,
+    usecases::server::resolve_deleted_user_servers::ResolveDeletedUserServers,
 };
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{server::repository::ServerRepository, channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
@@ -26,18 +27,20 @@ pub struct VoiceEffectsSpec {
     pub user_stream: String,
 }
 
-pub fn spawn<C, W, V, P>(
+pub fn spawn<C, W, V, P, S>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
     server_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
     profiles: Arc<P>,
+    server_repository: Arc<S>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
     W: ServerUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
     P: UserProfileRepository + Send + Sync + 'static,
+    S: ServerRepository + Send + Sync + 'static,
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
@@ -50,6 +53,12 @@ pub fn spawn<C, W, V, P>(
         channel_repository.clone(),
         voice_service.clone(),
         profiles,
+    ));
+    let resolve_servers = Arc::new(ResolveDeletedUserServers::new(
+        server_repository,
+        channel_repository.clone(),
+        server_unit_of_work.clone(),
+        voice_service.clone(),
     ));
     let enforce_departure = Arc::new(EnforceServerDeparture::new(
         server_unit_of_work,
@@ -77,6 +86,7 @@ pub fn spawn<C, W, V, P>(
                 dlq,
                 move |subject, payload| {
                     let enforce_deactivation = enforce_deactivation.clone();
+                    let resolve_servers = resolve_servers.clone();
                     async move {
                         if !(subject.ends_with(".disabled") || subject.ends_with(".deleted")) {
                             return Ok(());
@@ -85,6 +95,9 @@ pub fn spawn<C, W, V, P>(
                         enforce_deactivation
                             .execute(UserId::new(evt.user_id), evt.occurred_at)
                             .await?;
+                        if subject.ends_with(".deleted") {
+                            resolve_servers.execute(UserId::new(evt.user_id), None).await?;
+                        }
                         Ok(())
                     }
                 },

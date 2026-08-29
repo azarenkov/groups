@@ -7,7 +7,7 @@ use contracts::events::{
     dm_message::{DmMessageDeletedV1, DmMessageEditedV1, DmMessageSentV1},
     friendship::{FriendRequestAcceptedV1, FriendRequestSentV1, FriendshipRemovedV1},
     message::{ChannelMessageDeletedV1, ChannelMessageEditedV1, ChannelMessageSentV1},
-    server::{ServerCreatedV1, ServerDeletedV1, ServerMemberV1, ServerRolesChangedV1, ServerUpdatedV1},
+    server::{ServerCreatedV1, ServerDeletedV1, ServerOwnerChangedV1, ServerMemberV1, ServerRolesChangedV1, ServerUpdatedV1},
 };
 use domain::user::id::UserId;
 use messaging_domain::{channel::events::ChannelEvent, dm_message::events::DmMessageDomainEvent, events::MessagingEvent, friendship::events::FriendshipDomainEvent, message::events::MessageDomainEvent, server::events::ServerEvent};
@@ -153,6 +153,13 @@ fn server_record(event: &ServerEvent) -> Result<OutboxRecord, RepositoryError> {
         ServerEvent::RolesChanged(e) => encode(&ServerRolesChangedV1 {
             server_id: e.server_id.uuid(),
             recipients: uuids(&e.recipients),
+        })?,
+        ServerEvent::OwnerChanged(e) => encode(&ServerOwnerChangedV1 {
+            server_id: e.server_id.uuid(),
+            owner_id: e.owner_id.uuid(),
+            previous_owner_id: e.previous_owner_id.uuid(),
+            member_ids: uuids(&e.member_ids),
+            occurred_at: e.occurred_at,
         })?,
     };
     Ok(record(

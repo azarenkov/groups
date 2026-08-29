@@ -110,6 +110,14 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "server.ownerChanged": {
+      const id = asString(d.id);
+      const ownerId = asString(d.ownerId);
+      if (!id || !ownerId) return;
+      useServerStore.getState().patchServer(id, { ownerId });
+      return;
+    }
+
     case "server.updated": {
       const id = asString(d.id);
       if (!id) return;

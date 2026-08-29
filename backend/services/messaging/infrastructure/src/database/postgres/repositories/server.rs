@@ -357,6 +357,40 @@ impl ServerRepository for PostgresServerRepository {
         Ok(row.map(|r| UserId::new(r.owner_id)))
     }
 
+    async fn find_server_ids_owned_by(&self, owner_id: &UserId) -> Result<Vec<ServerId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"SELECT id FROM servers WHERE owner_id = $1 ORDER BY created_at"#,
+            owner_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|r| ServerId::new(r.id)).collect())
+    }
+
+    async fn find_longest_member_excluding(
+        &self,
+        server_id: &ServerId,
+        exclude: &UserId,
+    ) -> Result<Option<UserId>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT sm.user_id
+            FROM server_members sm
+            INNER JOIN messaging_user_profiles p ON p.user_id = sm.user_id
+            WHERE sm.server_id = $1 AND sm.user_id <> $2 AND p.active
+            ORDER BY sm.joined_at ASC, sm.user_id ASC
+            LIMIT 1
+            "#,
+            server_id.uuid(),
+            exclude.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| UserId::new(r.user_id)))
+    }
+
     async fn find_server_by_id(
         &self,
         server_id: &ServerId,

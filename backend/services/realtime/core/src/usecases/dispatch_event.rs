@@ -24,7 +24,7 @@ use contracts::events::{
     server::{
         ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerDeletedDto,
         ServerMemberV1 as ServerMemberDto, ServerRolesChangedV1 as ServerRolesChangedDto,
-        ServerUpdatedV1 as ServerUpdatedDto,
+        ServerOwnerChangedV1 as ServerOwnerChangedDto, ServerUpdatedV1 as ServerUpdatedDto,
     },
     user::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
@@ -468,6 +468,23 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
         );
         publisher
             .publish_to_users(unique([evt.owner_id]), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".server.owner_changed") {
+        let evt: ServerOwnerChangedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "server.ownerChanged",
+            json!({
+                "id": evt.server_id,
+                "ownerId": evt.owner_id,
+                "previousOwnerId": evt.previous_owner_id,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.member_ids), &envelope)
             .await?;
         return Ok(());
     }
