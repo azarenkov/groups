@@ -133,9 +133,17 @@ where
                 &caller_id,
                 &invitees,
                 Utc::now(),
-                request.ctx.request_id,
+                request.ctx.request_id.clone(),
             )
             .await?;
+        if !self.user_repository.is_active(&caller_id).await? {
+            self.call_repository
+                .leave(call_id, &caller_id, Utc::now(), request.ctx.request_id)
+                .await?;
+            let _ = self.voice_service.remove_participant(&room, &caller_id).await;
+            let _ = self.voice_service.delete_voice_channel(&room).await;
+            return Err(StartCallError::AccountInactive);
+        }
 
         Ok(StartCallResult {
             call_id,
