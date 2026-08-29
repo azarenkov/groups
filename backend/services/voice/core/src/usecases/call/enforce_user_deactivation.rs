@@ -40,11 +40,11 @@ where
         let Some(call_id) = self.call_repository.active_call_for(&user_id).await? else {
             return Ok(());
         };
-        self.call_repository
-            .leave(call_id, &user_id, Utc::now(), request_id)
-            .await?;
         self.voice_service
             .remove_participant(&ChannelId::new(call_id), &user_id)
+            .await?;
+        self.call_repository
+            .leave(call_id, &user_id, Utc::now(), request_id)
             .await?;
         Ok(())
     }
