@@ -80,6 +80,18 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         Ok(())
     }
 
+    async fn is_active(&self, user_id: &UserId) -> Result<bool, RepositoryError> {
+        let row = sqlx::query(&format!(
+            "SELECT active FROM {} WHERE user_id = $1",
+            self.table
+        ))
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| r.get::<bool, _>(0)).unwrap_or(true))
+    }
+
     async fn set_active(
         &self,
         user_id: &UserId,

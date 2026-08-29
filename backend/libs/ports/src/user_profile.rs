@@ -15,6 +15,7 @@ pub trait UserProfileRepository {
         name: &str,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
+    async fn is_active(&self, user_id: &UserId) -> Result<bool, RepositoryError>;
     async fn set_active(
         &self,
         user_id: &UserId,

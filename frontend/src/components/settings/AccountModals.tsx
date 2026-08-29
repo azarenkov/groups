@@ -105,10 +105,24 @@ function ReauthField({
   return (
     <div className="m-field">
       <div className="reauth-switch">
-        <button type="button" className={mode === "password" ? "on" : ""} onClick={() => setMode("password")}>
+        <button
+          type="button"
+          className={mode === "password" ? "on" : ""}
+          onClick={() => {
+            setMode("password");
+            onGoogleToken("");
+          }}
+        >
           {t("account.reauthPassword")}
         </button>
-        <button type="button" className={mode === "google" ? "on" : ""} onClick={() => setMode("google")}>
+        <button
+          type="button"
+          className={mode === "google" ? "on" : ""}
+          onClick={() => {
+            setMode("google");
+            onPassword("");
+          }}
+        >
           {t("account.reauthGoogle")}
         </button>
       </div>
@@ -134,6 +148,8 @@ function ReauthField({
 
 const reauthOf = (password: string, googleToken: string | null): Reauth | null =>
   googleToken ? { googleIdToken: googleToken } : password ? { password } : null;
+
+const tokenOrNull = (token: string): string | null => (token ? token : null);
 
 const messageOf = (err: unknown, fallback: string) =>
   err instanceof ApiError ? err.message || fallback : fallback;
@@ -193,7 +209,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
       busy={busy}
       error={error}
     >
-      <ReauthField password={current} onPassword={setCurrent} googleToken={googleToken} onGoogleToken={setGoogleToken} />
+      <ReauthField password={current} onPassword={setCurrent} googleToken={googleToken} onGoogleToken={(t) => setGoogleToken(tokenOrNull(t))} />
       <div className="m-field">
         <label>{t("account.newPassword")}</label>
         <input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
@@ -309,7 +325,7 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
         <label>{t("account.newEmail")}</label>
         <input type="email" autoFocus autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
-      <ReauthField password={password} onPassword={setPassword} googleToken={googleToken} onGoogleToken={setGoogleToken} />
+      <ReauthField password={password} onPassword={setPassword} googleToken={googleToken} onGoogleToken={(t) => setGoogleToken(tokenOrNull(t))} />
     </AccountDialog>
   );
 }
@@ -364,7 +380,7 @@ export function DangerPasswordDialog({
       busy={busy}
       error={error}
     >
-      <ReauthField password={password} onPassword={setPassword} googleToken={googleToken} onGoogleToken={setGoogleToken} />
+      <ReauthField password={password} onPassword={setPassword} googleToken={googleToken} onGoogleToken={(t) => setGoogleToken(tokenOrNull(t))} />
     </AccountDialog>
   );
 }

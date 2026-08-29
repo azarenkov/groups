@@ -158,6 +158,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             subject_prefix: nats_config.subject_prefix.clone(),
             channel_stream,
             server_stream,
+            user_stream: std::env::var("MESSAGING_USER_STREAM")
+                .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string()),
         },
         channel_repository.clone(),
         server_unit_of_work.clone(),

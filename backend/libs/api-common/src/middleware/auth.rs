@@ -30,6 +30,33 @@ pub struct RateLimitedAuthToken {
     pub id: Uuid,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RateLimitedUnverifiedAuthToken {
+    pub id: Uuid,
+}
+
+impl FromRequest for RateLimitedUnverifiedAuthToken {
+    type Error = ActixWebError;
+    type Future = futures::future::LocalBoxFuture<'static, Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        let auth_result = authenticate(req);
+        let limiter = req.app_data::<web::Data<KeyedRateLimiter>>().cloned();
+        let revocations = req.app_data::<web::Data<AccessRevocations>>().cloned();
+        Box::pin(async move {
+            let access = auth_result?;
+            ensure_not_revoked(revocations.as_ref().map(|d| d.get_ref()), &access).await?;
+            let limiter = limiter
+                .ok_or_else(|| ErrorInternalServerError("Rate limiter not configured"))?;
+            if limiter.check_key(&access.user_id).await {
+                Ok(RateLimitedUnverifiedAuthToken { id: access.user_id })
+            } else {
+                Err(ErrorTooManyRequests("Too Many Requests"))
+            }
+        })
+    }
+}
+
 impl FromRequest for AuthToken {
     type Error = ActixWebError;
     type Future = futures::future::LocalBoxFuture<'static, Result<Self, Self::Error>>;

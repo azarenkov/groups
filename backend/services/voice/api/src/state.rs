@@ -38,5 +38,7 @@ pub struct AppState {
         LiveKitWebhookReceiver,
         PostgresCallRepository,
         PostgresWebhookOutbox,
+        PostgresUserProfileRepository,
+        LiveKitService,
     >,
 }

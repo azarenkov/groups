@@ -129,6 +129,7 @@ impl HttpMapping for HandleVoiceWebhookError {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
             HandleVoiceWebhookError::Call(e) => e.to_http_status(),
+            HandleVoiceWebhookError::Voice(e) => e.to_http_status(),
         }
     }
 
@@ -136,6 +137,7 @@ impl HttpMapping for HandleVoiceWebhookError {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
             HandleVoiceWebhookError::Call(e) => e.to_user_message(),
+            HandleVoiceWebhookError::Voice(e) => e.to_user_message(),
         }
     }
 
@@ -143,6 +145,7 @@ impl HttpMapping for HandleVoiceWebhookError {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_error_code(),
             HandleVoiceWebhookError::Call(e) => e.to_error_code(),
+            HandleVoiceWebhookError::Voice(e) => e.to_error_code(),
         }
     }
 }

@@ -8,7 +8,7 @@ use validator::Validate;
 use identity_domain::user::{id::UserId, locale::Locale};
 use serde::{Deserialize, Serialize};
 use api_common::client::extract_client_context;
-use api_common::middleware::auth::{AuthToken, RateLimitedAuthToken};
+use api_common::middleware::auth::{RateLimitedAuthToken, RateLimitedUnverifiedAuthToken};
 use crate::dto::responses::auth::token_pair::TokenPairResponse;
 use uuid::Uuid;
 
@@ -278,7 +278,7 @@ pub struct PasswordBody {
 #[post("/me/disable")]
 async fn disable_me(
     req: HttpRequest,
-    auth_token: AuthToken,
+    auth_token: RateLimitedUnverifiedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<PasswordBody>,
 ) -> Result<impl Responder, HttpError> {
@@ -297,7 +297,7 @@ async fn disable_me(
 #[delete("/me")]
 async fn delete_me(
     req: HttpRequest,
-    auth_token: AuthToken,
+    auth_token: RateLimitedUnverifiedAuthToken,
     app_state: web::Data<AppState>,
     body: web::Json<PasswordBody>,
 ) -> Result<impl Responder, HttpError> {

@@ -49,6 +49,25 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(rows.into_iter().map(|r| ChannelId::new(r.id)).collect())
     }
 
+    async fn list_voice_channel_ids_with_participant(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<ChannelId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT DISTINCT channel_id
+            FROM channel_voice_participants
+            WHERE user_id = $1
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows.into_iter().map(|r| ChannelId::new(r.channel_id)).collect())
+    }
+
     async fn list_channel_participants(
         &self,
         server_id: &ServerId,

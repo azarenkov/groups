@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use contracts::events::{channel::ParticipantMutedV1, channel::ParticipantUnmutedV1, server::ServerMemberV1};
+use contracts::events::{channel::ParticipantMutedV1, channel::ParticipantUnmutedV1, server::ServerMemberV1, user::UserLifecycleV1};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::{
     ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
     ports::voice_service::VoiceService,
+    usecases::channel::enforce_user_deactivation::EnforceUserDeactivation,
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
     usecases::server::enforce_departure::EnforceServerDeparture,
 };
@@ -21,6 +22,7 @@ pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
     pub channel_stream: String,
     pub server_stream: String,
+    pub user_stream: String,
 }
 
 pub fn spawn<C, W, V>(
@@ -41,11 +43,49 @@ pub fn spawn<C, W, V>(
         server_unit_of_work.clone(),
         voice_service.clone(),
     ));
+    let enforce_deactivation = Arc::new(EnforceUserDeactivation::new(
+        channel_repository.clone(),
+        voice_service.clone(),
+    ));
     let enforce_departure = Arc::new(EnforceServerDeparture::new(
         server_unit_of_work,
         channel_repository,
         voice_service,
     ));
+
+    {
+        let jetstream = jetstream.clone();
+        let subject = format!("{prefix}.user.*.disabled");
+        let extra = vec![
+            format!("{prefix}.user.*.deleted"),
+            format!("{prefix}.user.disabled"),
+            format!("{prefix}.user.deleted"),
+        ];
+        let dlq = dlq.clone();
+        let user_stream = spec.user_stream.clone();
+        tokio::spawn(async move {
+            run(
+                jetstream,
+                user_stream,
+                "messaging-voice-effects-user".to_string(),
+                subject,
+                extra,
+                dlq,
+                move |subject, payload| {
+                    let enforce_deactivation = enforce_deactivation.clone();
+                    async move {
+                        if !(subject.ends_with(".disabled") || subject.ends_with(".deleted")) {
+                            return Ok(());
+                        }
+                        let evt: UserLifecycleV1 = serde_json::from_slice(&payload)?;
+                        enforce_deactivation.execute(UserId::new(evt.user_id)).await?;
+                        Ok(())
+                    }
+                },
+            )
+            .await;
+        });
+    }
 
     {
         let jetstream = jetstream.clone();
