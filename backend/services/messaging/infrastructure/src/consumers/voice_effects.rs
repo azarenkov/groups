@@ -12,7 +12,7 @@ use messaging::{
     usecases::server::enforce_departure::EnforceServerDeparture,
     usecases::server::resolve_deleted_user_servers::ResolveDeletedUserServers,
 };
-use messaging_domain::{server::repository::ServerRepository, channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
 use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
@@ -27,20 +27,18 @@ pub struct VoiceEffectsSpec {
     pub user_stream: String,
 }
 
-pub fn spawn<C, W, V, P, S>(
+pub fn spawn<C, W, V, P>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
     server_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
     profiles: Arc<P>,
-    server_repository: Arc<S>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
     W: ServerUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
     P: UserProfileRepository + Send + Sync + 'static,
-    S: ServerRepository + Send + Sync + 'static,
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
@@ -55,7 +53,6 @@ pub fn spawn<C, W, V, P, S>(
         profiles,
     ));
     let resolve_servers = Arc::new(ResolveDeletedUserServers::new(
-        server_repository,
         channel_repository.clone(),
         server_unit_of_work.clone(),
         voice_service.clone(),

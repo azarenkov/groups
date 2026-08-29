@@ -357,33 +357,6 @@ impl ServerRepository for PostgresServerRepository {
         Ok(row.map(|r| UserId::new(r.owner_id)))
     }
 
-    async fn find_server_ids_owned_by(&self, owner_id: &UserId) -> Result<Vec<ServerId>, RepositoryError> {
-        let rows = sqlx::query!(
-            r#"SELECT id FROM servers WHERE owner_id = $1 ORDER BY created_at"#,
-            owner_id.uuid(),
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows.into_iter().map(|r| ServerId::new(r.id)).collect())
-    }
-
-    async fn mark_user_deleted(&self, user_id: &UserId, deleted_at: chrono::DateTime<chrono::Utc>) -> Result<(), RepositoryError> {
-        sqlx::query!(
-            r#"
-            INSERT INTO messaging_deleted_users (user_id, deleted_at)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO NOTHING
-            "#,
-            user_id.uuid(),
-            deleted_at,
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
     async fn find_server_by_id(
         &self,
         server_id: &ServerId,

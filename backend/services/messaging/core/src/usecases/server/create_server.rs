@@ -46,6 +46,7 @@ where
 
         let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin(server.id()).await?;
+        tx.lock_user(server.owner_id()).await?;
         if tx.is_user_deleted(server.owner_id()).await? {
             return Err(CreateServerError::AccountInactive);
         }

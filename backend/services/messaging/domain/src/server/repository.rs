@@ -30,8 +30,7 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError>;
-    async fn find_server_ids_owned_by(&self, owner_id: &UserId) -> Result<Vec<ServerId>, RepositoryError>;
-    async fn mark_user_deleted(&self, user_id: &UserId, deleted_at: chrono::DateTime<chrono::Utc>) -> Result<(), RepositoryError>;
+
     async fn find_server_by_id(
         &self,
         server_id: &ServerId,

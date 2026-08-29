@@ -8,6 +8,14 @@ use ports::repository::RepositoryError;
 #[async_trait::async_trait]
 pub trait ServerUnitOfWork: Send + Sync {
     async fn begin(&self, server_id: &ServerId) -> Result<Box<dyn ServerTransaction>, RepositoryError>;
+    async fn begin_user(&self, user_id: &UserId) -> Result<Box<dyn UserLifecycleTransaction>, RepositoryError>;
+}
+
+#[async_trait::async_trait]
+pub trait UserLifecycleTransaction: Send {
+    async fn mark_user_deleted(&mut self, deleted_at: DateTime<Utc>) -> Result<(), RepositoryError>;
+    async fn owned_server_ids(&mut self) -> Result<Vec<ServerId>, RepositoryError>;
+    async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }
 
 #[async_trait::async_trait]
@@ -59,6 +67,7 @@ pub trait ServerTransaction: Send {
     async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError>;
     async fn insert_server(&mut self, server: &Server) -> Result<(), RepositoryError>;
     async fn is_user_deleted(&mut self, user_id: &UserId) -> Result<bool, RepositoryError>;
+    async fn lock_user(&mut self, user_id: &UserId) -> Result<(), RepositoryError>;
     async fn accept_invite(
         &mut self,
         invite_message_id: &DmMessageId,

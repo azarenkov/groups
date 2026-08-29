@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -31,6 +31,59 @@ impl PostgresServerUnitOfWork {
 pub struct PostgresServerTransaction {
     tx: Transaction<'static, Postgres>,
     server_id: ServerId,
+}
+
+pub struct PostgresUserLifecycleTransaction {
+    tx: Transaction<'static, Postgres>,
+    user_id: UserId,
+}
+
+pub async fn lock_user(
+    tx: &mut Transaction<'_, Postgres>,
+    user_id: &UserId,
+) -> Result<(), RepositoryError> {
+    sqlx::query!(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 45))",
+        user_id.uuid().to_string(),
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
+#[async_trait]
+impl UserLifecycleTransaction for PostgresUserLifecycleTransaction {
+    async fn mark_user_deleted(&mut self, deleted_at: DateTime<Utc>) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            INSERT INTO messaging_deleted_users (user_id, deleted_at)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id) DO NOTHING
+            "#,
+            self.user_id.uuid(),
+            deleted_at,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn owned_server_ids(&mut self) -> Result<Vec<ServerId>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"SELECT id FROM servers WHERE owner_id = $1 ORDER BY created_at"#,
+            self.user_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|r| ServerId::new(r.id)).collect())
+    }
+
+    async fn commit(self: Box<Self>) -> Result<(), RepositoryError> {
+        self.tx.commit().await.map_err(map_sqlx_error_to_domain_error)
+    }
 }
 
 pub async fn lock_server(
@@ -135,6 +188,16 @@ impl ServerUnitOfWork for PostgresServerUnitOfWork {
             tx,
             server_id: *server_id,
         }))
+    }
+
+    async fn begin_user(&self, user_id: &UserId) -> Result<Box<dyn UserLifecycleTransaction>, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_user(&mut tx, user_id).await?;
+        Ok(Box::new(PostgresUserLifecycleTransaction { tx, user_id: *user_id }))
     }
 }
 
@@ -701,6 +764,10 @@ impl ServerTransaction for PostgresServerTransaction {
 
     async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError> {
         insert_dm_message(&mut self.tx, message).await
+    }
+
+    async fn lock_user(&mut self, user_id: &UserId) -> Result<(), RepositoryError> {
+        lock_user(&mut self.tx, user_id).await
     }
 
     async fn is_user_deleted(&mut self, user_id: &UserId) -> Result<bool, RepositoryError> {

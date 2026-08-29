@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use messaging_domain::{channel::repository::ChannelRepository, events::MessagingEvent, server::events::ServerEvent, server::events::lifecycle::ServerDeleted, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::repository::ChannelRepository, events::MessagingEvent, server::events::ServerEvent, server::events::lifecycle::ServerDeleted, server::unit_of_work::ServerUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::ports::voice_service::VoiceService;
@@ -13,34 +13,29 @@ pub enum ResolveDeletedUserServersError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct ResolveDeletedUserServers<S, C, W, V>
+pub struct ResolveDeletedUserServers<C, W, V>
 where
-    S: ServerRepository,
     C: ChannelRepository,
     W: ServerUnitOfWork,
     V: VoiceService,
 {
-    server_repository: Arc<S>,
     channel_repository: Arc<C>,
     unit_of_work: Arc<W>,
     voice_service: Arc<V>,
 }
 
-impl<S, C, W, V> ResolveDeletedUserServers<S, C, W, V>
+impl<C, W, V> ResolveDeletedUserServers<C, W, V>
 where
-    S: ServerRepository,
     C: ChannelRepository,
     W: ServerUnitOfWork,
     V: VoiceService,
 {
     pub fn new(
-        server_repository: Arc<S>,
         channel_repository: Arc<C>,
         unit_of_work: Arc<W>,
         voice_service: Arc<V>,
     ) -> Self {
         Self {
-            server_repository,
             channel_repository,
             unit_of_work,
             voice_service,
@@ -48,8 +43,13 @@ where
     }
 
     pub async fn execute(&self, user_id: UserId, deleted_at: chrono::DateTime<Utc>, request_id: Option<&str>) -> Result<(), ResolveDeletedUserServersError> {
-        self.server_repository.mark_user_deleted(&user_id, deleted_at).await?;
-        let owned = self.server_repository.find_server_ids_owned_by(&user_id).await?;
+        let owned = {
+            let mut user_tx = self.unit_of_work.begin_user(&user_id).await?;
+            user_tx.mark_user_deleted(deleted_at).await?;
+            let owned = user_tx.owned_server_ids().await?;
+            user_tx.commit().await?;
+            owned
+        };
         for server_id in owned {
             let voice_channel_ids = self
                 .channel_repository
@@ -57,6 +57,7 @@ where
                 .await?;
 
             let mut tx = self.unit_of_work.begin(&server_id).await?;
+            tx.lock_user(&user_id).await?;
             let mut server = match tx.load_server().await {
                 Ok(server) => server,
                 Err(RepositoryError::NotFound) => continue,
@@ -66,7 +67,18 @@ where
                 continue;
             }
             let now = Utc::now();
-            let successor = tx.find_longest_member_excluding(&user_id).await?;
+            let mut successor = None;
+            for _ in 0..8 {
+                let Some(candidate) = tx.find_longest_member_excluding(&user_id).await? else {
+                    break;
+                };
+                tx.lock_user(&candidate).await?;
+                if tx.is_user_deleted(&candidate).await? {
+                    continue;
+                }
+                successor = Some(candidate);
+                break;
+            }
             let deleted_rooms = match successor.filter(|s| server.is_member(s)) {
                 Some(new_owner) => {
                     if server.transfer_ownership(new_owner, now).is_err() {

@@ -148,6 +148,11 @@ where
             }
         };
 
+        if !self.user_repository.is_active(&user_id).await? {
+            let _ = self.voice_service.remove_participant(channel.id(), &user_id).await;
+            return Err(JoinVoiceChannelError::AccountInactive);
+        }
+
         let response = JoinVoiceChannelResponse::new(
             channel_token,
             self.voice_service.client_url(),
