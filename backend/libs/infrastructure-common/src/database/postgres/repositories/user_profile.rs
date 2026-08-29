@@ -67,7 +67,7 @@ impl UserProfileRepository for PostgresUserProfileRepository {
                 SET name = EXCLUDED.name,
                     updated_at = GREATEST({table}.updated_at, EXCLUDED.updated_at)
                 WHERE {table}.updated_at <= EXCLUDED.updated_at
-                   OR {table}.name = ''
+                   OR ({table}.name = '' AND {table}.active)
             "#,
             table = self.table
         ))
