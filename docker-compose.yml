@@ -372,10 +372,14 @@ services:
         required: false
       - path: env/event-dispatcher.env
         required: false
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     depends_on:
       postgres:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test:
