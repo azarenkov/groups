@@ -940,6 +940,7 @@ const VerifyEmail: React.FC<{
   const [changeBusy, setChangeBusy] = useState(false);
   const [changeError, setChangeError] = useState("");
   const [pendingNewEmail, setPendingNewEmail] = useState<string | null>(null);
+  const [pendingChangePassword, setPendingChangePassword] = useState("");
 
   const submitEmailChange = async () => {
     const target = newEmail.trim();
@@ -949,6 +950,7 @@ const VerifyEmail: React.FC<{
     try {
       await userAPI.requestEmailChange({ password: changePassword }, target);
       setPendingNewEmail(target);
+      setPendingChangePassword(changePassword);
       onEmailChanged?.(target);
       setEditingEmail(false);
       setCode("");
@@ -1183,7 +1185,11 @@ const VerifyEmail: React.FC<{
             onClick={async () => {
               setSecondsLeft(30);
               try {
-                await authAPI.requestVerificationCode();
+                if (pendingNewEmail) {
+                  await userAPI.requestEmailChange({ password: pendingChangePassword }, pendingNewEmail);
+                } else {
+                  await authAPI.requestVerificationCode();
+                }
               } catch (err) {
                 console.error("[VerifyEmail] resend failed:", err);
               }

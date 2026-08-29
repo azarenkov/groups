@@ -83,8 +83,6 @@ where
             return Err(LoginError::InvalidCredentials);
         }
 
-        let is_verified = user.is_verified();
-        let requires_verification = !is_verified;
         let user_id = user.id_ownned();
 
         let mut tx = self.unit_of_work.begin().await?;
@@ -109,6 +107,8 @@ where
             tx.save_user(&locked).await?;
             wait_past_cutoff(disabled_at).await;
         }
+        let is_verified = locked.is_verified();
+        let requires_verification = !is_verified;
 
         let tokens = self.token_issuer.issue(&user_id, is_verified).await?;
         let refresh_token = RefreshToken::issue(
