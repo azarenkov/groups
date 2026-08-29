@@ -703,6 +703,17 @@ impl ServerTransaction for PostgresServerTransaction {
         insert_dm_message(&mut self.tx, message).await
     }
 
+    async fn is_user_deleted(&mut self, user_id: &UserId) -> Result<bool, RepositoryError> {
+        let row = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM messaging_deleted_users WHERE user_id = $1) AS "exists!""#,
+            user_id.uuid(),
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
+    }
+
     async fn insert_server(&mut self, server: &Server) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"

@@ -10,6 +10,8 @@ use crate::dto::requests::server::create_server::CreateServerRequest;
 pub enum CreateServerError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
+    #[error("Account is inactive")]
+    AccountInactive,
 }
 
 pub struct CreateServer<W>
@@ -44,6 +46,9 @@ where
 
         let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin(server.id()).await?;
+        if tx.is_user_deleted(server.owner_id()).await? {
+            return Err(CreateServerError::AccountInactive);
+        }
         tx.insert_server(&server).await?;
         tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;

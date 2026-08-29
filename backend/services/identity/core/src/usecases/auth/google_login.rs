@@ -362,6 +362,9 @@ where
             tx.save_user(&locked).await?;
             wait_past_cutoff(disabled_at).await;
         }
+        if let Some(changed_at) = locked.password_changed_at() {
+            wait_past_cutoff(changed_at).await;
+        }
 
         let tokens = self.token_issuer.issue(&user_id, true).await?;
         let refresh_token = RefreshToken::issue(

@@ -58,6 +58,7 @@ pub trait ServerTransaction: Send {
     ) -> Result<bool, RepositoryError>;
     async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError>;
     async fn insert_server(&mut self, server: &Server) -> Result<(), RepositoryError>;
+    async fn is_user_deleted(&mut self, user_id: &UserId) -> Result<bool, RepositoryError>;
     async fn accept_invite(
         &mut self,
         invite_message_id: &DmMessageId,

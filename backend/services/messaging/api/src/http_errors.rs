@@ -401,18 +401,21 @@ impl HttpMapping for CreateServerError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             CreateServerError::Repository(e) => e.to_http_status(),
+            CreateServerError::AccountInactive => StatusCode::FORBIDDEN,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
             CreateServerError::Repository(e) => e.to_user_message(),
+            CreateServerError::AccountInactive => "Account is inactive".to_string(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
             CreateServerError::Repository(e) => e.to_error_code(),
+            CreateServerError::AccountInactive => "ACCOUNT_INACTIVE",
         }
     }
 }
@@ -588,6 +591,7 @@ impl HttpMapping for JoinVoiceChannelError {
             }
             JoinVoiceChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
             JoinVoiceChannelError::InvalidPassword => StatusCode::FORBIDDEN,
+            JoinVoiceChannelError::AccountInactive => StatusCode::FORBIDDEN,
             JoinVoiceChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             JoinVoiceChannelError::NotMember => StatusCode::FORBIDDEN,
             JoinVoiceChannelError::Repository(e) => e.to_http_status(),
@@ -601,6 +605,7 @@ impl HttpMapping for JoinVoiceChannelError {
         match self {
             JoinVoiceChannelError::ChannelNotFound => "Channel not found".to_string(),
             JoinVoiceChannelError::UserNotFound => "User not found".to_string(),
+            JoinVoiceChannelError::AccountInactive => "Account is inactive".to_string(),
             JoinVoiceChannelError::PasswordRequired => {
                 "Password is required to join this channel".to_string()
             }
@@ -620,6 +625,7 @@ impl HttpMapping for JoinVoiceChannelError {
         match self {
             JoinVoiceChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             JoinVoiceChannelError::UserNotFound => "USER_NOT_FOUND",
+            JoinVoiceChannelError::AccountInactive => "ACCOUNT_INACTIVE",
             JoinVoiceChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
             JoinVoiceChannelError::InvalidPassword => "INVALID_CHANNEL_PASSWORD",
             JoinVoiceChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",

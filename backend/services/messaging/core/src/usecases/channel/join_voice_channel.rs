@@ -25,6 +25,8 @@ pub enum JoinVoiceChannelError {
     InvalidPassword,
     #[error("User not found")]
     UserNotFound,
+    #[error("Account is inactive")]
+    AccountInactive,
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Voice service error: {0}")]
@@ -123,6 +125,10 @@ where
                 .await?
                 .ok_or(JoinVoiceChannelError::UserNotFound)?,
         );
+
+        if !self.user_repository.is_active(&user_id).await? {
+            return Err(JoinVoiceChannelError::AccountInactive);
+        }
 
         self.voice_service
             .create_voice_channel(channel.id(), channel.server_id())
