@@ -5499,3 +5499,8 @@ button.ssv-row-delete:focus-visible {
 .reauth-switch button { border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 500; color: var(--fg-2); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
 .reauth-switch button.on { background: var(--surface-panel); color: var(--fg-1); box-shadow: var(--shadow-xs); }
 .reauth-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--voice-live); }
+.verify-wrong-email { margin-top: 0; margin-bottom: 14px; }
+.verify-change-email { margin-bottom: 14px; }
+.verify-change-email-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 2px; }
+.verify-change-email-actions .auth-link { background: transparent; border: 0; font: inherit; cursor: pointer; }
+.verify-change-email-actions .auth-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }

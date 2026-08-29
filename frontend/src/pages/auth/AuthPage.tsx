@@ -121,6 +121,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
               email={email}
               onVerified={onSignedIn}
               onBack={() => setMode("signup")}
+              onEmailChanged={setEmail}
             />
           )}
           {mode === "2fa" && (
@@ -924,14 +925,48 @@ const VerifyEmail: React.FC<{
   email: string;
   onVerified: () => void;
   onBack: () => void;
+  onEmailChanged?: (email: string) => void;
   pendingAvatar?: File | null;
-}> = ({ email, onVerified, onBack, pendingAvatar }) => {
+}> = ({ email, onVerified, onBack, onEmailChanged, pendingAvatar }) => {
   const { t } = useTranslation("auth");
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [changePassword, setChangePassword] = useState("");
+  const [changeBusy, setChangeBusy] = useState(false);
+  const [changeError, setChangeError] = useState("");
+  const [pendingNewEmail, setPendingNewEmail] = useState<string | null>(null);
+
+  const submitEmailChange = async () => {
+    const target = newEmail.trim();
+    if (!target.includes("@") || !changePassword || changeBusy) return;
+    setChangeBusy(true);
+    setChangeError("");
+    try {
+      await userAPI.requestEmailChange({ password: changePassword }, target);
+      setPendingNewEmail(target);
+      onEmailChanged?.(target);
+      setEditingEmail(false);
+      setCode("");
+      setError("");
+      setSecondsLeft(30);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setChangeError(
+        apiErr?.code === "INVALID_PASSWORD"
+          ? t("wrongPassword")
+          : apiErr?.code === "EMAIL_TAKEN"
+            ? t("emailTaken")
+            : apiErr?.message || t("changeEmailFailed"),
+      );
+    } finally {
+      setChangeBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -945,7 +980,11 @@ const VerifyEmail: React.FC<{
       setIsSubmitting(true);
       setError("");
       try {
-        await authAPI.confirmRegistration(value);
+        if (pendingNewEmail) {
+          await userAPI.confirmEmailChange(value);
+        } else {
+          await authAPI.confirmRegistration(value);
+        }
         const fresh = await authAPI.refresh();
         if (!isAccessTokenVerified(fresh.accessToken)) {
           throw new Error(t("verifyTookNoEffect"));
@@ -984,7 +1023,7 @@ const VerifyEmail: React.FC<{
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, onVerified, t, pendingAvatar, avatarWarning],
+    [isSubmitting, onVerified, t, pendingAvatar, avatarWarning, pendingNewEmail],
   );
 
   useEffect(() => {
@@ -1026,6 +1065,70 @@ const VerifyEmail: React.FC<{
           <Trans i18nKey="verifyBodyNoEmail" t={t} components={[<b key="e" style={{ color: "var(--fg-1)" }} />]} />
         )}
       </p>
+      {editingEmail ? (
+        <form
+          className="verify-change-email"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submitEmailChange();
+          }}
+        >
+          <div className="field">
+            <label>{t("newEmail")}</label>
+            <div className="field-input">
+              <input
+                type="email"
+                autoFocus
+                autoComplete="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label>{t("password")}</label>
+            <div className="field-input">
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={changePassword}
+                onChange={(e) => setChangePassword(e.target.value)}
+              />
+            </div>
+          </div>
+          {changeError && (
+            <div className="pw-strength-label" style={{ color: "#ff453a" }}>{changeError}</div>
+          )}
+          <div className="verify-change-email-actions">
+            <button type="button" className="auth-link muted" onClick={() => setEditingEmail(false)}>
+              {t("cancel")}
+            </button>
+            <button
+              type="submit"
+              className="auth-link"
+              disabled={changeBusy || !newEmail.includes("@") || !changePassword}
+            >
+              {changeBusy ? <span className="loading-spinner" /> : t("sendCodeToNewEmail")}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="auth-resend verify-wrong-email">
+          {t("wrongEmail")}{" "}
+          <button
+            type="button"
+            className="auth-link"
+            onClick={() => {
+              setNewEmail("");
+              setChangePassword("");
+              setChangeError("");
+              setEditingEmail(true);
+            }}
+          >
+            {t("changeEmail")}
+          </button>
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {
