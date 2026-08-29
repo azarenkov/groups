@@ -164,6 +164,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_repository.clone(),
         server_unit_of_work.clone(),
         livekit_service.clone(),
+        user_repository.clone(),
     );
 
     let user_stream = std::env::var("MESSAGING_USER_STREAM")

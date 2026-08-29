@@ -56,7 +56,7 @@ pub fn spawn<P>(
                                             .set_active(&UserId::new(evt.user_id), active, evt.occurred_at)
                                             .await
                                         {
-                                            Ok(()) => {
+                                            Ok(_) => {
                                                 let _ = m.ack().await;
                                             }
                                             Err(e) => {

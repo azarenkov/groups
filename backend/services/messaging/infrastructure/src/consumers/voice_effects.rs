@@ -12,6 +12,7 @@ use messaging::{
     usecases::server::enforce_departure::EnforceServerDeparture,
 };
 use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
 const MAX_DELIVER: u32 = 20;
@@ -25,16 +26,18 @@ pub struct VoiceEffectsSpec {
     pub user_stream: String,
 }
 
-pub fn spawn<C, W, V>(
+pub fn spawn<C, W, V, P>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
     server_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
+    profiles: Arc<P>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
     W: ServerUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
+    P: UserProfileRepository + Send + Sync + 'static,
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
@@ -46,6 +49,7 @@ pub fn spawn<C, W, V>(
     let enforce_deactivation = Arc::new(EnforceUserDeactivation::new(
         channel_repository.clone(),
         voice_service.clone(),
+        profiles,
     ));
     let enforce_departure = Arc::new(EnforceServerDeparture::new(
         server_unit_of_work,
@@ -78,7 +82,9 @@ pub fn spawn<C, W, V>(
                             return Ok(());
                         }
                         let evt: UserLifecycleV1 = serde_json::from_slice(&payload)?;
-                        enforce_deactivation.execute(UserId::new(evt.user_id)).await?;
+                        enforce_deactivation
+                            .execute(UserId::new(evt.user_id), evt.occurred_at)
+                            .await?;
                         Ok(())
                     }
                 },

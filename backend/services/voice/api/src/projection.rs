@@ -112,10 +112,10 @@ where
     if let Some(active) = active {
         match serde_json::from_slice::<UserLifecycleV1>(payload) {
             Ok(evt) => {
-                profiles
+                let applied = profiles
                     .set_active(&UserId::new(evt.user_id), active, evt.occurred_at)
                     .await?;
-                if !active {
+                if !active && applied {
                     deactivation.execute(UserId::new(evt.user_id), request_id).await?;
                 }
             }

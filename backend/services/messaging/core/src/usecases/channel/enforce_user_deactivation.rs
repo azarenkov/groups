@@ -1,9 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
+use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use futures::{StreamExt, stream};
 use messaging_domain::channel::repository::ChannelRepository;
-use ports::repository::RepositoryError;
+use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
 
@@ -20,28 +21,35 @@ pub enum EnforceUserDeactivationError {
 const REMOVAL_BUDGET: Duration = Duration::from_secs(5);
 const MAX_CONCURRENT_REMOVALS: usize = 8;
 
-pub struct EnforceUserDeactivation<C, V>
+pub struct EnforceUserDeactivation<C, V, P>
 where
     C: ChannelRepository,
     V: VoiceService + Send + Sync + 'static,
+    P: UserProfileRepository,
 {
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
+    profiles: Arc<P>,
 }
 
-impl<C, V> EnforceUserDeactivation<C, V>
+impl<C, V, P> EnforceUserDeactivation<C, V, P>
 where
     C: ChannelRepository,
     V: VoiceService + Send + Sync + 'static,
+    P: UserProfileRepository,
 {
-    pub fn new(channel_repository: Arc<C>, voice_service: Arc<V>) -> Self {
+    pub fn new(channel_repository: Arc<C>, voice_service: Arc<V>, profiles: Arc<P>) -> Self {
         Self {
             channel_repository,
             voice_service,
+            profiles,
         }
     }
 
-    pub async fn execute(&self, user_id: UserId) -> Result<(), EnforceUserDeactivationError> {
+    pub async fn execute(&self, user_id: UserId, occurred_at: DateTime<Utc>) -> Result<(), EnforceUserDeactivationError> {
+        if !self.profiles.is_deactivation_current(&user_id, occurred_at).await? {
+            return Ok(());
+        }
         let channel_ids = self
             .channel_repository
             .list_voice_channel_ids_with_participant(&user_id)

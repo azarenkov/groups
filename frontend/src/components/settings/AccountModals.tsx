@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../rift/Icon";
 import { userAPI, type Reauth } from "../../api/user";
+import { authAPI } from "../../api/auth";
 import GoogleSignInButton from "../auth/GoogleSignInButton";
 import { useAuthStore } from "../../store/authStore";
 import { ApiError } from "../../utils/apiError";
@@ -261,6 +262,13 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const saved = await userAPI.confirmEmailChange(code.trim());
+      try {
+        const fresh = await authAPI.refresh();
+        useAuthStore.getState().setTokens(fresh);
+        authAPI.setAuthToken(fresh.accessToken);
+      } catch (refreshErr) {
+        console.warn("[account] token refresh after email change failed:", refreshErr);
+      }
       const user = useAuthStore.getState().user;
       if (user) useAuthStore.getState().setUser({ ...user, email: saved, emailVerified: true });
       onClose();

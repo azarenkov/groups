@@ -92,13 +92,36 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         Ok(row.map(|r| r.get::<bool, _>(0)).unwrap_or(true))
     }
 
+    async fn is_deactivation_current(
+        &self,
+        user_id: &UserId,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query(&format!(
+            "SELECT active, updated_at FROM {} WHERE user_id = $1",
+            self.table
+        ))
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(match row {
+            Some(r) => {
+                let active: bool = r.get(0);
+                let updated_at: DateTime<Utc> = r.get(1);
+                !(active && updated_at > occurred_at)
+            }
+            None => true,
+        })
+    }
+
     async fn set_active(
         &self,
         user_id: &UserId,
         active: bool,
         occurred_at: DateTime<Utc>,
-    ) -> Result<(), RepositoryError> {
-        sqlx::query(&format!(
+    ) -> Result<bool, RepositoryError> {
+        let result = sqlx::query(&format!(
             r#"
             INSERT INTO {table} (user_id, name, active, updated_at)
             VALUES ($1, '', $2, $3)
@@ -114,6 +137,6 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(result.rows_affected() > 0)
     }
 }

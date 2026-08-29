@@ -16,10 +16,15 @@ pub trait UserProfileRepository {
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
     async fn is_active(&self, user_id: &UserId) -> Result<bool, RepositoryError>;
+    async fn is_deactivation_current(
+        &self,
+        user_id: &UserId,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError>;
     async fn set_active(
         &self,
         user_id: &UserId,
         active: bool,
         occurred_at: DateTime<Utc>,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 }
