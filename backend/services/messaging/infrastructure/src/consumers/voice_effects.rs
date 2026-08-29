@@ -92,14 +92,14 @@ pub fn spawn<C, W, V, P, S>(
                             return Ok(());
                         }
                         let evt: UserLifecycleV1 = serde_json::from_slice(&payload)?;
-                        enforce_deactivation
-                            .execute(UserId::new(evt.user_id), evt.occurred_at)
-                            .await?;
                         if subject.ends_with(".deleted") {
                             resolve_servers
                                 .execute(UserId::new(evt.user_id), evt.occurred_at, None)
                                 .await?;
                         }
+                        enforce_deactivation
+                            .execute(UserId::new(evt.user_id), evt.occurred_at)
+                            .await?;
                         Ok(())
                     }
                 },
