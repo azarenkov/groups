@@ -118,10 +118,11 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const bioDirty = bio.trim() !== (user?.bio ?? "");
   const profileQueue = React.useRef<Promise<void>>(Promise.resolve());
   const runProfileUpdate = (patch: { bio?: string; showActivity?: boolean }) => {
+    const initiator = useAuthStore.getState().user?.id;
     const next = profileQueue.current.then(async () => {
       const saved = await userAPI.updateProfile(patch);
       const current = useAuthStore.getState().user;
-      if (!current) return;
+      if (!current || !initiator || current.id !== initiator) return;
       const version = profileVersion(saved.profileUpdatedAt);
       const cached = useUserProfileStore.getState().bios[current.id];
       if (cached && cached.at > version) return;
@@ -221,7 +222,7 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
     try {
       const saved = await userAPI.rename(next);
       const latest = useAuthStore.getState().user;
-      if (latest) useAuthStore.getState().setUser({ ...latest, name: saved });
+      if (latest && latest.id === user.id) useAuthStore.getState().setUser({ ...latest, name: saved });
       setNameEditing(false);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
