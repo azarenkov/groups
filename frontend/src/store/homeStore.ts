@@ -8,6 +8,7 @@ interface HomeState {
   failed: boolean;
   fetch: () => Promise<void>;
   clear: () => void;
+  hideFriendActivity: (userId: string) => void;
 }
 
 let inflight: Promise<void> | null = null;
@@ -39,6 +40,13 @@ export const useHomeStore = create<HomeState>()((set) => ({
     inflight = request;
     return request;
   },
+
+  hideFriendActivity: (userId) =>
+    set((s) =>
+      s.overview && s.overview.activeFriends.some((f) => f.userId === userId)
+        ? { overview: { ...s.overview, activeFriends: s.overview.activeFriends.filter((f) => f.userId !== userId) } }
+        : s,
+    ),
 
   clear: () => {
     generation += 1;

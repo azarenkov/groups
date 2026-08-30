@@ -297,6 +297,7 @@ impl User {
             self.disabled_at = Some(now);
             self.updated_at = now;
             self.record(UserEvent::Disabled(UserDisabled::record(self.id, now)));
+            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, now)));
         }
         Ok(())
     }
@@ -306,6 +307,12 @@ impl User {
             self.disabled_at = None;
             self.updated_at = now;
             self.record(UserEvent::Reactivated(UserReactivated::record(self.id, now)));
+            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(
+                self.id,
+                self.bio.clone(),
+                self.show_activity,
+                now,
+            )));
         }
     }
 

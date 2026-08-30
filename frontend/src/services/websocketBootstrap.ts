@@ -3,6 +3,7 @@ import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { profileTimestamp, useUserProfileStore } from "../store/userProfileStore";
+import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useCallStore } from "../store/callStore";
@@ -247,15 +248,21 @@ function dispatch(env: WsEnvelope) {
     case "user.profileChanged": {
       const userId = asString(d.userId);
       if (!userId) return;
+      const bio = asString(d.bio) ?? "";
+      const showActivity = d.showActivity === true;
       const applied = useUserProfileStore
         .getState()
-        .apply(userId, asString(d.bio) ?? "", profileTimestamp(asString(d.occurredAt)));
+        .apply(userId, bio, profileTimestamp(asString(d.occurredAt)));
       if (!applied) return;
-      window.dispatchEvent(
-        new CustomEvent("rift:profile-changed", {
-          detail: { userId, bio: asString(d.bio) ?? "", showActivity: d.showActivity === true },
-        }),
-      );
+      const auth = useAuthStore.getState();
+      if (auth.user?.id === userId) {
+        auth.setUser({ ...auth.user, bio, showActivity });
+      } else if (!showActivity) {
+        useHomeStore.getState().hideFriendActivity(userId);
+        scheduleHomeRefresh();
+      } else {
+        scheduleHomeRefresh();
+      }
       return;
     }
 
