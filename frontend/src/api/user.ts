@@ -21,6 +21,7 @@ export interface MeProfile {
   linkedProviders: string[];
   bio: string;
   showActivity: boolean;
+  profileUpdatedAt: string;
 }
 
 class UserAPI {

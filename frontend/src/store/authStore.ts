@@ -83,6 +83,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   fetchMe: async () => {
     const { userAPI } = await import("../api/user");
     const me = await userAPI.getMe();
+    const { useUserProfileStore, profileVersion } = await import("./userProfileStore");
+    const version = profileVersion(me.profileUpdatedAt);
+    const cached = useUserProfileStore.getState().bios[me.id];
+    const stale = !!cached && cached.at > version;
+    if (!stale) useUserProfileStore.getState().apply(me.id, me.bio, version);
+    const current = get().user;
     set({
       user: {
         id: me.id,
@@ -91,8 +97,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         emailVerified: me.emailVerified,
         passwordChangedAt: me.passwordChangedAt,
         linkedProviders: me.linkedProviders,
-        bio: me.bio,
-        showActivity: me.showActivity,
+        bio: stale && current?.id === me.id ? current.bio : me.bio,
+        showActivity: stale && current?.id === me.id ? current.showActivity : me.showActivity,
       },
     });
     if (me.locale === "ru" || me.locale === "en") {

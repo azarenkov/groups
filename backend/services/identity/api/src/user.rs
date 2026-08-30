@@ -47,6 +47,7 @@ pub struct MeResponse {
     pub linked_providers: Vec<String>,
     pub bio: String,
     pub show_activity: bool,
+    pub profile_updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[get("/me")]
@@ -66,6 +67,7 @@ async fn get_me(
         linked_providers: profile.linked_providers,
         bio: profile.bio,
         show_activity: profile.show_activity,
+        profile_updated_at: profile.profile_updated_at,
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
