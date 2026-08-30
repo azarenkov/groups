@@ -31,7 +31,7 @@ impl PostgresUserProfileRepository {
 impl UserProfileRepository for PostgresUserProfileRepository {
     async fn get_public_profile(&self, user_id: &UserId) -> Result<Option<PublicProfile>, RepositoryError> {
         let row = sqlx::query(&format!(
-            "SELECT CASE WHEN active THEN name ELSE '' END, CASE WHEN active THEN bio ELSE '' END, profile_updated_at, active FROM {} WHERE user_id = $1 AND name <> ''",
+            "SELECT CASE WHEN active THEN name ELSE '' END, CASE WHEN active THEN bio ELSE '' END, CASE WHEN active THEN profile_updated_at ELSE GREATEST(profile_updated_at, updated_at) END, active FROM {} WHERE user_id = $1 AND name <> ''",
             self.table
         ))
         .bind(user_id.uuid())
