@@ -114,6 +114,9 @@ const App: React.FC = () => {
     void import("./store/homeStore").then(({ useHomeStore }) =>
       useHomeStore.getState().clear(),
     );
+    void import("./store/userProfileStore").then(({ useUserProfileStore }) =>
+      useUserProfileStore.getState().clear(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

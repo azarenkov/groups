@@ -31,7 +31,7 @@ impl PostgresUserProfileRepository {
 impl UserProfileRepository for PostgresUserProfileRepository {
     async fn get_public_profile(&self, user_id: &UserId) -> Result<Option<PublicProfile>, RepositoryError> {
         let row = sqlx::query(&format!(
-            "SELECT name, bio FROM {} WHERE user_id = $1 AND active AND name <> ''",
+            "SELECT name, bio, profile_updated_at FROM {} WHERE user_id = $1 AND active AND name <> ''",
             self.table
         ))
         .bind(user_id.uuid())
@@ -42,6 +42,7 @@ impl UserProfileRepository for PostgresUserProfileRepository {
             user_id: *user_id,
             name: r.get::<String, _>(0),
             bio: r.get::<String, _>(1),
+            profile_updated_at: r.get::<Option<DateTime<Utc>>, _>(2),
         }))
     }
 

@@ -78,7 +78,7 @@ class HomeAPI {
     delete this.client.defaults.headers.common["Authorization"];
   }
 
-  async profile(userId: string): Promise<{ id: string; name: string; bio: string }> {
+  async profile(userId: string): Promise<{ id: string; name: string; bio: string; profileUpdatedAt: string | null }> {
     const response = await this.client.get(`/v1/users/${userId}/profile`);
     return response.data.data;
   }

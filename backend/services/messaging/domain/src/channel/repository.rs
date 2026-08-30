@@ -25,7 +25,7 @@ pub trait ChannelRepository {
         server_id: &crate::server::id::ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<(UserId, UserName, String)>, RepositoryError>;
+    ) -> Result<PaginatedResult<(UserId, UserName, String, Option<DateTime<Utc>>)>, RepositoryError>;
 
     async fn is_text_channel_member(
         &self,

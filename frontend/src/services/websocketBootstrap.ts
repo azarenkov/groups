@@ -2,6 +2,7 @@ import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { profileTimestamp, useUserProfileStore } from "../store/userProfileStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useCallStore } from "../store/callStore";
@@ -246,6 +247,10 @@ function dispatch(env: WsEnvelope) {
     case "user.profileChanged": {
       const userId = asString(d.userId);
       if (!userId) return;
+      const applied = useUserProfileStore
+        .getState()
+        .apply(userId, asString(d.bio) ?? "", profileTimestamp(asString(d.occurredAt)));
+      if (!applied) return;
       window.dispatchEvent(
         new CustomEvent("rift:profile-changed", {
           detail: { userId, bio: asString(d.bio) ?? "", showActivity: d.showActivity === true },

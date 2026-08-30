@@ -25,6 +25,7 @@ pub struct ChannelParticipantResponse {
     pub id: Uuid,
     pub name: String,
     pub bio: String,
+    pub profile_updated_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl From<ChannelParticipantDto> for ChannelParticipantResponse {
@@ -33,6 +34,7 @@ impl From<ChannelParticipantDto> for ChannelParticipantResponse {
             id: dto.id,
             name: dto.name,
             bio: dto.bio,
+            profile_updated_at: dto.profile_updated_at,
         }
     }
 }

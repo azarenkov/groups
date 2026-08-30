@@ -36,6 +36,7 @@ import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
 import { homeAPI } from "../../api/home";
+import { profileTimestamp, useUserProfileStore } from "../../store/userProfileStore";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -1948,26 +1949,20 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
-  const [dmBio, setDmBio] = React.useState<string>("");
   const dmFriendIdForBio = dm?.friendId ?? null;
+  const dmBio = useUserProfileStore((s) => (dmFriendIdForBio ? (s.bios[dmFriendIdForBio]?.bio ?? "") : ""));
   React.useEffect(() => {
-    setDmBio("");
     if (!dmFriendIdForBio) return;
     let cancelled = false;
     homeAPI
       .profile(dmFriendIdForBio)
       .then((p) => {
-        if (!cancelled) setDmBio(p.bio);
+        if (cancelled) return;
+        useUserProfileStore.getState().apply(dmFriendIdForBio, p.bio, profileTimestamp(p.profileUpdatedAt));
       })
       .catch(() => {});
-    const onProfile = (e: Event) => {
-      const detail = (e as CustomEvent<{ userId: string; bio: string }>).detail;
-      if (detail?.userId === dmFriendIdForBio) setDmBio(detail.bio);
-    };
-    window.addEventListener("rift:profile-changed", onProfile);
     return () => {
       cancelled = true;
-      window.removeEventListener("rift:profile-changed", onProfile);
     };
   }, [dmFriendIdForBio]);
   const notifLevel = useNotificationPrefsStore((s) =>

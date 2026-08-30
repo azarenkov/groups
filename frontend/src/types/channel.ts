@@ -27,6 +27,7 @@ export interface ChannelParticipant {
   id: string;
   name: string;
   bio?: string;
+  profileUpdatedAt?: string | null;
 }
 
 export interface ListChannelParticipantsResponse {
