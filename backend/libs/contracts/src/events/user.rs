@@ -25,6 +25,14 @@ pub struct UserLifecycleV1 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserProfileChangedV1 {
+    pub user_id: Uuid,
+    pub bio: String,
+    pub show_activity: bool,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationIssuedV1 {
     pub user_id: Uuid,
     pub verification_code_id: Uuid,

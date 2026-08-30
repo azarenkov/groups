@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserLoggedIn, user::events::lifecycle::UserLoggedOut, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId};
+use crate::{user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserLoggedIn, user::events::lifecycle::UserLoggedOut, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId};
 
 pub mod lifecycle;
 
@@ -17,6 +17,7 @@ pub enum UserEvent {
     Disabled(UserDisabled),
     Reactivated(UserReactivated),
     Deleted(UserDeleted),
+    ProfileChanged(UserProfileChanged),
 }
 
 impl UserEvent {
@@ -33,6 +34,7 @@ impl UserEvent {
             Self::Disabled(e) => &e.user_id,
             Self::Reactivated(e) => &e.user_id,
             Self::Deleted(e) => &e.user_id,
+            Self::ProfileChanged(e) => &e.user_id,
         }
     }
 
@@ -49,6 +51,7 @@ impl UserEvent {
             Self::Disabled(e) => e.occurred_at,
             Self::Reactivated(e) => e.occurred_at,
             Self::Deleted(e) => e.occurred_at,
+            Self::ProfileChanged(e) => e.occurred_at,
         }
     }
 
@@ -65,6 +68,7 @@ impl UserEvent {
             Self::Disabled(_) => "disabled",
             Self::Reactivated(_) => "reactivated",
             Self::Deleted(_) => "deleted",
+            Self::ProfileChanged(_) => "profile_changed",
         }
     }
 }

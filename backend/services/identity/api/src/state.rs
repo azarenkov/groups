@@ -8,7 +8,7 @@ use identity::usecases::{
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
         delete_account::DeleteAccount, disable_account::DisableAccount, get_me::GetMe,
         rename::RenameUser, request_email_change::RequestEmailChange,
-        search_users::SearchUsers, update_locale::UpdateUserLocale,
+        search_users::SearchUsers, update_locale::UpdateUserLocale, update_profile::UpdateProfile,
     },
 };
 use infrastructure_common::{
@@ -59,6 +59,7 @@ pub struct AppState {
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
+    pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
     pub change_password_usecase: ChangePassword<
         PostgresUserRepository,

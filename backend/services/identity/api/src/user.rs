@@ -1,5 +1,6 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, web};
 use api_common::context::request_context;
+use identity::usecases::user::update_profile::ProfilePatch;
 use identity::usecases::user::{
     change_password::ChangePasswordRequest, confirm_email_change::ConfirmEmailChangeRequest,
     reauth::Reauth, request_email_change::RequestEmailChangeRequest,
@@ -44,6 +45,8 @@ pub struct MeResponse {
     pub email_verified: bool,
     pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub linked_providers: Vec<String>,
+    pub bio: String,
+    pub show_activity: bool,
 }
 
 #[get("/me")]
@@ -61,6 +64,8 @@ async fn get_me(
         email_verified: profile.email_verified,
         password_changed_at: profile.password_changed_at,
         linked_providers: profile.linked_providers,
+        bio: profile.bio,
+        show_activity: profile.show_activity,
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -311,4 +316,44 @@ async fn delete_me(
         .execute(user_id, &reauth, ctx.request_id.as_deref())
         .await?;
     Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfileBody {
+    #[validate(length(max = 190))]
+    pub bio: Option<String>,
+    pub show_activity: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfileResponse {
+    pub bio: String,
+    pub show_activity: bool,
+}
+
+#[patch("/me/profile")]
+async fn update_me_profile(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<UpdateProfileBody>,
+) -> Result<impl Responder, HttpError> {
+    let body = body.into_inner();
+    body.validate()?;
+    let user_id = UserId::new(auth_token.id);
+    let ctx = request_context(&req);
+    let (bio, show_activity) = app_state
+        .update_profile_usecase
+        .execute(
+            user_id,
+            ProfilePatch {
+                bio: body.bio,
+                show_activity: body.show_activity,
+                request_id: ctx.request_id,
+            },
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateProfileResponse { bio, show_activity })))
 }

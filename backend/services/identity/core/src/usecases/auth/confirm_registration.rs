@@ -41,6 +41,7 @@ impl From<UserError> for ConfirmRegistrationError {
             | UserError::ForeignCode
             | UserError::NotEmailChangeCode
             | UserError::NoPendingEmail
+            | UserError::BioTooLong
             | UserError::Deleted => Self::NotRegistration,
         }
     }

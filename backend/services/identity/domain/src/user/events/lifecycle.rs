@@ -234,3 +234,24 @@ impl UserDeleted {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct UserProfileChanged {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub bio: String,
+    pub show_activity: bool,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserProfileChanged {
+    pub fn record(user_id: UserId, bio: String, show_activity: bool, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            bio,
+            show_activity,
+            occurred_at: now,
+        }
+    }
+}

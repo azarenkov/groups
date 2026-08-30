@@ -10,7 +10,9 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+
+pub const BIO_MAX_CHARS: usize = 190;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum UserError {
@@ -34,6 +36,8 @@ pub enum UserError {
     NoPendingEmail,
     #[error("User is deleted")]
     Deleted,
+    #[error("Bio is too long")]
+    BioTooLong,
 }
 
 #[derive(Debug, Serialize)]
@@ -51,6 +55,8 @@ pub struct User {
     password_changed_at: Option<DateTime<Utc>>,
     disabled_at: Option<DateTime<Utc>>,
     deleted_at: Option<DateTime<Utc>>,
+    bio: String,
+    show_activity: bool,
     #[serde(skip)]
     events: Vec<UserEvent>,
 }
@@ -71,6 +77,8 @@ impl User {
         password_changed_at: Option<DateTime<Utc>>,
         disabled_at: Option<DateTime<Utc>>,
         deleted_at: Option<DateTime<Utc>>,
+        bio: String,
+        show_activity: bool,
     ) -> Self {
         Self {
             id,
@@ -86,6 +94,8 @@ impl User {
             password_changed_at,
             disabled_at,
             deleted_at,
+            bio,
+            show_activity,
             events: Vec::new(),
         }
     }
@@ -123,6 +133,8 @@ impl User {
             password_changed_at: None,
             disabled_at: None,
             deleted_at: None,
+            bio: String::new(),
+            show_activity: true,
             events: vec![event],
         }
     }
@@ -308,10 +320,38 @@ impl User {
         let nonce = UserId::generate().uuid().simple().to_string();
         self.email = Email::new(format!("deleted-{id}-{nonce}-{nonce}@deleted.invalid"));
         self.pending_email = None;
+        self.bio = String::new();
+        self.show_activity = false;
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
         Ok(())
+    }
+
+    pub fn update_profile(&mut self, bio: String, show_activity: bool, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        let bio = bio.trim().to_string();
+        if bio.chars().count() > BIO_MAX_CHARS {
+            return Err(UserError::BioTooLong);
+        }
+        if self.bio == bio && self.show_activity == show_activity {
+            return Ok(());
+        }
+        self.bio = bio.clone();
+        self.show_activity = show_activity;
+        self.updated_at = now;
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, now)));
+        Ok(())
+    }
+
+    pub fn bio(&self) -> &str {
+        &self.bio
+    }
+
+    pub fn show_activity(&self) -> bool {
+        self.show_activity
     }
 
     pub fn is_disabled(&self) -> bool {

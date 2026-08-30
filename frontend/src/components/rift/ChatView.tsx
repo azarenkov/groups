@@ -35,6 +35,7 @@ import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
+import { homeAPI } from "../../api/home";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -1947,6 +1948,22 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
+  const [dmBio, setDmBio] = React.useState<string>("");
+  const dmFriendIdForBio = dm?.friendId ?? null;
+  React.useEffect(() => {
+    setDmBio("");
+    if (!dmFriendIdForBio) return;
+    let cancelled = false;
+    homeAPI
+      .profile(dmFriendIdForBio)
+      .then((p) => {
+        if (!cancelled) setDmBio(p.bio);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [dmFriendIdForBio]);
   const notifLevel = useNotificationPrefsStore((s) =>
     dm
       ? (s.dmLevels[dm.friendId] ?? "all")
@@ -2082,7 +2099,10 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         </span>
         <span className="ch-name">{dm.name}</span>
         <span className="sep" />
-        <span className="topic">{dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}</span>
+        <span className="topic" title={dmBio || undefined}>
+          {dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}
+          {dmBio && <span className="topic-bio"> · {dmBio}</span>}
+        </span>
         <div className="right">
           {dm.isFriend !== false && (
           <button

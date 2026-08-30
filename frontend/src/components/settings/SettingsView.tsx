@@ -36,7 +36,6 @@ interface AppearanceSectionProps {
 
 type SectionId =
   | "account"
-  | "profile"
   | "privacy"
   | "connections"
   | "subscription"
@@ -51,7 +50,6 @@ const SETTINGS_GROUPS: { groupKey: "userSettings" | "appSettings"; items: { id: 
     groupKey: "userSettings",
     items: [
       { id: "account", icon: "user" },
-      { id: "profile", icon: "edit" },
       { id: "privacy", icon: "shield" },
       { id: "connections", icon: "link" },
       { id: "subscription", icon: "credit-card" },
@@ -109,6 +107,41 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const { t: tAuth } = useTranslation("auth");
   const user = useAuthStore((s) => s.user);
   const [dialog, setDialog] = React.useState<null | "email" | "password" | "disable" | "delete">(null);
+  const [bio, setBio] = React.useState(user?.bio ?? "");
+  const [bioBusy, setBioBusy] = React.useState(false);
+  const [bioError, setBioError] = React.useState<string | null>(null);
+  const [activityBusy, setActivityBusy] = React.useState(false);
+  React.useEffect(() => {
+    setBio(user?.bio ?? "");
+  }, [user?.bio]);
+  const bioDirty = bio.trim() !== (user?.bio ?? "");
+  const saveBio = async () => {
+    if (!user || bioBusy || !bioDirty) return;
+    setBioBusy(true);
+    setBioError(null);
+    try {
+      const saved = await userAPI.updateProfile({ bio: bio.trim() });
+      useAuthStore.getState().setUser({ ...user, bio: saved.bio, showActivity: saved.showActivity });
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setBioError(apiErr?.message || t("account.bioError"));
+    } finally {
+      setBioBusy(false);
+    }
+  };
+  const toggleActivity = async () => {
+    if (!user || activityBusy) return;
+    const next = !(user.showActivity ?? true);
+    setActivityBusy(true);
+    try {
+      const saved = await userAPI.updateProfile({ showActivity: next });
+      useAuthStore.getState().setUser({ ...user, bio: saved.bio, showActivity: saved.showActivity });
+    } catch (err) {
+      console.warn("[account] activity toggle failed:", err);
+    } finally {
+      setActivityBusy(false);
+    }
+  };
   const passwordHint = user?.passwordChangedAt
     ? t("account.passwordChangedOn", { date: new Date(user.passwordChangedAt).toLocaleDateString() })
     : t("account.passwordNeverChanged");
@@ -339,6 +372,41 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
       </div>
 
       <div className="s-section">
+        <h2>{t("account.aboutSection")}</h2>
+        <div className="s-field-row">
+          <div className="field-lbl">{t("account.about")}</div>
+          <textarea
+            className="s-input"
+            placeholder={t("account.aboutPlaceholder")}
+            value={bio}
+            maxLength={190}
+            disabled={bioBusy}
+            onChange={(e) => {
+              setBio(e.target.value);
+              setBioError(null);
+            }}
+          />
+          <div className="s-field-foot">
+            <span className="s-field-count">{bio.length}/190</span>
+            {bioDirty && (
+              <span className="s-field-actions">
+                <button className="s-btn secondary" disabled={bioBusy} onClick={() => setBio(user?.bio ?? "")}>
+                  {t("actions.cancel")}
+                </button>
+                <button className="s-btn primary" disabled={bioBusy} onClick={() => void saveBio()}>
+                  {t("actions.save")}
+                </button>
+              </span>
+            )}
+          </div>
+          {bioError && <div className="s-error">{bioError}</div>}
+        </div>
+        <SettingsRow label={t("account.showActivity")} hint={t("account.showActivityHint")}>
+          <Switch on={user?.showActivity ?? true} onClick={() => void toggleActivity()} />
+        </SettingsRow>
+      </div>
+
+      <div className="s-section">
         <h2>{t("account.passwordAuth")}</h2>
         <SettingsRow label={t("account.password")} hint={passwordHint}>
           <button className="s-btn secondary" onClick={() => setDialog("password")}>{t("actions.change")}</button>
@@ -360,44 +428,6 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
       {(dialog === "disable" || dialog === "delete") && (
         <DangerPasswordDialog mode={dialog} onClose={() => setDialog(null)} onDone={onAccountGone} />
       )}
-    </>
-  );
-}
-
-function ProfileSection() {
-  const { t } = useTranslation("settings");
-  const [bio, setBio] = React.useState("Building things at the intersection of design and language.");
-  return (
-    <>
-      <h1>{t("profile.title")}</h1>
-      <p className="lead">{t("profile.lead")}</p>
-
-      <div className="s-section">
-        <h2>{t("profile.display")}</h2>
-        <div className="s-field-row">
-          <div className="field-lbl">{t("profile.displayName")}</div>
-          <input className="s-input" defaultValue=""/>
-        </div>
-        <div className="s-field-row">
-          <div className="field-lbl">{t("profile.pronouns")}</div>
-          <input className="s-input" placeholder={t("profile.pronounsPlaceholder")} defaultValue=""/>
-        </div>
-        <div className="s-field-row">
-          <div className="field-lbl">{t("profile.about")}</div>
-          <textarea className="s-input" placeholder={t("profile.aboutPlaceholder")} value={bio} onChange={e => setBio(e.target.value)}/>
-          <div style={{ fontSize: 11, color: 'var(--fg-4)', textAlign: 'right' }}>{bio.length}/190</div>
-        </div>
-      </div>
-
-      <div className="s-section">
-        <h2>{t("profile.status")}</h2>
-        <SettingsRow label={t("profile.customStatus")} hint={t("profile.customStatusHint")}>
-          <input className="s-input" style={{ width: 200 }} placeholder={t("profile.customStatusPlaceholder")} />
-        </SettingsRow>
-        <SettingsRow label={t("profile.showActivity")} hint={t("profile.showActivityHint")}>
-          <Switch on={true} onClick={() => {}}/>
-        </SettingsRow>
-      </div>
     </>
   );
 }
@@ -815,7 +845,6 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
   let body: React.ReactNode;
   switch (activeId) {
     case 'account':       body = <AccountSection onAccountGone={() => { onClose(); useAuthStore.getState().logout(); }}/>; break;
-    case 'profile':       body = <ProfileSection/>; break;
     case 'privacy':       body = <PrivacySection/>; break;
     case 'connections':   body = <ConnectionsSection/>; break;
     case 'subscription':  body = <SubscriptionSection/>; break;

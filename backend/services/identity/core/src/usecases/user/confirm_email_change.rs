@@ -39,6 +39,7 @@ impl From<UserError> for ConfirmEmailChangeError {
             | UserError::CodeConsumed
             | UserError::ForeignCode
             | UserError::NotEmailChangeCode
+            | UserError::BioTooLong
             | UserError::NoPendingEmail => Self::NoPendingChange,
         }
     }

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
-use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
+use ports::{repository::RepositoryError, user_profile::PublicProfile, user_profile::UserProfileRepository};
 use sqlx::{Pool, Postgres, Row};
 
 use crate::database::postgres::error::map_sqlx_error_to_domain_error;
@@ -29,6 +29,49 @@ impl PostgresUserProfileRepository {
 
 #[async_trait]
 impl UserProfileRepository for PostgresUserProfileRepository {
+    async fn get_public_profile(&self, user_id: &UserId) -> Result<Option<PublicProfile>, RepositoryError> {
+        let row = sqlx::query(&format!(
+            "SELECT name, bio FROM {} WHERE user_id = $1 AND active AND name <> ''",
+            self.table
+        ))
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| PublicProfile {
+            user_id: *user_id,
+            name: r.get::<String, _>(0),
+            bio: r.get::<String, _>(1),
+        }))
+    }
+
+    async fn update_profile(
+        &self,
+        user_id: &UserId,
+        bio: &str,
+        show_activity: bool,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(&format!(
+            r#"
+            INSERT INTO {table} (user_id, name, bio, show_activity, updated_at)
+            VALUES ($1, '', $2, $3, $4)
+            ON CONFLICT (user_id) DO UPDATE
+                SET bio = EXCLUDED.bio, show_activity = EXCLUDED.show_activity,
+                    updated_at = GREATEST({table}.updated_at, EXCLUDED.updated_at)
+            "#,
+            table = self.table
+        ))
+        .bind(user_id.uuid())
+        .bind(bio)
+        .bind(show_activity)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn get_name(&self, user_id: &UserId) -> Result<Option<String>, RepositoryError> {
         let row = sqlx::query(&format!(
             "SELECT name FROM {} WHERE user_id = $1",

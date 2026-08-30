@@ -8,3 +8,4 @@ pub mod rename;
 pub mod request_email_change;
 pub mod search_users;
 pub mod update_locale;
+pub mod update_profile;

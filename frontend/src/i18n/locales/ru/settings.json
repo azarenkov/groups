@@ -6,7 +6,6 @@
   "esc": "ESC",
   "sections": {
     "account": "Мой аккаунт",
-    "profile": "Профиль",
     "privacy": "Приватность",
     "connections": "Подключения",
     "subscription": "Подписка",
@@ -84,23 +83,13 @@
     "reauthGoogle": "Google",
     "reauthGoogleHint": "Подтвердите через привязанный Google-аккаунт",
     "googleConfirmed": "Подтверждено через Google",
-    "googleNotLinked": "Этот Google-аккаунт не привязан к вашему профилю."
-  },
-  "profile": {
-    "title": "Профиль",
-    "lead": "Настройте, как выглядит ваша карточка.",
-    "display": "Внешний вид",
-    "displayName": "Имя",
-    "pronouns": "Местоимения",
-    "pronounsPlaceholder": "они/их",
+    "googleNotLinked": "Этот Google-аккаунт не привязан к вашему профилю.",
+    "aboutSection": "О себе",
     "about": "О себе",
     "aboutPlaceholder": "Расскажите немного о себе…",
-    "status": "Статус",
-    "customStatus": "Свой статус",
-    "customStatusHint": "Короткое сообщение рядом с именем.",
-    "customStatusPlaceholder": "напр. На созвоне ✦",
+    "bioError": "Не удалось сохранить описание.",
     "showActivity": "Показывать активность",
-    "showActivityHint": "Другие видят, какое приложение или игру вы используете."
+    "showActivityHint": "Друзья видят, в каком голосовом канале вы находитесь."
   },
   "privacy": {
     "title": "Приватность",

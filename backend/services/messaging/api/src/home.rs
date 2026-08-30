@@ -80,3 +80,28 @@ async fn get_home_overview(
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PublicProfileResponse {
+    id: Uuid,
+    name: String,
+    bio: String,
+}
+
+#[get("/{user_id}/profile")]
+async fn get_user_profile(
+    _auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, HttpError> {
+    let profile = app_state
+        .get_user_profile_usecase
+        .execute(UserId::new(path.into_inner()))
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
+        id: profile.user_id.uuid(),
+        name: profile.name,
+        bio: profile.bio,
+    })))
+}

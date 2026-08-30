@@ -6,6 +6,7 @@ pub mod delete_server;
 pub mod resolve_deleted_user_servers;
 pub mod enforce_departure;
 pub mod get_home_overview;
+pub mod get_user_profile;
 pub mod get_voice_presence;
 pub mod invite_codes;
 pub mod kick_member;
