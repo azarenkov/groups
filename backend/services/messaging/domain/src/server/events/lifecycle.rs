@@ -143,3 +143,32 @@ impl ServerMemberLeft {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct ServerOwnerChanged {
+    pub id: EventId,
+    pub server_id: ServerId,
+    pub previous_owner_id: UserId,
+    pub owner_id: UserId,
+    pub member_ids: Vec<UserId>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ServerOwnerChanged {
+    pub fn record(
+        server_id: ServerId,
+        previous_owner_id: UserId,
+        owner_id: UserId,
+        member_ids: Vec<UserId>,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            server_id,
+            previous_owner_id,
+            owner_id,
+            member_ids,
+            occurred_at: now,
+        }
+    }
+}

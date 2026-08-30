@@ -21,6 +21,7 @@ pub struct WsState {
     pub manager: ConnectionManager<PostgresRealtimeProjection>,
     pub jwt_secret: String,
     pub outbound_buffer: usize,
+    pub access_revocations: api_common::middleware::revocation::AccessRevocations,
 }
 
 fn extract_bearer_token(req: &HttpRequest) -> Option<(String, String)> {
@@ -55,7 +56,8 @@ fn extract_bearer_token_from_auth_header(req: &HttpRequest) -> Option<String> {
     raw.strip_prefix("Bearer ").map(|s| s.trim().to_string())
 }
 
-fn authenticate_request(req: &HttpRequest, secret: &str) -> Option<Uuid> {
+async fn authenticate_request(req: &HttpRequest, state: &WsState) -> Option<Uuid> {
+    let secret = state.jwt_secret.as_str();
     let token = extract_bearer_token_from_auth_header(req)?;
     let decoded = decode::<AccessTokenClaims>(
         &token,
@@ -66,7 +68,18 @@ fn authenticate_request(req: &HttpRequest, secret: &str) -> Option<Uuid> {
     if decoded.claims.token_type != TokenType::Access || !decoded.claims.verified {
         return None;
     }
-    Some(decoded.claims.sub)
+    match state
+        .access_revocations
+        .is_revoked(&decoded.claims.sub, decoded.claims.iat)
+        .await
+    {
+        Ok(false) => Some(decoded.claims.sub),
+        Ok(true) => None,
+        Err(e) => {
+            tracing::warn!(error = %e, "Revocation check failed; rejecting request");
+            None
+        }
+    }
 }
 
 #[post("/presence")]
@@ -75,7 +88,7 @@ pub async fn presence_preference(
     state: web::Data<WsState>,
     body: web::Json<PresencePreferenceBody>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let Some(user_id) = authenticate_request(&req, &state.jwt_secret) else {
+    let Some(user_id) = authenticate_request(&req, &state).await else {
         return Ok(HttpResponse::Unauthorized().body("invalid token"));
     };
     state
@@ -95,7 +108,7 @@ pub async fn ws_handler(
         return Ok(HttpResponse::Unauthorized().body("missing token"));
     };
 
-    let (user_id, token_exp) = match decode::<AccessTokenClaims>(
+    let (user_id, token_exp, token_iat) = match decode::<AccessTokenClaims>(
         &token,
         &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
         &Validation::new(jsonwebtoken::Algorithm::HS256),
@@ -107,7 +120,19 @@ pub async fn ws_handler(
             if !decoded.claims.verified {
                 return Ok(HttpResponse::Forbidden().body("email not verified"));
             }
-            (decoded.claims.sub, decoded.claims.exp)
+            match state
+                .access_revocations
+                .is_revoked(&decoded.claims.sub, decoded.claims.iat)
+                .await
+            {
+                Ok(false) => {}
+                Ok(true) => return Ok(HttpResponse::Unauthorized().body("token revoked")),
+                Err(e) => {
+                    tracing::warn!(error = %e, "Revocation check failed; rejecting websocket");
+                    return Ok(HttpResponse::ServiceUnavailable().body("revocation check unavailable"));
+                }
+            }
+            (decoded.claims.sub, decoded.claims.exp, decoded.claims.iat)
         }
         Err(_) => return Ok(HttpResponse::Unauthorized().body("invalid token")),
     };
@@ -134,10 +159,20 @@ pub async fn ws_handler(
         session,
         msg_stream,
         outbound_buffer,
-        token_ttl,
+        ConnectionAuth {
+            token_ttl,
+            token_iat,
+            access_revocations: state.access_revocations.clone(),
+        },
     ));
 
     Ok(response)
+}
+
+struct ConnectionAuth {
+    token_ttl: Duration,
+    token_iat: i64,
+    access_revocations: api_common::middleware::revocation::AccessRevocations,
 }
 
 async fn connection_task(
@@ -146,8 +181,13 @@ async fn connection_task(
     mut session: actix_ws::Session,
     msg_stream: actix_ws::MessageStream,
     outbound_buffer: usize,
-    token_ttl: Duration,
+    auth: ConnectionAuth,
 ) {
+    let ConnectionAuth {
+        token_ttl,
+        token_iat,
+        access_revocations,
+    } = auth;
     let (tx, mut rx) = mpsc::channel::<String>(outbound_buffer);
     let conn = Connection::new(user_id, tx);
     let conn_id = conn.id;
@@ -183,6 +223,17 @@ async fn connection_task(
             }
 
             _ = hb_interval.tick() => {
+                match access_revocations.is_revoked(&user_id, token_iat).await {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        tracing::info!(%user_id, %conn_id, "WS access token revoked; closing");
+                        break Some((actix_ws::CloseCode::Other(4001), "token revoked"));
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, %user_id, %conn_id, "WS revocation check failed; closing");
+                        break Some((actix_ws::CloseCode::Error, "revocation check unavailable"));
+                    }
+                }
                 if last_seen.elapsed() >= CLIENT_TIMEOUT {
                     tracing::info!(%user_id, %conn_id, "WS client timed out");
                     break Some((actix_ws::CloseCode::Away, "client timeout"));

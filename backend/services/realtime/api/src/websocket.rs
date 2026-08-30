@@ -79,6 +79,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         manager: manager.clone(),
         jwt_secret: cfg.jwt_secret.clone(),
         outbound_buffer: cfg.websocket_outbound_buffer,
+        access_revocations: api_common::middleware::revocation::AccessRevocations::from_env().await,
     });
 
     let bind_address = cfg.bind_address.clone();

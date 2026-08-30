@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId};
+use chrono::{DateTime, Utc};
+use identity_domain::{events::IdentityEvent, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
@@ -126,7 +127,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             UserDto,
             r#"
             SELECT id, name, email, password_hash, created_at, updated_at,
-                   email_verified_at, phone_verified_at, locale
+                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at
             FROM users
             WHERE id = $1
             FOR UPDATE
@@ -178,6 +179,92 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         }))
     }
 
+    async fn load_pending_verification_for_purpose_for_update(&mut self, user_id: &UserId, purpose: VerificationPurpose) -> Result<Option<VerificationCode>, RepositoryError> {
+        let purpose_dto = VerificationPurposeDto::from(&purpose);
+        let row = sqlx::query!(
+            r#"
+                SELECT
+                    id,
+                    user_id,
+                    channel AS "channel: VerificationChannelDto",
+                    code_hash,
+                    purpose AS "purpose: VerificationPurposeDto",
+                    expires_at,
+                    consumed_at,
+                    attempts,
+                    created_at
+                FROM verification_codes
+                WHERE user_id = $1 AND consumed_at IS NULL AND purpose = $2
+                ORDER BY created_at DESC
+                LIMIT 1
+                FOR UPDATE
+            "#,
+            user_id.uuid(),
+            purpose_dto as VerificationPurposeDto,
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|row| {
+            VerificationCode::restore(
+                VerificationCodeId::new(row.id),
+                UserId::new(row.user_id),
+                row.channel.into(),
+                CodeHash::new(row.code_hash),
+                row.purpose.into(),
+                row.expires_at,
+                row.consumed_at,
+                row.attempts as u8,
+                row.created_at,
+            )
+        }))
+    }
+
+    async fn link_oauth_identity(&mut self, provider: &str, subject: &str, user_id: &UserId, email: &Email) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+                INSERT INTO oauth_identities (provider, subject, user_id, email)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (provider, subject) DO NOTHING
+            "#,
+            provider,
+            subject,
+            user_id.uuid(),
+            email.as_str(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn delete_oauth_identities(&mut self, user_id: &UserId) -> Result<(), RepositoryError> {
+        sqlx::query!("DELETE FROM oauth_identities WHERE user_id = $1", user_id.uuid())
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn revoke_refresh_tokens_for_user(&mut self, user_id: &UserId, keep: Option<&RefreshTokenId>, now: DateTime<Utc>) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+                UPDATE refresh_tokens
+                SET revoked_at = $2
+                WHERE user_id = $1
+                  AND revoked_at IS NULL
+                  AND ($3::uuid IS NULL OR id <> $3)
+            "#,
+            user_id.uuid(),
+            now,
+            keep.map(|k| k.uuid()),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn load_refresh_token_for_update(&mut self, id: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError> {
         let row = sqlx::query!(
             r#"
@@ -214,7 +301,13 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                     locale = $3,
                     email_verified_at = $4,
                     phone_verified_at = $5,
-                    updated_at = $6
+                    updated_at = $6,
+                    email = $7,
+                    password_hash = $8,
+                    pending_email = $9,
+                    password_changed_at = $10,
+                    disabled_at = $11,
+                    deleted_at = $12
                 WHERE id = $1
             "#,
             user.id().uuid(),
@@ -223,6 +316,12 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             user.email_verified_at(),
             user.phone_verified_at(),
             user.updated_at(),
+            user.email().as_str(),
+            user.password_hash().as_str(),
+            user.pending_email().map(|e| e.as_str()),
+            user.password_changed_at(),
+            user.disabled_at(),
+            user.deleted_at(),
         )
         .execute(&mut *self.tx)
         .await

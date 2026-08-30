@@ -1,6 +1,7 @@
 pub mod accept_call;
 pub mod add_participants;
 pub mod decline_call;
+pub mod enforce_user_deactivation;
 pub mod get_active_call;
 pub mod get_active_call_with;
 pub mod join_call;

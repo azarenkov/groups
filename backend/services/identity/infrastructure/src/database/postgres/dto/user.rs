@@ -14,6 +14,10 @@ pub struct UserDto {
     pub email_verified_at: Option<DateTime<Utc>>,
     pub phone_verified_at: Option<DateTime<Utc>>,
     pub locale: String,
+    pub pending_email: Option<String>,
+    pub password_changed_at: Option<DateTime<Utc>>,
+    pub disabled_at: Option<DateTime<Utc>>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl From<UserDto> for User {
@@ -29,6 +33,10 @@ impl From<UserDto> for User {
             dto.email_verified_at,
             dto.phone_verified_at,
             locale,
+            dto.pending_email.map(Email::new),
+            dto.password_changed_at,
+            dto.disabled_at,
+            dto.deleted_at,
         )
     }
 }

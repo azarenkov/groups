@@ -6,6 +6,7 @@ use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::auth::login_user::LoginUserRequest,
+    usecases::auth::reactivation::wait_past_cutoff,
     ports::{
         hasher::{HashError, Hasher},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
@@ -71,6 +72,10 @@ where
             .await?
             .ok_or(LoginError::InvalidCredentials)?;
 
+        if user.is_deleted() {
+            return Err(LoginError::InvalidCredentials);
+        }
+
         if !self
             .hasher
             .verify(&request.password, user.password_hash().as_str())?
@@ -78,11 +83,37 @@ where
             return Err(LoginError::InvalidCredentials);
         }
 
-        let is_verified = user.is_verified();
-        let requires_verification = !is_verified;
         let user_id = user.id_ownned();
-        let tokens = self.token_issuer.issue(&user_id, is_verified).await?;
 
+        let mut tx = self.unit_of_work.begin().await?;
+        let mut events = Vec::new();
+        let mut locked = tx
+            .load_user_for_update(&user_id)
+            .await?
+            .ok_or(LoginError::InvalidCredentials)?;
+        if locked.is_deleted() {
+            return Err(LoginError::InvalidCredentials);
+        }
+        if locked.password_hash().as_str() != user.password_hash().as_str()
+            && !self
+                .hasher
+                .verify(&request.password, locked.password_hash().as_str())?
+        {
+            return Err(LoginError::InvalidCredentials);
+        }
+        if let Some(disabled_at) = locked.disabled_at() {
+            locked.reactivate(Utc::now());
+            events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
+            tx.save_user(&locked).await?;
+            wait_past_cutoff(disabled_at).await;
+        }
+        if let Some(changed_at) = locked.password_changed_at() {
+            wait_past_cutoff(changed_at).await;
+        }
+        let is_verified = locked.is_verified();
+        let requires_verification = !is_verified;
+
+        let tokens = self.token_issuer.issue(&user_id, is_verified).await?;
         let refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,
             user_id,
@@ -90,17 +121,15 @@ where
             request.client.ip.clone(),
             request.client.user_agent.clone(),
         );
-
-        let event = UserEvent::LoggedIn(UserLoggedIn::record(
+        events.push(IdentityEvent::from(UserEvent::LoggedIn(UserLoggedIn::record(
             user_id,
             tokens.refresh_token_id,
             request.client.ip,
             request.client.user_agent,
             Utc::now(),
-        ));
-        let mut tx = self.unit_of_work.begin().await?;
+        ))));
         tx.insert_refresh_token(&refresh_token).await?;
-        tx.save_events(&[IdentityEvent::from(event)], request.ctx.request_id.as_deref())
+        tx.save_events(&events, request.ctx.request_id.as_deref())
             .await?;
         tx.commit().await?;
 

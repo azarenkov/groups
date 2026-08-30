@@ -18,6 +18,8 @@ pub enum JoinCallError {
     NotParticipant,
     #[error("User not found")]
     UserNotFound,
+    #[error("Account is inactive")]
+    AccountInactive,
 }
 
 pub struct JoinCallResult {
@@ -63,6 +65,9 @@ where
                 .ok_or(JoinCallError::UserNotFound)?,
         );
 
+        if !self.user_repository.is_active(&user_id).await? {
+            return Err(JoinCallError::AccountInactive);
+        }
         let room = ChannelId::new(call_id);
         let token = self
             .voice_service
@@ -83,6 +88,13 @@ where
             .await?;
         if !joined {
             return Err(JoinCallError::NotParticipant);
+        }
+        if !self.user_repository.is_active(&user_id).await? {
+            self.call_repository
+                .leave(call_id, &user_id, Utc::now(), None)
+                .await?;
+            let _ = self.voice_service.remove_participant(&room, &user_id).await;
+            return Err(JoinCallError::AccountInactive);
         }
 
         participants.push(CallParticipantView {

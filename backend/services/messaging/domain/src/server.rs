@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{channel::moderation::ModerationGrant, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId, server::name::ServerName, server::policy::MAX_ROLES_PER_SERVER, server::policy::PolicyError, server::role::PERM_ALL, server::role::PERM_KICK_MEMBERS, server::role::PERM_MANAGE_CHANNELS, server::role::PERM_MANAGE_INVITES, server::role::PERM_MANAGE_MESSAGES, server::role::PERM_MANAGE_ROLES, server::role::PERM_MANAGE_SERVER, server::role::PERM_MUTE_MEMBERS, server::role::RolePatch, server::role::ServerRole, server::role::has_permission};
+use crate::{channel::moderation::ModerationGrant, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerOwnerChanged, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId, server::name::ServerName, server::policy::MAX_ROLES_PER_SERVER, server::policy::PolicyError, server::role::PERM_ALL, server::role::PERM_KICK_MEMBERS, server::role::PERM_MANAGE_CHANNELS, server::role::PERM_MANAGE_INVITES, server::role::PERM_MANAGE_MESSAGES, server::role::PERM_MANAGE_ROLES, server::role::PERM_MANAGE_SERVER, server::role::PERM_MUTE_MEMBERS, server::role::RolePatch, server::role::ServerRole, server::role::has_permission};
 use domain::user::id::UserId;
 
 #[derive(Debug)]
@@ -119,6 +119,23 @@ impl Server {
             members,
             events: vec![event],
         }
+    }
+
+    pub fn transfer_ownership(&mut self, new_owner: UserId, now: DateTime<Utc>) -> Result<(), PolicyError> {
+        if !self.is_member(&new_owner) {
+            return Err(PolicyError::NotMember);
+        }
+        let previous = self.owner_id;
+        self.owner_id = new_owner;
+        self.updated_at = now;
+        self.record(ServerEvent::OwnerChanged(ServerOwnerChanged::record(
+            self.id,
+            previous,
+            new_owner,
+            self.member_ids(),
+            now,
+        )));
+        Ok(())
     }
 
     pub fn delete(&mut self, member_ids: Vec<UserId>, now: DateTime<Utc>) {

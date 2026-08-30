@@ -18,6 +18,8 @@ pub enum AcceptCallError {
     NotParticipant,
     #[error("User not found")]
     UserNotFound,
+    #[error("Account is inactive")]
+    AccountInactive,
 }
 
 pub struct AcceptCallResult {
@@ -76,6 +78,9 @@ where
                 .ok_or(AcceptCallError::UserNotFound)?,
         );
 
+        if !self.user_repository.is_active(&user_id).await? {
+            return Err(AcceptCallError::AccountInactive);
+        }
         let room = ChannelId::new(call_id);
         let token = self
             .voice_service
@@ -92,8 +97,15 @@ where
 
         let accepted = self
             .call_repository
-            .respond(call_id, &user_id, true, Utc::now(), request_id)
+            .respond(call_id, &user_id, true, Utc::now(), request_id.clone())
             .await?;
+        if !self.user_repository.is_active(&user_id).await? {
+            self.call_repository
+                .leave(call_id, &user_id, Utc::now(), request_id)
+                .await?;
+            let _ = self.voice_service.remove_participant(&room, &user_id).await;
+            return Err(AcceptCallError::AccountInactive);
+        }
 
         if !accepted
             && !self

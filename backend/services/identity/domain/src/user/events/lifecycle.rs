@@ -147,3 +147,90 @@ impl UserRenamed {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct UserPasswordChanged {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserPasswordChanged {
+    pub fn record(user_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UserEmailChanged {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub email: Email,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserEmailChanged {
+    pub fn record(user_id: UserId, email: Email, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            email,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UserDisabled {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserDisabled {
+    pub fn record(user_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UserReactivated {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserReactivated {
+    pub fn record(user_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UserDeleted {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserDeleted {
+    pub fn record(user_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            occurred_at: now,
+        }
+    }
+}

@@ -89,7 +89,13 @@ use identity::usecases::auth::login::LoginError;
 use identity::usecases::auth::logout::LogoutError;
 use identity::usecases::auth::refresh_tokens::RefreshTokensError;
 use identity::usecases::auth::register::RegistrationError;
+use identity::usecases::user::change_password::ChangePasswordError;
+use identity::usecases::user::confirm_email_change::ConfirmEmailChangeError;
+use identity::usecases::user::delete_account::DeleteAccountError;
+use identity::usecases::user::disable_account::DisableAccountError;
 use identity::usecases::user::get_me::GetMeError;
+use identity::usecases::user::reauth::ReauthError;
+use identity::usecases::user::request_email_change::RequestEmailChangeError;
 use identity::usecases::user::rename::RenameUserError;
 use identity::usecases::user::search_users::SearchUsersError;
 use identity::usecases::user::update_locale::UpdateLocaleError;
@@ -166,6 +172,7 @@ impl HttpMapping for GoogleLoginError {
             GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
             GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
             GoogleLoginError::AccountConflict => StatusCode::CONFLICT,
+            GoogleLoginError::AccountDeleted => StatusCode::FORBIDDEN,
             GoogleLoginError::UsernameTaken => StatusCode::CONFLICT,
             GoogleLoginError::InvalidName(UserNameError::Reserved) => {
                 StatusCode::UNPROCESSABLE_ENTITY
@@ -195,6 +202,7 @@ impl HttpMapping for GoogleLoginError {
             GoogleLoginError::AccountConflict => {
                 "This email is already linked to a different Google account".to_string()
             }
+            GoogleLoginError::AccountDeleted => "This account has been deleted".to_string(),
             GoogleLoginError::UsernameTaken => "This username is already taken".to_string(),
             GoogleLoginError::InvalidName(UserNameError::Reserved)
             | GoogleLoginError::NameNotAllowed => "This username is not allowed.".to_string(),
@@ -222,6 +230,7 @@ impl HttpMapping for GoogleLoginError {
             GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
             GoogleLoginError::AccountConflict => "GOOGLE_ACCOUNT_CONFLICT",
+            GoogleLoginError::AccountDeleted => "ACCOUNT_DELETED",
             GoogleLoginError::UsernameTaken => "GOOGLE_USERNAME_TAKEN",
             GoogleLoginError::InvalidName(UserNameError::Reserved)
             | GoogleLoginError::NameNotAllowed => "NAME_NOT_ALLOWED",
@@ -503,6 +512,7 @@ impl HttpMapping for RenameUserError {
             }
             RenameUserError::InvalidName(_) => StatusCode::BAD_REQUEST,
             RenameUserError::NameTaken => StatusCode::CONFLICT,
+            RenameUserError::UserNotFound => StatusCode::NOT_FOUND,
             RenameUserError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
             RenameUserError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -515,6 +525,7 @@ impl HttpMapping for RenameUserError {
             | RenameUserError::NameNotAllowed => "This username is not allowed.".to_string(),
             RenameUserError::InvalidName(e) => e.to_string(),
             RenameUserError::NameTaken => "This username is already taken".to_string(),
+            RenameUserError::UserNotFound => "User not found".to_string(),
             RenameUserError::ModerationUnavailable(_) => {
                 "Username moderation is temporarily unavailable. Try again later.".to_string()
             }
@@ -528,6 +539,7 @@ impl HttpMapping for RenameUserError {
             | RenameUserError::NameNotAllowed => "NAME_NOT_ALLOWED",
             RenameUserError::InvalidName(_) => "NAME_INVALID_FORMAT",
             RenameUserError::NameTaken => "NAME_TAKEN",
+            RenameUserError::UserNotFound => "USER_NOT_FOUND",
             RenameUserError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
         }
     }
@@ -602,6 +614,209 @@ impl HttpMapping for ports::file_storage::FileStorageError {
         match self {
             ports::file_storage::FileStorageError::NotFound => "ATTACHMENT_NOT_FOUND",
             ports::file_storage::FileStorageError::Internal(_) => "STORAGE_UNAVAILABLE",
+        }
+    }
+}
+
+impl HttpMapping for ChangePasswordError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ChangePasswordError::Repository(e) => e.to_http_status(),
+            ChangePasswordError::Hash(e) => e.to_http_status(),
+            ChangePasswordError::TokenIssuer(e) => e.to_http_status(),
+            ChangePasswordError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
+            ChangePasswordError::Reauth(e) => e.to_http_status(),
+            ChangePasswordError::SamePassword => StatusCode::BAD_REQUEST,
+            ChangePasswordError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ChangePasswordError::Repository(e) => e.to_user_message(),
+            ChangePasswordError::Hash(e) => e.to_user_message(),
+            ChangePasswordError::TokenIssuer(e) => e.to_user_message(),
+            ChangePasswordError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
+            ChangePasswordError::Reauth(e) => e.to_user_message(),
+            ChangePasswordError::SamePassword => "New password must differ from the current one".to_string(),
+            ChangePasswordError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ChangePasswordError::Repository(e) => e.to_error_code(),
+            ChangePasswordError::Hash(e) => e.to_error_code(),
+            ChangePasswordError::TokenIssuer(e) => e.to_error_code(),
+            ChangePasswordError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
+            ChangePasswordError::Reauth(e) => e.to_error_code(),
+            ChangePasswordError::SamePassword => "SAME_PASSWORD",
+            ChangePasswordError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for RequestEmailChangeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RequestEmailChangeError::Repository(e) => e.to_http_status(),
+            RequestEmailChangeError::Hash(e) => e.to_http_status(),
+            RequestEmailChangeError::Reauth(e) => e.to_http_status(),
+            RequestEmailChangeError::EmailTaken => StatusCode::CONFLICT,
+            RequestEmailChangeError::SameEmail => StatusCode::BAD_REQUEST,
+            RequestEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            RequestEmailChangeError::Repository(e) => e.to_user_message(),
+            RequestEmailChangeError::Hash(e) => e.to_user_message(),
+            RequestEmailChangeError::Reauth(e) => e.to_user_message(),
+            RequestEmailChangeError::EmailTaken => "This email is already in use".to_string(),
+            RequestEmailChangeError::SameEmail => "This is already your email".to_string(),
+            RequestEmailChangeError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RequestEmailChangeError::Repository(e) => e.to_error_code(),
+            RequestEmailChangeError::Hash(e) => e.to_error_code(),
+            RequestEmailChangeError::Reauth(e) => e.to_error_code(),
+            RequestEmailChangeError::EmailTaken => "EMAIL_TAKEN",
+            RequestEmailChangeError::SameEmail => "SAME_EMAIL",
+            RequestEmailChangeError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for ConfirmEmailChangeError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ConfirmEmailChangeError::Repository(e) => e.to_http_status(),
+            ConfirmEmailChangeError::Hash(e) => e.to_http_status(),
+            ConfirmEmailChangeError::NoPendingChange => StatusCode::CONFLICT,
+            ConfirmEmailChangeError::EmailTaken => StatusCode::CONFLICT,
+            ConfirmEmailChangeError::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            ConfirmEmailChangeError::CodeExpired => StatusCode::GONE,
+            ConfirmEmailChangeError::BadCode => StatusCode::BAD_REQUEST,
+            ConfirmEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ConfirmEmailChangeError::Repository(e) => e.to_user_message(),
+            ConfirmEmailChangeError::Hash(e) => e.to_user_message(),
+            ConfirmEmailChangeError::NoPendingChange => "No pending email change".to_string(),
+            ConfirmEmailChangeError::EmailTaken => "This email is already in use".to_string(),
+            ConfirmEmailChangeError::TooManyAttempts => "Too many attempts, request a new code".to_string(),
+            ConfirmEmailChangeError::CodeExpired => "Verification code has expired".to_string(),
+            ConfirmEmailChangeError::BadCode => "Incorrect verification code".to_string(),
+            ConfirmEmailChangeError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ConfirmEmailChangeError::Repository(e) => e.to_error_code(),
+            ConfirmEmailChangeError::Hash(e) => e.to_error_code(),
+            ConfirmEmailChangeError::NoPendingChange => "NO_PENDING_EMAIL_CHANGE",
+            ConfirmEmailChangeError::EmailTaken => "EMAIL_TAKEN",
+            ConfirmEmailChangeError::TooManyAttempts => "TOO_MANY_ATTEMPTS",
+            ConfirmEmailChangeError::CodeExpired => "CODE_EXPIRED",
+            ConfirmEmailChangeError::BadCode => "BAD_CODE",
+            ConfirmEmailChangeError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for DisableAccountError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DisableAccountError::Repository(e) => e.to_http_status(),
+            DisableAccountError::Hash(e) => e.to_http_status(),
+            DisableAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
+            DisableAccountError::Reauth(e) => e.to_http_status(),
+            DisableAccountError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DisableAccountError::Repository(e) => e.to_user_message(),
+            DisableAccountError::Hash(e) => e.to_user_message(),
+            DisableAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
+            DisableAccountError::Reauth(e) => e.to_user_message(),
+            DisableAccountError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DisableAccountError::Repository(e) => e.to_error_code(),
+            DisableAccountError::Hash(e) => e.to_error_code(),
+            DisableAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
+            DisableAccountError::Reauth(e) => e.to_error_code(),
+            DisableAccountError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for DeleteAccountError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeleteAccountError::Repository(e) => e.to_http_status(),
+            DeleteAccountError::Hash(e) => e.to_http_status(),
+            DeleteAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
+            DeleteAccountError::Reauth(e) => e.to_http_status(),
+            DeleteAccountError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            DeleteAccountError::Repository(e) => e.to_user_message(),
+            DeleteAccountError::Hash(e) => e.to_user_message(),
+            DeleteAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
+            DeleteAccountError::Reauth(e) => e.to_user_message(),
+            DeleteAccountError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeleteAccountError::Repository(e) => e.to_error_code(),
+            DeleteAccountError::Hash(e) => e.to_error_code(),
+            DeleteAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
+            DeleteAccountError::Reauth(e) => e.to_error_code(),
+            DeleteAccountError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for ReauthError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ReauthError::Repository(e) => e.to_http_status(),
+            ReauthError::Hash(e) => e.to_http_status(),
+            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => StatusCode::SERVICE_UNAVAILABLE,
+            ReauthError::Verify(OAuthVerifyError::Transport(_)) => StatusCode::BAD_GATEWAY,
+            ReauthError::Verify(_) => StatusCode::UNAUTHORIZED,
+            ReauthError::InvalidPassword | ReauthError::OAuthNotLinked => StatusCode::FORBIDDEN,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            ReauthError::Repository(e) => e.to_user_message(),
+            ReauthError::Hash(e) => e.to_user_message(),
+            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => "Google sign-in is not configured".to_string(),
+            ReauthError::Verify(OAuthVerifyError::Transport(_)) => "Could not verify the Google token".to_string(),
+            ReauthError::Verify(_) => "Invalid Google token".to_string(),
+            ReauthError::InvalidPassword => "Password is incorrect".to_string(),
+            ReauthError::OAuthNotLinked => "This Google account is not linked to your profile".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ReauthError::Repository(e) => e.to_error_code(),
+            ReauthError::Hash(e) => e.to_error_code(),
+            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => "GOOGLE_NOT_CONFIGURED",
+            ReauthError::Verify(OAuthVerifyError::Transport(_)) => "GOOGLE_VERIFY_UNAVAILABLE",
+            ReauthError::Verify(_) => "GOOGLE_TOKEN_INVALID",
+            ReauthError::InvalidPassword => "INVALID_PASSWORD",
+            ReauthError::OAuthNotLinked => "OAUTH_NOT_LINKED",
         }
     }
 }

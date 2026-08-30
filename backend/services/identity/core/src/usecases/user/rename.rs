@@ -15,6 +15,8 @@ pub enum RenameUserError {
     InvalidName(#[from] UserNameError),
     #[error("Username is already taken")]
     NameTaken,
+    #[error("User not found")]
+    UserNotFound,
     #[error("Username is not allowed")]
     NameNotAllowed,
     #[error("Username moderation unavailable: {0}")]
@@ -78,7 +80,8 @@ where
                 .load_user_for_update(&user_id)
                 .await?
                 .ok_or(RepositoryError::NotFound)?;
-            user.rename(name.clone(), Utc::now());
+            user.rename(name.clone(), Utc::now())
+                .map_err(|_| RenameUserError::UserNotFound)?;
             let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
             tx.save_user(&user).await?;
             tx.save_events(&events, None).await?;

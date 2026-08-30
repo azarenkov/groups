@@ -15,6 +15,11 @@ pub trait MediaRepository {
         user_id: &UserId,
         key: Option<&str>,
     ) -> Result<Option<String>, RepositoryError>;
+    async fn mark_user_deleted(
+        &self,
+        user_id: &UserId,
+        deleted_at: DateTime<Utc>,
+    ) -> Result<Option<String>, RepositoryError>;
     async fn get_server_logo_key(
         &self,
         server_id: &ServerId,

@@ -7,6 +7,9 @@ interface User {
   id: string;
   name: string;
   email: string;
+  emailVerified?: boolean;
+  passwordChangedAt?: string | null;
+  linkedProviders?: string[];
 }
 
 export interface TokenPair {
@@ -78,7 +81,16 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   fetchMe: async () => {
     const { userAPI } = await import("../api/user");
     const me = await userAPI.getMe();
-    set({ user: { id: me.id, name: me.name, email: me.email } });
+    set({
+      user: {
+        id: me.id,
+        name: me.name,
+        email: me.email,
+        emailVerified: me.emailVerified,
+        passwordChangedAt: me.passwordChangedAt,
+        linkedProviders: me.linkedProviders,
+      },
+    });
     if (me.locale === "ru" || me.locale === "en") {
       const { setLocale, currentLocale } = await import("../i18n");
       if (currentLocale() !== me.locale) {

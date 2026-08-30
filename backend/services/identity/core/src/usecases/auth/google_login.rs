@@ -6,6 +6,7 @@ use domain::{password_hash::PasswordHash, user::id::UserId, user::name::Reserved
 use ports::repository::RepositoryError;
 
 use crate::{
+    usecases::auth::reactivation::wait_past_cutoff,
     dto::requests::{
         auth::{google_complete::GoogleCompleteRequest, google_login::GoogleLoginRequest},
         client_context::ClientContext,
@@ -33,6 +34,8 @@ pub enum GoogleLoginError {
     EmailNotVerified,
     #[error("This email is already linked to a different Google account")]
     AccountConflict,
+    #[error("This account has been deleted")]
+    AccountDeleted,
     #[error("This username is already taken")]
     UsernameTaken,
     #[error("Invalid username: {0}")]
@@ -43,6 +46,13 @@ pub enum GoogleLoginError {
     ModerationUnavailable(String),
     #[error("User state lookup unavailable: {0}")]
     StateLookupUnavailable(#[from] UserStateLookupError),
+}
+
+struct OAuthLink<'a> {
+    provider: &'a str,
+    subject: String,
+    email: Email,
+    claim_password: Option<PasswordHash>,
 }
 
 pub enum GoogleLoginOutcome {
@@ -124,14 +134,18 @@ where
             .find_user_id_by_oauth(provider_str, &identity.subject)
             .await?
         {
+            self.ensure_linked_user_active(&user_id).await?;
             let tokens = self
-                .issue_session(user_id, request.client, request.ctx.request_id)
+                .issue_session(user_id, request.client, request.ctx.request_id, None)
                 .await?;
             return Ok(GoogleLoginOutcome::Authenticated(tokens));
         }
 
         match self.user_repository.find_by_email(&email).await? {
             Some(user) => {
+                if user.is_deleted() {
+                    return Err(GoogleLoginError::AccountDeleted);
+                }
                 let user_id = user.id_ownned();
 
                 if self
@@ -143,10 +157,8 @@ where
                     return Err(GoogleLoginError::AccountConflict);
                 }
 
-                if user.is_email_verified() {
-                    self.user_repository
-                        .link_oauth_identity(provider_str, &identity.subject, &user_id, &email)
-                        .await?;
+                let claim_password = if user.is_email_verified() {
+                    None
                 } else {
                     if self
                         .user_state_lookup
@@ -156,21 +168,21 @@ where
                         return Err(GoogleLoginError::AccountConflict);
                     }
                     let random_secret = uuid::Uuid::new_v4().to_string();
-                    let password_hash = PasswordHash::new(self.hasher.hash(&random_secret)?);
-                    self.user_repository
-                        .claim_with_oauth(
-                            &user_id,
-                            &password_hash,
-                            Utc::now(),
-                            provider_str,
-                            &identity.subject,
-                            &email,
-                        )
-                        .await?;
-                }
+                    Some(PasswordHash::new(self.hasher.hash(&random_secret)?))
+                };
 
                 let tokens = self
-                    .issue_session(user_id, request.client, request.ctx.request_id)
+                    .issue_session(
+                        user_id,
+                        request.client,
+                        request.ctx.request_id,
+                        Some(OAuthLink {
+                            provider: provider_str,
+                            subject: identity.subject.clone(),
+                            email: email.clone(),
+                            claim_password,
+                        }),
+                    )
                     .await?;
                 Ok(GoogleLoginOutcome::Authenticated(tokens))
             }
@@ -198,8 +210,9 @@ where
             .find_user_id_by_oauth(provider_str, &identity.subject)
             .await?
         {
+            self.ensure_linked_user_active(&user_id).await?;
             return self
-                .issue_session(user_id, request.client, request.ctx.request_id)
+                .issue_session(user_id, request.client, request.ctx.request_id, None)
                 .await;
         }
 
@@ -277,6 +290,12 @@ where
         let persisted = async {
             let mut tx = self.unit_of_work.begin().await?;
             tx.insert_user(&user).await?;
+            if !tx
+                .link_oauth_identity(identity.provider.as_str(), &identity.subject, &user_id, &email)
+                .await?
+            {
+                return Err(RepositoryError::AlreadyExists);
+            }
             tx.insert_refresh_token(&refresh_token).await?;
             tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await
@@ -293,16 +312,19 @@ where
             Err(e) => return Err(e.into()),
         }
 
-        self.user_repository
-            .link_oauth_identity(
-                identity.provider.as_str(),
-                &identity.subject,
-                &user_id,
-                &email,
-            )
-            .await?;
-
         Ok(tokens)
+    }
+
+    async fn ensure_linked_user_active(&self, user_id: &UserId) -> Result<(), GoogleLoginError> {
+        let user = self
+            .user_repository
+            .find_by_id(user_id)
+            .await?
+            .ok_or(GoogleLoginError::AccountDeleted)?;
+        if user.is_deleted() {
+            return Err(GoogleLoginError::AccountDeleted);
+        }
+        Ok(())
     }
 
     async fn issue_session(
@@ -310,9 +332,41 @@ where
         user_id: UserId,
         client: ClientContext,
         request_id: Option<String>,
+        link: Option<OAuthLink<'_>>,
     ) -> Result<IssuedTokens, GoogleLoginError> {
-        let tokens = self.token_issuer.issue(&user_id, true).await?;
+        let mut tx = self.unit_of_work.begin().await?;
+        let mut events = Vec::new();
+        let mut locked = tx
+            .load_user_for_update(&user_id)
+            .await?
+            .ok_or(GoogleLoginError::AccountDeleted)?;
+        if locked.is_deleted() {
+            return Err(GoogleLoginError::AccountDeleted);
+        }
+        if let Some(link) = link {
+            if let Some(password_hash) = link.claim_password {
+                locked.claim_with_oauth(password_hash, Utc::now());
+                events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
+                tx.save_user(&locked).await?;
+            }
+            if !tx
+                .link_oauth_identity(link.provider, &link.subject, &user_id, &link.email)
+                .await?
+            {
+                return Err(GoogleLoginError::AccountConflict);
+            }
+        }
+        if let Some(disabled_at) = locked.disabled_at() {
+            locked.reactivate(Utc::now());
+            events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
+            tx.save_user(&locked).await?;
+            wait_past_cutoff(disabled_at).await;
+        }
+        if let Some(changed_at) = locked.password_changed_at() {
+            wait_past_cutoff(changed_at).await;
+        }
 
+        let tokens = self.token_issuer.issue(&user_id, true).await?;
         let refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,
             user_id,
@@ -320,17 +374,15 @@ where
             client.ip.clone(),
             client.user_agent.clone(),
         );
-
-        let event = UserEvent::LoggedIn(UserLoggedIn::record(
+        events.push(IdentityEvent::from(UserEvent::LoggedIn(UserLoggedIn::record(
             user_id,
             tokens.refresh_token_id,
             client.ip,
             client.user_agent,
             Utc::now(),
-        ));
-        let mut tx = self.unit_of_work.begin().await?;
+        ))));
         tx.insert_refresh_token(&refresh_token).await?;
-        tx.save_events(&[IdentityEvent::from(event)], request_id.as_deref()).await?;
+        tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 
         Ok(tokens)

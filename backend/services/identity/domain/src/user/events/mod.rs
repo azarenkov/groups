@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserLoggedIn, user::events::lifecycle::UserLoggedOut, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId};
+use crate::{user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserLoggedIn, user::events::lifecycle::UserLoggedOut, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId};
 
 pub mod lifecycle;
 
@@ -12,6 +12,11 @@ pub enum UserEvent {
     LoggedIn(UserLoggedIn),
     LoggedOut(UserLoggedOut),
     Renamed(UserRenamed),
+    PasswordChanged(UserPasswordChanged),
+    EmailChanged(UserEmailChanged),
+    Disabled(UserDisabled),
+    Reactivated(UserReactivated),
+    Deleted(UserDeleted),
 }
 
 impl UserEvent {
@@ -23,6 +28,11 @@ impl UserEvent {
             Self::LoggedIn(e) => &e.user_id,
             Self::LoggedOut(e) => &e.user_id,
             Self::Renamed(e) => &e.user_id,
+            Self::PasswordChanged(e) => &e.user_id,
+            Self::EmailChanged(e) => &e.user_id,
+            Self::Disabled(e) => &e.user_id,
+            Self::Reactivated(e) => &e.user_id,
+            Self::Deleted(e) => &e.user_id,
         }
     }
 
@@ -34,6 +44,11 @@ impl UserEvent {
             Self::LoggedIn(e) => e.occurred_at,
             Self::LoggedOut(e) => e.occurred_at,
             Self::Renamed(e) => e.occurred_at,
+            Self::PasswordChanged(e) => e.occurred_at,
+            Self::EmailChanged(e) => e.occurred_at,
+            Self::Disabled(e) => e.occurred_at,
+            Self::Reactivated(e) => e.occurred_at,
+            Self::Deleted(e) => e.occurred_at,
         }
     }
 
@@ -45,6 +60,11 @@ impl UserEvent {
             Self::LoggedIn(_) => "logged_in",
             Self::LoggedOut(_) => "logged_out",
             Self::Renamed(_) => "renamed",
+            Self::PasswordChanged(_) => "password_changed",
+            Self::EmailChanged(_) => "email_changed",
+            Self::Disabled(_) => "disabled",
+            Self::Reactivated(_) => "reactivated",
+            Self::Deleted(_) => "deleted",
         }
     }
 }

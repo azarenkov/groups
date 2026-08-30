@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use domain::user::id::UserId;
-use ports::repository::RepositoryError;
+use domain::{channel::id::ChannelId, user::id::UserId};
+use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 use voice_domain::{call::repository::CallRepository, webhook::WebhookEvent, webhook::WebhookKind};
 
 use crate::{
     dto::context::RequestContext,
     ports::{
+        voice_service::{VoiceService, VoiceServiceError},
         voice_webhook_verifier::{VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError},
         webhook_outbox::WebhookOutbox,
     },
@@ -18,30 +19,46 @@ pub enum HandleVoiceWebhookError {
     Verifier(#[from] VoiceWebhookVerifierError),
     #[error("Call repository error: {0}")]
     Call(#[from] RepositoryError),
+    #[error("Voice service error: {0}")]
+    Voice(#[from] VoiceServiceError),
 }
 
-pub struct HandleVoiceWebhook<V, C, O>
+pub struct HandleVoiceWebhook<V, C, O, P, S>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
     O: WebhookOutbox,
+    P: UserProfileRepository,
+    S: VoiceService,
 {
     verifier: Arc<V>,
     call_repository: Arc<C>,
     outbox: Arc<O>,
+    profiles: Arc<P>,
+    voice_service: Arc<S>,
 }
 
-impl<V, C, O> HandleVoiceWebhook<V, C, O>
+impl<V, C, O, P, S> HandleVoiceWebhook<V, C, O, P, S>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
     O: WebhookOutbox,
+    P: UserProfileRepository,
+    S: VoiceService,
 {
-    pub fn new(verifier: Arc<V>, call_repository: Arc<C>, outbox: Arc<O>) -> Self {
+    pub fn new(
+        verifier: Arc<V>,
+        call_repository: Arc<C>,
+        outbox: Arc<O>,
+        profiles: Arc<P>,
+        voice_service: Arc<S>,
+    ) -> Self {
         Self {
             verifier,
             call_repository,
             outbox,
+            profiles,
+            voice_service,
         }
     }
 
@@ -62,6 +79,13 @@ where
                 user_id,
                 session_id,
             } => {
+                if !self.profiles.is_active(&UserId::new(user_id)).await? {
+                    tracing::warn!(%channel_id, %user_id, "Inactive account joined a voice room; removing");
+                    self.voice_service
+                        .remove_participant(&ChannelId::new(channel_id), &UserId::new(user_id))
+                        .await?;
+                    return Ok(());
+                }
                 if self
                     .call_repository
                     .webhook_joined(

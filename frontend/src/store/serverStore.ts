@@ -19,7 +19,7 @@ interface ServerState {
   addServer: (server: Server) => void;
   patchServer: (
     serverId: string,
-    patch: Partial<Pick<Server, "name" | "description">>,
+    patch: Partial<Pick<Server, "name" | "description" | "ownerId">>,
   ) => void;
   removeServer: (serverId: string) => void;
   setLoading: (loading: boolean) => void;

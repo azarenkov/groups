@@ -104,9 +104,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let server_stream = std::env::var("MEDIA_SERVER_STREAM")
         .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
     crate::projection::spawn(
-        nats_jetstream,
+        nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         server_stream,
+        media_repository.clone(),
+        minio_storage.clone(),
+    );
+    let user_stream = std::env::var("MEDIA_USER_STREAM")
+        .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    crate::user_projection::spawn(
+        nats_jetstream,
+        nats_config.subject_prefix.clone(),
+        user_stream,
         media_repository.clone(),
         minio_storage.clone(),
     );
@@ -163,6 +172,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .await
             .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);
+    let access_revocations_data =
+        web::Data::new(api_common::middleware::revocation::AccessRevocations::from_env().await);
 
     let readiness = Readiness::builder()
         .add_probe({
@@ -188,6 +199,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())
+            .app_data(access_revocations_data.clone())
             .wrap(RequestIdMiddleware)
             .wrap(Logger::default())
             .wrap(cors)

@@ -129,6 +129,7 @@ impl HttpMapping for HandleVoiceWebhookError {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
             HandleVoiceWebhookError::Call(e) => e.to_http_status(),
+            HandleVoiceWebhookError::Voice(e) => e.to_http_status(),
         }
     }
 
@@ -136,6 +137,7 @@ impl HttpMapping for HandleVoiceWebhookError {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
             HandleVoiceWebhookError::Call(e) => e.to_user_message(),
+            HandleVoiceWebhookError::Voice(e) => e.to_user_message(),
         }
     }
 
@@ -143,6 +145,7 @@ impl HttpMapping for HandleVoiceWebhookError {
         match self {
             HandleVoiceWebhookError::Verifier(e) => e.to_error_code(),
             HandleVoiceWebhookError::Call(e) => e.to_error_code(),
+            HandleVoiceWebhookError::Voice(e) => e.to_error_code(),
         }
     }
 }
@@ -155,6 +158,7 @@ impl HttpMapping for StartCallError {
             StartCallError::NoRecipients => StatusCode::BAD_REQUEST,
             StartCallError::NotFriends => StatusCode::FORBIDDEN,
             StartCallError::UserNotFound => StatusCode::NOT_FOUND,
+            StartCallError::AccountInactive => StatusCode::FORBIDDEN,
             StartCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
@@ -165,6 +169,7 @@ impl HttpMapping for StartCallError {
             StartCallError::NoRecipients => "No recipients specified".to_string(),
             StartCallError::NotFriends => "You can only call your friends".to_string(),
             StartCallError::UserNotFound => "User not found".to_string(),
+            StartCallError::AccountInactive => "Account is inactive".to_string(),
             StartCallError::FriendshipLookup(_) => {
                 "Friendship lookup unavailable".to_string()
             }
@@ -177,6 +182,7 @@ impl HttpMapping for StartCallError {
             StartCallError::NoRecipients => "CALL_NO_RECIPIENTS",
             StartCallError::NotFriends => "CALL_NOT_FRIENDS",
             StartCallError::UserNotFound => "USER_NOT_FOUND",
+            StartCallError::AccountInactive => "ACCOUNT_INACTIVE",
             StartCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
@@ -189,6 +195,7 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::Voice(e) => e.to_http_status(),
             AcceptCallError::NotParticipant => StatusCode::FORBIDDEN,
             AcceptCallError::UserNotFound => StatusCode::NOT_FOUND,
+            AcceptCallError::AccountInactive => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
@@ -197,6 +204,7 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::Voice(e) => e.to_user_message(),
             AcceptCallError::NotParticipant => "You are not invited to this call".to_string(),
             AcceptCallError::UserNotFound => "User not found".to_string(),
+            AcceptCallError::AccountInactive => "Account is inactive".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -205,6 +213,7 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::Voice(e) => e.to_error_code(),
             AcceptCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
             AcceptCallError::UserNotFound => "USER_NOT_FOUND",
+            AcceptCallError::AccountInactive => "ACCOUNT_INACTIVE",
         }
     }
 }
@@ -234,6 +243,7 @@ impl HttpMapping for JoinCallError {
             JoinCallError::Voice(e) => e.to_http_status(),
             JoinCallError::NotParticipant => StatusCode::FORBIDDEN,
             JoinCallError::UserNotFound => StatusCode::NOT_FOUND,
+            JoinCallError::AccountInactive => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
@@ -242,6 +252,7 @@ impl HttpMapping for JoinCallError {
             JoinCallError::Voice(e) => e.to_user_message(),
             JoinCallError::NotParticipant => "You are not part of this call".to_string(),
             JoinCallError::UserNotFound => "User not found".to_string(),
+            JoinCallError::AccountInactive => "Account is inactive".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -250,6 +261,7 @@ impl HttpMapping for JoinCallError {
             JoinCallError::Voice(e) => e.to_error_code(),
             JoinCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
             JoinCallError::UserNotFound => "USER_NOT_FOUND",
+            JoinCallError::AccountInactive => "ACCOUNT_INACTIVE",
         }
     }
 }

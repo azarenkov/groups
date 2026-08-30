@@ -64,15 +64,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let user_stream = std::env::var("VOICE_USER_STREAM")
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
+    let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     crate::projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),
         user_stream,
         user_repository.clone(),
+        Arc::new(
+            voice::usecases::call::enforce_user_deactivation::EnforceUserDeactivation::new(
+                call_repository.clone(),
+                livekit_service.clone(),
+            ),
+        ),
     );
-
-    let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
-    let livekit_service = Arc::new(LiveKitService::new(livekit_config));
 
     let app_state = web::Data::new(AppState {
         start_call_usecase: StartCall::new(
@@ -107,6 +112,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             livekit_webhook_receiver.clone(),
             call_repository.clone(),
             webhook_outbox.clone(),
+            user_repository.clone(),
+            livekit_service.clone(),
         ),
     });
 
@@ -115,6 +122,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .await
             .ok_or("Failed to create rate limiter: invalid parameters")?;
     let rate_limiter_data = web::Data::new(rate_limiter);
+    let access_revocations_data =
+        web::Data::new(api_common::middleware::revocation::AccessRevocations::from_env().await);
 
     let readiness = Readiness::builder()
         .add_probe({
@@ -147,6 +156,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())
+            .app_data(access_revocations_data.clone())
             .wrap(RequestIdMiddleware)
             .wrap(Logger::default())
             .wrap(cors)

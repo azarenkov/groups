@@ -11,6 +11,7 @@ use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::server::{
     ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
+    ServerOwnerChangedV1 as ServerOwnerChangedDto,
 };
 
 pub fn spawn<M, FS>(
@@ -92,6 +93,17 @@ where
 {
     if subject.ends_with(".server.created") {
         let evt: ServerOwnerDto = serde_json::from_slice(payload)?;
+        media_repository
+            .upsert_server_owner(
+                &ServerId::new(evt.server_id),
+                &UserId::new(evt.owner_id),
+                evt.occurred_at,
+            )
+            .await?;
+        return Ok(());
+    }
+    if subject.ends_with(".server.owner_changed") {
+        let evt: ServerOwnerChangedDto = serde_json::from_slice(payload)?;
         media_repository
             .upsert_server_owner(
                 &ServerId::new(evt.server_id),

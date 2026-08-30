@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO media_deleted_users (user_id, deleted_at)\n            VALUES ($1, $2)\n            ON CONFLICT (user_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c8707e2ceb0290933091a91757f7b8a1556dfaf5ca41a621983233a6bd01492f"
+}

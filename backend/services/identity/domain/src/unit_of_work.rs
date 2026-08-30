@@ -1,7 +1,9 @@
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
-use crate::{events::IdentityEvent, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::User, verification::code::VerificationCode};
+use chrono::{DateTime, Utc};
+
+use crate::{events::IdentityEvent, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::User, verification::code::VerificationCode, verification::purpose::VerificationPurpose};
 
 #[async_trait::async_trait]
 pub trait IdentityUnitOfWork: Send + Sync {
@@ -12,6 +14,10 @@ pub trait IdentityUnitOfWork: Send + Sync {
 pub trait IdentityTransaction: Send {
     async fn load_user_for_update(&mut self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
     async fn load_pending_verification_for_update(&mut self, user_id: &UserId) -> Result<Option<VerificationCode>, RepositoryError>;
+    async fn load_pending_verification_for_purpose_for_update(&mut self, user_id: &UserId, purpose: VerificationPurpose) -> Result<Option<VerificationCode>, RepositoryError>;
+    async fn delete_oauth_identities(&mut self, user_id: &UserId) -> Result<(), RepositoryError>;
+    async fn link_oauth_identity(&mut self, provider: &str, subject: &str, user_id: &UserId, email: &Email) -> Result<bool, RepositoryError>;
+    async fn revoke_refresh_tokens_for_user(&mut self, user_id: &UserId, keep: Option<&RefreshTokenId>, now: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn load_refresh_token_for_update(&mut self, id: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError>;
     async fn insert_user(&mut self, user: &User) -> Result<(), RepositoryError>;
     async fn save_user(&mut self, user: &User) -> Result<(), RepositoryError>;

@@ -112,7 +112,6 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   box-shadow: none;
-  border-radius: 0;
 }
 
 .win {
@@ -5488,3 +5487,19 @@ button.ssv-row-delete:focus-visible {
 .composer-locked-text { flex: 1; min-width: 200px; font-size: 13px; color: var(--fg-2); }
 .composer-locked .btn { display: inline-flex; align-items: center; gap: 6px; }
 .composer-locked .composer-error { flex-basis: 100%; }
+
+.account-dialog-overlay { z-index: 1200; }
+.account-dialog-sub { font-size: 13px; color: var(--fg-2); margin-bottom: 16px; line-height: 1.45; }
+.account-dialog-error { margin-top: 4px; }
+.account-dialog-link { border: 0; background: transparent; padding: 0; font: inherit; font-size: 13px; color: var(--accent); cursor: pointer; }
+.account-dialog-link:disabled { opacity: 0.5; cursor: default; }
+.modal .m-foot button.danger { background: var(--danger, #e5484d); color: #fff; border-color: transparent; }
+.reauth-switch { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 10px; border-radius: 8px; background: var(--surface-sunken); }
+.reauth-switch button { border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 500; color: var(--fg-2); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+.reauth-switch button.on { background: var(--surface-panel); color: var(--fg-1); box-shadow: var(--shadow-xs); }
+.reauth-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--voice-live); }
+.verify-wrong-email { margin-top: 0; margin-bottom: 14px; }
+.verify-change-email { margin-bottom: 14px; }
+.verify-change-email-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 2px; }
+.verify-change-email-actions .auth-link { background: transparent; border: 0; font: inherit; cursor: pointer; }
+.verify-change-email-actions .auth-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }

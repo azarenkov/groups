@@ -8,6 +8,7 @@ import { ApiError } from "../../utils/apiError";
 import { UserAvatar } from "../rift/Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { validateUsername, type UsernameIssue } from "../../utils/username";
+import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from "./AccountModals";
 
 type Theme = "light" | "dark";
 
@@ -103,10 +104,19 @@ function SettingsRow({ label, hint, children }: SettingsRowProps) {
 }
 
 
-function AccountSection() {
+function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const { t } = useTranslation("settings");
   const { t: tAuth } = useTranslation("auth");
   const user = useAuthStore((s) => s.user);
+  const [dialog, setDialog] = React.useState<null | "email" | "password" | "disable" | "delete">(null);
+  const passwordHint = user?.passwordChangedAt
+    ? t("account.passwordChangedOn", { date: new Date(user.passwordChangedAt).toLocaleDateString() })
+    : t("account.passwordNeverChanged");
+  const emailHint = user?.email
+    ? user.emailVerified
+      ? t("account.emailVerified", { email: user.email })
+      : t("account.emailUnverified", { email: user.email })
+    : "";
   const avatarUrl = useAvatarUrl("user", user?.id);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
@@ -256,7 +266,7 @@ function AccountSection() {
           </span>
         </UserAvatar>
         <div className="pc-info">
-          <div className="pc-name">{user?.name ?? t("account.displayName")}</div>
+          <div className="pc-name">{user?.name ?? t("account.username")}</div>
           <div className="pc-handle">{user?.email ?? ""}</div>
         </div>
         <button
@@ -280,9 +290,6 @@ function AccountSection() {
 
       <div className="s-section">
         <h2>{t("account.accountInformation")}</h2>
-        <SettingsRow label={t("account.displayName")} hint={t("account.displayNameHint")}>
-          <button className="s-btn secondary">{t("actions.edit")}</button>
-        </SettingsRow>
         <SettingsRow
           label={t("account.username")}
           hint={user?.name ? `@${user.name}` : t("account.usernameHint")}
@@ -326,33 +333,33 @@ function AccountSection() {
           )}
         </SettingsRow>
         {nameError && <div className="s-error">{nameError}</div>}
-        <SettingsRow label={t("account.email")} hint={t("account.emailVerified", { email: "you@example.com" })}>
-          <button className="s-btn secondary">{t("actions.edit")}</button>
-        </SettingsRow>
-        <SettingsRow label={t("account.phoneNumber")} hint={t("account.phoneNumberHint")}>
-          <button className="s-btn secondary">{t("actions.add")}</button>
+        <SettingsRow label={t("account.email")} hint={emailHint}>
+          <button className="s-btn secondary" onClick={() => setDialog("email")}>{t("actions.edit")}</button>
         </SettingsRow>
       </div>
 
       <div className="s-section">
         <h2>{t("account.passwordAuth")}</h2>
-        <SettingsRow label={t("account.password")} hint={t("account.passwordHint")}>
-          <button className="s-btn secondary">{t("actions.change")}</button>
-        </SettingsRow>
-        <SettingsRow label={t("account.twoFactor")} hint={t("account.twoFactorHint")}>
-          <button className="s-btn primary">{t("actions.enable")}</button>
+        <SettingsRow label={t("account.password")} hint={passwordHint}>
+          <button className="s-btn secondary" onClick={() => setDialog("password")}>{t("actions.change")}</button>
         </SettingsRow>
       </div>
 
       <div className="s-section">
         <h2>{t("account.accountRemoval")}</h2>
         <SettingsRow label={t("account.disableAccount")} hint={t("account.disableAccountHint")}>
-          <button className="s-btn danger">{t("actions.disable")}</button>
+          <button className="s-btn danger" onClick={() => setDialog("disable")}>{t("actions.disable")}</button>
         </SettingsRow>
         <SettingsRow label={t("account.deleteAccount")} hint={t("account.deleteAccountHint")}>
-          <button className="s-btn danger">{t("actions.delete")}</button>
+          <button className="s-btn danger" onClick={() => setDialog("delete")}>{t("actions.delete")}</button>
         </SettingsRow>
       </div>
+
+      {dialog === "email" && <ChangeEmailDialog onClose={() => setDialog(null)} />}
+      {dialog === "password" && <ChangePasswordDialog onClose={() => setDialog(null)} />}
+      {(dialog === "disable" || dialog === "delete") && (
+        <DangerPasswordDialog mode={dialog} onClose={() => setDialog(null)} onDone={onAccountGone} />
+      )}
     </>
   );
 }
@@ -807,7 +814,7 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
 
   let body: React.ReactNode;
   switch (activeId) {
-    case 'account':       body = <AccountSection/>; break;
+    case 'account':       body = <AccountSection onAccountGone={() => { onClose(); useAuthStore.getState().logout(); }}/>; break;
     case 'profile':       body = <ProfileSection/>; break;
     case 'privacy':       body = <PrivacySection/>; break;
     case 'connections':   body = <ConnectionsSection/>; break;

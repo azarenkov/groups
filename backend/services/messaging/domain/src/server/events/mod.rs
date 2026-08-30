@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberJoined, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId};
+use crate::{server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerMemberJoined, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerOwnerChanged, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId};
 
 pub mod lifecycle;
 
@@ -12,6 +12,7 @@ pub enum ServerEvent {
     MemberJoined(ServerMemberJoined),
     MemberLeft(ServerMemberLeft),
     RolesChanged(ServerRolesChanged),
+    OwnerChanged(ServerOwnerChanged),
 }
 
 impl ServerEvent {
@@ -23,6 +24,7 @@ impl ServerEvent {
             Self::MemberJoined(e) => &e.server_id,
             Self::MemberLeft(e) => &e.server_id,
             Self::RolesChanged(e) => &e.server_id,
+            Self::OwnerChanged(e) => &e.server_id,
         }
     }
 
@@ -34,6 +36,7 @@ impl ServerEvent {
             Self::MemberJoined(e) => e.occurred_at,
             Self::MemberLeft(e) => e.occurred_at,
             Self::RolesChanged(e) => e.occurred_at,
+            Self::OwnerChanged(e) => e.occurred_at,
         }
     }
 
@@ -45,6 +48,7 @@ impl ServerEvent {
             Self::MemberJoined(_) => "member_joined",
             Self::MemberLeft(_) => "member_left",
             Self::RolesChanged(_) => "server.roles.changed",
+            Self::OwnerChanged(_) => "owner_changed",
         }
     }
 }

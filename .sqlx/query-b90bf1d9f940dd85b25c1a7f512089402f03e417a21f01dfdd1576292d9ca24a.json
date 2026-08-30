@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT sm.user_id\n            FROM server_members sm\n            LEFT JOIN messaging_user_profiles p ON p.user_id = sm.user_id\n            WHERE sm.server_id = $1\n              AND sm.user_id <> $2\n              AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = sm.user_id)\n            ORDER BY COALESCE(p.active, true) DESC, sm.joined_at ASC, sm.user_id ASC\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b90bf1d9f940dd85b25c1a7f512089402f03e417a21f01dfdd1576292d9ca24a"
+}

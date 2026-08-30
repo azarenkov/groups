@@ -30,6 +30,7 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError>;
+
     async fn find_server_by_id(
         &self,
         server_id: &ServerId,

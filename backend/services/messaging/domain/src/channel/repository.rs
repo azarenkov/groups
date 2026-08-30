@@ -15,6 +15,10 @@ pub trait ChannelRepository {
         &self,
         server_id: &crate::server::id::ServerId,
     ) -> Result<Vec<ChannelId>, RepositoryError>;
+    async fn list_voice_channel_ids_with_participant(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<ChannelId>, RepositoryError>;
 
     async fn list_channel_participants(
         &self,

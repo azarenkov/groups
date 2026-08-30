@@ -1,16 +1,19 @@
 use std::sync::Arc;
 
-use contracts::events::{channel::ParticipantMutedV1, channel::ParticipantUnmutedV1, server::ServerMemberV1};
+use contracts::events::{channel::ParticipantMutedV1, channel::ParticipantUnmutedV1, server::ServerMemberV1, user::UserLifecycleV1};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::{
     ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
     ports::voice_service::VoiceService,
+    usecases::channel::enforce_user_deactivation::EnforceUserDeactivation,
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
     usecases::server::enforce_departure::EnforceServerDeparture,
+    usecases::server::resolve_deleted_user_servers::ResolveDeletedUserServers,
 };
 use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
 const MAX_DELIVER: u32 = 20;
@@ -21,22 +24,35 @@ pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
     pub channel_stream: String,
     pub server_stream: String,
+    pub user_stream: String,
 }
 
-pub fn spawn<C, W, V>(
+pub fn spawn<C, W, V, P>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
     server_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
+    profiles: Arc<P>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
     W: ServerUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
+    P: UserProfileRepository + Send + Sync + 'static,
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
     let enforce_mute = Arc::new(EnforceVoiceMute::new(
+        channel_repository.clone(),
+        server_unit_of_work.clone(),
+        voice_service.clone(),
+    ));
+    let enforce_deactivation = Arc::new(EnforceUserDeactivation::new(
+        channel_repository.clone(),
+        voice_service.clone(),
+        profiles,
+    ));
+    let resolve_servers = Arc::new(ResolveDeletedUserServers::new(
         channel_repository.clone(),
         server_unit_of_work.clone(),
         voice_service.clone(),
@@ -46,6 +62,48 @@ pub fn spawn<C, W, V>(
         channel_repository,
         voice_service,
     ));
+
+    {
+        let jetstream = jetstream.clone();
+        let subject = format!("{prefix}.user.*.disabled");
+        let extra = vec![
+            format!("{prefix}.user.*.deleted"),
+            format!("{prefix}.user.disabled"),
+            format!("{prefix}.user.deleted"),
+        ];
+        let dlq = dlq.clone();
+        let user_stream = spec.user_stream.clone();
+        tokio::spawn(async move {
+            run(
+                jetstream,
+                user_stream,
+                "messaging-voice-effects-user".to_string(),
+                subject,
+                extra,
+                dlq,
+                move |subject, payload| {
+                    let enforce_deactivation = enforce_deactivation.clone();
+                    let resolve_servers = resolve_servers.clone();
+                    async move {
+                        if !(subject.ends_with(".disabled") || subject.ends_with(".deleted")) {
+                            return Ok(());
+                        }
+                        let evt: UserLifecycleV1 = serde_json::from_slice(&payload)?;
+                        if subject.ends_with(".deleted") {
+                            resolve_servers
+                                .execute(UserId::new(evt.user_id), evt.occurred_at, None)
+                                .await?;
+                        }
+                        enforce_deactivation
+                            .execute(UserId::new(evt.user_id), evt.occurred_at)
+                            .await?;
+                        Ok(())
+                    }
+                },
+            )
+            .await;
+        });
+    }
 
     {
         let jetstream = jetstream.clone();

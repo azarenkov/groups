@@ -56,7 +56,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale
+                locale, pending_email, password_changed_at, disabled_at, deleted_at
             FROM users
             WHERE id = $1
             "#,
@@ -82,7 +82,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale
+                locale, pending_email, password_changed_at, disabled_at, deleted_at
             FROM users
             WHERE email = $1
             "#,
@@ -133,6 +133,8 @@ impl UserRepository for PostgresUserRepository {
             FROM users
             WHERE name ILIKE $1 ESCAPE '\'
               AND id <> $2
+              AND disabled_at IS NULL
+              AND deleted_at IS NULL
             ORDER BY name ASC
             LIMIT $3
             "#,
@@ -163,7 +165,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale
+                locale, pending_email, password_changed_at, disabled_at, deleted_at
             FROM users
             WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C")
             "#,

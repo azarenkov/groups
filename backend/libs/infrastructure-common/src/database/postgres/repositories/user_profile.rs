@@ -43,7 +43,7 @@ impl UserProfileRepository for PostgresUserProfileRepository {
 
     async fn find_user_by_name(&self, name: &str) -> Result<Option<UserId>, RepositoryError> {
         let row = sqlx::query(&format!(
-            r#"SELECT user_id FROM {} WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C")"#,
+            r#"SELECT user_id FROM {} WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C") AND active"#,
             self.table
         ))
         .bind(name)
@@ -64,8 +64,10 @@ impl UserProfileRepository for PostgresUserProfileRepository {
             INSERT INTO {table} (user_id, name, updated_at)
             VALUES ($1, $2, $3)
             ON CONFLICT (user_id) DO UPDATE
-                SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at
+                SET name = EXCLUDED.name,
+                    updated_at = GREATEST({table}.updated_at, EXCLUDED.updated_at)
                 WHERE {table}.updated_at <= EXCLUDED.updated_at
+                   OR ({table}.name = '' AND {table}.active)
             "#,
             table = self.table
         ))
@@ -76,5 +78,65 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
+    }
+
+    async fn is_active(&self, user_id: &UserId) -> Result<bool, RepositoryError> {
+        let row = sqlx::query(&format!(
+            "SELECT active FROM {} WHERE user_id = $1",
+            self.table
+        ))
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| r.get::<bool, _>(0)).unwrap_or(true))
+    }
+
+    async fn is_deactivation_current(
+        &self,
+        user_id: &UserId,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError> {
+        let row = sqlx::query(&format!(
+            "SELECT active, updated_at FROM {} WHERE user_id = $1",
+            self.table
+        ))
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(match row {
+            Some(r) => {
+                let active: bool = r.get(0);
+                let updated_at: DateTime<Utc> = r.get(1);
+                !(active && updated_at > occurred_at)
+            }
+            None => true,
+        })
+    }
+
+    async fn set_active(
+        &self,
+        user_id: &UserId,
+        active: bool,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError> {
+        let result = sqlx::query(&format!(
+            r#"
+            INSERT INTO {table} (user_id, name, active, updated_at)
+            VALUES ($1, '', $2, $3)
+            ON CONFLICT (user_id) DO UPDATE
+                SET active = EXCLUDED.active, updated_at = EXCLUDED.updated_at
+                WHERE {table}.updated_at <= EXCLUDED.updated_at
+            "#,
+            table = self.table
+        ))
+        .bind(user_id.uuid())
+        .bind(active)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(result.rows_affected() > 0)
     }
 }

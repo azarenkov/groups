@@ -64,6 +64,31 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             name: e.name.as_str().to_string(),
             occurred_at: e.occurred_at,
         }),
+        UserEvent::PasswordChanged(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::EmailChanged(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::Disabled(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::Reactivated(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
+        UserEvent::Deleted(e) => encode(&UserLifecycleV1 {
+            user_id: e.user_id.uuid(),
+            occurred_at: e.occurred_at,
+            name: None,
+        }),
     }
 }
 

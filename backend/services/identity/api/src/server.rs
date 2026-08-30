@@ -11,6 +11,9 @@ use identity::usecases::{
     user::{
         get_me::GetMe, rename::RenameUser, search_users::SearchUsers,
         update_locale::UpdateUserLocale,
+        change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
+        delete_account::DeleteAccount, disable_account::DisableAccount,
+        reauth::Reauthenticator, request_email_change::RequestEmailChange,
     },
 };
 use domain::user::name::ReservedNames;
@@ -22,7 +25,7 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{
-    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer},
+    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker},
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -74,6 +77,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let user_state_lookup = Arc::new(MessagingStateClient::new(&messaging_internal_url));
 
+    let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
+    let access_revocations_data = web::Data::new(access_revocations.clone());
+    let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
+    let reauthenticator = Arc::new(Reauthenticator::new(
+        user_repository.clone(),
+        hasher.clone(),
+        google_token_verifier.clone(),
+    ));
+
     let app_state = web::Data::new(AppState {
         register_user_usecase: RegisterUser::new(
             user_repository.clone(),
@@ -105,11 +117,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_state_lookup.clone(),
         ),
         confirm_registration_usecase: ConfirmRegistration::new(hasher.clone(), unit_of_work.clone()),
-        refresh_tokens_usecase: RefreshTokens::new(
-            unit_of_work.clone(),
-            user_repository.clone(),
-            token_issuer.clone(),
-        ),
+        refresh_tokens_usecase: RefreshTokens::new(unit_of_work.clone(), token_issuer.clone()),
         logout_usecase: Logout::new(unit_of_work.clone(), token_issuer.clone()),
         search_users_usecase: SearchUsers::new(user_repository.clone()),
         get_me_usecase: GetMe::new(user_repository.clone()),
@@ -119,6 +127,33 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             unit_of_work.clone(),
             nsfw_detector.clone(),
             reserved_names.clone(),
+        ),
+        change_password_usecase: ChangePassword::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
+            token_issuer.clone(),
+            reauthenticator.clone(),
+            access_revoker.clone(),
+        ),
+        request_email_change_usecase: RequestEmailChange::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
+            reauthenticator.clone(),
+        ),
+        confirm_email_change_usecase: ConfirmEmailChange::new(unit_of_work.clone(), hasher.clone()),
+        disable_account_usecase: DisableAccount::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            access_revoker.clone(),
+            reauthenticator.clone(),
+        ),
+        delete_account_usecase: DeleteAccount::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            access_revoker.clone(),
+            reauthenticator.clone(),
         ),
         user_repository: user_repository.clone(),
         trust_forwarded_headers: server_config.trust_forwarded_headers,
@@ -154,6 +189,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())
+            .app_data(access_revocations_data.clone())
             .wrap(RequestIdMiddleware)
             .wrap(Logger::default())
             .wrap(cors)
