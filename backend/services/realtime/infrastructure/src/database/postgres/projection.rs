@@ -135,8 +135,8 @@ impl PostgresRealtimeProjection {
                 NOT e.removed
                 OR EXISTS (
                     SELECT 1 FROM messaging.dm_messages m
-                    WHERE (m.sender_id = $1 AND m.recipient_id = e.friend_id)
-                       OR (m.sender_id = e.friend_id AND m.recipient_id = $1)
+                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1, e.friend_id)
+                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1, e.friend_id)
                 )
               )
             UNION
