@@ -88,6 +88,7 @@ struct PublicProfileResponse {
     name: String,
     bio: String,
     profile_updated_at: Option<DateTime<Utc>>,
+    active: bool,
 }
 
 #[get("/{user_id}/profile")]
@@ -105,5 +106,6 @@ async fn get_user_profile(
         name: profile.name,
         bio: profile.bio,
         profile_updated_at: profile.profile_updated_at,
+        active: profile.active,
     })))
 }

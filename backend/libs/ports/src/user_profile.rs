@@ -11,6 +11,7 @@ pub struct PublicProfile {
     pub name: String,
     pub bio: String,
     pub profile_updated_at: Option<DateTime<Utc>>,
+    pub active: bool,
 }
 
 #[async_trait]

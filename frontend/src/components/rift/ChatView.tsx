@@ -1960,12 +1960,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         if (cancelled) return;
         useUserProfileStore.getState().apply(dmFriendIdForBio, p.bio, profileVersion(p.profileUpdatedAt));
       })
-      .catch((err) => {
-        if (cancelled) return;
-        if (err instanceof ApiError && err.code === "USER_NOT_FOUND") {
-          useUserProfileStore.getState().markUnavailable(dmFriendIdForBio);
-        }
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };

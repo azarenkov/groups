@@ -216,7 +216,8 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
     setNameError(null);
     try {
       const saved = await userAPI.rename(next);
-      useAuthStore.getState().setUser({ ...user, name: saved });
+      const latest = useAuthStore.getState().user;
+      if (latest) useAuthStore.getState().setUser({ ...latest, name: saved });
       setNameEditing(false);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
