@@ -111,6 +111,7 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const [bio, setBio] = React.useState(user?.bio ?? "");
   const [bioBusy, setBioBusy] = React.useState(false);
   const [bioError, setBioError] = React.useState<string | null>(null);
+  const [bioEditing, setBioEditing] = React.useState(false);
   const [activityBusy, setActivityBusy] = React.useState(false);
   const bioBaseline = React.useRef(user?.bio ?? "");
   React.useEffect(() => {
@@ -139,15 +140,17 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
     profileQueue.current = next.catch(() => {});
     return next;
   };
-  const saveBio = async () => {
-    if (!user || bioBusy || !bioDirty) return;
+  const saveBio = async (): Promise<boolean> => {
+    if (!user || bioBusy || !bioDirty) return false;
     setBioBusy(true);
     setBioError(null);
     try {
       await runProfileUpdate({ bio: bio.trim() });
+      return true;
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       setBioError(apiErr?.message || t("account.bioError"));
+      return false;
     } finally {
       setBioBusy(false);
     }
@@ -396,34 +399,59 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
 
       <div className="s-section">
         <h2>{t("account.aboutSection")}</h2>
-        <div className="s-field-row">
-          <div className="field-lbl">{t("account.about")}</div>
-          <textarea
-            className="s-input"
-            placeholder={t("account.aboutPlaceholder")}
-            value={bio}
-            disabled={bioBusy}
-            onChange={(e) => {
-              const next = Array.from(e.target.value).slice(0, 190).join("");
-              setBio(next);
-              setBioError(null);
-            }}
-          />
-          <div className="s-field-foot">
-            <span className="s-field-count">{Array.from(bio).length}/190</span>
-            {bioDirty && (
+        {bioEditing ? (
+          <div className="s-field-row">
+            <div className="field-lbl">{t("account.about")}</div>
+            <textarea
+              className="s-input"
+              autoFocus
+              placeholder={t("account.aboutPlaceholder")}
+              value={bio}
+              disabled={bioBusy}
+              onChange={(e) => {
+                const next = Array.from(e.target.value).slice(0, 190).join("");
+                setBio(next);
+                setBioError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setBio(user?.bio ?? "");
+                  setBioEditing(false);
+                }
+              }}
+            />
+            <div className="s-field-foot">
+              <span className="s-field-count">{Array.from(bio).length}/190</span>
               <span className="s-field-actions">
-                <button className="s-btn secondary" disabled={bioBusy} onClick={() => setBio(user?.bio ?? "")}>
+                <button
+                  className="s-btn secondary"
+                  disabled={bioBusy}
+                  onClick={() => {
+                    setBio(user?.bio ?? "");
+                    setBioError(null);
+                    setBioEditing(false);
+                  }}
+                >
                   {t("actions.cancel")}
                 </button>
-                <button className="s-btn primary" disabled={bioBusy} onClick={() => void saveBio()}>
+                <button
+                  className="s-btn primary"
+                  disabled={bioBusy || !bioDirty}
+                  onClick={() => void saveBio().then((ok) => ok && setBioEditing(false))}
+                >
                   {t("actions.save")}
                 </button>
               </span>
-            )}
+            </div>
+            {bioError && <div className="s-error">{bioError}</div>}
           </div>
-          {bioError && <div className="s-error">{bioError}</div>}
-        </div>
+        ) : (
+          <SettingsRow label={t("account.about")} hint={user?.bio ? user.bio : t("account.aboutEmpty")}>
+            <button className="s-btn secondary" onClick={() => setBioEditing(true)}>
+              {user?.bio ? t("actions.edit") : t("actions.add")}
+            </button>
+          </SettingsRow>
+        )}
         <SettingsRow label={t("account.showActivity")} hint={t("account.showActivityHint")}>
           <Switch on={user?.showActivity ?? true} onClick={() => void toggleActivity()} />
         </SettingsRow>

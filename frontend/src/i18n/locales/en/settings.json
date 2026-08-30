@@ -84,12 +84,13 @@
     "reauthGoogleHint": "Confirm with the linked Google account",
     "googleConfirmed": "Confirmed with Google",
     "googleNotLinked": "This Google account is not linked to your profile.",
-    "aboutSection": "About",
+    "aboutSection": "Profile",
     "about": "About me",
     "aboutPlaceholder": "Tell others a bit about yourself…",
     "bioError": "Couldn't save your bio.",
     "showActivity": "Show activity",
-    "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a server still see who is in its voice channels."
+    "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a server still see who is in its voice channels.",
+    "aboutEmpty": "Tell others a bit about yourself."
   },
   "privacy": {
     "title": "Privacy & Safety",
