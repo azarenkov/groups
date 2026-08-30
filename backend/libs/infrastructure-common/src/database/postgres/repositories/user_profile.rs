@@ -58,7 +58,6 @@ impl UserProfileRepository for PostgresUserProfileRepository {
             VALUES ($1, '', $2, $3, $4, $4)
             ON CONFLICT (user_id) DO UPDATE
                 SET bio = EXCLUDED.bio, show_activity = EXCLUDED.show_activity,
-                    updated_at = GREATEST({table}.updated_at, EXCLUDED.updated_at),
                     profile_updated_at = EXCLUDED.profile_updated_at
                 WHERE {table}.profile_updated_at IS NULL
                    OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at

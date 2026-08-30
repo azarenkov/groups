@@ -115,13 +115,24 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
     setBio(user?.bio ?? "");
   }, [user?.bio]);
   const bioDirty = bio.trim() !== (user?.bio ?? "");
+  const profileQueue = React.useRef<Promise<void>>(Promise.resolve());
+  const runProfileUpdate = (patch: { bio?: string; showActivity?: boolean }) => {
+    const next = profileQueue.current.then(async () => {
+      const saved = await userAPI.updateProfile(patch);
+      const current = useAuthStore.getState().user;
+      if (current) {
+        useAuthStore.getState().setUser({ ...current, bio: saved.bio, showActivity: saved.showActivity });
+      }
+    });
+    profileQueue.current = next.catch(() => {});
+    return next;
+  };
   const saveBio = async () => {
     if (!user || bioBusy || !bioDirty) return;
     setBioBusy(true);
     setBioError(null);
     try {
-      const saved = await userAPI.updateProfile({ bio: bio.trim() });
-      useAuthStore.getState().setUser({ ...user, bio: saved.bio, showActivity: saved.showActivity });
+      await runProfileUpdate({ bio: bio.trim() });
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       setBioError(apiErr?.message || t("account.bioError"));
@@ -134,8 +145,7 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
     const next = !(user.showActivity ?? true);
     setActivityBusy(true);
     try {
-      const saved = await userAPI.updateProfile({ showActivity: next });
-      useAuthStore.getState().setUser({ ...user, bio: saved.bio, showActivity: saved.showActivity });
+      await runProfileUpdate({ showActivity: next });
     } catch (err) {
       console.warn("[account] activity toggle failed:", err);
     } finally {
