@@ -78,6 +78,14 @@ pub fn spawn<P>(
                                             .await
                                         {
                                             Ok(_) => {
+                                                if m.subject.ends_with(".user.deleted")
+                                                    && let Err(e) = repository
+                                                        .update_profile(&UserId::new(evt.user_id), "", false, evt.occurred_at)
+                                                        .await
+                                                {
+                                                    tracing::warn!(error = %e, "Profile erasure failed; message will be redelivered");
+                                                    continue;
+                                                }
                                                 let _ = m.ack().await;
                                             }
                                             Err(e) => {

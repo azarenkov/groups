@@ -324,6 +324,7 @@ impl User {
         self.show_activity = false;
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
         Ok(())
     }
