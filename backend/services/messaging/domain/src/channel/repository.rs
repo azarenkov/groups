@@ -25,7 +25,7 @@ pub trait ChannelRepository {
         server_id: &crate::server::id::ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError>;
+    ) -> Result<PaginatedResult<(UserId, UserName, String, Option<DateTime<Utc>>)>, RepositoryError>;
 
     async fn is_text_channel_member(
         &self,
@@ -95,6 +95,7 @@ pub struct FriendVoicePresenceRow {
     pub is_muted: bool,
     pub camera_on: bool,
     pub screen_on: bool,
+    pub profile_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]

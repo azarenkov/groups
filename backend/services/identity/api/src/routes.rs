@@ -7,7 +7,7 @@ use crate::auth::{
 use crate::internal::internal_routes;
 use crate::user::{
     change_me_email, confirm_me_email, delete_me, disable_me, get_me, search_users,
-    update_me_locale, update_me_name, update_me_password,
+    update_me_locale, update_me_name, update_me_password, update_me_profile,
 };
 use api_common::health::{livez, readyz};
 
@@ -38,7 +38,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(change_me_email)
                         .service(confirm_me_email)
                         .service(disable_me)
-                        .service(delete_me),
+                        .service(delete_me)
+                        .service(update_me_profile),
                 ),
         );
 }

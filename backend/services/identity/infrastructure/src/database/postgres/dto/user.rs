@@ -18,6 +18,8 @@ pub struct UserDto {
     pub password_changed_at: Option<DateTime<Utc>>,
     pub disabled_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,
+    pub bio: String,
+    pub show_activity: bool,
 }
 
 impl From<UserDto> for User {
@@ -37,6 +39,8 @@ impl From<UserDto> for User {
             dto.password_changed_at,
             dto.disabled_at,
             dto.deleted_at,
+            dto.bio,
+            dto.show_activity,
         )
     }
 }

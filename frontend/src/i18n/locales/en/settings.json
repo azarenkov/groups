@@ -6,7 +6,6 @@
   "esc": "ESC",
   "sections": {
     "account": "My Account",
-    "profile": "Profile",
     "privacy": "Privacy & Safety",
     "connections": "Connections",
     "subscription": "Subscription",
@@ -84,23 +83,14 @@
     "reauthGoogle": "Google",
     "reauthGoogleHint": "Confirm with the linked Google account",
     "googleConfirmed": "Confirmed with Google",
-    "googleNotLinked": "This Google account is not linked to your profile."
-  },
-  "profile": {
-    "title": "Profile",
-    "lead": "Customize how others see your identity card.",
-    "display": "Display",
-    "displayName": "Display Name",
-    "pronouns": "Pronouns",
-    "pronounsPlaceholder": "they/them",
+    "googleNotLinked": "This Google account is not linked to your profile.",
+    "aboutSection": "Profile",
     "about": "About me",
     "aboutPlaceholder": "Tell others a bit about yourself…",
-    "status": "Status",
-    "customStatus": "Custom Status",
-    "customStatusHint": "Show a short message next to your name.",
-    "customStatusPlaceholder": "e.g. Heads down ✦",
+    "bioError": "Couldn't save your bio.",
     "showActivity": "Show activity",
-    "showActivityHint": "Let others see what app or game you're using."
+    "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a server still see who is in its voice channels.",
+    "aboutEmpty": "Tell others a bit about yourself."
   },
   "privacy": {
     "title": "Privacy & Safety",

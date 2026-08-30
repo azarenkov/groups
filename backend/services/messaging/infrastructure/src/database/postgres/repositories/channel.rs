@@ -73,7 +73,7 @@ impl ChannelRepository for PostgresChannelRepository {
         server_id: &ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError> {
+    ) -> Result<PaginatedResult<(UserId, UserName, String, Option<DateTime<Utc>>)>, RepositoryError> {
         let kind_row = sqlx::query!(
             r#"
             SELECT kind AS "kind: ChannelKindDto"
@@ -106,7 +106,8 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let users = sqlx::query!(
                 r#"
-                SELECT u.user_id, u.name
+                SELECT u.user_id, u.name, CASE WHEN u.active THEN u.bio ELSE '' END AS "bio!",
+                       CASE WHEN u.active THEN u.profile_updated_at ELSE GREATEST(u.profile_updated_at, u.active_updated_at) END AS "profile_updated_at?"
                 FROM messaging_user_profiles u
                 INNER JOIN (
                     SELECT user_id, MIN(joined_at) AS first_joined_at
@@ -127,7 +128,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let items = users
                 .into_iter()
-                .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+                .map(|r| (UserId::new(r.user_id), UserName::new(r.name), r.bio, r.profile_updated_at))
                 .collect();
             return Ok(PaginatedResult::new(items, total, pagination));
         }
@@ -148,7 +149,8 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let users = sqlx::query!(
                 r#"
-                SELECT u.user_id, u.name
+                SELECT u.user_id, u.name, CASE WHEN u.active THEN u.bio ELSE '' END AS "bio!",
+                       CASE WHEN u.active THEN u.profile_updated_at ELSE GREATEST(u.profile_updated_at, u.active_updated_at) END AS "profile_updated_at?"
                 FROM messaging_user_profiles u
                 INNER JOIN channel_text_participants p ON p.user_id = u.user_id
                 WHERE p.channel_id = $1
@@ -165,7 +167,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let items = users
                 .into_iter()
-                .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+                .map(|r| (UserId::new(r.user_id), UserName::new(r.name), r.bio, r.profile_updated_at))
                 .collect();
             return Ok(PaginatedResult::new(items, total, pagination));
         }
@@ -387,6 +389,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 c.name AS channel_name,
                 s.id AS server_id,
                 s.name AS server_name,
+                u.profile_updated_at,
                 MIN(cvp.joined_at) AS "joined_at!",
                 bool_or(cvp.camera_on) AS "camera_on!",
                 bool_or(cvp.screen_on) AS "screen_on!",
@@ -401,8 +404,8 @@ impl ChannelRepository for PostgresChannelRepository {
             INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $1
             INNER JOIN friendships f
                 ON f.user_id = $1 AND f.friend_id = cvp.user_id AND f.status = 'accepted'
-            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id
-            GROUP BY cvp.user_id, u.name, c.id, c.name, s.id, s.name
+            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active
+            GROUP BY cvp.user_id, u.name, u.profile_updated_at, c.id, c.name, s.id, s.name
             ORDER BY MIN(cvp.joined_at) DESC
             "#,
             user_id.uuid(),
@@ -423,6 +426,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 is_muted: r.is_muted,
                 camera_on: r.camera_on,
                 screen_on: r.screen_on,
+                profile_updated_at: r.profile_updated_at,
             })
             .collect())
     }

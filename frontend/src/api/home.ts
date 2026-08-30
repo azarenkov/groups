@@ -17,6 +17,7 @@ export interface ActiveFriend {
   isMuted: boolean;
   cameraOn: boolean;
   screenOn: boolean;
+  profileUpdatedAt: string | null;
 }
 
 export interface RecentRoom {
@@ -76,6 +77,11 @@ class HomeAPI {
 
   removeAuthToken() {
     delete this.client.defaults.headers.common["Authorization"];
+  }
+
+  async profile(userId: string): Promise<{ id: string; name: string; bio: string; profileUpdatedAt: string | null; active: boolean }> {
+    const response = await this.client.get(`/v1/users/${userId}/profile`);
+    return response.data.data;
   }
 
   async overview(): Promise<HomeOverview> {

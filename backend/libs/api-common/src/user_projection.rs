@@ -5,7 +5,7 @@ use ports::{event_consumer::EventConsumer, event_consumer::StartPosition, event_
 use futures::StreamExt;
 use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use contracts::events::user::{UserLifecycleV1 as UserLifecycleDto, UserNameV1 as UserNameDto};
+use contracts::events::user::{UserLifecycleV1 as UserLifecycleDto, UserNameV1 as UserNameDto, UserProfileChangedV1 as UserProfileChangedDto};
 
 pub fn spawn<P>(
     jetstream: async_nats::jetstream::Context,
@@ -46,8 +46,29 @@ pub fn spawn<P>(
                                 } else {
                                     None
                                 };
-                                if !name_event && active_state.is_none() {
+                                let profile_event = m.subject.ends_with(".user.profile_changed");
+                                if !name_event && active_state.is_none() && !profile_event {
                                     let _ = m.ack().await;
+                                    continue;
+                                }
+                                if profile_event {
+                                    match serde_json::from_slice::<UserProfileChangedDto>(&m.payload) {
+                                        Ok(evt) => match repository
+                                            .update_profile(&UserId::new(evt.user_id), &evt.bio, evt.show_activity, evt.active, evt.occurred_at)
+                                            .await
+                                        {
+                                            Ok(()) => {
+                                                let _ = m.ack().await;
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!(error = %e, "Profile update failed; message will be redelivered");
+                                            }
+                                        },
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, subject = %m.subject, "Malformed user profile event; dropping");
+                                            let _ = m.ack().await;
+                                        }
+                                    }
                                     continue;
                                 }
                                 if let Some(active) = active_state {
@@ -57,6 +78,14 @@ pub fn spawn<P>(
                                             .await
                                         {
                                             Ok(_) => {
+                                                if m.subject.ends_with(".user.deleted")
+                                                    && let Err(e) = repository
+                                                        .update_profile(&UserId::new(evt.user_id), "", false, false, evt.occurred_at)
+                                                        .await
+                                                {
+                                                    tracing::warn!(error = %e, "Profile erasure failed; message will be redelivered");
+                                                    continue;
+                                                }
                                                 let _ = m.ack().await;
                                             }
                                             Err(e) => {

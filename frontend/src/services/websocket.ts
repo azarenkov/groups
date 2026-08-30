@@ -57,6 +57,7 @@ export type WsEventType =
   | "server.roles.changed"
   | "user.registered"
   | "user.renamed"
+  | "user.profileChanged"
   | "user.emailVerified"
   | "user.phoneVerified"
   | "user.loggedIn"

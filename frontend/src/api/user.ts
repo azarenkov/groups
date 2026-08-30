@@ -19,6 +19,9 @@ export interface MeProfile {
   emailVerified: boolean;
   passwordChangedAt: string | null;
   linkedProviders: string[];
+  bio: string;
+  showActivity: boolean;
+  profileUpdatedAt: string;
 }
 
 class UserAPI {
@@ -114,6 +117,11 @@ class UserAPI {
 
   async deleteAccount(reauth: Reauth): Promise<void> {
     await this.client.delete("/v1/users/me", { data: reauth });
+  }
+
+  async updateProfile(patch: { bio?: string; showActivity?: boolean }): Promise<{ bio: string; showActivity: boolean; profileUpdatedAt: string }> {
+    const response = await this.client.patch("/v1/users/me/profile", patch);
+    return response.data.data;
   }
 
   async rename(name: string): Promise<string> {

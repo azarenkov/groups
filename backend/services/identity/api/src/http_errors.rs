@@ -99,6 +99,7 @@ use identity::usecases::user::request_email_change::RequestEmailChangeError;
 use identity::usecases::user::rename::RenameUserError;
 use identity::usecases::user::search_users::SearchUsersError;
 use identity::usecases::user::update_locale::UpdateLocaleError;
+use identity::usecases::user::update_profile::UpdateProfileError;
 use domain::user::name::UserNameError;
 use ports::repository::RepositoryError;
 
@@ -817,6 +818,30 @@ impl HttpMapping for ReauthError {
             ReauthError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             ReauthError::InvalidPassword => "INVALID_PASSWORD",
             ReauthError::OAuthNotLinked => "OAUTH_NOT_LINKED",
+        }
+    }
+}
+
+impl HttpMapping for UpdateProfileError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdateProfileError::Repository(e) => e.to_http_status(),
+            UpdateProfileError::BioTooLong => StatusCode::BAD_REQUEST,
+            UpdateProfileError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdateProfileError::Repository(e) => e.to_user_message(),
+            UpdateProfileError::BioTooLong => "Bio must be at most 190 characters".to_string(),
+            UpdateProfileError::UserNotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdateProfileError::Repository(e) => e.to_error_code(),
+            UpdateProfileError::BioTooLong => "BIO_TOO_LONG",
+            UpdateProfileError::UserNotFound => "USER_NOT_FOUND",
         }
     }
 }

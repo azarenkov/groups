@@ -128,9 +128,17 @@ impl PostgresRealtimeProjection {
     async fn rename_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
-            SELECT friend_id AS user_id
-            FROM realtime_friend_edges
-            WHERE user_id = $1 AND NOT removed
+            SELECT e.friend_id AS user_id
+            FROM realtime_friend_edges e
+            WHERE e.user_id = $1
+              AND (
+                NOT e.removed
+                OR EXISTS (
+                    SELECT 1 FROM messaging.dm_messages m
+                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1, e.friend_id)
+                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1, e.friend_id)
+                )
+              )
             UNION
             SELECT DISTINCT sm2.user_id
             FROM realtime_server_members sm1

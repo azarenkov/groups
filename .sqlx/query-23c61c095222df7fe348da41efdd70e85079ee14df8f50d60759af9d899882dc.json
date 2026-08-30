@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                cvp.user_id,\n                u.name AS user_name,\n                c.id AS channel_id,\n                c.name AS channel_name,\n                s.id AS server_id,\n                s.name AS server_name,\n                u.profile_updated_at,\n                MIN(cvp.joined_at) AS \"joined_at!\",\n                bool_or(cvp.camera_on) AS \"camera_on!\",\n                bool_or(cvp.screen_on) AS \"screen_on!\",\n                EXISTS (\n                    SELECT 1 FROM channel_muted_participants cmp\n                    WHERE cmp.channel_id = c.id\n                      AND cmp.user_id = cvp.user_id\n                ) AS \"is_muted!\"\n            FROM channel_voice_participants cvp\n            INNER JOIN channels c ON c.id = cvp.channel_id\n            INNER JOIN servers s ON s.id = c.server_id\n            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $1\n            INNER JOIN friendships f\n                ON f.user_id = $1 AND f.friend_id = cvp.user_id AND f.status = 'accepted'\n            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active\n            GROUP BY cvp.user_id, u.name, u.profile_updated_at, c.id, c.name, s.id, s.name\n            ORDER BY MIN(cvp.joined_at) DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "channel_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "server_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "server_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "profile_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "joined_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "camera_on!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "screen_on!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "is_muted!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "23c61c095222df7fe348da41efdd70e85079ee14df8f50d60759af9d899882dc"
+}

@@ -19,6 +19,7 @@ struct ActiveFriendItem {
     is_muted: bool,
     camera_on: bool,
     screen_on: bool,
+    profile_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -63,6 +64,7 @@ async fn get_home_overview(
                 is_muted: r.is_muted,
                 camera_on: r.camera_on,
                 screen_on: r.screen_on,
+                profile_updated_at: r.profile_updated_at,
             })
             .collect(),
         recent_rooms: overview
@@ -79,4 +81,33 @@ async fn get_home_overview(
             .collect(),
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PublicProfileResponse {
+    id: Uuid,
+    name: String,
+    bio: String,
+    profile_updated_at: Option<DateTime<Utc>>,
+    active: bool,
+}
+
+#[get("/{user_id}/profile")]
+async fn get_user_profile(
+    _auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, HttpError> {
+    let profile = app_state
+        .get_user_profile_usecase
+        .execute(UserId::new(path.into_inner()))
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
+        id: profile.user_id.uuid(),
+        name: profile.name,
+        bio: profile.bio,
+        profile_updated_at: profile.profile_updated_at,
+        active: profile.active,
+    })))
 }

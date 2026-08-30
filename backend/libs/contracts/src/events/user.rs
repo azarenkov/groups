@@ -25,6 +25,20 @@ pub struct UserLifecycleV1 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserProfileChangedV1 {
+    pub user_id: Uuid,
+    pub bio: String,
+    pub show_activity: bool,
+    #[serde(default = "default_true")]
+    pub active: bool,
+    pub occurred_at: DateTime<Utc>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationIssuedV1 {
     pub user_id: Uuid,
     pub verification_code_id: Uuid,

@@ -2775,6 +2775,8 @@ body.electron .body-area::before {
   font-size: 12px;
   color: var(--fg-3);
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .s-row .s-row-control { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 
@@ -5503,3 +5505,7 @@ button.ssv-row-delete:focus-visible {
 .verify-change-email-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 2px; }
 .verify-change-email-actions .auth-link { background: transparent; border: 0; font: inherit; cursor: pointer; }
 .verify-change-email-actions .auth-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+.s-field-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.s-field-count { font-size: 11px; color: var(--fg-4); }
+.s-field-actions { display: inline-flex; gap: 8px; }
+.main-header .topic-bio { color: var(--fg-3); }

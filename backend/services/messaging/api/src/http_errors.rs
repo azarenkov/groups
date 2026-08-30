@@ -153,6 +153,7 @@ use messaging::usecases::server::invite_codes::ListInviteCodesError;
 use messaging::usecases::server::invite_codes::RedeemInviteCodeError;
 use messaging::usecases::server::invite_codes::RevokeInviteCodeError;
 use messaging::usecases::server::get_home_overview::GetHomeOverviewError;
+use messaging::usecases::server::get_user_profile::GetUserProfileError;
 use messaging::usecases::server::kick_member::KickMemberError;
 use messaging::usecases::server::leave_server::LeaveServerError;
 use messaging::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
@@ -1952,6 +1953,27 @@ impl HttpMapping for ports::file_storage::FileStorageError {
         match self {
             ports::file_storage::FileStorageError::NotFound => "ATTACHMENT_NOT_FOUND",
             ports::file_storage::FileStorageError::Internal(_) => "STORAGE_UNAVAILABLE",
+        }
+    }
+}
+
+impl HttpMapping for GetUserProfileError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetUserProfileError::Repository(e) => e.to_http_status(),
+            GetUserProfileError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            GetUserProfileError::Repository(e) => e.to_user_message(),
+            GetUserProfileError::NotFound => "User not found".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetUserProfileError::Repository(e) => e.to_error_code(),
+            GetUserProfileError::NotFound => "USER_NOT_FOUND",
         }
     }
 }

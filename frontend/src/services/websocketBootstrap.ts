@@ -2,6 +2,8 @@ import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
+import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useCallStore } from "../store/callStore";
@@ -239,6 +241,28 @@ function dispatch(env: WsEnvelope) {
             detail: { serverId: joinedServerId },
           }),
         );
+      }
+      return;
+    }
+
+    case "user.profileChanged": {
+      const userId = asString(d.userId);
+      if (!userId) return;
+      const bio = asString(d.bio) ?? "";
+      const showActivity = d.showActivity === true;
+      const version = profileVersion(asString(d.occurredAt));
+      const cached = useUserProfileStore.getState().bios[userId];
+      if (cached && cached.at > version) return;
+      useUserProfileStore.getState().apply(userId, bio, version);
+      const auth = useAuthStore.getState();
+      if (auth.user?.id === userId) {
+        auth.setUser({ ...auth.user, bio, showActivity });
+      } else if (!showActivity) {
+        useHomeStore.getState().hideFriendActivity(userId, version);
+        scheduleHomeRefresh();
+      } else {
+        useHomeStore.getState().unhideFriendActivity(userId, version);
+        scheduleHomeRefresh();
       }
       return;
     }
