@@ -126,9 +126,10 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const runProfileUpdate = (patch: { bio?: string; showActivity?: boolean }) => {
     const initiator = useAuthStore.getState().user?.id;
     const next = profileQueue.current.then(async () => {
+      if (!initiator || useAuthStore.getState().user?.id !== initiator) return;
       const saved = await userAPI.updateProfile(patch);
       const current = useAuthStore.getState().user;
-      if (!current || !initiator || current.id !== initiator) return;
+      if (!current || current.id !== initiator) return;
       const version = profileVersion(saved.profileUpdatedAt);
       const cached = useUserProfileStore.getState().bios[current.id];
       if (cached && cached.at > version) return;
