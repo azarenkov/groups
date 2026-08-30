@@ -258,9 +258,10 @@ function dispatch(env: WsEnvelope) {
       if (auth.user?.id === userId) {
         auth.setUser({ ...auth.user, bio, showActivity });
       } else if (!showActivity) {
-        useHomeStore.getState().hideFriendActivity(userId);
+        useHomeStore.getState().hideFriendActivity(userId, version);
         scheduleHomeRefresh();
       } else {
+        useHomeStore.getState().unhideFriendActivity(userId, version);
         scheduleHomeRefresh();
       }
       return;

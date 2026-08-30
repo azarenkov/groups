@@ -6,10 +6,17 @@ interface HomeState {
   overview: HomeOverview | null;
   isLoading: boolean;
   failed: boolean;
+  hiddenActivity: Record<string, string>;
   fetch: (force?: boolean) => Promise<void>;
   clear: () => void;
-  hideFriendActivity: (userId: string) => void;
+  hideFriendActivity: (userId: string, version: string) => void;
+  unhideFriendActivity: (userId: string, version: string) => void;
 }
+
+const applyHidden = (overview: HomeOverview, hidden: Record<string, string>): HomeOverview =>
+  Object.keys(hidden).length === 0
+    ? overview
+    : { ...overview, activeFriends: overview.activeFriends.filter((f) => !(f.userId in hidden)) };
 
 let inflight: Promise<void> | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -19,6 +26,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
   overview: null,
   isLoading: false,
   failed: false,
+  hiddenActivity: {},
 
   fetch: async (force = false) => {
     if (inflight) {
@@ -31,7 +39,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
     const request: Promise<void> = homeAPI
       .overview()
       .then((overview) => {
-        if (gen === generation) set({ overview, isLoading: false, failed: false });
+        if (gen === generation) set({ overview: applyHidden(overview, get().hiddenActivity), isLoading: false, failed: false });
       })
       .catch((err) => {
         if (gen !== generation) return;
@@ -45,12 +53,24 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
     return request;
   },
 
-  hideFriendActivity: (userId) =>
-    set((s) =>
-      s.overview && s.overview.activeFriends.some((f) => f.userId === userId)
-        ? { overview: { ...s.overview, activeFriends: s.overview.activeFriends.filter((f) => f.userId !== userId) } }
-        : s,
-    ),
+  hideFriendActivity: (userId, version) =>
+    set((s) => {
+      const current = s.hiddenActivity[userId];
+      if (current !== undefined && current > version) return s;
+      const hiddenActivity = { ...s.hiddenActivity, [userId]: version };
+      return {
+        hiddenActivity,
+        overview: s.overview ? applyHidden(s.overview, hiddenActivity) : s.overview,
+      };
+    }),
+
+  unhideFriendActivity: (userId, version) =>
+    set((s) => {
+      const current = s.hiddenActivity[userId];
+      if (current === undefined || current > version) return s;
+      const { [userId]: _gone, ...hiddenActivity } = s.hiddenActivity;
+      return { hiddenActivity };
+    }),
 
   clear: () => {
     generation += 1;
@@ -59,7 +79,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
-    set({ overview: null, isLoading: false, failed: false });
+    set({ overview: null, isLoading: false, failed: false, hiddenActivity: {} });
   },
 }));
 
