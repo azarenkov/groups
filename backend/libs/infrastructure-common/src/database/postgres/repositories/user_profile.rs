@@ -57,7 +57,7 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         sqlx::query(&format!(
             r#"
             INSERT INTO {table} (user_id, name, bio, show_activity, updated_at, profile_updated_at)
-            VALUES ($1, '', $2, $3, $4, $4)
+            VALUES ($1, '', $2, $3, to_timestamp(0), $4)
             ON CONFLICT (user_id) DO UPDATE
                 SET bio = EXCLUDED.bio, show_activity = EXCLUDED.show_activity,
                     profile_updated_at = EXCLUDED.profile_updated_at
