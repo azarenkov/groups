@@ -16,6 +16,19 @@ interface MembersPanelProps {
 const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
+  useEffect(() => {
+    const onProfile = (e: Event) => {
+      const detail = (e as CustomEvent<{ userId: string; bio: string }>).detail;
+      if (!detail?.userId) return;
+      setMembers((prev) =>
+        prev.some((m) => m.id === detail.userId)
+          ? prev.map((m) => (m.id === detail.userId ? { ...m, bio: detail.bio } : m))
+          : prev,
+      );
+    };
+    window.addEventListener("rift:profile-changed", onProfile);
+    return () => window.removeEventListener("rift:profile-changed", onProfile);
+  }, []);
   const onlineUsers = usePresenceStore((s) => s.online);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const syncTick = useUserNamesStore((s) => s.syncTick);

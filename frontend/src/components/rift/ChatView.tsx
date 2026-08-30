@@ -1960,8 +1960,14 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         if (!cancelled) setDmBio(p.bio);
       })
       .catch(() => {});
+    const onProfile = (e: Event) => {
+      const detail = (e as CustomEvent<{ userId: string; bio: string }>).detail;
+      if (detail?.userId === dmFriendIdForBio) setDmBio(detail.bio);
+    };
+    window.addEventListener("rift:profile-changed", onProfile);
     return () => {
       cancelled = true;
+      window.removeEventListener("rift:profile-changed", onProfile);
     };
   }, [dmFriendIdForBio]);
   const notifLevel = useNotificationPrefsStore((s) =>

@@ -28,7 +28,8 @@ use contracts::events::{
     },
     user::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
-        UserLifecycleV1 as UserLifecycleDto, UserRenamedV1 as UserRenamedDto,
+        UserLifecycleV1 as UserLifecycleDto, UserProfileChangedV1 as UserProfileChangedDto,
+        UserRenamedV1 as UserRenamedDto,
     },
 };
 use std::collections::HashSet;
@@ -704,6 +705,23 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
         publisher
             .publish_to_users(unique([evt.user_id, evt.other_id]), &envelope)
             .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".user.profile_changed") {
+        let evt: UserProfileChangedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "user.profileChanged",
+            json!({
+                "userId": evt.user_id,
+                "bio": evt.bio,
+                "showActivity": evt.show_activity,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        let mut recipients = resolver.rename_recipients(evt.user_id).await?;
+        recipients.push(evt.user_id);
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
     }
 

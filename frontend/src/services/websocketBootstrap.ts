@@ -243,6 +243,17 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "user.profileChanged": {
+      const userId = asString(d.userId);
+      if (!userId) return;
+      window.dispatchEvent(
+        new CustomEvent("rift:profile-changed", {
+          detail: { userId, bio: asString(d.bio) ?? "", showActivity: d.showActivity === true },
+        }),
+      );
+      return;
+    }
+
     case "user.renamed": {
       const userId = asString(d.userId);
       const newName = asString(d.name);
