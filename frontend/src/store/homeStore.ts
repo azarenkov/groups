@@ -46,7 +46,11 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
     if (inflight) {
       if (!force) return inflight;
       const pending = inflight;
-      return pending.catch(() => {}).then(() => get().fetch());
+      const queuedGen = generation;
+      return pending.catch(() => {}).then(() => {
+        if (queuedGen !== generation) return;
+        return get().fetch();
+      });
     }
     const gen = generation;
     set({ isLoading: true });
