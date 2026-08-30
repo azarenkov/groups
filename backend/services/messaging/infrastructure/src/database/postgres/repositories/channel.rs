@@ -389,6 +389,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 c.name AS channel_name,
                 s.id AS server_id,
                 s.name AS server_name,
+                u.profile_updated_at,
                 MIN(cvp.joined_at) AS "joined_at!",
                 bool_or(cvp.camera_on) AS "camera_on!",
                 bool_or(cvp.screen_on) AS "screen_on!",
@@ -404,7 +405,7 @@ impl ChannelRepository for PostgresChannelRepository {
             INNER JOIN friendships f
                 ON f.user_id = $1 AND f.friend_id = cvp.user_id AND f.status = 'accepted'
             INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active
-            GROUP BY cvp.user_id, u.name, c.id, c.name, s.id, s.name
+            GROUP BY cvp.user_id, u.name, u.profile_updated_at, c.id, c.name, s.id, s.name
             ORDER BY MIN(cvp.joined_at) DESC
             "#,
             user_id.uuid(),
@@ -425,6 +426,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 is_muted: r.is_muted,
                 camera_on: r.camera_on,
                 screen_on: r.screen_on,
+                profile_updated_at: r.profile_updated_at,
             })
             .collect())
     }

@@ -118,7 +118,7 @@ class UserAPI {
     await this.client.delete("/v1/users/me", { data: reauth });
   }
 
-  async updateProfile(patch: { bio?: string; showActivity?: boolean }): Promise<{ bio: string; showActivity: boolean }> {
+  async updateProfile(patch: { bio?: string; showActivity?: boolean }): Promise<{ bio: string; showActivity: boolean; profileUpdatedAt: string }> {
     const response = await this.client.patch("/v1/users/me/profile", patch);
     return response.data.data;
   }

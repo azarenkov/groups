@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { homeAPI, HomeOverview } from "../api/home";
+import { profileVersion } from "./userProfileStore";
 
 interface HomeState {
   overview: HomeOverview | null;
@@ -17,6 +18,19 @@ const applyHidden = (overview: HomeOverview, hidden: Record<string, string>): Ho
   Object.keys(hidden).length === 0
     ? overview
     : { ...overview, activeFriends: overview.activeFriends.filter((f) => !(f.userId in hidden)) };
+
+const reconcileHidden = (overview: HomeOverview, hidden: Record<string, string>): Record<string, string> => {
+  let next = hidden;
+  for (const f of overview.activeFriends) {
+    const tombstone = hidden[f.userId];
+    if (tombstone === undefined) continue;
+    if (profileVersion(f.profileUpdatedAt) >= tombstone) {
+      if (next === hidden) next = { ...hidden };
+      delete next[f.userId];
+    }
+  }
+  return next;
+};
 
 let inflight: Promise<void> | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -39,7 +53,10 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
     const request: Promise<void> = homeAPI
       .overview()
       .then((overview) => {
-        if (gen === generation) set({ overview: applyHidden(overview, get().hiddenActivity), isLoading: false, failed: false });
+        if (gen === generation) {
+          const hiddenActivity = reconcileHidden(overview, get().hiddenActivity);
+          set({ overview: applyHidden(overview, hiddenActivity), hiddenActivity, isLoading: false, failed: false });
+        }
       })
       .catch((err) => {
         if (gen !== generation) return;

@@ -17,6 +17,7 @@ export interface ActiveFriend {
   isMuted: boolean;
   cameraOn: boolean;
   screenOn: boolean;
+  profileUpdatedAt: string | null;
 }
 
 export interface RecentRoom {

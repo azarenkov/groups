@@ -30,7 +30,7 @@ impl<W: IdentityUnitOfWork> UpdateProfile<W> {
         Self { unit_of_work }
     }
 
-    pub async fn execute(&self, user_id: UserId, patch: ProfilePatch) -> Result<(String, bool), UpdateProfileError> {
+    pub async fn execute(&self, user_id: UserId, patch: ProfilePatch) -> Result<(String, bool, chrono::DateTime<Utc>), UpdateProfileError> {
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
@@ -48,6 +48,6 @@ impl<W: IdentityUnitOfWork> UpdateProfile<W> {
             tx.save_events(&events, patch.request_id.as_deref()).await?;
         }
         tx.commit().await?;
-        Ok((user.bio().to_string(), user.show_activity()))
+        Ok((user.bio().to_string(), user.show_activity(), user.updated_at()))
     }
 }

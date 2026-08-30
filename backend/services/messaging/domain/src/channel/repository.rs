@@ -95,6 +95,7 @@ pub struct FriendVoicePresenceRow {
     pub is_muted: bool,
     pub camera_on: bool,
     pub screen_on: bool,
+    pub profile_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]

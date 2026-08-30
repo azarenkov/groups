@@ -331,6 +331,7 @@ pub struct UpdateProfileBody {
 pub struct UpdateProfileResponse {
     pub bio: String,
     pub show_activity: bool,
+    pub profile_updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[patch("/me/profile")]
@@ -344,7 +345,7 @@ async fn update_me_profile(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
-    let (bio, show_activity) = app_state
+    let (bio, show_activity, profile_updated_at) = app_state
         .update_profile_usecase
         .execute(
             user_id,
@@ -355,5 +356,5 @@ async fn update_me_profile(
             },
         )
         .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateProfileResponse { bio, show_activity })))
+    Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateProfileResponse { bio, show_activity, profile_updated_at })))
 }

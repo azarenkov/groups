@@ -19,6 +19,7 @@ struct ActiveFriendItem {
     is_muted: bool,
     camera_on: bool,
     screen_on: bool,
+    profile_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -63,6 +64,7 @@ async fn get_home_overview(
                 is_muted: r.is_muted,
                 camera_on: r.camera_on,
                 screen_on: r.screen_on,
+                profile_updated_at: r.profile_updated_at,
             })
             .collect(),
         recent_rooms: overview

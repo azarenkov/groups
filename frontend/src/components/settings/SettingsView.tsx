@@ -9,6 +9,7 @@ import { UserAvatar } from "../rift/Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { validateUsername, type UsernameIssue } from "../../utils/username";
 import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from "./AccountModals";
+import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 
 type Theme = "light" | "dark";
 
@@ -120,9 +121,12 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
     const next = profileQueue.current.then(async () => {
       const saved = await userAPI.updateProfile(patch);
       const current = useAuthStore.getState().user;
-      if (current) {
-        useAuthStore.getState().setUser({ ...current, bio: saved.bio, showActivity: saved.showActivity });
-      }
+      if (!current) return;
+      const version = profileVersion(saved.profileUpdatedAt);
+      const cached = useUserProfileStore.getState().bios[current.id];
+      if (cached && cached.at > version) return;
+      useUserProfileStore.getState().apply(current.id, saved.bio, version);
+      useAuthStore.getState().setUser({ ...current, bio: saved.bio, showActivity: saved.showActivity });
     });
     profileQueue.current = next.catch(() => {});
     return next;
