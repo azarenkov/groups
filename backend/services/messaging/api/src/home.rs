@@ -85,29 +85,67 @@ async fn get_home_overview(
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+struct MutualServerItem {
+    id: Uuid,
+    name: String,
+    accent_color: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceRoomItem {
+    channel_id: Uuid,
+    channel_name: String,
+    server_id: Uuid,
+    server_name: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicProfileResponse {
     id: Uuid,
     name: String,
     bio: String,
     profile_updated_at: Option<DateTime<Utc>>,
     active: bool,
+    timezone: String,
+    member_since: Option<DateTime<Utc>>,
+    mutual_servers: Vec<MutualServerItem>,
+    voice_room: Option<VoiceRoomItem>,
 }
 
 #[get("/{user_id}/profile")]
 async fn get_user_profile(
-    _auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    let profile = app_state
+    let view = app_state
         .get_user_profile_usecase
-        .execute(UserId::new(path.into_inner()))
+        .execute(UserId::new(auth_token.id), UserId::new(path.into_inner()))
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
-        id: profile.user_id.uuid(),
-        name: profile.name,
-        bio: profile.bio,
-        profile_updated_at: profile.profile_updated_at,
-        active: profile.active,
+        id: view.profile.user_id.uuid(),
+        name: view.profile.name,
+        bio: view.profile.bio,
+        profile_updated_at: view.profile.profile_updated_at,
+        active: view.profile.active,
+        timezone: view.profile.timezone,
+        member_since: view.profile.registered_at,
+        mutual_servers: view
+            .mutual_servers
+            .into_iter()
+            .map(|m| MutualServerItem {
+                id: m.server_id.uuid(),
+                name: m.name,
+                accent_color: m.accent_color,
+            })
+            .collect(),
+        voice_room: view.voice_room.map(|v| VoiceRoomItem {
+            channel_id: v.channel_id.uuid(),
+            channel_name: v.channel_name,
+            server_id: v.server_id.uuid(),
+            server_name: v.server_name,
+        }),
     })))
 }

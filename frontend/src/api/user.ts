@@ -21,6 +21,7 @@ export interface MeProfile {
   linkedProviders: string[];
   bio: string;
   showActivity: boolean;
+  timezone: string;
   profileUpdatedAt: string;
 }
 
@@ -119,7 +120,7 @@ class UserAPI {
     await this.client.delete("/v1/users/me", { data: reauth });
   }
 
-  async updateProfile(patch: { bio?: string; showActivity?: boolean }): Promise<{ bio: string; showActivity: boolean; profileUpdatedAt: string }> {
+  async updateProfile(patch: { bio?: string; showActivity?: boolean; timezone?: string }): Promise<{ bio: string; showActivity: boolean; profileUpdatedAt: string }> {
     const response = await this.client.patch("/v1/users/me/profile", patch);
     return response.data.data;
   }

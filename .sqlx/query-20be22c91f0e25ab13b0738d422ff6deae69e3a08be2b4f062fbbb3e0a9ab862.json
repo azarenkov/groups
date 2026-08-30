@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id AS channel_id, c.name AS channel_name, s.id AS server_id, s.name AS server_name\n            FROM channel_voice_participants cvp\n            INNER JOIN channels c ON c.id = cvp.channel_id\n            INNER JOIN servers s ON s.id = c.server_id\n            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $2\n            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active\n            WHERE cvp.user_id = $1\n            ORDER BY cvp.joined_at DESC\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "server_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "server_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "20be22c91f0e25ab13b0738d422ff6deae69e3a08be2b4f062fbbb3e0a9ab862"
+}

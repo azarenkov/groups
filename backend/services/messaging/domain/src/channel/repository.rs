@@ -15,6 +15,11 @@ pub trait ChannelRepository {
         &self,
         server_id: &crate::server::id::ServerId,
     ) -> Result<Vec<ChannelId>, RepositoryError>;
+    async fn find_visible_voice_room(
+        &self,
+        target: &UserId,
+        viewer: &UserId,
+    ) -> Result<Option<VisibleVoiceRoom>, RepositoryError>;
     async fn list_voice_channel_ids_with_participant(
         &self,
         user_id: &UserId,
@@ -81,6 +86,14 @@ pub trait ChannelRepository {
         user_id: &UserId,
         limit: i64,
     ) -> Result<Vec<RecentVoiceRoomRow>, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct VisibleVoiceRoom {
+    pub channel_id: ChannelId,
+    pub channel_name: String,
+    pub server_id: crate::server::id::ServerId,
+    pub server_name: String,
 }
 
 #[derive(Debug, Clone)]

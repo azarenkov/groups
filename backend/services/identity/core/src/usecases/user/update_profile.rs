@@ -18,6 +18,7 @@ pub enum UpdateProfileError {
 pub struct ProfilePatch {
     pub bio: Option<String>,
     pub show_activity: Option<bool>,
+    pub timezone: Option<String>,
     pub request_id: Option<String>,
 }
 
@@ -38,7 +39,8 @@ impl<W: IdentityUnitOfWork> UpdateProfile<W> {
             .ok_or(UpdateProfileError::UserNotFound)?;
         let bio = patch.bio.unwrap_or_else(|| user.bio().to_string());
         let show_activity = patch.show_activity.unwrap_or(user.show_activity());
-        user.update_profile(bio, show_activity, Utc::now()).map_err(|e| match e {
+        let timezone = patch.timezone.unwrap_or_else(|| user.timezone().to_string());
+        user.update_profile(bio, show_activity, timezone, Utc::now()).map_err(|e| match e {
             UserError::BioTooLong => UpdateProfileError::BioTooLong,
             _ => UpdateProfileError::UserNotFound,
         })?;

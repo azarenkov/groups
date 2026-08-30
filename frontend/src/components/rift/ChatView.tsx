@@ -37,6 +37,7 @@ import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
 import { homeAPI } from "../../api/home";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
+import { useProfileModalStore } from "../../store/profileModalStore";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -2080,7 +2081,15 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   if (dm) {
     return (
       <header className="main-header">
-        <span className="ch-ico">
+        <span
+          className="ch-ico clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => useProfileModalStore.getState().open(dm.friendId)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") useProfileModalStore.getState().open(dm.friendId);
+          }}
+        >
           <UserAvatar
             userId={dm.friendId}
             name={dm.name}
@@ -2746,7 +2755,12 @@ const Message: React.FC<MessageProps> = ({
         (editing ? " editing" : "")
       }
     >
-      <UserAvatar userId={msg.authorId} name={displayName} className="ava" />
+      <UserAvatar
+        userId={msg.authorId}
+        name={displayName}
+        className="ava clickable"
+        onClick={() => useProfileModalStore.getState().open(msg.authorId)}
+      />
       <div className="body">
         {!continued && (
           <div className="head">

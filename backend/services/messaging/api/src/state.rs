@@ -220,7 +220,8 @@ pub struct AppState {
     pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
     pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
     pub get_home_overview_usecase: GetHomeOverview<PostgresChannelRepository>,
-    pub get_user_profile_usecase: GetUserProfile<PostgresUserProfileRepository>,
+    pub get_user_profile_usecase:
+        GetUserProfile<PostgresUserProfileRepository, PostgresServerRepository, PostgresChannelRepository>,
     pub get_voice_presence_usecase:
         GetVoicePresence<PostgresServerRepository, PostgresChannelRepository>,
     pub update_stream_viewer_usecase:

@@ -24,6 +24,8 @@ import ruSidebar from "./locales/ru/sidebar.json";
 import ruVoice from "./locales/ru/voice.json";
 import enHome from "./locales/en/home.json";
 import ruHome from "./locales/ru/home.json";
+import enProfile from "./locales/en/profile.json";
+import ruProfile from "./locales/ru/profile.json";
 
 export const SUPPORTED_LOCALES = ["en", "ru"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
@@ -40,6 +42,7 @@ export const NAMESPACES = [
   "call",
   "serverSettings",
   "home",
+  "profile",
 ] as const;
 
 const resources = {
@@ -55,6 +58,7 @@ const resources = {
     call: enCall,
     serverSettings: enServerSettings,
     home: enHome,
+    profile: enProfile,
   },
   ru: {
     common: ruCommon,
@@ -68,6 +72,7 @@ const resources = {
     call: ruCall,
     serverSettings: ruServerSettings,
     home: ruHome,
+    profile: ruProfile,
   },
 } as const;
 

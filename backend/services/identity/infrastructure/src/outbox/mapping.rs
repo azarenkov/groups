@@ -94,6 +94,7 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             bio: e.bio.clone(),
             show_activity: e.show_activity,
             active: e.active,
+            timezone: e.timezone.clone(),
             occurred_at: e.occurred_at,
         }),
     }

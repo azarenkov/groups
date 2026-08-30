@@ -1,0 +1,22 @@
+{
+  "close": "Close",
+  "inVoice": "Voice — {{room}}",
+  "online": "Online",
+  "offline": "Offline",
+  "inactive": "Account unavailable",
+  "deletedUser": "Deleted user",
+  "unavailable": "Profile unavailable",
+  "message": "Message",
+  "call": "Call",
+  "more": "More",
+  "removeFriend": "Remove friend",
+  "addFriend": "Add friend",
+  "requestSent": "Request sent",
+  "acceptRequest": "Accept friend request",
+  "copyId": "Copy user ID",
+  "copied": "Copied",
+  "about": "About",
+  "memberSince": "Member since",
+  "localTime": "Local time",
+  "mutualServers": "Mutual servers — {{count}}"
+}

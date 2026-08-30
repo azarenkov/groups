@@ -13,6 +13,7 @@ import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
+import UserProfileModal from "../components/rift/UserProfileModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
@@ -1346,6 +1347,12 @@ const ServersPage: React.FC = () => {
 
       <IncomingCallModal />
       <ActiveCallBar />
+
+      <UserProfileModal
+        onOpenDm={handleOpenDmFromHome}
+        onCall={handleCallFromHome}
+        onRemoveFriend={(id, name) => setDeleteConfirm({ type: "friend", id, name })}
+      />
 
       <AddFriendModal
         isOpen={isAddFriendOpen}

@@ -242,17 +242,19 @@ pub struct UserProfileChanged {
     pub bio: String,
     pub show_activity: bool,
     pub active: bool,
+    pub timezone: String,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl UserProfileChanged {
-    pub fn record(user_id: UserId, bio: String, show_activity: bool, active: bool, now: DateTime<Utc>) -> Self {
+    pub fn record(user_id: UserId, bio: String, show_activity: bool, active: bool, timezone: String, now: DateTime<Utc>) -> Self {
         Self {
             id: EventId::generate(),
             user_id,
             bio,
             show_activity,
             active,
+            timezone,
             occurred_at: now,
         }
     }

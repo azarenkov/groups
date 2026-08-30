@@ -12,6 +12,7 @@ interface User {
   linkedProviders?: string[];
   bio?: string;
   showActivity?: boolean;
+  timezone?: string;
 }
 
 export interface TokenPair {
@@ -99,8 +100,25 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         linkedProviders: me.linkedProviders,
         bio: stale && current?.id === me.id ? current.bio : me.bio,
         showActivity: stale && current?.id === me.id ? current.showActivity : me.showActivity,
+        timezone: me.timezone,
       },
     });
+    const localZone = (() => {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+      } catch {
+        return "";
+      }
+    })();
+    if (localZone && localZone !== me.timezone) {
+      userAPI
+        .updateProfile({ timezone: localZone })
+        .then((saved) => {
+          const u = get().user;
+          if (u && u.id === me.id) set({ user: { ...u, timezone: localZone, bio: saved.bio, showActivity: saved.showActivity } });
+        })
+        .catch((err) => console.warn("[auth] timezone sync failed:", err));
+    }
     if (me.locale === "ru" || me.locale === "en") {
       const { setLocale, currentLocale } = await import("../i18n");
       if (currentLocale() !== me.locale) {

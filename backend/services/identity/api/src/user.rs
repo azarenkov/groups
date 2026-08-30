@@ -47,6 +47,7 @@ pub struct MeResponse {
     pub linked_providers: Vec<String>,
     pub bio: String,
     pub show_activity: bool,
+    pub timezone: String,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -67,6 +68,7 @@ async fn get_me(
         linked_providers: profile.linked_providers,
         bio: profile.bio,
         show_activity: profile.show_activity,
+        timezone: profile.timezone,
         profile_updated_at: profile.profile_updated_at,
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
@@ -326,6 +328,22 @@ pub struct UpdateProfileBody {
     #[validate(length(max = 190))]
     pub bio: Option<String>,
     pub show_activity: Option<bool>,
+    #[validate(length(max = 64), custom(function = "validate_timezone"))]
+    pub timezone: Option<String>,
+}
+
+fn validate_timezone(value: &str) -> Result<(), validator::ValidationError> {
+    let ok = !value.is_empty()
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '+' | '-'))
+        && !value.starts_with('/')
+        && !value.ends_with('/');
+    if ok {
+        Ok(())
+    } else {
+        Err(validator::ValidationError::new("timezone_format"))
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -354,6 +372,7 @@ async fn update_me_profile(
             ProfilePatch {
                 bio: body.bio,
                 show_activity: body.show_activity,
+                timezone: body.timezone,
                 request_id: ctx.request_id,
             },
         )
