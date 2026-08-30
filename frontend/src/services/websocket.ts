@@ -46,6 +46,7 @@ export type WsEventType =
   | "channel.text.joined"
   | "server.created"
   | "server.updated"
+  | "server.ownerChanged"
   | "server.deleted"
   | "server.memberJoined"
   | "server.memberLeft"
