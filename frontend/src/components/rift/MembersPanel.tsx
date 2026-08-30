@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { profileTimestamp, useUserProfileStore } from "../../store/userProfileStore";
+import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 import { useTranslation } from "react-i18next";
 import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
@@ -21,7 +21,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   useEffect(() => {
     const apply = useUserProfileStore.getState().apply;
     for (const m of members) {
-      apply(m.id, m.bio ?? "", profileTimestamp(m.profileUpdatedAt));
+      apply(m.id, m.bio ?? "", profileVersion(m.profileUpdatedAt));
     }
   }, [members]);
   const onlineUsers = usePresenceStore((s) => s.online);

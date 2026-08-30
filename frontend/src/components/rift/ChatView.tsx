@@ -36,7 +36,7 @@ import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
 import { homeAPI } from "../../api/home";
-import { profileTimestamp, useUserProfileStore } from "../../store/userProfileStore";
+import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -1958,9 +1958,14 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       .profile(dmFriendIdForBio)
       .then((p) => {
         if (cancelled) return;
-        useUserProfileStore.getState().apply(dmFriendIdForBio, p.bio, profileTimestamp(p.profileUpdatedAt));
+        useUserProfileStore.getState().apply(dmFriendIdForBio, p.bio, profileVersion(p.profileUpdatedAt));
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.code === "USER_NOT_FOUND") {
+          useUserProfileStore.getState().forget(dmFriendIdForBio);
+        }
+      });
     return () => {
       cancelled = true;
     };

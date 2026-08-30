@@ -2,7 +2,7 @@ import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
-import { profileTimestamp, useUserProfileStore } from "../store/userProfileStore";
+import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
@@ -252,7 +252,7 @@ function dispatch(env: WsEnvelope) {
       const showActivity = d.showActivity === true;
       const applied = useUserProfileStore
         .getState()
-        .apply(userId, bio, profileTimestamp(asString(d.occurredAt)));
+        .apply(userId, bio, profileVersion(asString(d.occurredAt)));
       if (!applied) return;
       const auth = useAuthStore.getState();
       if (auth.user?.id === userId) {

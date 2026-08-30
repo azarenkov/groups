@@ -401,7 +401,7 @@ impl ChannelRepository for PostgresChannelRepository {
             INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $1
             INNER JOIN friendships f
                 ON f.user_id = $1 AND f.friend_id = cvp.user_id AND f.status = 'accepted'
-            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity
+            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active
             GROUP BY cvp.user_id, u.name, c.id, c.name, s.id, s.name
             ORDER BY MIN(cvp.joined_at) DESC
             "#,

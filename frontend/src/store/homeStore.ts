@@ -6,7 +6,7 @@ interface HomeState {
   overview: HomeOverview | null;
   isLoading: boolean;
   failed: boolean;
-  fetch: () => Promise<void>;
+  fetch: (force?: boolean) => Promise<void>;
   clear: () => void;
   hideFriendActivity: (userId: string) => void;
 }
@@ -15,13 +15,17 @@ let inflight: Promise<void> | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let generation = 0;
 
-export const useHomeStore = create<HomeState>()((set) => ({
+export const useHomeStore = create<HomeState>()((set, get) => ({
   overview: null,
   isLoading: false,
   failed: false,
 
-  fetch: async () => {
-    if (inflight) return inflight;
+  fetch: async (force = false) => {
+    if (inflight) {
+      if (!force) return inflight;
+      const pending = inflight;
+      return pending.catch(() => {}).then(() => get().fetch());
+    }
     const gen = generation;
     set({ isLoading: true });
     const request: Promise<void> = homeAPI
@@ -63,6 +67,6 @@ export const scheduleHomeRefresh = (delayMs = 400) => {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
-    void useHomeStore.getState().fetch();
+    void useHomeStore.getState().fetch(true);
   }, delayMs);
 };
