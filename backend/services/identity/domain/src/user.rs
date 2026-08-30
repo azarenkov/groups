@@ -337,7 +337,7 @@ impl User {
     }
 
     pub fn update_profile(&mut self, bio: String, show_activity: bool, now: DateTime<Utc>) -> Result<(), UserError> {
-        if self.deleted_at.is_some() {
+        if self.deleted_at.is_some() || self.disabled_at.is_some() {
             return Err(UserError::Deleted);
         }
         let bio = bio.trim().to_string();
