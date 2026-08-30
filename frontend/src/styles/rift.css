@@ -112,7 +112,6 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   box-shadow: none;
-  border-radius: 0;
 }
 
 .win {
