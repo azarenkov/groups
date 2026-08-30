@@ -250,10 +250,10 @@ function dispatch(env: WsEnvelope) {
       if (!userId) return;
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
-      const applied = useUserProfileStore
-        .getState()
-        .apply(userId, bio, profileVersion(asString(d.occurredAt)));
-      if (!applied) return;
+      const version = profileVersion(asString(d.occurredAt));
+      const cached = useUserProfileStore.getState().bios[userId];
+      if (cached && cached.at > version) return;
+      useUserProfileStore.getState().apply(userId, bio, version);
       const auth = useAuthStore.getState();
       if (auth.user?.id === userId) {
         auth.setUser({ ...auth.user, bio, showActivity });
