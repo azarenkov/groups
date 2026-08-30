@@ -106,7 +106,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let users = sqlx::query!(
                 r#"
-                SELECT u.user_id, u.name, u.bio
+                SELECT u.user_id, u.name, CASE WHEN u.active THEN u.bio ELSE '' END AS "bio!"
                 FROM messaging_user_profiles u
                 INNER JOIN (
                     SELECT user_id, MIN(joined_at) AS first_joined_at
@@ -148,7 +148,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let users = sqlx::query!(
                 r#"
-                SELECT u.user_id, u.name, u.bio
+                SELECT u.user_id, u.name, CASE WHEN u.active THEN u.bio ELSE '' END AS "bio!"
                 FROM messaging_user_profiles u
                 INNER JOIN channel_text_participants p ON p.user_id = u.user_id
                 WHERE p.channel_id = $1

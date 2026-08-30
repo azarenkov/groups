@@ -389,15 +389,15 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
             className="s-input"
             placeholder={t("account.aboutPlaceholder")}
             value={bio}
-            maxLength={190}
             disabled={bioBusy}
             onChange={(e) => {
-              setBio(e.target.value);
+              const next = Array.from(e.target.value).slice(0, 190).join("");
+              setBio(next);
               setBioError(null);
             }}
           />
           <div className="s-field-foot">
-            <span className="s-field-count">{bio.length}/190</span>
+            <span className="s-field-count">{Array.from(bio).length}/190</span>
             {bioDirty && (
               <span className="s-field-actions">
                 <button className="s-btn secondary" disabled={bioBusy} onClick={() => setBio(user?.bio ?? "")}>
