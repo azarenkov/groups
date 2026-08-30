@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT u.user_id, u.name, CASE WHEN u.active THEN u.bio ELSE '' END AS \"bio!\",\n                       CASE WHEN u.active THEN u.profile_updated_at ELSE GREATEST(u.profile_updated_at, u.updated_at) END AS \"profile_updated_at?\"\n                FROM messaging_user_profiles u\n                INNER JOIN channel_text_participants p ON p.user_id = u.user_id\n                WHERE p.channel_id = $1\n                ORDER BY p.joined_at ASC, u.user_id ASC\n                LIMIT $2 OFFSET $3\n                ",
+  "query": "\n                SELECT u.user_id, u.name, CASE WHEN u.active THEN u.bio ELSE '' END AS \"bio!\",\n                       CASE WHEN u.active THEN u.profile_updated_at ELSE GREATEST(u.profile_updated_at, u.active_updated_at) END AS \"profile_updated_at?\"\n                FROM messaging_user_profiles u\n                INNER JOIN channel_text_participants p ON p.user_id = u.user_id\n                WHERE p.channel_id = $1\n                ORDER BY p.joined_at ASC, u.user_id ASC\n                LIMIT $2 OFFSET $3\n                ",
   "describe": {
     "columns": [
       {
@@ -38,5 +38,5 @@
       null
     ]
   },
-  "hash": "89064056e9973e6ee1de662b39e335893abc9ecc32fcf329a16ad15edb9c49e0"
+  "hash": "98418e4ad9b437cfcf2fb9af473b3c396a9427c7be7531b61ea8e5f4537ead14"
 }

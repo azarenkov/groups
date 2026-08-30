@@ -22,6 +22,7 @@ pub trait UserProfileRepository {
         user_id: &UserId,
         bio: &str,
         show_activity: bool,
+        active: bool,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
     async fn get_name(&self, user_id: &UserId) -> Result<Option<String>, RepositoryError>;

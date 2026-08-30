@@ -31,7 +31,7 @@ impl PostgresUserProfileRepository {
 impl UserProfileRepository for PostgresUserProfileRepository {
     async fn get_public_profile(&self, user_id: &UserId) -> Result<Option<PublicProfile>, RepositoryError> {
         let row = sqlx::query(&format!(
-            "SELECT CASE WHEN active THEN name ELSE '' END, CASE WHEN active THEN bio ELSE '' END, CASE WHEN active THEN profile_updated_at ELSE GREATEST(profile_updated_at, updated_at) END, active FROM {} WHERE user_id = $1 AND name <> ''",
+            "SELECT CASE WHEN active THEN name ELSE '' END, CASE WHEN active THEN bio ELSE '' END, CASE WHEN active THEN profile_updated_at ELSE GREATEST(profile_updated_at, active_updated_at) END, active FROM {} WHERE user_id = $1 AND name <> ''",
             self.table
         ))
         .bind(user_id.uuid())
@@ -52,17 +52,19 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         user_id: &UserId,
         bio: &str,
         show_activity: bool,
+        active: bool,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
         sqlx::query(&format!(
             r#"
-            INSERT INTO {table} (user_id, name, bio, show_activity, updated_at, profile_updated_at)
-            VALUES ($1, '', $2, $3, to_timestamp(0), $4)
+            INSERT INTO {table} (user_id, name, bio, show_activity, active, updated_at, profile_updated_at, active_updated_at)
+            VALUES ($1, '', $2, $3, $5, to_timestamp(0), $4, $4)
             ON CONFLICT (user_id) DO UPDATE
-                SET bio = EXCLUDED.bio, show_activity = EXCLUDED.show_activity,
-                    profile_updated_at = EXCLUDED.profile_updated_at
-                WHERE {table}.profile_updated_at IS NULL
-                   OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at
+                SET bio = CASE WHEN {table}.profile_updated_at IS NULL OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.bio ELSE {table}.bio END,
+                    show_activity = CASE WHEN {table}.profile_updated_at IS NULL OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.show_activity ELSE {table}.show_activity END,
+                    profile_updated_at = GREATEST({table}.profile_updated_at, EXCLUDED.profile_updated_at),
+                    active = CASE WHEN {table}.active_updated_at <= EXCLUDED.active_updated_at THEN EXCLUDED.active ELSE {table}.active END,
+                    active_updated_at = GREATEST({table}.active_updated_at, EXCLUDED.active_updated_at)
             "#,
             table = self.table
         ))
@@ -70,6 +72,7 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         .bind(bio)
         .bind(show_activity)
         .bind(occurred_at)
+        .bind(active)
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -145,7 +148,7 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         occurred_at: DateTime<Utc>,
     ) -> Result<bool, RepositoryError> {
         let row = sqlx::query(&format!(
-            "SELECT active, updated_at FROM {} WHERE user_id = $1",
+            "SELECT active, active_updated_at FROM {} WHERE user_id = $1",
             self.table
         ))
         .bind(user_id.uuid())
@@ -170,11 +173,11 @@ impl UserProfileRepository for PostgresUserProfileRepository {
     ) -> Result<bool, RepositoryError> {
         let result = sqlx::query(&format!(
             r#"
-            INSERT INTO {table} (user_id, name, active, updated_at)
-            VALUES ($1, '', $2, $3)
+            INSERT INTO {table} (user_id, name, active, updated_at, active_updated_at)
+            VALUES ($1, '', $2, to_timestamp(0), $3)
             ON CONFLICT (user_id) DO UPDATE
-                SET active = EXCLUDED.active, updated_at = EXCLUDED.updated_at
-                WHERE {table}.updated_at <= EXCLUDED.updated_at
+                SET active = EXCLUDED.active, active_updated_at = EXCLUDED.active_updated_at
+                WHERE {table}.active_updated_at <= EXCLUDED.active_updated_at
             "#,
             table = self.table
         ))

@@ -297,7 +297,7 @@ impl User {
             self.disabled_at = Some(now);
             self.updated_at = now;
             self.record(UserEvent::Disabled(UserDisabled::record(self.id, now)));
-            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, now)));
+            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, now)));
         }
         Ok(())
     }
@@ -311,6 +311,7 @@ impl User {
                 self.id,
                 self.bio.clone(),
                 self.show_activity,
+                true,
                 now,
             )));
         }
@@ -331,7 +332,7 @@ impl User {
         self.show_activity = false;
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
         Ok(())
     }
@@ -350,7 +351,7 @@ impl User {
         self.bio = bio.clone();
         self.show_activity = show_activity;
         self.updated_at = now;
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, true, now)));
         Ok(())
     }
 

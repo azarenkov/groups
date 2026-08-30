@@ -54,7 +54,7 @@ pub fn spawn<P>(
                                 if profile_event {
                                     match serde_json::from_slice::<UserProfileChangedDto>(&m.payload) {
                                         Ok(evt) => match repository
-                                            .update_profile(&UserId::new(evt.user_id), &evt.bio, evt.show_activity, evt.occurred_at)
+                                            .update_profile(&UserId::new(evt.user_id), &evt.bio, evt.show_activity, evt.active, evt.occurred_at)
                                             .await
                                         {
                                             Ok(()) => {
@@ -80,7 +80,7 @@ pub fn spawn<P>(
                                             Ok(_) => {
                                                 if m.subject.ends_with(".user.deleted")
                                                     && let Err(e) = repository
-                                                        .update_profile(&UserId::new(evt.user_id), "", false, evt.occurred_at)
+                                                        .update_profile(&UserId::new(evt.user_id), "", false, false, evt.occurred_at)
                                                         .await
                                                 {
                                                     tracing::warn!(error = %e, "Profile erasure failed; message will be redelivered");
