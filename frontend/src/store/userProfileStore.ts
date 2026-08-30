@@ -8,7 +8,7 @@ interface ProfileEntry {
 interface UserProfileState {
   bios: Record<string, ProfileEntry>;
   apply: (userId: string, bio: string, at: string) => boolean;
-  forget: (userId: string) => void;
+  markUnavailable: (userId: string) => void;
   clear: () => void;
 }
 
@@ -49,11 +49,13 @@ export const useUserProfileStore = create<UserProfileState>()((set, get) => ({
     set((s) => ({ bios: { ...s.bios, [userId]: { bio, at } } }));
     return true;
   },
-  forget: (userId) =>
+  markUnavailable: (userId) => {
+    const at = profileVersion(new Date().toISOString());
     set((s) => {
-      if (!(userId in s.bios)) return s;
-      const { [userId]: _gone, ...rest } = s.bios;
-      return { bios: rest };
-    }),
+      const current = s.bios[userId];
+      if (current && current.at > at) return s;
+      return { bios: { ...s.bios, [userId]: { bio: "", at } } };
+    });
+  },
   clear: () => set({ bios: {} }),
 }));

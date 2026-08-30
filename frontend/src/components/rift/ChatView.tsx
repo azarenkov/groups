@@ -1963,7 +1963,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       .catch((err) => {
         if (cancelled) return;
         if (err instanceof ApiError && err.code === "USER_NOT_FOUND") {
-          useUserProfileStore.getState().forget(dmFriendIdForBio);
+          useUserProfileStore.getState().markUnavailable(dmFriendIdForBio);
         }
       });
     return () => {
