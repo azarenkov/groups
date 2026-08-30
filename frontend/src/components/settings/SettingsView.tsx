@@ -112,8 +112,14 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const [bioBusy, setBioBusy] = React.useState(false);
   const [bioError, setBioError] = React.useState<string | null>(null);
   const [activityBusy, setActivityBusy] = React.useState(false);
+  const bioBaseline = React.useRef(user?.bio ?? "");
   React.useEffect(() => {
-    setBio(user?.bio ?? "");
+    const remote = user?.bio ?? "";
+    setBio((draft) => {
+      const clean = draft.trim() === bioBaseline.current.trim();
+      bioBaseline.current = remote;
+      return clean ? remote : draft;
+    });
   }, [user?.bio]);
   const bioDirty = bio.trim() !== (user?.bio ?? "");
   const profileQueue = React.useRef<Promise<void>>(Promise.resolve());
