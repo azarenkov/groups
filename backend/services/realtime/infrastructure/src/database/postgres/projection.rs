@@ -130,7 +130,7 @@ impl PostgresRealtimeProjection {
             r#"
             SELECT friend_id AS user_id
             FROM realtime_friend_edges
-            WHERE user_id = $1 AND NOT removed
+            WHERE user_id = $1
             UNION
             SELECT DISTINCT sm2.user_id
             FROM realtime_server_members sm1
