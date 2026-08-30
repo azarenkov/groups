@@ -24,6 +24,7 @@ impl ListChannelParticipantsResponse {
 pub struct ChannelParticipantResponse {
     pub id: Uuid,
     pub name: String,
+    pub bio: String,
 }
 
 impl From<ChannelParticipantDto> for ChannelParticipantResponse {
@@ -31,6 +32,7 @@ impl From<ChannelParticipantDto> for ChannelParticipantResponse {
         Self {
             id: dto.id,
             name: dto.name,
+            bio: dto.bio,
         }
     }
 }

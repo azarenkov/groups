@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { homeAPI } from "../../api/home";
 import { useTranslation } from "react-i18next";
 import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
@@ -17,30 +16,6 @@ interface MembersPanelProps {
 const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
-  const [bios, setBios] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let cancelled = false;
-    const missing = members.filter((m) => bios[m.id] === undefined).map((m) => m.id);
-    if (missing.length === 0) return;
-    void Promise.all(
-      missing.map((id) =>
-        homeAPI
-          .profile(id)
-          .then((p) => [id, p.bio] as const)
-          .catch(() => [id, ""] as const),
-      ),
-    ).then((entries) => {
-      if (cancelled) return;
-      setBios((prev) => {
-        const next = { ...prev };
-        for (const [id, bio] of entries) next[id] = bio;
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [members, bios]);
   const onlineUsers = usePresenceStore((s) => s.online);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const syncTick = useUserNamesStore((s) => s.syncTick);
@@ -129,7 +104,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
           ? t("common:online")
           : t("common:offline");
         return (
-          <div key={m.id} className="member-row" title={bios[m.id] || undefined}>
+          <div key={m.id} className="member-row" title={m.bio || undefined}>
             <UserAvatar userId={m.id} name={displayName} className="ava">
               <span
                 className={"presence " + (isOnline ? "online" : "offline")}
@@ -157,7 +132,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
                   )
                 )}
               </div>
-              <div className="role">{bios[m.id] ? bios[m.id] : statusLabel}</div>
+              <div className="role">{m.bio ? m.bio : statusLabel}</div>
             </div>
           </div>
         );

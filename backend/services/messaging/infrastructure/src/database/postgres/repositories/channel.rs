@@ -73,7 +73,7 @@ impl ChannelRepository for PostgresChannelRepository {
         server_id: &ServerId,
         channel_id: &ChannelId,
         pagination: Pagination,
-    ) -> Result<PaginatedResult<(UserId, UserName)>, RepositoryError> {
+    ) -> Result<PaginatedResult<(UserId, UserName, String)>, RepositoryError> {
         let kind_row = sqlx::query!(
             r#"
             SELECT kind AS "kind: ChannelKindDto"
@@ -106,7 +106,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let users = sqlx::query!(
                 r#"
-                SELECT u.user_id, u.name
+                SELECT u.user_id, u.name, u.bio
                 FROM messaging_user_profiles u
                 INNER JOIN (
                     SELECT user_id, MIN(joined_at) AS first_joined_at
@@ -127,7 +127,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let items = users
                 .into_iter()
-                .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+                .map(|r| (UserId::new(r.user_id), UserName::new(r.name), r.bio))
                 .collect();
             return Ok(PaginatedResult::new(items, total, pagination));
         }
@@ -148,7 +148,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let users = sqlx::query!(
                 r#"
-                SELECT u.user_id, u.name
+                SELECT u.user_id, u.name, u.bio
                 FROM messaging_user_profiles u
                 INNER JOIN channel_text_participants p ON p.user_id = u.user_id
                 WHERE p.channel_id = $1
@@ -165,7 +165,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
             let items = users
                 .into_iter()
-                .map(|r| (UserId::new(r.user_id), UserName::new(r.name)))
+                .map(|r| (UserId::new(r.user_id), UserName::new(r.name), r.bio))
                 .collect();
             return Ok(PaginatedResult::new(items, total, pagination));
         }

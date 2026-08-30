@@ -54,11 +54,14 @@ impl UserProfileRepository for PostgresUserProfileRepository {
     ) -> Result<(), RepositoryError> {
         sqlx::query(&format!(
             r#"
-            INSERT INTO {table} (user_id, name, bio, show_activity, updated_at)
-            VALUES ($1, '', $2, $3, $4)
+            INSERT INTO {table} (user_id, name, bio, show_activity, updated_at, profile_updated_at)
+            VALUES ($1, '', $2, $3, $4, $4)
             ON CONFLICT (user_id) DO UPDATE
                 SET bio = EXCLUDED.bio, show_activity = EXCLUDED.show_activity,
-                    updated_at = GREATEST({table}.updated_at, EXCLUDED.updated_at)
+                    updated_at = GREATEST({table}.updated_at, EXCLUDED.updated_at),
+                    profile_updated_at = EXCLUDED.profile_updated_at
+                WHERE {table}.profile_updated_at IS NULL
+                   OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at
             "#,
             table = self.table
         ))

@@ -5,13 +5,15 @@ use uuid::Uuid;
 pub struct ChannelParticipantDto {
     pub id: Uuid,
     pub name: String,
+    pub bio: String,
 }
 
-impl From<(UserId, UserName)> for ChannelParticipantDto {
-    fn from((id, name): (UserId, UserName)) -> Self {
+impl From<(UserId, UserName, String)> for ChannelParticipantDto {
+    fn from((id, name, bio): (UserId, UserName, String)) -> Self {
         Self {
             id: id.uuid(),
             name: name.as_str().to_string(),
+            bio,
         }
     }
 }
