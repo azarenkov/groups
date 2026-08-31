@@ -46,5 +46,10 @@ impl Default for PrivacySettings {
 #[async_trait]
 pub trait PrivacyRepository {
     async fn get(&self, user_id: &UserId) -> Result<PrivacySettings, RepositoryError>;
-    async fn set(&self, user_id: &UserId, settings: PrivacySettings) -> Result<(), RepositoryError>;
+    async fn apply_patch(
+        &self,
+        user_id: &UserId,
+        dm_policy: Option<DmPolicy>,
+        accept_friend_requests: Option<bool>,
+    ) -> Result<PrivacySettings, RepositoryError>;
 }

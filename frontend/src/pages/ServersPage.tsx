@@ -225,7 +225,7 @@ const ServersPage: React.FC = () => {
     if (!selectedDm) return;
     const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
     if (!fresh) {
-      setSelectedDm(null);
+      if (selectedDm.friendship !== "none") setSelectedDm(null);
       return;
     }
     if (

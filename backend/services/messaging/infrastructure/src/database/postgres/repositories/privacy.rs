@@ -34,23 +34,32 @@ impl PrivacyRepository for PostgresPrivacyRepository {
             .unwrap_or_default())
     }
 
-    async fn set(&self, user_id: &UserId, settings: PrivacySettings) -> Result<(), RepositoryError> {
-        sqlx::query!(
+    async fn apply_patch(
+        &self,
+        user_id: &UserId,
+        dm_policy: Option<DmPolicy>,
+        accept_friend_requests: Option<bool>,
+    ) -> Result<PrivacySettings, RepositoryError> {
+        let row = sqlx::query!(
             r#"
             INSERT INTO user_privacy_settings (user_id, dm_policy, accept_friend_requests, updated_at)
-            VALUES ($1, $2, $3, now())
+            VALUES ($1, COALESCE($2, 'friends'), COALESCE($3, true), now())
             ON CONFLICT (user_id) DO UPDATE
-                SET dm_policy = EXCLUDED.dm_policy,
-                    accept_friend_requests = EXCLUDED.accept_friend_requests,
+                SET dm_policy = COALESCE($2, user_privacy_settings.dm_policy),
+                    accept_friend_requests = COALESCE($3, user_privacy_settings.accept_friend_requests),
                     updated_at = now()
+            RETURNING dm_policy, accept_friend_requests
             "#,
             user_id.uuid(),
-            settings.dm_policy.as_str(),
-            settings.accept_friend_requests,
+            dm_policy.map(|p| p.as_str().to_string()) as Option<String>,
+            accept_friend_requests,
         )
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(PrivacySettings {
+            dm_policy: DmPolicy::parse(&row.dm_policy).unwrap_or(DmPolicy::Friends),
+            accept_friend_requests: row.accept_friend_requests,
+        })
     }
 }

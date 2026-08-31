@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO user_privacy_settings (user_id, dm_policy, accept_friend_requests, updated_at)\n            VALUES ($1, COALESCE($2, 'friends'), COALESCE($3, true), now())\n            ON CONFLICT (user_id) DO UPDATE\n                SET dm_policy = COALESCE($2, user_privacy_settings.dm_policy),\n                    accept_friend_requests = COALESCE($3, user_privacy_settings.accept_friend_requests),\n                    updated_at = now()\n            RETURNING dm_policy, accept_friend_requests\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dm_policy",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "accept_friend_requests",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "be1c5962ebd8355ca63300e0c11aec79f0926b9194f72577373a354b8c554e3f"
+}
