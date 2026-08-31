@@ -225,7 +225,18 @@ const ServersPage: React.FC = () => {
     if (!selectedDm) return;
     const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
     if (!fresh) {
-      if (selectedDm.friendship !== "none") setSelectedDm(null);
+      if (selectedDm.friendship !== "none" && selectedDm.friendship !== "pending_outgoing" && selectedDm.friendship !== "pending_incoming") {
+        setSelectedDm(null);
+        return;
+      }
+      const pending = friends.find((f) => f.friendId === selectedDm.id);
+      const status =
+        pending?.status === "pending_outgoing" || pending?.status === "pending_incoming"
+          ? pending.status
+          : "none";
+      if (status !== selectedDm.friendship) {
+        setSelectedDm((prev) => (prev && prev.id === selectedDm.id ? { ...prev, friendship: status } : prev));
+      }
       return;
     }
     if (
@@ -239,7 +250,7 @@ const ServersPage: React.FC = () => {
         ? { ...prev, name: fresh.name, initials: fresh.initials, isFriend: fresh.isFriend, friendship: fresh.friendship }
         : prev,
     );
-  }, [acceptedFriends, selectedDm]);
+  }, [acceptedFriends, selectedDm, friends]);
 
   const pendingCount = React.useMemo(
     () =>
