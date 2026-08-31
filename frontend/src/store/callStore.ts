@@ -98,10 +98,10 @@ function sendCallLog(
       code === "SELF_CALL" ||
       code === "INVALID_CALL_STATUS" ||
       code === "CALLS_CLOSED";
-    if (attempt < 3 && !terminal) {
+    if (attempt < 30 && !terminal) {
       window.setTimeout(
         () => sendCallLog(callId, peerId, status, duration, attempt + 1),
-        2000 * (attempt + 1),
+        Math.min(30000, 2000 * 2 ** attempt),
       );
     }
   });
