@@ -35,8 +35,7 @@ import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
-import { homeAPI } from "../../api/home";
-import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
+import { useProfileModalStore } from "../../store/profileModalStore";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -1949,22 +1948,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
-  const dmFriendIdForBio = dm?.friendId ?? null;
-  const dmBio = useUserProfileStore((s) => (dmFriendIdForBio ? (s.bios[dmFriendIdForBio]?.bio ?? "") : ""));
-  React.useEffect(() => {
-    if (!dmFriendIdForBio) return;
-    let cancelled = false;
-    homeAPI
-      .profile(dmFriendIdForBio)
-      .then((p) => {
-        if (cancelled) return;
-        useUserProfileStore.getState().apply(dmFriendIdForBio, p.bio, profileVersion(p.profileUpdatedAt));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [dmFriendIdForBio]);
   const notifLevel = useNotificationPrefsStore((s) =>
     dm
       ? (s.dmLevels[dm.friendId] ?? "all")
@@ -2080,7 +2063,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   if (dm) {
     return (
       <header className="main-header">
-        <span className="ch-ico">
+        <button
+          type="button"
+          className="dm-peer-btn"
+          title={i18n.t("viewProfile", { ns: "profile" })}
+          onClick={() => useProfileModalStore.getState().open(dm.friendId)}
+        >
           <UserAvatar
             userId={dm.friendId}
             name={dm.name}
@@ -2097,12 +2085,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               justifyContent: "center",
             }}
           />
-        </span>
-        <span className="ch-name">{dm.name}</span>
+          <span className="ch-name">{dm.name}</span>
+          <Icon name="chev" size={10} className="dm-peer-chev" />
+        </button>
         <span className="sep" />
-        <span className="topic" title={dmBio || undefined}>
+        <span className="topic">
           {dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}
-          {dmBio && <span className="topic-bio"> · {dmBio}</span>}
         </span>
         <div className="right">
           {dm.isFriend !== false && (
@@ -2746,7 +2734,13 @@ const Message: React.FC<MessageProps> = ({
         (editing ? " editing" : "")
       }
     >
-      <UserAvatar userId={msg.authorId} name={displayName} className="ava" />
+      <UserAvatar
+        userId={msg.authorId}
+        name={displayName}
+        className="ava clickable"
+        title={i18n.t("viewProfile", { ns: "profile" })}
+        onClick={() => useProfileModalStore.getState().open(msg.authorId)}
+      />
       <div className="body">
         {!continued && (
           <div className="head">

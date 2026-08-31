@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity\n            FROM users\n            WHERE LOWER(name COLLATE \"C\") = LOWER($1 COLLATE \"C\")\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone\n            FROM users\n            WHERE LOWER(name COLLATE \"C\") = LOWER($1 COLLATE \"C\")\n            ",
   "describe": {
     "columns": [
       {
@@ -77,6 +77,11 @@
         "ordinal": 14,
         "name": "show_activity",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "timezone",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -99,8 +104,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "4a6585d4feb99610d60f4a9d4af0aa2c6d2f3c522198d73e7ad5726ad5d24d7b"
+  "hash": "0c21cae1db2b2002c5cbf70d65356d11570138c6b1a99e3a3730529844075b27"
 }

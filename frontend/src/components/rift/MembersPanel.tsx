@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
+import { useProfileModalStore } from "../../store/profileModalStore";
 import { useTranslation } from "react-i18next";
 import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
@@ -17,7 +18,6 @@ interface MembersPanelProps {
 const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
-  const bios = useUserProfileStore((s) => s.bios);
   useEffect(() => {
     const apply = useUserProfileStore.getState().apply;
     for (const m of members) {
@@ -112,7 +112,19 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
           ? t("common:online")
           : t("common:offline");
         return (
-          <div key={m.id} className="member-row" title={bios[m.id]?.bio || undefined}>
+          <div
+            key={m.id}
+            className="member-row clickable"
+            role="button"
+            tabIndex={0}
+            onClick={() => useProfileModalStore.getState().open(m.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                useProfileModalStore.getState().open(m.id);
+              }
+            }}
+          >
             <UserAvatar userId={m.id} name={displayName} className="ava">
               <span
                 className={"presence " + (isOnline ? "online" : "offline")}
@@ -140,7 +152,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
                   )
                 )}
               </div>
-              <div className="role">{bios[m.id]?.bio ? bios[m.id].bio : statusLabel}</div>
+              <div className="role">{statusLabel}</div>
             </div>
           </div>
         );

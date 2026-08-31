@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
-use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository};
+use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository, server::repository::MutualServer};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -355,6 +355,35 @@ impl ServerRepository for PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(row.map(|r| UserId::new(r.owner_id)))
+    }
+
+    async fn find_mutual_servers(
+        &self,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<Vec<MutualServer>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT s.id, s.name, s.accent_color
+            FROM servers s
+            INNER JOIN server_members a ON a.server_id = s.id AND a.user_id = $1
+            INNER JOIN server_members b ON b.server_id = s.id AND b.user_id = $2
+            ORDER BY s.name ASC
+            "#,
+            user_a.uuid(),
+            user_b.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| MutualServer {
+                server_id: ServerId::new(r.id),
+                name: r.name,
+                accent_color: r.accent_color,
+            })
+            .collect())
     }
 
     async fn find_server_by_id(

@@ -20,6 +20,18 @@ export interface ActiveFriend {
   profileUpdatedAt: string | null;
 }
 
+export interface PublicProfile {
+  id: string;
+  name: string;
+  bio: string;
+  profileUpdatedAt: string | null;
+  active: boolean;
+  timezone: string;
+  memberSince: string | null;
+  mutualServers: { id: string; name: string; accentColor: string | null }[];
+  voiceRoom: { channelId: string; channelName: string; serverId: string; serverName: string } | null;
+}
+
 export interface RecentRoom {
   channelId: string;
   channelName: string;
@@ -79,7 +91,7 @@ class HomeAPI {
     delete this.client.defaults.headers.common["Authorization"];
   }
 
-  async profile(userId: string): Promise<{ id: string; name: string; bio: string; profileUpdatedAt: string | null; active: boolean }> {
+  async profile(userId: string): Promise<PublicProfile> {
     const response = await this.client.get(`/v1/users/${userId}/profile`);
     return response.data.data;
   }

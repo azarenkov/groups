@@ -12,6 +12,8 @@ pub struct PublicProfile {
     pub bio: String,
     pub profile_updated_at: Option<DateTime<Utc>>,
     pub active: bool,
+    pub timezone: String,
+    pub registered_at: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
@@ -23,8 +25,10 @@ pub trait UserProfileRepository {
         bio: &str,
         show_activity: bool,
         active: bool,
+        timezone: &str,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
+    async fn set_registered_at(&self, user_id: &UserId, registered_at: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn get_name(&self, user_id: &UserId) -> Result<Option<String>, RepositoryError>;
     async fn find_user_by_name(&self, name: &str) -> Result<Option<UserId>, RepositoryError>;
     async fn upsert_name(

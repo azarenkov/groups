@@ -31,6 +31,8 @@ pub struct UserProfileChangedV1 {
     pub show_activity: bool,
     #[serde(default = "default_true")]
     pub active: bool,
+    #[serde(default)]
+    pub timezone: String,
     pub occurred_at: DateTime<Utc>,
 }
 

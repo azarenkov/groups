@@ -31,7 +31,7 @@ impl PostgresUserProfileRepository {
 impl UserProfileRepository for PostgresUserProfileRepository {
     async fn get_public_profile(&self, user_id: &UserId) -> Result<Option<PublicProfile>, RepositoryError> {
         let row = sqlx::query(&format!(
-            "SELECT CASE WHEN active THEN name ELSE '' END, CASE WHEN active THEN bio ELSE '' END, CASE WHEN active THEN profile_updated_at ELSE GREATEST(profile_updated_at, active_updated_at) END, active FROM {} WHERE user_id = $1 AND name <> ''",
+            "SELECT CASE WHEN active THEN name ELSE '' END, CASE WHEN active THEN bio ELSE '' END, CASE WHEN active THEN profile_updated_at ELSE GREATEST(profile_updated_at, active_updated_at) END, active, CASE WHEN active THEN timezone ELSE '' END, registered_at FROM {} WHERE user_id = $1 AND name <> ''",
             self.table
         ))
         .bind(user_id.uuid())
@@ -44,6 +44,8 @@ impl UserProfileRepository for PostgresUserProfileRepository {
             bio: r.get::<String, _>(1),
             profile_updated_at: r.get::<Option<DateTime<Utc>>, _>(2),
             active: r.get::<bool, _>(3),
+            timezone: r.get::<String, _>(4),
+            registered_at: r.get::<Option<DateTime<Utc>>, _>(5),
         }))
     }
 
@@ -53,15 +55,17 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         bio: &str,
         show_activity: bool,
         active: bool,
+        timezone: &str,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
         sqlx::query(&format!(
             r#"
-            INSERT INTO {table} (user_id, name, bio, show_activity, active, updated_at, profile_updated_at, active_updated_at)
-            VALUES ($1, '', $2, $3, $5, to_timestamp(0), $4, $4)
+            INSERT INTO {table} (user_id, name, bio, show_activity, active, updated_at, profile_updated_at, active_updated_at, timezone)
+            VALUES ($1, '', $2, $3, $5, to_timestamp(0), $4, $4, $6)
             ON CONFLICT (user_id) DO UPDATE
                 SET bio = CASE WHEN {table}.profile_updated_at IS NULL OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.bio ELSE {table}.bio END,
                     show_activity = CASE WHEN {table}.profile_updated_at IS NULL OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.show_activity ELSE {table}.show_activity END,
+                    timezone = CASE WHEN {table}.profile_updated_at IS NULL OR {table}.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.timezone ELSE {table}.timezone END,
                     profile_updated_at = GREATEST({table}.profile_updated_at, EXCLUDED.profile_updated_at),
                     active = CASE WHEN {table}.active_updated_at <= EXCLUDED.active_updated_at THEN EXCLUDED.active ELSE {table}.active END,
                     active_updated_at = GREATEST({table}.active_updated_at, EXCLUDED.active_updated_at)
@@ -73,6 +77,25 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         .bind(show_activity)
         .bind(occurred_at)
         .bind(active)
+        .bind(timezone)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn set_registered_at(&self, user_id: &UserId, registered_at: DateTime<Utc>) -> Result<(), RepositoryError> {
+        sqlx::query(&format!(
+            r#"
+            INSERT INTO {table} (user_id, name, updated_at, registered_at)
+            VALUES ($1, '', to_timestamp(0), $2)
+            ON CONFLICT (user_id) DO UPDATE
+                SET registered_at = COALESCE({table}.registered_at, EXCLUDED.registered_at)
+            "#,
+            table = self.table
+        ))
+        .bind(user_id.uuid())
+        .bind(registered_at)
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;

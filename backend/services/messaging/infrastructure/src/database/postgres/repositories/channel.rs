@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
+use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VisibleVoiceRoom, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -47,6 +47,37 @@ impl ChannelRepository for PostgresChannelRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(rows.into_iter().map(|r| ChannelId::new(r.id)).collect())
+    }
+
+    async fn find_visible_voice_room(
+        &self,
+        target: &UserId,
+        viewer: &UserId,
+    ) -> Result<Option<VisibleVoiceRoom>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT c.id AS channel_id, c.name AS channel_name, s.id AS server_id, s.name AS server_name
+            FROM channel_voice_participants cvp
+            INNER JOIN channels c ON c.id = cvp.channel_id
+            INNER JOIN servers s ON s.id = c.server_id
+            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $2
+            INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active
+            WHERE cvp.user_id = $1
+            ORDER BY cvp.joined_at DESC
+            LIMIT 1
+            "#,
+            target.uuid(),
+            viewer.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| VisibleVoiceRoom {
+            channel_id: ChannelId::new(r.channel_id),
+            channel_name: r.channel_name,
+            server_id: ServerId::new(r.server_id),
+            server_name: r.server_name,
+        }))
     }
 
     async fn list_voice_channel_ids_with_participant(

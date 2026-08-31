@@ -4,6 +4,13 @@ use crate::{channel::Channel, server::Server, server::id::ServerId, server::invi
 use domain::{pagination::PaginatedResult, pagination::Pagination, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 
+#[derive(Debug, Clone)]
+pub struct MutualServer {
+    pub server_id: ServerId,
+    pub name: String,
+    pub accent_color: Option<String>,
+}
+
 #[async_trait]
 pub trait ServerRepository {
     async fn server_exists(&self, server_id: &ServerId) -> Result<bool, RepositoryError>;
@@ -30,6 +37,11 @@ pub trait ServerRepository {
         &self,
         server_id: &ServerId,
     ) -> Result<Option<UserId>, RepositoryError>;
+    async fn find_mutual_servers(
+        &self,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<Vec<MutualServer>, RepositoryError>;
 
     async fn find_server_by_id(
         &self,

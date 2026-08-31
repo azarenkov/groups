@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity\n            FROM users\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone\n            FROM users\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -77,6 +77,11 @@
         "ordinal": 14,
         "name": "show_activity",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "timezone",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -99,8 +104,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "ea55213e35b19d4edc49441680b092962dcf8377d7b276706ba992d041b82aad"
+  "hash": "c90b35b5ba089820c819c17ea681eb79d62ccc00c8f6c962684278c1e922578f"
 }

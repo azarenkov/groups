@@ -1,0 +1,23 @@
+{
+  "close": "Закрыть",
+  "inVoice": "Голос — {{room}}",
+  "online": "В сети",
+  "offline": "Не в сети",
+  "inactive": "Аккаунт недоступен",
+  "deletedUser": "Удалённый пользователь",
+  "unavailable": "Профиль недоступен",
+  "message": "Написать",
+  "call": "Позвонить",
+  "more": "Ещё",
+  "removeFriend": "Удалить из друзей",
+  "addFriend": "Добавить в друзья",
+  "requestSent": "Заявка отправлена",
+  "acceptRequest": "Принять заявку",
+  "copied": "Скопировано",
+  "about": "О себе",
+  "memberSince": "В Rift с",
+  "localTime": "Местное время",
+  "mutualServers": "Общие серверы — {{count}}",
+  "viewProfile": "Открыть профиль",
+  "copyLogin": "Скопировать логин"
+}

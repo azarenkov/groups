@@ -54,7 +54,7 @@ pub fn spawn<P>(
                                 if profile_event {
                                     match serde_json::from_slice::<UserProfileChangedDto>(&m.payload) {
                                         Ok(evt) => match repository
-                                            .update_profile(&UserId::new(evt.user_id), &evt.bio, evt.show_activity, evt.active, evt.occurred_at)
+                                            .update_profile(&UserId::new(evt.user_id), &evt.bio, evt.show_activity, evt.active, &evt.timezone, evt.occurred_at)
                                             .await
                                         {
                                             Ok(()) => {
@@ -80,7 +80,7 @@ pub fn spawn<P>(
                                             Ok(_) => {
                                                 if m.subject.ends_with(".user.deleted")
                                                     && let Err(e) = repository
-                                                        .update_profile(&UserId::new(evt.user_id), "", false, false, evt.occurred_at)
+                                                        .update_profile(&UserId::new(evt.user_id), "", false, false, "", evt.occurred_at)
                                                         .await
                                                 {
                                                     tracing::warn!(error = %e, "Profile erasure failed; message will be redelivered");
@@ -107,10 +107,18 @@ pub fn spawn<P>(
                                 async {
                                     match serde_json::from_slice::<UserNameDto>(&m.payload) {
                                         Ok(evt) => {
-                                            match repository
-                                                .upsert_name(&UserId::new(evt.user_id), &evt.name, evt.occurred_at)
-                                                .await
-                                            {
+                                            let registered = if m.subject.ends_with(".user.registered") {
+                                                repository
+                                                    .set_registered_at(&UserId::new(evt.user_id), evt.occurred_at)
+                                                    .await
+                                            } else {
+                                                Ok(())
+                                            };
+                                            match registered.and(
+                                                repository
+                                                    .upsert_name(&UserId::new(evt.user_id), &evt.name, evt.occurred_at)
+                                                    .await,
+                                            ) {
                                                 Ok(()) => {
                                                     if let Err(e) = m.ack().await {
                                                         tracing::warn!(error = %e, "Profile projection ack failed");

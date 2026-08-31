@@ -20,6 +20,7 @@ pub struct UserDto {
     pub deleted_at: Option<DateTime<Utc>>,
     pub bio: String,
     pub show_activity: bool,
+    pub timezone: String,
 }
 
 impl From<UserDto> for User {
@@ -41,6 +42,7 @@ impl From<UserDto> for User {
             dto.deleted_at,
             dto.bio,
             dto.show_activity,
+            dto.timezone,
         )
     }
 }

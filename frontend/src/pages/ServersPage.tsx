@@ -13,6 +13,7 @@ import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
 import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
+import UserProfileModal from "../components/rift/UserProfileModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
@@ -875,9 +876,25 @@ const ServersPage: React.FC = () => {
       handleSelectChannel(server, channel);
   };
 
-  const handleOpenDmFromHome = (friendId: string) => {
+  const handleOpenDmFromHome = (friendId: string, name?: string) => {
     const dm = acceptedFriends.find((d) => d.id === friendId);
-    if (dm) handleSelectDm(dm);
+    if (dm) {
+      handleSelectDm(dm);
+      return;
+    }
+    const preview = dmPreviews[friendId];
+    const fallbackName = name ?? nameOverrides[friendId] ?? preview?.peerName;
+    if (!preview || !fallbackName) return;
+    handleSelectDm({
+      id: friendId,
+      name: fallbackName,
+      initials: initialFor(fallbackName),
+      color: colorForId(friendId),
+      online: false,
+      unread: 0,
+      isFriend: false,
+      friendship: "none",
+    });
   };
 
   const handleCallFromHome = (friendId: string) => {
@@ -1346,6 +1363,12 @@ const ServersPage: React.FC = () => {
 
       <IncomingCallModal />
       <ActiveCallBar />
+
+      <UserProfileModal
+        onOpenDm={handleOpenDmFromHome}
+        onCall={handleCallFromHome}
+        onRemoveFriend={(id, name) => setDeleteConfirm({ type: "friend", id, name })}
+      />
 
       <AddFriendModal
         isOpen={isAddFriendOpen}

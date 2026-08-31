@@ -57,6 +57,7 @@ pub struct User {
     deleted_at: Option<DateTime<Utc>>,
     bio: String,
     show_activity: bool,
+    timezone: String,
     #[serde(skip)]
     events: Vec<UserEvent>,
 }
@@ -79,6 +80,7 @@ impl User {
         deleted_at: Option<DateTime<Utc>>,
         bio: String,
         show_activity: bool,
+        timezone: String,
     ) -> Self {
         Self {
             id,
@@ -96,6 +98,7 @@ impl User {
             deleted_at,
             bio,
             show_activity,
+            timezone,
             events: Vec::new(),
         }
     }
@@ -135,6 +138,7 @@ impl User {
             deleted_at: None,
             bio: String::new(),
             show_activity: true,
+            timezone: String::new(),
             events: vec![event],
         }
     }
@@ -297,7 +301,7 @@ impl User {
             self.disabled_at = Some(now);
             self.updated_at = now;
             self.record(UserEvent::Disabled(UserDisabled::record(self.id, now)));
-            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, now)));
+            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, self.timezone.clone(), now)));
         }
         Ok(())
     }
@@ -312,6 +316,7 @@ impl User {
                 self.bio.clone(),
                 self.show_activity,
                 true,
+                self.timezone.clone(),
                 now,
             )));
         }
@@ -330,14 +335,15 @@ impl User {
         self.pending_email = None;
         self.bio = String::new();
         self.show_activity = false;
+        self.timezone = String::new();
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, String::new(), now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
         Ok(())
     }
 
-    pub fn update_profile(&mut self, bio: String, show_activity: bool, now: DateTime<Utc>) -> Result<(), UserError> {
+    pub fn update_profile(&mut self, bio: String, show_activity: bool, timezone: String, now: DateTime<Utc>) -> Result<(), UserError> {
         if self.deleted_at.is_some() || self.disabled_at.is_some() {
             return Err(UserError::Deleted);
         }
@@ -345,13 +351,18 @@ impl User {
         if bio.chars().count() > BIO_MAX_CHARS {
             return Err(UserError::BioTooLong);
         }
-        if self.bio == bio && self.show_activity == show_activity {
+        let timezone = timezone.trim().to_string();
+        if timezone.chars().count() > 64 {
+            return Err(UserError::BioTooLong);
+        }
+        if self.bio == bio && self.show_activity == show_activity && self.timezone == timezone {
             return Ok(());
         }
         self.bio = bio.clone();
         self.show_activity = show_activity;
+        self.timezone = timezone.clone();
         self.updated_at = now;
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, true, now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, true, timezone, now)));
         Ok(())
     }
 
@@ -361,6 +372,10 @@ impl User {
 
     pub fn show_activity(&self) -> bool {
         self.show_activity
+    }
+
+    pub fn timezone(&self) -> &str {
+        &self.timezone
     }
 
     pub fn is_disabled(&self) -> bool {
