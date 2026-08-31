@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "../utils/apiError";
 import { friendshipAPI } from "../api/friendship";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { useProfileModalStore } from "../store/profileModalStore";
+import Icon from "./rift/Icon";
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -176,7 +178,22 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
                       }}
                       onMouseEnter={() => setHighlightIdx(i)}
                     >
-                      {s.name}
+                      <span className="user-suggest-name">{s.name}</span>
+                      <button
+                        type="button"
+                        className="user-suggest-profile"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          useProfileModalStore.getState().open(s.id);
+                        }}
+                      >
+                        <Icon name="user" size={12} />
+                        {t("profile:profileShort")}
+                      </button>
                     </div>
                   ))}
                 </div>

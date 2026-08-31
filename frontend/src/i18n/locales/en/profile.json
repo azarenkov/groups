@@ -19,5 +19,6 @@
   "localTime": "Local time",
   "mutualServers": "Mutual servers — {{count}}",
   "viewProfile": "View profile",
-  "copyLogin": "Copy login"
+  "copyLogin": "Copy login",
+  "profileShort": "Profile"
 }
