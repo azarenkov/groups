@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { UserAvatar } from "./rift/Avatar";
+import { useProfileModalStore } from "../store/profileModalStore";
 
 interface PendingFriendsModalProps {
   isOpen: boolean;
@@ -82,12 +83,19 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
               </div>
               {incoming.map((f) => (
                 <div key={f.friendId} className="pf-row">
-                  <UserAvatar
-                    userId={f.friendId}
-                    name={f.friendName}
-                    className="pf-ava"
-                  />
-                  <div className="pf-name">{f.friendName}</div>
+                  <button
+                    type="button"
+                    className="pf-peer"
+                    title={t("profile:viewProfile")}
+                    onClick={() => useProfileModalStore.getState().open(f.friendId)}
+                  >
+                    <UserAvatar
+                      userId={f.friendId}
+                      name={f.friendName}
+                      className="pf-ava"
+                    />
+                    <div className="pf-name">{f.friendName}</div>
+                  </button>
                   <button
                     type="button"
                     className="pf-btn accept"
@@ -116,12 +124,19 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
               </div>
               {outgoing.map((f) => (
                 <div key={f.friendId} className="pf-row">
-                  <UserAvatar
-                    userId={f.friendId}
-                    name={f.friendName}
-                    className="pf-ava"
-                  />
-                  <div className="pf-name">{f.friendName}</div>
+                  <button
+                    type="button"
+                    className="pf-peer"
+                    title={t("profile:viewProfile")}
+                    onClick={() => useProfileModalStore.getState().open(f.friendId)}
+                  >
+                    <UserAvatar
+                      userId={f.friendId}
+                      name={f.friendName}
+                      className="pf-ava"
+                    />
+                    <div className="pf-name">{f.friendName}</div>
+                  </button>
                   <span className="pf-tag">sent</span>
                   <button
                     type="button"
@@ -143,12 +158,19 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
               </div>
               {declined.map((f) => (
                 <div key={f.friendId} className="pf-row">
-                  <UserAvatar
-                    userId={f.friendId}
-                    name={f.friendName}
-                    className="pf-ava"
-                  />
-                  <div className="pf-name">{f.friendName}</div>
+                  <button
+                    type="button"
+                    className="pf-peer"
+                    title={t("profile:viewProfile")}
+                    onClick={() => useProfileModalStore.getState().open(f.friendId)}
+                  >
+                    <UserAvatar
+                      userId={f.friendId}
+                      name={f.friendName}
+                      className="pf-ava"
+                    />
+                    <div className="pf-name">{f.friendName}</div>
+                  </button>
                   <span className="pf-tag pf-tag-danger">declined</span>
                   <button
                     type="button"
