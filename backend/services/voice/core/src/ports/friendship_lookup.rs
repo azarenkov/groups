@@ -9,5 +9,5 @@ pub enum FriendshipLookupError {
 
 #[async_trait]
 pub trait FriendshipLookup {
-    async fn are_friends(&self, a: &UserId, b: &UserId) -> Result<bool, FriendshipLookupError>;
+    async fn can_call(&self, caller: &UserId, callee: &UserId) -> Result<bool, FriendshipLookupError>;
 }

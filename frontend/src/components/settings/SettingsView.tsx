@@ -538,6 +538,18 @@ function PrivacySection() {
           </>
         )}
       </div>
+      {!failed && settings && (
+        <div className="s-section">
+          <h2>{t("privacy.calls")}</h2>
+          <SettingsRow label={t("privacy.whoCanCall")} hint={t("privacy.whoCanCallHint")}>
+            <div className="s-seg">
+              <button disabled={busy} className={settings.callPolicy === "all" ? "on" : ""} onClick={() => apply({ callPolicy: "all" })}>{t("privacy.everyone")}</button>
+              <button disabled={busy} className={settings.callPolicy === "friends" ? "on" : ""} onClick={() => apply({ callPolicy: "friends" })}>{t("privacy.friends")}</button>
+              <button disabled={busy} className={settings.callPolicy === "no_one" ? "on" : ""} onClick={() => apply({ callPolicy: "no_one" })}>{t("privacy.noOne")}</button>
+            </div>
+          </SettingsRow>
+        </div>
+      )}
     </>
   );
 }

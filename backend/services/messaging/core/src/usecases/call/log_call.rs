@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{privacy::DmPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
@@ -14,8 +14,8 @@ pub enum LogCallError {
     Domain(#[from] MessageError),
     #[error("Not friends with this user")]
     NotFriends,
-    #[error("This user does not accept direct messages")]
-    DmsClosed,
+    #[error("This user does not accept calls")]
+    CallsClosed,
 }
 
 pub struct LogCall<W, F, P>
@@ -56,19 +56,18 @@ where
     ) -> Result<(), LogCallError> {
         let recipient_id = UserId::new(recipient_id);
 
-        let pair = self
-            .friendship_repository
-            .find_pair(&sender_id, &recipient_id)
-            .await?;
-        if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
-            return Err(LogCallError::NotFriends);
-        }
-
-        if matches!(
-            self.privacy_repository.get(&recipient_id).await?.dm_policy,
-            DmPolicy::NoOne
-        ) {
-            return Err(LogCallError::DmsClosed);
+        match self.privacy_repository.get(&recipient_id).await?.call_policy {
+            ContactPolicy::NoOne => return Err(LogCallError::CallsClosed),
+            ContactPolicy::Friends => {
+                let pair = self
+                    .friendship_repository
+                    .find_pair(&sender_id, &recipient_id)
+                    .await?;
+                if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
+                    return Err(LogCallError::NotFriends);
+                }
+            }
+            ContactPolicy::All => {}
         }
 
         let content = MessageContent::new("call".to_string())?;

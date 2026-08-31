@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT dm_policy, accept_friend_requests FROM user_privacy_settings WHERE user_id = $1",
+  "query": "SELECT dm_policy, call_policy, accept_friend_requests FROM user_privacy_settings WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -10,6 +10,11 @@
       },
       {
         "ordinal": 1,
+        "name": "call_policy",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
         "name": "accept_friend_requests",
         "type_info": "Bool"
       }
@@ -21,8 +26,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "e6d66ef56d85edf8bbdc2f069e83a546be69e8601a53c194ae1d30ad7d5465a6"
+  "hash": "4069fbf9037cb186a3a6de07e64f36f2f8c6e4bdd22d38679dcc8d65546bc3cd"
 }

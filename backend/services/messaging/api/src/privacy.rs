@@ -10,6 +10,7 @@ use crate::{http_errors::HttpError, state::AppState};
 #[serde(rename_all = "camelCase")]
 struct PrivacyResponse {
     dm_policy: &'static str,
+    call_policy: &'static str,
     accept_friend_requests: bool,
 }
 
@@ -17,6 +18,7 @@ impl From<PrivacySettings> for PrivacyResponse {
     fn from(settings: PrivacySettings) -> Self {
         Self {
             dm_policy: settings.dm_policy.as_str(),
+            call_policy: settings.call_policy.as_str(),
             accept_friend_requests: settings.accept_friend_requests,
         }
     }
@@ -38,6 +40,7 @@ async fn get_privacy(
 #[serde(rename_all = "camelCase")]
 struct UpdatePrivacyBody {
     dm_policy: Option<String>,
+    call_policy: Option<String>,
     accept_friend_requests: Option<bool>,
 }
 
@@ -54,6 +57,7 @@ async fn update_privacy(
             UserId::new(auth_token.id),
             PrivacyPatch {
                 dm_policy: body.dm_policy,
+                call_policy: body.call_policy,
                 accept_friend_requests: body.accept_friend_requests,
             },
         )

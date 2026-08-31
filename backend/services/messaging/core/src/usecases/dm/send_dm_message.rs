@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{privacy::DmPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -87,8 +87,8 @@ where
         let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
         let recipient_privacy = self.privacy_repository.get(&recipient_id).await?;
         match recipient_privacy.dm_policy {
-            DmPolicy::NoOne => return Err(SendDmMessageError::DmsClosed),
-            DmPolicy::Friends if !are_friends => return Err(SendDmMessageError::NotFriends),
+            ContactPolicy::NoOne => return Err(SendDmMessageError::DmsClosed),
+            ContactPolicy::Friends if !are_friends => return Err(SendDmMessageError::NotFriends),
             _ => {}
         }
 

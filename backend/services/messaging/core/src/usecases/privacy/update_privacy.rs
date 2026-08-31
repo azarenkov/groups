@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::user::id::UserId;
-use messaging_domain::privacy::{DmPolicy, PrivacyRepository, PrivacySettings};
+use messaging_domain::privacy::{ContactPolicy, PrivacyRepository, PrivacySettings};
 use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
@@ -14,6 +14,7 @@ pub enum UpdatePrivacyError {
 
 pub struct PrivacyPatch {
     pub dm_policy: Option<String>,
+    pub call_policy: Option<String>,
     pub accept_friend_requests: Option<bool>,
 }
 
@@ -29,11 +30,15 @@ impl<P: PrivacyRepository> UpdatePrivacy<P> {
     pub async fn execute(&self, user_id: UserId, patch: PrivacyPatch) -> Result<PrivacySettings, UpdatePrivacyError> {
         let dm_policy = patch
             .dm_policy
-            .map(|raw| DmPolicy::parse(&raw).ok_or(UpdatePrivacyError::InvalidPolicy))
+            .map(|raw| ContactPolicy::parse(&raw).ok_or(UpdatePrivacyError::InvalidPolicy))
+            .transpose()?;
+        let call_policy = patch
+            .call_policy
+            .map(|raw| ContactPolicy::parse(&raw).ok_or(UpdatePrivacyError::InvalidPolicy))
             .transpose()?;
         Ok(self
             .privacy_repository
-            .apply_patch(&user_id, dm_policy, patch.accept_friend_requests)
+            .apply_patch(&user_id, dm_policy, call_policy, patch.accept_friend_requests)
             .await?)
     }
 }

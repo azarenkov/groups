@@ -16,8 +16,8 @@ pub enum AddCallParticipantsError {
     Repository(#[from] RepositoryError),
     #[error("You are not part of this call")]
     NotParticipant,
-    #[error("You can only invite your friends")]
-    NotFriends,
+    #[error("This user cannot be added to this call")]
+    CallNotAllowed,
     #[error("No recipients specified")]
     NoRecipients,
     #[error("Friendship lookup unavailable: {0}")]
@@ -66,10 +66,10 @@ where
             }
             if !self
                 .friendship_repository
-                .are_friends(&caller_id, &invitee)
+                .can_call(&caller_id, &invitee)
                 .await?
             {
-                return Err(AddCallParticipantsError::NotFriends);
+                return Err(AddCallParticipantsError::CallNotAllowed);
             }
             invitees.push(invitee);
         }

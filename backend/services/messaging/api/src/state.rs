@@ -177,6 +177,7 @@ pub struct AppState {
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
+    pub privacy_repository: std::sync::Arc<PostgresPrivacyRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
     pub send_dm_message_usecase: SendDmMessage<

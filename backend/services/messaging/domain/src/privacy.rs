@@ -3,13 +3,13 @@ use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DmPolicy {
+pub enum ContactPolicy {
     All,
     Friends,
     NoOne,
 }
 
-impl DmPolicy {
+impl ContactPolicy {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::All => "all",
@@ -30,14 +30,16 @@ impl DmPolicy {
 
 #[derive(Debug, Clone, Copy)]
 pub struct PrivacySettings {
-    pub dm_policy: DmPolicy,
+    pub dm_policy: ContactPolicy,
+    pub call_policy: ContactPolicy,
     pub accept_friend_requests: bool,
 }
 
 impl Default for PrivacySettings {
     fn default() -> Self {
         Self {
-            dm_policy: DmPolicy::Friends,
+            dm_policy: ContactPolicy::Friends,
+            call_policy: ContactPolicy::Friends,
             accept_friend_requests: true,
         }
     }
@@ -49,7 +51,8 @@ pub trait PrivacyRepository {
     async fn apply_patch(
         &self,
         user_id: &UserId,
-        dm_policy: Option<DmPolicy>,
+        dm_policy: Option<ContactPolicy>,
+        call_policy: Option<ContactPolicy>,
         accept_friend_requests: Option<bool>,
     ) -> Result<PrivacySettings, RepositoryError>;
 }

@@ -2093,7 +2093,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           {dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}
         </span>
         <div className="right">
-          {dm.isFriend !== false && (
           <button
             type="button"
             className="icon-btn"
@@ -2117,7 +2116,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           >
             <Icon name="phone" size={16} />
           </button>
-          )}
           {dm.isFriend !== false && bellPopover(
             i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),
             [
