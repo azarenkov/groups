@@ -205,6 +205,7 @@ pub struct AppState {
         PostgresServerRepository,
         PostgresServerUnitOfWork,
         PostgresPrivacyRepository,
+        PostgresUserProfileRepository,
     >,
     pub accept_server_invite_usecase:
         AcceptServerInvite<PostgresDmMessageRepository, PostgresServerUnitOfWork>,

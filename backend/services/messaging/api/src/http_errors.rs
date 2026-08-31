@@ -1198,6 +1198,7 @@ impl HttpMapping for SendServerInviteError {
             SendServerInviteError::Domain(e) => e.to_http_status(),
             SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
             SendServerInviteError::DmsClosed => StatusCode::FORBIDDEN,
+            SendServerInviteError::RecipientInactive => StatusCode::FORBIDDEN,
             SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
             SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
             SendServerInviteError::NotAllowed => StatusCode::FORBIDDEN,
@@ -1215,6 +1216,7 @@ impl HttpMapping for SendServerInviteError {
             SendServerInviteError::NotFriends => {
                 "You can only invite users who are your friends".to_string()
             }
+            SendServerInviteError::RecipientInactive => "This user is unavailable".to_string(),
             SendServerInviteError::ServerNotFound => "Server not found".to_string(),
             SendServerInviteError::NotServerMember => {
                 "Only members of this server can invite people".to_string()
@@ -1236,6 +1238,7 @@ impl HttpMapping for SendServerInviteError {
             SendServerInviteError::Domain(e) => e.to_error_code(),
             SendServerInviteError::NotFriends => "NOT_FRIENDS",
             SendServerInviteError::DmsClosed => "DMS_CLOSED",
+            SendServerInviteError::RecipientInactive => "RECIPIENT_INACTIVE",
             SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
             SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
             SendServerInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
