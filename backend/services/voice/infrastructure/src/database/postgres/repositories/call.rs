@@ -535,30 +535,30 @@ impl CallRepository for PostgresCallRepository {
         let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
         let archived = sqlx::query!(
             r#"
-            SELECT answered_at, declined
+            SELECT
+                COUNT(*) > 0 AS "present!",
+                MIN(answered_at) AS earliest_answer,
+                BOOL_OR(declined) AS declined
             FROM call_invite_outcomes
             WHERE call_id = $1 AND user_id = $2 AND inviter_id = $3
-            ORDER BY created_at DESC
-            LIMIT 1
             "#,
             call_id,
             callee.uuid(),
             caller.uuid(),
         )
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         let current = callee_row.filter(|r| r.inviter_id == caller.uuid());
-        let callee_invited_by_caller = current.is_some() || archived.is_some();
-        let archived_answered_at = archived.as_ref().and_then(|a| a.answered_at);
-        let callee_answered_at = match (current.and_then(|r| r.answered_at), archived_answered_at) {
+        let callee_invited_by_caller = current.is_some() || archived.present;
+        let callee_answered_at = match (current.and_then(|r| r.answered_at), archived.earliest_answer)
+        {
             (Some(c), Some(a)) => Some(c.min(a)),
             (c, a) => c.or(a),
         };
         let callee_declined = current.map(|r| r.status == "declined").unwrap_or(false)
-            || archived.as_ref().map(|a| a.declined).unwrap_or(false);
-        let callee_pending =
-            archived.is_none() && current.map(|r| r.status == "invited").unwrap_or(false);
+            || archived.declined.unwrap_or(false);
+        let callee_pending = current.map(|r| r.status == "invited").unwrap_or(false);
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),
             caller_in_call,
