@@ -5533,7 +5533,7 @@ button.ssv-row-delete:focus-visible {
 .profile-btn.primary { border-color: transparent; background: var(--accent); color: #fff; }
 .profile-btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
 .profile-btn.icon { flex: 0 0 32px; width: 32px; height: 32px; padding: 0; color: var(--fg-2); }
-.profile-btn.icon svg { width: 18px; height: 18px; }
+.profile-btn.icon svg { width: 16px; height: 16px; }
 .profile-btn.icon.primary { color: #fff; }
 .profile-more { position: relative; flex: 0 0 auto; }
 .profile-menu { position: absolute; right: 0; top: 38px; min-width: 200px; padding: 6px; border-radius: 12px; background: var(--surface-raised); box-shadow: var(--shadow-md); border: 1px solid var(--hairline); display: flex; flex-direction: column; z-index: 2; }
