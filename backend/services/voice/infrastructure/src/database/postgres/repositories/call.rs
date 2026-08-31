@@ -264,6 +264,20 @@ impl CallRepository for PostgresCallRepository {
 
         let mut ringed: Vec<Uuid> = Vec::new();
         for invitee in invitees {
+            sqlx::query!(
+                r#"
+                INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, created_at)
+                SELECT call_id, user_id, inviter_id, answered_at, status = 'declined', $3
+                FROM call_participants
+                WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')
+                "#,
+                call_id,
+                invitee.uuid(),
+                now,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
             let inserted = sqlx::query!(
                 r#"
                 INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
@@ -515,18 +529,47 @@ impl CallRepository for PostgresCallRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         let caller_present = rows.iter().any(|r| r.user_id == caller.uuid());
+        let caller_in_call = rows
+            .iter()
+            .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined"));
         let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
+        let (callee_invited_by_caller, callee_pending, callee_answered_at, callee_declined) =
+            match callee_row {
+                Some(r) if r.inviter_id == caller.uuid() => (
+                    true,
+                    r.status == "invited",
+                    r.answered_at,
+                    r.status == "declined",
+                ),
+                _ => {
+                    let archived = sqlx::query!(
+                        r#"
+                        SELECT answered_at, declined
+                        FROM call_invite_outcomes
+                        WHERE call_id = $1 AND user_id = $2 AND inviter_id = $3
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                        "#,
+                        call_id,
+                        callee.uuid(),
+                        caller.uuid(),
+                    )
+                    .fetch_optional(&self.pool)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?;
+                    match archived {
+                        Some(a) => (true, false, a.answered_at, a.declined),
+                        None => (false, false, None, false),
+                    }
+                }
+            };
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),
-            caller_in_call: rows
-                .iter()
-                .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined")),
-            callee_invited_by_caller: callee_row
-                .map(|r| r.inviter_id == caller.uuid())
-                .unwrap_or(false),
-            callee_pending: callee_row.map(|r| r.status == "invited").unwrap_or(false),
-            callee_answered_at: callee_row.and_then(|r| r.answered_at),
-            callee_declined: callee_row.map(|r| r.status == "declined").unwrap_or(false),
+            caller_in_call,
+            callee_invited_by_caller,
+            callee_pending,
+            callee_answered_at,
+            callee_declined,
         })
     }
 
