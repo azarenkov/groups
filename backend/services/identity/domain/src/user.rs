@@ -335,9 +335,10 @@ impl User {
         self.pending_email = None;
         self.bio = String::new();
         self.show_activity = false;
+        self.timezone = String::new();
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, self.timezone.clone(), now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, String::new(), now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
         Ok(())
     }
