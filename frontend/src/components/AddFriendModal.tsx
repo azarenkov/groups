@@ -185,6 +185,9 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           useProfileModalStore.getState().open(s.id);
                         }}
                       >
