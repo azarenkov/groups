@@ -5,4 +5,5 @@ pub mod friendship;
 pub mod message;
 pub mod notification;
 pub mod read_state;
+pub mod privacy;
 pub mod server;

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{privacy::DmPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -21,43 +21,50 @@ pub enum SendDmMessageError {
     Domain(#[from] MessageError),
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("This user does not accept direct messages")]
+    DmsClosed,
     #[error("Invalid attachments")]
     InvalidAttachments,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
 }
 
-pub struct SendDmMessage<M, W, F, A>
+pub struct SendDmMessage<M, W, F, A, P>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     F: FriendshipRepository,
     A: AttachmentClaims,
+    P: PrivacyRepository,
 {
     dm_repository: Arc<M>,
     unit_of_work: Arc<W>,
     friendship_repository: Arc<F>,
     attachment_claims: Arc<A>,
+    privacy_repository: Arc<P>,
 }
 
-impl<M, W, F, A> SendDmMessage<M, W, F, A>
+impl<M, W, F, A, P> SendDmMessage<M, W, F, A, P>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     F: FriendshipRepository,
     A: AttachmentClaims,
+    P: PrivacyRepository,
 {
     pub fn new(
         dm_repository: Arc<M>,
         unit_of_work: Arc<W>,
         friendship_repository: Arc<F>,
         attachment_claims: Arc<A>,
+        privacy_repository: Arc<P>,
     ) -> Self {
         Self {
             dm_repository,
             unit_of_work,
             friendship_repository,
             attachment_claims,
+            privacy_repository,
         }
     }
 
@@ -72,8 +79,12 @@ where
             .friendship_repository
             .find_pair(&sender_id, &recipient_id)
             .await?;
-        if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
-            return Err(SendDmMessageError::NotFriends);
+        let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
+        let recipient_privacy = self.privacy_repository.get(&recipient_id).await?;
+        match recipient_privacy.dm_policy {
+            DmPolicy::NoOne => return Err(SendDmMessageError::DmsClosed),
+            DmPolicy::Friends if !are_friends => return Err(SendDmMessageError::NotFriends),
+            _ => {}
         }
 
         if request.attachment_ids.len() > 10 {

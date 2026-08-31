@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, friendship::FriendshipError, friendship::pair::FriendshipPair, friendship::unit_of_work::FriendshipUnitOfWork};
+use messaging_domain::{privacy::PrivacyRepository, events::MessagingEvent, friendship::FriendshipError, friendship::pair::FriendshipPair, friendship::unit_of_work::FriendshipUnitOfWork};
 use domain::{user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 
@@ -23,28 +23,34 @@ pub enum SendFriendRequestError {
     AlreadyRequested,
     #[error("Already friends with this user")]
     AlreadyFriends,
+    #[error("This user does not accept friend requests")]
+    RequestsClosed,
     #[error("This user already sent you a friend request")]
     IncomingPending,
 }
 
-pub struct SendFriendRequest<W, U>
+pub struct SendFriendRequest<W, U, P>
 where
     W: FriendshipUnitOfWork,
     U: ports::user_profile::UserProfileRepository,
+    P: PrivacyRepository,
 {
     unit_of_work: Arc<W>,
     user_repository: Arc<U>,
+    privacy_repository: Arc<P>,
 }
 
-impl<W, U> SendFriendRequest<W, U>
+impl<W, U, P> SendFriendRequest<W, U, P>
 where
     W: FriendshipUnitOfWork,
     U: ports::user_profile::UserProfileRepository,
+    P: PrivacyRepository,
 {
-    pub fn new(unit_of_work: Arc<W>, user_repository: Arc<U>) -> Self {
+    pub fn new(unit_of_work: Arc<W>, user_repository: Arc<U>, privacy_repository: Arc<P>) -> Self {
         Self {
             unit_of_work,
             user_repository,
+            privacy_repository,
         }
     }
 
@@ -67,6 +73,10 @@ where
 
         if target_id == sender_id {
             return Err(SendFriendRequestError::SelfTarget);
+        }
+
+        if !self.privacy_repository.get(&target_id).await?.accept_friend_requests {
+            return Err(SendFriendRequestError::RequestsClosed);
         }
 
         let now = Utc::now();

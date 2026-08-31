@@ -1757,7 +1757,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           {composerError && <div className="composer-error">{composerError}</div>}
         </div>
       )}
-      {!callMode && !(dm && dm.isFriend === false) && (
+      {!callMode && (
       <form className="composer" onSubmit={handleSend}>
         {pendingFiles.length > 0 && (
           <div className="attach-chips">

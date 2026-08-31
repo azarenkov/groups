@@ -884,7 +884,7 @@ const ServersPage: React.FC = () => {
     }
     const preview = dmPreviews[friendId];
     const fallbackName = name ?? nameOverrides[friendId] ?? preview?.peerName;
-    if (!preview || !fallbackName) return;
+    if (!fallbackName) return;
     handleSelectDm({
       id: friendId,
       name: fallbackName,

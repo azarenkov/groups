@@ -10,6 +10,7 @@ mod home;
 mod internal;
 mod notifications;
 mod presence;
+mod privacy;
 mod read_state;
 mod roles;
 mod routes;

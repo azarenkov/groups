@@ -3,6 +3,7 @@ use std::{error::Error, sync::Arc};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use messaging::usecases::{
+    privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     attachment::{
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
     },
@@ -74,7 +75,7 @@ use messaging_infrastructure::{
             friendship_unit_of_work::PostgresFriendshipUnitOfWork,
             message_unit_of_work::PostgresMessageUnitOfWork,
             server_unit_of_work::PostgresServerUnitOfWork,
-            user_profile::PostgresUserProfileRepository,
+            privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
         },
     },
     media_client::claims::MediaClaimsClient,
@@ -128,6 +129,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
+    let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
     let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
         .unwrap_or_else(|_| "http://identity-service:8080".to_string());
     let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
@@ -264,7 +266,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         send_friend_request_usecase: SendFriendRequest::new(
             friendship_unit_of_work.clone(),
             user_repository.clone(),
+            privacy_repository.clone(),
         ),
+        get_privacy_usecase: GetPrivacy::new(privacy_repository.clone()),
+        update_privacy_usecase: UpdatePrivacy::new(privacy_repository.clone()),
         accept_friend_request_usecase: AcceptFriendRequest::new(friendship_unit_of_work.clone()),
         remove_friendship_usecase: RemoveFriendship::new(friendship_unit_of_work.clone()),
         list_friends_usecase: ListFriends::new(friendship_repository.clone()),
@@ -320,6 +325,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_unit_of_work.clone(),
             friendship_repository.clone(),
             attachment_claims.clone(),
+            privacy_repository.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),

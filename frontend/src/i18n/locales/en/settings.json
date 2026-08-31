@@ -97,16 +97,14 @@
     "lead": "Control who can reach you and how your data is used.",
     "directMessages": "Direct Messages",
     "whoCanDm": "Who can DM me",
-    "whoCanDmHint": "Limit unsolicited messages.",
+    "whoCanDmHint": "Limit uninvited messages.",
     "everyone": "Everyone",
     "friends": "Friends",
     "noOne": "No one",
     "requests": "Requests",
     "allowRequests": "Allow friend requests",
     "allowRequestsHint": "Anyone can send you a friend request.",
-    "safety": "Safety",
-    "scanMessages": "Scan direct messages",
-    "scanMessagesHint": "Filter explicit content from people you don't know."
+    "loadFailed": "Couldn't load privacy settings."
   },
   "connections": {
     "title": "Connections",

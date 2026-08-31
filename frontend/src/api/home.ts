@@ -20,6 +20,11 @@ export interface ActiveFriend {
   profileUpdatedAt: string | null;
 }
 
+export interface PrivacySettings {
+  dmPolicy: "all" | "friends" | "no_one";
+  acceptFriendRequests: boolean;
+}
+
 export interface PublicProfile {
   id: string;
   name: string;
@@ -89,6 +94,16 @@ class HomeAPI {
 
   removeAuthToken() {
     delete this.client.defaults.headers.common["Authorization"];
+  }
+
+  async privacy(): Promise<PrivacySettings> {
+    const response = await this.client.get("/v1/users/me/privacy");
+    return response.data.data;
+  }
+
+  async updatePrivacy(patch: Partial<PrivacySettings>): Promise<PrivacySettings> {
+    const response = await this.client.patch("/v1/users/me/privacy", patch);
+    return response.data.data;
   }
 
   async profile(userId: string): Promise<PublicProfile> {

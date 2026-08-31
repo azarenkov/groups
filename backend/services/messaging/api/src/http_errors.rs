@@ -153,6 +153,8 @@ use messaging::usecases::server::invite_codes::ListInviteCodesError;
 use messaging::usecases::server::invite_codes::RedeemInviteCodeError;
 use messaging::usecases::server::invite_codes::RevokeInviteCodeError;
 use messaging::usecases::server::get_home_overview::GetHomeOverviewError;
+use messaging::usecases::privacy::get_privacy::GetPrivacyError;
+use messaging::usecases::privacy::update_privacy::UpdatePrivacyError;
 use messaging::usecases::server::get_user_profile::GetUserProfileError;
 use messaging::usecases::server::kick_member::KickMemberError;
 use messaging::usecases::server::leave_server::LeaveServerError;
@@ -665,6 +667,7 @@ impl HttpMapping for LogCallError {
 
 impl_http_mapping_delegate!(ListServersByUserError, Repository);
 impl_http_mapping_delegate!(GetHomeOverviewError, Repository);
+impl_http_mapping_delegate!(GetPrivacyError, Repository);
 
 impl HttpMapping for ListServerMembersError {
     fn to_http_status(&self) -> StatusCode {
@@ -1034,6 +1037,7 @@ impl HttpMapping for SendFriendRequestError {
             SendFriendRequestError::SelfTarget => StatusCode::BAD_REQUEST,
             SendFriendRequestError::AlreadyRequested => StatusCode::CONFLICT,
             SendFriendRequestError::AlreadyFriends => StatusCode::CONFLICT,
+            SendFriendRequestError::RequestsClosed => StatusCode::FORBIDDEN,
             SendFriendRequestError::IncomingPending => StatusCode::CONFLICT,
         }
     }
@@ -1049,6 +1053,9 @@ impl HttpMapping for SendFriendRequestError {
             }
             SendFriendRequestError::AlreadyRequested => {
                 "Friend request already sent".to_string()
+            }
+            SendFriendRequestError::RequestsClosed => {
+                "This user does not accept friend requests".to_string()
             }
             SendFriendRequestError::AlreadyFriends => {
                 "You are already friends with this user".to_string()
@@ -1068,6 +1075,7 @@ impl HttpMapping for SendFriendRequestError {
             SendFriendRequestError::SelfTarget => "SELF_FRIEND_REQUEST",
             SendFriendRequestError::AlreadyRequested => "FRIEND_REQUEST_ALREADY_SENT",
             SendFriendRequestError::AlreadyFriends => "ALREADY_FRIENDS",
+            SendFriendRequestError::RequestsClosed => "REQUESTS_CLOSED",
             SendFriendRequestError::IncomingPending => "INCOMING_REQUEST_PENDING",
         }
     }
@@ -1130,6 +1138,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::Repository(e) => e.to_http_status(),
             SendDmMessageError::Domain(e) => e.to_http_status(),
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
+            SendDmMessageError::DmsClosed => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -1147,6 +1156,9 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::NotFriends => {
                 "You can only DM users who are your friends".to_string()
             }
+            SendDmMessageError::DmsClosed => {
+                "This user does not accept direct messages".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1156,6 +1168,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             SendDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
+            SendDmMessageError::DmsClosed => "DMS_CLOSED",
         }
     }
 }
@@ -1974,6 +1987,27 @@ impl HttpMapping for GetUserProfileError {
         match self {
             GetUserProfileError::Repository(e) => e.to_error_code(),
             GetUserProfileError::NotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for UpdatePrivacyError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdatePrivacyError::Repository(e) => e.to_http_status(),
+            UpdatePrivacyError::InvalidPolicy => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdatePrivacyError::Repository(e) => e.to_user_message(),
+            UpdatePrivacyError::InvalidPolicy => "Invalid DM policy".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdatePrivacyError::Repository(e) => e.to_error_code(),
+            UpdatePrivacyError::InvalidPolicy => "INVALID_DM_POLICY",
         }
     }
 }

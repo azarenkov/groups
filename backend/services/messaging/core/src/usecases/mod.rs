@@ -4,6 +4,7 @@ pub mod channel;
 pub mod dm;
 pub mod friendship;
 pub mod notification;
+pub mod privacy;
 pub mod read_state;
 pub mod role;
 pub mod server;

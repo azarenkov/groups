@@ -1,4 +1,5 @@
 use messaging::usecases::{
+    privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     attachment::{
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
     },
@@ -68,7 +69,7 @@ use messaging_infrastructure::{
         friendship_unit_of_work::PostgresFriendshipUnitOfWork,
         message_unit_of_work::PostgresMessageUnitOfWork,
         server_unit_of_work::PostgresServerUnitOfWork,
-        user_profile::PostgresUserProfileRepository,
+        privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
     media_client::identity_users::IdentityUsersClient,
@@ -140,7 +141,9 @@ pub struct AppState {
     pub get_attachment_usecase:
         GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
     pub send_friend_request_usecase:
-        SendFriendRequest<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository>,
+        SendFriendRequest<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository, PostgresPrivacyRepository>,
+    pub get_privacy_usecase: GetPrivacy<PostgresPrivacyRepository>,
+    pub update_privacy_usecase: UpdatePrivacy<PostgresPrivacyRepository>,
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipUnitOfWork>,
     pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipUnitOfWork>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
@@ -180,6 +183,7 @@ pub struct AppState {
         PostgresDmUnitOfWork,
         PostgresFriendshipRepository,
         MediaClaimsClient,
+        PostgresPrivacyRepository,
     >,
     pub edit_dm_message_usecase:
         EditDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork, MediaClaimsClient>,

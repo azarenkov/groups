@@ -9,7 +9,6 @@ import { usePresenceStore } from "../../store/presenceStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
-import { useDmPreviewStore } from "../../store/dmPreviewStore";
 import { colorForId } from "../../utils/avatar";
 import { currentLocale } from "../../i18n";
 
@@ -65,7 +64,6 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
-  const hasDm = useDmPreviewStore((s) => (userId ? userId in s.byFriend : false));
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -128,7 +126,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const localTime = profile ? formatLocalTime(profile.timezone, locale) : null;
   const memberSince = profile ? formatMemberSince(profile.memberSince, locale) : null;
   const inactive = !!profile && !profile.active;
-  const canMessage = !isSelf && (isFriend || hasDm);
+  const canMessage = !isSelf;
   const canCall = !isSelf && isFriend;
 
   const copyLogin = async () => {
