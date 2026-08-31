@@ -333,13 +333,7 @@ pub struct UpdateProfileBody {
 }
 
 fn validate_timezone(value: &str) -> Result<(), validator::ValidationError> {
-    let ok = !value.is_empty()
-        && value
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '+' | '-'))
-        && !value.starts_with('/')
-        && !value.ends_with('/');
-    if ok {
+    if value.parse::<chrono_tz::Tz>().is_ok() {
         Ok(())
     } else {
         Err(validator::ValidationError::new("timezone_format"))
