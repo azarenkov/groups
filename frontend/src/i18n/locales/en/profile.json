@@ -18,5 +18,6 @@
   "about": "About",
   "memberSince": "Member since",
   "localTime": "Local time",
-  "mutualServers": "Mutual servers — {{count}}"
+  "mutualServers": "Mutual servers — {{count}}",
+  "viewProfile": "View profile"
 }

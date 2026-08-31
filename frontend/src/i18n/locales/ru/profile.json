@@ -18,5 +18,6 @@
   "about": "О себе",
   "memberSince": "В Rift с",
   "localTime": "Местное время",
-  "mutualServers": "Общие серверы — {{count}}"
+  "mutualServers": "Общие серверы — {{count}}",
+  "viewProfile": "Открыть профиль"
 }

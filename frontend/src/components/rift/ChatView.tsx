@@ -2081,14 +2081,11 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   if (dm) {
     return (
       <header className="main-header">
-        <span
-          className="ch-ico clickable"
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
+          className="dm-peer-btn"
+          title={i18n.t("viewProfile", { ns: "profile" })}
           onClick={() => useProfileModalStore.getState().open(dm.friendId)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") useProfileModalStore.getState().open(dm.friendId);
-          }}
         >
           <UserAvatar
             userId={dm.friendId}
@@ -2106,8 +2103,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               justifyContent: "center",
             }}
           />
-        </span>
-        <span className="ch-name">{dm.name}</span>
+          <span className="ch-name">{dm.name}</span>
+          <Icon name="chev" size={10} className="dm-peer-chev" />
+        </button>
         <span className="sep" />
         <span className="topic" title={dmBio || undefined}>
           {dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}
@@ -2759,6 +2757,7 @@ const Message: React.FC<MessageProps> = ({
         userId={msg.authorId}
         name={displayName}
         className="ava clickable"
+        title={i18n.t("viewProfile", { ns: "profile" })}
         onClick={() => useProfileModalStore.getState().open(msg.authorId)}
       />
       <div className="body">

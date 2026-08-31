@@ -5551,3 +5551,10 @@ button.ssv-row-delete:focus-visible {
 .profile-chip span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-chip-logo { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: #fff; overflow: hidden; flex-shrink: 0; }
 .member-row.clickable, .ch-ico.clickable, .ava.clickable { cursor: pointer; }
+.dm-peer-btn { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 4px 8px; margin-left: -8px; border-radius: 8px; font: inherit; color: inherit; cursor: pointer; transition: background var(--dur-fast); }
+.dm-peer-btn:hover { background: var(--surface-hover); }
+.dm-peer-btn:active { background: var(--surface-active); }
+.dm-peer-btn .dm-peer-chev { color: var(--fg-4); transform: rotate(-90deg); transition: color var(--dur-fast); }
+.dm-peer-btn:hover .dm-peer-chev { color: var(--fg-2); }
+.msg .ava.clickable { transition: box-shadow var(--dur-fast); }
+.msg .ava.clickable:hover { box-shadow: 0 0 0 2px var(--accent); }
