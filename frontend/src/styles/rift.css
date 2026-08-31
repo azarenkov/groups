@@ -5524,7 +5524,7 @@ button.ssv-row-delete:focus-visible {
 .profile-voice-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--success-tint); color: var(--voice-live); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
 .profile-name { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: var(--fg-1); }
 .profile-handle { font-size: 13px; color: var(--fg-3); margin-top: 2px; }
-.profile-actions { display: flex; gap: 8px; margin-top: 18px; }
+.profile-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
 .profile-btn { flex: 1; height: 32px; border: 1px solid var(--hairline-strong); border-radius: 10px; background: var(--surface-raised); color: var(--fg-1); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: background var(--dur-fast); }
 
 .profile-btn:hover:not(:disabled) { background: var(--surface-hover); }
