@@ -1387,6 +1387,8 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Dm(e) => e.to_http_status(),
             EditDmMessageError::Message(e) => e.to_http_status(),
             EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
+            EditDmMessageError::NotFriends => StatusCode::FORBIDDEN,
+            EditDmMessageError::DmsClosed => StatusCode::FORBIDDEN,
             EditDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             EditDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -1397,6 +1399,12 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Dm(e) => e.to_user_message(),
             EditDmMessageError::Message(e) => e.to_user_message(),
             EditDmMessageError::NotFound => "Message not found".to_string(),
+            EditDmMessageError::NotFriends => {
+                "You can only DM users who are your friends".to_string()
+            }
+            EditDmMessageError::DmsClosed => {
+                "This user does not accept direct messages".to_string()
+            }
             EditDmMessageError::InvalidAttachments => {
                 "Attachments are invalid or unavailable".to_string()
             }
@@ -1411,6 +1419,8 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Dm(e) => e.to_error_code(),
             EditDmMessageError::Message(e) => e.to_error_code(),
             EditDmMessageError::NotFound => "DM_NOT_FOUND",
+            EditDmMessageError::NotFriends => "NOT_FRIENDS",
+            EditDmMessageError::DmsClosed => "DMS_CLOSED",
             EditDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             EditDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
         }

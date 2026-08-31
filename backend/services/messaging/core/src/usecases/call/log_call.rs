@@ -66,7 +66,7 @@ where
             .call_participation
             .call_outcome(call_id, &sender_id, &recipient_id)
             .await?;
-        if !outcome.participated || !outcome.callee_invited_by_caller {
+        if !outcome.participated || !outcome.callee_invited_by_caller || outcome.caller_in_call {
             return Err(LogCallError::CallNotVerified);
         }
         let now = Utc::now();

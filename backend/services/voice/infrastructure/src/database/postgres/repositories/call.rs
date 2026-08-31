@@ -520,6 +520,9 @@ impl CallRepository for PostgresCallRepository {
         let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),
+            caller_in_call: rows
+                .iter()
+                .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined")),
             callee_invited_by_caller: callee_row
                 .map(|r| r.inviter_id == caller.uuid())
                 .unwrap_or(false),

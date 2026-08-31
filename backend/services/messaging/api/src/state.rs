@@ -188,8 +188,13 @@ pub struct AppState {
         PostgresPrivacyRepository,
         PostgresUserProfileRepository,
     >,
-    pub edit_dm_message_usecase:
-        EditDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork, MediaClaimsClient>,
+    pub edit_dm_message_usecase: EditDmMessage<
+        PostgresDmMessageRepository,
+        PostgresDmUnitOfWork,
+        MediaClaimsClient,
+        PostgresFriendshipRepository,
+        PostgresPrivacyRepository,
+    >,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase: ListDmMessages<PostgresDmMessageRepository>,

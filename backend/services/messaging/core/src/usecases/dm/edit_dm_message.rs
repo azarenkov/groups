@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
+use messaging_domain::{events::MessagingEvent, privacy::ContactPolicy, privacy::PrivacyRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
@@ -22,34 +22,52 @@ pub enum EditDmMessageError {
     Message(#[from] MessageError),
     #[error("Message not found")]
     NotFound,
+    #[error("Not friends with this user")]
+    NotFriends,
+    #[error("This user does not accept direct messages")]
+    DmsClosed,
     #[error("Invalid attachments")]
     InvalidAttachments,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
 }
 
-pub struct EditDmMessage<M, W, A>
+pub struct EditDmMessage<M, W, A, F, P>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     A: AttachmentClaims,
+    F: FriendshipRepository,
+    P: PrivacyRepository,
 {
     dm_repository: Arc<M>,
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
+    friendship_repository: Arc<F>,
+    privacy_repository: Arc<P>,
 }
 
-impl<M, W, A> EditDmMessage<M, W, A>
+impl<M, W, A, F, P> EditDmMessage<M, W, A, F, P>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     A: AttachmentClaims,
+    F: FriendshipRepository,
+    P: PrivacyRepository,
 {
-    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>, attachment_claims: Arc<A>) -> Self {
+    pub fn new(
+        dm_repository: Arc<M>,
+        unit_of_work: Arc<W>,
+        attachment_claims: Arc<A>,
+        friendship_repository: Arc<F>,
+        privacy_repository: Arc<P>,
+    ) -> Self {
         Self {
             dm_repository,
             unit_of_work,
             attachment_claims,
+            friendship_repository,
+            privacy_repository,
         }
     }
 
@@ -71,6 +89,22 @@ where
 
         if message.sender_id() != &editor_id {
             return Err(EditDmMessageError::NotFound);
+        }
+
+        let pair = self
+            .friendship_repository
+            .find_pair(message.sender_id(), message.recipient_id())
+            .await?;
+        let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
+        match self
+            .privacy_repository
+            .get(message.recipient_id())
+            .await?
+            .dm_policy
+        {
+            ContactPolicy::NoOne => return Err(EditDmMessageError::DmsClosed),
+            ContactPolicy::Friends if !are_friends => return Err(EditDmMessageError::NotFriends),
+            _ => {}
         }
 
         let current: Vec<domain::attachment::AttachmentLink> = self

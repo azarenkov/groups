@@ -53,6 +53,7 @@ impl CallParticipationLookup for VoiceCallsClient {
             .map_err(|e| CallParticipationError::Unavailable(e.to_string()))?;
         Ok(CallOutcome {
             participated: body.participated,
+            caller_in_call: body.caller_in_call,
             callee_invited_by_caller: body.callee_invited_by_caller,
             callee_pending: body.callee_pending,
             callee_answered_at: body.callee_answered_at,
