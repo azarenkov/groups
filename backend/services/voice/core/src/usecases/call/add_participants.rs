@@ -24,24 +24,32 @@ pub enum AddCallParticipantsError {
     FriendshipLookup(#[from] FriendshipLookupError),
 }
 
-pub struct AddCallParticipants<C, F>
+pub struct AddCallParticipants<C, F, U>
 where
     C: CallRepository,
     F: FriendshipLookup,
+    U: ports::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     friendship_repository: Arc<F>,
+    user_repository: Arc<U>,
 }
 
-impl<C, F> AddCallParticipants<C, F>
+impl<C, F, U> AddCallParticipants<C, F, U>
 where
     C: CallRepository,
     F: FriendshipLookup,
+    U: ports::user_profile::UserProfileRepository,
 {
-    pub fn new(call_repository: Arc<C>, friendship_repository: Arc<F>) -> Self {
+    pub fn new(
+        call_repository: Arc<C>,
+        friendship_repository: Arc<F>,
+        user_repository: Arc<U>,
+    ) -> Self {
         Self {
             call_repository,
             friendship_repository,
+            user_repository,
         }
     }
 
@@ -69,6 +77,9 @@ where
                 .can_call(&caller_id, &invitee)
                 .await?
             {
+                return Err(AddCallParticipantsError::CallNotAllowed);
+            }
+            if !self.user_repository.is_active(&invitee).await? {
                 return Err(AddCallParticipantsError::CallNotAllowed);
             }
             invitees.push(invitee);

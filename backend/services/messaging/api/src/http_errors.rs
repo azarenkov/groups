@@ -1152,6 +1152,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
             SendDmMessageError::DmsClosed => StatusCode::FORBIDDEN,
             SendDmMessageError::SelfDm => StatusCode::BAD_REQUEST,
+            SendDmMessageError::RecipientInactive => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -1173,6 +1174,7 @@ impl HttpMapping for SendDmMessageError {
                 "This user does not accept direct messages".to_string()
             }
             SendDmMessageError::SelfDm => "You cannot message yourself".to_string(),
+            SendDmMessageError::RecipientInactive => "This user is unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1184,6 +1186,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
             SendDmMessageError::DmsClosed => "DMS_CLOSED",
             SendDmMessageError::SelfDm => "SELF_DM",
+            SendDmMessageError::RecipientInactive => "RECIPIENT_INACTIVE",
         }
     }
 }

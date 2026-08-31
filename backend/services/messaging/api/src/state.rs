@@ -186,6 +186,7 @@ pub struct AppState {
         PostgresFriendshipRepository,
         MediaClaimsClient,
         PostgresPrivacyRepository,
+        PostgresUserProfileRepository,
     >,
     pub edit_dm_message_usecase:
         EditDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork, MediaClaimsClient>,

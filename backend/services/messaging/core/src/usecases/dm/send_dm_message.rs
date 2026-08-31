@@ -4,6 +4,7 @@ use chrono::Utc;
 use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
+use ports::user_profile::UserProfileRepository;
 
 use crate::{
     dto::{
@@ -25,34 +26,39 @@ pub enum SendDmMessageError {
     DmsClosed,
     #[error("Cannot send a direct message to yourself")]
     SelfDm,
+    #[error("This user is unavailable")]
+    RecipientInactive,
     #[error("Invalid attachments")]
     InvalidAttachments,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
 }
 
-pub struct SendDmMessage<M, W, F, A, P>
+pub struct SendDmMessage<M, W, F, A, P, U>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     F: FriendshipRepository,
     A: AttachmentClaims,
     P: PrivacyRepository,
+    U: UserProfileRepository,
 {
     dm_repository: Arc<M>,
     unit_of_work: Arc<W>,
     friendship_repository: Arc<F>,
     attachment_claims: Arc<A>,
     privacy_repository: Arc<P>,
+    user_profile_repository: Arc<U>,
 }
 
-impl<M, W, F, A, P> SendDmMessage<M, W, F, A, P>
+impl<M, W, F, A, P, U> SendDmMessage<M, W, F, A, P, U>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     F: FriendshipRepository,
     A: AttachmentClaims,
     P: PrivacyRepository,
+    U: UserProfileRepository,
 {
     pub fn new(
         dm_repository: Arc<M>,
@@ -60,6 +66,7 @@ where
         friendship_repository: Arc<F>,
         attachment_claims: Arc<A>,
         privacy_repository: Arc<P>,
+        user_profile_repository: Arc<U>,
     ) -> Self {
         Self {
             dm_repository,
@@ -67,6 +74,7 @@ where
             friendship_repository,
             attachment_claims,
             privacy_repository,
+            user_profile_repository,
         }
     }
 
@@ -79,6 +87,9 @@ where
 
         if recipient_id == sender_id {
             return Err(SendDmMessageError::SelfDm);
+        }
+        if !self.user_profile_repository.is_active(&recipient_id).await? {
+            return Err(SendDmMessageError::RecipientInactive);
         }
         let pair = self
             .friendship_repository

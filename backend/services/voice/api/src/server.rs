@@ -96,6 +96,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         add_call_participants_usecase: AddCallParticipants::new(
             call_repository.clone(),
             friendship_lookup.clone(),
+            user_repository.clone(),
         ),
         get_active_call_usecase: GetActiveCall::new(
             call_repository.clone(),

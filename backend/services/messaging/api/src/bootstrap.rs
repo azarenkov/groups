@@ -334,6 +334,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
             attachment_claims.clone(),
             privacy_repository.clone(),
+            user_repository.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),

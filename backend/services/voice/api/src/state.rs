@@ -27,8 +27,11 @@ pub struct AppState {
         AcceptCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
     pub decline_call_usecase: DeclineCall<PostgresCallRepository>,
     pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
-    pub add_call_participants_usecase:
-        AddCallParticipants<PostgresCallRepository, MessagingFriendshipClient>,
+    pub add_call_participants_usecase: AddCallParticipants<
+        PostgresCallRepository,
+        MessagingFriendshipClient,
+        PostgresUserProfileRepository,
+    >,
     pub get_active_call_usecase:
         GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
     pub get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,

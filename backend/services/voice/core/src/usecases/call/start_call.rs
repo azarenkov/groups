@@ -95,6 +95,9 @@ where
             {
                 return Err(StartCallError::CallNotAllowed);
             }
+            if !self.user_repository.is_active(&invitee).await? {
+                return Err(StartCallError::CallNotAllowed);
+            }
             invitees.push(invitee);
         }
         if invitees.is_empty() {
