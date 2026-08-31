@@ -194,7 +194,36 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
 
           {!isSelf && !inactive && !failed && (
             <div className="profile-actions">
-              <button type="button" className="profile-btn primary" disabled={!canMessage} onClick={() => { close(); onOpenDm(userId, name || undefined); }}>
+              {!isFriend && (
+                friendship?.status === "pending_outgoing" ? (
+                  <button type="button" className="profile-btn" disabled>
+                    <Icon name="check" size={15} />
+                    {t("requestSent")}
+                  </button>
+                ) : friendship?.status === "pending_incoming" ? (
+                  <button
+                    type="button"
+                    className="profile-btn primary"
+                    onClick={() => void useFriendshipStore.getState().accept(userId).catch(() => {})}
+                  >
+                    <Icon name="check" size={15} />
+                    {t("acceptRequest")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="profile-btn primary"
+                    disabled={!name}
+                    onClick={() => {
+                      if (name) void useFriendshipStore.getState().sendRequest(name).catch(() => {});
+                    }}
+                  >
+                    <Icon name="user-plus" size={15} />
+                    {t("addFriend")}
+                  </button>
+                )
+              )}
+              <button type="button" className={"profile-btn" + (isFriend ? " primary" : "")} disabled={!canMessage} onClick={() => { close(); onOpenDm(userId, name || undefined); }}>
                 <Icon name="message" size={15} />
                 {t("message")}
               </button>
@@ -208,19 +237,9 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                 </button>
                 {menuOpen && (
                   <div className="profile-menu">
-                    {isFriend ? (
+                    {isFriend && (
                       <button type="button" className="danger" onClick={() => { setMenuOpen(false); close(); onRemoveFriend(userId, name); }}>
                         {t("removeFriend")}
-                      </button>
-                    ) : friendship?.status === "pending_outgoing" ? (
-                      <button type="button" disabled>{t("requestSent")}</button>
-                    ) : friendship?.status === "pending_incoming" ? (
-                      <button type="button" onClick={() => { setMenuOpen(false); void useFriendshipStore.getState().accept(userId).catch(() => {}); }}>
-                        {t("acceptRequest")}
-                      </button>
-                    ) : (
-                      <button type="button" onClick={() => { setMenuOpen(false); if (name) void useFriendshipStore.getState().sendRequest(name).catch(() => {}); }}>
-                        {t("addFriend")}
                       </button>
                     )}
                     <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
