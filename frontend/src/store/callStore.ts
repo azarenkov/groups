@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { callAPI } from "../api/call";
+import { ApiError } from "../utils/apiError";
 import { getLiveKitService } from "../services/livekit";
 
 async function connectToRoom(
@@ -80,7 +81,30 @@ function finalizeCallLog() {
     const from = cl.answeredAt ?? cl.startedAt;
     duration = Math.max(0, Math.round((Date.now() - from) / 1000));
   }
-  callAPI.logCall(cl.callId, cl.peerId, status, duration).catch(() => {});
+  sendCallLog(cl.callId, cl.peerId, status, duration, 0);
+}
+
+function sendCallLog(
+  callId: string,
+  peerId: string,
+  status: string,
+  duration: number | undefined,
+  attempt: number,
+) {
+  callAPI.logCall(callId, peerId, status, duration).catch((e) => {
+    const code = e instanceof ApiError ? e.code : null;
+    const terminal =
+      code === "CALL_ALREADY_LOGGED" ||
+      code === "SELF_CALL" ||
+      code === "INVALID_CALL_STATUS" ||
+      code === "CALLS_CLOSED";
+    if (attempt < 3 && !terminal) {
+      window.setTimeout(
+        () => sendCallLog(callId, peerId, status, duration, attempt + 1),
+        2000 * (attempt + 1),
+      );
+    }
+  });
 }
 
 export const useCallStore = create<CallState>()((set, get) => ({
