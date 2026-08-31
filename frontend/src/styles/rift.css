@@ -5561,5 +5561,5 @@ button.ssv-row-delete:focus-visible {
 .pf-peer:hover { background: var(--surface-active); }
 .user-suggest-item { display: flex; align-items: center; gap: 8px; }
 .user-suggest-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.user-suggest-profile { border: 0; background: transparent; color: var(--fg-3); width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background var(--dur-fast), color var(--dur-fast); }
+.user-suggest-profile { border: 1px solid var(--hairline-strong); background: var(--surface-panel); color: var(--fg-2); height: 24px; padding: 0 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 11px; font-weight: 500; cursor: pointer; flex-shrink: 0; transition: background var(--dur-fast), color var(--dur-fast); }
 .user-suggest-profile:hover { background: var(--surface-hover); color: var(--fg-1); }

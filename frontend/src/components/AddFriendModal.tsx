@@ -182,14 +182,14 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
                       <button
                         type="button"
                         className="user-suggest-profile"
-                        title={t("profile:viewProfile")}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           useProfileModalStore.getState().open(s.id);
                         }}
                       >
-                        <Icon name="user" size={13} />
+                        <Icon name="user" size={12} />
+                        {t("profile:profileShort")}
                       </button>
                     </div>
                   ))}
