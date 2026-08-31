@@ -97,10 +97,11 @@ where
         let events = message.pull_events();
         let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
-        match tx.insert_message(&message, &[]).await {
+        match tx.consume_call_log(call_id, &recipient_id).await {
             Err(RepositoryError::AlreadyExists) => return Err(LogCallError::AlreadyLogged),
             result => result?,
         };
+        tx.insert_message(&message, &[]).await?;
         tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(())

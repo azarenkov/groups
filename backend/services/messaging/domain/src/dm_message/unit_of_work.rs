@@ -1,4 +1,5 @@
 use domain::attachment::AttachmentLink;
+use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -15,6 +16,11 @@ pub trait DmTransaction: Send {
         &mut self,
         message: &DmMessage,
         attachments: &[AttachmentLink],
+    ) -> Result<(), RepositoryError>;
+    async fn consume_call_log(
+        &mut self,
+        call_id: Uuid,
+        recipient_id: &UserId,
     ) -> Result<(), RepositoryError>;
     async fn update_message(
         &mut self,
