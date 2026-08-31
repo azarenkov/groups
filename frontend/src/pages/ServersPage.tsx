@@ -876,9 +876,25 @@ const ServersPage: React.FC = () => {
       handleSelectChannel(server, channel);
   };
 
-  const handleOpenDmFromHome = (friendId: string) => {
+  const handleOpenDmFromHome = (friendId: string, name?: string) => {
     const dm = acceptedFriends.find((d) => d.id === friendId);
-    if (dm) handleSelectDm(dm);
+    if (dm) {
+      handleSelectDm(dm);
+      return;
+    }
+    const preview = dmPreviews[friendId];
+    const fallbackName = name ?? nameOverrides[friendId] ?? preview?.peerName;
+    if (!preview || !fallbackName) return;
+    handleSelectDm({
+      id: friendId,
+      name: fallbackName,
+      initials: initialFor(fallbackName),
+      color: colorForId(friendId),
+      online: false,
+      unread: 0,
+      isFriend: false,
+      friendship: "none",
+    });
   };
 
   const handleCallFromHome = (friendId: string) => {

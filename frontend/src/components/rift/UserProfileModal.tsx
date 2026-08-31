@@ -14,7 +14,7 @@ import { colorForId } from "../../utils/avatar";
 import { currentLocale } from "../../i18n";
 
 interface Props {
-  onOpenDm: (userId: string) => void;
+  onOpenDm: (userId: string, name?: string) => void;
   onCall: (userId: string) => void;
   onRemoveFriend: (userId: string, name: string) => void;
 }
@@ -194,7 +194,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
 
           {!isSelf && !inactive && !failed && (
             <div className="profile-actions">
-              <button type="button" className="profile-btn primary" disabled={!canMessage} onClick={() => { close(); onOpenDm(userId); }}>
+              <button type="button" className="profile-btn primary" disabled={!canMessage} onClick={() => { close(); onOpenDm(userId, name || undefined); }}>
                 <Icon name="message" size={15} />
                 {t("message")}
               </button>
