@@ -196,14 +196,14 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
             <div className="profile-actions">
               {!isFriend && (
                 friendship?.status === "pending_outgoing" ? (
-                  <button type="button" className="profile-btn" disabled>
-                    <Icon name="check" size={15} />
+                  <button type="button" className="profile-btn friend" disabled>
+                    <Icon name="check" size={14} />
                     {t("requestSent")}
                   </button>
                 ) : friendship?.status === "pending_incoming" ? (
                   <button
                     type="button"
-                    className="profile-btn primary"
+                    className="profile-btn primary friend"
                     onClick={() => void useFriendshipStore.getState().accept(userId).catch(() => {})}
                   >
                     <Icon name="check" size={15} />
@@ -212,7 +212,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                 ) : (
                   <button
                     type="button"
-                    className="profile-btn primary"
+                    className="profile-btn primary friend"
                     disabled={!name}
                     onClick={() => {
                       if (name) void useFriendshipStore.getState().sendRequest(name).catch(() => {});
