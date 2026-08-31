@@ -56,8 +56,8 @@ pub(crate) async fn insert_dm_message(
 ) -> Result<(), RepositoryError> {
     sqlx::query!(
         r#"
-        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_server_id, call_status, call_duration_seconds, created_at, edited_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_server_id, call_status, call_duration_seconds, call_id, created_at, edited_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         "#,
         message.id().uuid(),
         message.sender_id().uuid(),
@@ -66,6 +66,7 @@ pub(crate) async fn insert_dm_message(
         message.invite_server_id().map(|id| id.uuid()),
         message.call_status(),
         message.call_duration_seconds(),
+        message.call_id(),
         message.created_at(),
         message.edited_at(),
     )

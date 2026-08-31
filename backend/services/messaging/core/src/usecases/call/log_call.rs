@@ -20,6 +20,8 @@ pub enum LogCallError {
     SelfCall,
     #[error("Call could not be verified")]
     CallNotVerified,
+    #[error("This call is already logged")]
+    AlreadyLogged,
     #[error("Call verification unavailable: {0}")]
     Lookup(#[from] CallParticipationError),
 }
@@ -71,7 +73,11 @@ where
         let verified = match status.as_str() {
             "completed" => outcome.callee_answered_at.is_some(),
             "declined" => outcome.callee_declined,
-            _ => outcome.callee_answered_at.is_none() && !outcome.callee_declined,
+            _ => {
+                outcome.callee_answered_at.is_none()
+                    && !outcome.callee_declined
+                    && !outcome.callee_pending
+            }
         };
         if !verified {
             return Err(LogCallError::CallNotVerified);
@@ -87,11 +93,14 @@ where
         };
         let content = MessageContent::new("call".to_string())?;
         let mut message =
-            DmMessage::create_call(sender_id, recipient_id, status, duration_seconds, content, now);
+            DmMessage::create_call(sender_id, recipient_id, call_id, status, duration_seconds, content, now);
         let events = message.pull_events();
         let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
-        tx.insert_message(&message, &[]).await?;
+        match tx.insert_message(&message, &[]).await {
+            Err(RepositoryError::AlreadyExists) => return Err(LogCallError::AlreadyLogged),
+            result => result?,
+        };
         tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(())

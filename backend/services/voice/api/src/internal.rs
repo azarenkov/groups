@@ -20,6 +20,7 @@ async fn call_outcome(
     Ok(HttpResponse::Ok().json(CallOutcomeResponseV1 {
         participated: outcome.participated,
         callee_invited_by_caller: outcome.callee_invited_by_caller,
+        callee_pending: outcome.callee_pending,
         callee_answered_at: outcome.callee_answered_at,
         callee_declined: outcome.callee_declined,
     }))

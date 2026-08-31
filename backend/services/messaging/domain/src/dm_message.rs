@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, server::id::ServerId};
 use domain::user::id::UserId;
+use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DmMessageError {
@@ -27,6 +28,7 @@ pub struct DmMessage {
     invite_server_id: Option<ServerId>,
     call_status: Option<String>,
     call_duration_seconds: Option<i32>,
+    call_id: Option<Uuid>,
     created_at: DateTime<Utc>,
     edited_at: Option<DateTime<Utc>>,
     events: Vec<DmMessageDomainEvent>,
@@ -48,6 +50,7 @@ impl DmMessage {
             invite_server_id: None,
             call_status: None,
             call_duration_seconds: None,
+            call_id: None,
             created_at: now,
             edited_at: None,
             events: Vec::new(),
@@ -61,6 +64,7 @@ impl DmMessage {
     pub fn create_call(
         sender_id: UserId,
         recipient_id: UserId,
+        call_id: Uuid,
         call_status: String,
         call_duration_seconds: Option<i32>,
         content: MessageContent,
@@ -75,6 +79,7 @@ impl DmMessage {
             invite_server_id: None,
             call_status: Some(call_status),
             call_duration_seconds,
+            call_id: Some(call_id),
             created_at: now,
             edited_at: None,
             events: Vec::new(),
@@ -102,6 +107,7 @@ impl DmMessage {
             invite_server_id: Some(server_id),
             call_status: None,
             call_duration_seconds: None,
+            call_id: None,
             created_at: now,
             edited_at: None,
             events: Vec::new(),
@@ -134,6 +140,7 @@ impl DmMessage {
             invite_server_id,
             call_status,
             call_duration_seconds,
+            call_id: None,
             created_at,
             edited_at,
             events: Vec::new(),
@@ -225,6 +232,9 @@ impl DmMessage {
     }
     pub fn call_duration_seconds(&self) -> Option<i32> {
         self.call_duration_seconds
+    }
+    pub fn call_id(&self) -> Option<Uuid> {
+        self.call_id
     }
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at

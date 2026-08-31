@@ -60,6 +60,7 @@ fn dm_call_and_invite_facts_are_part_of_the_event() {
     let mut call = DmMessage::create_call(
         sender,
         recipient,
+        uuid::Uuid::new_v4(),
         "missed".to_string(),
         Some(42),
         MessageContent::new("call".to_string()).unwrap(),

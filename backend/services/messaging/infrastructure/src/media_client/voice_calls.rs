@@ -54,6 +54,7 @@ impl CallParticipationLookup for VoiceCallsClient {
         Ok(CallOutcome {
             participated: body.participated,
             callee_invited_by_caller: body.callee_invited_by_caller,
+            callee_pending: body.callee_pending,
             callee_answered_at: body.callee_answered_at,
             callee_declined: body.callee_declined,
         })

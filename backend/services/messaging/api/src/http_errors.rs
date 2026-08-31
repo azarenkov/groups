@@ -649,6 +649,7 @@ impl HttpMapping for LogCallError {
             LogCallError::InvalidStatus => StatusCode::BAD_REQUEST,
             LogCallError::SelfCall => StatusCode::BAD_REQUEST,
             LogCallError::CallNotVerified => StatusCode::FORBIDDEN,
+            LogCallError::AlreadyLogged => StatusCode::CONFLICT,
             LogCallError::Lookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
@@ -659,6 +660,7 @@ impl HttpMapping for LogCallError {
             LogCallError::InvalidStatus => "Invalid call status".to_string(),
             LogCallError::SelfCall => "You cannot log a call with yourself".to_string(),
             LogCallError::CallNotVerified => "Call could not be verified".to_string(),
+            LogCallError::AlreadyLogged => "This call is already logged".to_string(),
             LogCallError::Lookup(_) => "Call verification unavailable".to_string(),
         }
     }
@@ -669,6 +671,7 @@ impl HttpMapping for LogCallError {
             LogCallError::InvalidStatus => "INVALID_CALL_STATUS",
             LogCallError::SelfCall => "SELF_CALL",
             LogCallError::CallNotVerified => "CALL_NOT_VERIFIED",
+            LogCallError::AlreadyLogged => "CALL_ALREADY_LOGGED",
             LogCallError::Lookup(_) => "CALL_LOOKUP_UNAVAILABLE",
         }
     }

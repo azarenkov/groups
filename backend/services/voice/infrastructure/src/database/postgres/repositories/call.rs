@@ -523,6 +523,7 @@ impl CallRepository for PostgresCallRepository {
             callee_invited_by_caller: callee_row
                 .map(|r| r.inviter_id == caller.uuid())
                 .unwrap_or(false),
+            callee_pending: callee_row.map(|r| r.status == "invited").unwrap_or(false),
             callee_answered_at: callee_row.and_then(|r| r.answered_at),
             callee_declined: callee_row.map(|r| r.status == "declined").unwrap_or(false),
         })

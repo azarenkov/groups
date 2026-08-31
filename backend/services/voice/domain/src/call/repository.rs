@@ -106,6 +106,7 @@ pub trait CallRepository {
 pub struct CallPairOutcome {
     pub participated: bool,
     pub callee_invited_by_caller: bool,
+    pub callee_pending: bool,
     pub callee_answered_at: Option<DateTime<Utc>>,
     pub callee_declined: bool,
 }

@@ -328,7 +328,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
-    finalizeCallLog();
     set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
     if (!keepRoom) {
       await getLiveKitService()
@@ -338,6 +337,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (callId) {
       await callAPI.leave(callId).catch(() => {});
     }
+    finalizeCallLog();
   },
 
   addParticipants: async (recipientIds) => {
