@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT user_id, status, answered_at FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)",
+  "query": "SELECT user_id, inviter_id, status, answered_at FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,16 @@
       },
       {
         "ordinal": 1,
+        "name": "inviter_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
         "name": "status",
         "type_info": "Text"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "answered_at",
         "type_info": "Timestamptz"
       }
@@ -29,8 +34,9 @@
     "nullable": [
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "1eb658d20bc974b753a6319fa791384d8771762e424810d2295544cfab891346"
+  "hash": "8efac5e115393bc0ce6c359bf0b6ee518440495206421199b42b377cde308fcf"
 }

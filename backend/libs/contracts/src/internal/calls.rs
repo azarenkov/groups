@@ -10,6 +10,7 @@ pub struct CallPermitResponseV1 {
 #[serde(rename_all = "camelCase")]
 pub struct CallOutcomeResponseV1 {
     pub participated: bool,
+    pub callee_invited_by_caller: bool,
     pub callee_answered_at: Option<chrono::DateTime<chrono::Utc>>,
     pub callee_declined: bool,
 }

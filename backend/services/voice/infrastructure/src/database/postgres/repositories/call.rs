@@ -508,7 +508,7 @@ impl CallRepository for PostgresCallRepository {
         callee: &UserId,
     ) -> Result<CallPairOutcome, RepositoryError> {
         let rows = sqlx::query!(
-            r#"SELECT user_id, status, answered_at FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)"#,
+            r#"SELECT user_id, inviter_id, status, answered_at FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)"#,
             call_id,
             caller.uuid(),
             callee.uuid(),
@@ -520,6 +520,9 @@ impl CallRepository for PostgresCallRepository {
         let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),
+            callee_invited_by_caller: callee_row
+                .map(|r| r.inviter_id == caller.uuid())
+                .unwrap_or(false),
             callee_answered_at: callee_row.and_then(|r| r.answered_at),
             callee_declined: callee_row.map(|r| r.status == "declined").unwrap_or(false),
         })

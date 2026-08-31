@@ -105,6 +105,7 @@ pub trait CallRepository {
 #[derive(Debug, Clone)]
 pub struct CallPairOutcome {
     pub participated: bool,
+    pub callee_invited_by_caller: bool,
     pub callee_answered_at: Option<DateTime<Utc>>,
     pub callee_declined: bool,
 }

@@ -16,6 +16,8 @@ pub enum LogCallError {
     Domain(#[from] MessageError),
     #[error("Invalid call status")]
     InvalidStatus,
+    #[error("You cannot log a call with yourself")]
+    SelfCall,
     #[error("Call could not be verified")]
     CallNotVerified,
     #[error("Call verification unavailable: {0}")]
@@ -55,11 +57,14 @@ where
             return Err(LogCallError::InvalidStatus);
         }
         let recipient_id = UserId::new(recipient_id);
+        if sender_id == recipient_id {
+            return Err(LogCallError::SelfCall);
+        }
         let outcome: CallOutcome = self
             .call_participation
             .call_outcome(call_id, &sender_id, &recipient_id)
             .await?;
-        if !outcome.participated {
+        if !outcome.participated || !outcome.callee_invited_by_caller {
             return Err(LogCallError::CallNotVerified);
         }
         let now = Utc::now();

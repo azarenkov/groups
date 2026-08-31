@@ -6,6 +6,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct CallOutcome {
     pub participated: bool,
+    pub callee_invited_by_caller: bool,
     pub callee_answered_at: Option<DateTime<Utc>>,
     pub callee_declined: bool,
 }
