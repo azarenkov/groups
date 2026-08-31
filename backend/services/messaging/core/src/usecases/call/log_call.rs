@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
+
+use crate::ports::call_participation::{CallParticipationError, CallParticipationLookup};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LogCallError {
@@ -12,38 +14,32 @@ pub enum LogCallError {
     Repository(#[from] RepositoryError),
     #[error("Message error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Not friends with this user")]
-    NotFriends,
-    #[error("This user does not accept calls")]
-    CallsClosed,
+    #[error("Invalid call status")]
+    InvalidStatus,
+    #[error("Call could not be verified")]
+    CallNotVerified,
+    #[error("Call verification unavailable: {0}")]
+    Lookup(#[from] CallParticipationError),
 }
 
-pub struct LogCall<W, F, P>
+pub struct LogCall<W, L>
 where
     W: DmUnitOfWork,
-    F: FriendshipRepository,
-    P: PrivacyRepository,
+    L: CallParticipationLookup,
 {
     unit_of_work: Arc<W>,
-    friendship_repository: Arc<F>,
-    privacy_repository: Arc<P>,
+    call_participation: Arc<L>,
 }
 
-impl<W, F, P> LogCall<W, F, P>
+impl<W, L> LogCall<W, L>
 where
     W: DmUnitOfWork,
-    F: FriendshipRepository,
-    P: PrivacyRepository,
+    L: CallParticipationLookup,
 {
-    pub fn new(
-        unit_of_work: Arc<W>,
-        friendship_repository: Arc<F>,
-        privacy_repository: Arc<P>,
-    ) -> Self {
+    pub fn new(unit_of_work: Arc<W>, call_participation: Arc<L>) -> Self {
         Self {
             unit_of_work,
-            friendship_repository,
-            privacy_repository,
+            call_participation,
         }
     }
 
@@ -51,25 +47,22 @@ where
         &self,
         sender_id: UserId,
         recipient_id: Uuid,
+        call_id: Uuid,
         status: String,
         duration_seconds: Option<i32>,
     ) -> Result<(), LogCallError> {
-        let recipient_id = UserId::new(recipient_id);
-
-        match self.privacy_repository.get(&recipient_id).await?.call_policy {
-            ContactPolicy::NoOne => return Err(LogCallError::CallsClosed),
-            ContactPolicy::Friends => {
-                let pair = self
-                    .friendship_repository
-                    .find_pair(&sender_id, &recipient_id)
-                    .await?;
-                if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
-                    return Err(LogCallError::NotFriends);
-                }
-            }
-            ContactPolicy::All => {}
+        if !matches!(status.as_str(), "completed" | "declined" | "missed") {
+            return Err(LogCallError::InvalidStatus);
         }
-
+        let recipient_id = UserId::new(recipient_id);
+        if !self
+            .call_participation
+            .both_participated(call_id, &sender_id, &recipient_id)
+            .await?
+        {
+            return Err(LogCallError::CallNotVerified);
+        }
+        let duration_seconds = duration_seconds.map(|d| d.max(0));
         let content = MessageContent::new("call".to_string())?;
         let now = Utc::now();
         let mut message =

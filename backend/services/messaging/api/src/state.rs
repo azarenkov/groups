@@ -72,6 +72,7 @@ use messaging_infrastructure::{
         privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
+    media_client::voice_calls::VoiceCallsClient,
     media_client::identity_users::IdentityUsersClient,
 };
 
@@ -172,8 +173,7 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresFriendshipRepository,
     >,
-    pub log_call_usecase:
-        LogCall<PostgresDmUnitOfWork, PostgresFriendshipRepository, PostgresPrivacyRepository>,
+    pub log_call_usecase: LogCall<PostgresDmUnitOfWork, VoiceCallsClient>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,

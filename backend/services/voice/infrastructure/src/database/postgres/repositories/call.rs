@@ -499,6 +499,24 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.exists)
     }
 
+    async fn pair_participated(
+        &self,
+        call_id: Uuid,
+        a: &UserId,
+        b: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        let count = sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)"#,
+            call_id,
+            a.uuid(),
+            b.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(count == 2)
+    }
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,

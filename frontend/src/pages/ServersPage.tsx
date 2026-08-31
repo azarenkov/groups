@@ -41,6 +41,7 @@ import { colorForId, initialFor } from "../utils/avatar";
 import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
 import { ApiError } from "../utils/apiError";
+import i18n from "../i18n";
 import ConfirmModal from "../components/rift/ConfirmModal";
 import IncomingCallModal from "../components/rift/IncomingCallModal";
 import ActiveCallBar from "../components/rift/ActiveCallBar";
@@ -48,7 +49,7 @@ import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
 import CallStage from "../components/rift/CallStage";
-import CallReturnBar from "../components/rift/CallReturnBar";
+import CallReturnBar, { CallErrorToast } from "../components/rift/CallReturnBar";
 import VoiceRoomSplash from "../components/rift/VoiceRoomSplash";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
@@ -920,7 +921,14 @@ const ServersPage: React.FC = () => {
       cs.setFocused(true);
       return;
     }
-    cs.start([friendId]).catch((e) => console.warn("[call] start failed:", e));
+    cs.start([friendId]).catch((e) => {
+      const apiErr = e instanceof ApiError ? e : null;
+      useCallStore.getState().setCallError(
+        apiErr?.code === "CALL_NOT_ALLOWED"
+          ? i18n.t("callNotAllowed", { ns: "call" })
+          : i18n.t("callFailed", { ns: "call" }),
+      );
+    });
   };
 
   const voiceMembersByChannel: Record<
@@ -1042,6 +1050,7 @@ const ServersPage: React.FC = () => {
         <main className="main">
           <div className="main-inner">
             <CallReturnBar />
+            <CallErrorToast />
             {activeCallId && callFocused && !selectedDm ? (
               <CallStage
                 onMinimize={() => useCallStore.getState().setFocused(false)}

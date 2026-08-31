@@ -11,6 +11,7 @@ use crate::http_errors::HttpError;
 #[serde(rename_all = "camelCase")]
 struct LogCallBody {
     recipient_id: Uuid,
+    call_id: Uuid,
     status: String,
     duration_seconds: Option<i32>,
 }
@@ -25,7 +26,7 @@ async fn log_call(
     let body = body.into_inner();
     app_state
         .log_call_usecase
-        .execute(sender_id, body.recipient_id, body.status, body.duration_seconds)
+        .execute(sender_id, body.recipient_id, body.call_id, body.status, body.duration_seconds)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }

@@ -646,24 +646,27 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_http_status(),
             LogCallError::Domain(e) => e.to_http_status(),
-            LogCallError::NotFriends => StatusCode::FORBIDDEN,
-            LogCallError::CallsClosed => StatusCode::FORBIDDEN,
+            LogCallError::InvalidStatus => StatusCode::BAD_REQUEST,
+            LogCallError::CallNotVerified => StatusCode::FORBIDDEN,
+            LogCallError::Lookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             LogCallError::Repository(e) => e.to_user_message(),
             LogCallError::Domain(e) => e.to_user_message(),
-            LogCallError::NotFriends => "You can only call your friends".to_string(),
-            LogCallError::CallsClosed => "This user does not accept calls".to_string(),
+            LogCallError::InvalidStatus => "Invalid call status".to_string(),
+            LogCallError::CallNotVerified => "Call could not be verified".to_string(),
+            LogCallError::Lookup(_) => "Call verification unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             LogCallError::Repository(e) => e.to_error_code(),
             LogCallError::Domain(e) => e.to_error_code(),
-            LogCallError::NotFriends => "CALL_NOT_FRIENDS",
-            LogCallError::CallsClosed => "CALLS_CLOSED",
+            LogCallError::InvalidStatus => "INVALID_CALL_STATUS",
+            LogCallError::CallNotVerified => "CALL_NOT_VERIFIED",
+            LogCallError::Lookup(_) => "CALL_LOOKUP_UNAVAILABLE",
         }
     }
 }

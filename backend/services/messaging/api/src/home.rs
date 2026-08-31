@@ -110,6 +110,7 @@ struct PublicProfileResponse {
     active: bool,
     timezone: String,
     member_since: Option<DateTime<Utc>>,
+    accepts_calls: bool,
     mutual_servers: Vec<MutualServerItem>,
     voice_room: Option<VoiceRoomItem>,
 }
@@ -120,10 +121,17 @@ async fn get_user_profile(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
+    let target_id = path.into_inner();
     let view = app_state
         .get_user_profile_usecase
-        .execute(UserId::new(auth_token.id), UserId::new(path.into_inner()))
+        .execute(UserId::new(auth_token.id), UserId::new(target_id))
         .await?;
+    let accepts_calls = crate::internal::call_allowed(
+        &app_state,
+        &UserId::new(auth_token.id),
+        &UserId::new(target_id),
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
         id: view.profile.user_id.uuid(),
         name: view.profile.name,
@@ -132,6 +140,7 @@ async fn get_user_profile(
         active: view.profile.active,
         timezone: view.profile.timezone,
         member_since: view.profile.registered_at,
+        accepts_calls,
         mutual_servers: view
             .mutual_servers
             .into_iter()

@@ -82,24 +82,32 @@ async fn call_permit(
     let (caller, callee) = path.into_inner();
     let caller = UserId::new(caller);
     let callee = UserId::new(callee);
+    let allowed = call_allowed(&app_state, &caller, &callee).await?;
+    Ok(HttpResponse::Ok().json(CallPermitResponseV1 { allowed }))
+}
+
+pub(crate) async fn call_allowed(
+    app_state: &AppState,
+    caller: &UserId,
+    callee: &UserId,
+) -> Result<bool, HttpError> {
     let settings = app_state
         .privacy_repository
-        .get(&callee)
+        .get(callee)
         .await
         .map_err(HttpError::from)?;
-    let allowed = match settings.call_policy {
+    Ok(match settings.call_policy {
         ContactPolicy::All => true,
         ContactPolicy::NoOne => false,
         ContactPolicy::Friends => {
             let pair = app_state
                 .friendship_repository
-                .find_pair(&caller, &callee)
+                .find_pair(caller, callee)
                 .await
                 .map_err(HttpError::from)?;
             matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted)
         }
-    };
-    Ok(HttpResponse::Ok().json(CallPermitResponseV1 { allowed }))
+    })
 }
 
 #[post("/attachments/linked")]

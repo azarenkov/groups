@@ -30,11 +30,13 @@ interface CallState {
   peerId: string | null;
   micMuted: boolean;
   joinableByPeer: Record<string, string>;
+  callError: string | null;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
   setFocused: (focused: boolean) => void;
   setMicMuted: (muted: boolean) => void;
+  setCallError: (message: string | null) => void;
   callAvailable: (peerId: string, callId: string) => void;
   clearJoinable: (peerId: string) => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
@@ -55,6 +57,7 @@ interface CallState {
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
 interface CallLog {
+  callId: string;
   startedAt: number;
   answeredAt: number | null;
   peerId: string;
@@ -77,7 +80,7 @@ function finalizeCallLog() {
     const from = cl.answeredAt ?? cl.startedAt;
     duration = Math.max(0, Math.round((Date.now() - from) / 1000));
   }
-  callAPI.logCall(cl.peerId, status, duration).catch(() => {});
+  callAPI.logCall(cl.callId, cl.peerId, status, duration).catch(() => {});
 }
 
 export const useCallStore = create<CallState>()((set, get) => ({
@@ -90,6 +93,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   peerId: null,
   micMuted: false,
   joinableByPeer: {},
+  callError: null,
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
@@ -99,6 +103,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     getLiveKitService().setMicrophoneMuted(muted);
     set({ micMuted: muted });
   },
+  setCallError: (callError) => set({ callError }),
   callAvailable: (peerId, callId) =>
     set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
   clearJoinable: (peerId) =>
@@ -241,6 +246,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     });
     const { callId, token, url, participants } = session;
     pendingLog = {
+      callId,
       startedAt: Date.now(),
       answeredAt: null,
       peerId: recipientIds[0],

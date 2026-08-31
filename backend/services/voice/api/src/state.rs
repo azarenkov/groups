@@ -41,4 +41,5 @@ pub struct AppState {
         PostgresUserProfileRepository,
         LiveKitService,
     >,
+    pub call_repository: std::sync::Arc<PostgresCallRepository>,
 }

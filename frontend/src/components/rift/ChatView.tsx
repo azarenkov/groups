@@ -2109,9 +2109,14 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                 cs.setFocused(true);
                 return;
               }
-              cs.start([dm.friendId]).catch((e) =>
-                console.warn("[call] start failed:", e),
-              );
+              cs.start([dm.friendId]).catch((e) => {
+                const apiErr = e instanceof ApiError ? e : null;
+                cs.setCallError(
+                  apiErr?.code === "CALL_NOT_ALLOWED"
+                    ? i18n.t("callNotAllowed", { ns: "call" })
+                    : i18n.t("callFailed", { ns: "call" }),
+                );
+              });
             }}
           >
             <Icon name="phone" size={16} />

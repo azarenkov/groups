@@ -115,6 +115,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             livekit_service.clone(),
         ),
+        call_repository: call_repository.clone(),
     });
 
     let rate_limiter =

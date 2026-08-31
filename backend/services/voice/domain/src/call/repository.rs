@@ -76,6 +76,13 @@ pub trait CallRepository {
 
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
 
+    async fn pair_participated(
+        &self,
+        call_id: Uuid,
+        a: &UserId,
+        b: &UserId,
+    ) -> Result<bool, RepositoryError>;
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,

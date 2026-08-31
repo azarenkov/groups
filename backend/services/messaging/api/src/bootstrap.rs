@@ -79,6 +79,7 @@ use messaging_infrastructure::{
         },
     },
     media_client::claims::MediaClaimsClient,
+    media_client::voice_calls::VoiceCallsClient,
     media_client::identity_users::IdentityUsersClient,
 };
 use api_common::{
@@ -133,6 +134,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
         .unwrap_or_else(|_| "http://identity-service:8080".to_string());
     let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
+    let voice_internal_url = std::env::var("VOICE_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://voice-service:8080".to_string());
+    let call_participation = Arc::new(VoiceCallsClient::new(&voice_internal_url));
 
     let minio_storage = Arc::new(
         MinioStorage::new(&minio_config)
@@ -316,8 +320,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         log_call_usecase: LogCall::new(
             dm_unit_of_work.clone(),
-            friendship_repository.clone(),
-            privacy_repository.clone(),
+            call_participation.clone(),
         ),
         server_repository: server_repository.clone(),
         message_repository: message_repository.clone(),

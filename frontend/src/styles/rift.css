@@ -5566,3 +5566,18 @@ button.ssv-row-delete:focus-visible {
 .user-suggest-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-suggest-profile { border: 1px solid var(--hairline-strong); background: var(--surface-panel); color: var(--fg-2); height: 24px; padding: 0 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 11px; font-weight: 500; cursor: pointer; flex-shrink: 0; transition: background var(--dur-fast), color var(--dur-fast); }
 .user-suggest-profile:hover { background: var(--surface-hover); color: var(--fg-1); }
+
+.call-error-toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #b3261e;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 1200;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}

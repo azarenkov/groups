@@ -20,5 +20,7 @@
   "addParticipants": "Добавить участников",
   "add": "Добавить",
   "cancel": "Отмена",
-  "noFriendsToAdd": "Некого добавить"
+  "noFriendsToAdd": "Некого добавить",
+  "callNotAllowed": "Этот пользователь не принимает звонки",
+  "callFailed": "Не удалось начать звонок"
 }
