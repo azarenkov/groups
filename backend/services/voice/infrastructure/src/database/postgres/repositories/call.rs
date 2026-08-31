@@ -221,9 +221,7 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = $4,
-                updated_at = $3,
-                answered_at = CASE WHEN $4 = 'joined' THEN COALESCE(answered_at, $3) ELSE answered_at END
+            SET status = $4, updated_at = $3
             WHERE call_id = $1 AND user_id = $2 AND status = 'invited'
             "#,
             call_id,
@@ -463,7 +461,7 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'joined', session_id = NULL, updated_at = $3, answered_at = COALESCE(answered_at, $3)
+            SET status = 'joined', session_id = NULL, updated_at = $3
             WHERE call_id = $1 AND user_id = $2
               AND status IN ('invited', 'declined', 'left', 'joined')
               AND (
