@@ -23,6 +23,8 @@ pub enum SendDmMessageError {
     NotFriends,
     #[error("This user does not accept direct messages")]
     DmsClosed,
+    #[error("Cannot send a direct message to yourself")]
+    SelfDm,
     #[error("Invalid attachments")]
     InvalidAttachments,
     #[error("Attachment service unavailable: {0}")]
@@ -75,6 +77,9 @@ where
     ) -> Result<SendDmMessageResponse, SendDmMessageError> {
         let recipient_id = UserId::new(request.recipient_id);
 
+        if recipient_id == sender_id {
+            return Err(SendDmMessageError::SelfDm);
+        }
         let pair = self
             .friendship_repository
             .find_pair(&sender_id, &recipient_id)

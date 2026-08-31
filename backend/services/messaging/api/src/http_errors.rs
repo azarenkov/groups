@@ -1139,6 +1139,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::Domain(e) => e.to_http_status(),
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
             SendDmMessageError::DmsClosed => StatusCode::FORBIDDEN,
+            SendDmMessageError::SelfDm => StatusCode::BAD_REQUEST,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -1159,6 +1160,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::DmsClosed => {
                 "This user does not accept direct messages".to_string()
             }
+            SendDmMessageError::SelfDm => "You cannot message yourself".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1169,6 +1171,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
             SendDmMessageError::DmsClosed => "DMS_CLOSED",
+            SendDmMessageError::SelfDm => "SELF_DM",
         }
     }
 }
@@ -1179,6 +1182,7 @@ impl HttpMapping for SendServerInviteError {
             SendServerInviteError::Repository(e) => e.to_http_status(),
             SendServerInviteError::Domain(e) => e.to_http_status(),
             SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
+            SendServerInviteError::DmsClosed => StatusCode::FORBIDDEN,
             SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
             SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
             SendServerInviteError::NotAllowed => StatusCode::FORBIDDEN,
@@ -1190,6 +1194,9 @@ impl HttpMapping for SendServerInviteError {
         match self {
             SendServerInviteError::Repository(e) => e.to_user_message(),
             SendServerInviteError::Domain(e) => e.to_user_message(),
+            SendServerInviteError::DmsClosed => {
+                "This user does not accept direct messages".to_string()
+            }
             SendServerInviteError::NotFriends => {
                 "You can only invite users who are your friends".to_string()
             }
@@ -1213,6 +1220,7 @@ impl HttpMapping for SendServerInviteError {
             SendServerInviteError::Repository(e) => e.to_error_code(),
             SendServerInviteError::Domain(e) => e.to_error_code(),
             SendServerInviteError::NotFriends => "NOT_FRIENDS",
+            SendServerInviteError::DmsClosed => "DMS_CLOSED",
             SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
             SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
             SendServerInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
