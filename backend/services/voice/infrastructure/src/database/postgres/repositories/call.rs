@@ -533,36 +533,32 @@ impl CallRepository for PostgresCallRepository {
             .iter()
             .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined"));
         let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
-        let (callee_invited_by_caller, callee_pending, callee_answered_at, callee_declined) =
-            match callee_row {
-                Some(r) if r.inviter_id == caller.uuid() => (
-                    true,
-                    r.status == "invited",
-                    r.answered_at,
-                    r.status == "declined",
-                ),
-                _ => {
-                    let archived = sqlx::query!(
-                        r#"
-                        SELECT answered_at, declined
-                        FROM call_invite_outcomes
-                        WHERE call_id = $1 AND user_id = $2 AND inviter_id = $3
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                        "#,
-                        call_id,
-                        callee.uuid(),
-                        caller.uuid(),
-                    )
-                    .fetch_optional(&self.pool)
-                    .await
-                    .map_err(map_sqlx_error_to_domain_error)?;
-                    match archived {
-                        Some(a) => (true, false, a.answered_at, a.declined),
-                        None => (false, false, None, false),
-                    }
-                }
-            };
+        let archived = sqlx::query!(
+            r#"
+            SELECT answered_at, declined
+            FROM call_invite_outcomes
+            WHERE call_id = $1 AND user_id = $2 AND inviter_id = $3
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+            call_id,
+            callee.uuid(),
+            caller.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let current = callee_row.filter(|r| r.inviter_id == caller.uuid());
+        let callee_invited_by_caller = current.is_some() || archived.is_some();
+        let archived_answered_at = archived.as_ref().and_then(|a| a.answered_at);
+        let callee_answered_at = match (current.and_then(|r| r.answered_at), archived_answered_at) {
+            (Some(c), Some(a)) => Some(c.min(a)),
+            (c, a) => c.or(a),
+        };
+        let callee_declined = current.map(|r| r.status == "declined").unwrap_or(false)
+            || archived.as_ref().map(|a| a.declined).unwrap_or(false);
+        let callee_pending =
+            archived.is_none() && current.map(|r| r.status == "invited").unwrap_or(false);
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),
             caller_in_call,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                        SELECT answered_at, declined\n                        FROM call_invite_outcomes\n                        WHERE call_id = $1 AND user_id = $2 AND inviter_id = $3\n                        ORDER BY created_at DESC\n                        LIMIT 1\n                        ",
+  "query": "\n            SELECT answered_at, declined\n            FROM call_invite_outcomes\n            WHERE call_id = $1 AND user_id = $2 AND inviter_id = $3\n            ORDER BY created_at DESC\n            LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -26,5 +26,5 @@
       false
     ]
   },
-  "hash": "e75aad85f4759b8fb0549230bac9206d6909a183b81310342acdf49a8f669498"
+  "hash": "1c6e127d456e3d3f54a37d77ec10674d85eae483071ca56ac93bbc28ccc1f671"
 }

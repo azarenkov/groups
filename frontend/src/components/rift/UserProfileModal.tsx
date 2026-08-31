@@ -126,7 +126,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const localTime = profile ? formatLocalTime(profile.timezone, locale) : null;
   const memberSince = profile ? formatMemberSince(profile.memberSince, locale) : null;
   const inactive = !!profile && !profile.active;
-  const canMessage = !isSelf;
+  const canMessage = !isSelf && !inactive;
   const canCall = !isSelf && !inactive && (profile ? profile.acceptsCalls : isFriend);
 
   const copyLogin = async () => {
