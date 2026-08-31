@@ -79,10 +79,11 @@ const ACCENT_OPTIONS = [
   { name: 'Slate',    value: '#5a6470' },
 ];
 
-interface SwitchProps { on: boolean; onClick: () => void; }
+interface SwitchProps {
+  disabled?: boolean; on: boolean; onClick: () => void; }
 
-function Switch({ on, onClick }: SwitchProps) {
-  return <button className={'s-switch' + (on ? ' on' : '')} onClick={onClick} aria-pressed={on}/>;
+function Switch({ on, onClick, disabled }: SwitchProps) {
+  return <button className={'s-switch' + (on ? ' on' : '')} onClick={onClick} disabled={disabled} aria-pressed={on}/>;
 }
 
 interface SettingsRowProps {
@@ -533,7 +534,7 @@ function PrivacySection() {
               </div>
             </SettingsRow>
             <SettingsRow label={t("privacy.allowRequests")} hint={t("privacy.allowRequestsHint")}>
-              <Switch on={settings.acceptFriendRequests} onClick={() => apply({ acceptFriendRequests: !settings.acceptFriendRequests })} />
+              <Switch on={settings.acceptFriendRequests} disabled={busy} onClick={() => apply({ acceptFriendRequests: !settings.acceptFriendRequests })} />
             </SettingsRow>
           </>
         )}
