@@ -131,12 +131,30 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const canMessage = !isSelf && (isFriend || hasDm);
   const canCall = !isSelf && isFriend;
 
-  const copyLogin = () => {
+  const copyLogin = async () => {
     if (!name) return;
-    void navigator.clipboard?.writeText(name).then(() => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(name);
+      ok = true;
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = name;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      area.remove();
+    }
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    });
+    }
     setMenuOpen(false);
   };
 
@@ -205,7 +223,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                         {t("addFriend")}
                       </button>
                     )}
-                    <button type="button" onClick={copyLogin} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
+                    <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
                   </div>
                 )}
               </div>
