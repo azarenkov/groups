@@ -5508,7 +5508,6 @@ button.ssv-row-delete:focus-visible {
 .s-field-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
 .s-field-count { font-size: 11px; color: var(--fg-4); }
 .s-field-actions { display: inline-flex; gap: 8px; }
-.main-header .topic-bio { color: var(--fg-3); }
 
 .profile-overlay { z-index: 1100; backdrop-filter: blur(6px) saturate(140%); background: rgba(0,0,0,0.32); }
 .profile-window { width: 440px; max-width: calc(100vw - 48px); background: var(--surface-raised); border-radius: 20px; box-shadow: var(--shadow-lg); overflow: hidden; animation: rift-modal-in 220ms cubic-bezier(0.32,0.72,0,1); }
