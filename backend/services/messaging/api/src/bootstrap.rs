@@ -314,7 +314,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             friendship_repository.clone(),
         ),
-        log_call_usecase: LogCall::new(dm_unit_of_work.clone(), friendship_repository.clone()),
+        log_call_usecase: LogCall::new(
+            dm_unit_of_work.clone(),
+            friendship_repository.clone(),
+            privacy_repository.clone(),
+        ),
         server_repository: server_repository.clone(),
         message_repository: message_repository.clone(),
         friendship_repository: friendship_repository.clone(),

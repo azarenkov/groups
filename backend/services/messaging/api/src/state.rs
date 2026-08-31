@@ -172,7 +172,8 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresFriendshipRepository,
     >,
-    pub log_call_usecase: LogCall<PostgresDmUnitOfWork, PostgresFriendshipRepository>,
+    pub log_call_usecase:
+        LogCall<PostgresDmUnitOfWork, PostgresFriendshipRepository, PostgresPrivacyRepository>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,

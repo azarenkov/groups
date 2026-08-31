@@ -647,6 +647,7 @@ impl HttpMapping for LogCallError {
             LogCallError::Repository(e) => e.to_http_status(),
             LogCallError::Domain(e) => e.to_http_status(),
             LogCallError::NotFriends => StatusCode::FORBIDDEN,
+            LogCallError::DmsClosed => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
@@ -654,6 +655,7 @@ impl HttpMapping for LogCallError {
             LogCallError::Repository(e) => e.to_user_message(),
             LogCallError::Domain(e) => e.to_user_message(),
             LogCallError::NotFriends => "You can only call your friends".to_string(),
+            LogCallError::DmsClosed => "This user does not accept direct messages".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -661,6 +663,7 @@ impl HttpMapping for LogCallError {
             LogCallError::Repository(e) => e.to_error_code(),
             LogCallError::Domain(e) => e.to_error_code(),
             LogCallError::NotFriends => "CALL_NOT_FRIENDS",
+            LogCallError::DmsClosed => "DMS_CLOSED",
         }
     }
 }
