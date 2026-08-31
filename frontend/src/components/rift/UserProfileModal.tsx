@@ -210,8 +210,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                   <button
                     type="button"
                     className="profile-btn icon primary"
-                    title={t("addFriend")}
-                    disabled={!name}
+                    title={profile && !profile.acceptsFriendRequests ? t("requestsClosed") : t("addFriend")}
+                    disabled={!name || (!!profile && !profile.acceptsFriendRequests)}
                     onClick={() => {
                       if (name) void useFriendshipStore.getState().sendRequest(name).catch(() => {});
                     }}

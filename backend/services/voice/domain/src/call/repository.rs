@@ -76,12 +76,12 @@ pub trait CallRepository {
 
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
 
-    async fn pair_participated(
+    async fn pair_outcome(
         &self,
         call_id: Uuid,
-        a: &UserId,
-        b: &UserId,
-    ) -> Result<bool, RepositoryError>;
+        caller: &UserId,
+        callee: &UserId,
+    ) -> Result<CallPairOutcome, RepositoryError>;
 
     async fn webhook_joined(
         &self,
@@ -100,6 +100,13 @@ pub trait CallRepository {
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<bool, RepositoryError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct CallPairOutcome {
+    pub participated: bool,
+    pub callee_answered_at: Option<DateTime<Utc>>,
+    pub callee_declined: bool,
 }
 
 #[derive(Debug, Clone)]

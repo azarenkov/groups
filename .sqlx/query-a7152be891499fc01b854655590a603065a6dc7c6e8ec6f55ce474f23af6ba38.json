@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE call_participants\n            SET status = $4,\n                updated_at = $3,\n                answered_at = CASE WHEN $4 = 'joined' THEN COALESCE(answered_at, $3) ELSE answered_at END\n            WHERE call_id = $1 AND user_id = $2 AND status = 'invited'\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a7152be891499fc01b854655590a603065a6dc7c6e8ec6f55ce474f23af6ba38"
+}

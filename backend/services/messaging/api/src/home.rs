@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, Responder, get, web};
 use api_common::{dto::responses::ApiResponse, middleware::auth::RateLimitedAuthToken};
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
+use messaging_domain::{friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, privacy::ContactPolicy, privacy::PrivacyRepository};
 use uuid::Uuid;
 
 use crate::{http_errors::HttpError, state::AppState};
@@ -111,6 +112,7 @@ struct PublicProfileResponse {
     timezone: String,
     member_since: Option<DateTime<Utc>>,
     accepts_calls: bool,
+    accepts_friend_requests: bool,
     mutual_servers: Vec<MutualServerItem>,
     voice_room: Option<VoiceRoomItem>,
 }
@@ -126,12 +128,24 @@ async fn get_user_profile(
         .get_user_profile_usecase
         .execute(UserId::new(auth_token.id), UserId::new(target_id))
         .await?;
-    let accepts_calls = crate::internal::call_allowed(
-        &app_state,
-        &UserId::new(auth_token.id),
-        &UserId::new(target_id),
-    )
-    .await?;
+    let settings = app_state
+        .privacy_repository
+        .get(&UserId::new(target_id))
+        .await
+        .map_err(HttpError::from)?;
+    let accepts_calls = match settings.call_policy {
+        ContactPolicy::All => true,
+        ContactPolicy::NoOne => false,
+        ContactPolicy::Friends => {
+            let pair = app_state
+                .friendship_repository
+                .find_pair(&UserId::new(auth_token.id), &UserId::new(target_id))
+                .await
+                .map_err(HttpError::from)?;
+            matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted)
+        }
+    };
+    let accepts_friend_requests = settings.accept_friend_requests;
     Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
         id: view.profile.user_id.uuid(),
         name: view.profile.name,
@@ -141,6 +155,7 @@ async fn get_user_profile(
         timezone: view.profile.timezone,
         member_since: view.profile.registered_at,
         accepts_calls,
+        accepts_friend_requests,
         mutual_servers: view
             .mutual_servers
             .into_iter()

@@ -6,7 +6,7 @@ use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
-use crate::ports::call_participation::{CallParticipationError, CallParticipationLookup};
+use crate::ports::call_participation::{CallOutcome, CallParticipationError, CallParticipationLookup};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LogCallError {
@@ -55,16 +55,32 @@ where
             return Err(LogCallError::InvalidStatus);
         }
         let recipient_id = UserId::new(recipient_id);
-        if !self
+        let outcome: CallOutcome = self
             .call_participation
-            .both_participated(call_id, &sender_id, &recipient_id)
-            .await?
-        {
+            .call_outcome(call_id, &sender_id, &recipient_id)
+            .await?;
+        if !outcome.participated {
+            return Err(LogCallError::CallNotVerified);
+        }
+        let now = Utc::now();
+        let verified = match status.as_str() {
+            "completed" => outcome.callee_answered_at.is_some(),
+            "declined" => outcome.callee_declined,
+            _ => outcome.callee_answered_at.is_none() && !outcome.callee_declined,
+        };
+        if !verified {
             return Err(LogCallError::CallNotVerified);
         }
         let duration_seconds = duration_seconds.map(|d| d.max(0));
+        let duration_seconds = match (status.as_str(), outcome.callee_answered_at) {
+            ("completed", Some(answered_at)) => {
+                let elapsed =
+                    (now - answered_at).num_seconds().clamp(0, i64::from(i32::MAX - 60)) as i32;
+                duration_seconds.map(|d| d.min(elapsed + 60))
+            }
+            _ => duration_seconds,
+        };
         let content = MessageContent::new("call".to_string())?;
-        let now = Utc::now();
         let mut message =
             DmMessage::create_call(sender_id, recipient_id, status, duration_seconds, content, now);
         let events = message.pull_events();

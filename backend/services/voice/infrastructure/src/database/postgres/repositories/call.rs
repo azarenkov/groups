@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::CallRepository, call::CallParticipantStatus};
+use voice_domain::{call::repository::CallPairOutcome, call::repository::CallRepository, call::CallParticipantStatus};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -221,7 +221,9 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = $4, updated_at = $3
+            SET status = $4,
+                updated_at = $3,
+                answered_at = CASE WHEN $4 = 'joined' THEN COALESCE(answered_at, $3) ELSE answered_at END
             WHERE call_id = $1 AND user_id = $2 AND status = 'invited'
             "#,
             call_id,
@@ -461,7 +463,7 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'joined', session_id = NULL, updated_at = $3
+            SET status = 'joined', session_id = NULL, updated_at = $3, answered_at = COALESCE(answered_at, $3)
             WHERE call_id = $1 AND user_id = $2
               AND status IN ('invited', 'declined', 'left', 'joined')
               AND (
@@ -499,22 +501,28 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.exists)
     }
 
-    async fn pair_participated(
+    async fn pair_outcome(
         &self,
         call_id: Uuid,
-        a: &UserId,
-        b: &UserId,
-    ) -> Result<bool, RepositoryError> {
-        let count = sqlx::query_scalar!(
-            r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)"#,
+        caller: &UserId,
+        callee: &UserId,
+    ) -> Result<CallPairOutcome, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"SELECT user_id, status, answered_at FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)"#,
             call_id,
-            a.uuid(),
-            b.uuid(),
+            caller.uuid(),
+            callee.uuid(),
         )
-        .fetch_one(&self.pool)
+        .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(count == 2)
+        let caller_present = rows.iter().any(|r| r.user_id == caller.uuid());
+        let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
+        Ok(CallPairOutcome {
+            participated: caller_present && callee_row.is_some(),
+            callee_answered_at: callee_row.and_then(|r| r.answered_at),
+            callee_declined: callee_row.map(|r| r.status == "declined").unwrap_or(false),
+        })
     }
 
     async fn webhook_joined(
@@ -534,7 +542,7 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'joined', session_id = $3, updated_at = $4
+            SET status = 'joined', session_id = $3, updated_at = $4, answered_at = COALESCE(answered_at, $4)
             WHERE call_id = $1 AND user_id = $2
               AND (
                     (status = 'joined' AND session_id IS NULL)

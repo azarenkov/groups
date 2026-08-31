@@ -8,6 +8,8 @@ pub struct CallPermitResponseV1 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CallParticipationResponseV1 {
+pub struct CallOutcomeResponseV1 {
     pub participated: bool,
+    pub callee_answered_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub callee_declined: bool,
 }

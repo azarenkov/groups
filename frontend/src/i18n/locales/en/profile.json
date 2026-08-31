@@ -11,6 +11,7 @@
   "more": "More",
   "removeFriend": "Remove friend",
   "addFriend": "Add friend",
+  "requestsClosed": "This user doesn't accept friend requests",
   "requestSent": "Request sent",
   "acceptRequest": "Accept friend request",
   "copied": "Copied",
