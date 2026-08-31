@@ -18,7 +18,6 @@ interface MembersPanelProps {
 const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
   const { t } = useTranslation(["members", "common"]);
   const [members, setMembers] = useState<ChannelParticipant[]>([]);
-  const bios = useUserProfileStore((s) => s.bios);
   useEffect(() => {
     const apply = useUserProfileStore.getState().apply;
     for (const m of members) {
@@ -116,7 +115,6 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
           <div
             key={m.id}
             className="member-row clickable"
-            title={bios[m.id]?.bio || undefined}
             role="button"
             tabIndex={0}
             onClick={() => useProfileModalStore.getState().open(m.id)}
@@ -154,7 +152,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
                   )
                 )}
               </div>
-              <div className="role">{bios[m.id]?.bio ? bios[m.id].bio : statusLabel}</div>
+              <div className="role">{statusLabel}</div>
             </div>
           </div>
         );
