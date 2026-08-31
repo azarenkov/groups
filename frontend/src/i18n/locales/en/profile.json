@@ -13,11 +13,11 @@
   "addFriend": "Add friend",
   "requestSent": "Request sent",
   "acceptRequest": "Accept friend request",
-  "copyId": "Copy user ID",
   "copied": "Copied",
   "about": "About",
   "memberSince": "Member since",
   "localTime": "Local time",
   "mutualServers": "Mutual servers — {{count}}",
-  "viewProfile": "View profile"
+  "viewProfile": "View profile",
+  "copyLogin": "Copy login"
 }
