@@ -72,7 +72,7 @@ where
         let now = Utc::now();
         let verified = match status.as_str() {
             "completed" => outcome.callee_answered_at.is_some(),
-            "declined" => outcome.callee_declined,
+            "declined" => outcome.callee_declined && !outcome.callee_pending,
             _ => {
                 outcome.callee_answered_at.is_none()
                     && !outcome.callee_declined
