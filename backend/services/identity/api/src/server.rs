@@ -3,6 +3,10 @@ use std::{error::Error, sync::Arc};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use identity::usecases::{
+    connections::{
+        complete_connection::CompleteConnection, list_connections::ListConnections,
+        remove_connection::RemoveConnection, start_connection::StartConnection,
+    },
     auth::{
         confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
@@ -26,7 +30,7 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{
-    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker},
+    auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
     database::postgres::{
         connection::{create_postgres_pool, ping_pool},
         repositories::{
@@ -77,6 +81,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let user_state_lookup = Arc::new(MessagingStateClient::new(&messaging_internal_url));
+    let github_connector = Arc::new(GithubOAuthConnector::new(
+        std::env::var("GITHUB_CLIENT_ID").unwrap_or_default(),
+        std::env::var("GITHUB_CLIENT_SECRET").unwrap_or_default(),
+    ));
+    let steam_connector = Arc::new(SteamOpenIdConnector::new(
+        std::env::var("STEAM_API_KEY").unwrap_or_default(),
+    ));
+    let public_api_url =
+        std::env::var("PUBLIC_API_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
+    let public_app_url =
+        std::env::var("PUBLIC_APP_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
     let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
     let access_revocations_data = web::Data::new(access_revocations.clone());
@@ -157,6 +172,21 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             access_revoker.clone(),
             reauthenticator.clone(),
         ),
+        start_connection_usecase: StartConnection::new(
+            user_repository.clone(),
+            github_connector.clone(),
+            steam_connector.clone(),
+            public_api_url.clone(),
+        ),
+        complete_connection_usecase: CompleteConnection::new(
+            user_repository.clone(),
+            github_connector.clone(),
+            steam_connector.clone(),
+            public_api_url.clone(),
+        ),
+        list_connections_usecase: ListConnections::new(user_repository.clone()),
+        remove_connection_usecase: RemoveConnection::new(user_repository.clone()),
+        public_app_url: public_app_url.clone(),
         user_repository: user_repository.clone(),
         trust_forwarded_headers: server_config.trust_forwarded_headers,
     });

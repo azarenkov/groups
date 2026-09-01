@@ -1,4 +1,5 @@
 pub mod access_revoker;
+pub mod connections;
 pub mod oauth_verifier;
 pub mod text_moderation;
 pub mod token_issuer;

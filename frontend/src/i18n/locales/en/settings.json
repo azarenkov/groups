@@ -115,7 +115,13 @@
     "available": "Available",
     "connect": "Connect",
     "disconnect": "Disconnect",
-    "noConnections": "No connections yet."
+    "noConnections": "No connections yet.",
+    "githubDesc": "Show your GitHub profile.",
+    "steamDesc": "Steam profile and game activity.",
+    "connectedAs": "Connected as {{name}}",
+    "notConfigured": "This provider is not configured on the server.",
+    "failed": "Something went wrong. Try again.",
+    "loadFailed": "Couldn't load connections."
   },
   "subscription": {
     "title": "Subscription",

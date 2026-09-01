@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon, { type IconName } from "../rift/Icon";
 import { currentLocale, setLocale } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
-import { userAPI } from "../../api/user";
+import { userAPI, type Connection } from "../../api/user";
 import { ApiError } from "../../utils/apiError";
 import { UserAvatar } from "../rift/Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
@@ -556,32 +556,86 @@ function PrivacySection() {
 }
 
 function ConnectionsSection() {
-  const conns: { id: string; name: string; meta: string; icon: IconName; connected: boolean }[] = [
-    { id: 'github',  name: 'GitHub',  meta: 'Connected as @you', icon: 'globe', connected: true },
-    { id: 'spotify', name: 'Spotify', meta: 'Show what you\'re listening to', icon: 'volume', connected: false },
-    { id: 'figma',   name: 'Figma',   meta: 'Drop links that auto-expand', icon: 'palette', connected: false },
-    { id: 'cal',     name: 'Calendar', meta: 'Sync busy/free for status', icon: 'bell', connected: false },
-    { id: 'gh-iss',  name: 'Linear',  meta: 'Convert messages to issues', icon: 'check', connected: false },
-  ];
   const { t } = useTranslation("settings");
+  const [connections, setConnections] = React.useState<Connection[] | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const load = React.useCallback(() => {
+    userAPI
+      .listConnections()
+      .then(setConnections)
+      .catch(() => setError(t("connections.loadFailed")));
+  }, [t]);
+  React.useEffect(() => {
+    load();
+  }, [load]);
+  const providers: { id: string; name: string; icon: IconName; desc: string }[] = [
+    { id: "github", name: "GitHub", icon: "github", desc: t("connections.githubDesc") },
+    { id: "steam", name: "Steam", icon: "steam", desc: t("connections.steamDesc") },
+  ];
+  const connect = (provider: string) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    userAPI
+      .startConnection(provider)
+      .then((url) => {
+        window.location.href = url;
+      })
+      .catch((e) => {
+        const apiErr = e instanceof ApiError ? e : null;
+        setError(
+          apiErr?.code === "PROVIDER_NOT_CONFIGURED"
+            ? t("connections.notConfigured")
+            : t("connections.failed"),
+        );
+        setBusy(false);
+      });
+  };
+  const disconnect = (provider: string) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    userAPI
+      .removeConnection(provider)
+      .then(() => load())
+      .catch(() => setError(t("connections.failed")))
+      .finally(() => setBusy(false));
+  };
   return (
     <>
       <h1>{t("connections.title")}</h1>
       <p className="lead">{t("connections.lead")}</p>
       <div className="s-section">
         <h2>{t("connections.available")}</h2>
-        {conns.map(c => (
-          <div className="conn-row" key={c.id}>
-            <div className="conn-ico"><Icon name={c.icon} size={18}/></div>
-            <div className="conn-info">
-              <div className="conn-name">{c.name}</div>
-              <div className="conn-meta">{c.meta}</div>
-            </div>
-            <button className={'conn-action' + (c.connected ? '' : ' connect')}>
-              {c.connected ? t("connections.disconnect") : t("connections.connect")}
-            </button>
-          </div>
-        ))}
+        {error && <div className="s-error">{error}</div>}
+        {!connections && !error ? (
+          <div className="s-row"><span className="loading-spinner" /></div>
+        ) : (
+          providers.map((p) => {
+            const linked = connections?.find((c) => c.provider === p.id);
+            return (
+              <div className="conn-row" key={p.id}>
+                <div className="conn-ico"><Icon name={p.icon} size={18} /></div>
+                <div className="conn-info">
+                  <div className="conn-name">{p.name}</div>
+                  <div className="conn-meta">
+                    {linked
+                      ? t("connections.connectedAs", { name: linked.displayName || p.name })
+                      : p.desc}
+                  </div>
+                </div>
+                <button
+                  className={"conn-action" + (linked ? "" : " connect")}
+                  disabled={busy}
+                  onClick={() => (linked ? disconnect(p.id) : connect(p.id))}
+                >
+                  {linked ? t("connections.disconnect") : t("connections.connect")}
+                </button>
+              </div>
+            );
+          })
+        )}
       </div>
     </>
   );

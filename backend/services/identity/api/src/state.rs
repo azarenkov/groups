@@ -1,4 +1,8 @@
 use identity::usecases::{
+    connections::{
+        complete_connection::CompleteConnection, list_connections::ListConnections,
+        remove_connection::RemoveConnection, start_connection::StartConnection,
+    },
     auth::{
         confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
@@ -15,7 +19,7 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{
-    auth::{google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker},
+    auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
     database::postgres::repositories::{
         identity_unit_of_work::PostgresIdentityUnitOfWork,
         user::PostgresUserRepository,
@@ -90,6 +94,13 @@ pub struct AppState {
         RedisAccessRevoker,
         GoogleIdTokenVerifier,
     >,
+    pub start_connection_usecase:
+        StartConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
+    pub complete_connection_usecase:
+        CompleteConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
+    pub list_connections_usecase: ListConnections<PostgresUserRepository>,
+    pub remove_connection_usecase: RemoveConnection<PostgresUserRepository>,
+    pub public_app_url: String,
     pub user_repository: std::sync::Arc<PostgresUserRepository>,
     pub trust_forwarded_headers: bool,
 }

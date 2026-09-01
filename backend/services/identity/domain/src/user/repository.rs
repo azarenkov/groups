@@ -54,5 +54,31 @@ pub trait UserRepository {
         user_id: &UserId,
         email: &Email,
     ) -> Result<(), RepositoryError>;
+    async fn list_oauth_connections(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<(String, Option<String>)>, RepositoryError>;
+    async fn link_connection(
+        &self,
+        provider: &str,
+        subject: &str,
+        user_id: &UserId,
+        display_name: &str,
+    ) -> Result<bool, RepositoryError>;
+    async fn unlink_connection(
+        &self,
+        user_id: &UserId,
+        provider: &str,
+    ) -> Result<bool, RepositoryError>;
+    async fn create_connection_state(
+        &self,
+        state: uuid::Uuid,
+        user_id: &UserId,
+        provider: &str,
+    ) -> Result<(), RepositoryError>;
+    async fn consume_connection_state(
+        &self,
+        state: uuid::Uuid,
+    ) -> Result<Option<(UserId, String, DateTime<Utc>)>, RepositoryError>;
 
 }

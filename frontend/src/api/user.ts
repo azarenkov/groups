@@ -11,6 +11,11 @@ export interface Reauth {
   googleIdToken?: string;
 }
 
+export interface Connection {
+  provider: string;
+  displayName: string;
+}
+
 export interface MeProfile {
   id: string;
   name: string;
@@ -76,6 +81,23 @@ class UserAPI {
   async getMe(): Promise<MeProfile> {
     const response = await this.client.get("/v1/users/me");
     return response.data.data;
+  }
+
+  async listConnections(): Promise<Connection[]> {
+    const response = await this.client.get("/v1/users/me/connections");
+    return response.data.data.connections;
+  }
+
+  async startConnection(provider: string): Promise<string> {
+    const response = await this.client.post(
+      `/v1/users/me/connections/${provider}/start`,
+      {},
+    );
+    return response.data.data.url;
+  }
+
+  async removeConnection(provider: string): Promise<void> {
+    await this.client.delete(`/v1/users/me/connections/${provider}`);
   }
 
   async uploadAvatar(file: File): Promise<void> {
