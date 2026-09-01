@@ -11,8 +11,9 @@ export interface AppearanceSettings {
 }
 
 interface AppearanceState extends AppearanceSettings {
+  ownerId: string | null;
   update: (patch: Partial<AppearanceSettings>) => void;
-  syncFromServer: () => Promise<void>;
+  syncFromServer: (userId: string) => Promise<void>;
 }
 
 export const DEFAULT_ACCENT = "#0071e3";
@@ -71,14 +72,30 @@ const toServerPatch = (patch: Partial<AppearanceSettings>) => {
   return body;
 };
 
+let saveAttempts = 0;
+
 const flushSave = () => {
-  const body = toServerPatch(pendingPatch);
+  const patch = pendingPatch;
   pendingPatch = {};
+  const body = toServerPatch(patch);
   if (Object.keys(body).length === 0) return;
   saveChain = saveChain
     .then(() => import("../api/user"))
     .then(({ userAPI }) => userAPI.updateAppearance(body))
-    .catch((err) => console.warn("[appearance] save failed:", err));
+    .then(() => {
+      saveAttempts = 0;
+    })
+    .catch((err) => {
+      console.warn("[appearance] save failed:", err);
+      pendingPatch = { ...patch, ...pendingPatch };
+      saveAttempts += 1;
+      if (saveAttempts <= 5 && saveTimer === null) {
+        saveTimer = window.setTimeout(() => {
+          saveTimer = null;
+          flushSave();
+        }, 5000);
+      }
+    });
 };
 
 const scheduleSave = (patch: Partial<AppearanceSettings>) => {
@@ -97,6 +114,7 @@ export const useAppearanceStore = create<AppearanceState>()(
       accent: DEFAULT_ACCENT,
       chatFontSize: 14,
       reduceMotion: false,
+      ownerId: null,
 
       update: (patch) => {
         set(patch);
@@ -105,15 +123,29 @@ export const useAppearanceStore = create<AppearanceState>()(
         scheduleSave(patch);
       },
 
-      syncFromServer: async () => {
+      syncFromServer: async (userId) => {
         const { userAPI } = await import("../api/user");
         try {
           const saved = await userAPI.getAppearance();
           if (!saved) {
-            const { mode, accent, chatFontSize, reduceMotion } = get();
-            const local = { mode, accent, chatFontSize, reduceMotion };
+            const sameOwner =
+              get().ownerId === null || get().ownerId === userId;
+            const local: AppearanceSettings = sameOwner
+              ? {
+                  mode: get().mode,
+                  accent: get().accent,
+                  chatFontSize: get().chatFontSize,
+                  reduceMotion: get().reduceMotion,
+                }
+              : {
+                  mode: "system",
+                  accent: DEFAULT_ACCENT,
+                  chatFontSize: 14,
+                  reduceMotion: false,
+                };
+            set({ ...local, ownerId: userId });
             applyAppearance(local);
-            scheduleSave(local);
+            if (sameOwner) scheduleSave(local);
             return;
           }
           const next: AppearanceSettings = {
@@ -125,7 +157,7 @@ export const useAppearanceStore = create<AppearanceState>()(
             chatFontSize: saved.chatFontSize,
             reduceMotion: saved.reduceMotion,
           };
-          set(next);
+          set({ ...next, ownerId: userId });
           applyAppearance(next);
         } catch (err) {
           console.warn("[appearance] sync failed:", err);
