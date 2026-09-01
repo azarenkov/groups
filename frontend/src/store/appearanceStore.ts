@@ -54,21 +54,39 @@ export const applyAppearance = (s: AppearanceSettings) => {
 };
 
 let saveTimer: number | null = null;
+let pendingPatch: Partial<AppearanceSettings> = {};
+let saveChain: Promise<unknown> = Promise.resolve();
 
-const scheduleSave = (state: AppearanceSettings) => {
+const toServerPatch = (patch: Partial<AppearanceSettings>) => {
+  const body: {
+    theme?: string;
+    accent?: string;
+    chatFontSize?: number;
+    reduceMotion?: boolean;
+  } = {};
+  if (patch.mode !== undefined) body.theme = patch.mode;
+  if (patch.accent !== undefined) body.accent = patch.accent;
+  if (patch.chatFontSize !== undefined) body.chatFontSize = patch.chatFontSize;
+  if (patch.reduceMotion !== undefined) body.reduceMotion = patch.reduceMotion;
+  return body;
+};
+
+const flushSave = () => {
+  const body = toServerPatch(pendingPatch);
+  pendingPatch = {};
+  if (Object.keys(body).length === 0) return;
+  saveChain = saveChain
+    .then(() => import("../api/user"))
+    .then(({ userAPI }) => userAPI.updateAppearance(body))
+    .catch((err) => console.warn("[appearance] save failed:", err));
+};
+
+const scheduleSave = (patch: Partial<AppearanceSettings>) => {
+  pendingPatch = { ...pendingPatch, ...patch };
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = null;
-    void import("../api/user").then(({ userAPI }) =>
-      userAPI
-        .updateAppearance({
-          theme: state.mode,
-          accent: state.accent,
-          chatFontSize: state.chatFontSize,
-          reduceMotion: state.reduceMotion,
-        })
-        .catch((err) => console.warn("[appearance] save failed:", err)),
-    );
+    flushSave();
   }, 500);
 };
 
@@ -83,15 +101,21 @@ export const useAppearanceStore = create<AppearanceState>()(
       update: (patch) => {
         set(patch);
         const { mode, accent, chatFontSize, reduceMotion } = get();
-        const next = { mode, accent, chatFontSize, reduceMotion };
-        applyAppearance(next);
-        scheduleSave(next);
+        applyAppearance({ mode, accent, chatFontSize, reduceMotion });
+        scheduleSave(patch);
       },
 
       syncFromServer: async () => {
         const { userAPI } = await import("../api/user");
         try {
           const saved = await userAPI.getAppearance();
+          if (!saved) {
+            const { mode, accent, chatFontSize, reduceMotion } = get();
+            const local = { mode, accent, chatFontSize, reduceMotion };
+            applyAppearance(local);
+            scheduleSave(local);
+            return;
+          }
           const next: AppearanceSettings = {
             mode:
               saved.theme === "light" || saved.theme === "dark"

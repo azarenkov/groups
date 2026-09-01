@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, Responder, get, patch, web};
+use api_common::api_error::StatusCode;
 use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use identity::usecases::user::appearance::{AppearancePatch, AppearanceSettings};
@@ -46,7 +47,16 @@ pub async fn get_me_appearance(
         .get_appearance_usecase
         .execute(UserId::new(auth_token.id))
         .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::success(AppearanceResponse::from(settings))))
+    match settings {
+        Some(settings) => {
+            Ok(HttpResponse::Ok().json(ApiResponse::success(AppearanceResponse::from(settings))))
+        }
+        None => Err(HttpError::new(
+            "Appearance settings are not set".to_string(),
+            StatusCode::NOT_FOUND,
+            "APPEARANCE_NOT_SET",
+        )),
+    }
 }
 
 #[patch("/me/appearance")]

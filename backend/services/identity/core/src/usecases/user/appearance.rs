@@ -12,17 +12,6 @@ pub struct AppearanceSettings {
     pub reduce_motion: bool,
 }
 
-impl Default for AppearanceSettings {
-    fn default() -> Self {
-        Self {
-            theme: "system".to_string(),
-            accent: String::new(),
-            chat_font_size: 14,
-            reduce_motion: false,
-        }
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum AppearanceError {
     #[error("Repository error: {0}")]
@@ -67,13 +56,15 @@ impl<U: UserRepository> GetAppearance<U> {
         Self { user_repository }
     }
 
-    pub async fn execute(&self, user_id: UserId) -> Result<AppearanceSettings, AppearanceError> {
+    pub async fn execute(
+        &self,
+        user_id: UserId,
+    ) -> Result<Option<AppearanceSettings>, AppearanceError> {
         Ok(self
             .user_repository
             .get_appearance(&user_id)
             .await?
-            .map(from_row)
-            .unwrap_or_default())
+            .map(from_row))
     }
 }
 

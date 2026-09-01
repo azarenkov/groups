@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
-import { toApiError } from "../utils/apiError";
+import { ApiError, toApiError } from "../utils/apiError";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -113,9 +113,14 @@ class UserAPI {
     return response.data.data.connections;
   }
 
-  async getAppearance(): Promise<AppearanceSettings> {
-    const response = await this.client.get("/v1/users/me/appearance");
-    return response.data.data;
+  async getAppearance(): Promise<AppearanceSettings | null> {
+    try {
+      const response = await this.client.get("/v1/users/me/appearance");
+      return response.data.data;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "APPEARANCE_NOT_SET") return null;
+      throw e;
+    }
   }
 
   async updateAppearance(
