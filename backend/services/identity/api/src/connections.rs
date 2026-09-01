@@ -107,26 +107,38 @@ pub async fn remove_connection(
     Ok(HttpResponse::NoContent().finish())
 }
 
-const RESULT_PAGE: &str = "<!doctype html>\
-<html lang=\"__LANG__\"><head><meta charset=\"utf-8\">\
-<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
-<title>__TITLE__</title><style>\
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\
-background:#0b0d10;color:#e6e8eb;font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}\
-.card{max-width:400px;margin:24px;padding:36px 32px;border-radius:16px;background:#14171c;\
-box-shadow:0 12px 40px rgba(0,0,0,.45);text-align:center}\
-.badge{width:52px;height:52px;margin:0 auto 18px;border-radius:50%;display:flex;\
-align-items:center;justify-content:center;font-size:24px;font-weight:700;\
-background:__BADGE_BG__;color:#fff}\
-h1{margin:0 0 10px;font-size:20px}\
-p{margin:0 0 24px;color:#9aa1a9}\
-a{display:inline-block;padding:10px 22px;border-radius:10px;background:#3b82f6;\
-color:#fff;text-decoration:none;font-weight:600}\
-</style></head><body><div class=\"card\">\
-<div class=\"badge\">__BADGE__</div>\
-<h1>__TITLE__</h1><p>__BODY__</p>\
-<a href=\"__APP__\">__BUTTON__</a>\
-</div></body></html>";
+const RESULT_PAGE: &str = r##"<!doctype html>
+<html lang="__LANG__"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title><style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+background:#0b0d10;color:#e6e8eb;font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.card{max-width:400px;margin:24px;padding:34px 32px 36px;border-radius:16px;background:#14171c;
+box-shadow:0 12px 40px rgba(0,0,0,.45);text-align:center}
+.brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px;
+font-size:19px;font-weight:700;letter-spacing:.3px}
+.badge{width:52px;height:52px;margin:0 auto 18px;border-radius:50%;display:flex;
+align-items:center;justify-content:center;font-size:24px;font-weight:700;
+background:__BADGE_BG__;color:#fff}
+h1{margin:0 0 10px;font-size:20px}
+p{margin:0;color:#9aa1a9}
+a{display:inline-block;margin-top:24px;padding:10px 22px;border-radius:10px;background:#3b82f6;
+color:#fff;text-decoration:none;font-weight:600}
+</style></head><body><div class="card">
+<div class="brand">
+<svg width="30" height="30" viewBox="0 0 48 48" fill="none">
+<mask id="gap"><rect width="48" height="48" fill="white"/>
+<rect x="22.5" y="0" width="3" height="48" fill="black"/></mask>
+<g mask="url(#gap)" stroke="#e6e8eb" fill="none">
+<circle cx="24" cy="24" r="14" stroke-width="3"/>
+<circle cx="24" cy="24" r="7.5" stroke-width="1.75" opacity="0.7"/>
+</g></svg>
+<span>Rift</span>
+</div>
+<div class="badge">__BADGE__</div>
+<h1>__TITLE__</h1><p>__BODY__</p>
+__ACTION__
+</div></body></html>"##;
 
 fn provider_title(provider: &str) -> &str {
     match provider {
@@ -136,7 +148,7 @@ fn provider_title(provider: &str) -> &str {
     }
 }
 
-fn result_page(lang_ru: bool, ok: bool, provider: &str, app_href: &str) -> String {
+fn result_page(lang_ru: bool, ok: bool, provider: &str, app_href: Option<&str>) -> String {
     let provider = provider_title(provider);
     let (title, body, button) = match (lang_ru, ok) {
         (true, true) => (
@@ -166,8 +178,12 @@ fn result_page(lang_ru: bool, ok: bool, provider: &str, app_href: &str) -> Strin
         .replace("__BADGE__", if ok { "&#10003;" } else { "!" })
         .replace("__TITLE__", &title)
         .replace("__BODY__", &body)
-        .replace("__BUTTON__", button)
-        .replace("__APP__", app_href)
+        .replace(
+            "__ACTION__",
+            &app_href
+                .map(|href| format!("<a href=\"{href}\">{button}</a>"))
+                .unwrap_or_default(),
+        )
 }
 
 #[get("/{provider}/callback")]
@@ -195,12 +211,9 @@ pub async fn connection_callback(
         .and_then(|v| v.to_str().ok())
         .map(|v| v.to_ascii_lowercase().starts_with("ru"))
         .unwrap_or(false);
-    let app_href = if app_state.public_app_url.is_empty() {
-        "/".to_string()
-    } else {
-        format!("{}/", app_state.public_app_url.trim_end_matches('/'))
-    };
+    let app_href = (!app_state.public_app_url.is_empty())
+        .then(|| format!("{}/", app_state.public_app_url.trim_end_matches('/')));
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
-        .body(result_page(lang_ru, ok, &provider, &app_href))
+        .body(result_page(lang_ru, ok, &provider, app_href.as_deref()))
 }
