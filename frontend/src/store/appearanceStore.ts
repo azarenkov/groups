@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { ApiError } from "../utils/apiError";
+
 export type ThemeMode = "light" | "dark" | "system";
 
 export interface AppearanceSettings {
@@ -126,6 +128,12 @@ const flushSave = async (): Promise<void> => {
     if (owner === pendingOwner) {
       pendingPatch = { ...patch, ...pendingPatch };
       saveAttempts += 1;
+      if (err instanceof ApiError && err.status === 401) {
+        try {
+          const { authAPI } = await import("../api/auth");
+          await authAPI.handleRefreshFlow();
+        } catch {}
+      }
       if (saveAttempts <= 5 && saveTimer === null) {
         saveTimer = window.setTimeout(() => {
           saveTimer = null;

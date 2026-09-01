@@ -126,7 +126,9 @@ class UserAPI {
   async updateAppearance(
     patch: Partial<AppearanceSettings>,
   ): Promise<AppearanceSettings> {
-    const response = await this.client.patch("/v1/users/me/appearance", patch);
+    const response = await this.client.patch("/v1/users/me/appearance", patch, {
+      _retry: true,
+    } as AxiosRequestConfig);
     return response.data.data;
   }
 
