@@ -20,6 +20,7 @@ pub trait DmTransaction: Send {
     async fn consume_call_log(
         &mut self,
         call_id: Uuid,
+        sender_id: &UserId,
         recipient_id: &UserId,
     ) -> Result<(), RepositoryError>;
     async fn update_message(

@@ -56,11 +56,13 @@ impl DmTransaction for PostgresDmTransaction {
     async fn consume_call_log(
         &mut self,
         call_id: Uuid,
+        sender_id: &UserId,
         recipient_id: &UserId,
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
-            r#"INSERT INTO call_log_consumed (call_id, recipient_id) VALUES ($1, $2)"#,
+            r#"INSERT INTO call_log_consumed (call_id, sender_id, recipient_id) VALUES ($1, $2, $3)"#,
             call_id,
+            sender_id.uuid(),
             recipient_id.uuid(),
         )
         .execute(&mut *self.tx)
