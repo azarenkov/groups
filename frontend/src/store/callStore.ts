@@ -291,7 +291,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
             get().setCallError(i18n.t("callNotAllowed", { ns: "call" }));
             return;
           }
-        } catch {}
+        } catch {
+          get().setCallError(i18n.t("callFailed", { ns: "call" }));
+          return;
+        }
       }
       await get().leave();
     }
