@@ -153,6 +153,8 @@ use messaging::usecases::server::invite_codes::ListInviteCodesError;
 use messaging::usecases::server::invite_codes::RedeemInviteCodeError;
 use messaging::usecases::server::invite_codes::RevokeInviteCodeError;
 use messaging::usecases::server::get_home_overview::GetHomeOverviewError;
+use messaging::usecases::privacy::get_privacy::GetPrivacyError;
+use messaging::usecases::privacy::update_privacy::UpdatePrivacyError;
 use messaging::usecases::server::get_user_profile::GetUserProfileError;
 use messaging::usecases::server::kick_member::KickMemberError;
 use messaging::usecases::server::leave_server::LeaveServerError;
@@ -644,27 +646,37 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_http_status(),
             LogCallError::Domain(e) => e.to_http_status(),
-            LogCallError::NotFriends => StatusCode::FORBIDDEN,
+            LogCallError::SelfCall => StatusCode::BAD_REQUEST,
+            LogCallError::CallNotVerified => StatusCode::FORBIDDEN,
+            LogCallError::AlreadyLogged => StatusCode::CONFLICT,
+            LogCallError::Lookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             LogCallError::Repository(e) => e.to_user_message(),
             LogCallError::Domain(e) => e.to_user_message(),
-            LogCallError::NotFriends => "You can only call your friends".to_string(),
+            LogCallError::SelfCall => "You cannot log a call with yourself".to_string(),
+            LogCallError::CallNotVerified => "Call could not be verified".to_string(),
+            LogCallError::AlreadyLogged => "This call is already logged".to_string(),
+            LogCallError::Lookup(_) => "Call verification unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             LogCallError::Repository(e) => e.to_error_code(),
             LogCallError::Domain(e) => e.to_error_code(),
-            LogCallError::NotFriends => "CALL_NOT_FRIENDS",
+            LogCallError::SelfCall => "SELF_CALL",
+            LogCallError::CallNotVerified => "CALL_NOT_VERIFIED",
+            LogCallError::AlreadyLogged => "CALL_ALREADY_LOGGED",
+            LogCallError::Lookup(_) => "CALL_LOOKUP_UNAVAILABLE",
         }
     }
 }
 
 impl_http_mapping_delegate!(ListServersByUserError, Repository);
 impl_http_mapping_delegate!(GetHomeOverviewError, Repository);
+impl_http_mapping_delegate!(GetPrivacyError, Repository);
 
 impl HttpMapping for ListServerMembersError {
     fn to_http_status(&self) -> StatusCode {
@@ -1034,6 +1046,7 @@ impl HttpMapping for SendFriendRequestError {
             SendFriendRequestError::SelfTarget => StatusCode::BAD_REQUEST,
             SendFriendRequestError::AlreadyRequested => StatusCode::CONFLICT,
             SendFriendRequestError::AlreadyFriends => StatusCode::CONFLICT,
+            SendFriendRequestError::RequestsClosed => StatusCode::FORBIDDEN,
             SendFriendRequestError::IncomingPending => StatusCode::CONFLICT,
         }
     }
@@ -1049,6 +1062,9 @@ impl HttpMapping for SendFriendRequestError {
             }
             SendFriendRequestError::AlreadyRequested => {
                 "Friend request already sent".to_string()
+            }
+            SendFriendRequestError::RequestsClosed => {
+                "This user does not accept friend requests".to_string()
             }
             SendFriendRequestError::AlreadyFriends => {
                 "You are already friends with this user".to_string()
@@ -1068,6 +1084,7 @@ impl HttpMapping for SendFriendRequestError {
             SendFriendRequestError::SelfTarget => "SELF_FRIEND_REQUEST",
             SendFriendRequestError::AlreadyRequested => "FRIEND_REQUEST_ALREADY_SENT",
             SendFriendRequestError::AlreadyFriends => "ALREADY_FRIENDS",
+            SendFriendRequestError::RequestsClosed => "REQUESTS_CLOSED",
             SendFriendRequestError::IncomingPending => "INCOMING_REQUEST_PENDING",
         }
     }
@@ -1130,6 +1147,9 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::Repository(e) => e.to_http_status(),
             SendDmMessageError::Domain(e) => e.to_http_status(),
             SendDmMessageError::NotFriends => StatusCode::FORBIDDEN,
+            SendDmMessageError::DmsClosed => StatusCode::FORBIDDEN,
+            SendDmMessageError::SelfDm => StatusCode::BAD_REQUEST,
+            SendDmMessageError::RecipientInactive => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -1147,6 +1167,11 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::NotFriends => {
                 "You can only DM users who are your friends".to_string()
             }
+            SendDmMessageError::DmsClosed => {
+                "This user does not accept direct messages".to_string()
+            }
+            SendDmMessageError::SelfDm => "You cannot message yourself".to_string(),
+            SendDmMessageError::RecipientInactive => "This user is unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1156,6 +1181,9 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             SendDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
+            SendDmMessageError::DmsClosed => "DMS_CLOSED",
+            SendDmMessageError::SelfDm => "SELF_DM",
+            SendDmMessageError::RecipientInactive => "RECIPIENT_INACTIVE",
         }
     }
 }
@@ -1166,6 +1194,8 @@ impl HttpMapping for SendServerInviteError {
             SendServerInviteError::Repository(e) => e.to_http_status(),
             SendServerInviteError::Domain(e) => e.to_http_status(),
             SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
+            SendServerInviteError::DmsClosed => StatusCode::FORBIDDEN,
+            SendServerInviteError::RecipientInactive => StatusCode::FORBIDDEN,
             SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
             SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
             SendServerInviteError::NotAllowed => StatusCode::FORBIDDEN,
@@ -1177,9 +1207,13 @@ impl HttpMapping for SendServerInviteError {
         match self {
             SendServerInviteError::Repository(e) => e.to_user_message(),
             SendServerInviteError::Domain(e) => e.to_user_message(),
+            SendServerInviteError::DmsClosed => {
+                "This user does not accept direct messages".to_string()
+            }
             SendServerInviteError::NotFriends => {
                 "You can only invite users who are your friends".to_string()
             }
+            SendServerInviteError::RecipientInactive => "This user is unavailable".to_string(),
             SendServerInviteError::ServerNotFound => "Server not found".to_string(),
             SendServerInviteError::NotServerMember => {
                 "Only members of this server can invite people".to_string()
@@ -1200,6 +1234,8 @@ impl HttpMapping for SendServerInviteError {
             SendServerInviteError::Repository(e) => e.to_error_code(),
             SendServerInviteError::Domain(e) => e.to_error_code(),
             SendServerInviteError::NotFriends => "NOT_FRIENDS",
+            SendServerInviteError::DmsClosed => "DMS_CLOSED",
+            SendServerInviteError::RecipientInactive => "RECIPIENT_INACTIVE",
             SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
             SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
             SendServerInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
@@ -1351,6 +1387,9 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Dm(e) => e.to_http_status(),
             EditDmMessageError::Message(e) => e.to_http_status(),
             EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
+            EditDmMessageError::NotFriends => StatusCode::FORBIDDEN,
+            EditDmMessageError::DmsClosed => StatusCode::FORBIDDEN,
+            EditDmMessageError::RecipientInactive => StatusCode::FORBIDDEN,
             EditDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             EditDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -1361,6 +1400,13 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Dm(e) => e.to_user_message(),
             EditDmMessageError::Message(e) => e.to_user_message(),
             EditDmMessageError::NotFound => "Message not found".to_string(),
+            EditDmMessageError::NotFriends => {
+                "You can only DM users who are your friends".to_string()
+            }
+            EditDmMessageError::DmsClosed => {
+                "This user does not accept direct messages".to_string()
+            }
+            EditDmMessageError::RecipientInactive => "This user is unavailable".to_string(),
             EditDmMessageError::InvalidAttachments => {
                 "Attachments are invalid or unavailable".to_string()
             }
@@ -1375,6 +1421,9 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::Dm(e) => e.to_error_code(),
             EditDmMessageError::Message(e) => e.to_error_code(),
             EditDmMessageError::NotFound => "DM_NOT_FOUND",
+            EditDmMessageError::NotFriends => "NOT_FRIENDS",
+            EditDmMessageError::DmsClosed => "DMS_CLOSED",
+            EditDmMessageError::RecipientInactive => "RECIPIENT_INACTIVE",
             EditDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             EditDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
         }
@@ -1974,6 +2023,27 @@ impl HttpMapping for GetUserProfileError {
         match self {
             GetUserProfileError::Repository(e) => e.to_error_code(),
             GetUserProfileError::NotFound => "USER_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for UpdatePrivacyError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UpdatePrivacyError::Repository(e) => e.to_http_status(),
+            UpdatePrivacyError::InvalidPolicy => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            UpdatePrivacyError::Repository(e) => e.to_user_message(),
+            UpdatePrivacyError::InvalidPolicy => "Invalid DM policy".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UpdatePrivacyError::Repository(e) => e.to_error_code(),
+            UpdatePrivacyError::InvalidPolicy => "INVALID_DM_POLICY",
         }
     }
 }

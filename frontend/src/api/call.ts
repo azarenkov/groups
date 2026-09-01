@@ -89,11 +89,13 @@ class CallAPI {
   }
 
   async logCall(
+    callId: string,
     recipientId: string,
     status: string,
     durationSeconds?: number,
   ): Promise<void> {
     await this.client.post("/v1/calls/log", {
+      callId,
       recipientId,
       status,
       durationSeconds: durationSeconds ?? null,

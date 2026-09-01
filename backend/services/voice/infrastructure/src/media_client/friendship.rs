@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use voice::ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError};
 use domain::user::id::UserId;
-use contracts::internal::friendships::FriendsResponseV1;
+use contracts::internal::calls::CallPermitResponseV1;
 
 pub struct MessagingFriendshipClient {
     client: reqwest::Client,
@@ -22,28 +22,28 @@ impl MessagingFriendshipClient {
 
 #[async_trait]
 impl FriendshipLookup for MessagingFriendshipClient {
-    async fn are_friends(&self, a: &UserId, b: &UserId) -> Result<bool, FriendshipLookupError> {
+    async fn can_call(&self, caller: &UserId, callee: &UserId) -> Result<bool, FriendshipLookupError> {
         let response = super::with_request_id(
             self.client
             .get(format!(
-                "{}/internal/friendships/{}/{}",
+                "{}/internal/calls/permit/{}/{}",
                 self.base_url,
-                a.uuid(),
-                b.uuid()
+                caller.uuid(),
+                callee.uuid()
             )))
             .send()
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
         if !response.status().is_success() {
             return Err(FriendshipLookupError::Unavailable(format!(
-                "friendship endpoint returned status {}",
+                "call permit endpoint returned status {}",
                 response.status()
             )));
         }
-        let body: FriendsResponseV1 = response
+        let body: CallPermitResponseV1 = response
             .json()
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
-        Ok(body.friends)
+        Ok(body.allowed)
     }
 }

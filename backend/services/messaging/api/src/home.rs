@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, Responder, get, web};
 use api_common::{dto::responses::ApiResponse, middleware::auth::RateLimitedAuthToken};
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
+use messaging_domain::{friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, privacy::ContactPolicy, privacy::PrivacyRepository};
 use uuid::Uuid;
 
 use crate::{http_errors::HttpError, state::AppState};
@@ -110,6 +111,9 @@ struct PublicProfileResponse {
     active: bool,
     timezone: String,
     member_since: Option<DateTime<Utc>>,
+    accepts_calls: bool,
+    accepts_messages: bool,
+    accepts_friend_requests: bool,
     mutual_servers: Vec<MutualServerItem>,
     voice_room: Option<VoiceRoomItem>,
 }
@@ -120,10 +124,30 @@ async fn get_user_profile(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
+    let target_id = path.into_inner();
     let view = app_state
         .get_user_profile_usecase
-        .execute(UserId::new(auth_token.id), UserId::new(path.into_inner()))
+        .execute(UserId::new(auth_token.id), UserId::new(target_id))
         .await?;
+    let settings = app_state
+        .privacy_repository
+        .get(&UserId::new(target_id))
+        .await
+        .map_err(HttpError::from)?;
+    let pair = app_state
+        .friendship_repository
+        .find_pair(&UserId::new(auth_token.id), &UserId::new(target_id))
+        .await
+        .map_err(HttpError::from)?;
+    let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
+    let permits = |policy: ContactPolicy| match policy {
+        ContactPolicy::All => true,
+        ContactPolicy::NoOne => false,
+        ContactPolicy::Friends => are_friends,
+    };
+    let accepts_calls = permits(settings.call_policy);
+    let accepts_messages = permits(settings.dm_policy);
+    let accepts_friend_requests = settings.accept_friend_requests;
     Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
         id: view.profile.user_id.uuid(),
         name: view.profile.name,
@@ -132,6 +156,9 @@ async fn get_user_profile(
         active: view.profile.active,
         timezone: view.profile.timezone,
         member_since: view.profile.registered_at,
+        accepts_calls,
+        accepts_messages,
+        accepts_friend_requests,
         mutual_servers: view
             .mutual_servers
             .into_iter()

@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
+
+use crate::ports::call_participation::{CallOutcome, CallParticipationError, CallParticipationLookup};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LogCallError {
@@ -12,28 +14,34 @@ pub enum LogCallError {
     Repository(#[from] RepositoryError),
     #[error("Message error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Not friends with this user")]
-    NotFriends,
+    #[error("You cannot log a call with yourself")]
+    SelfCall,
+    #[error("Call could not be verified")]
+    CallNotVerified,
+    #[error("This call is already logged")]
+    AlreadyLogged,
+    #[error("Call verification unavailable: {0}")]
+    Lookup(#[from] CallParticipationError),
 }
 
-pub struct LogCall<W, F>
+pub struct LogCall<W, L>
 where
     W: DmUnitOfWork,
-    F: FriendshipRepository,
+    L: CallParticipationLookup,
 {
     unit_of_work: Arc<W>,
-    friendship_repository: Arc<F>,
+    call_participation: Arc<L>,
 }
 
-impl<W, F> LogCall<W, F>
+impl<W, L> LogCall<W, L>
 where
     W: DmUnitOfWork,
-    F: FriendshipRepository,
+    L: CallParticipationLookup,
 {
-    pub fn new(unit_of_work: Arc<W>, friendship_repository: Arc<F>) -> Self {
+    pub fn new(unit_of_work: Arc<W>, call_participation: Arc<L>) -> Self {
         Self {
             unit_of_work,
-            friendship_repository,
+            call_participation,
         }
     }
 
@@ -41,26 +49,46 @@ where
         &self,
         sender_id: UserId,
         recipient_id: Uuid,
-        status: String,
-        duration_seconds: Option<i32>,
+        call_id: Uuid,
+        _status: String,
+        _duration_seconds: Option<i32>,
     ) -> Result<(), LogCallError> {
         let recipient_id = UserId::new(recipient_id);
-
-        let pair = self
-            .friendship_repository
-            .find_pair(&sender_id, &recipient_id)
-            .await?;
-        if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
-            return Err(LogCallError::NotFriends);
+        if sender_id == recipient_id {
+            return Err(LogCallError::SelfCall);
         }
-
-        let content = MessageContent::new("call".to_string())?;
+        let outcome: CallOutcome = self
+            .call_participation
+            .call_outcome(call_id, &sender_id, &recipient_id)
+            .await?;
+        if !outcome.participated
+            || !outcome.callee_invited_by_caller
+            || outcome.caller_in_call
+            || outcome.callee_pending
+        {
+            return Err(LogCallError::CallNotVerified);
+        }
         let now = Utc::now();
+        let (status, duration_seconds) = if let Some(answered_at) = outcome.callee_answered_at {
+            let ended_at = outcome.caller_left_at.unwrap_or(now);
+            let duration =
+                (ended_at - answered_at).num_seconds().clamp(0, i64::from(i32::MAX)) as i32;
+            ("completed".to_string(), Some(duration))
+        } else if outcome.callee_declined {
+            ("declined".to_string(), None)
+        } else {
+            ("missed".to_string(), None)
+        };
+        let content = MessageContent::new("call".to_string())?;
         let mut message =
-            DmMessage::create_call(sender_id, recipient_id, status, duration_seconds, content, now);
+            DmMessage::create_call(sender_id, recipient_id, call_id, status, duration_seconds, content, now);
         let events = message.pull_events();
         let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
+        match tx.consume_call_log(call_id, &sender_id, &recipient_id).await {
+            Err(RepositoryError::AlreadyExists) => return Err(LogCallError::AlreadyLogged),
+            result => result?,
+        };
         tx.insert_message(&message, &[]).await?;
         tx.save_events(&events, None).await?;
         tx.commit().await?;

@@ -8,6 +8,7 @@ import { ApiError } from "../../utils/apiError";
 import { UserAvatar } from "../rift/Avatar";
 import { bustAvatar, useAvatarUrl } from "../../utils/avatarCache";
 import { validateUsername, type UsernameIssue } from "../../utils/username";
+import { homeAPI, type PrivacySettings } from "../../api/home";
 import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from "./AccountModals";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 
@@ -78,10 +79,11 @@ const ACCENT_OPTIONS = [
   { name: 'Slate',    value: '#5a6470' },
 ];
 
-interface SwitchProps { on: boolean; onClick: () => void; }
+interface SwitchProps {
+  disabled?: boolean; on: boolean; onClick: () => void; }
 
-function Switch({ on, onClick }: SwitchProps) {
-  return <button className={'s-switch' + (on ? ' on' : '')} onClick={onClick} aria-pressed={on}/>;
+function Switch({ on, onClick, disabled }: SwitchProps) {
+  return <button className={'s-switch' + (on ? ' on' : '')} onClick={onClick} disabled={disabled} aria-pressed={on}/>;
 }
 
 interface SettingsRowProps {
@@ -485,9 +487,32 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
 
 function PrivacySection() {
   const { t } = useTranslation("settings");
-  const [dms, setDms] = React.useState('friends');
-  const [requests, setRequests] = React.useState(true);
-  const [scan, setScan] = React.useState(true);
+  const [settings, setSettings] = React.useState<PrivacySettings | null>(null);
+  const [failed, setFailed] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    homeAPI
+      .privacy()
+      .then((s) => {
+        if (!cancelled) setSettings(s);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const apply = (patch: Partial<PrivacySettings>) => {
+    if (busy) return;
+    setBusy(true);
+    homeAPI
+      .updatePrivacy(patch)
+      .then(setSettings)
+      .catch((err) => console.warn("[privacy] update failed:", err))
+      .finally(() => setBusy(false));
+  };
   return (
     <>
       <h1>{t("privacy.title")}</h1>
@@ -495,20 +520,37 @@ function PrivacySection() {
 
       <div className="s-section">
         <h2>{t("privacy.directMessages")}</h2>
-        <SettingsRow label={t("privacy.whoCanDm")} hint={t("privacy.whoCanDmHint")}>
-          <div className="s-seg">
-            <button className={dms === 'everyone' ? 'on' : ''} onClick={() => setDms('everyone')}>{t("privacy.everyone")}</button>
-            <button className={dms === 'friends'  ? 'on' : ''} onClick={() => setDms('friends')}>{t("privacy.friends")}</button>
-            <button className={dms === 'nobody'   ? 'on' : ''} onClick={() => setDms('nobody')}>{t("privacy.noOne")}</button>
-          </div>
-        </SettingsRow>
-        <SettingsRow label={t("privacy.allowRequests")} hint={t("privacy.allowRequestsHint")}>
-          <Switch on={requests} onClick={() => setRequests(v => !v)}/>
-        </SettingsRow>
-        <SettingsRow label={t("privacy.scanMessages")} hint={t("privacy.scanMessagesHint")}>
-          <Switch on={scan} onClick={() => setScan(v => !v)}/>
-        </SettingsRow>
+        {failed ? (
+          <div className="s-error">{t("privacy.loadFailed")}</div>
+        ) : !settings ? (
+          <div className="s-row"><span className="loading-spinner" /></div>
+        ) : (
+          <>
+            <SettingsRow label={t("privacy.whoCanDm")} hint={t("privacy.whoCanDmHint")}>
+              <div className="s-seg">
+                <button disabled={busy} className={settings.dmPolicy === "all" ? "on" : ""} onClick={() => apply({ dmPolicy: "all" })}>{t("privacy.everyone")}</button>
+                <button disabled={busy} className={settings.dmPolicy === "friends" ? "on" : ""} onClick={() => apply({ dmPolicy: "friends" })}>{t("privacy.friends")}</button>
+                <button disabled={busy} className={settings.dmPolicy === "no_one" ? "on" : ""} onClick={() => apply({ dmPolicy: "no_one" })}>{t("privacy.noOne")}</button>
+              </div>
+            </SettingsRow>
+            <SettingsRow label={t("privacy.allowRequests")} hint={t("privacy.allowRequestsHint")}>
+              <Switch on={settings.acceptFriendRequests} disabled={busy} onClick={() => apply({ acceptFriendRequests: !settings.acceptFriendRequests })} />
+            </SettingsRow>
+          </>
+        )}
       </div>
+      {!failed && settings && (
+        <div className="s-section">
+          <h2>{t("privacy.calls")}</h2>
+          <SettingsRow label={t("privacy.whoCanCall")} hint={t("privacy.whoCanCallHint")}>
+            <div className="s-seg">
+              <button disabled={busy} className={settings.callPolicy === "all" ? "on" : ""} onClick={() => apply({ callPolicy: "all" })}>{t("privacy.everyone")}</button>
+              <button disabled={busy} className={settings.callPolicy === "friends" ? "on" : ""} onClick={() => apply({ callPolicy: "friends" })}>{t("privacy.friends")}</button>
+              <button disabled={busy} className={settings.callPolicy === "no_one" ? "on" : ""} onClick={() => apply({ callPolicy: "no_one" })}>{t("privacy.noOne")}</button>
+            </div>
+          </SettingsRow>
+        </div>
+      )}
     </>
   );
 }

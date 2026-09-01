@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
+use ports::user_profile::UserProfileRepository;
 
 use crate::dto::{RequestContext, responses::dm::send_dm_message::SendDmMessageResponse};
 
@@ -15,6 +16,10 @@ pub enum SendServerInviteError {
     Domain(#[from] MessageError),
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("This user does not accept direct messages")]
+    DmsClosed,
+    #[error("This user is unavailable")]
+    RecipientInactive,
     #[error("Server not found")]
     ServerNotFound,
     #[error("Missing permission to manage invites")]
@@ -36,37 +41,47 @@ impl From<PolicyError> for SendServerInviteError {
     }
 }
 
-pub struct SendServerInvite<M, F, S, W>
+pub struct SendServerInvite<M, F, S, W, P, U>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
     S: ServerRepository,
     W: ServerUnitOfWork,
+    P: PrivacyRepository,
+    U: UserProfileRepository,
 {
     dm_repository: Arc<M>,
     friendship_repository: Arc<F>,
     server_repository: Arc<S>,
     unit_of_work: Arc<W>,
+    privacy_repository: Arc<P>,
+    user_profile_repository: Arc<U>,
 }
 
-impl<M, F, S, W> SendServerInvite<M, F, S, W>
+impl<M, F, S, W, P, U> SendServerInvite<M, F, S, W, P, U>
 where
     M: DmMessageRepository,
     F: FriendshipRepository,
     S: ServerRepository,
     W: ServerUnitOfWork,
+    P: PrivacyRepository,
+    U: UserProfileRepository,
 {
     pub fn new(
         dm_repository: Arc<M>,
         friendship_repository: Arc<F>,
         server_repository: Arc<S>,
         unit_of_work: Arc<W>,
+        privacy_repository: Arc<P>,
+        user_profile_repository: Arc<U>,
     ) -> Self {
         Self {
             dm_repository,
             friendship_repository,
             server_repository,
             unit_of_work,
+            privacy_repository,
+            user_profile_repository,
         }
     }
 
@@ -83,6 +98,17 @@ where
             .await?;
         if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
             return Err(SendServerInviteError::NotFriends);
+        }
+
+        if !self.user_profile_repository.is_active(&friend_id).await? {
+            return Err(SendServerInviteError::RecipientInactive);
+        }
+
+        if matches!(
+            self.privacy_repository.get(&friend_id).await?.dm_policy,
+            ContactPolicy::NoOne
+        ) {
+            return Err(SendServerInviteError::DmsClosed);
         }
 
         let server = self

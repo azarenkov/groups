@@ -1,11 +1,12 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use contracts::internal::{
     attachments::{LinkedRequestV1, LinkedResponseV1},
+    calls::CallPermitResponseV1,
     friendships::FriendsResponseV1,
     servers::{CanManageResponseV1, OwnerResponseV1},
     users::StateResponseV1,
 };
-use messaging_domain::{friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::repository::MessageRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::repository::MessageRepository, privacy::ContactPolicy, privacy::PrivacyRepository, server::id::ServerId, server::repository::ServerRepository};
 use domain::user::id::UserId;
 use uuid::Uuid;
 
@@ -73,6 +74,42 @@ async fn friendship_pair(
     Ok(HttpResponse::Ok().json(FriendsResponseV1 { friends }))
 }
 
+#[get("/calls/permit/{caller}/{callee}")]
+async fn call_permit(
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (caller, callee) = path.into_inner();
+    let caller = UserId::new(caller);
+    let callee = UserId::new(callee);
+    let allowed = call_allowed(&app_state, &caller, &callee).await?;
+    Ok(HttpResponse::Ok().json(CallPermitResponseV1 { allowed }))
+}
+
+pub(crate) async fn call_allowed(
+    app_state: &AppState,
+    caller: &UserId,
+    callee: &UserId,
+) -> Result<bool, HttpError> {
+    let settings = app_state
+        .privacy_repository
+        .get(callee)
+        .await
+        .map_err(HttpError::from)?;
+    Ok(match settings.call_policy {
+        ContactPolicy::All => true,
+        ContactPolicy::NoOne => false,
+        ContactPolicy::Friends => {
+            let pair = app_state
+                .friendship_repository
+                .find_pair(caller, callee)
+                .await
+                .map_err(HttpError::from)?;
+            matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted)
+        }
+    })
+}
+
 #[post("/attachments/linked")]
 async fn linked_attachments(
     app_state: web::Data<AppState>,
@@ -93,6 +130,7 @@ pub fn internal_routes(cfg: &mut web::ServiceConfig) {
             .service(server_owner)
             .service(user_has_state)
             .service(friendship_pair)
+            .service(call_permit)
             .service(linked_attachments),
     );
 }

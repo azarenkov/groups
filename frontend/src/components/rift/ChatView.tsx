@@ -34,7 +34,6 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
-import { useFriendshipStore } from "../../store/friendshipStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import {
   PERM_MANAGE_MESSAGES,
@@ -804,9 +803,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         ) {
           setAccessError(apiErr.message || "You haven't joined this channel yet.");
         } else if (isDm && apiErr?.code === "NOT_FRIENDS") {
-          setAccessError(
-            apiErr.message || "You are no longer friends with this user.",
-          );
+          setAccessError(i18n.t("notFriends", { ns: "chat" }));
         } else {
           console.warn("[ChatView] failed to load messages:", err);
         }
@@ -1301,6 +1298,12 @@ const ChatView: React.FC<ChatViewProps> = ({
         reportComposerError(i18n.t("messageCantBeEmpty", { ns: "chat" }));
       } else if (code === "MESSAGE_CONTENT_TOO_LONG") {
         reportComposerError(i18n.t("chunkTooLong", { ns: "chat" }));
+      } else if (code === "NOT_FRIENDS") {
+        reportComposerError(i18n.t("notFriends", { ns: "chat" }));
+      } else if (code === "DMS_CLOSED") {
+        reportComposerError(i18n.t("dmsClosed", { ns: "chat" }));
+      } else if (code === "RECIPIENT_INACTIVE") {
+        reportComposerError(i18n.t("recipientInactive", { ns: "chat" }));
       } else {
         console.warn("[ChatView] send failed:", err);
         reportComposerError(apiErr?.message || i18n.t("couldNotSend", { ns: "chat" }));
@@ -1711,53 +1714,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         )}
       </div>
       </div>
-      {!callMode && dm && dm.isFriend === false && (
-        <div className="composer-locked">
-          <span className="composer-locked-text">
-            {dm.friendship === "pending_outgoing"
-              ? t("friendRequestPending", { user: dm.name })
-              : dm.friendship === "pending_incoming"
-                ? t("friendRequestIncoming", { user: dm.name })
-                : t("notFriendsNotice", { user: dm.name })}
-          </span>
-          {dm.friendship === "pending_outgoing" ? (
-            <button type="button" className="btn" disabled>
-              <Icon name="check" size={13} />
-              {t("friendRequestSent")}
-            </button>
-          ) : dm.friendship === "pending_incoming" ? (
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() =>
-                useFriendshipStore
-                  .getState()
-                  .accept(dm.friendId)
-                  .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
-              }
-            >
-              <Icon name="check" size={13} />
-              {t("acceptFriendRequest")}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() =>
-                useFriendshipStore
-                  .getState()
-                  .sendRequest(dm.name)
-                  .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
-              }
-            >
-              <Icon name="user-plus" size={13} />
-              {t("addFriend")}
-            </button>
-          )}
-          {composerError && <div className="composer-error">{composerError}</div>}
-        </div>
-      )}
-      {!callMode && !(dm && dm.isFriend === false) && (
+      {!callMode && (
       <form className="composer" onSubmit={handleSend}>
         {pendingFiles.length > 0 && (
           <div className="attach-chips">
@@ -2093,7 +2050,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           {dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}
         </span>
         <div className="right">
-          {dm.isFriend !== false && (
           <button
             type="button"
             className="icon-btn"
@@ -2110,14 +2066,18 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                 cs.setFocused(true);
                 return;
               }
-              cs.start([dm.friendId]).catch((e) =>
-                console.warn("[call] start failed:", e),
-              );
+              cs.start([dm.friendId]).catch((e) => {
+                const apiErr = e instanceof ApiError ? e : null;
+                cs.setCallError(
+                  apiErr?.code === "CALL_NOT_ALLOWED"
+                    ? i18n.t("callNotAllowed", { ns: "call" })
+                    : i18n.t("callFailed", { ns: "call" }),
+                );
+              });
             }}
           >
             <Icon name="phone" size={16} />
           </button>
-          )}
           {dm.isFriend !== false && bellPopover(
             i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),
             [

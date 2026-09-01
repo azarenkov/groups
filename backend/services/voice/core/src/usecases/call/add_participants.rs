@@ -16,32 +16,40 @@ pub enum AddCallParticipantsError {
     Repository(#[from] RepositoryError),
     #[error("You are not part of this call")]
     NotParticipant,
-    #[error("You can only invite your friends")]
-    NotFriends,
+    #[error("This user cannot be added to this call")]
+    CallNotAllowed,
     #[error("No recipients specified")]
     NoRecipients,
     #[error("Friendship lookup unavailable: {0}")]
     FriendshipLookup(#[from] FriendshipLookupError),
 }
 
-pub struct AddCallParticipants<C, F>
+pub struct AddCallParticipants<C, F, U>
 where
     C: CallRepository,
     F: FriendshipLookup,
+    U: ports::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     friendship_repository: Arc<F>,
+    user_repository: Arc<U>,
 }
 
-impl<C, F> AddCallParticipants<C, F>
+impl<C, F, U> AddCallParticipants<C, F, U>
 where
     C: CallRepository,
     F: FriendshipLookup,
+    U: ports::user_profile::UserProfileRepository,
 {
-    pub fn new(call_repository: Arc<C>, friendship_repository: Arc<F>) -> Self {
+    pub fn new(
+        call_repository: Arc<C>,
+        friendship_repository: Arc<F>,
+        user_repository: Arc<U>,
+    ) -> Self {
         Self {
             call_repository,
             friendship_repository,
+            user_repository,
         }
     }
 
@@ -66,10 +74,13 @@ where
             }
             if !self
                 .friendship_repository
-                .are_friends(&caller_id, &invitee)
+                .can_call(&caller_id, &invitee)
                 .await?
             {
-                return Err(AddCallParticipantsError::NotFriends);
+                return Err(AddCallParticipantsError::CallNotAllowed);
+            }
+            if !self.user_repository.is_active(&invitee).await? {
+                return Err(AddCallParticipantsError::CallNotAllowed);
             }
             invitees.push(invitee);
         }

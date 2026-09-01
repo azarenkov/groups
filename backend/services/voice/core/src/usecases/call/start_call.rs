@@ -22,8 +22,8 @@ pub enum StartCallError {
     Voice(#[from] VoiceServiceError),
     #[error("No recipients specified")]
     NoRecipients,
-    #[error("You can only call your friends")]
-    NotFriends,
+    #[error("This user does not accept this call")]
+    CallNotAllowed,
     #[error("User not found")]
     UserNotFound,
     #[error("Account is inactive")]
@@ -90,10 +90,13 @@ where
             }
             if !self
                 .friendship_repository
-                .are_friends(&caller_id, &invitee)
+                .can_call(&caller_id, &invitee)
                 .await?
             {
-                return Err(StartCallError::NotFriends);
+                return Err(StartCallError::CallNotAllowed);
+            }
+            if !self.user_repository.is_active(&invitee).await? {
+                return Err(StartCallError::CallNotAllowed);
             }
             invitees.push(invitee);
         }

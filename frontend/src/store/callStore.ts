@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { callAPI } from "../api/call";
+import { homeAPI } from "../api/home";
+import i18n from "../i18n";
+import { ApiError } from "../utils/apiError";
 import { getLiveKitService } from "../services/livekit";
 
 async function connectToRoom(
@@ -30,11 +33,13 @@ interface CallState {
   peerId: string | null;
   micMuted: boolean;
   joinableByPeer: Record<string, string>;
+  callError: string | null;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
   setFocused: (focused: boolean) => void;
   setMicMuted: (muted: boolean) => void;
+  setCallError: (message: string | null) => void;
   callAvailable: (peerId: string, callId: string) => void;
   clearJoinable: (peerId: string) => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
@@ -55,6 +60,7 @@ interface CallState {
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
 interface CallLog {
+  callId: string;
   startedAt: number;
   answeredAt: number | null;
   peerId: string;
@@ -64,10 +70,17 @@ interface CallLog {
 
 let pendingLog: CallLog | null = null;
 
-function finalizeCallLog() {
+interface PreparedCallLog {
+  callId: string;
+  peerId: string;
+  status: string;
+  duration: number | undefined;
+}
+
+function takeCallLog(): PreparedCallLog | null {
   const cl = pendingLog;
   pendingLog = null;
-  if (!cl) return;
+  if (!cl) return null;
   let status = "missed";
   let duration: number | undefined;
   if (cl.declined) {
@@ -77,7 +90,39 @@ function finalizeCallLog() {
     const from = cl.answeredAt ?? cl.startedAt;
     duration = Math.max(0, Math.round((Date.now() - from) / 1000));
   }
-  callAPI.logCall(cl.peerId, status, duration).catch(() => {});
+  return { callId: cl.callId, peerId: cl.peerId, status, duration };
+}
+
+function dispatchCallLog(log: PreparedCallLog | null) {
+  if (!log) return;
+  sendCallLog(log.callId, log.peerId, log.status, log.duration, 0);
+}
+
+function finalizeCallLog() {
+  dispatchCallLog(takeCallLog());
+}
+
+function sendCallLog(
+  callId: string,
+  peerId: string,
+  status: string,
+  duration: number | undefined,
+  attempt: number,
+) {
+  callAPI.logCall(callId, peerId, status, duration).catch((e) => {
+    const code = e instanceof ApiError ? e.code : null;
+    const terminal =
+      code === "CALL_ALREADY_LOGGED" ||
+      code === "SELF_CALL" ||
+      code === "INVALID_CALL_STATUS" ||
+      code === "CALLS_CLOSED";
+    if (attempt < 30 && !terminal) {
+      window.setTimeout(
+        () => sendCallLog(callId, peerId, status, duration, attempt + 1),
+        Math.min(30000, 2000 * 2 ** attempt),
+      );
+    }
+  });
 }
 
 export const useCallStore = create<CallState>()((set, get) => ({
@@ -90,6 +135,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   peerId: null,
   micMuted: false,
   joinableByPeer: {},
+  callError: null,
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
@@ -99,6 +145,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     getLiveKitService().setMicrophoneMuted(muted);
     set({ micMuted: muted });
   },
+  setCallError: (callError) => set({ callError }),
   callAvailable: (peerId, callId) =>
     set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
   clearJoinable: (peerId) =>
@@ -112,9 +159,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
   participantJoined: (callId, userId, userName) =>
     set((s) => {
       if (s.activeCallId !== callId) return s;
-      if (pendingLog && pendingLog.peerId === userId && !pendingLog.peerJoined) {
-        pendingLog.peerJoined = true;
-        pendingLog.answeredAt = Date.now();
+      if (pendingLog && pendingLog.peerId === userId) {
+        pendingLog.declined = false;
+        if (!pendingLog.peerJoined) {
+          pendingLog.peerJoined = true;
+          pendingLog.answeredAt = Date.now();
+        }
       }
       return {
         participants: { ...s.participants, [userId]: userName },
@@ -233,7 +283,21 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
 
   start: async (recipientIds) => {
-    if (get().activeCallId) await get().leave();
+    if (get().activeCallId) {
+      if (recipientIds.length === 1) {
+        try {
+          const target = await homeAPI.profile(recipientIds[0]);
+          if (!target.acceptsCalls || !target.active) {
+            get().setCallError(i18n.t("callNotAllowed", { ns: "call" }));
+            return;
+          }
+        } catch {
+          get().setCallError(i18n.t("callFailed", { ns: "call" }));
+          return;
+        }
+      }
+      await get().leave();
+    }
     set({ connecting: true });
     const session = await callAPI.start(recipientIds).catch((e) => {
       set({ connecting: false });
@@ -241,6 +305,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     });
     const { callId, token, url, participants } = session;
     pendingLog = {
+      callId,
       startedAt: Date.now(),
       answeredAt: null,
       peerId: recipientIds[0],
@@ -322,7 +387,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
-    finalizeCallLog();
+    const log = takeCallLog();
     set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
     if (!keepRoom) {
       await getLiveKitService()
@@ -332,6 +397,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (callId) {
       await callAPI.leave(callId).catch(() => {});
     }
+    dispatchCallLog(log);
   },
 
   addParticipants: async (recipientIds) => {

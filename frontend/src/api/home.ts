@@ -20,6 +20,12 @@ export interface ActiveFriend {
   profileUpdatedAt: string | null;
 }
 
+export interface PrivacySettings {
+  dmPolicy: "all" | "friends" | "no_one";
+  callPolicy: "all" | "friends" | "no_one";
+  acceptFriendRequests: boolean;
+}
+
 export interface PublicProfile {
   id: string;
   name: string;
@@ -28,6 +34,9 @@ export interface PublicProfile {
   active: boolean;
   timezone: string;
   memberSince: string | null;
+  acceptsCalls: boolean;
+  acceptsMessages: boolean;
+  acceptsFriendRequests: boolean;
   mutualServers: { id: string; name: string; accentColor: string | null }[];
   voiceRoom: { channelId: string; channelName: string; serverId: string; serverName: string } | null;
 }
@@ -89,6 +98,16 @@ class HomeAPI {
 
   removeAuthToken() {
     delete this.client.defaults.headers.common["Authorization"];
+  }
+
+  async privacy(): Promise<PrivacySettings> {
+    const response = await this.client.get("/v1/users/me/privacy");
+    return response.data.data;
+  }
+
+  async updatePrivacy(patch: Partial<PrivacySettings>): Promise<PrivacySettings> {
+    const response = await this.client.patch("/v1/users/me/privacy", patch);
+    return response.data.data;
   }
 
   async profile(userId: string): Promise<PublicProfile> {

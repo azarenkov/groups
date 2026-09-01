@@ -84,7 +84,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(remove_friendship)
                         .service(list_friends)
                         .service(get_home_overview)
-                        .service(get_user_profile),
+                        .service(get_user_profile)
+                        .configure(crate::privacy::privacy_routes),
                 )
                 .service(
                     web::scope("/v1")

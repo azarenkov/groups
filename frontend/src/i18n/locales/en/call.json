@@ -20,5 +20,7 @@
   "addParticipants": "Add people",
   "add": "Add",
   "cancel": "Cancel",
-  "noFriendsToAdd": "No friends to add"
+  "noFriendsToAdd": "No friends to add",
+  "callNotAllowed": "This user doesn't accept calls",
+  "callFailed": "Couldn't start the call"
 }

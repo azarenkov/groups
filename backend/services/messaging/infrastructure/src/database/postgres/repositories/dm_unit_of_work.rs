@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use domain::attachment::AttachmentLink;
+use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::unit_of_work::DmTransaction, dm_message::unit_of_work::DmUnitOfWork};
 use sqlx::{Pool, Postgres, Transaction};
@@ -50,6 +51,24 @@ impl DmTransaction for PostgresDmTransaction {
     ) -> Result<(), RepositoryError> {
         insert_dm_message(&mut self.tx, message).await?;
         insert_dm_links(&mut self.tx, message.id().uuid(), attachments).await
+    }
+
+    async fn consume_call_log(
+        &mut self,
+        call_id: Uuid,
+        sender_id: &UserId,
+        recipient_id: &UserId,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"INSERT INTO call_log_consumed (call_id, sender_id, recipient_id) VALUES ($1, $2, $3)"#,
+            call_id,
+            sender_id.uuid(),
+            recipient_id.uuid(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
     }
 
     async fn update_message(

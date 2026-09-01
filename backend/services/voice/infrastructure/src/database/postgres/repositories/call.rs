@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::CallRepository, call::CallParticipantStatus};
+use voice_domain::{call::repository::CallPairOutcome, call::repository::CallRepository, call::CallParticipantStatus};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -111,8 +111,9 @@ async fn end_call_if_empty(
     now: DateTime<Utc>,
 ) -> Result<(), RepositoryError> {
     let joined = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND status = 'joined'"#,
+        r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND status = 'joined' AND (session_id IS NOT NULL OR updated_at > $2)"#,
         call_id,
+        now - chrono::Duration::seconds(60),
     )
     .fetch_one(&mut **tx)
     .await
@@ -128,7 +129,8 @@ async fn end_call_if_empty(
         r#"
         UPDATE call_participants
         SET status = 'left', updated_at = $2
-        WHERE call_id = $1 AND status = 'invited'
+        WHERE call_id = $1
+          AND (status = 'invited' OR (status = 'joined' AND session_id IS NULL))
         "#,
         call_id,
         now,
@@ -264,12 +266,27 @@ impl CallRepository for PostgresCallRepository {
 
         let mut ringed: Vec<Uuid> = Vec::new();
         for invitee in invitees {
+            sqlx::query!(
+                r#"
+                INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, left_at, created_at)
+                SELECT call_id, user_id, inviter_id, answered_at, status = 'declined',
+                       CASE WHEN status = 'left' THEN updated_at END, $3
+                FROM call_participants
+                WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')
+                "#,
+                call_id,
+                invitee.uuid(),
+                now,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
             let inserted = sqlx::query!(
                 r#"
                 INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
                 VALUES ($1, $2, $3, 'invited', $4, $4)
                 ON CONFLICT (call_id, user_id) DO UPDATE
-                    SET status = 'invited', session_id = NULL, inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at
+                    SET status = 'invited', session_id = NULL, answered_at = NULL, inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at
                     WHERE call_participants.status IN ('declined', 'left')
                 "#,
                 call_id,
@@ -499,6 +516,95 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.exists)
     }
 
+    async fn pair_outcome(
+        &self,
+        call_id: Uuid,
+        caller: &UserId,
+        callee: &UserId,
+    ) -> Result<CallPairOutcome, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"SELECT user_id, inviter_id, status, answered_at, updated_at FROM call_participants WHERE call_id = $1 AND user_id IN ($2, $3)"#,
+            call_id,
+            caller.uuid(),
+            callee.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let caller_present = rows.iter().any(|r| r.user_id == caller.uuid());
+        let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
+        let archived = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(*) > 0 AS "present!",
+                MIN(answered_at) AS earliest_answer,
+                BOOL_OR(declined) AS declined
+            FROM call_invite_outcomes
+            WHERE call_id = $1 AND user_id = $2 AND inviter_id = $3
+            "#,
+            call_id,
+            callee.uuid(),
+            caller.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let current = callee_row.filter(|r| r.inviter_id == caller.uuid());
+        let callee_invited_by_caller = current.is_some() || archived.present;
+        let callee_answered_at = match (current.and_then(|r| r.answered_at), archived.earliest_answer)
+        {
+            (Some(c), Some(a)) => Some(c.min(a)),
+            (c, a) => c.or(a),
+        };
+        let callee_declined = callee_answered_at.is_none()
+            && (current.map(|r| r.status == "declined").unwrap_or(false)
+                || archived.declined.unwrap_or(false));
+        let callee_pending = current
+            .map(|r| {
+                r.status == "invited"
+                    || (r.status == "joined"
+                        && r.answered_at.is_none()
+                        && r.updated_at > Utc::now() - chrono::Duration::seconds(60))
+            })
+            .unwrap_or(false);
+        let caller_archive = sqlx::query!(
+            r#"
+            SELECT MIN(left_at) AS earliest_left
+            FROM call_invite_outcomes
+            WHERE call_id = $1 AND user_id = $2
+              AND ($3::timestamptz IS NULL OR left_at >= $3)
+            "#,
+            call_id,
+            caller.uuid(),
+            callee_answered_at,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let current_caller_left = rows
+            .iter()
+            .find(|r| r.user_id == caller.uuid() && r.status == "left")
+            .map(|r| r.updated_at)
+            .filter(|ts| callee_answered_at.map(|a| *ts >= a).unwrap_or(true));
+        let caller_left_at = match (current_caller_left, caller_archive.earliest_left) {
+            (Some(c), Some(a)) => Some(c.min(a)),
+            (c, a) => c.or(a),
+        };
+        let caller_in_call = rows
+            .iter()
+            .any(|r| r.user_id == caller.uuid() && r.status == "joined")
+            && !(callee_answered_at.is_some() && caller_left_at.is_some());
+        Ok(CallPairOutcome {
+            participated: caller_present && callee_row.is_some(),
+            caller_in_call,
+            caller_left_at,
+            callee_invited_by_caller,
+            callee_pending,
+            callee_answered_at,
+            callee_declined,
+        })
+    }
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,
@@ -516,7 +622,7 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'joined', session_id = $3, updated_at = $4
+            SET status = 'joined', session_id = $3, updated_at = $4, answered_at = COALESCE(answered_at, $4)
             WHERE call_id = $1 AND user_id = $2
               AND (
                     (status = 'joined' AND session_id IS NULL)

@@ -9,7 +9,6 @@ import { usePresenceStore } from "../../store/presenceStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
-import { useDmPreviewStore } from "../../store/dmPreviewStore";
 import { colorForId } from "../../utils/avatar";
 import { currentLocale } from "../../i18n";
 
@@ -65,7 +64,6 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
-  const hasDm = useDmPreviewStore((s) => (userId ? userId in s.byFriend : false));
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -73,11 +71,18 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const menuRef = React.useRef<HTMLDivElement>(null);
   useMinuteTick();
 
+  const friendshipStatus = userId
+    ? friends.find((f) => f.friendId === userId)?.status
+    : undefined;
+
   React.useEffect(() => {
     setProfile(null);
     setFailed(false);
     setMenuOpen(false);
     setCopied(false);
+  }, [userId]);
+
+  React.useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     homeAPI
@@ -86,6 +91,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
         if (cancelled) return;
         useUserProfileStore.getState().apply(userId, p.bio, profileVersion(p.profileUpdatedAt));
         setProfile(p);
+        setFailed(false);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -93,7 +99,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, friendshipStatus]);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -128,8 +134,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const localTime = profile ? formatLocalTime(profile.timezone, locale) : null;
   const memberSince = profile ? formatMemberSince(profile.memberSince, locale) : null;
   const inactive = !!profile && !profile.active;
-  const canMessage = !isSelf && (isFriend || hasDm);
-  const canCall = !isSelf && isFriend;
+  const canMessage = !isSelf && !inactive && (profile ? profile.acceptsMessages : isFriend);
+  const canCall = !isSelf && !inactive && (profile ? profile.acceptsCalls : isFriend);
 
   const copyLogin = async () => {
     if (!name) return;
@@ -212,8 +218,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                   <button
                     type="button"
                     className="profile-btn icon primary"
-                    title={t("addFriend")}
-                    disabled={!name}
+                    title={profile && !profile.acceptsFriendRequests ? t("requestsClosed") : t("addFriend")}
+                    disabled={!name || !profile || !profile.acceptsFriendRequests}
                     onClick={() => {
                       if (name) void useFriendshipStore.getState().sendRequest(name).catch(() => {});
                     }}

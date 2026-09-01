@@ -7,6 +7,7 @@ use crate::webhook::livekit_webhook;
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(web::resource("/livez").to(livez))
         .service(web::resource("/readyz").to(readyz))
+        .configure(crate::internal::internal_routes)
         .service(
             web::scope("/api")
                 .configure(call_routes)

@@ -25,7 +25,7 @@
   "voiceCallInvite": "Voice call invite",
   "joinCall": "Join call",
   "callEnded": "Call ended",
-  "notFriends": "You can only message friends. Send a friend request first.",
+  "notFriends": "This user only accepts messages from friends. Add them as a friend first.",
   "noAccess": "You don't have access to this channel.",
   "searchInChannel": "Search in #{{channel}}",
   "searchWithUser": "Search with {{user}}",
@@ -42,6 +42,8 @@
   "couldNotJoin": "Couldn't join channel.",
   "couldNotJoinServer": "Couldn't join the server.",
   "couldNotSend": "Couldn't send message.",
+  "dmsClosed": "This user does not accept direct messages.",
+  "recipientInactive": "This user is unavailable.",
   "messageCantBeEmpty": "Message can't be empty.",
   "chunkTooLong": "One of the chunks was too long.",
   "notifications": {

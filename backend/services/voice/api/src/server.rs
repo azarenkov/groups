@@ -96,6 +96,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         add_call_participants_usecase: AddCallParticipants::new(
             call_repository.clone(),
             friendship_lookup.clone(),
+            user_repository.clone(),
         ),
         get_active_call_usecase: GetActiveCall::new(
             call_repository.clone(),
@@ -115,6 +116,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             livekit_service.clone(),
         ),
+        call_repository: call_repository.clone(),
     });
 
     let rate_limiter =

@@ -3,6 +3,7 @@ use std::{error::Error, sync::Arc};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use messaging::usecases::{
+    privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     attachment::{
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
     },
@@ -74,10 +75,11 @@ use messaging_infrastructure::{
             friendship_unit_of_work::PostgresFriendshipUnitOfWork,
             message_unit_of_work::PostgresMessageUnitOfWork,
             server_unit_of_work::PostgresServerUnitOfWork,
-            user_profile::PostgresUserProfileRepository,
+            privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
         },
     },
     media_client::claims::MediaClaimsClient,
+    media_client::voice_calls::VoiceCallsClient,
     media_client::identity_users::IdentityUsersClient,
 };
 use api_common::{
@@ -128,9 +130,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
+    let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
     let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
         .unwrap_or_else(|_| "http://identity-service:8080".to_string());
     let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
+    let voice_internal_url = std::env::var("VOICE_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://voice-service:8080".to_string());
+    let call_participation = Arc::new(VoiceCallsClient::new(&voice_internal_url));
 
     let minio_storage = Arc::new(
         MinioStorage::new(&minio_config)
@@ -264,7 +270,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         send_friend_request_usecase: SendFriendRequest::new(
             friendship_unit_of_work.clone(),
             user_repository.clone(),
+            privacy_repository.clone(),
         ),
+        get_privacy_usecase: GetPrivacy::new(privacy_repository.clone()),
+        update_privacy_usecase: UpdatePrivacy::new(privacy_repository.clone()),
         accept_friend_request_usecase: AcceptFriendRequest::new(friendship_unit_of_work.clone()),
         remove_friendship_usecase: RemoveFriendship::new(friendship_unit_of_work.clone()),
         list_friends_usecase: ListFriends::new(friendship_repository.clone()),
@@ -309,10 +318,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             friendship_repository.clone(),
         ),
-        log_call_usecase: LogCall::new(dm_unit_of_work.clone(), friendship_repository.clone()),
+        log_call_usecase: LogCall::new(
+            dm_unit_of_work.clone(),
+            call_participation.clone(),
+        ),
         server_repository: server_repository.clone(),
         message_repository: message_repository.clone(),
         friendship_repository: friendship_repository.clone(),
+        privacy_repository: privacy_repository.clone(),
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase: SendDmMessage::new(
@@ -320,11 +333,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_unit_of_work.clone(),
             friendship_repository.clone(),
             attachment_claims.clone(),
+            privacy_repository.clone(),
+            user_repository.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),
             dm_unit_of_work.clone(),
             attachment_claims.clone(),
+            friendship_repository.clone(),
+            privacy_repository.clone(),
+            user_repository.clone(),
         ),
         delete_dm_message_usecase: DeleteDmMessage::new(
             dm_repository.clone(),
@@ -338,6 +356,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
             server_repository.clone(),
             server_unit_of_work.clone(),
+            privacy_repository.clone(),
+            user_repository.clone(),
         ),
         accept_server_invite_usecase: AcceptServerInvite::new(
             dm_repository.clone(),

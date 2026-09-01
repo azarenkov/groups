@@ -1,4 +1,5 @@
 use messaging::usecases::{
+    privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     attachment::{
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
     },
@@ -68,9 +69,10 @@ use messaging_infrastructure::{
         friendship_unit_of_work::PostgresFriendshipUnitOfWork,
         message_unit_of_work::PostgresMessageUnitOfWork,
         server_unit_of_work::PostgresServerUnitOfWork,
-        user_profile::PostgresUserProfileRepository,
+        privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
+    media_client::voice_calls::VoiceCallsClient,
     media_client::identity_users::IdentityUsersClient,
 };
 
@@ -140,7 +142,9 @@ pub struct AppState {
     pub get_attachment_usecase:
         GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
     pub send_friend_request_usecase:
-        SendFriendRequest<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository>,
+        SendFriendRequest<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository, PostgresPrivacyRepository>,
+    pub get_privacy_usecase: GetPrivacy<PostgresPrivacyRepository>,
+    pub update_privacy_usecase: UpdatePrivacy<PostgresPrivacyRepository>,
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipUnitOfWork>,
     pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipUnitOfWork>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
@@ -169,10 +173,11 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresFriendshipRepository,
     >,
-    pub log_call_usecase: LogCall<PostgresDmUnitOfWork, PostgresFriendshipRepository>,
+    pub log_call_usecase: LogCall<PostgresDmUnitOfWork, VoiceCallsClient>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
+    pub privacy_repository: std::sync::Arc<PostgresPrivacyRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
     pub send_dm_message_usecase: SendDmMessage<
@@ -180,9 +185,17 @@ pub struct AppState {
         PostgresDmUnitOfWork,
         PostgresFriendshipRepository,
         MediaClaimsClient,
+        PostgresPrivacyRepository,
+        PostgresUserProfileRepository,
     >,
-    pub edit_dm_message_usecase:
-        EditDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork, MediaClaimsClient>,
+    pub edit_dm_message_usecase: EditDmMessage<
+        PostgresDmMessageRepository,
+        PostgresDmUnitOfWork,
+        MediaClaimsClient,
+        PostgresFriendshipRepository,
+        PostgresPrivacyRepository,
+        PostgresUserProfileRepository,
+    >,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase: ListDmMessages<PostgresDmMessageRepository>,
@@ -192,6 +205,8 @@ pub struct AppState {
         PostgresFriendshipRepository,
         PostgresServerRepository,
         PostgresServerUnitOfWork,
+        PostgresPrivacyRepository,
+        PostgresUserProfileRepository,
     >,
     pub accept_server_invite_usecase:
         AcceptServerInvite<PostgresDmMessageRepository, PostgresServerUnitOfWork>,
