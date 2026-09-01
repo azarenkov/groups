@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
-import { useThemeStore } from "../store/themeStore";
 import { serverAPI } from "../api/server";
 import { callAPI } from "../api/call";
 import { attachmentAPI } from "../api/attachment";
@@ -100,17 +99,6 @@ const ServersPage: React.FC = () => {
     clearError: clearChannelsError,
     clearChannels,
   } = useChannelStore();
-
-  const { theme, setTheme } = useThemeStore();
-  const [accent, setAccent] = useState("#0071e3");
-
-  useEffect(() => {
-    document.documentElement.style.setProperty("--accent", accent);
-    document.documentElement.style.setProperty(
-      "--accent-hover",
-      `color-mix(in srgb, ${accent} 88%, #000)`,
-    );
-  }, [accent]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1291,10 +1279,6 @@ const ServersPage: React.FC = () => {
         {settingsOpen && (
           <SettingsView
             open={settingsOpen}
-            theme={theme}
-            onTheme={setTheme}
-            accent={accent}
-            onAccent={setAccent}
             onClose={() => setSettingsOpen(false)}
             onSignOut={handleLogout}
           />

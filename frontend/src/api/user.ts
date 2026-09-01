@@ -11,6 +11,13 @@ export interface Reauth {
   googleIdToken?: string;
 }
 
+export interface AppearanceSettings {
+  theme: string;
+  accent: string;
+  chatFontSize: number;
+  reduceMotion: boolean;
+}
+
 export interface Connection {
   provider: string;
   displayName: string;
@@ -104,6 +111,18 @@ class UserAPI {
   async userConnections(userId: string): Promise<Connection[]> {
     const response = await this.client.get(`/v1/users/${userId}/connections`);
     return response.data.data.connections;
+  }
+
+  async getAppearance(): Promise<AppearanceSettings> {
+    const response = await this.client.get("/v1/users/me/appearance");
+    return response.data.data;
+  }
+
+  async updateAppearance(
+    patch: Partial<AppearanceSettings>,
+  ): Promise<AppearanceSettings> {
+    const response = await this.client.patch("/v1/users/me/appearance", patch);
+    return response.data.data;
   }
 
   async uploadAvatar(file: File): Promise<void> {

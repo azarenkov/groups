@@ -4,6 +4,7 @@ use crate::auth::{
     confirm_registration, google_complete, google_login, login_user, logout, refresh_tokens,
     register_user, request_verification_code,
 };
+use crate::appearance::{get_me_appearance, update_me_appearance};
 use crate::connections::{
     connection_callback, list_connections, remove_connection, start_connection, user_connections,
 };
@@ -43,6 +44,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(disable_me)
                         .service(delete_me)
                         .service(update_me_profile)
+                        .service(get_me_appearance)
+                        .service(update_me_appearance)
                         .service(list_connections)
                         .service(start_connection)
                         .service(remove_connection)

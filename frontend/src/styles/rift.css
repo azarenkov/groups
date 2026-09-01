@@ -1524,7 +1524,7 @@ body.electron .body-area::before {
 .msg .head { display: flex; gap: 8px; align-items: baseline; }
 .msg .head b { font-size: 14px; font-weight: 600; color: var(--fg-1); letter-spacing: -0.005em; }
 .msg .head time { font-size: 11px; color: var(--fg-3); }
-.msg .txt { font-size: 14px; color: var(--fg-1); line-height: 1.5; margin-top: 1px; word-wrap: break-word; }
+.msg .txt { font-size: var(--chat-font-size, 14px); color: var(--fg-1); line-height: 1.5; margin-top: 1px; word-wrap: break-word; }
 .msg.cont { padding-top: 1px; }
 .msg.cont .ava { visibility: hidden; height: 0; }
 .msg.cont .head { display: none; }
@@ -5574,3 +5574,14 @@ button.ssv-row-delete:focus-visible {
 a.profile-chip.profile-conn { text-decoration: none; color: inherit; }
 .profile-chip.profile-conn { gap: 7px; }
 .profile-chip.profile-conn svg { flex-shrink: 0; }
+
+.s-range { -webkit-appearance: none; appearance: none; width: 180px; height: 22px; background: transparent; cursor: pointer; margin: 0; }
+.s-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct, 50%), var(--surface-active) var(--pct, 50%), var(--surface-active) 100%); }
+.s-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 0 0 1px var(--accent); margin-top: -5px; transition: transform var(--dur-fast); }
+.s-range:active::-webkit-slider-thumb { transform: scale(1.12); }
+.s-range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--surface-active); }
+.s-range::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+.s-range::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px var(--accent); }
+
+:root.reduce-motion { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
+:root.reduce-motion *, :root.reduce-motion *::before, :root.reduce-motion *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }

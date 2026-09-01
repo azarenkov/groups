@@ -11,15 +11,12 @@ import { validateUsername, type UsernameIssue } from "../../utils/username";
 import { homeAPI, type PrivacySettings } from "../../api/home";
 import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from "./AccountModals";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
+import { useAppearanceStore } from "../../store/appearanceStore";
 
 type Theme = "light" | "dark";
 
 interface SettingsViewProps {
   open: boolean;
-  theme: Theme;
-  onTheme: (t: Theme) => void;
-  accent: string;
-  onAccent: (a: string) => void;
   onClose: () => void;
   onSignOut: () => void;
 }
@@ -27,13 +24,6 @@ interface SettingsViewProps {
 interface TweaksPanelProps {
   theme: Theme;
   onTheme: (t: Theme) => void;
-}
-
-interface AppearanceSectionProps {
-  theme: Theme;
-  onTheme: (t: Theme) => void;
-  accent: string;
-  onAccent: (a: string) => void;
 }
 
 type SectionId =
@@ -738,10 +728,13 @@ function SubscriptionSection() {
   );
 }
 
-function AppearanceSection({ theme, onTheme, accent, onAccent }: AppearanceSectionProps) {
+function AppearanceSection() {
   const { t } = useTranslation("settings");
-  const [density, setDensity] = React.useState('cozy');
-  const [size, setSize] = React.useState(14);
+  const mode = useAppearanceStore((s) => s.mode);
+  const accent = useAppearanceStore((s) => s.accent);
+  const chatFontSize = useAppearanceStore((s) => s.chatFontSize);
+  const reduceMotion = useAppearanceStore((s) => s.reduceMotion);
+  const update = useAppearanceStore((s) => s.update);
   return (
     <>
       <h1>{t("appearance.title")}</h1>
@@ -750,15 +743,15 @@ function AppearanceSection({ theme, onTheme, accent, onAccent }: AppearanceSecti
       <div className="s-section">
         <h2>{t("appearance.theme")}</h2>
         <div className="theme-grid">
-          <button className={'theme-card' + (theme === 'light' ? ' on' : '')} onClick={() => onTheme('light')}>
+          <button className={'theme-card' + (mode === 'light' ? ' on' : '')} onClick={() => update({ mode: 'light' })}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
             {t("appearance.light")}
           </button>
-          <button className={'theme-card dark-pv' + (theme === 'dark' ? ' on' : '')} onClick={() => onTheme('dark')}>
+          <button className={'theme-card dark-pv' + (mode === 'dark' ? ' on' : '')} onClick={() => update({ mode: 'dark' })}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
             {t("appearance.dark")}
           </button>
-          <button className={'theme-card system-pv'} onClick={() => onTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')}>
+          <button className={'theme-card system-pv' + (mode === 'system' ? ' on' : '')} onClick={() => update({ mode: 'system' })}>
             <div className="preview"><div className="pp-side"/><div className="pp-main"/></div>
             {t("appearance.system")}
           </button>
@@ -773,7 +766,7 @@ function AppearanceSection({ theme, onTheme, accent, onAccent }: AppearanceSecti
               <button key={a.value}
                 className={'accent-swatch' + (accent === a.value ? ' on' : '')}
                 style={{ background: a.value }}
-                onClick={() => onAccent(a.value)}
+                onClick={() => update({ accent: a.value })}
                 title={a.name}/>
             ))}
           </div>
@@ -781,24 +774,25 @@ function AppearanceSection({ theme, onTheme, accent, onAccent }: AppearanceSecti
       </div>
 
       <div className="s-section">
-        <h2>Layout</h2>
-        <SettingsRow label="Message density" hint="Cozy adds breathing room. Compact fits more on screen.">
-          <div className="s-seg">
-            <button className={density === 'compact' ? 'on' : ''} onClick={() => setDensity('compact')}>Compact</button>
-            <button className={density === 'cozy' ? 'on' : ''} onClick={() => setDensity('cozy')}>Cozy</button>
-          </div>
+        <h2>{t("appearance.interface")}</h2>
+        <SettingsRow label={t("appearance.fontSize")} hint={`${chatFontSize}px`}>
+          <input
+            type="range"
+            className="s-range"
+            min={12}
+            max={18}
+            value={chatFontSize}
+            style={{ "--pct": `${((chatFontSize - 12) / 6) * 100}%` } as React.CSSProperties}
+            onChange={(e) => update({ chatFontSize: Number(e.target.value) })}
+          />
         </SettingsRow>
-        <SettingsRow label="Chat font size" hint={`${size}px`}>
-          <input type="range" min="12" max="18" value={size} onChange={e => setSize(Number(e.target.value))}/>
-        </SettingsRow>
-        <SettingsRow label="Reduce motion" hint="Minimize transitions and animations.">
-          <Switch on={false} onClick={() => {}}/>
+        <SettingsRow label={t("appearance.reduceMotion")} hint={t("appearance.reduceMotionHint")}>
+          <Switch on={reduceMotion} onClick={() => update({ reduceMotion: !reduceMotion })}/>
         </SettingsRow>
       </div>
     </>
   );
 }
-
 function VoiceSection() {
   const [input, setInput] = React.useState('MacBook Pro Microphone');
   const [output, setOutput] = React.useState('AirPods Pro');
@@ -1001,7 +995,7 @@ function LanguageSection() {
 
 const ALL_RAIL_IDS: SectionId[] = SETTINGS_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
-function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignOut }: SettingsViewProps) {
+function SettingsView({ open, onClose, onSignOut }: SettingsViewProps) {
   const { t } = useTranslation("settings");
   const [activeId, setActiveId] = React.useState<SectionId>("account");
   const overlayRef = React.useRef<HTMLDivElement>(null);
@@ -1047,7 +1041,7 @@ function SettingsView({ open, theme, onTheme, accent, onAccent, onClose, onSignO
     case 'privacy':       body = <PrivacySection/>; break;
     case 'connections':   body = <ConnectionsSection/>; break;
     case 'subscription':  body = <SubscriptionSection/>; break;
-    case 'appearance':    body = <AppearanceSection theme={theme} onTheme={onTheme} accent={accent} onAccent={onAccent}/>; break;
+    case 'appearance':    body = <AppearanceSection/>; break;
     case 'voice':         body = <VoiceSection/>; break;
     case 'notifications': body = <NotificationsSection/>; break;
     case 'shortcuts':     body = <ShortcutsSection/>; break;

@@ -926,3 +926,28 @@ impl HttpMapping for RemoveConnectionError {
         }
     }
 }
+
+use identity::usecases::user::appearance::AppearanceError;
+
+impl HttpMapping for AppearanceError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            AppearanceError::Repository(e) => e.to_http_status(),
+            AppearanceError::Invalid => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            AppearanceError::Repository(e) => e.to_user_message(),
+            AppearanceError::Invalid => "Invalid appearance settings".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            AppearanceError::Repository(e) => e.to_error_code(),
+            AppearanceError::Invalid => "INVALID_APPEARANCE",
+        }
+    }
+}

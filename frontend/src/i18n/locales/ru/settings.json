@@ -141,10 +141,9 @@
     "dark": "Тёмная",
     "system": "Системная",
     "accent": "Акцент",
-    "density": "Плотность",
-    "compact": "Плотная",
-    "cozy": "Уютная",
-    "comfortable": "Свободная",
+    "interface": "Интерфейс",
+    "reduceMotion": "Меньше анимаций",
+    "reduceMotionHint": "Минимизировать переходы и анимации.",
     "fontSize": "Размер шрифта"
   },
   "voice": {

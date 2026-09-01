@@ -141,10 +141,9 @@
     "dark": "Dark",
     "system": "System",
     "accent": "Accent",
-    "density": "Density",
-    "compact": "Compact",
-    "cozy": "Cozy",
-    "comfortable": "Comfortable",
+    "interface": "Interface",
+    "reduceMotion": "Reduce motion",
+    "reduceMotionHint": "Minimize transitions and animations.",
     "fontSize": "Font size"
   },
   "voice": {
