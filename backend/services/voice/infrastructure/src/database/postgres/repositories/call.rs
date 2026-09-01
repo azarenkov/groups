@@ -557,7 +557,9 @@ impl CallRepository for PostgresCallRepository {
         let callee_declined = callee_answered_at.is_none()
             && (current.map(|r| r.status == "declined").unwrap_or(false)
                 || archived.declined.unwrap_or(false));
-        let callee_pending = current.map(|r| r.status == "invited").unwrap_or(false);
+        let callee_pending = current
+            .map(|r| r.status == "invited" || (r.status == "joined" && r.answered_at.is_none()))
+            .unwrap_or(false);
         let caller_archive = sqlx::query!(
             r#"
             SELECT MIN(left_at) AS earliest_left
