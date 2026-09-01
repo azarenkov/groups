@@ -68,10 +68,17 @@ interface CallLog {
 
 let pendingLog: CallLog | null = null;
 
-function finalizeCallLog() {
+interface PreparedCallLog {
+  callId: string;
+  peerId: string;
+  status: string;
+  duration: number | undefined;
+}
+
+function takeCallLog(): PreparedCallLog | null {
   const cl = pendingLog;
   pendingLog = null;
-  if (!cl) return;
+  if (!cl) return null;
   let status = "missed";
   let duration: number | undefined;
   if (cl.declined) {
@@ -81,7 +88,16 @@ function finalizeCallLog() {
     const from = cl.answeredAt ?? cl.startedAt;
     duration = Math.max(0, Math.round((Date.now() - from) / 1000));
   }
-  sendCallLog(cl.callId, cl.peerId, status, duration, 0);
+  return { callId: cl.callId, peerId: cl.peerId, status, duration };
+}
+
+function dispatchCallLog(log: PreparedCallLog | null) {
+  if (!log) return;
+  sendCallLog(log.callId, log.peerId, log.status, log.duration, 0);
+}
+
+function finalizeCallLog() {
+  dispatchCallLog(takeCallLog());
 }
 
 function sendCallLog(
@@ -353,6 +369,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
+    const log = takeCallLog();
     set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
     if (!keepRoom) {
       await getLiveKitService()
@@ -362,7 +379,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (callId) {
       await callAPI.leave(callId).catch(() => {});
     }
-    finalizeCallLog();
+    dispatchCallLog(log);
   },
 
   addParticipants: async (recipientIds) => {
