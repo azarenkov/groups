@@ -530,30 +530,6 @@ impl CallRepository for PostgresCallRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         let caller_present = rows.iter().any(|r| r.user_id == caller.uuid());
-        let caller_archive = sqlx::query!(
-            r#"
-            SELECT MIN(left_at) AS earliest_left
-            FROM call_invite_outcomes
-            WHERE call_id = $1 AND user_id = $2
-            "#,
-            call_id,
-            caller.uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        let caller_in_call = caller_archive.earliest_left.is_none()
-            && rows
-                .iter()
-                .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined"));
-        let current_caller_left = rows
-            .iter()
-            .find(|r| r.user_id == caller.uuid() && r.status == "left")
-            .map(|r| r.updated_at);
-        let caller_left_at = match (current_caller_left, caller_archive.earliest_left) {
-            (Some(c), Some(a)) => Some(c.min(a)),
-            (c, a) => c.or(a),
-        };
         let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
         let archived = sqlx::query!(
             r#"
@@ -582,6 +558,33 @@ impl CallRepository for PostgresCallRepository {
             && (current.map(|r| r.status == "declined").unwrap_or(false)
                 || archived.declined.unwrap_or(false));
         let callee_pending = current.map(|r| r.status == "invited").unwrap_or(false);
+        let caller_archive = sqlx::query!(
+            r#"
+            SELECT MIN(left_at) AS earliest_left
+            FROM call_invite_outcomes
+            WHERE call_id = $1 AND user_id = $2
+              AND ($3::timestamptz IS NULL OR left_at >= $3)
+            "#,
+            call_id,
+            caller.uuid(),
+            callee_answered_at,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let current_caller_left = rows
+            .iter()
+            .find(|r| r.user_id == caller.uuid() && r.status == "left")
+            .map(|r| r.updated_at)
+            .filter(|ts| callee_answered_at.map(|a| *ts >= a).unwrap_or(true));
+        let caller_left_at = match (current_caller_left, caller_archive.earliest_left) {
+            (Some(c), Some(a)) => Some(c.min(a)),
+            (c, a) => c.or(a),
+        };
+        let caller_in_call = caller_left_at.is_none()
+            && rows
+                .iter()
+                .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined"));
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),
             caller_in_call,
