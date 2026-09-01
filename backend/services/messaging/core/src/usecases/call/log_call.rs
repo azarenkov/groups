@@ -53,7 +53,7 @@ where
         recipient_id: Uuid,
         call_id: Uuid,
         status: String,
-        duration_seconds: Option<i32>,
+        _duration_seconds: Option<i32>,
     ) -> Result<(), LogCallError> {
         if !matches!(status.as_str(), "completed" | "declined" | "missed") {
             return Err(LogCallError::InvalidStatus);
@@ -82,14 +82,12 @@ where
         if !verified {
             return Err(LogCallError::CallNotVerified);
         }
-        let duration_seconds = duration_seconds.map(|d| d.max(0));
         let duration_seconds = match (status.as_str(), outcome.callee_answered_at) {
             ("completed", Some(answered_at)) => {
-                let elapsed =
-                    (now - answered_at).num_seconds().clamp(0, i64::from(i32::MAX - 60)) as i32;
-                duration_seconds.map(|d| d.min(elapsed + 60))
+                let ended_at = outcome.caller_left_at.unwrap_or(now);
+                Some((ended_at - answered_at).num_seconds().clamp(0, i64::from(i32::MAX)) as i32)
             }
-            _ => duration_seconds,
+            _ => None,
         };
         let content = MessageContent::new("call".to_string())?;
         let mut message =

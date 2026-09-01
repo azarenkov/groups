@@ -11,6 +11,7 @@ pub struct CallPermitResponseV1 {
 pub struct CallOutcomeResponseV1 {
     pub participated: bool,
     pub caller_in_call: bool,
+    pub caller_left_at: Option<chrono::DateTime<chrono::Utc>>,
     pub callee_invited_by_caller: bool,
     pub callee_pending: bool,
     pub callee_answered_at: Option<chrono::DateTime<chrono::Utc>>,

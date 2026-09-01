@@ -71,11 +71,18 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const menuRef = React.useRef<HTMLDivElement>(null);
   useMinuteTick();
 
+  const friendshipStatus = userId
+    ? friends.find((f) => f.friendId === userId)?.status
+    : undefined;
+
   React.useEffect(() => {
     setProfile(null);
     setFailed(false);
     setMenuOpen(false);
     setCopied(false);
+  }, [userId]);
+
+  React.useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     homeAPI
@@ -84,6 +91,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
         if (cancelled) return;
         useUserProfileStore.getState().apply(userId, p.bio, profileVersion(p.profileUpdatedAt));
         setProfile(p);
+        setFailed(false);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -91,7 +99,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, friendshipStatus]);
 
   React.useEffect(() => {
     if (!userId) return;
