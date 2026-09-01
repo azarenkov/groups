@@ -18,6 +18,15 @@ interface AppearanceState extends AppearanceSettings {
 
 export const DEFAULT_ACCENT = "#0071e3";
 
+const SETTING_KEYS = ["mode", "accent", "chatFontSize", "reduceMotion"] as const;
+
+const DEFAULT_SETTINGS: AppearanceSettings = {
+  mode: "system",
+  accent: DEFAULT_ACCENT,
+  chatFontSize: 14,
+  reduceMotion: false,
+};
+
 const legacyMode = (): ThemeMode => {
   try {
     const raw = localStorage.getItem("rift-theme");
@@ -56,7 +65,16 @@ export const applyAppearance = (s: AppearanceSettings) => {
 
 let saveTimer: number | null = null;
 let pendingPatch: Partial<AppearanceSettings> = {};
-let saveChain: Promise<unknown> = Promise.resolve();
+let pendingOwner: string | null = null;
+let inFlight = false;
+let saveAttempts = 0;
+let editSeq = 0;
+const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
+  mode: 0,
+  accent: 0,
+  chatFontSize: 0,
+  reduceMotion: 0,
+};
 
 const toServerPatch = (patch: Partial<AppearanceSettings>) => {
   const body: {
@@ -72,38 +90,67 @@ const toServerPatch = (patch: Partial<AppearanceSettings>) => {
   return body;
 };
 
-let saveAttempts = 0;
+const cancelPendingSaves = () => {
+  if (saveTimer !== null) {
+    window.clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  pendingPatch = {};
+  saveAttempts = 0;
+};
 
-const flushSave = () => {
+const flushSave = async (): Promise<void> => {
+  if (inFlight) return;
   const patch = pendingPatch;
+  const owner = pendingOwner;
   pendingPatch = {};
   const body = toServerPatch(patch);
   if (Object.keys(body).length === 0) return;
-  saveChain = saveChain
-    .then(() => import("../api/user"))
-    .then(({ userAPI }) => userAPI.updateAppearance(body))
-    .then(() => {
-      saveAttempts = 0;
-    })
-    .catch((err) => {
-      console.warn("[appearance] save failed:", err);
-      pendingPatch = { ...patch, ...pendingPatch };
-      saveAttempts += 1;
-      if (saveAttempts <= 5 && saveTimer === null) {
-        saveTimer = window.setTimeout(() => {
-          saveTimer = null;
-          flushSave();
-        }, 5000);
-      }
-    });
+  inFlight = true;
+  try {
+    const { useAuthStore } = await import("./authStore");
+    const currentId = useAuthStore.getState().user?.id ?? null;
+    if (owner !== null && currentId !== owner) {
+      return;
+    }
+    const { userAPI } = await import("../api/user");
+    await userAPI.updateAppearance(body);
+    saveAttempts = 0;
+  } catch (err) {
+    console.warn("[appearance] save failed:", err);
+    pendingPatch = { ...patch, ...pendingPatch };
+    saveAttempts += 1;
+    if (saveAttempts <= 5 && saveTimer === null) {
+      saveTimer = window.setTimeout(() => {
+        saveTimer = null;
+        void flushSave();
+      }, 5000);
+    }
+  } finally {
+    inFlight = false;
+    if (
+      saveAttempts === 0 &&
+      saveTimer === null &&
+      Object.keys(pendingPatch).length > 0
+    ) {
+      void flushSave();
+    }
+  }
 };
 
-const scheduleSave = (patch: Partial<AppearanceSettings>) => {
+const scheduleSave = (
+  patch: Partial<AppearanceSettings>,
+  owner: string | null,
+) => {
+  if (owner !== pendingOwner) {
+    cancelPendingSaves();
+    pendingOwner = owner;
+  }
   pendingPatch = { ...pendingPatch, ...patch };
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = null;
-    flushSave();
+    void flushSave();
   }, 500);
 };
 
@@ -117,14 +164,23 @@ export const useAppearanceStore = create<AppearanceState>()(
       ownerId: null,
 
       update: (patch) => {
+        editSeq += 1;
+        for (const key of SETTING_KEYS) {
+          if (patch[key] !== undefined) editStamp[key] = editSeq;
+        }
         set(patch);
-        const { mode, accent, chatFontSize, reduceMotion } = get();
+        const { mode, accent, chatFontSize, reduceMotion, ownerId } = get();
         applyAppearance({ mode, accent, chatFontSize, reduceMotion });
-        scheduleSave(patch);
+        scheduleSave(patch, ownerId);
       },
 
       syncFromServer: async (userId) => {
         const { userAPI } = await import("../api/user");
+        if (get().ownerId !== null && get().ownerId !== userId) {
+          cancelPendingSaves();
+          pendingOwner = userId;
+        }
+        const startSeq = editSeq;
         try {
           const saved = await userAPI.getAppearance();
           if (!saved) {
@@ -137,15 +193,10 @@ export const useAppearanceStore = create<AppearanceState>()(
                   chatFontSize: get().chatFontSize,
                   reduceMotion: get().reduceMotion,
                 }
-              : {
-                  mode: "system",
-                  accent: DEFAULT_ACCENT,
-                  chatFontSize: 14,
-                  reduceMotion: false,
-                };
+              : { ...DEFAULT_SETTINGS };
             set({ ...local, ownerId: userId });
             applyAppearance(local);
-            if (sameOwner) scheduleSave(local);
+            if (sameOwner) scheduleSave(local, userId);
             return;
           }
           const next: AppearanceSettings = {
@@ -157,6 +208,12 @@ export const useAppearanceStore = create<AppearanceState>()(
             chatFontSize: saved.chatFontSize,
             reduceMotion: saved.reduceMotion,
           };
+          const current = get();
+          for (const key of SETTING_KEYS) {
+            if (editStamp[key] > startSeq) {
+              Object.assign(next, { [key]: current[key] });
+            }
+          }
           set({ ...next, ownerId: userId });
           applyAppearance(next);
         } catch (err) {
