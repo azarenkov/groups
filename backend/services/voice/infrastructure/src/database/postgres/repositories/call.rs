@@ -111,8 +111,9 @@ async fn end_call_if_empty(
     now: DateTime<Utc>,
 ) -> Result<(), RepositoryError> {
     let joined = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND status = 'joined'"#,
+        r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND status = 'joined' AND (session_id IS NOT NULL OR updated_at > $2)"#,
         call_id,
+        now - chrono::Duration::seconds(60),
     )
     .fetch_one(&mut **tx)
     .await
@@ -128,7 +129,8 @@ async fn end_call_if_empty(
         r#"
         UPDATE call_participants
         SET status = 'left', updated_at = $2
-        WHERE call_id = $1 AND status = 'invited'
+        WHERE call_id = $1
+          AND (status = 'invited' OR (status = 'joined' AND session_id IS NULL))
         "#,
         call_id,
         now,
@@ -558,7 +560,12 @@ impl CallRepository for PostgresCallRepository {
             && (current.map(|r| r.status == "declined").unwrap_or(false)
                 || archived.declined.unwrap_or(false));
         let callee_pending = current
-            .map(|r| r.status == "invited" || (r.status == "joined" && r.answered_at.is_none()))
+            .map(|r| {
+                r.status == "invited"
+                    || (r.status == "joined"
+                        && r.answered_at.is_none()
+                        && r.updated_at > Utc::now() - chrono::Duration::seconds(60))
+            })
             .unwrap_or(false);
         let caller_archive = sqlx::query!(
             r#"

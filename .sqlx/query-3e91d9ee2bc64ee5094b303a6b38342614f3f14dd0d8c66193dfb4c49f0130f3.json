@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM call_participants WHERE call_id = $1 AND status = 'joined' AND (session_id IS NOT NULL OR updated_at > $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3e91d9ee2bc64ee5094b303a6b38342614f3f14dd0d8c66193dfb4c49f0130f3"
+}
