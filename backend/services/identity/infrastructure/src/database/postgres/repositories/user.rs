@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use async_trait::async_trait;
 
 use identity_domain::{user::User, user::email::Email, user::repository::UserRepository};
@@ -367,4 +368,107 @@ impl UserRepository for PostgresUserRepository {
         Ok(())
     }
 
+
+    async fn list_oauth_connections(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<(String, String, Option<String>)>, RepositoryError> {
+        let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
+            "SELECT provider, subject, display_name FROM oauth_identities WHERE user_id = $1 ORDER BY provider",
+        )
+        .bind(user_id.uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows)
+    }
+
+    async fn link_connection(
+        &self,
+        provider: &str,
+        subject: &str,
+        user_id: &UserId,
+        display_name: &str,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query("DELETE FROM oauth_identities WHERE provider = $1 AND user_id = $2")
+            .bind(provider)
+            .bind(user_id.uuid())
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        let inserted = sqlx::query(
+            r#"
+                INSERT INTO oauth_identities (provider, subject, user_id, email, display_name)
+                VALUES ($1, $2, $3, '', $4)
+                ON CONFLICT (provider, subject) DO NOTHING
+            "#,
+        )
+        .bind(provider)
+        .bind(subject)
+        .bind(user_id.uuid())
+        .bind(display_name)
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if inserted.rows_affected() == 0 {
+            tx.rollback().await.map_err(map_sqlx_error_to_domain_error)?;
+            return Ok(false);
+        }
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
+    }
+
+    async fn unlink_connection(
+        &self,
+        user_id: &UserId,
+        provider: &str,
+    ) -> Result<bool, RepositoryError> {
+        let deleted =
+            sqlx::query("DELETE FROM oauth_identities WHERE provider = $1 AND user_id = $2")
+                .bind(provider)
+                .bind(user_id.uuid())
+                .execute(&self.pool)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(deleted.rows_affected() > 0)
+    }
+
+    async fn create_connection_state(
+        &self,
+        state: uuid::Uuid,
+        user_id: &UserId,
+        provider: &str,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query("DELETE FROM connection_states WHERE created_at < now() - interval '10 minutes'")
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query("INSERT INTO connection_states (state, user_id, provider) VALUES ($1, $2, $3)")
+            .bind(state)
+            .bind(user_id.uuid())
+            .bind(provider)
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn consume_connection_state(
+        &self,
+        state: uuid::Uuid,
+    ) -> Result<Option<(UserId, String, DateTime<Utc>)>, RepositoryError> {
+        let row: Option<(uuid::Uuid, String, DateTime<Utc>)> = sqlx::query_as(
+            "DELETE FROM connection_states WHERE state = $1 RETURNING user_id, provider, created_at",
+        )
+        .bind(state)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|(id, provider, created_at)| (UserId::new(id), provider, created_at)))
+    }
 }

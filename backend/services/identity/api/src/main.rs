@@ -5,6 +5,7 @@ mod internal;
 mod routes;
 mod server;
 mod state;
+mod connections;
 mod user;
 
 use std::error::Error;

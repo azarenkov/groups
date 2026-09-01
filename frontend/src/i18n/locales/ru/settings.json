@@ -115,7 +115,13 @@
     "available": "Доступные",
     "connect": "Подключить",
     "disconnect": "Отключить",
-    "noConnections": "Подключений пока нет."
+    "noConnections": "Подключений пока нет.",
+    "githubDesc": "Показывать ваш профиль GitHub.",
+    "steamDesc": "Профиль Steam и игровая активность.",
+    "connectedAs": "Подключено как {{name}}",
+    "notConfigured": "Провайдер не настроен на сервере.",
+    "failed": "Не удалось выполнить действие.",
+    "loadFailed": "Не удалось загрузить подключения."
   },
   "subscription": {
     "title": "Подписка",

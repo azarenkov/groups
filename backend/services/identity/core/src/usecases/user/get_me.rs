@@ -50,15 +50,13 @@ where
             .await?
             .ok_or(GetMeError::NotFound)?;
 
-        let mut linked_providers = Vec::new();
-        if self
+        let linked_providers = self
             .user_repository
-            .find_oauth_subject_for_user("google", user.id())
+            .list_oauth_connections(&user_id)
             .await?
-            .is_some()
-        {
-            linked_providers.push("google".to_string());
-        }
+            .into_iter()
+            .map(|(provider, _, _)| provider)
+            .collect();
 
         Ok(MeProfile {
             id: user.id().uuid(),

@@ -4,6 +4,9 @@ use crate::auth::{
     confirm_registration, google_complete, google_login, login_user, logout, refresh_tokens,
     register_user, request_verification_code,
 };
+use crate::connections::{
+    connection_callback, list_connections, remove_connection, start_connection, user_connections,
+};
 use crate::internal::internal_routes;
 use crate::user::{
     change_me_email, confirm_me_email, delete_me, disable_me, get_me, search_users,
@@ -39,7 +42,12 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(confirm_me_email)
                         .service(disable_me)
                         .service(delete_me)
-                        .service(update_me_profile),
-                ),
+                        .service(update_me_profile)
+                        .service(list_connections)
+                        .service(start_connection)
+                        .service(remove_connection)
+                        .service(user_connections),
+                )
+                .service(web::scope("/v1/connections").service(connection_callback)),
         );
 }

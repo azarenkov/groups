@@ -5570,3 +5570,7 @@ button.ssv-row-delete:focus-visible {
   z-index: 1200;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
+
+a.profile-chip.profile-conn { text-decoration: none; color: inherit; }
+.profile-chip.profile-conn { gap: 7px; }
+.profile-chip.profile-conn svg { flex-shrink: 0; }

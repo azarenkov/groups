@@ -18,6 +18,7 @@
   "about": "About",
   "memberSince": "Member since",
   "localTime": "Local time",
+  "connections": "Connections",
   "mutualServers": "Mutual servers — {{count}}",
   "viewProfile": "View profile",
   "copyLogin": "Copy login",

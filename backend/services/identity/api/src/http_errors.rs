@@ -845,3 +845,84 @@ impl HttpMapping for UpdateProfileError {
         }
     }
 }
+
+use identity::ports::connections::ConnectionProviderError;
+use identity::usecases::connections::{
+    list_connections::ListConnectionsError, remove_connection::RemoveConnectionError,
+    start_connection::StartConnectionError,
+};
+
+impl HttpMapping for StartConnectionError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            StartConnectionError::Repository(e) => e.to_http_status(),
+            StartConnectionError::UnknownProvider => StatusCode::BAD_REQUEST,
+            StartConnectionError::Provider(_) => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            StartConnectionError::Repository(e) => e.to_user_message(),
+            StartConnectionError::UnknownProvider => "Unknown connection provider".to_string(),
+            StartConnectionError::Provider(ConnectionProviderError::NotConfigured) => {
+                "This provider is not configured".to_string()
+            }
+            StartConnectionError::Provider(_) => "Provider is unavailable".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            StartConnectionError::Repository(e) => e.to_error_code(),
+            StartConnectionError::UnknownProvider => "UNKNOWN_PROVIDER",
+            StartConnectionError::Provider(ConnectionProviderError::NotConfigured) => {
+                "PROVIDER_NOT_CONFIGURED"
+            }
+            StartConnectionError::Provider(_) => "PROVIDER_UNAVAILABLE",
+        }
+    }
+}
+
+impl HttpMapping for ListConnectionsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListConnectionsError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListConnectionsError::Repository(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListConnectionsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for RemoveConnectionError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RemoveConnectionError::Repository(e) => e.to_http_status(),
+            RemoveConnectionError::UnknownProvider => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RemoveConnectionError::Repository(e) => e.to_user_message(),
+            RemoveConnectionError::UnknownProvider => "Unknown connection provider".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RemoveConnectionError::Repository(e) => e.to_error_code(),
+            RemoveConnectionError::UnknownProvider => "UNKNOWN_PROVIDER",
+        }
+    }
+}
