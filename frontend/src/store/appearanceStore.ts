@@ -62,6 +62,10 @@ export const applyAppearance = (s: AppearanceSettings) => {
     "--accent-tint-2",
     `color-mix(in srgb, ${s.accent} 24%, transparent)`,
   );
+  root.style.setProperty(
+    "--shadow-focus",
+    `0 0 0 4px color-mix(in srgb, ${s.accent} 22%, transparent)`,
+  );
   root.style.setProperty("--chat-font-size", `${s.chatFontSize}px`);
 };
 
