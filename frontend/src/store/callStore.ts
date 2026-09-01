@@ -287,7 +287,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       if (recipientIds.length === 1) {
         try {
           const target = await homeAPI.profile(recipientIds[0]);
-          if (!target.acceptsCalls) {
+          if (!target.acceptsCalls || !target.active) {
             get().setCallError(i18n.t("callNotAllowed", { ns: "call" }));
             return;
           }
