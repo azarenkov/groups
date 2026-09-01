@@ -581,6 +581,26 @@ function ConnectionsSection() {
       window.removeEventListener("pageshow", onReturn);
     };
   }, [load]);
+  const pollRef = React.useRef<number | null>(null);
+  const stopPolling = React.useCallback(() => {
+    if (pollRef.current !== null) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+  const startPolling = React.useCallback(() => {
+    stopPolling();
+    let ticks = 0;
+    pollRef.current = window.setInterval(() => {
+      ticks += 1;
+      if (ticks > 48) {
+        stopPolling();
+        return;
+      }
+      load();
+    }, 2500);
+  }, [load, stopPolling]);
+  React.useEffect(() => stopPolling, [stopPolling]);
   const providers: { id: string; name: string; icon: IconName; desc: string }[] = [
     { id: "github", name: "GitHub", icon: "github", desc: t("connections.githubDesc") },
     { id: "steam", name: "Steam", icon: "steam", desc: t("connections.steamDesc") },
@@ -589,20 +609,27 @@ function ConnectionsSection() {
     if (busy) return;
     setBusy(true);
     setError(null);
+    const popup = window.open("", "_blank");
     userAPI
       .startConnection(provider)
       .then((url) => {
-        window.location.href = url;
+        if (popup) {
+          popup.location.href = url;
+          startPolling();
+        } else {
+          window.location.href = url;
+        }
       })
       .catch((e) => {
+        popup?.close();
         const apiErr = e instanceof ApiError ? e : null;
         setError(
           apiErr?.code === "PROVIDER_NOT_CONFIGURED"
             ? t("connections.notConfigured")
             : t("connections.failed"),
         );
-        setBusy(false);
-      });
+      })
+      .finally(() => setBusy(false));
   };
   const disconnect = (provider: string) => {
     if (busy) return;
