@@ -569,6 +569,11 @@ function ConnectionsSection() {
   React.useEffect(() => {
     load();
   }, [load]);
+  React.useEffect(() => {
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [load]);
   const providers: { id: string; name: string; icon: IconName; desc: string }[] = [
     { id: "github", name: "GitHub", icon: "github", desc: t("connections.githubDesc") },
     { id: "steam", name: "Steam", icon: "steam", desc: t("connections.steamDesc") },

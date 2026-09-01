@@ -90,8 +90,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     ));
     let public_api_url =
         std::env::var("PUBLIC_API_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
-    let public_app_url =
-        std::env::var("PUBLIC_APP_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let public_app_url = std::env::var("PUBLIC_APP_URL").unwrap_or_default();
 
     let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
     let access_revocations_data = web::Data::new(access_revocations.clone());

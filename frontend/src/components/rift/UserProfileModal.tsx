@@ -7,6 +7,7 @@ import { useAuthStore } from "../../store/authStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
 import { usePresenceStore } from "../../store/presenceStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
+import { userAPI, type Connection } from "../../api/user";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 import { colorForId } from "../../utils/avatar";
@@ -65,6 +66,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);
+  const [connections, setConnections] = React.useState<Connection[]>([]);
   const [failed, setFailed] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
@@ -77,9 +79,24 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
 
   React.useEffect(() => {
     setProfile(null);
+    setConnections([]);
     setFailed(false);
     setMenuOpen(false);
     setCopied(false);
+  }, [userId]);
+
+  React.useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    userAPI
+      .userConnections(userId)
+      .then((items) => {
+        if (!cancelled) setConnections(items);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   React.useEffect(() => {
@@ -273,6 +290,36 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                   <div className="profile-value">{localTime ?? "—"}</div>
                 </div>
               </div>
+              {connections.length > 0 && (
+                <div className="profile-mutual">
+                  <div className="profile-label">{t("connections")}</div>
+                  <div className="profile-chips">
+                    {connections.map((c) => {
+                      const inner = (
+                        <>
+                          <Icon name={c.provider === "steam" ? "steam" : "github"} size={14} />
+                          <span>{c.displayName || c.provider}</span>
+                        </>
+                      );
+                      return c.url ? (
+                        <a
+                          key={c.provider}
+                          className="profile-chip profile-conn"
+                          href={c.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {inner}
+                        </a>
+                      ) : (
+                        <span key={c.provider} className="profile-chip profile-conn">
+                          {inner}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {profile && profile.mutualServers.length > 0 && (
                 <div className="profile-mutual">
                   <div className="profile-label">{t("mutualServers", { count: profile.mutualServers.length })}</div>

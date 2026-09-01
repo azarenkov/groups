@@ -55,7 +55,7 @@ where
             .list_oauth_connections(&user_id)
             .await?
             .into_iter()
-            .map(|(provider, _)| provider)
+            .map(|(provider, _, _)| provider)
             .collect();
 
         Ok(MeProfile {

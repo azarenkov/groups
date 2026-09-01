@@ -13,6 +13,7 @@ pub enum ListConnectionsError {
 #[derive(Debug)]
 pub struct ConnectionView {
     pub provider: String,
+    pub subject: String,
     pub display_name: String,
 }
 
@@ -34,9 +35,10 @@ impl<U: UserRepository> ListConnections<U> {
             .list_oauth_connections(&user_id)
             .await?
             .into_iter()
-            .filter(|(provider, _)| provider == "github" || provider == "steam")
-            .map(|(provider, display_name)| ConnectionView {
+            .filter(|(provider, _, _)| provider == "github" || provider == "steam")
+            .map(|(provider, subject, display_name)| ConnectionView {
                 display_name: display_name.unwrap_or_default(),
+                subject,
                 provider,
             })
             .collect())

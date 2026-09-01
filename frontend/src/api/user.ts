@@ -14,6 +14,7 @@ export interface Reauth {
 export interface Connection {
   provider: string;
   displayName: string;
+  url?: string | null;
 }
 
 export interface MeProfile {
@@ -98,6 +99,11 @@ class UserAPI {
 
   async removeConnection(provider: string): Promise<void> {
     await this.client.delete(`/v1/users/me/connections/${provider}`);
+  }
+
+  async userConnections(userId: string): Promise<Connection[]> {
+    const response = await this.client.get(`/v1/users/${userId}/connections`);
+    return response.data.data.connections;
   }
 
   async uploadAvatar(file: File): Promise<void> {

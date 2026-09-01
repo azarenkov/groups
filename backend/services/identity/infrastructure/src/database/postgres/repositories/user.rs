@@ -372,9 +372,9 @@ impl UserRepository for PostgresUserRepository {
     async fn list_oauth_connections(
         &self,
         user_id: &UserId,
-    ) -> Result<Vec<(String, Option<String>)>, RepositoryError> {
-        let rows: Vec<(String, Option<String>)> = sqlx::query_as(
-            "SELECT provider, display_name FROM oauth_identities WHERE user_id = $1 ORDER BY provider",
+    ) -> Result<Vec<(String, String, Option<String>)>, RepositoryError> {
+        let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
+            "SELECT provider, subject, display_name FROM oauth_identities WHERE user_id = $1 ORDER BY provider",
         )
         .bind(user_id.uuid())
         .fetch_all(&self.pool)

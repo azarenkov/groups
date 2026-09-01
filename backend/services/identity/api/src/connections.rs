@@ -5,6 +5,7 @@ use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use identity_domain::user::id::UserId;
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::http_errors::HttpError;
 use crate::state::AppState;
@@ -14,6 +15,17 @@ use crate::state::AppState;
 struct ConnectionItem {
     provider: String,
     display_name: String,
+    url: Option<String>,
+}
+
+fn connection_url(provider: &str, subject: &str, display_name: &str) -> Option<String> {
+    match provider {
+        "github" if !display_name.is_empty() => {
+            Some(format!("https://github.com/{display_name}"))
+        }
+        "steam" => Some(format!("https://steamcommunity.com/profiles/{subject}")),
+        _ => None,
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -39,6 +51,29 @@ pub async fn list_connections(
         connections: items
             .into_iter()
             .map(|c| ConnectionItem {
+                url: connection_url(&c.provider, &c.subject, &c.display_name),
+                provider: c.provider,
+                display_name: c.display_name,
+            })
+            .collect(),
+    })))
+}
+
+#[get("/{user_id}/connections")]
+pub async fn user_connections(
+    _auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, HttpError> {
+    let items = app_state
+        .list_connections_usecase
+        .execute(UserId::new(path.into_inner()))
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(ConnectionsResponse {
+        connections: items
+            .into_iter()
+            .map(|c| ConnectionItem {
+                url: connection_url(&c.provider, &c.subject, &c.display_name),
                 provider: c.provider,
                 display_name: c.display_name,
             })

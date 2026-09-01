@@ -57,7 +57,7 @@ pub trait UserRepository {
     async fn list_oauth_connections(
         &self,
         user_id: &UserId,
-    ) -> Result<Vec<(String, Option<String>)>, RepositoryError>;
+    ) -> Result<Vec<(String, String, Option<String>)>, RepositoryError>;
     async fn link_connection(
         &self,
         provider: &str,
