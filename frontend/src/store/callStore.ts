@@ -143,6 +143,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       if (s.activeCallId !== callId) return s;
       if (pendingLog && pendingLog.peerId === userId && !pendingLog.peerJoined) {
         pendingLog.peerJoined = true;
+        pendingLog.declined = false;
         pendingLog.answeredAt = Date.now();
       }
       return {

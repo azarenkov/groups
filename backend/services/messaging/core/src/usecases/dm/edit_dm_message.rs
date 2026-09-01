@@ -5,6 +5,7 @@ use chrono::Utc;
 use messaging_domain::{events::MessagingEvent, privacy::ContactPolicy, privacy::PrivacyRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
+use ports::user_profile::UserProfileRepository;
 use uuid::Uuid;
 
 use crate::{
@@ -26,34 +27,39 @@ pub enum EditDmMessageError {
     NotFriends,
     #[error("This user does not accept direct messages")]
     DmsClosed,
+    #[error("This user is unavailable")]
+    RecipientInactive,
     #[error("Invalid attachments")]
     InvalidAttachments,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
 }
 
-pub struct EditDmMessage<M, W, A, F, P>
+pub struct EditDmMessage<M, W, A, F, P, U>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     A: AttachmentClaims,
     F: FriendshipRepository,
     P: PrivacyRepository,
+    U: UserProfileRepository,
 {
     dm_repository: Arc<M>,
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
     friendship_repository: Arc<F>,
     privacy_repository: Arc<P>,
+    user_profile_repository: Arc<U>,
 }
 
-impl<M, W, A, F, P> EditDmMessage<M, W, A, F, P>
+impl<M, W, A, F, P, U> EditDmMessage<M, W, A, F, P, U>
 where
     M: DmMessageRepository,
     W: DmUnitOfWork,
     A: AttachmentClaims,
     F: FriendshipRepository,
     P: PrivacyRepository,
+    U: UserProfileRepository,
 {
     pub fn new(
         dm_repository: Arc<M>,
@@ -61,6 +67,7 @@ where
         attachment_claims: Arc<A>,
         friendship_repository: Arc<F>,
         privacy_repository: Arc<P>,
+        user_profile_repository: Arc<U>,
     ) -> Self {
         Self {
             dm_repository,
@@ -68,6 +75,7 @@ where
             attachment_claims,
             friendship_repository,
             privacy_repository,
+            user_profile_repository,
         }
     }
 
@@ -89,6 +97,14 @@ where
 
         if message.sender_id() != &editor_id {
             return Err(EditDmMessageError::NotFound);
+        }
+
+        if !self
+            .user_profile_repository
+            .is_active(message.recipient_id())
+            .await?
+        {
+            return Err(EditDmMessageError::RecipientInactive);
         }
 
         let pair = self

@@ -194,6 +194,7 @@ pub struct AppState {
         MediaClaimsClient,
         PostgresFriendshipRepository,
         PostgresPrivacyRepository,
+        PostgresUserProfileRepository,
     >,
     pub delete_dm_message_usecase: DeleteDmMessage<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,

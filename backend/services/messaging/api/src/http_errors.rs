@@ -1392,6 +1392,7 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::NotFound => StatusCode::NOT_FOUND,
             EditDmMessageError::NotFriends => StatusCode::FORBIDDEN,
             EditDmMessageError::DmsClosed => StatusCode::FORBIDDEN,
+            EditDmMessageError::RecipientInactive => StatusCode::FORBIDDEN,
             EditDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             EditDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -1408,6 +1409,7 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::DmsClosed => {
                 "This user does not accept direct messages".to_string()
             }
+            EditDmMessageError::RecipientInactive => "This user is unavailable".to_string(),
             EditDmMessageError::InvalidAttachments => {
                 "Attachments are invalid or unavailable".to_string()
             }
@@ -1424,6 +1426,7 @@ impl HttpMapping for EditDmMessageError {
             EditDmMessageError::NotFound => "DM_NOT_FOUND",
             EditDmMessageError::NotFriends => "NOT_FRIENDS",
             EditDmMessageError::DmsClosed => "DMS_CLOSED",
+            EditDmMessageError::RecipientInactive => "RECIPIENT_INACTIVE",
             EditDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             EditDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
         }

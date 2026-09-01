@@ -342,6 +342,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_claims.clone(),
             friendship_repository.clone(),
             privacy_repository.clone(),
+            user_repository.clone(),
         ),
         delete_dm_message_usecase: DeleteDmMessage::new(
             dm_repository.clone(),
