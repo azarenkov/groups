@@ -42,6 +42,8 @@
   "couldNotJoin": "Couldn't join channel.",
   "couldNotJoinServer": "Couldn't join the server.",
   "couldNotSend": "Couldn't send message.",
+  "dmsClosed": "This user does not accept direct messages.",
+  "recipientInactive": "This user is unavailable.",
   "messageCantBeEmpty": "Message can't be empty.",
   "chunkTooLong": "One of the chunks was too long.",
   "notifications": {

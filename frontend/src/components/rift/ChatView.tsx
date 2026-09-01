@@ -803,9 +803,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         ) {
           setAccessError(apiErr.message || "You haven't joined this channel yet.");
         } else if (isDm && apiErr?.code === "NOT_FRIENDS") {
-          setAccessError(
-            apiErr.message || "You are no longer friends with this user.",
-          );
+          setAccessError(i18n.t("notFriends", { ns: "chat" }));
         } else {
           console.warn("[ChatView] failed to load messages:", err);
         }
@@ -1300,6 +1298,12 @@ const ChatView: React.FC<ChatViewProps> = ({
         reportComposerError(i18n.t("messageCantBeEmpty", { ns: "chat" }));
       } else if (code === "MESSAGE_CONTENT_TOO_LONG") {
         reportComposerError(i18n.t("chunkTooLong", { ns: "chat" }));
+      } else if (code === "NOT_FRIENDS") {
+        reportComposerError(i18n.t("notFriends", { ns: "chat" }));
+      } else if (code === "DMS_CLOSED") {
+        reportComposerError(i18n.t("dmsClosed", { ns: "chat" }));
+      } else if (code === "RECIPIENT_INACTIVE") {
+        reportComposerError(i18n.t("recipientInactive", { ns: "chat" }));
       } else {
         console.warn("[ChatView] send failed:", err);
         reportComposerError(apiErr?.message || i18n.t("couldNotSend", { ns: "chat" }));
