@@ -36,6 +36,7 @@ import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
+import { homeAPI } from "../../api/home";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -532,6 +533,29 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [loadingOlder, setLoadingOlder] = React.useState(false);
   const [hasMore, setHasMore] = React.useState(false);
   const [composerError, setComposerError] = React.useState<string | null>(null);
+  const [peerAcceptsMessages, setPeerAcceptsMessages] = React.useState<
+    boolean | null
+  >(null);
+  const dmPeerId = dm?.friendId;
+  const dmIsFriend = dm?.isFriend;
+  React.useEffect(() => {
+    if (!dmPeerId || dmIsFriend !== false) {
+      setPeerAcceptsMessages(null);
+      return;
+    }
+    let cancelled = false;
+    homeAPI
+      .profile(dmPeerId)
+      .then((p) => {
+        if (!cancelled) setPeerAcceptsMessages(p.acceptsMessages);
+      })
+      .catch(() => {
+        if (!cancelled) setPeerAcceptsMessages(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dmPeerId, dmIsFriend]);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editText, setEditText] = React.useState("");
   const [savingEdit, setSavingEdit] = React.useState(false);
@@ -1711,7 +1735,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         )}
       </div>
       </div>
-      {!callMode && dm && dm.isFriend === false && (
+      {!callMode && dm && dm.isFriend === false && peerAcceptsMessages === false && (
         <div className="composer-locked">
           <span className="composer-locked-text">
             {dm.friendship === "pending_outgoing"
