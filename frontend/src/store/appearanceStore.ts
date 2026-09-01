@@ -164,6 +164,7 @@ const scheduleSave = (
     pendingOwner = owner;
   }
   pendingPatch = { ...pendingPatch, ...patch };
+  saveAttempts = 0;
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = null;
@@ -207,15 +208,20 @@ export const useAppearanceStore = create<AppearanceState>()(
         }
         const startSeq = editSeq;
         const mySync = ++syncSeq;
+        const preservedKeys = new Set<(typeof SETTING_KEYS)[number]>();
+        for (const key of SETTING_KEYS) {
+          if (
+            (pendingPatch[key] !== undefined && pendingOwner === userId) ||
+            (inFlightPatch[key] !== undefined && inFlightOwner === userId)
+          ) {
+            preservedKeys.add(key);
+          }
+        }
         const preserveRecentEdits = (base: AppearanceSettings) => {
           const merged = { ...base };
           const current = get();
           for (const key of SETTING_KEYS) {
-            if (
-              editStamp[key] > startSeq ||
-              (pendingPatch[key] !== undefined && pendingOwner === userId) ||
-              (inFlightPatch[key] !== undefined && inFlightOwner === userId)
-            ) {
+            if (editStamp[key] > startSeq || preservedKeys.has(key)) {
               Object.assign(merged, { [key]: current[key] });
             }
           }
