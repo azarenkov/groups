@@ -415,8 +415,12 @@ impl UserRepository for PostgresUserRepository {
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        if inserted.rows_affected() == 0 {
+            tx.rollback().await.map_err(map_sqlx_error_to_domain_error)?;
+            return Ok(false);
+        }
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(inserted.rows_affected() > 0)
+        Ok(true)
     }
 
     async fn unlink_connection(
@@ -440,6 +444,10 @@ impl UserRepository for PostgresUserRepository {
         user_id: &UserId,
         provider: &str,
     ) -> Result<(), RepositoryError> {
+        sqlx::query("DELETE FROM connection_states WHERE created_at < now() - interval '10 minutes'")
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
         sqlx::query("INSERT INTO connection_states (state, user_id, provider) VALUES ($1, $2, $3)")
             .bind(state)
             .bind(user_id.uuid())

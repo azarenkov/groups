@@ -563,7 +563,10 @@ function ConnectionsSection() {
   const load = React.useCallback(() => {
     userAPI
       .listConnections()
-      .then(setConnections)
+      .then((items) => {
+        setConnections(items);
+        setError(null);
+      })
       .catch(() => setError(t("connections.loadFailed")));
   }, [t]);
   React.useEffect(() => {
@@ -588,18 +591,28 @@ function ConnectionsSection() {
       pollRef.current = null;
     }
   }, []);
-  const startPolling = React.useCallback(() => {
-    stopPolling();
-    let ticks = 0;
-    pollRef.current = window.setInterval(() => {
-      ticks += 1;
-      if (ticks > 48) {
-        stopPolling();
-        return;
-      }
-      load();
-    }, 2500);
-  }, [load, stopPolling]);
+  const startPolling = React.useCallback(
+    (provider: string) => {
+      stopPolling();
+      let ticks = 0;
+      pollRef.current = window.setInterval(() => {
+        ticks += 1;
+        if (ticks > 48) {
+          stopPolling();
+          return;
+        }
+        userAPI
+          .listConnections()
+          .then((items) => {
+            setConnections(items);
+            setError(null);
+            if (items.some((c) => c.provider === provider)) stopPolling();
+          })
+          .catch(() => {});
+      }, 2500);
+    },
+    [stopPolling],
+  );
   React.useEffect(() => stopPolling, [stopPolling]);
   const providers: { id: string; name: string; icon: IconName; desc: string }[] = [
     { id: "github", name: "GitHub", icon: "github", desc: t("connections.githubDesc") },
@@ -615,7 +628,7 @@ function ConnectionsSection() {
       .then((url) => {
         if (popup) {
           popup.location.href = url;
-          startPolling();
+          startPolling(provider);
         } else {
           window.location.href = url;
         }
