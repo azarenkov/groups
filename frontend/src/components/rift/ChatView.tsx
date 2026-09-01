@@ -34,9 +34,7 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
-import { useFriendshipStore } from "../../store/friendshipStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
-import { homeAPI } from "../../api/home";
 import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
@@ -533,29 +531,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [loadingOlder, setLoadingOlder] = React.useState(false);
   const [hasMore, setHasMore] = React.useState(false);
   const [composerError, setComposerError] = React.useState<string | null>(null);
-  const [peerAcceptsMessages, setPeerAcceptsMessages] = React.useState<
-    boolean | null
-  >(null);
-  const dmPeerId = dm?.friendId;
-  const dmIsFriend = dm?.isFriend;
-  React.useEffect(() => {
-    if (!dmPeerId || dmIsFriend !== false) {
-      setPeerAcceptsMessages(null);
-      return;
-    }
-    let cancelled = false;
-    homeAPI
-      .profile(dmPeerId)
-      .then((p) => {
-        if (!cancelled) setPeerAcceptsMessages(p.acceptsMessages);
-      })
-      .catch(() => {
-        if (!cancelled) setPeerAcceptsMessages(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [dmPeerId, dmIsFriend]);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editText, setEditText] = React.useState("");
   const [savingEdit, setSavingEdit] = React.useState(false);
@@ -1735,52 +1710,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         )}
       </div>
       </div>
-      {!callMode && dm && dm.isFriend === false && peerAcceptsMessages === false && (
-        <div className="composer-locked">
-          <span className="composer-locked-text">
-            {dm.friendship === "pending_outgoing"
-              ? t("friendRequestPending", { user: dm.name })
-              : dm.friendship === "pending_incoming"
-                ? t("friendRequestIncoming", { user: dm.name })
-                : t("notFriendsNotice", { user: dm.name })}
-          </span>
-          {dm.friendship === "pending_outgoing" ? (
-            <button type="button" className="btn" disabled>
-              <Icon name="check" size={13} />
-              {t("friendRequestSent")}
-            </button>
-          ) : dm.friendship === "pending_incoming" ? (
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() =>
-                useFriendshipStore
-                  .getState()
-                  .accept(dm.friendId)
-                  .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
-              }
-            >
-              <Icon name="check" size={13} />
-              {t("acceptFriendRequest")}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() =>
-                useFriendshipStore
-                  .getState()
-                  .sendRequest(dm.name)
-                  .catch((e) => setComposerError((e as ApiError)?.message || t("couldNotSend")))
-              }
-            >
-              <Icon name="user-plus" size={13} />
-              {t("addFriend")}
-            </button>
-          )}
-          {composerError && <div className="composer-error">{composerError}</div>}
-        </div>
-      )}
       {!callMode && (
       <form className="composer" onSubmit={handleSend}>
         {pendingFiles.length > 0 && (
