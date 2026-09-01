@@ -68,6 +68,7 @@ let pendingPatch: Partial<AppearanceSettings> = {};
 let pendingOwner: string | null = null;
 let inFlight = false;
 let inFlightPatch: Partial<AppearanceSettings> = {};
+let inFlightOwner: string | null = null;
 let saveAttempts = 0;
 let editSeq = 0;
 let syncSeq = 0;
@@ -110,6 +111,7 @@ const flushSave = async (): Promise<void> => {
   if (Object.keys(body).length === 0) return;
   inFlight = true;
   inFlightPatch = patch;
+  inFlightOwner = owner;
   try {
     const { useAuthStore } = await import("./authStore");
     const currentId = useAuthStore.getState().user?.id ?? null;
@@ -134,6 +136,7 @@ const flushSave = async (): Promise<void> => {
   } finally {
     inFlight = false;
     inFlightPatch = {};
+    inFlightOwner = null;
     if (
       saveAttempts === 0 &&
       saveTimer === null &&
@@ -186,6 +189,8 @@ export const useAppearanceStore = create<AppearanceState>()(
         const switched = prevOwner !== null && prevOwner !== userId;
         if (switched) {
           cancelPendingSaves();
+        }
+        if (prevOwner !== userId) {
           pendingOwner = userId;
           set({ ownerId: userId });
         }
@@ -197,8 +202,8 @@ export const useAppearanceStore = create<AppearanceState>()(
           for (const key of SETTING_KEYS) {
             if (
               editStamp[key] > startSeq ||
-              pendingPatch[key] !== undefined ||
-              inFlightPatch[key] !== undefined
+              (pendingPatch[key] !== undefined && pendingOwner === userId) ||
+              (inFlightPatch[key] !== undefined && inFlightOwner === userId)
             ) {
               Object.assign(merged, { [key]: current[key] });
             }
