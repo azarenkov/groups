@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, left_at, created_at)\n                SELECT call_id, user_id, inviter_id, answered_at, status = 'declined',\n                       CASE WHEN status = 'left' THEN updated_at END, $3\n                FROM call_participants\n                WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "59ef0bde3f3ac76b5b536bd5219e944fd959f752369b52a0bad0ac9585ada8c2"
+}

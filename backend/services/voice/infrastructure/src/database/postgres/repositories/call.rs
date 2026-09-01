@@ -266,8 +266,9 @@ impl CallRepository for PostgresCallRepository {
         for invitee in invitees {
             sqlx::query!(
                 r#"
-                INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, created_at)
-                SELECT call_id, user_id, inviter_id, answered_at, status = 'declined', $3
+                INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, left_at, created_at)
+                SELECT call_id, user_id, inviter_id, answered_at, status = 'declined',
+                       CASE WHEN status = 'left' THEN updated_at END, $3
                 FROM call_participants
                 WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')
                 "#,
@@ -529,13 +530,30 @@ impl CallRepository for PostgresCallRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         let caller_present = rows.iter().any(|r| r.user_id == caller.uuid());
-        let caller_in_call = rows
-            .iter()
-            .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined"));
-        let caller_left_at = rows
+        let caller_archive = sqlx::query!(
+            r#"
+            SELECT MIN(left_at) AS earliest_left
+            FROM call_invite_outcomes
+            WHERE call_id = $1 AND user_id = $2
+            "#,
+            call_id,
+            caller.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let caller_in_call = caller_archive.earliest_left.is_none()
+            && rows
+                .iter()
+                .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined"));
+        let current_caller_left = rows
             .iter()
             .find(|r| r.user_id == caller.uuid() && r.status == "left")
             .map(|r| r.updated_at);
+        let caller_left_at = match (current_caller_left, caller_archive.earliest_left) {
+            (Some(c), Some(a)) => Some(c.min(a)),
+            (c, a) => c.or(a),
+        };
         let callee_row = rows.iter().find(|r| r.user_id == callee.uuid());
         let archived = sqlx::query!(
             r#"
