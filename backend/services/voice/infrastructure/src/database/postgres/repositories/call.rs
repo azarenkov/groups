@@ -583,10 +583,10 @@ impl CallRepository for PostgresCallRepository {
             (Some(c), Some(a)) => Some(c.min(a)),
             (c, a) => c.or(a),
         };
-        let caller_in_call = caller_left_at.is_none()
-            && rows
-                .iter()
-                .any(|r| r.user_id == caller.uuid() && matches!(r.status.as_str(), "invited" | "joined"));
+        let caller_in_call = rows
+            .iter()
+            .any(|r| r.user_id == caller.uuid() && r.status == "joined")
+            && !(callee_answered_at.is_some() && caller_left_at.is_some());
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),
             caller_in_call,
