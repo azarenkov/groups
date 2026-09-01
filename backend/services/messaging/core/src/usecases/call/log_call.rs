@@ -14,8 +14,6 @@ pub enum LogCallError {
     Repository(#[from] RepositoryError),
     #[error("Message error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Invalid call status")]
-    InvalidStatus,
     #[error("You cannot log a call with yourself")]
     SelfCall,
     #[error("Call could not be verified")]
@@ -52,12 +50,9 @@ where
         sender_id: UserId,
         recipient_id: Uuid,
         call_id: Uuid,
-        status: String,
+        _status: String,
         _duration_seconds: Option<i32>,
     ) -> Result<(), LogCallError> {
-        if !matches!(status.as_str(), "completed" | "declined" | "missed") {
-            return Err(LogCallError::InvalidStatus);
-        }
         let recipient_id = UserId::new(recipient_id);
         if sender_id == recipient_id {
             return Err(LogCallError::SelfCall);
@@ -66,28 +61,23 @@ where
             .call_participation
             .call_outcome(call_id, &sender_id, &recipient_id)
             .await?;
-        if !outcome.participated || !outcome.callee_invited_by_caller || outcome.caller_in_call {
+        if !outcome.participated
+            || !outcome.callee_invited_by_caller
+            || outcome.caller_in_call
+            || outcome.callee_pending
+        {
             return Err(LogCallError::CallNotVerified);
         }
         let now = Utc::now();
-        let verified = match status.as_str() {
-            "completed" => outcome.callee_answered_at.is_some(),
-            "declined" => outcome.callee_declined && !outcome.callee_pending,
-            _ => {
-                outcome.callee_answered_at.is_none()
-                    && !outcome.callee_declined
-                    && !outcome.callee_pending
-            }
-        };
-        if !verified {
-            return Err(LogCallError::CallNotVerified);
-        }
-        let duration_seconds = match (status.as_str(), outcome.callee_answered_at) {
-            ("completed", Some(answered_at)) => {
-                let ended_at = outcome.caller_left_at.unwrap_or(now);
-                Some((ended_at - answered_at).num_seconds().clamp(0, i64::from(i32::MAX)) as i32)
-            }
-            _ => None,
+        let (status, duration_seconds) = if let Some(answered_at) = outcome.callee_answered_at {
+            let ended_at = outcome.caller_left_at.unwrap_or(now);
+            let duration =
+                (ended_at - answered_at).num_seconds().clamp(0, i64::from(i32::MAX)) as i32;
+            ("completed".to_string(), Some(duration))
+        } else if outcome.callee_declined {
+            ("declined".to_string(), None)
+        } else {
+            ("missed".to_string(), None)
         };
         let content = MessageContent::new("call".to_string())?;
         let mut message =

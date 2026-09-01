@@ -646,7 +646,6 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_http_status(),
             LogCallError::Domain(e) => e.to_http_status(),
-            LogCallError::InvalidStatus => StatusCode::BAD_REQUEST,
             LogCallError::SelfCall => StatusCode::BAD_REQUEST,
             LogCallError::CallNotVerified => StatusCode::FORBIDDEN,
             LogCallError::AlreadyLogged => StatusCode::CONFLICT,
@@ -657,7 +656,6 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_user_message(),
             LogCallError::Domain(e) => e.to_user_message(),
-            LogCallError::InvalidStatus => "Invalid call status".to_string(),
             LogCallError::SelfCall => "You cannot log a call with yourself".to_string(),
             LogCallError::CallNotVerified => "Call could not be verified".to_string(),
             LogCallError::AlreadyLogged => "This call is already logged".to_string(),
@@ -668,7 +666,6 @@ impl HttpMapping for LogCallError {
         match self {
             LogCallError::Repository(e) => e.to_error_code(),
             LogCallError::Domain(e) => e.to_error_code(),
-            LogCallError::InvalidStatus => "INVALID_CALL_STATUS",
             LogCallError::SelfCall => "SELF_CALL",
             LogCallError::CallNotVerified => "CALL_NOT_VERIFIED",
             LogCallError::AlreadyLogged => "CALL_ALREADY_LOGGED",
