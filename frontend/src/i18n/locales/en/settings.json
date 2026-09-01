@@ -144,7 +144,7 @@
     "interface": "Interface",
     "reduceMotion": "Reduce motion",
     "reduceMotionHint": "Minimize transitions and animations.",
-    "fontSize": "Font size"
+    "fontSize": "Chat font size"
   },
   "voice": {
     "title": "Voice & Video",
