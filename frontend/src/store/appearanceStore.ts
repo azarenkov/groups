@@ -67,8 +67,10 @@ let saveTimer: number | null = null;
 let pendingPatch: Partial<AppearanceSettings> = {};
 let pendingOwner: string | null = null;
 let inFlight = false;
+let inFlightPatch: Partial<AppearanceSettings> = {};
 let saveAttempts = 0;
 let editSeq = 0;
+let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
   mode: 0,
   accent: 0,
@@ -107,6 +109,7 @@ const flushSave = async (): Promise<void> => {
   const body = toServerPatch(patch);
   if (Object.keys(body).length === 0) return;
   inFlight = true;
+  inFlightPatch = patch;
   try {
     const { useAuthStore } = await import("./authStore");
     const currentId = useAuthStore.getState().user?.id ?? null;
@@ -118,16 +121,19 @@ const flushSave = async (): Promise<void> => {
     saveAttempts = 0;
   } catch (err) {
     console.warn("[appearance] save failed:", err);
-    pendingPatch = { ...patch, ...pendingPatch };
-    saveAttempts += 1;
-    if (saveAttempts <= 5 && saveTimer === null) {
-      saveTimer = window.setTimeout(() => {
-        saveTimer = null;
-        void flushSave();
-      }, 5000);
+    if (owner === pendingOwner) {
+      pendingPatch = { ...patch, ...pendingPatch };
+      saveAttempts += 1;
+      if (saveAttempts <= 5 && saveTimer === null) {
+        saveTimer = window.setTimeout(() => {
+          saveTimer = null;
+          void flushSave();
+        }, 5000);
+      }
     }
   } finally {
     inFlight = false;
+    inFlightPatch = {};
     if (
       saveAttempts === 0 &&
       saveTimer === null &&
@@ -181,8 +187,12 @@ export const useAppearanceStore = create<AppearanceState>()(
           pendingOwner = userId;
         }
         const startSeq = editSeq;
+        const mySync = ++syncSeq;
         try {
           const saved = await userAPI.getAppearance();
+          const { useAuthStore } = await import("./authStore");
+          const authedId = useAuthStore.getState().user?.id ?? null;
+          if (syncSeq !== mySync || authedId !== userId) return;
           if (!saved) {
             const sameOwner =
               get().ownerId === null || get().ownerId === userId;
@@ -210,7 +220,11 @@ export const useAppearanceStore = create<AppearanceState>()(
           };
           const current = get();
           for (const key of SETTING_KEYS) {
-            if (editStamp[key] > startSeq) {
+            if (
+              editStamp[key] > startSeq ||
+              pendingPatch[key] !== undefined ||
+              inFlightPatch[key] !== undefined
+            ) {
               Object.assign(next, { [key]: current[key] });
             }
           }
