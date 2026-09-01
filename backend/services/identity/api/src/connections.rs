@@ -111,34 +111,40 @@ const RESULT_PAGE: &str = r##"<!doctype html>
 <html lang="__LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title><style>
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-background:#0b0d10;color:#e6e8eb;font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.card{max-width:400px;margin:24px;padding:34px 32px 36px;border-radius:16px;background:#14171c;
-box-shadow:0 12px 40px rgba(0,0,0,.45);text-align:center}
-.brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px;
-font-size:19px;font-weight:700;letter-spacing:.3px}
-.badge{width:52px;height:52px;margin:0 auto 18px;border-radius:50%;display:flex;
-align-items:center;justify-content:center;font-size:24px;font-weight:700;
-background:__BADGE_BG__;color:#fff}
-h1{margin:0 0 10px;font-size:20px}
-p{margin:0;color:#9aa1a9}
-a{display:inline-block;margin-top:24px;padding:10px 22px;border-radius:10px;background:#3b82f6;
-color:#fff;text-decoration:none;font-weight:600}
-</style></head><body><div class="card">
-<div class="brand">
-<svg width="30" height="30" viewBox="0 0 48 48" fill="none">
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;
+background:#0d0d0f;color:#f5f5f7;
+font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.topbar{height:52px;display:flex;align-items:center;padding:0 24px;flex-shrink:0}
+.brand{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+letter-spacing:-0.005em;color:#f5f5f7}
+.wrap{flex:1;display:flex;padding:24px}
+.card{width:360px;max-width:100%;margin:auto;text-align:center}
+.badge{width:56px;height:56px;margin:0 auto 20px;border-radius:50%;display:flex;
+align-items:center;justify-content:center;font-size:26px;font-weight:700;
+background:__BADGE_BG__;color:__BADGE_FG__}
+h1{font-size:26px;font-weight:600;letter-spacing:-0.022em;margin:0 0 6px}
+.sub{font-size:14px;color:#8e8e93;margin:0}
+a.btn{display:block;margin-top:28px;padding:12px;border-radius:10px;background:#0a84ff;
+color:#fff;text-decoration:none;font-size:14px;font-weight:600;
+transition:background 120ms ease}
+a.btn:hover{background:#1a90ff}
+</style></head><body>
+<div class="topbar"><span class="brand">
+<svg width="22" height="22" viewBox="0 0 48 48" fill="none">
 <mask id="gap"><rect width="48" height="48" fill="white"/>
 <rect x="22.5" y="0" width="3" height="48" fill="black"/></mask>
-<g mask="url(#gap)" stroke="#e6e8eb" fill="none">
+<g mask="url(#gap)" stroke="#f5f5f7" fill="none">
 <circle cx="24" cy="24" r="14" stroke-width="3"/>
 <circle cx="24" cy="24" r="7.5" stroke-width="1.75" opacity="0.7"/>
 </g></svg>
 <span>Rift</span>
-</div>
+</span></div>
+<div class="wrap"><div class="card">
 <div class="badge">__BADGE__</div>
-<h1>__TITLE__</h1><p>__BODY__</p>
+<h1>__TITLE__</h1><p class="sub">__BODY__</p>
 __ACTION__
-</div></body></html>"##;
+</div></div></body></html>"##;
 
 fn provider_title(provider: &str) -> &str {
     match provider {
@@ -174,14 +180,18 @@ fn result_page(lang_ru: bool, ok: bool, provider: &str, app_href: Option<&str>) 
     };
     RESULT_PAGE
         .replace("__LANG__", if lang_ru { "ru" } else { "en" })
-        .replace("__BADGE_BG__", if ok { "#22a06b" } else { "#e5484d" })
+        .replace(
+            "__BADGE_BG__",
+            if ok { "rgba(48,209,88,0.15)" } else { "rgba(255,69,58,0.15)" },
+        )
+        .replace("__BADGE_FG__", if ok { "#30d158" } else { "#ff453a" })
         .replace("__BADGE__", if ok { "&#10003;" } else { "!" })
         .replace("__TITLE__", &title)
         .replace("__BODY__", &body)
         .replace(
             "__ACTION__",
             &app_href
-                .map(|href| format!("<a href=\"{href}\">{button}</a>"))
+                .map(|href| format!("<a class=\"btn\" href=\"{href}\">{button}</a>"))
                 .unwrap_or_default(),
         )
 }

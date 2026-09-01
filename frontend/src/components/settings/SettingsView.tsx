@@ -570,9 +570,16 @@ function ConnectionsSection() {
     load();
   }, [load]);
   React.useEffect(() => {
-    const onFocus = () => load();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    const onReturn = () => {
+      setBusy(false);
+      load();
+    };
+    window.addEventListener("focus", onReturn);
+    window.addEventListener("pageshow", onReturn);
+    return () => {
+      window.removeEventListener("focus", onReturn);
+      window.removeEventListener("pageshow", onReturn);
+    };
   }, [load]);
   const providers: { id: string; name: string; icon: IconName; desc: string }[] = [
     { id: "github", name: "GitHub", icon: "github", desc: t("connections.githubDesc") },
