@@ -195,12 +195,15 @@ export const useAppearanceStore = create<AppearanceState>()(
         const { userAPI } = await import("../api/user");
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;
-        if (switched) {
-          cancelPendingSaves();
-        }
         if (prevOwner !== userId) {
+          if (switched) {
+            cancelPendingSaves();
+            set({ ...DEFAULT_SETTINGS, ownerId: userId });
+            applyAppearance(DEFAULT_SETTINGS);
+          } else {
+            set({ ownerId: userId });
+          }
           pendingOwner = userId;
-          set({ ownerId: userId });
         }
         const startSeq = editSeq;
         const mySync = ++syncSeq;
