@@ -35,6 +35,7 @@ export interface PublicProfile {
   timezone: string;
   memberSince: string | null;
   acceptsCalls: boolean;
+  acceptsMessages: boolean;
   acceptsFriendRequests: boolean;
   mutualServers: { id: string; name: string; accentColor: string | null }[];
   voiceRoom: { channelId: string; channelName: string; serverId: string; serverName: string } | null;

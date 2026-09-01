@@ -556,8 +556,9 @@ impl CallRepository for PostgresCallRepository {
             (Some(c), Some(a)) => Some(c.min(a)),
             (c, a) => c.or(a),
         };
-        let callee_declined = current.map(|r| r.status == "declined").unwrap_or(false)
-            || archived.declined.unwrap_or(false);
+        let callee_declined = callee_answered_at.is_none()
+            && (current.map(|r| r.status == "declined").unwrap_or(false)
+                || archived.declined.unwrap_or(false));
         let callee_pending = current.map(|r| r.status == "invited").unwrap_or(false);
         Ok(CallPairOutcome {
             participated: caller_present && callee_row.is_some(),

@@ -112,6 +112,7 @@ struct PublicProfileResponse {
     timezone: String,
     member_since: Option<DateTime<Utc>>,
     accepts_calls: bool,
+    accepts_messages: bool,
     accepts_friend_requests: bool,
     mutual_servers: Vec<MutualServerItem>,
     voice_room: Option<VoiceRoomItem>,
@@ -133,18 +134,19 @@ async fn get_user_profile(
         .get(&UserId::new(target_id))
         .await
         .map_err(HttpError::from)?;
-    let accepts_calls = match settings.call_policy {
+    let pair = app_state
+        .friendship_repository
+        .find_pair(&UserId::new(auth_token.id), &UserId::new(target_id))
+        .await
+        .map_err(HttpError::from)?;
+    let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
+    let permits = |policy: ContactPolicy| match policy {
         ContactPolicy::All => true,
         ContactPolicy::NoOne => false,
-        ContactPolicy::Friends => {
-            let pair = app_state
-                .friendship_repository
-                .find_pair(&UserId::new(auth_token.id), &UserId::new(target_id))
-                .await
-                .map_err(HttpError::from)?;
-            matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted)
-        }
+        ContactPolicy::Friends => are_friends,
     };
+    let accepts_calls = permits(settings.call_policy);
+    let accepts_messages = permits(settings.dm_policy);
     let accepts_friend_requests = settings.accept_friend_requests;
     Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
         id: view.profile.user_id.uuid(),
@@ -155,6 +157,7 @@ async fn get_user_profile(
         timezone: view.profile.timezone,
         member_since: view.profile.registered_at,
         accepts_calls,
+        accepts_messages,
         accepts_friend_requests,
         mutual_servers: view
             .mutual_servers
