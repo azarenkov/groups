@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { callAPI } from "../api/call";
+import { homeAPI } from "../api/home";
+import i18n from "../i18n";
 import { ApiError } from "../utils/apiError";
 import { getLiveKitService } from "../services/livekit";
 
@@ -281,7 +283,18 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
 
   start: async (recipientIds) => {
-    if (get().activeCallId) await get().leave();
+    if (get().activeCallId) {
+      if (recipientIds.length === 1) {
+        try {
+          const target = await homeAPI.profile(recipientIds[0]);
+          if (!target.acceptsCalls) {
+            get().setCallError(i18n.t("callNotAllowed", { ns: "call" }));
+            return;
+          }
+        } catch {}
+      }
+      await get().leave();
+    }
     set({ connecting: true });
     const session = await callAPI.start(recipientIds).catch((e) => {
       set({ connecting: false });
