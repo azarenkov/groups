@@ -182,42 +182,17 @@ export const useAppearanceStore = create<AppearanceState>()(
 
       syncFromServer: async (userId) => {
         const { userAPI } = await import("../api/user");
-        if (get().ownerId !== null && get().ownerId !== userId) {
+        const prevOwner = get().ownerId;
+        const switched = prevOwner !== null && prevOwner !== userId;
+        if (switched) {
           cancelPendingSaves();
           pendingOwner = userId;
+          set({ ownerId: userId });
         }
         const startSeq = editSeq;
         const mySync = ++syncSeq;
-        try {
-          const saved = await userAPI.getAppearance();
-          const { useAuthStore } = await import("./authStore");
-          const authedId = useAuthStore.getState().user?.id ?? null;
-          if (syncSeq !== mySync || authedId !== userId) return;
-          if (!saved) {
-            const sameOwner =
-              get().ownerId === null || get().ownerId === userId;
-            const local: AppearanceSettings = sameOwner
-              ? {
-                  mode: get().mode,
-                  accent: get().accent,
-                  chatFontSize: get().chatFontSize,
-                  reduceMotion: get().reduceMotion,
-                }
-              : { ...DEFAULT_SETTINGS };
-            set({ ...local, ownerId: userId });
-            applyAppearance(local);
-            if (sameOwner) scheduleSave(local, userId);
-            return;
-          }
-          const next: AppearanceSettings = {
-            mode:
-              saved.theme === "light" || saved.theme === "dark"
-                ? saved.theme
-                : "system",
-            accent: saved.accent || DEFAULT_ACCENT,
-            chatFontSize: saved.chatFontSize,
-            reduceMotion: saved.reduceMotion,
-          };
+        const preserveRecentEdits = (base: AppearanceSettings) => {
+          const merged = { ...base };
           const current = get();
           for (const key of SETTING_KEYS) {
             if (
@@ -225,9 +200,41 @@ export const useAppearanceStore = create<AppearanceState>()(
               pendingPatch[key] !== undefined ||
               inFlightPatch[key] !== undefined
             ) {
-              Object.assign(next, { [key]: current[key] });
+              Object.assign(merged, { [key]: current[key] });
             }
           }
+          return merged;
+        };
+        try {
+          const saved = await userAPI.getAppearance();
+          const { useAuthStore } = await import("./authStore");
+          const authedId = useAuthStore.getState().user?.id ?? null;
+          if (syncSeq !== mySync || authedId !== userId) return;
+          if (!saved) {
+            const local = preserveRecentEdits(
+              switched
+                ? { ...DEFAULT_SETTINGS }
+                : {
+                    mode: get().mode,
+                    accent: get().accent,
+                    chatFontSize: get().chatFontSize,
+                    reduceMotion: get().reduceMotion,
+                  },
+            );
+            set({ ...local, ownerId: userId });
+            applyAppearance(local);
+            if (!switched) scheduleSave(local, userId);
+            return;
+          }
+          const next = preserveRecentEdits({
+            mode:
+              saved.theme === "light" || saved.theme === "dark"
+                ? saved.theme
+                : "system",
+            accent: saved.accent || DEFAULT_ACCENT,
+            chatFontSize: saved.chatFontSize,
+            reduceMotion: saved.reduceMotion,
+          });
           set({ ...next, ownerId: userId });
           applyAppearance(next);
         } catch (err) {
