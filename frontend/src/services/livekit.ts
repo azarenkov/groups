@@ -71,6 +71,7 @@ export class LiveKitService {
   private preferredSpeakerId: string | null = null;
   private masterVolume: number = 1.0;
   private defaultNoiseSuppression: boolean = true;
+  private pushToTalkEnforced: boolean = false;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -235,6 +236,9 @@ export class LiveKitService {
 
       if (!startMuted) {
         await this.enableMicrophone();
+      }
+      if (this.pushToTalkEnforced) {
+        this.setMicrophoneMuted(true);
       }
 
       this.isConnecting = false;
@@ -1167,10 +1171,8 @@ export class LiveKitService {
       prefs.micDeviceId !== this.preferredMicId
     ) {
       this.preferredMicId = prefs.micDeviceId;
-      if (this.room && this.preferredMicId) {
-        this.room
-          .switchActiveDevice("audioinput", this.preferredMicId)
-          .catch((e) => console.warn("[LiveKitService] mic switch failed:", e));
+      if (this.room) {
+        void this.switchDevice("audioinput", this.preferredMicId);
       }
     }
     if (
@@ -1178,17 +1180,46 @@ export class LiveKitService {
       prefs.speakerDeviceId !== this.preferredSpeakerId
     ) {
       this.preferredSpeakerId = prefs.speakerDeviceId;
-      if (this.room && this.preferredSpeakerId) {
-        this.room
-          .switchActiveDevice("audiooutput", this.preferredSpeakerId)
-          .catch((e) =>
-            console.warn("[LiveKitService] speaker switch failed:", e),
-          );
+      if (this.room) {
+        void this.switchDevice("audiooutput", this.preferredSpeakerId);
       }
     }
     if (prefs.outputVolume !== undefined) {
       this.masterVolume = Math.max(0, Math.min(1, prefs.outputVolume));
       this.applyMasterVolume();
+    }
+  }
+
+  setPushToTalkEnforced(enabled: boolean): void {
+    this.pushToTalkEnforced = enabled;
+    if (this.room) {
+      this.setMicrophoneMuted(enabled ? true : false);
+    }
+  }
+
+  isPushToTalkEnforced(): boolean {
+    return this.pushToTalkEnforced;
+  }
+
+  private async switchDevice(
+    kind: MediaDeviceKind,
+    deviceId: string | null,
+  ): Promise<void> {
+    if (!this.room) return;
+    try {
+      let target = deviceId;
+      if (!target) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const match =
+          devices.find((d) => d.kind === kind && d.deviceId === "default") ??
+          devices.find((d) => d.kind === kind);
+        target = match?.deviceId ?? null;
+      }
+      if (target) {
+        await this.room.switchActiveDevice(kind, target);
+      }
+    } catch (e) {
+      console.warn(`[LiveKitService] ${kind} switch failed:`, e);
     }
   }
 

@@ -163,7 +163,7 @@
     "autoSensitivityHint": "Detect the voice threshold automatically.",
     "sensitivity": "Input sensitivity",
     "pushToTalk": "Push-to-talk",
-    "pushToTalkHint": "Hold a key to transmit.",
+    "pushToTalkHint": "Hold Space to talk.",
     "yourMicrophone": "Your microphone",
     "live": "Live"
   },

@@ -163,7 +163,7 @@
     "autoSensitivityHint": "Определять порог голоса автоматически.",
     "sensitivity": "Чувствительность ввода",
     "pushToTalk": "Push-to-talk",
-    "pushToTalkHint": "Удерживайте клавишу, чтобы говорить.",
+    "pushToTalkHint": "Удерживайте пробел, чтобы говорить.",
     "yourMicrophone": "Ваш микрофон",
     "live": "Идёт запись"
   },
