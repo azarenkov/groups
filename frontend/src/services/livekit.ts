@@ -74,6 +74,8 @@ export class LiveKitService {
   private micGainCtx: AudioContext | null = null;
   private micGainNode: GainNode | null = null;
   private micSourceTrack: MediaStreamTrack | null = null;
+  private micGateGain: GainNode | null = null;
+  private micGateTimer: ReturnType<typeof setInterval> | null = null;
   private defaultNoiseSuppression: boolean = true;
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
@@ -1299,9 +1301,15 @@ export class LiveKitService {
       const source = ctx.createMediaStreamSource(new MediaStream([raw]));
       const gain = ctx.createGain();
       gain.gain.value = this.micVolume;
+      const gate = ctx.createGain();
+      gate.gain.value = 1;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
       const destination = ctx.createMediaStreamDestination();
       source.connect(gain);
-      gain.connect(destination);
+      gain.connect(gate);
+      gain.connect(analyser);
+      gate.connect(destination);
       const processed = destination.stream.getAudioTracks()[0];
       if (!processed) {
         await ctx.close().catch(() => {});
@@ -1310,13 +1318,17 @@ export class LiveKitService {
       await track.replaceTrack(processed);
       this.micGainCtx = ctx;
       this.micGainNode = gain;
+      this.micGateGain = gate;
       this.micSourceTrack = raw;
+      this.startMicGate(analyser);
     } catch (e) {
       console.warn("[LiveKitService] mic gain wiring failed:", e);
     }
   }
 
   private teardownMicGain(): void {
+    this.stopMicGate();
+    this.micGateGain = null;
     if (this.micGainCtx) {
       void this.micGainCtx.close().catch(() => {});
     }
@@ -1392,6 +1404,41 @@ export class LiveKitService {
       }
     } catch (e) {
       console.warn(`[LiveKitService] ${kind} switch failed:`, e);
+    }
+  }
+
+  private startMicGate(analyser: AnalyserNode): void {
+    this.stopMicGate();
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let holdUntil = 0;
+    void import("../store/voiceSettingsStore").then(({ useVoiceSettingsStore }) => {
+      if (!this.micGateGain) return;
+      this.micGateTimer = setInterval(() => {
+        const gate = this.micGateGain;
+        if (!gate) return;
+        const { autoSensitivity, sensitivity } =
+          useVoiceSettingsStore.getState();
+        if (autoSensitivity) {
+          gate.gain.value = 1;
+          return;
+        }
+        analyser.getByteFrequencyData(data);
+        let max = 0;
+        for (let i = 0; i < data.length; i++) {
+          if (data[i] > max) max = data[i];
+        }
+        const threshold = 45 - 0.4 * sensitivity;
+        const now = Date.now();
+        if (max > threshold) holdUntil = now + 250;
+        gate.gain.value = now < holdUntil ? 1 : 0;
+      }, 50);
+    });
+  }
+
+  private stopMicGate(): void {
+    if (this.micGateTimer) {
+      clearInterval(this.micGateTimer);
+      this.micGateTimer = null;
     }
   }
 
