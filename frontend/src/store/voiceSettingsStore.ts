@@ -69,6 +69,10 @@ export const voiceSettingsReadyFor = (userId: string): Promise<void> => {
   });
 };
 
+export const invalidateVoiceSettingsSync = (): void => {
+  syncedUsers.clear();
+};
+
 const markUserSynced = (userId: string) => {
   syncedUsers.add(userId);
   syncWaiters = syncWaiters.filter((waiter) => {
@@ -202,6 +206,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
       },
 
       syncFromServer: async (userId) => {
+        syncedUsers.delete(userId);
         const { userAPI } = await import("../api/user");
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;

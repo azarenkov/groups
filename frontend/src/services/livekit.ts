@@ -421,6 +421,13 @@ export class LiveKitService {
     }
   }
 
+  private async enableMicrophoneIfNeeded(): Promise<void> {
+    if (!this.room) return;
+    if (this.desiredMicMuted) return;
+    if (this.room.localParticipant.audioTrackPublications.size > 0) return;
+    await this.enableMicrophone();
+  }
+
   async disableMicrophone(): Promise<void> {
     if (!this.room) return;
 
@@ -481,9 +488,11 @@ export class LiveKitService {
     );
 
     if (!muted && audioTracks.length === 0) {
-      void this.enableMicrophone().catch((err) =>
-        console.warn("[livekit] failed to publish microphone on unmute:", err),
-      );
+      this.micSwitchChain = this.micSwitchChain
+        .then(() => this.enableMicrophoneIfNeeded())
+        .catch((err) =>
+          console.warn("[livekit] failed to publish microphone on unmute:", err),
+        );
       return;
     }
 

@@ -70,6 +70,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     void import("./userNamesStore").then((m) =>
       m.useUserNamesStore.getState().clear(),
     );
+    void import("./voiceSettingsStore").then((m) =>
+      m.invalidateVoiceSettingsSync(),
+    );
     void clearRefreshToken();
   },
 
