@@ -127,6 +127,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
     const { useAppearanceStore } = await import("./appearanceStore");
     void useAppearanceStore.getState().syncFromServer(me.id);
+    const { useVoiceSettingsStore } = await import("./voiceSettingsStore");
+    void useVoiceSettingsStore.getState().syncFromServer(me.id);
   },
 
   setHydrating: (v) => set({ isHydrating: v }),

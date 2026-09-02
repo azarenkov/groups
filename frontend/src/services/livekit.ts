@@ -67,6 +67,10 @@ export class LiveKitService {
   > = new WeakMap();
   private static readonly REMOTE_GAIN_MAX = 6.0;
   private noiseStrength: number = 1.0;
+  private preferredMicId: string | null = null;
+  private preferredSpeakerId: string | null = null;
+  private masterVolume: number = 1.0;
+  private defaultNoiseSuppression: boolean = true;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -196,12 +200,14 @@ export class LiveKitService {
       this.targetRoomName = roomName ?? null;
       console.log("Connecting to LiveKit...", { url });
 
+      this.noiseMode = this.defaultNoiseSuppression ? "standard" : "off";
       this.room = new Room({
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: {
+          deviceId: this.preferredMicId ?? undefined,
           echoCancellation: true,
-          noiseSuppression: true,
+          noiseSuppression: this.defaultNoiseSuppression,
           autoGainControl: true,
         },
       });
@@ -215,6 +221,13 @@ export class LiveKitService {
       console.log("Attempting room connection...");
       await this.room.connect(url, token, connectOptions);
       console.log("Successfully connected to room");
+      if (this.preferredSpeakerId) {
+        this.room
+          .switchActiveDevice("audiooutput", this.preferredSpeakerId)
+          .catch((e) =>
+            console.warn("[LiveKitService] speaker switch failed:", e),
+          );
+      }
 
       this.room.remoteParticipants.forEach((participant) => {
         this.addParticipant(participant);
@@ -312,8 +325,9 @@ export class LiveKitService {
 
     try {
       const track = await createLocalAudioTrack({
+        deviceId: this.preferredMicId ?? undefined,
         echoCancellation: true,
-        noiseSuppression: true,
+        noiseSuppression: this.noiseMode !== "off",
         autoGainControl: true,
       });
       await this.room.localParticipant.publishTrack(track);
@@ -1062,7 +1076,7 @@ export class LiveKitService {
       try {
         const source = ctx.createMediaElementSource(audioElement);
         const gain = ctx.createGain();
-        gain.gain.value = this.uiVolumeToGain(desiredUiVolume);
+        gain.gain.value = this.effectiveGain(desiredUiVolume);
         const compressor = ctx.createDynamicsCompressor();
         compressor.threshold.value = -18;
         compressor.knee.value = 24;
@@ -1086,10 +1100,10 @@ export class LiveKitService {
           "[LiveKitService] failed to wire remote gain node, falling back to element volume:",
           e,
         );
-        audioElement.volume = desiredUiVolume;
+        audioElement.volume = Math.min(1, desiredUiVolume * this.masterVolume);
       }
     } else {
-      audioElement.volume = desiredUiVolume;
+      audioElement.volume = Math.min(1, desiredUiVolume * this.masterVolume);
     }
 
     track.on(TrackEvent.Ended, () => {
@@ -1125,18 +1139,75 @@ export class LiveKitService {
   setRemoteVolume(identity: string, volume: number): void {
     const v = Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, volume));
     this.remoteVolumes.set(identity, v);
-    const gain = this.uiVolumeToGain(v);
+    const gain = this.effectiveGain(v);
     const gains = this.remoteGainNodes.get(identity);
     if (gains && gains.length > 0) {
       for (const g of gains) g.gain.value = gain;
     } else {
       const els = this.remoteAudioElements.get(identity);
-      if (els) for (const el of els) el.volume = Math.min(1, v);
+      if (els) for (const el of els) el.volume = Math.min(1, v * this.masterVolume);
     }
   }
 
   getRemoteVolume(identity: string): number {
     return this.remoteVolumes.get(identity) ?? 1.0;
+  }
+
+  setAudioPreferences(prefs: {
+    micDeviceId?: string | null;
+    speakerDeviceId?: string | null;
+    outputVolume?: number;
+    noiseSuppression?: boolean;
+  }): void {
+    if (prefs.noiseSuppression !== undefined) {
+      this.defaultNoiseSuppression = prefs.noiseSuppression;
+    }
+    if (
+      prefs.micDeviceId !== undefined &&
+      prefs.micDeviceId !== this.preferredMicId
+    ) {
+      this.preferredMicId = prefs.micDeviceId;
+      if (this.room && this.preferredMicId) {
+        this.room
+          .switchActiveDevice("audioinput", this.preferredMicId)
+          .catch((e) => console.warn("[LiveKitService] mic switch failed:", e));
+      }
+    }
+    if (
+      prefs.speakerDeviceId !== undefined &&
+      prefs.speakerDeviceId !== this.preferredSpeakerId
+    ) {
+      this.preferredSpeakerId = prefs.speakerDeviceId;
+      if (this.room && this.preferredSpeakerId) {
+        this.room
+          .switchActiveDevice("audiooutput", this.preferredSpeakerId)
+          .catch((e) =>
+            console.warn("[LiveKitService] speaker switch failed:", e),
+          );
+      }
+    }
+    if (prefs.outputVolume !== undefined) {
+      this.masterVolume = Math.max(0, Math.min(1, prefs.outputVolume));
+      this.applyMasterVolume();
+    }
+  }
+
+  private effectiveGain(uiVolume: number): number {
+    return this.uiVolumeToGain(uiVolume) * this.masterVolume;
+  }
+
+  private applyMasterVolume(): void {
+    for (const [identity, gains] of Array.from(this.remoteGainNodes.entries())) {
+      const ui = this.remoteVolumes.get(identity) ?? 1.0;
+      for (const g of gains) g.gain.value = this.effectiveGain(ui);
+    }
+    for (const [identity, els] of Array.from(
+      this.remoteAudioElements.entries(),
+    )) {
+      if (this.remoteGainNodes.has(identity)) continue;
+      const ui = this.remoteVolumes.get(identity) ?? 1.0;
+      for (const el of els) el.volume = Math.min(1, ui * this.masterVolume);
+    }
   }
 
   private notifyParticipantsChange(): void {

@@ -155,14 +155,15 @@
     "outputDevice": "Динамики",
     "speakers": "Динамики",
     "outputVolume": "Громкость звука",
+    "defaultDevice": "Системное устройство",
+    "behavior": "Поведение",
+    "noiseDefault": "Шумоподавление по умолчанию",
+    "noiseDefaultHint": "Включать шумоподавление при подключении к голосу.",
+    "autoSensitivity": "Автоматическая чувствительность",
+    "autoSensitivityHint": "Определять порог голоса автоматически.",
+    "sensitivity": "Чувствительность ввода",
     "pushToTalk": "Push-to-talk",
     "pushToTalkHint": "Удерживайте клавишу, чтобы говорить.",
-    "noiseSuppression": "Шумоподавление",
-    "noiseSuppressionLevels": {
-      "off": "Выкл",
-      "standard": "Стандарт",
-      "high": "Высокое"
-    },
     "yourMicrophone": "Ваш микрофон",
     "live": "Идёт запись"
   },

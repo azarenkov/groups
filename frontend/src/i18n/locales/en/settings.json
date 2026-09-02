@@ -155,14 +155,15 @@
     "outputDevice": "Output Device",
     "speakers": "Speakers",
     "outputVolume": "Output Volume",
+    "defaultDevice": "System default",
+    "behavior": "Behavior",
+    "noiseDefault": "Noise suppression by default",
+    "noiseDefaultHint": "Enable noise suppression when joining voice.",
+    "autoSensitivity": "Automatic input sensitivity",
+    "autoSensitivityHint": "Detect the voice threshold automatically.",
+    "sensitivity": "Input sensitivity",
     "pushToTalk": "Push-to-talk",
     "pushToTalkHint": "Hold a key to transmit.",
-    "noiseSuppression": "Noise suppression",
-    "noiseSuppressionLevels": {
-      "off": "Off",
-      "standard": "Standard",
-      "high": "High"
-    },
     "yourMicrophone": "Your microphone",
     "live": "Live"
   },

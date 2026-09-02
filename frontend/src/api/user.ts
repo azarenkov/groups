@@ -18,6 +18,15 @@ export interface AppearanceSettings {
   reduceMotion: boolean;
 }
 
+export interface VoiceSettings {
+  micVolume: number;
+  outputVolume: number;
+  noiseSuppression: boolean;
+  autoSensitivity: boolean;
+  sensitivity: number;
+  pushToTalk: boolean;
+}
+
 export interface Connection {
   provider: string;
   displayName: string;
@@ -127,6 +136,27 @@ class UserAPI {
     patch: Partial<AppearanceSettings>,
   ): Promise<AppearanceSettings> {
     const response = await this.client.patch("/v1/users/me/appearance", patch, {
+      _retry: true,
+    } as AxiosRequestConfig);
+    return response.data.data;
+  }
+
+  async getVoiceSettings(): Promise<VoiceSettings | null> {
+    try {
+      const response = await this.client.get("/v1/users/me/voice");
+      return response.data.data;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "VOICE_SETTINGS_NOT_SET") {
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  async updateVoiceSettings(
+    patch: Partial<VoiceSettings>,
+  ): Promise<VoiceSettings> {
+    const response = await this.client.patch("/v1/users/me/voice", patch, {
       _retry: true,
     } as AxiosRequestConfig);
     return response.data.data;

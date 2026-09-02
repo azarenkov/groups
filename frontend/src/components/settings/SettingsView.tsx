@@ -12,6 +12,7 @@ import { homeAPI, type PrivacySettings } from "../../api/home";
 import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from "./AccountModals";
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 import { useAppearanceStore } from "../../store/appearanceStore";
+import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 
 type Theme = "light" | "dark";
 
@@ -794,12 +795,40 @@ function AppearanceSection() {
   );
 }
 function VoiceSection() {
-  const [input, setInput] = React.useState('MacBook Pro Microphone');
-  const [output, setOutput] = React.useState('AirPods Pro');
-  const [inVol, setInVol] = React.useState(70);
-  const [outVol, setOutVol] = React.useState(85);
-  const [push, setPush] = React.useState(false);
   const { t } = useTranslation("settings");
+  const micVolume = useVoiceSettingsStore((s) => s.micVolume);
+  const outputVolume = useVoiceSettingsStore((s) => s.outputVolume);
+  const noiseSuppression = useVoiceSettingsStore((s) => s.noiseSuppression);
+  const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
+  const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
+  const pushToTalk = useVoiceSettingsStore((s) => s.pushToTalk);
+  const micDeviceId = useVoiceSettingsStore((s) => s.micDeviceId);
+  const speakerDeviceId = useVoiceSettingsStore((s) => s.speakerDeviceId);
+  const update = useVoiceSettingsStore((s) => s.update);
+  const updateDevices = useVoiceSettingsStore((s) => s.updateDevices);
+  const [devices, setDevices] = React.useState<MediaDeviceInfo[]>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    const media = navigator.mediaDevices;
+    if (!media?.enumerateDevices) return;
+    const refresh = () => {
+      media
+        .enumerateDevices()
+        .then((list) => {
+          if (!cancelled) setDevices(list);
+        })
+        .catch(() => {});
+    };
+    refresh();
+    media.addEventListener?.("devicechange", refresh);
+    return () => {
+      cancelled = true;
+      media.removeEventListener?.("devicechange", refresh);
+    };
+  }, []);
+  const inputs = devices.filter((d) => d.kind === "audioinput");
+  const outputs = devices.filter((d) => d.kind === "audiooutput");
+  const pct = (v: number) => ({ "--pct": `${v}%` } as React.CSSProperties);
   return (
     <>
       <h1>{t("voice.title")}</h1>
@@ -809,10 +838,29 @@ function VoiceSection() {
         <h2>{t("voice.inputDevice")}</h2>
         <div className="s-field-row">
           <div className="field-lbl">{t("voice.microphone")}</div>
-          <input className="s-input" value={input} onChange={e => setInput(e.target.value)}/>
+          <select
+            className="s-input"
+            value={micDeviceId}
+            onChange={(e) => updateDevices({ micDeviceId: e.target.value })}
+          >
+            <option value="">{t("voice.defaultDevice")}</option>
+            {inputs.map((d, i) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || `${t("voice.microphone")} ${i + 1}`}
+              </option>
+            ))}
+          </select>
         </div>
-        <SettingsRow label={t("voice.inputVolume")} hint={`${inVol}%`}>
-          <input type="range" min="0" max="100" value={inVol} onChange={e => setInVol(Number(e.target.value))}/>
+        <SettingsRow label={t("voice.inputVolume")} hint={`${micVolume}%`}>
+          <input
+            type="range"
+            className="s-range"
+            min={0}
+            max={100}
+            value={micVolume}
+            style={pct(micVolume)}
+            onChange={(e) => update({ micVolume: Number(e.target.value) })}
+          />
         </SettingsRow>
       </div>
 
@@ -820,26 +868,60 @@ function VoiceSection() {
         <h2>{t("voice.outputDevice")}</h2>
         <div className="s-field-row">
           <div className="field-lbl">{t("voice.speakers")}</div>
-          <input className="s-input" value={output} onChange={e => setOutput(e.target.value)}/>
+          <select
+            className="s-input"
+            value={speakerDeviceId}
+            onChange={(e) => updateDevices({ speakerDeviceId: e.target.value })}
+          >
+            <option value="">{t("voice.defaultDevice")}</option>
+            {outputs.map((d, i) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || `${t("voice.speakers")} ${i + 1}`}
+              </option>
+            ))}
+          </select>
         </div>
-        <SettingsRow label={t("voice.outputVolume")} hint={`${outVol}%`}>
-          <input type="range" min="0" max="100" value={outVol} onChange={e => setOutVol(Number(e.target.value))}/>
+        <SettingsRow label={t("voice.outputVolume")} hint={`${outputVolume}%`}>
+          <input
+            type="range"
+            className="s-range"
+            min={0}
+            max={100}
+            value={outputVolume}
+            style={pct(outputVolume)}
+            onChange={(e) => update({ outputVolume: Number(e.target.value) })}
+          />
         </SettingsRow>
       </div>
 
       <div className="s-section">
-        <h2>{t("voice.pushToTalk")}</h2>
+        <h2>{t("voice.behavior")}</h2>
         <SettingsRow label={t("voice.pushToTalk")} hint={t("voice.pushToTalkHint")}>
-          <Switch on={push} onClick={() => setPush(v => !v)}/>
+          <Switch on={pushToTalk} onClick={() => update({ pushToTalk: !pushToTalk })}/>
         </SettingsRow>
-        <SettingsRow label={t("voice.noiseSuppression")} hint="">
-          <Switch on={true} onClick={() => {}}/>
+        <SettingsRow label={t("voice.noiseDefault")} hint={t("voice.noiseDefaultHint")}>
+          <Switch on={noiseSuppression} onClick={() => update({ noiseSuppression: !noiseSuppression })}/>
         </SettingsRow>
+        <SettingsRow label={t("voice.autoSensitivity")} hint={t("voice.autoSensitivityHint")}>
+          <Switch on={autoSensitivity} onClick={() => update({ autoSensitivity: !autoSensitivity })}/>
+        </SettingsRow>
+        {!autoSensitivity && (
+          <SettingsRow label={t("voice.sensitivity")} hint={`${sensitivity}%`}>
+            <input
+              type="range"
+              className="s-range"
+              min={0}
+              max={100}
+              value={sensitivity}
+              style={pct(sensitivity)}
+              onChange={(e) => update({ sensitivity: Number(e.target.value) })}
+            />
+          </SettingsRow>
+        )}
       </div>
     </>
   );
 }
-
 function NotificationsSection() {
   const { t } = useTranslation("settings");
   const [desk, setDesk] = React.useState(true);

@@ -8,6 +8,7 @@ mod state;
 mod appearance;
 mod connections;
 mod user;
+mod voice_settings;
 
 use std::error::Error;
 

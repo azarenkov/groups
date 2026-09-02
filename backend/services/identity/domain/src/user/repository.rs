@@ -92,5 +92,19 @@ pub trait UserRepository {
         chat_font_size: Option<i16>,
         reduce_motion: Option<bool>,
     ) -> Result<(String, String, i16, bool), RepositoryError>;
+    async fn get_voice_settings(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<(i16, i16, bool, bool, i16, bool)>, RepositoryError>;
+    async fn apply_voice_settings_patch(
+        &self,
+        user_id: &UserId,
+        mic_volume: Option<i16>,
+        output_volume: Option<i16>,
+        noise_suppression: Option<bool>,
+        auto_sensitivity: Option<bool>,
+        sensitivity: Option<i16>,
+        push_to_talk: Option<bool>,
+    ) -> Result<(i16, i16, bool, bool, i16, bool), RepositoryError>;
 
 }
