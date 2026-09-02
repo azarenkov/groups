@@ -23,6 +23,29 @@ const getAuthedUserId = async (): Promise<string | null> => {
   return useAuthStore.getState().user?.id ?? null;
 };
 
+const getAuthedIdentity = async (): Promise<{
+  userId: string | null;
+  accessToken: string | null;
+}> => {
+  const { useAuthStore } = await import("./authStore");
+  const state = useAuthStore.getState();
+  return {
+    userId: state.user?.id ?? null,
+    accessToken: state.tokens?.accessToken ?? null,
+  };
+};
+
+const leaveAsInitiator = async (
+  callId: string,
+  accessToken: string | null,
+): Promise<void> => {
+  if (accessToken) {
+    await callAPI.leaveWithToken(callId, accessToken).catch(() => {});
+  } else {
+    await callAPI.leave(callId).catch(() => {});
+  }
+};
+
 const awaitVoiceSettingsSyncedFor = async (
   userId: string | null,
 ): Promise<boolean> => {
@@ -327,7 +350,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (get().activeCallId) await get().leave();
     set({ connecting: true });
     try {
-      const initiatorId = await getAuthedUserId();
+      const initiator = await getAuthedIdentity();
+      const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.join(callId);
       set({
         activeCallId: callId,
@@ -354,7 +378,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
           focused: false,
           peerId: null,
         });
-        await callAPI.leave(callId).catch(() => {});
+        await leaveAsInitiator(callId, initiator.accessToken);
         return;
       }
       if (!synced) set({ micMuted: true });
@@ -381,7 +405,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         if (service.getActiveRoomName() === callId) {
           await service.disconnect().catch(() => {});
         }
-        await callAPI.leave(callId).catch(() => {});
+        await leaveAsInitiator(callId, initiator.accessToken);
         if (get().activeCallId === callId) {
           set({
             activeCallId: null,
@@ -405,7 +429,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
 
   start: async (recipientIds) => {
-    const initiatorId = await getAuthedUserId();
+    const initiator = await getAuthedIdentity();
+    const initiatorId = initiator.userId;
     if (get().activeCallId) {
       if (recipientIds.length === 1) {
         try {
@@ -462,7 +487,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         focused: false,
         peerId: null,
       });
-      await callAPI.leave(callId).catch(() => {});
+      await leaveAsInitiator(callId, initiator.accessToken);
       return;
     }
     if (!synced) set({ micMuted: true });
@@ -490,7 +515,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       if (service.getActiveRoomName() === callId) {
         await service.disconnect().catch(() => {});
       }
-      await callAPI.leave(callId).catch(() => {});
+      await leaveAsInitiator(callId, initiator.accessToken);
       if (get().activeCallId === callId) {
         set({
           activeCallId: null,
@@ -515,7 +540,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (get().activeCallId) await get().leave();
     set({ connecting: true, incoming: null });
     try {
-      const initiatorId = await getAuthedUserId();
+      const initiator = await getAuthedIdentity();
+      const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.accept(inc.callId);
       set({
         activeCallId: inc.callId,
@@ -542,7 +568,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
           focused: false,
           peerId: null,
         });
-        await callAPI.leave(inc.callId).catch(() => {});
+        await leaveAsInitiator(inc.callId, initiator.accessToken);
         return;
       }
       if (!synced) set({ micMuted: true });
@@ -569,7 +595,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         if (service.getActiveRoomName() === inc.callId) {
           await service.disconnect().catch(() => {});
         }
-        await callAPI.leave(inc.callId).catch(() => {});
+        await leaveAsInitiator(inc.callId, initiator.accessToken);
         if (get().activeCallId === inc.callId) {
           set({
             activeCallId: null,
