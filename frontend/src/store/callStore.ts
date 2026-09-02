@@ -18,6 +18,35 @@ async function connectToRoom(
   await service.connect(token, url, roomName, startMuted);
 }
 
+const awaitVoiceSettingsSynced = async (): Promise<{
+  synced: boolean;
+  userId: string | null;
+}> => {
+  const { useAuthStore } = await import("./authStore");
+  const userId = useAuthStore.getState().user?.id ?? null;
+  if (!userId) return { synced: true, userId };
+  const { voiceSettingsReadyFor } = await import("./voiceSettingsStore");
+  const synced = await Promise.race([
+    voiceSettingsReadyFor(userId).then(() => true),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 4000)),
+  ]);
+  return { synced, userId };
+};
+
+const armFallbackMuteRelease = (userId: string | null, callId: string) => {
+  if (!userId) return;
+  const muteSeqAtFallback = useCallStore.getState().micMuteSeq;
+  void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
+    voiceSettingsReadyFor(userId).then(() => {
+      const s = useCallStore.getState();
+      if (s.activeCallId !== callId) return;
+      if (s.micMuteSeq !== muteSeqAtFallback) return;
+      if (!s.micMuted) return;
+      s.setMicMuted(false);
+    }),
+  );
+};
+
 export interface IncomingCall {
   callId: string;
   callerId: string;
@@ -293,8 +322,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
     set({ connecting: true });
     try {
       const { token, url, participants } = await callAPI.join(callId);
+      const settings = await awaitVoiceSettingsSynced();
       try {
-        await connectToRoom(token, url, callId);
+        await connectToRoom(token, url, callId, !settings.synced);
       } catch (e) {
         await callAPI.leave(callId).catch(() => {});
         throw e;
@@ -308,8 +338,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
         ringing: [],
         focused: true,
         peerId: peerId ?? null,
-        micMuted: false,
+        micMuted: !settings.synced,
       });
+      if (!settings.synced) armFallbackMuteRelease(settings.userId, callId);
     } catch (e) {
       set({ connecting: false });
       throw e;
@@ -338,6 +369,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     });
     const { callId, token, url, participants } = session;
+    const settings = await awaitVoiceSettingsSynced();
     pendingLog = {
       callId,
       startedAt: Date.now(),
@@ -354,10 +386,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
       ringing: recipientIds,
       focused: true,
       peerId: recipientIds[0] ?? null,
-      micMuted: false,
+      micMuted: !settings.synced,
     });
     try {
-      await connectToRoom(token, url, callId);
+      await connectToRoom(token, url, callId, !settings.synced);
     } catch (e) {
       pendingLog = null;
       set({
@@ -381,8 +413,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
     set({ connecting: true, incoming: null });
     try {
       const { token, url, participants } = await callAPI.accept(inc.callId);
+      const settings = await awaitVoiceSettingsSynced();
       try {
-        await connectToRoom(token, url, inc.callId);
+        await connectToRoom(token, url, inc.callId, !settings.synced);
       } catch (e) {
         await callAPI.leave(inc.callId).catch(() => {});
         throw e;
@@ -398,6 +431,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
         peerId: inc.callerId,
         micMuted: false,
       });
+      if (!settings.synced) {
+        set({ micMuted: true });
+        armFallbackMuteRelease(settings.userId, inc.callId);
+      }
     } catch (e) {
       set({ connecting: false });
       throw e;
