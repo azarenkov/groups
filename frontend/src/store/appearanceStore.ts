@@ -77,6 +77,8 @@ let inFlightPatch: Partial<AppearanceSettings> = {};
 let inFlightOwner: string | null = null;
 let saveAttempts = 0;
 let savePaused = false;
+let syncRetryTimer: number | null = null;
+let syncRetryAttempts = 0;
 let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
@@ -202,6 +204,10 @@ export const useAppearanceStore = create<AppearanceState>()(
       },
 
       syncFromServer: async (userId) => {
+        if (syncRetryTimer !== null) {
+          window.clearTimeout(syncRetryTimer);
+          syncRetryTimer = null;
+        }
         const { userAPI } = await import("../api/user");
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;
@@ -255,6 +261,7 @@ export const useAppearanceStore = create<AppearanceState>()(
             set({ ...local, ownerId: userId });
             applyAppearance(local);
             if (!switched) scheduleSave(local, userId);
+            syncRetryAttempts = 0;
             return;
           }
           const next = preserveRecentEdits({
@@ -271,10 +278,18 @@ export const useAppearanceStore = create<AppearanceState>()(
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
+          syncRetryAttempts = 0;
         } catch (err) {
           console.warn("[appearance] sync failed:", err);
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
+          }
+          if (syncRetryAttempts < 5 && syncRetryTimer === null) {
+            syncRetryAttempts += 1;
+            syncRetryTimer = window.setTimeout(() => {
+              syncRetryTimer = null;
+              void get().syncFromServer(userId);
+            }, 5000);
           }
         }
       },

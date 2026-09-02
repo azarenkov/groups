@@ -90,6 +90,8 @@ let inFlightPatch: Partial<VoiceSyncedSettings> = {};
 let inFlightOwner: string | null = null;
 let saveAttempts = 0;
 let savePaused = false;
+let syncRetryTimer: number | null = null;
+let syncRetryAttempts = 0;
 let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
@@ -207,6 +209,10 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
 
       syncFromServer: async (userId) => {
         syncedUsers.delete(userId);
+        if (syncRetryTimer !== null) {
+          window.clearTimeout(syncRetryTimer);
+          syncRetryTimer = null;
+        }
         const { userAPI } = await import("../api/user");
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;
@@ -262,6 +268,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
             set({ ...local, ownerId: userId });
             applyToEngine(get());
             if (!switched) scheduleSave(local, userId);
+            syncRetryAttempts = 0;
             markUserSynced(userId);
             return;
           }
@@ -278,12 +285,20 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
+          syncRetryAttempts = 0;
           markUserSynced(userId);
         } catch (err) {
           console.warn("[voice-settings] sync failed:", err);
           applyToEngine(get());
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
+          }
+          if (syncRetryAttempts < 5 && syncRetryTimer === null) {
+            syncRetryAttempts += 1;
+            syncRetryTimer = window.setTimeout(() => {
+              syncRetryTimer = null;
+              void get().syncFromServer(userId);
+            }, 5000);
           }
         }
       },
