@@ -282,6 +282,9 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
         } catch (err) {
           console.warn("[voice-settings] sync failed:", err);
           applyToEngine(get());
+          if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
+            scheduleSave({}, userId);
+          }
         }
       },
     }),

@@ -273,6 +273,9 @@ export const useAppearanceStore = create<AppearanceState>()(
           }
         } catch (err) {
           console.warn("[appearance] sync failed:", err);
+          if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
+            scheduleSave({}, userId);
+          }
         }
       },
     }),

@@ -232,7 +232,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
         ),
       ]);
     }
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
     const active = await callAPI.getActive().catch(() => null);
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
     if (!active) {
       const service = getLiveKitService();
       if (
