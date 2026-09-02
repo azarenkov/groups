@@ -113,6 +113,11 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setError(null);
         activeChannelRef.current = { serverId, channelId };
         const joinAttempt = activeChannelRef.current;
+        const joinAuth = useAuthStore.getState();
+        const joiningUserId =
+          joinAuth.user?.id ||
+          decodeAccessToken(joinAuth.tokens?.accessToken ?? "")?.sub ||
+          null;
         setLock(false);
         selfMutedBeforeLockRef.current = false;
 
@@ -123,8 +128,21 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         const response = await channelAPI.joinVoice(serverId, channelId, {
           password,
         });
-        if (activeChannelRef.current !== joinAttempt) {
-          if (activeChannelRef.current === null) setIsConnecting(false);
+        const postTokenAuth = useAuthStore.getState();
+        const postTokenId =
+          postTokenAuth.user?.id ||
+          decodeAccessToken(postTokenAuth.tokens?.accessToken ?? "")?.sub ||
+          null;
+        if (
+          activeChannelRef.current !== joinAttempt ||
+          postTokenId !== joiningUserId
+        ) {
+          if (activeChannelRef.current === joinAttempt) {
+            activeChannelRef.current = null;
+            setIsConnecting(false);
+          } else if (activeChannelRef.current === null) {
+            setIsConnecting(false);
+          }
           return;
         }
 
@@ -139,11 +157,6 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
           setIsMuted(true);
         }
-        const joinAuth = useAuthStore.getState();
-        const joiningUserId =
-          joinAuth.user?.id ||
-          decodeAccessToken(joinAuth.tokens?.accessToken ?? "")?.sub ||
-          null;
         const { awaitVoiceSettingsSyncedFor } = await import(
           "../store/voiceSettingsStore"
         );
@@ -196,7 +209,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
             ({ voiceSettingsReadyFor }) =>
               voiceSettingsReadyFor(joiningUserId).then(() => {
                 if (!fallbackMutedRef.current) return;
-                if (activeChannelRef.current?.channelId !== channelId) return;
+                if (activeChannelRef.current !== joinAttempt) return;
                 if (moderatorLockedRef.current) return;
                 fallbackMutedRef.current = false;
                 serviceRef.current?.setMicrophoneMuted(false);
@@ -222,6 +235,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const leaveChannel = useCallback(async () => {
     const service = serviceRef.current;
     if (!service) return;
+    fallbackMutedRef.current = false;
     try {
       const active = activeChannelRef.current;
       const ownsRoom = !active || service.getActiveRoomName() === active.channelId;
