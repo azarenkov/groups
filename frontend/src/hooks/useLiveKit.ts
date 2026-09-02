@@ -134,6 +134,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
           setIsMuted(true);
         }
+        const joinAttempt = activeChannelRef.current;
         const joinAuth = useAuthStore.getState();
         const joiningUserId =
           joinAuth.user?.id ||
@@ -148,9 +149,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           afterAuth.user?.id ||
           decodeAccessToken(afterAuth.tokens?.accessToken ?? "")?.sub ||
           null;
-        if (afterId !== joiningUserId) {
-          activeChannelRef.current = null;
-          setIsConnecting(false);
+        if (
+          afterId !== joiningUserId ||
+          activeChannelRef.current !== joinAttempt
+        ) {
+          if (activeChannelRef.current === joinAttempt) {
+            activeChannelRef.current = null;
+            setIsConnecting(false);
+          }
           return;
         }
         if (!response.muted && !settingsSynced) {

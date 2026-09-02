@@ -375,12 +375,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     });
     const { callId, token, url, participants } = session;
-    const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
-    if ((await getAuthedUserId()) !== initiatorId) {
-      await callAPI.leave(callId).catch(() => {});
-      set({ connecting: false });
-      return;
-    }
     pendingLog = {
       callId,
       startedAt: Date.now(),
@@ -397,8 +391,23 @@ export const useCallStore = create<CallState>()((set, get) => ({
       ringing: recipientIds,
       focused: true,
       peerId: recipientIds[0] ?? null,
-      micMuted: !synced,
+      micMuted: false,
     });
+    const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
+    if ((await getAuthedUserId()) !== initiatorId) {
+      pendingLog = null;
+      set({
+        activeCallId: null,
+        connecting: false,
+        participants: {},
+        ringing: [],
+        focused: false,
+        peerId: null,
+      });
+      await callAPI.leave(callId).catch(() => {});
+      return;
+    }
+    if (!synced) set({ micMuted: true });
     try {
       await connectToRoom(token, url, callId, !synced);
     } catch (e) {
