@@ -76,6 +76,7 @@ export class LiveKitService {
   private micSourceTrack: MediaStreamTrack | null = null;
   private micGateGain: GainNode | null = null;
   private micGateTimer: ReturnType<typeof setInterval> | null = null;
+  private micGainRetryCleanup: (() => void) | null = null;
   private defaultNoiseSuppression: boolean = true;
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
@@ -1304,7 +1305,15 @@ export class LiveKitService {
       if (!Ctor) return;
       const ctx = new Ctor();
       if (ctx.state === "suspended") {
-        await ctx.resume().catch(() => {});
+        await Promise.race([
+          ctx.resume().catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, 500)),
+        ]);
+      }
+      if (ctx.state !== "running") {
+        await ctx.close().catch(() => {});
+        this.scheduleMicGainRetry(track);
+        return;
       }
       const source = ctx.createMediaStreamSource(new MediaStream([raw]));
       const gain = ctx.createGain();
@@ -1335,6 +1344,7 @@ export class LiveKitService {
   }
 
   private teardownMicGain(): void {
+    this.clearMicGainRetry();
     this.stopMicGate();
     this.micGateGain = null;
     if (this.micGainCtx) {
@@ -1382,7 +1392,6 @@ export class LiveKitService {
             this.dfnPipeline !== null ||
             this.room.localParticipant.audioTrackPublications.size > 0;
           if (!hasCapture) return;
-          const muted = this.desiredMicMuted;
           const mode = this.noiseMode;
           await this.disableMicrophone();
           this.micRebuildPending = true;
@@ -1393,7 +1402,7 @@ export class LiveKitService {
             this.noiseMode = "standard";
             await this.setNoiseSuppressionMode("high");
           }
-          this.applyMicMuted(muted);
+          this.applyMicMuted(this.desiredMicMuted);
         };
         this.micSwitchChain = this.micSwitchChain.then(run, run);
         await this.micSwitchChain;
@@ -1416,6 +1425,30 @@ export class LiveKitService {
     } catch (e) {
       console.warn(`[LiveKitService] ${kind} switch failed:`, e);
     }
+  }
+
+  private scheduleMicGainRetry(track: LocalAudioTrack): void {
+    this.clearMicGainRetry();
+    const retry = () => {
+      this.clearMicGainRetry();
+      if (!this.room || this.micSourceTrack) return;
+      const publication = Array.from(
+        this.room.localParticipant.audioTrackPublications.values(),
+      )[0];
+      if (publication?.track !== track) return;
+      void this.wireMicGain(track);
+    };
+    window.addEventListener("pointerdown", retry, { once: true });
+    window.addEventListener("keydown", retry, { once: true });
+    this.micGainRetryCleanup = () => {
+      window.removeEventListener("pointerdown", retry);
+      window.removeEventListener("keydown", retry);
+    };
+  }
+
+  private clearMicGainRetry(): void {
+    this.micGainRetryCleanup?.();
+    this.micGainRetryCleanup = null;
   }
 
   private startMicGate(analyser: AnalyserNode): void {
