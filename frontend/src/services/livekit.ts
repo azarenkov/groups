@@ -85,6 +85,7 @@ export class LiveKitService {
   private micSwitchChain: Promise<void> = Promise.resolve();
   private micSwitchSeq: number = 0;
   private micRebuildPending: boolean = false;
+  private micEnableInFlight: boolean = false;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -345,6 +346,8 @@ export class LiveKitService {
 
   async enableMicrophone(): Promise<void> {
     if (!this.room) return;
+    const switchSeqAtStart = this.micSwitchSeq;
+    this.micEnableInFlight = true;
 
     const publish = async (deviceId?: string) => {
       const startedRoom = this.room;
@@ -354,7 +357,11 @@ export class LiveKitService {
         noiseSuppression: this.noiseMode !== "off",
         autoGainControl: true,
       });
-      if (!this.room || this.room !== startedRoom) {
+      if (
+        !this.room ||
+        this.room !== startedRoom ||
+        this.micSwitchSeq !== switchSeqAtStart
+      ) {
         try {
           track.stop();
         } catch {}
@@ -363,7 +370,11 @@ export class LiveKitService {
       await this.wireMicGain(track);
       const wiredRaw = this.micSourceTrack;
       const room = this.room;
-      if (!room || room !== startedRoom) {
+      if (
+        !room ||
+        room !== startedRoom ||
+        this.micSwitchSeq !== switchSeqAtStart
+      ) {
         if (this.micSourceTrack === wiredRaw) {
           this.teardownMicGain();
         }
@@ -420,6 +431,8 @@ export class LiveKitService {
           ? error
           : new Error("Failed to enable microphone"),
       );
+    } finally {
+      this.micEnableInFlight = false;
     }
   }
 
@@ -510,6 +523,9 @@ export class LiveKitService {
 
     if (this.dfnRawTrack) {
       this.dfnRawTrack.enabled = !muted;
+    }
+    if (this.micSourceTrack) {
+      this.micSourceTrack.enabled = !muted;
     }
     if (this.micBypassedTrack) {
       this.micBypassedTrack.enabled = !muted && this.micVolume > 0;
@@ -1431,6 +1447,7 @@ export class LiveKitService {
           }
           const hasCapture =
             this.micRebuildPending ||
+            this.micEnableInFlight ||
             this.micSourceTrack !== null ||
             this.dfnPipeline !== null ||
             this.room.localParticipant.audioTrackPublications.size > 0;

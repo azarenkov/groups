@@ -126,8 +126,10 @@ const flushSave = async (): Promise<void> => {
     const { useAuthStore } = await import("./authStore");
     const currentId = useAuthStore.getState().user?.id ?? null;
     if (owner !== null && currentId !== owner) {
-      pendingPatch = { ...patch, ...pendingPatch };
-      savePaused = true;
+      if (pendingOwner === owner) {
+        pendingPatch = { ...patch, ...pendingPatch };
+        savePaused = true;
+      }
       return;
     }
     const { userAPI } = await import("../api/user");
