@@ -80,5 +80,17 @@ pub trait UserRepository {
         &self,
         state: uuid::Uuid,
     ) -> Result<Option<(UserId, String, DateTime<Utc>)>, RepositoryError>;
+    async fn get_appearance(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<(String, String, i16, bool)>, RepositoryError>;
+    async fn apply_appearance_patch(
+        &self,
+        user_id: &UserId,
+        theme: Option<&str>,
+        accent: Option<&str>,
+        chat_font_size: Option<i16>,
+        reduce_motion: Option<bool>,
+    ) -> Result<(String, String, i16, bool), RepositoryError>;
 
 }

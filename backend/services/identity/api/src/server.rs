@@ -13,6 +13,7 @@ use identity::usecases::{
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
     user::{
+        appearance::{GetAppearance, UpdateAppearance},
         get_me::GetMe, rename::RenameUser, search_users::SearchUsers,
         update_locale::UpdateUserLocale,
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
@@ -171,6 +172,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             access_revoker.clone(),
             reauthenticator.clone(),
         ),
+        get_appearance_usecase: GetAppearance::new(user_repository.clone()),
+        update_appearance_usecase: UpdateAppearance::new(user_repository.clone()),
         start_connection_usecase: StartConnection::new(
             user_repository.clone(),
             github_connector.clone(),

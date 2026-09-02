@@ -1,3 +1,4 @@
+pub mod appearance;
 pub mod get_me;
 pub mod change_password;
 pub mod confirm_email_change;

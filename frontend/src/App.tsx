@@ -11,7 +11,7 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import ServersPage from "./pages/ServersPage";
 import ScreenSharePicker from "./components/rift/ScreenSharePicker";
 import { useAuthStore } from "./store/authStore";
-import { useThemeStore, applyTheme } from "./store/themeStore";
+import { applyAppearance, useAppearanceStore } from "./store/appearanceStore";
 import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
 import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
 import { authAPI } from "./api/auth";
@@ -22,14 +22,26 @@ import "./styles/App.css";
 
 const App: React.FC = () => {
   const { isAuthenticated, tokens, isHydrating } = useAuthStore();
-  const { theme } = useThemeStore();
+  const mode = useAppearanceStore((s) => s.mode);
+  const accent = useAppearanceStore((s) => s.accent);
+  const chatFontSize = useAppearanceStore((s) => s.chatFontSize);
+  const reduceMotion = useAppearanceStore((s) => s.reduceMotion);
 
   const hasUnverifiedSession =
     !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    applyAppearance({ mode, accent, chatFontSize, reduceMotion });
+  }, [mode, accent, chatFontSize, reduceMotion]);
+
+  useEffect(() => {
+    if (mode !== "system") return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () =>
+      applyAppearance({ mode, accent, chatFontSize, reduceMotion });
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [mode, accent, chatFontSize, reduceMotion]);
 
   useEffect(() => {
     installWsBootstrap();

@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
-import { toApiError } from "../utils/apiError";
+import { ApiError, toApiError } from "../utils/apiError";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -9,6 +9,13 @@ const API_BASE_URL =
 export interface Reauth {
   password?: string;
   googleIdToken?: string;
+}
+
+export interface AppearanceSettings {
+  theme: string;
+  accent: string;
+  chatFontSize: number;
+  reduceMotion: boolean;
 }
 
 export interface Connection {
@@ -104,6 +111,25 @@ class UserAPI {
   async userConnections(userId: string): Promise<Connection[]> {
     const response = await this.client.get(`/v1/users/${userId}/connections`);
     return response.data.data.connections;
+  }
+
+  async getAppearance(): Promise<AppearanceSettings | null> {
+    try {
+      const response = await this.client.get("/v1/users/me/appearance");
+      return response.data.data;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "APPEARANCE_NOT_SET") return null;
+      throw e;
+    }
+  }
+
+  async updateAppearance(
+    patch: Partial<AppearanceSettings>,
+  ): Promise<AppearanceSettings> {
+    const response = await this.client.patch("/v1/users/me/appearance", patch, {
+      _retry: true,
+    } as AxiosRequestConfig);
+    return response.data.data;
   }
 
   async uploadAvatar(file: File): Promise<void> {

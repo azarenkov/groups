@@ -125,6 +125,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         setLocale(me.locale);
       }
     }
+    const { useAppearanceStore } = await import("./appearanceStore");
+    void useAppearanceStore.getState().syncFromServer(me.id);
   },
 
   setHydrating: (v) => set({ isHydrating: v }),

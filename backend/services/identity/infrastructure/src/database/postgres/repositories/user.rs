@@ -471,4 +471,50 @@ impl UserRepository for PostgresUserRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.map(|(id, provider, created_at)| (UserId::new(id), provider, created_at)))
     }
+
+    async fn get_appearance(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<(String, String, i16, bool)>, RepositoryError> {
+        let row: Option<(String, String, i16, bool)> = sqlx::query_as(
+            "SELECT theme, accent, chat_font_size, reduce_motion FROM user_settings WHERE user_id = $1",
+        )
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
+    }
+
+    async fn apply_appearance_patch(
+        &self,
+        user_id: &UserId,
+        theme: Option<&str>,
+        accent: Option<&str>,
+        chat_font_size: Option<i16>,
+        reduce_motion: Option<bool>,
+    ) -> Result<(String, String, i16, bool), RepositoryError> {
+        let row: (String, String, i16, bool) = sqlx::query_as(
+            r#"
+                INSERT INTO user_settings (user_id, theme, accent, chat_font_size, reduce_motion, updated_at)
+                VALUES ($1, COALESCE($2, 'system'), COALESCE($3, ''), COALESCE($4, 14), COALESCE($5, false), now())
+                ON CONFLICT (user_id) DO UPDATE
+                    SET theme = COALESCE($2, user_settings.theme),
+                        accent = COALESCE($3, user_settings.accent),
+                        chat_font_size = COALESCE($4, user_settings.chat_font_size),
+                        reduce_motion = COALESCE($5, user_settings.reduce_motion),
+                        updated_at = now()
+                RETURNING theme, accent, chat_font_size, reduce_motion
+            "#,
+        )
+        .bind(user_id.uuid())
+        .bind(theme)
+        .bind(accent)
+        .bind(chat_font_size)
+        .bind(reduce_motion)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
+    }
 }

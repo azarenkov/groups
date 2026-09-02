@@ -5,6 +5,7 @@ mod internal;
 mod routes;
 mod server;
 mod state;
+mod appearance;
 mod connections;
 mod user;
 
