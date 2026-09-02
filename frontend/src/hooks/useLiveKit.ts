@@ -112,6 +112,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(true);
         setError(null);
         activeChannelRef.current = { serverId, channelId };
+        const joinAttempt = activeChannelRef.current;
         setLock(false);
         selfMutedBeforeLockRef.current = false;
 
@@ -122,6 +123,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         const response = await channelAPI.joinVoice(serverId, channelId, {
           password,
         });
+        if (activeChannelRef.current !== joinAttempt) {
+          if (activeChannelRef.current === null) setIsConnecting(false);
+          return;
+        }
 
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
@@ -134,7 +139,6 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
           setIsMuted(true);
         }
-        const joinAttempt = activeChannelRef.current;
         const joinAuth = useAuthStore.getState();
         const joiningUserId =
           joinAuth.user?.id ||
