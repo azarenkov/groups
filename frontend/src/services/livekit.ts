@@ -73,6 +73,7 @@ export class LiveKitService {
   private defaultNoiseSuppression: boolean = true;
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
+  private pttHolding: boolean = false;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -224,11 +225,7 @@ export class LiveKitService {
       await this.room.connect(url, token, connectOptions);
       console.log("Successfully connected to room");
       if (this.preferredSpeakerId) {
-        this.room
-          .switchActiveDevice("audiooutput", this.preferredSpeakerId)
-          .catch((e) =>
-            console.warn("[LiveKitService] speaker switch failed:", e),
-          );
+        void this.switchDevice("audiooutput", this.preferredSpeakerId);
       }
 
       this.room.remoteParticipants.forEach((participant) => {
@@ -239,7 +236,7 @@ export class LiveKitService {
         await this.enableMicrophone();
       }
       if (this.pushToTalkEnforced) {
-        this.setMicrophoneMuted(true);
+        this.applyMicMuted(true);
       }
 
       this.isConnecting = false;
@@ -328,15 +325,41 @@ export class LiveKitService {
   async enableMicrophone(): Promise<void> {
     if (!this.room) return;
 
-    try {
+    const publish = async (deviceId?: string) => {
       const track = await createLocalAudioTrack({
-        deviceId: this.preferredMicId ?? undefined,
+        deviceId,
         echoCancellation: true,
         noiseSuppression: this.noiseMode !== "off",
         autoGainControl: true,
       });
-      await this.room.localParticipant.publishTrack(track);
+      await this.room?.localParticipant.publishTrack(track);
       this.emitLocalTrack();
+    };
+
+    try {
+      let deviceId = this.preferredMicId ?? undefined;
+      if (deviceId) {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          if (
+            !devices.some(
+              (d) => d.kind === "audioinput" && d.deviceId === deviceId,
+            )
+          ) {
+            deviceId = undefined;
+          }
+        } catch {}
+      }
+      try {
+        await publish(deviceId);
+      } catch (error) {
+        if (deviceId === undefined) throw error;
+        console.warn(
+          "[LiveKitService] saved microphone unavailable, falling back to default:",
+          error,
+        );
+        await publish(undefined);
+      }
     } catch (error) {
       console.error("Failed to enable microphone:", error);
       this.onError?.(
@@ -382,6 +405,20 @@ export class LiveKitService {
   }
 
   setMicrophoneMuted(muted: boolean): void {
+    if (this.pushToTalkEnforced) {
+      this.muteBeforePushToTalk = muted;
+      if (!muted && !this.pttHolding) return;
+    }
+    this.applyMicMuted(muted);
+  }
+
+  pttSetTransmitting(active: boolean): void {
+    if (!this.pushToTalkEnforced) return;
+    this.pttHolding = active;
+    this.applyMicMuted(!active);
+  }
+
+  private applyMicMuted(muted: boolean): void {
     this.desiredMicMuted = muted;
     if (!this.room) return;
 
@@ -1016,6 +1053,9 @@ export class LiveKitService {
           .webkitAudioContext;
       if (!Ctor) return null;
       this.remoteAudioCtx = new Ctor();
+      if (this.preferredSpeakerId) {
+        this.applySinkToCtx(this.preferredSpeakerId);
+      }
       return this.remoteAudioCtx;
     } catch (e) {
       console.warn("[LiveKitService] AudioContext init failed:", e);
@@ -1194,11 +1234,12 @@ export class LiveKitService {
   setPushToTalkEnforced(enabled: boolean): void {
     if (enabled === this.pushToTalkEnforced) return;
     this.pushToTalkEnforced = enabled;
+    this.pttHolding = false;
     if (enabled) {
       this.muteBeforePushToTalk = this.desiredMicMuted;
-      this.setMicrophoneMuted(true);
+      this.applyMicMuted(true);
     } else {
-      this.setMicrophoneMuted(this.muteBeforePushToTalk);
+      this.applyMicMuted(this.muteBeforePushToTalk);
     }
   }
 
@@ -1222,10 +1263,22 @@ export class LiveKitService {
       }
       if (target) {
         await this.room.switchActiveDevice(kind, target);
+        if (kind === "audiooutput") {
+          this.applySinkToCtx(target);
+        }
       }
     } catch (e) {
       console.warn(`[LiveKitService] ${kind} switch failed:`, e);
     }
+  }
+
+  private applySinkToCtx(sinkId: string): void {
+    const ctx = this.remoteAudioCtx as
+      | (AudioContext & { setSinkId?: (id: string) => Promise<void> })
+      | null;
+    ctx?.setSinkId?.(sinkId).catch((e) =>
+      console.warn("[LiveKitService] audio context sink switch failed:", e),
+    );
   }
 
   private effectiveGain(uiVolume: number): number {

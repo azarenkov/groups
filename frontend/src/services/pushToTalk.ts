@@ -39,20 +39,20 @@ export const initPushToTalk = (): void => {
     e.preventDefault();
     if (holding) return;
     holding = true;
-    getLiveKitService().setMicrophoneMuted(false);
+    getLiveKitService().pttSetTransmitting(true);
   });
   window.addEventListener("keyup", (e) => {
     if (e.code !== PTT_CODE) return;
     if (!holding) return;
     holding = false;
     if (!useVoiceSettingsStore.getState().pushToTalk) return;
-    getLiveKitService().setMicrophoneMuted(true);
+    getLiveKitService().pttSetTransmitting(false);
   });
   window.addEventListener("blur", () => {
     if (!holding) return;
     holding = false;
     if (useVoiceSettingsStore.getState().pushToTalk) {
-      getLiveKitService().setMicrophoneMuted(true);
+      getLiveKitService().pttSetTransmitting(false);
     }
   });
 };
