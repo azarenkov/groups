@@ -82,6 +82,7 @@ export class LiveKitService {
   private pttHolding: boolean = false;
   private micSwitchChain: Promise<void> = Promise.resolve();
   private micSwitchSeq: number = 0;
+  private micRebuildPending: boolean = false;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -302,6 +303,7 @@ export class LiveKitService {
       this.participants.clear();
       this.isConnecting = false;
       this.desiredMicMuted = false;
+      this.micRebuildPending = false;
       this.remoteVolumes.clear();
       this.remoteAudioElements.clear();
       this.remoteGainNodes.clear();
@@ -1369,6 +1371,7 @@ export class LiveKitService {
         const run = async () => {
           if (seq !== this.micSwitchSeq || !this.room) return;
           const hasCapture =
+            this.micRebuildPending ||
             this.micSourceTrack !== null ||
             this.dfnPipeline !== null ||
             this.room.localParticipant.audioTrackPublications.size > 0;
@@ -1376,8 +1379,10 @@ export class LiveKitService {
           const muted = this.desiredMicMuted;
           const mode = this.noiseMode;
           await this.disableMicrophone();
+          this.micRebuildPending = true;
           if (seq !== this.micSwitchSeq) return;
           await this.enableMicrophone();
+          this.micRebuildPending = false;
           if (mode === "high") {
             this.noiseMode = "standard";
             await this.setNoiseSuppressionMode("high");
@@ -1409,13 +1414,15 @@ export class LiveKitService {
 
   private startMicGate(analyser: AnalyserNode): void {
     this.stopMicGate();
+    const gateAtStart = this.micGateGain;
+    if (!gateAtStart) return;
     const data = new Uint8Array(analyser.frequencyBinCount);
     let holdUntil = 0;
     void import("../store/voiceSettingsStore").then(({ useVoiceSettingsStore }) => {
-      if (!this.micGateGain) return;
+      if (this.micGateGain !== gateAtStart) return;
       this.micGateTimer = setInterval(() => {
-        const gate = this.micGateGain;
-        if (!gate) return;
+        if (this.micGateGain !== gateAtStart) return;
+        const gate = gateAtStart;
         const { autoSensitivity, sensitivity } =
           useVoiceSettingsStore.getState();
         if (autoSensitivity) {
