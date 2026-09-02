@@ -243,6 +243,9 @@ export class LiveKitService {
 
       if (!startMuted) {
         this.muteBeforePushToTalk = false;
+        if (this.pushToTalkEnforced) {
+          this.desiredMicMuted = true;
+        }
         await this.enableMicrophone();
       } else {
         this.desiredMicMuted = true;
@@ -365,6 +368,9 @@ export class LiveKitService {
           track.stop();
         } catch {}
         return;
+      }
+      if (this.desiredMicMuted) {
+        await track.mute().catch(() => {});
       }
       try {
         await room.localParticipant.publishTrack(track);
@@ -1425,7 +1431,7 @@ export class LiveKitService {
         const gate = gateAtStart;
         const { autoSensitivity, sensitivity } =
           useVoiceSettingsStore.getState();
-        if (autoSensitivity) {
+        if (autoSensitivity || (this.pushToTalkEnforced && this.pttHolding)) {
           gate.gain.value = 1;
           return;
         }
