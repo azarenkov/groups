@@ -33,6 +33,7 @@ interface CallState {
   focused: boolean;
   peerId: string | null;
   micMuted: boolean;
+  micMuteSeq: number;
   joinableByPeer: Record<string, string>;
   callError: string | null;
 
@@ -135,6 +136,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   focused: false,
   peerId: null,
   micMuted: false,
+  micMuteSeq: 0,
   joinableByPeer: {},
   callError: null,
 
@@ -144,7 +146,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   setFocused: (focused) => set({ focused }),
   setMicMuted: (muted) => {
     getLiveKitService().setMicrophoneMuted(muted);
-    set({ micMuted: muted });
+    set((s) => ({ micMuted: muted, micMuteSeq: s.micMuteSeq + 1 }));
   },
   setCallError: (callError) => set({ callError }),
   callAvailable: (peerId, callId) =>
@@ -270,9 +272,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
     if (!settingsSynced && userId) {
+      const muteSeqAtFallback = get().micMuteSeq;
       void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
         voiceSettingsReadyFor(userId).then(() => {
           if (get().activeCallId !== active.callId) return;
+          if (get().micMuteSeq !== muteSeqAtFallback) return;
           if (!get().micMuted) return;
           get().setMicMuted(false);
         }),

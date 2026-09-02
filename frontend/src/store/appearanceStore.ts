@@ -281,6 +281,9 @@ export const useAppearanceStore = create<AppearanceState>()(
           syncRetryAttempts = 0;
         } catch (err) {
           console.warn("[appearance] sync failed:", err);
+          const { useAuthStore } = await import("./authStore");
+          const authedId = useAuthStore.getState().user?.id ?? null;
+          if (syncSeq !== mySync || authedId !== userId) return;
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }

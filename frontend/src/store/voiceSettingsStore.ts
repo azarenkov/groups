@@ -289,6 +289,9 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           markUserSynced(userId);
         } catch (err) {
           console.warn("[voice-settings] sync failed:", err);
+          const { useAuthStore } = await import("./authStore");
+          const authedId = useAuthStore.getState().user?.id ?? null;
+          if (syncSeq !== mySync || authedId !== userId) return;
           applyToEngine(get());
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);

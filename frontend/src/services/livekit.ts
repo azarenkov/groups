@@ -1419,7 +1419,12 @@ export class LiveKitService {
           this.micRebuildPending = true;
           if (seq !== this.micSwitchSeq) return;
           await this.enableMicrophone();
-          this.micRebuildPending = false;
+          this.micRebuildPending =
+            this.room !== null &&
+            this.micSourceTrack === null &&
+            this.dfnPipeline === null &&
+            this.micBypassedTrack === null &&
+            this.room.localParticipant.audioTrackPublications.size === 0;
           if (mode === "high") {
             this.noiseMode = "standard";
             await this.setNoiseSuppressionMode("high");
