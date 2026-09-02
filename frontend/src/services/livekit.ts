@@ -298,6 +298,7 @@ export class LiveKitService {
 
   async disconnect(): Promise<void> {
     this.clearReconnectAbortTimer();
+    this.micSwitchSeq += 1;
     await this.tearDownDfn();
     this.teardownMicGain();
     if (this.room) {
@@ -991,6 +992,7 @@ export class LiveKitService {
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
       this.clearReconnectAbortTimer();
+      this.micSwitchSeq += 1;
       this.teardownMicGain();
       void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
@@ -1418,8 +1420,15 @@ export class LiveKitService {
     try {
       if (kind === "audioinput") {
         const seq = ++this.micSwitchSeq;
+        const originRoom = this.room;
         const run = async () => {
-          if (seq !== this.micSwitchSeq || !this.room) return;
+          if (
+            seq !== this.micSwitchSeq ||
+            !this.room ||
+            this.room !== originRoom
+          ) {
+            return;
+          }
           const hasCapture =
             this.micRebuildPending ||
             this.micSourceTrack !== null ||
