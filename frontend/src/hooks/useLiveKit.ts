@@ -173,6 +173,24 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           channelId,
           !!response.muted || !settingsSynced,
         );
+        const postAuth = useAuthStore.getState();
+        const postId =
+          postAuth.user?.id ||
+          decodeAccessToken(postAuth.tokens?.accessToken ?? "")?.sub ||
+          null;
+        if (
+          postId !== joiningUserId ||
+          activeChannelRef.current !== joinAttempt
+        ) {
+          if (service.getActiveRoomName() === channelId) {
+            await service.disconnect().catch(() => {});
+          }
+          if (activeChannelRef.current === joinAttempt) {
+            activeChannelRef.current = null;
+            setIsConnecting(false);
+          }
+          return;
+        }
         if (!response.muted && !settingsSynced && joiningUserId) {
           void import("../store/voiceSettingsStore").then(
             ({ voiceSettingsReadyFor }) =>

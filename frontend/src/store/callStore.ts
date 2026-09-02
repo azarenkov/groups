@@ -334,6 +334,15 @@ export const useCallStore = create<CallState>()((set, get) => ({
         await callAPI.leave(callId).catch(() => {});
         throw e;
       }
+      if ((await getAuthedUserId()) !== initiatorId) {
+        const service = getLiveKitService();
+        if (service.getActiveRoomName() === callId) {
+          await service.disconnect().catch(() => {});
+        }
+        await callAPI.leave(callId).catch(() => {});
+        set({ connecting: false });
+        return;
+      }
       set({
         activeCallId: callId,
         connecting: false,
@@ -423,6 +432,23 @@ export const useCallStore = create<CallState>()((set, get) => ({
       await callAPI.leave(callId).catch(() => {});
       throw e;
     }
+    if ((await getAuthedUserId()) !== initiatorId) {
+      pendingLog = null;
+      const service = getLiveKitService();
+      if (service.getActiveRoomName() === callId) {
+        await service.disconnect().catch(() => {});
+      }
+      await callAPI.leave(callId).catch(() => {});
+      set({
+        activeCallId: null,
+        connecting: false,
+        participants: {},
+        ringing: [],
+        focused: false,
+        peerId: null,
+      });
+      return;
+    }
     set({ connecting: false });
     if (!synced) armFallbackMuteRelease(initiatorId, callId);
   },
@@ -446,6 +472,15 @@ export const useCallStore = create<CallState>()((set, get) => ({
       } catch (e) {
         await callAPI.leave(inc.callId).catch(() => {});
         throw e;
+      }
+      if ((await getAuthedUserId()) !== initiatorId) {
+        const service = getLiveKitService();
+        if (service.getActiveRoomName() === inc.callId) {
+          await service.disconnect().catch(() => {});
+        }
+        await callAPI.leave(inc.callId).catch(() => {});
+        set({ connecting: false });
+        return;
       }
       set({
         activeCallId: inc.callId,
