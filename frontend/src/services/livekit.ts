@@ -78,6 +78,8 @@ export class LiveKitService {
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
   private pttHolding: boolean = false;
+  private micSwitchChain: Promise<void> = Promise.resolve();
+  private micSwitchSeq: number = 0;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -1339,15 +1341,22 @@ export class LiveKitService {
     if (!this.room) return;
     try {
       if (kind === "audioinput" && (this.micSourceTrack || this.dfnPipeline)) {
-        const muted = this.desiredMicMuted;
-        const mode = this.noiseMode;
-        await this.disableMicrophone();
-        await this.enableMicrophone();
-        if (mode === "high") {
-          this.noiseMode = "standard";
-          await this.setNoiseSuppressionMode("high");
-        }
-        this.applyMicMuted(muted);
+        const seq = ++this.micSwitchSeq;
+        const run = async () => {
+          if (seq !== this.micSwitchSeq || !this.room) return;
+          const muted = this.desiredMicMuted;
+          const mode = this.noiseMode;
+          await this.disableMicrophone();
+          if (seq !== this.micSwitchSeq) return;
+          await this.enableMicrophone();
+          if (mode === "high") {
+            this.noiseMode = "standard";
+            await this.setNoiseSuppressionMode("high");
+          }
+          this.applyMicMuted(muted);
+        };
+        this.micSwitchChain = this.micSwitchChain.then(run, run);
+        await this.micSwitchChain;
         return;
       }
       let target = deviceId;

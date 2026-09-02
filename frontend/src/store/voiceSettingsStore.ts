@@ -247,9 +247,12 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           applyToEngine(get());
         } catch (err) {
           console.warn("[voice-settings] sync failed:", err);
+          applyToEngine(get());
         }
       },
     }),
     { name: "rift-voice-settings" },
   ),
 );
+
+applyToEngine(useVoiceSettingsStore.getState());
