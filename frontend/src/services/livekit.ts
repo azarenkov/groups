@@ -238,6 +238,9 @@ export class LiveKitService {
 
       if (!startMuted) {
         await this.enableMicrophone();
+      } else {
+        this.desiredMicMuted = true;
+        this.muteBeforePushToTalk = true;
       }
       if (this.pushToTalkEnforced) {
         this.applyMicMuted(true);
