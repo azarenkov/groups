@@ -404,6 +404,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     }
     set({ connecting: false });
+    if (!settings.synced) armFallbackMuteRelease(settings.userId, callId);
   },
 
   accept: async () => {
