@@ -262,6 +262,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
             set({ ...local, ownerId: userId });
             applyToEngine(get());
             if (!switched) scheduleSave(local, userId);
+            markUserSynced(userId);
             return;
           }
           const next = preserveRecentEdits({
@@ -277,11 +278,10 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
+          markUserSynced(userId);
         } catch (err) {
           console.warn("[voice-settings] sync failed:", err);
           applyToEngine(get());
-        } finally {
-          markUserSynced(userId);
         }
       },
     }),

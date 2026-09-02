@@ -77,6 +77,7 @@ export class LiveKitService {
   private micGateGain: GainNode | null = null;
   private micGateTimer: ReturnType<typeof setInterval> | null = null;
   private micGainRetryCleanup: (() => void) | null = null;
+  private micBypassedTrack: MediaStreamTrack | null = null;
   private defaultNoiseSuppression: boolean = true;
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
@@ -508,6 +509,9 @@ export class LiveKitService {
 
     if (this.dfnRawTrack) {
       this.dfnRawTrack.enabled = !muted;
+    }
+    if (this.micBypassedTrack) {
+      this.micBypassedTrack.enabled = !muted && this.micVolume > 0;
     }
   }
 
@@ -1299,6 +1303,10 @@ export class LiveKitService {
       if (this.micGainNode) {
         this.micGainNode.gain.value = this.micVolume;
       }
+      if (this.micBypassedTrack) {
+        this.micBypassedTrack.enabled =
+          !this.desiredMicMuted && this.micVolume > 0;
+      }
     }
   }
 
@@ -1321,6 +1329,8 @@ export class LiveKitService {
       }
       if (ctx.state !== "running") {
         await ctx.close().catch(() => {});
+        this.micBypassedTrack = raw;
+        raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
         this.scheduleMicGainRetry(track);
         return;
       }
@@ -1342,6 +1352,8 @@ export class LiveKitService {
         return;
       }
       await track.replaceTrack(processed);
+      this.micBypassedTrack = null;
+      raw.enabled = !this.desiredMicMuted;
       this.micGainCtx = ctx;
       this.micGainNode = gain;
       this.micGateGain = gate;
@@ -1355,6 +1367,7 @@ export class LiveKitService {
   private teardownMicGain(): void {
     this.clearMicGainRetry();
     this.stopMicGate();
+    this.micBypassedTrack = null;
     this.micGateGain = null;
     if (this.micGainCtx) {
       void this.micGainCtx.close().catch(() => {});

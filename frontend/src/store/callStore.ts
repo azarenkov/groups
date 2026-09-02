@@ -267,6 +267,15 @@ export const useCallStore = create<CallState>()((set, get) => ({
       focused: s.activeCallId === active.callId ? s.focused : true,
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
+    if (!settingsSynced && userId) {
+      void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
+        voiceSettingsReadyFor(userId).then(() => {
+          if (get().activeCallId !== active.callId) return;
+          if (!get().micMuted) return;
+          get().setMicMuted(false);
+        }),
+      );
+    }
   },
 
   joinCall: async (callId, peerId) => {
