@@ -245,7 +245,9 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       } else {
         console.log("[useLiveKit] Room superseded, skipping disconnect");
       }
-      activeChannelRef.current = null;
+      if (activeChannelRef.current === active) {
+        activeChannelRef.current = null;
+      }
       setParticipants([]);
       setVideoTiles([]);
       setIsCameraEnabled(false);

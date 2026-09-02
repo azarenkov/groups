@@ -292,6 +292,13 @@ export const useCallStore = create<CallState>()((set, get) => ({
         return;
       }
     }
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) {
+      const svc = getLiveKitService();
+      if (svc.getActiveRoomName() === active.callId) {
+        await svc.disconnect().catch(() => {});
+      }
+      return;
+    }
     set((s) => ({
       activeCallId: active.callId,
       participants,
