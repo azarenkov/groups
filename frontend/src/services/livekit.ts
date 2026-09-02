@@ -72,6 +72,7 @@ export class LiveKitService {
   private masterVolume: number = 1.0;
   private defaultNoiseSuppression: boolean = true;
   private pushToTalkEnforced: boolean = false;
+  private muteBeforePushToTalk: boolean = false;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -1191,9 +1192,13 @@ export class LiveKitService {
   }
 
   setPushToTalkEnforced(enabled: boolean): void {
+    if (enabled === this.pushToTalkEnforced) return;
     this.pushToTalkEnforced = enabled;
-    if (this.room) {
-      this.setMicrophoneMuted(enabled ? true : false);
+    if (enabled) {
+      this.muteBeforePushToTalk = this.desiredMicMuted;
+      this.setMicrophoneMuted(true);
+    } else {
+      this.setMicrophoneMuted(this.muteBeforePushToTalk);
     }
   }
 
