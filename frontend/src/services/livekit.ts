@@ -1292,7 +1292,20 @@ export class LiveKitService {
     noiseSuppression?: boolean;
   }): void {
     if (prefs.noiseSuppression !== undefined) {
+      const changed = prefs.noiseSuppression !== this.defaultNoiseSuppression;
       this.defaultNoiseSuppression = prefs.noiseSuppression;
+      if (changed && this.room) {
+        const target: NoiseSuppressionMode = prefs.noiseSuppression
+          ? this.noiseMode === "off"
+            ? "standard"
+            : this.noiseMode
+          : "off";
+        if (target !== this.noiseMode) {
+          void this.setNoiseSuppressionMode(target).catch((e) =>
+            console.warn("[LiveKitService] live noise toggle failed:", e),
+          );
+        }
+      }
     }
     if (
       prefs.micDeviceId !== undefined &&

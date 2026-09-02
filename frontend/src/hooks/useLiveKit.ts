@@ -97,6 +97,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     async (channelId: string, serverId: string, password?: string) => {
       const service = serviceRef.current;
       if (!service) return;
+      let joinAttempt: { serverId: string; channelId: string } | null = null;
       try {
         if (service.isConnectingNow()) {
           console.log("[useLiveKit] Already connecting, skipping join request");
@@ -112,7 +113,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(true);
         setError(null);
         activeChannelRef.current = { serverId, channelId };
-        const joinAttempt = activeChannelRef.current;
+        joinAttempt = activeChannelRef.current;
         const joinAuth = useAuthStore.getState();
         const joiningUserId =
           joinAuth.user?.id ||
@@ -221,11 +222,15 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(false);
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
-        activeChannelRef.current = null;
-        setLock(false);
-        selfMutedBeforeLockRef.current = false;
-        setError(err instanceof Error ? err.message : "Failed to join channel");
-        setIsConnecting(false);
+        if (joinAttempt === null || activeChannelRef.current === joinAttempt) {
+          activeChannelRef.current = null;
+          setLock(false);
+          selfMutedBeforeLockRef.current = false;
+          setError(
+            err instanceof Error ? err.message : "Failed to join channel",
+          );
+          setIsConnecting(false);
+        }
         throw err;
       }
     },
