@@ -410,6 +410,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
       micMuted: false,
     });
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
+    if (get().activeCallId !== callId) {
+      if (pendingLog?.callId === callId) pendingLog = null;
+      await callAPI.leave(callId).catch(() => {});
+      if (get().activeCallId === null) set({ connecting: false });
+      return;
+    }
     if ((await getAuthedUserId()) !== initiatorId) {
       pendingLog = null;
       set({
@@ -439,21 +445,28 @@ export const useCallStore = create<CallState>()((set, get) => ({
       await callAPI.leave(callId).catch(() => {});
       throw e;
     }
-    if ((await getAuthedUserId()) !== initiatorId) {
-      pendingLog = null;
+    if (
+      get().activeCallId !== callId ||
+      (await getAuthedUserId()) !== initiatorId
+    ) {
+      if (pendingLog?.callId === callId) pendingLog = null;
       const service = getLiveKitService();
       if (service.getActiveRoomName() === callId) {
         await service.disconnect().catch(() => {});
       }
       await callAPI.leave(callId).catch(() => {});
-      set({
-        activeCallId: null,
-        connecting: false,
-        participants: {},
-        ringing: [],
-        focused: false,
-        peerId: null,
-      });
+      if (get().activeCallId === callId) {
+        set({
+          activeCallId: null,
+          connecting: false,
+          participants: {},
+          ringing: [],
+          focused: false,
+          peerId: null,
+        });
+      } else if (get().activeCallId === null) {
+        set({ connecting: false });
+      }
       return;
     }
     set({ connecting: false });

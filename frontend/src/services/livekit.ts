@@ -1496,12 +1496,24 @@ export class LiveKitService {
     this.clearMicGainRetry();
     const retry = () => {
       this.clearMicGainRetry();
-      if (!this.room || this.micSourceTrack) return;
-      const publication = Array.from(
-        this.room.localParticipant.audioTrackPublications.values(),
-      )[0];
-      if (publication?.track !== track) return;
-      void this.wireMicGain(track);
+      const seqAtRetry = this.micSwitchSeq;
+      const roomAtRetry = this.room;
+      const run = async () => {
+        if (
+          this.micSwitchSeq !== seqAtRetry ||
+          !this.room ||
+          this.room !== roomAtRetry ||
+          this.micSourceTrack
+        ) {
+          return;
+        }
+        const publication = Array.from(
+          this.room.localParticipant.audioTrackPublications.values(),
+        )[0];
+        if (publication?.track !== track) return;
+        await this.wireMicGain(track);
+      };
+      this.micSwitchChain = this.micSwitchChain.then(run, run);
     };
     window.addEventListener("pointerdown", retry, { once: true });
     window.addEventListener("keydown", retry, { once: true });
