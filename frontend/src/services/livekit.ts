@@ -337,16 +337,26 @@ export class LiveKitService {
     if (!this.room) return;
 
     const publish = async (deviceId?: string) => {
+      const startedRoom = this.room;
       const track = await createLocalAudioTrack({
         deviceId,
         echoCancellation: true,
         noiseSuppression: this.noiseMode !== "off",
         autoGainControl: true,
       });
+      if (!this.room || this.room !== startedRoom) {
+        try {
+          track.stop();
+        } catch {}
+        return;
+      }
       await this.wireMicGain(track);
+      const wiredRaw = this.micSourceTrack;
       const room = this.room;
-      if (!room) {
-        this.teardownMicGain();
+      if (!room || room !== startedRoom) {
+        if (this.micSourceTrack === wiredRaw) {
+          this.teardownMicGain();
+        }
         try {
           track.stop();
         } catch {}
@@ -355,7 +365,9 @@ export class LiveKitService {
       try {
         await room.localParticipant.publishTrack(track);
       } catch (error) {
-        this.teardownMicGain();
+        if (this.micSourceTrack === wiredRaw) {
+          this.teardownMicGain();
+        }
         try {
           track.stop();
         } catch {}
@@ -1340,10 +1352,15 @@ export class LiveKitService {
   ): Promise<void> {
     if (!this.room) return;
     try {
-      if (kind === "audioinput" && (this.micSourceTrack || this.dfnPipeline)) {
+      if (kind === "audioinput") {
         const seq = ++this.micSwitchSeq;
         const run = async () => {
           if (seq !== this.micSwitchSeq || !this.room) return;
+          const hasCapture =
+            this.micSourceTrack !== null ||
+            this.dfnPipeline !== null ||
+            this.room.localParticipant.audioTrackPublications.size > 0;
+          if (!hasCapture) return;
           const muted = this.desiredMicMuted;
           const mode = this.noiseMode;
           await this.disableMicrophone();
