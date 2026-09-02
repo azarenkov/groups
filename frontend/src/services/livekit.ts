@@ -285,6 +285,7 @@ export class LiveKitService {
   async disconnect(): Promise<void> {
     this.clearReconnectAbortTimer();
     await this.tearDownDfn();
+    this.teardownMicGain();
     if (this.room) {
       console.log("[LiveKitService] Disconnecting from room");
       await this.room.disconnect();
@@ -532,7 +533,7 @@ export class LiveKitService {
 
       await this.disableDfnPipeline();
 
-      const track = this.getLocalAudioMediaStreamTrack();
+      const track = this.micSourceTrack ?? this.getLocalAudioMediaStreamTrack();
       if (!track) return;
       try {
         await track.applyConstraints({ noiseSuppression: mode === "standard" });
@@ -611,7 +612,7 @@ export class LiveKitService {
       try {
         step = "applyConstraints";
         try {
-          await rawTrack.applyConstraints({ noiseSuppression: false });
+          await (this.micSourceTrack ?? rawTrack).applyConstraints({ noiseSuppression: false });
         } catch {}
 
         step = "AudioContext";
@@ -643,7 +644,7 @@ export class LiveKitService {
           } catch {}
           this.noiseMode = "standard";
           try {
-            await rawTrack.applyConstraints({ noiseSuppression: true });
+            await (this.micSourceTrack ?? rawTrack).applyConstraints({ noiseSuppression: true });
           } catch {}
           this.onError?.(new Error("Noise suppression models unavailable"));
           return;
@@ -685,7 +686,7 @@ export class LiveKitService {
     console.error("[LiveKitService] failed to enable DFN pipeline:", lastErr);
     this.noiseMode = "standard";
     try {
-      await rawTrack.applyConstraints({ noiseSuppression: true });
+      await (this.micSourceTrack ?? rawTrack).applyConstraints({ noiseSuppression: true });
     } catch {}
     this.onError?.(
       lastErr instanceof Error
@@ -932,6 +933,7 @@ export class LiveKitService {
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
       this.clearReconnectAbortTimer();
+      this.teardownMicGain();
       void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
       this.emitLocalQuality(ConnectionQuality.Unknown);
@@ -1316,6 +1318,18 @@ export class LiveKitService {
   ): Promise<void> {
     if (!this.room) return;
     try {
+      if (kind === "audioinput" && (this.micSourceTrack || this.dfnPipeline)) {
+        const muted = this.desiredMicMuted;
+        const mode = this.noiseMode;
+        await this.disableMicrophone();
+        await this.enableMicrophone();
+        if (mode === "high") {
+          this.noiseMode = "standard";
+          await this.setNoiseSuppressionMode("high");
+        }
+        this.applyMicMuted(muted);
+        return;
+      }
       let target = deviceId;
       if (!target) {
         const devices = await navigator.mediaDevices.enumerateDevices();
