@@ -78,6 +78,19 @@ export const invalidateVoiceSettingsSync = (): void => {
   syncRetryAttempts = 0;
 };
 
+export const awaitVoiceSettingsSyncedFor = async (
+  userId: string | null,
+  timeoutMs = 4000,
+): Promise<boolean> => {
+  if (!userId) return true;
+  return await Promise.race([
+    voiceSettingsReadyFor(userId).then(() => true),
+    new Promise<boolean>((resolve) =>
+      setTimeout(() => resolve(false), timeoutMs),
+    ),
+  ]);
+};
+
 const markUserSynced = (userId: string) => {
   syncedUsers.add(userId);
   syncWaiters = syncWaiters.filter((waiter) => {

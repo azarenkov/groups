@@ -26,12 +26,10 @@ const getAuthedUserId = async (): Promise<string | null> => {
 const awaitVoiceSettingsSyncedFor = async (
   userId: string | null,
 ): Promise<boolean> => {
-  if (!userId) return true;
-  const { voiceSettingsReadyFor } = await import("./voiceSettingsStore");
-  return await Promise.race([
-    voiceSettingsReadyFor(userId).then(() => true),
-    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 4000)),
-  ]);
+  const { awaitVoiceSettingsSyncedFor: waitFor } = await import(
+    "./voiceSettingsStore"
+  );
+  return waitFor(userId);
 };
 
 const armFallbackMuteRelease = (userId: string | null, callId: string) => {
