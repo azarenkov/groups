@@ -71,6 +71,11 @@ export const voiceSettingsReadyFor = (userId: string): Promise<void> => {
 
 export const invalidateVoiceSettingsSync = (): void => {
   syncedUsers.clear();
+  if (syncRetryTimer !== null) {
+    window.clearTimeout(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+  syncRetryAttempts = 0;
 };
 
 const markUserSynced = (userId: string) => {
@@ -92,6 +97,7 @@ let saveAttempts = 0;
 let savePaused = false;
 let syncRetryTimer: number | null = null;
 let syncRetryAttempts = 0;
+let syncRetryInFlight = false;
 let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
@@ -213,6 +219,8 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           window.clearTimeout(syncRetryTimer);
           syncRetryTimer = null;
         }
+        if (!syncRetryInFlight) syncRetryAttempts = 0;
+        syncRetryInFlight = false;
         const { userAPI } = await import("../api/user");
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;
@@ -300,6 +308,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
             syncRetryAttempts += 1;
             syncRetryTimer = window.setTimeout(() => {
               syncRetryTimer = null;
+              syncRetryInFlight = true;
               void get().syncFromServer(userId);
             }, 5000);
           }

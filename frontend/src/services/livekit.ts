@@ -1314,41 +1314,47 @@ export class LiveKitService {
     this.teardownMicGain();
     const raw = track.mediaStreamTrack;
     if (!raw) return;
+    let ctx: AudioContext | null = null;
     try {
       const Ctor =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
-      if (!Ctor) return;
-      const ctx = new Ctor();
-      if (ctx.state === "suspended") {
+      if (!Ctor) {
+        this.micBypassedTrack = raw;
+        raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
+        return;
+      }
+      ctx = new Ctor();
+      const audioCtx = ctx;
+      if (audioCtx.state === "suspended") {
         await Promise.race([
-          ctx.resume().catch(() => {}),
+          audioCtx.resume().catch(() => {}),
           new Promise((resolve) => setTimeout(resolve, 500)),
         ]);
       }
-      if (ctx.state !== "running") {
-        await ctx.close().catch(() => {});
+      if (audioCtx.state !== "running") {
+        await audioCtx.close().catch(() => {});
         this.micBypassedTrack = raw;
         raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
         this.scheduleMicGainRetry(track);
         return;
       }
-      const source = ctx.createMediaStreamSource(new MediaStream([raw]));
-      const gain = ctx.createGain();
+      const source = audioCtx.createMediaStreamSource(new MediaStream([raw]));
+      const gain = audioCtx.createGain();
       gain.gain.value = this.micVolume;
-      const gate = ctx.createGain();
+      const gate = audioCtx.createGain();
       gate.gain.value = 1;
-      const analyser = ctx.createAnalyser();
+      const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
-      const destination = ctx.createMediaStreamDestination();
+      const destination = audioCtx.createMediaStreamDestination();
       source.connect(gain);
       gain.connect(gate);
       gain.connect(analyser);
       gate.connect(destination);
       const processed = destination.stream.getAudioTracks()[0];
       if (!processed) {
-        await ctx.close().catch(() => {});
+        await audioCtx.close().catch(() => {});
         return;
       }
       await track.replaceTrack(processed);
@@ -1361,6 +1367,12 @@ export class LiveKitService {
       this.startMicGate(analyser);
     } catch (e) {
       console.warn("[LiveKitService] mic gain wiring failed:", e);
+      if (ctx && this.micGainCtx !== ctx) {
+        void ctx.close().catch(() => {});
+      }
+      this.micBypassedTrack = raw;
+      raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
+      this.scheduleMicGainRetry(track);
     }
   }
 

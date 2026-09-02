@@ -79,6 +79,7 @@ let saveAttempts = 0;
 let savePaused = false;
 let syncRetryTimer: number | null = null;
 let syncRetryAttempts = 0;
+let syncRetryInFlight = false;
 let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
@@ -208,6 +209,8 @@ export const useAppearanceStore = create<AppearanceState>()(
           window.clearTimeout(syncRetryTimer);
           syncRetryTimer = null;
         }
+        if (!syncRetryInFlight) syncRetryAttempts = 0;
+        syncRetryInFlight = false;
         const { userAPI } = await import("../api/user");
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;
@@ -291,6 +294,7 @@ export const useAppearanceStore = create<AppearanceState>()(
             syncRetryAttempts += 1;
             syncRetryTimer = window.setTimeout(() => {
               syncRetryTimer = null;
+              syncRetryInFlight = true;
               void get().syncFromServer(userId);
             }, 5000);
           }
