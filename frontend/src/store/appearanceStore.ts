@@ -122,6 +122,7 @@ const flushSave = async (): Promise<void> => {
     const { useAuthStore } = await import("./authStore");
     const currentId = useAuthStore.getState().user?.id ?? null;
     if (owner !== null && currentId !== owner) {
+      pendingPatch = { ...patch, ...pendingPatch };
       return;
     }
     const { userAPI } = await import("../api/user");
@@ -263,6 +264,9 @@ export const useAppearanceStore = create<AppearanceState>()(
           });
           set({ ...next, ownerId: userId });
           applyAppearance(next);
+          if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
+            scheduleSave({}, userId);
+          }
         } catch (err) {
           console.warn("[appearance] sync failed:", err);
         }

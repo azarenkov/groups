@@ -59,6 +59,13 @@ const applyToEngine = (s: {
   });
 };
 
+let readyResolve: (() => void) | null = null;
+const readyPromise = new Promise<void>((resolve) => {
+  readyResolve = resolve;
+});
+
+export const voiceSettingsReady = (): Promise<void> => readyPromise;
+
 let saveTimer: number | null = null;
 let pendingPatch: Partial<VoiceSyncedSettings> = {};
 let pendingOwner: string | null = null;
@@ -99,6 +106,7 @@ const flushSave = async (): Promise<void> => {
     const { useAuthStore } = await import("./authStore");
     const currentId = useAuthStore.getState().user?.id ?? null;
     if (owner !== null && currentId !== owner) {
+      pendingPatch = { ...patch, ...pendingPatch };
       return;
     }
     const { userAPI } = await import("../api/user");
@@ -245,9 +253,15 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           });
           set({ ...next, ownerId: userId });
           applyToEngine(get());
+          if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
+            scheduleSave({}, userId);
+          }
         } catch (err) {
           console.warn("[voice-settings] sync failed:", err);
           applyToEngine(get());
+        } finally {
+          readyResolve?.();
+          readyResolve = null;
         }
       },
     }),

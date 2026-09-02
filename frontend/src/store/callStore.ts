@@ -219,6 +219,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   rehydrate: async () => {
     if (get().connecting) return;
+    const { voiceSettingsReady } = await import("./voiceSettingsStore");
+    await Promise.race([
+      voiceSettingsReady(),
+      new Promise((resolve) => setTimeout(resolve, 4000)),
+    ]);
     const active = await callAPI.getActive().catch(() => null);
     if (!active) {
       const service = getLiveKitService();
