@@ -237,6 +237,7 @@ export class LiveKitService {
       });
 
       if (!startMuted) {
+        this.muteBeforePushToTalk = false;
         await this.enableMicrophone();
       } else {
         this.desiredMicMuted = true;
@@ -341,7 +342,23 @@ export class LiveKitService {
         autoGainControl: true,
       });
       await this.wireMicGain(track);
-      await this.room?.localParticipant.publishTrack(track);
+      const room = this.room;
+      if (!room) {
+        this.teardownMicGain();
+        try {
+          track.stop();
+        } catch {}
+        return;
+      }
+      try {
+        await room.localParticipant.publishTrack(track);
+      } catch (error) {
+        this.teardownMicGain();
+        try {
+          track.stop();
+        } catch {}
+        throw error;
+      }
       this.emitLocalTrack();
     };
 
