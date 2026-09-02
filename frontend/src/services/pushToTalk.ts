@@ -6,15 +6,13 @@ const PTT_CODE = "Space";
 let initialized = false;
 let holding = false;
 
-const isEditableTarget = (target: EventTarget | null): boolean => {
+const isInteractiveTarget = (target: EventTarget | null): boolean => {
   const el = target as HTMLElement | null;
-  if (!el || !el.tagName) return false;
-  const tag = el.tagName;
+  if (!el || typeof el.closest !== "function") return false;
   return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    el.isContentEditable
+    el.closest(
+      'input, textarea, select, button, a[href], [contenteditable="true"], [role="button"], [role="menuitem"], [role="tab"], [role="option"], [role="switch"], [role="slider"]',
+    ) !== null || el.isContentEditable
   );
 };
 
@@ -35,7 +33,7 @@ export const initPushToTalk = (): void => {
   window.addEventListener("keydown", (e) => {
     if (e.code !== PTT_CODE) return;
     if (!useVoiceSettingsStore.getState().pushToTalk) return;
-    if (isEditableTarget(e.target)) return;
+    if (isInteractiveTarget(e.target)) return;
     e.preventDefault();
     if (holding) return;
     holding = true;

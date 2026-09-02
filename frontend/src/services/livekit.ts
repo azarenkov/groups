@@ -70,6 +70,10 @@ export class LiveKitService {
   private preferredMicId: string | null = null;
   private preferredSpeakerId: string | null = null;
   private masterVolume: number = 1.0;
+  private micVolume: number = 1.0;
+  private micGainCtx: AudioContext | null = null;
+  private micGainNode: GainNode | null = null;
+  private micSourceTrack: MediaStreamTrack | null = null;
   private defaultNoiseSuppression: boolean = true;
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
@@ -332,6 +336,7 @@ export class LiveKitService {
         noiseSuppression: this.noiseMode !== "off",
         autoGainControl: true,
       });
+      await this.wireMicGain(track);
       await this.room?.localParticipant.publishTrack(track);
       this.emitLocalTrack();
     };
@@ -372,6 +377,8 @@ export class LiveKitService {
 
   async disableMicrophone(): Promise<void> {
     if (!this.room) return;
+
+    this.teardownMicGain();
 
     if (this.dfnPipeline) {
       try {
@@ -415,6 +422,7 @@ export class LiveKitService {
   pttSetTransmitting(active: boolean): void {
     if (!this.pushToTalkEnforced) return;
     this.pttHolding = active;
+    if (active && this.muteBeforePushToTalk) return;
     this.applyMicMuted(!active);
   }
 
@@ -1202,6 +1210,7 @@ export class LiveKitService {
     micDeviceId?: string | null;
     speakerDeviceId?: string | null;
     outputVolume?: number;
+    micVolume?: number;
     noiseSuppression?: boolean;
   }): void {
     if (prefs.noiseSuppression !== undefined) {
@@ -1229,6 +1238,60 @@ export class LiveKitService {
       this.masterVolume = Math.max(0, Math.min(1, prefs.outputVolume));
       this.applyMasterVolume();
     }
+    if (prefs.micVolume !== undefined) {
+      this.micVolume = Math.max(0, Math.min(1, prefs.micVolume));
+      if (this.micGainNode) {
+        this.micGainNode.gain.value = this.micVolume;
+      }
+    }
+  }
+
+  private async wireMicGain(track: LocalAudioTrack): Promise<void> {
+    this.teardownMicGain();
+    const raw = track.mediaStreamTrack;
+    if (!raw) return;
+    try {
+      const Ctor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctor) return;
+      const ctx = new Ctor();
+      if (ctx.state === "suspended") {
+        await ctx.resume().catch(() => {});
+      }
+      const source = ctx.createMediaStreamSource(new MediaStream([raw]));
+      const gain = ctx.createGain();
+      gain.gain.value = this.micVolume;
+      const destination = ctx.createMediaStreamDestination();
+      source.connect(gain);
+      gain.connect(destination);
+      const processed = destination.stream.getAudioTracks()[0];
+      if (!processed) {
+        await ctx.close().catch(() => {});
+        return;
+      }
+      await track.replaceTrack(processed);
+      this.micGainCtx = ctx;
+      this.micGainNode = gain;
+      this.micSourceTrack = raw;
+    } catch (e) {
+      console.warn("[LiveKitService] mic gain wiring failed:", e);
+    }
+  }
+
+  private teardownMicGain(): void {
+    if (this.micGainCtx) {
+      void this.micGainCtx.close().catch(() => {});
+    }
+    if (this.micSourceTrack) {
+      try {
+        this.micSourceTrack.stop();
+      } catch {}
+    }
+    this.micGainCtx = null;
+    this.micGainNode = null;
+    this.micSourceTrack = null;
   }
 
   setPushToTalkEnforced(enabled: boolean): void {

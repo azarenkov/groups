@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
 import { getLiveKitService, NoiseSuppressionMode } from "../../services/livekit";
+import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 import { UserAvatar } from "./Avatar";
 
 export interface VoicePillInvite {
@@ -151,8 +152,12 @@ const VoicePill: React.FC<VoicePillProps> = ({
       const data = new Uint8Array(bins);
       const usable = Math.floor(bins * 0.6);
       const perBar = Math.max(1, Math.floor(usable / BARS));
-      const SPEAK_ON = 22;
-      const SPEAK_OFF = 12;
+      const speakThresholds = () => {
+        const { autoSensitivity, sensitivity } =
+          useVoiceSettingsStore.getState();
+        const on = autoSensitivity ? 22 : 45 - 0.4 * sensitivity;
+        return { on, off: autoSensitivity ? 12 : on * 0.55 };
+      };
       const SPEAK_RELEASE_MS = 250;
 
       const tick = () => {
@@ -174,9 +179,9 @@ const VoicePill: React.FC<VoicePillProps> = ({
 
         const now = performance.now();
         const wantSpeaking = lastSpeaking
-          ? maxSample > SPEAK_OFF ||
+          ? maxSample > speakThresholds().off ||
             now - lastSpeakingChangeAt < SPEAK_RELEASE_MS
-          : maxSample > SPEAK_ON;
+          : maxSample > speakThresholds().on;
         if (wantSpeaking !== lastSpeaking) {
           lastSpeaking = wantSpeaking;
           lastSpeakingChangeAt = now;

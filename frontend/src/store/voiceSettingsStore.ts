@@ -47,12 +47,14 @@ const applyToEngine = (s: {
   micDeviceId: string;
   speakerDeviceId: string;
   outputVolume: number;
+  micVolume: number;
   noiseSuppression: boolean;
 }) => {
   getLiveKitService().setAudioPreferences({
     micDeviceId: s.micDeviceId || null,
     speakerDeviceId: s.speakerDeviceId || null,
     outputVolume: s.outputVolume / 100,
+    micVolume: s.micVolume / 100,
     noiseSuppression: s.noiseSuppression,
   });
 };
