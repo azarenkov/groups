@@ -9,12 +9,13 @@ async function connectToRoom(
   token: string,
   url: string,
   roomName: string,
+  startMuted?: boolean,
 ): Promise<void> {
   const service = getLiveKitService();
   if (service.isConnected() || service.isConnectingNow()) {
     await service.disconnect().catch(() => {});
   }
-  await service.connect(token, url, roomName);
+  await service.connect(token, url, roomName, startMuted);
 }
 
 export interface IncomingCall {
@@ -219,11 +220,18 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   rehydrate: async () => {
     if (get().connecting) return;
-    const { voiceSettingsReady } = await import("./voiceSettingsStore");
-    await Promise.race([
-      voiceSettingsReady(),
-      new Promise((resolve) => setTimeout(resolve, 4000)),
-    ]);
+    const { useAuthStore } = await import("./authStore");
+    const userId = useAuthStore.getState().user?.id ?? null;
+    let settingsSynced = true;
+    if (userId) {
+      const { voiceSettingsReadyFor } = await import("./voiceSettingsStore");
+      settingsSynced = await Promise.race([
+        voiceSettingsReadyFor(userId).then(() => true),
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), 4000),
+        ),
+      ]);
+    }
     const active = await callAPI.getActive().catch(() => null);
     if (!active) {
       const service = getLiveKitService();
@@ -242,7 +250,12 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const service = getLiveKitService();
     if (!service.isConnected() && !service.isConnectingNow()) {
       try {
-        await connectToRoom(active.token, active.url, active.callId);
+        await connectToRoom(
+          active.token,
+          active.url,
+          active.callId,
+          !settingsSynced,
+        );
       } catch {
         return;
       }
@@ -252,6 +265,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       participants,
       ringing: s.activeCallId === active.callId ? s.ringing : [],
       focused: s.activeCallId === active.callId ? s.focused : true,
+      ...(settingsSynced ? {} : { micMuted: true }),
     }));
   },
 

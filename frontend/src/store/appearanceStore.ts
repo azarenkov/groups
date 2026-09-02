@@ -76,6 +76,7 @@ let inFlight = false;
 let inFlightPatch: Partial<AppearanceSettings> = {};
 let inFlightOwner: string | null = null;
 let saveAttempts = 0;
+let savePaused = false;
 let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
@@ -123,6 +124,7 @@ const flushSave = async (): Promise<void> => {
     const currentId = useAuthStore.getState().user?.id ?? null;
     if (owner !== null && currentId !== owner) {
       pendingPatch = { ...patch, ...pendingPatch };
+      savePaused = true;
       return;
     }
     const { userAPI } = await import("../api/user");
@@ -151,6 +153,7 @@ const flushSave = async (): Promise<void> => {
     inFlightPatch = {};
     inFlightOwner = null;
     if (
+      !savePaused &&
       saveAttempts === 0 &&
       saveTimer === null &&
       Object.keys(pendingPatch).length > 0
@@ -164,6 +167,7 @@ const scheduleSave = (
   patch: Partial<AppearanceSettings>,
   owner: string | null,
 ) => {
+  savePaused = false;
   if (owner !== pendingOwner) {
     cancelPendingSaves();
     pendingOwner = owner;

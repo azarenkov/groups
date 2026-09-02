@@ -59,12 +59,24 @@ const applyToEngine = (s: {
   });
 };
 
-let readyResolve: (() => void) | null = null;
-const readyPromise = new Promise<void>((resolve) => {
-  readyResolve = resolve;
-});
+const syncedUsers = new Set<string>();
+let syncWaiters: { userId: string; resolve: () => void }[] = [];
 
-export const voiceSettingsReady = (): Promise<void> => readyPromise;
+export const voiceSettingsReadyFor = (userId: string): Promise<void> => {
+  if (syncedUsers.has(userId)) return Promise.resolve();
+  return new Promise((resolve) => {
+    syncWaiters.push({ userId, resolve });
+  });
+};
+
+const markUserSynced = (userId: string) => {
+  syncedUsers.add(userId);
+  syncWaiters = syncWaiters.filter((waiter) => {
+    if (waiter.userId !== userId) return true;
+    waiter.resolve();
+    return false;
+  });
+};
 
 let saveTimer: number | null = null;
 let pendingPatch: Partial<VoiceSyncedSettings> = {};
@@ -73,6 +85,7 @@ let inFlight = false;
 let inFlightPatch: Partial<VoiceSyncedSettings> = {};
 let inFlightOwner: string | null = null;
 let saveAttempts = 0;
+let savePaused = false;
 let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
@@ -107,6 +120,7 @@ const flushSave = async (): Promise<void> => {
     const currentId = useAuthStore.getState().user?.id ?? null;
     if (owner !== null && currentId !== owner) {
       pendingPatch = { ...patch, ...pendingPatch };
+      savePaused = true;
       return;
     }
     const { userAPI } = await import("../api/user");
@@ -135,6 +149,7 @@ const flushSave = async (): Promise<void> => {
     inFlightPatch = {};
     inFlightOwner = null;
     if (
+      !savePaused &&
       saveAttempts === 0 &&
       saveTimer === null &&
       Object.keys(pendingPatch).length > 0
@@ -148,6 +163,7 @@ const scheduleSave = (
   patch: Partial<VoiceSyncedSettings>,
   owner: string | null,
 ) => {
+  savePaused = false;
   if (owner !== pendingOwner) {
     cancelPendingSaves();
     pendingOwner = owner;
@@ -260,8 +276,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           console.warn("[voice-settings] sync failed:", err);
           applyToEngine(get());
         } finally {
-          readyResolve?.();
-          readyResolve = null;
+          markUserSynced(userId);
         }
       },
     }),
