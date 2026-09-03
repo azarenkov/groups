@@ -807,7 +807,12 @@ function MicTestMeter() {
     const start = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: micDeviceId ? { deviceId: { exact: micDeviceId } } : true,
+          audio: {
+            ...(micDeviceId ? { deviceId: { exact: micDeviceId } } : {}),
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
       } catch {
         return;
@@ -828,10 +833,9 @@ function MicTestMeter() {
         const source = ctx.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.75;
         source.connect(analyser);
         data = new Uint8Array(analyser.frequencyBinCount);
-        usable = Math.floor(analyser.frequencyBinCount * 0.6);
+        usable = analyser.frequencyBinCount;
       } catch {
         return;
       }
