@@ -1071,6 +1071,15 @@ export class LiveKitService {
     });
 
     this.room.on(RoomEvent.MediaDevicesError, (error) => {
+      const dismissed =
+        error.name === "NotAllowedError" ||
+        error.name === "AbortError" ||
+        error.message.includes("Permission dismissed") ||
+        error.message.includes("Could not start video source");
+      if (dismissed) {
+        console.warn("[LiveKitService] media device request dismissed:", error);
+        return;
+      }
       console.error("Media devices error:", error);
       this.onError?.(error);
     });
