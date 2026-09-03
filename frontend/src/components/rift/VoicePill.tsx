@@ -160,7 +160,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
       const speakThresholds = () => {
         const { autoSensitivity, sensitivity } =
           useVoiceSettingsStore.getState();
-        const on = autoSensitivity ? 22 : 45 - 0.4 * sensitivity;
+        const on = autoSensitivity ? 22 : 5 + 0.4 * sensitivity;
         return { on, off: autoSensitivity ? 12 : on * 0.55 };
       };
       const SPEAK_RELEASE_MS = 250;

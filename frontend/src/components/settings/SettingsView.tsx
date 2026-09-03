@@ -854,9 +854,9 @@ function MicTestMeter() {
       ctx?.close().catch(() => {});
     };
   }, [micDeviceId]);
-  const threshold = autoSensitivity ? 22 : 45 - 0.4 * sensitivity;
-  const levelPct = Math.min(100, (level / 200) * 100);
-  const thresholdPct = Math.min(100, (threshold / 200) * 100);
+  const threshold = autoSensitivity ? 22 : 5 + 0.4 * sensitivity;
+  const levelPct = Math.min(100, Math.max(0, ((level - 5) / 40) * 100));
+  const thresholdPct = Math.min(100, Math.max(0, ((threshold - 5) / 40) * 100));
   return (
     <div className="mic-test">
       <div

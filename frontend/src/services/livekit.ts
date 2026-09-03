@@ -1566,7 +1566,7 @@ export class LiveKitService {
           }
           threshold = Math.min(45, noiseFloor + 10);
         } else {
-          threshold = 45 - 0.4 * sensitivity;
+          threshold = 5 + 0.4 * sensitivity;
         }
         const now = Date.now();
         if (max > threshold) holdUntil = now + 250;
