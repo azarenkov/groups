@@ -13,7 +13,6 @@ import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from ".
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 import { useAppearanceStore } from "../../store/appearanceStore";
 import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
-import { getLiveKitService } from "../../services/livekit";
 
 type Theme = "light" | "dark";
 
@@ -797,7 +796,6 @@ function AppearanceSection() {
 }
 function MicTestMeter() {
   const micDeviceId = useVoiceSettingsStore((s) => s.micDeviceId);
-  const noiseMode = useVoiceSettingsStore((s) => s.noiseMode);
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
   const [level, setLevel] = React.useState(-120);
@@ -805,12 +803,6 @@ function MicTestMeter() {
     let cancelled = false;
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
-    let pipeline: {
-      dispose: () => Promise<void>;
-      outputTrack: MediaStreamTrack;
-      hasDenoiser: boolean;
-      setStrength: (value: number) => void;
-    } | null = null;
     let timer = 0;
     const start = async () => {
       try {
@@ -818,7 +810,7 @@ function MicTestMeter() {
           audio: {
             ...(micDeviceId ? { deviceId: { exact: micDeviceId } } : {}),
             echoCancellation: true,
-            noiseSuppression: noiseMode !== "off",
+            noiseSuppression: true,
             autoGainControl: true,
           },
         });
@@ -836,43 +828,16 @@ function MicTestMeter() {
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext })
             .webkitAudioContext;
-        let tapSource: MediaStreamAudioSourceNode;
-        if (noiseMode === "high") {
-          const { buildDfnPipeline, DENOISER_SAMPLE_RATE } = await import(
-            "../../services/dfn"
-          );
-          if (cancelled) return;
-          ctx = new AudioCtx({ sampleRate: DENOISER_SAMPLE_RATE });
-          const source = ctx.createMediaStreamSource(stream);
-          pipeline = await buildDfnPipeline({ source, context: ctx });
-          if (cancelled) return;
-          if (pipeline.hasDenoiser) {
-            pipeline.setStrength(getLiveKitService().getNoiseStrength());
-            tapSource = ctx.createMediaStreamSource(
-              new MediaStream([pipeline.outputTrack]),
-            );
-          } else {
-            try {
-              await pipeline.dispose();
-            } catch {}
-            try {
-              pipeline.outputTrack.stop();
-            } catch {}
-            pipeline = null;
-            tapSource = ctx.createMediaStreamSource(stream);
-          }
-        } else {
-          ctx = new AudioCtx();
-          tapSource = ctx.createMediaStreamSource(stream);
-        }
+        ctx = new AudioCtx();
+        const source = ctx.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
         analyser.fftSize = 1024;
-        tapSource.connect(analyser);
+        source.connect(analyser);
         data = new Uint8Array(analyser.fftSize);
       } catch {
         return;
       }
-      void ctx?.resume().catch(() => {});
+      void ctx.resume().catch(() => {});
       const tick = () => {
         if (cancelled) return;
         analyser.getByteTimeDomainData(data);
@@ -892,17 +857,10 @@ function MicTestMeter() {
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
-      const p = pipeline;
-      if (p) {
-        void p.dispose().catch(() => {});
-        try {
-          p.outputTrack.stop();
-        } catch {}
-      }
       stream?.getTracks().forEach((tr) => tr.stop());
       ctx?.close().catch(() => {});
     };
-  }, [micDeviceId, noiseMode]);
+  }, [micDeviceId]);
   const threshold = -72 + 0.72 * (autoSensitivity ? 50 : sensitivity);
   const levelPct = Math.min(100, Math.max(0, ((level + 72) / 72) * 100));
   const thresholdPct = Math.min(100, Math.max(0, ((threshold + 72) / 72) * 100));
