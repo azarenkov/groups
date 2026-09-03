@@ -1028,13 +1028,15 @@ function VoiceSection() {
             />
           </SettingsRow>
         )}
-        <div className="s-mictest">
-          <div className="s-mictest-head">
-            <span>{t("voice.micTest")}</span>
-            <span className="s-mictest-hint">{t("voice.micTestHint")}</span>
+        {!autoSensitivity && (
+          <div className="s-mictest">
+            <div className="s-mictest-head">
+              <span>{t("voice.micTest")}</span>
+              <span className="s-mictest-hint">{t("voice.micTestHint")}</span>
+            </div>
+            <MicTestMeter />
           </div>
-          <MicTestMeter />
-        </div>
+        )}
       </div>
     </>
   );
