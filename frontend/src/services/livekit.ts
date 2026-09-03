@@ -1406,6 +1406,9 @@ export class LiveKitService {
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
       if (!Ctor) {
+        console.warn(
+          "[LiveKitService] AudioContext unavailable; publishing unprocessed mic",
+        );
         this.micBypassedTrack = raw;
         raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
         return;
@@ -1415,10 +1418,14 @@ export class LiveKitService {
       if (audioCtx.state === "suspended") {
         await Promise.race([
           audioCtx.resume().catch(() => {}),
-          new Promise((resolve) => setTimeout(resolve, 500)),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
         ]);
       }
       if (audioCtx.state !== "running") {
+        console.warn(
+          "[LiveKitService] mic gain AudioContext not running; publishing unprocessed mic without gate:",
+          audioCtx.state,
+        );
         await audioCtx.close().catch(() => {});
         this.micBypassedTrack = raw;
         raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
@@ -1586,7 +1593,9 @@ export class LiveKitService {
     };
     window.addEventListener("pointerdown", retry, { once: true });
     window.addEventListener("keydown", retry, { once: true });
+    const timer = window.setTimeout(retry, 2000);
     this.micGainRetryCleanup = () => {
+      window.clearTimeout(timer);
       window.removeEventListener("pointerdown", retry);
       window.removeEventListener("keydown", retry);
     };
