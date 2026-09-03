@@ -56,6 +56,11 @@ export class LiveKitService {
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
   private dfnPrevPublishedTrack: MediaStreamTrack | null = null;
+  private dfnPrevChain: {
+    gain: GainNode | null;
+    gate: GainNode | null;
+  } | null = null;
+  private micGainAnalyser: AnalyserNode | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
   private desiredMicMuted: boolean = false;
   private remoteVolumes: Map<string, number> = new Map();
@@ -297,6 +302,7 @@ export class LiveKitService {
     this.dfnContext = null;
     this.dfnRawTrack = null;
     this.dfnPrevPublishedTrack = null;
+    this.dfnPrevChain = null;
   }
 
   async disconnect(): Promise<void> {
@@ -467,6 +473,7 @@ export class LiveKitService {
       this.dfnContext = null;
       this.dfnRawTrack = null;
     this.dfnPrevPublishedTrack = null;
+      this.dfnPrevChain = null;
     }
 
     const audioTracks = Array.from(
@@ -728,13 +735,38 @@ export class LiveKitService {
           this.onError?.(new Error("Noise suppression models unavailable"));
           return;
         }
+        step = "postChain";
+        const postSource = ctx.createMediaStreamSource(
+          new MediaStream([pipeline.outputTrack]),
+        );
+        const postGain = ctx.createGain();
+        postGain.gain.value = this.micVolume;
+        const postGate = ctx.createGain();
+        postGate.gain.value = 1;
+        const postAnalyser = ctx.createAnalyser();
+        postAnalyser.fftSize = 256;
+        const postDest = ctx.createMediaStreamDestination();
+        postSource.connect(postGain);
+        postGain.connect(postGate);
+        postGain.connect(postAnalyser);
+        postGate.connect(postDest);
+        const postTrack = postDest.stream.getAudioTracks()[0];
         step = "replaceTrack";
-        await localTrack.replaceTrack(pipeline.outputTrack);
+        await localTrack.replaceTrack(postTrack ?? pipeline.outputTrack);
 
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
         this.dfnRawTrack = rawTrack;
         this.dfnPrevPublishedTrack = publishedTrack;
+        if (postTrack) {
+          this.dfnPrevChain = {
+            gain: this.micGainNode,
+            gate: this.micGateGain,
+          };
+          this.micGainNode = postGain;
+          this.micGateGain = postGate;
+          this.startMicGate(postAnalyser);
+        }
         rawTrack.enabled = !this.isMicrophoneMuted();
         pipeline.setStrength(this.noiseStrength);
         this.emitLocalTrack();
@@ -814,6 +846,20 @@ export class LiveKitService {
     this.dfnContext = null;
     this.dfnRawTrack = null;
     this.dfnPrevPublishedTrack = null;
+    if (this.dfnPrevChain) {
+      this.micGainNode = this.dfnPrevChain.gain;
+      this.micGateGain = this.dfnPrevChain.gate;
+      this.dfnPrevChain = null;
+      if (this.micGainNode) {
+        this.micGainNode.gain.value = this.micVolume;
+      }
+      if (this.micGateGain && this.micGainAnalyser) {
+        this.micGateGain.gain.value = 1;
+        this.startMicGate(this.micGainAnalyser);
+      } else {
+        this.stopMicGate();
+      }
+    }
     this.emitLocalTrack();
   }
 
@@ -1402,6 +1448,7 @@ export class LiveKitService {
       this.micGainCtx = ctx;
       this.micGainNode = gain;
       this.micGateGain = gate;
+      this.micGainAnalyser = analyser;
       this.micSourceTrack = raw;
       this.startMicGate(analyser);
     } catch (e) {
@@ -1430,6 +1477,7 @@ export class LiveKitService {
     }
     this.micGainCtx = null;
     this.micGainNode = null;
+    this.micGainAnalyser = null;
     this.micSourceTrack = null;
   }
 
