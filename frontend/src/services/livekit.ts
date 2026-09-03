@@ -55,6 +55,7 @@ export class LiveKitService {
   private dfnPipeline: DfnPipeline | null = null;
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
+  private dfnPrevPublishedTrack: MediaStreamTrack | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
   private desiredMicMuted: boolean = false;
   private remoteVolumes: Map<string, number> = new Map();
@@ -295,6 +296,7 @@ export class LiveKitService {
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
+    this.dfnPrevPublishedTrack = null;
   }
 
   async disconnect(): Promise<void> {
@@ -464,6 +466,7 @@ export class LiveKitService {
       this.dfnPipeline = null;
       this.dfnContext = null;
       this.dfnRawTrack = null;
+    this.dfnPrevPublishedTrack = null;
     }
 
     const audioTracks = Array.from(
@@ -657,7 +660,8 @@ export class LiveKitService {
       this.onError?.(err);
       return;
     }
-    const rawTrack = localTrack.mediaStreamTrack;
+    const publishedTrack = localTrack.mediaStreamTrack;
+    const rawTrack = this.micSourceTrack ?? publishedTrack;
     if (!rawTrack) {
       const err = new Error("Raw mic track missing");
       console.warn("[LiveKitService] enableDfnPipeline:", err.message);
@@ -730,6 +734,7 @@ export class LiveKitService {
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
         this.dfnRawTrack = rawTrack;
+        this.dfnPrevPublishedTrack = publishedTrack;
         rawTrack.enabled = !this.isMicrophoneMuted();
         pipeline.setStrength(this.noiseStrength);
         this.emitLocalTrack();
@@ -784,7 +789,7 @@ export class LiveKitService {
       const localTrack = publication?.track;
       if (localTrack instanceof LocalAudioTrack) {
         try {
-          await localTrack.replaceTrack(rawTrack);
+          await localTrack.replaceTrack(this.dfnPrevPublishedTrack ?? rawTrack);
         } catch (e) {
           console.warn(
             "[LiveKitService] failed to restore raw mic track, keeping DFN pipeline alive:",
@@ -808,6 +813,7 @@ export class LiveKitService {
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
+    this.dfnPrevPublishedTrack = null;
     this.emitLocalTrack();
   }
 
