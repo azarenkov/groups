@@ -14,6 +14,7 @@ import { profileVersion, useUserProfileStore } from "../../store/userProfileStor
 import { useAppearanceStore } from "../../store/appearanceStore";
 import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 import { useNotificationSettingsStore } from "../../store/notificationSettingsStore";
+import { requestDesktopNotificationPermission } from "../../utils/desktopNotification";
 
 type Theme = "light" | "dark";
 
@@ -1060,16 +1061,7 @@ function NotificationsSection() {
   const toggleDesktop = () => {
     const next = !desktopEnabled;
     update({ desktopEnabled: next });
-    if (next) {
-      try {
-        if (
-          typeof Notification !== "undefined" &&
-          Notification.permission === "default"
-        ) {
-          void Notification.requestPermission();
-        }
-      } catch {}
-    }
+    if (next) requestDesktopNotificationPermission();
   };
 
   return (
