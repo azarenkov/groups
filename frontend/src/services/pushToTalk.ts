@@ -4,13 +4,12 @@ import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 let initialized = false;
 let holding = false;
 
-const isInteractiveTarget = (target: EventTarget | null): boolean => {
+const isTextEntryTarget = (target: EventTarget | null): boolean => {
   const el = target as HTMLElement | null;
   if (!el || typeof el.closest !== "function") return false;
   return (
-    el.closest(
-      'input, textarea, select, button, a[href], [contenteditable="true"], [role="button"], [role="menuitem"], [role="tab"], [role="option"], [role="switch"], [role="slider"]',
-    ) !== null || el.isContentEditable
+    el.closest('input, textarea, select, [contenteditable="true"]') !== null ||
+    el.isContentEditable
   );
 };
 
@@ -32,7 +31,7 @@ export const initPushToTalk = (): void => {
     const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();
     if (e.code !== pttKey) return;
     if (!pushToTalk) return;
-    if (isInteractiveTarget(e.target)) return;
+    if (isTextEntryTarget(e.target)) return;
     e.preventDefault();
     if (holding) return;
     holding = true;
