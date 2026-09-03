@@ -804,6 +804,12 @@ function MicTestMeter() {
     let cancelled = false;
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
+    let pipeline: {
+      dispose: () => Promise<void>;
+      outputTrack: MediaStreamTrack;
+      hasDenoiser: boolean;
+      setStrength: (value: number) => void;
+    } | null = null;
     let timer = 0;
     const start = async () => {
       try {
@@ -829,16 +835,43 @@ function MicTestMeter() {
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext })
             .webkitAudioContext;
-        ctx = new AudioCtx();
-        const source = ctx.createMediaStreamSource(stream);
+        let tapSource: MediaStreamAudioSourceNode;
+        if (noiseMode === "high") {
+          const { buildDfnPipeline, DENOISER_SAMPLE_RATE } = await import(
+            "../../services/dfn"
+          );
+          if (cancelled) return;
+          ctx = new AudioCtx({ sampleRate: DENOISER_SAMPLE_RATE });
+          const source = ctx.createMediaStreamSource(stream);
+          pipeline = await buildDfnPipeline({ source, context: ctx });
+          if (cancelled) return;
+          if (pipeline.hasDenoiser) {
+            pipeline.setStrength(0.5);
+            tapSource = ctx.createMediaStreamSource(
+              new MediaStream([pipeline.outputTrack]),
+            );
+          } else {
+            try {
+              await pipeline.dispose();
+            } catch {}
+            try {
+              pipeline.outputTrack.stop();
+            } catch {}
+            pipeline = null;
+            tapSource = ctx.createMediaStreamSource(stream);
+          }
+        } else {
+          ctx = new AudioCtx();
+          tapSource = ctx.createMediaStreamSource(stream);
+        }
         analyser = ctx.createAnalyser();
         analyser.fftSize = 1024;
-        source.connect(analyser);
+        tapSource.connect(analyser);
         data = new Uint8Array(analyser.fftSize);
       } catch {
         return;
       }
-      void ctx.resume().catch(() => {});
+      void ctx?.resume().catch(() => {});
       const tick = () => {
         if (cancelled) return;
         analyser.getByteTimeDomainData(data);
@@ -858,6 +891,13 @@ function MicTestMeter() {
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      const p = pipeline;
+      if (p) {
+        void p.dispose().catch(() => {});
+        try {
+          p.outputTrack.stop();
+        } catch {}
+      }
       stream?.getTracks().forEach((tr) => tr.stop());
       ctx?.close().catch(() => {});
     };
