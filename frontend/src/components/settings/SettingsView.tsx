@@ -13,6 +13,7 @@ import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from ".
 import { profileVersion, useUserProfileStore } from "../../store/userProfileStore";
 import { useAppearanceStore } from "../../store/appearanceStore";
 import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
+import { getLiveKitService } from "../../services/livekit";
 
 type Theme = "light" | "dark";
 
@@ -846,7 +847,7 @@ function MicTestMeter() {
           pipeline = await buildDfnPipeline({ source, context: ctx });
           if (cancelled) return;
           if (pipeline.hasDenoiser) {
-            pipeline.setStrength(0.5);
+            pipeline.setStrength(getLiveKitService().getNoiseStrength());
             tapSource = ctx.createMediaStreamSource(
               new MediaStream([pipeline.outputTrack]),
             );
