@@ -550,15 +550,16 @@ export class LiveKitService {
   }
 
   getLocalAudioMediaStreamTrack(): MediaStreamTrack | null {
-    if (this.dfnPipeline) return this.dfnPipeline.outputTrack;
-    if (!this.room) return null;
-    const publications = Array.from(
-      this.room.localParticipant.audioTrackPublications.values(),
-    );
-    for (const pub of publications) {
-      const track = pub.track?.mediaStreamTrack;
-      if (track) return track;
+    if (this.room) {
+      const publications = Array.from(
+        this.room.localParticipant.audioTrackPublications.values(),
+      );
+      for (const pub of publications) {
+        const track = pub.track?.mediaStreamTrack;
+        if (track) return track;
+      }
     }
+    if (this.dfnPipeline) return this.dfnPipeline.outputTrack;
     return null;
   }
 
