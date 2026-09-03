@@ -741,10 +741,13 @@ export class LiveKitService {
         postGate.gain.value = 1;
         const postAnalyser = ctx.createAnalyser();
         postAnalyser.fftSize = 256;
+        const preSource = ctx.createMediaStreamSource(
+          new MediaStream([rawTrack]),
+        );
+        preSource.connect(postAnalyser);
         const postDest = ctx.createMediaStreamDestination();
         postSource.connect(postGain);
         postGain.connect(postGate);
-        postGain.connect(postAnalyser);
         postGate.connect(postDest);
         const postTrack = postDest.stream.getAudioTracks()[0];
         step = "replaceTrack";
