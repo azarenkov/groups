@@ -1539,6 +1539,7 @@ export class LiveKitService {
     const gateAtStart = this.micGateGain;
     if (!gateAtStart) return;
     const data = new Uint8Array(analyser.frequencyBinCount);
+    const tdata = new Uint8Array(analyser.fftSize);
     let holdUntil = 0;
     let noiseFloor = 8;
     void import("../store/voiceSettingsStore").then(({ useVoiceSettingsStore }) => {
@@ -1557,19 +1558,27 @@ export class LiveKitService {
         for (let i = 0; i < data.length; i++) {
           if (data[i] > max) max = data[i];
         }
-        let threshold: number;
+        let passed: boolean;
         if (autoSensitivity) {
           if (max < noiseFloor + 6) {
             noiseFloor = noiseFloor * 0.95 + max * 0.05;
           } else {
             noiseFloor = Math.min(noiseFloor + 0.2, 60);
           }
-          threshold = Math.min(45, noiseFloor + 10);
+          passed = max > Math.min(45, noiseFloor + 10);
         } else {
-          threshold = 5 + 0.4 * sensitivity;
+          analyser.getByteTimeDomainData(tdata);
+          let sum = 0;
+          for (let i = 0; i < tdata.length; i++) {
+            const d = (tdata[i] - 128) / 128;
+            sum += d * d;
+          }
+          const db =
+            20 * Math.log10(Math.max(Math.sqrt(sum / tdata.length), 1e-6));
+          passed = db > -72 + 0.72 * sensitivity;
         }
         const now = Date.now();
-        if (max > threshold) holdUntil = now + 250;
+        if (passed) holdUntil = now + 250;
         gate.gain.value = now < holdUntil ? 1 : 0;
       }, 50);
     });

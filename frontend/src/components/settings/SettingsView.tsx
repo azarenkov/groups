@@ -798,7 +798,7 @@ function MicTestMeter() {
   const micDeviceId = useVoiceSettingsStore((s) => s.micDeviceId);
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
-  const [level, setLevel] = React.useState(0);
+  const [level, setLevel] = React.useState(-120);
   React.useEffect(() => {
     let cancelled = false;
     let stream: MediaStream | null = null;
@@ -823,7 +823,6 @@ function MicTestMeter() {
       }
       let analyser: AnalyserNode;
       let data: Uint8Array;
-      let usable = 0;
       try {
         const AudioCtx =
           window.AudioContext ||
@@ -832,20 +831,24 @@ function MicTestMeter() {
         ctx = new AudioCtx();
         const source = ctx.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
+        analyser.fftSize = 1024;
         source.connect(analyser);
-        data = new Uint8Array(analyser.frequencyBinCount);
-        usable = analyser.frequencyBinCount;
+        data = new Uint8Array(analyser.fftSize);
       } catch {
         return;
       }
       void ctx.resume().catch(() => {});
       const tick = () => {
         if (cancelled) return;
-        analyser.getByteFrequencyData(data);
-        let max = 0;
-        for (let i = 0; i < usable; i++) if (data[i] > max) max = data[i];
-        setLevel(max);
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) {
+          const d = (data[i] - 128) / 128;
+          sum += d * d;
+        }
+        const db =
+          20 * Math.log10(Math.max(Math.sqrt(sum / data.length), 1e-6));
+        setLevel((prev) => Math.max(db, prev - 4));
         timer = window.setTimeout(tick, 50);
       };
       tick();
@@ -858,9 +861,9 @@ function MicTestMeter() {
       ctx?.close().catch(() => {});
     };
   }, [micDeviceId]);
-  const threshold = autoSensitivity ? 22 : 5 + 0.4 * sensitivity;
-  const levelPct = Math.min(100, Math.max(0, ((level - 5) / 40) * 100));
-  const thresholdPct = Math.min(100, Math.max(0, ((threshold - 5) / 40) * 100));
+  const threshold = -72 + 0.72 * (autoSensitivity ? 50 : sensitivity);
+  const levelPct = Math.min(100, Math.max(0, ((level + 72) / 72) * 100));
+  const thresholdPct = Math.min(100, Math.max(0, ((threshold + 72) / 72) * 100));
   return (
     <div className="mic-test">
       <div
@@ -996,19 +999,16 @@ function VoiceSection() {
       <div className="s-section">
         <h2>{t("voice.behavior")}</h2>
         <SettingsRow label={t("voice.pushToTalk")} hint={t("voice.pushToTalkHint", { key: pttKeyLabel(pttKey) })}>
+          <button
+            type="button"
+            className={"kbd s-kbd-btn" + (capturingKey ? " capturing" : "")}
+            onClick={() => setCapturingKey(true)}
+            title={t("voice.pttBindHint")}
+          >
+            {capturingKey ? t("voice.pttPressKey") : pttKeyLabel(pttKey)}
+          </button>
           <Switch on={pushToTalk} onClick={() => update({ pushToTalk: !pushToTalk })}/>
         </SettingsRow>
-        {pushToTalk && (
-          <SettingsRow label={t("voice.pttBind")} hint={t("voice.pttBindHint")}>
-            <button
-              type="button"
-              className={"s-btn" + (capturingKey ? " primary" : "")}
-              onClick={() => setCapturingKey(true)}
-            >
-              {capturingKey ? t("voice.pttPressKey") : pttKeyLabel(pttKey)}
-            </button>
-          </SettingsRow>
-        )}
         <SettingsRow label={t("voice.noiseDefault")} hint={t("voice.noiseDefaultHint")}>
           <div className="s-seg">
             <button className={noiseMode === "off" ? "on" : ""} onClick={() => update({ noiseMode: "off" })}>{t("voice.noiseOff")}</button>
