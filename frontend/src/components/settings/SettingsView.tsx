@@ -794,6 +794,80 @@ function AppearanceSection() {
     </>
   );
 }
+function MicTestMeter() {
+  const micDeviceId = useVoiceSettingsStore((s) => s.micDeviceId);
+  const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
+  const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
+  const [level, setLevel] = React.useState(0);
+  React.useEffect(() => {
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+    let ctx: AudioContext | null = null;
+    let timer = 0;
+    const start = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: micDeviceId ? { deviceId: { exact: micDeviceId } } : true,
+        });
+      } catch {
+        return;
+      }
+      if (cancelled) {
+        stream.getTracks().forEach((tr) => tr.stop());
+        return;
+      }
+      let analyser: AnalyserNode;
+      let data: Uint8Array;
+      let usable = 0;
+      try {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        ctx = new AudioCtx();
+        const source = ctx.createMediaStreamSource(stream);
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.75;
+        source.connect(analyser);
+        data = new Uint8Array(analyser.frequencyBinCount);
+        usable = Math.floor(analyser.frequencyBinCount * 0.6);
+      } catch {
+        return;
+      }
+      void ctx.resume().catch(() => {});
+      const tick = () => {
+        if (cancelled) return;
+        analyser.getByteFrequencyData(data);
+        let max = 0;
+        for (let i = 0; i < usable; i++) if (data[i] > max) max = data[i];
+        setLevel(max);
+        timer = window.setTimeout(tick, 50);
+      };
+      tick();
+    };
+    void start();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      stream?.getTracks().forEach((tr) => tr.stop());
+      ctx?.close().catch(() => {});
+    };
+  }, [micDeviceId]);
+  const threshold = autoSensitivity ? 22 : 45 - 0.4 * sensitivity;
+  const levelPct = Math.min(100, (level / 200) * 100);
+  const thresholdPct = Math.min(100, (threshold / 200) * 100);
+  return (
+    <div className="mic-test">
+      <div
+        className={"mic-test-fill" + (level > threshold ? " live" : "")}
+        style={{ width: `${levelPct}%` }}
+      />
+      <div className="mic-test-thr" style={{ left: `${thresholdPct}%` }} />
+    </div>
+  );
+}
+
 const pttKeyLabel = (code: string): string => {
   if (code.startsWith("Key")) return code.slice(3);
   if (code.startsWith("Digit")) return code.slice(5);
@@ -954,6 +1028,13 @@ function VoiceSection() {
             />
           </SettingsRow>
         )}
+        <div className="s-mictest">
+          <div className="s-mictest-head">
+            <span>{t("voice.micTest")}</span>
+            <span className="s-mictest-hint">{t("voice.micTestHint")}</span>
+          </div>
+          <MicTestMeter />
+        </div>
       </div>
     </>
   );

@@ -168,6 +168,8 @@
     "autoSensitivity": "Automatic input sensitivity",
     "autoSensitivityHint": "Detect the voice threshold automatically.",
     "sensitivity": "Input sensitivity",
+    "micTest": "Mic test",
+    "micTestHint": "Say something — the marker shows the activation threshold.",
     "pushToTalk": "Push-to-talk",
     "pushToTalkHint": "Hold {{key}} to talk.",
     "yourMicrophone": "Your microphone",
