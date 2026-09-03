@@ -215,8 +215,7 @@ export class LiveKitService {
       this.targetRoomName = roomName ?? null;
       console.log("Connecting to LiveKit...", { url });
 
-      this.noiseMode =
-        this.defaultNoiseMode === "high" ? "standard" : this.defaultNoiseMode;
+      this.noiseMode = this.defaultNoiseMode;
       this.room = new Room({
         adaptiveStream: true,
         dynacast: true,
@@ -257,11 +256,6 @@ export class LiveKitService {
       }
       if (this.pushToTalkEnforced) {
         this.applyMicMuted(true);
-      }
-      if (this.defaultNoiseMode === "high") {
-        void this.setNoiseSuppressionMode("high").catch((e) =>
-          console.warn("[LiveKitService] high noise mode init failed:", e),
-        );
       }
 
       this.isConnecting = false;

@@ -58,6 +58,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
 
   const handleNoiseChange = async (next: NoiseSuppressionMode) => {
     setNoise(next);
+    useVoiceSettingsStore.getState().update({ noiseMode: next });
     if (next === "high") {
       setNoiseStrengthPct(50);
       getLiveKitService().setNoiseStrength(0.5);
@@ -75,6 +76,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
     setNoiseStrengthPct(pct);
     getLiveKitService().setNoiseStrength(pct / 100);
   };
+
+  useEffect(() => {
+    if (open) setNoise(getLiveKitService().getNoiseSuppressionMode());
+  }, [open]);
 
   const anyOpen = open || inviteOpen;
   useEffect(() => {
