@@ -365,27 +365,12 @@ export class LiveKitService {
         noiseSuppression: this.noiseMode !== "off",
         autoGainControl: true,
       });
-      if (
-        !this.room ||
-        this.room !== startedRoom ||
-        this.micSwitchSeq !== switchSeqAtStart
-      ) {
-        try {
-          track.stop();
-        } catch {}
-        return;
-      }
-      await this.wireMicGain(track);
-      const wiredRaw = this.micSourceTrack;
       const room = this.room;
       if (
         !room ||
         room !== startedRoom ||
         this.micSwitchSeq !== switchSeqAtStart
       ) {
-        if (this.micSourceTrack === wiredRaw) {
-          this.teardownMicGain();
-        }
         try {
           track.stop();
         } catch {}
@@ -397,13 +382,23 @@ export class LiveKitService {
       try {
         await room.localParticipant.publishTrack(track);
       } catch (error) {
-        if (this.micSourceTrack === wiredRaw) {
-          this.teardownMicGain();
-        }
         try {
           track.stop();
         } catch {}
         throw error;
+      }
+      if (this.room === room && this.micSwitchSeq === switchSeqAtStart) {
+        await this.wireMicGain(track);
+        if (this.room !== room || this.micSwitchSeq !== switchSeqAtStart) {
+          this.teardownMicGain();
+        } else {
+          void this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) =>
+            console.warn(
+              "[LiveKitService] apply noise mode after publish failed:",
+              e,
+            ),
+          );
+        }
       }
       this.emitLocalTrack();
     };
@@ -1108,12 +1103,6 @@ export class LiveKitService {
           );
         }
       }
-      this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) => {
-        console.warn(
-          "[LiveKitService] reapply noise mode after publish failed:",
-          e,
-        );
-      });
     });
 
     this.room.on(RoomEvent.MediaDevicesError, (error) => {
