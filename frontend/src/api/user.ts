@@ -21,10 +21,11 @@ export interface AppearanceSettings {
 export interface VoiceSettings {
   micVolume: number;
   outputVolume: number;
-  noiseSuppression: boolean;
+  noiseMode: string;
   autoSensitivity: boolean;
   sensitivity: number;
   pushToTalk: boolean;
+  pttKey: string;
 }
 
 export interface Connection {

@@ -78,7 +78,7 @@ export class LiveKitService {
   private micGateTimer: ReturnType<typeof setInterval> | null = null;
   private micGainRetryCleanup: (() => void) | null = null;
   private micBypassedTrack: MediaStreamTrack | null = null;
-  private defaultNoiseSuppression: boolean = true;
+  private defaultNoiseMode: NoiseSuppressionMode = "standard";
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
   private pttHolding: boolean = false;
@@ -215,14 +215,15 @@ export class LiveKitService {
       this.targetRoomName = roomName ?? null;
       console.log("Connecting to LiveKit...", { url });
 
-      this.noiseMode = this.defaultNoiseSuppression ? "standard" : "off";
+      this.noiseMode =
+        this.defaultNoiseMode === "high" ? "standard" : this.defaultNoiseMode;
       this.room = new Room({
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: {
           deviceId: this.preferredMicId ?? undefined,
           echoCancellation: true,
-          noiseSuppression: this.defaultNoiseSuppression,
+          noiseSuppression: this.defaultNoiseMode !== "off",
           autoGainControl: true,
         },
       });
@@ -256,6 +257,11 @@ export class LiveKitService {
       }
       if (this.pushToTalkEnforced) {
         this.applyMicMuted(true);
+      }
+      if (this.defaultNoiseMode === "high") {
+        void this.setNoiseSuppressionMode("high").catch((e) =>
+          console.warn("[LiveKitService] high noise mode init failed:", e),
+        );
       }
 
       this.isConnecting = false;
@@ -1289,22 +1295,15 @@ export class LiveKitService {
     speakerDeviceId?: string | null;
     outputVolume?: number;
     micVolume?: number;
-    noiseSuppression?: boolean;
+    noiseMode?: NoiseSuppressionMode;
   }): void {
-    if (prefs.noiseSuppression !== undefined) {
-      const changed = prefs.noiseSuppression !== this.defaultNoiseSuppression;
-      this.defaultNoiseSuppression = prefs.noiseSuppression;
-      if (changed && this.room) {
-        const target: NoiseSuppressionMode = prefs.noiseSuppression
-          ? this.noiseMode === "off"
-            ? "standard"
-            : this.noiseMode
-          : "off";
-        if (target !== this.noiseMode) {
-          void this.setNoiseSuppressionMode(target).catch((e) =>
-            console.warn("[LiveKitService] live noise toggle failed:", e),
-          );
-        }
+    if (prefs.noiseMode !== undefined) {
+      const changed = prefs.noiseMode !== this.defaultNoiseMode;
+      this.defaultNoiseMode = prefs.noiseMode;
+      if (changed && this.room && prefs.noiseMode !== this.noiseMode) {
+        void this.setNoiseSuppressionMode(prefs.noiseMode).catch((e) =>
+          console.warn("[LiveKitService] live noise toggle failed:", e),
+        );
       }
     }
     if (

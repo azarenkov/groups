@@ -4,13 +4,16 @@ import { persist } from "zustand/middleware";
 import { getLiveKitService } from "../services/livekit";
 import { ApiError } from "../utils/apiError";
 
+export type NoiseMode = "off" | "standard" | "high";
+
 export interface VoiceSyncedSettings {
   micVolume: number;
   outputVolume: number;
-  noiseSuppression: boolean;
+  noiseMode: NoiseMode;
   autoSensitivity: boolean;
   sensitivity: number;
   pushToTalk: boolean;
+  pttKey: string;
 }
 
 interface VoiceSettingsState extends VoiceSyncedSettings {
@@ -28,19 +31,21 @@ interface VoiceSettingsState extends VoiceSyncedSettings {
 const SETTING_KEYS = [
   "micVolume",
   "outputVolume",
-  "noiseSuppression",
+  "noiseMode",
   "autoSensitivity",
   "sensitivity",
   "pushToTalk",
+  "pttKey",
 ] as const;
 
 const DEFAULT_SETTINGS: VoiceSyncedSettings = {
   micVolume: 100,
   outputVolume: 100,
-  noiseSuppression: true,
+  noiseMode: "standard",
   autoSensitivity: true,
   sensitivity: 50,
   pushToTalk: false,
+  pttKey: "KeyM",
 };
 
 const applyToEngine = (s: {
@@ -48,14 +53,14 @@ const applyToEngine = (s: {
   speakerDeviceId: string;
   outputVolume: number;
   micVolume: number;
-  noiseSuppression: boolean;
+  noiseMode: NoiseMode;
 }) => {
   getLiveKitService().setAudioPreferences({
     micDeviceId: s.micDeviceId || null,
     speakerDeviceId: s.speakerDeviceId || null,
     outputVolume: s.outputVolume / 100,
     micVolume: s.micVolume / 100,
-    noiseSuppression: s.noiseSuppression,
+    noiseMode: s.noiseMode,
   });
 };
 
@@ -116,10 +121,11 @@ let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
   micVolume: 0,
   outputVolume: 0,
-  noiseSuppression: 0,
+  noiseMode: 0,
   autoSensitivity: 0,
   sensitivity: 0,
   pushToTalk: 0,
+  pttKey: 0,
 };
 
 const cancelPendingSaves = () => {
@@ -282,10 +288,11 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
                 : {
                     micVolume: get().micVolume,
                     outputVolume: get().outputVolume,
-                    noiseSuppression: get().noiseSuppression,
+                    noiseMode: get().noiseMode,
                     autoSensitivity: get().autoSensitivity,
                     sensitivity: get().sensitivity,
                     pushToTalk: get().pushToTalk,
+                    pttKey: get().pttKey,
                   },
             );
             set({ ...local, ownerId: userId });
@@ -298,10 +305,14 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           const next = preserveRecentEdits({
             micVolume: saved.micVolume,
             outputVolume: saved.outputVolume,
-            noiseSuppression: saved.noiseSuppression,
+            noiseMode:
+              saved.noiseMode === "off" || saved.noiseMode === "high"
+                ? saved.noiseMode
+                : "standard",
             autoSensitivity: saved.autoSensitivity,
             sensitivity: saved.sensitivity,
             pushToTalk: saved.pushToTalk,
+            pttKey: saved.pttKey || "KeyM",
           });
           set({ ...next, ownerId: userId });
           applyToEngine(get());

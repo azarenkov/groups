@@ -794,11 +794,18 @@ function AppearanceSection() {
     </>
   );
 }
+const pttKeyLabel = (code: string): string => {
+  if (code.startsWith("Key")) return code.slice(3);
+  if (code.startsWith("Digit")) return code.slice(5);
+  return code;
+};
+
 function VoiceSection() {
   const { t } = useTranslation("settings");
   const micVolume = useVoiceSettingsStore((s) => s.micVolume);
   const outputVolume = useVoiceSettingsStore((s) => s.outputVolume);
-  const noiseSuppression = useVoiceSettingsStore((s) => s.noiseSuppression);
+  const noiseMode = useVoiceSettingsStore((s) => s.noiseMode);
+  const pttKey = useVoiceSettingsStore((s) => s.pttKey);
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
   const pushToTalk = useVoiceSettingsStore((s) => s.pushToTalk);
@@ -807,6 +814,20 @@ function VoiceSection() {
   const update = useVoiceSettingsStore((s) => s.update);
   const updateDevices = useVoiceSettingsStore((s) => s.updateDevices);
   const [devices, setDevices] = React.useState<MediaDeviceInfo[]>([]);
+  const [capturingKey, setCapturingKey] = React.useState(false);
+  React.useEffect(() => {
+    if (!capturingKey) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key !== "Escape" && /^[A-Za-z0-9]+$/.test(e.code)) {
+        update({ pttKey: e.code });
+      }
+      setCapturingKey(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [capturingKey, update]);
   React.useEffect(() => {
     let cancelled = false;
     const media = navigator.mediaDevices;
@@ -896,11 +917,26 @@ function VoiceSection() {
 
       <div className="s-section">
         <h2>{t("voice.behavior")}</h2>
-        <SettingsRow label={t("voice.pushToTalk")} hint={t("voice.pushToTalkHint")}>
+        <SettingsRow label={t("voice.pushToTalk")} hint={t("voice.pushToTalkHint", { key: pttKeyLabel(pttKey) })}>
           <Switch on={pushToTalk} onClick={() => update({ pushToTalk: !pushToTalk })}/>
         </SettingsRow>
+        {pushToTalk && (
+          <SettingsRow label={t("voice.pttBind")} hint={t("voice.pttBindHint")}>
+            <button
+              type="button"
+              className={"s-btn" + (capturingKey ? " primary" : "")}
+              onClick={() => setCapturingKey(true)}
+            >
+              {capturingKey ? t("voice.pttPressKey") : pttKeyLabel(pttKey)}
+            </button>
+          </SettingsRow>
+        )}
         <SettingsRow label={t("voice.noiseDefault")} hint={t("voice.noiseDefaultHint")}>
-          <Switch on={noiseSuppression} onClick={() => update({ noiseSuppression: !noiseSuppression })}/>
+          <div className="s-seg">
+            <button className={noiseMode === "off" ? "on" : ""} onClick={() => update({ noiseMode: "off" })}>{t("voice.noiseOff")}</button>
+            <button className={noiseMode === "standard" ? "on" : ""} onClick={() => update({ noiseMode: "standard" })}>{t("voice.noiseStandard")}</button>
+            <button className={noiseMode === "high" ? "on" : ""} onClick={() => update({ noiseMode: "high" })}>{t("voice.noiseHigh")}</button>
+          </div>
         </SettingsRow>
         <SettingsRow label={t("voice.autoSensitivity")} hint={t("voice.autoSensitivityHint")}>
           <Switch on={autoSensitivity} onClick={() => update({ autoSensitivity: !autoSensitivity })}/>

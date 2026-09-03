@@ -14,10 +14,11 @@ use crate::state::AppState;
 struct VoiceSettingsResponse {
     mic_volume: i16,
     output_volume: i16,
-    noise_suppression: bool,
+    noise_mode: String,
     auto_sensitivity: bool,
     sensitivity: i16,
     push_to_talk: bool,
+    ptt_key: String,
 }
 
 impl From<VoiceSettings> for VoiceSettingsResponse {
@@ -25,10 +26,11 @@ impl From<VoiceSettings> for VoiceSettingsResponse {
         Self {
             mic_volume: settings.mic_volume,
             output_volume: settings.output_volume,
-            noise_suppression: settings.noise_suppression,
+            noise_mode: settings.noise_mode,
             auto_sensitivity: settings.auto_sensitivity,
             sensitivity: settings.sensitivity,
             push_to_talk: settings.push_to_talk,
+            ptt_key: settings.ptt_key,
         }
     }
 }
@@ -38,10 +40,11 @@ impl From<VoiceSettings> for VoiceSettingsResponse {
 struct VoiceSettingsBody {
     mic_volume: Option<i16>,
     output_volume: Option<i16>,
-    noise_suppression: Option<bool>,
+    noise_mode: Option<String>,
     auto_sensitivity: Option<bool>,
     sensitivity: Option<i16>,
     push_to_talk: Option<bool>,
+    ptt_key: Option<String>,
 }
 
 #[get("/me/voice")]
@@ -79,10 +82,11 @@ pub async fn update_me_voice_settings(
             VoiceSettingsPatch {
                 mic_volume: body.mic_volume,
                 output_volume: body.output_volume,
-                noise_suppression: body.noise_suppression,
+                noise_mode: body.noise_mode,
                 auto_sensitivity: body.auto_sensitivity,
                 sensitivity: body.sensitivity,
                 push_to_talk: body.push_to_talk,
+                ptt_key: body.ptt_key,
             },
         )
         .await?;

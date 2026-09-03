@@ -1,8 +1,6 @@
 import { getLiveKitService } from "./livekit";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 
-const PTT_CODE = "Space";
-
 let initialized = false;
 let holding = false;
 
@@ -31,8 +29,9 @@ export const initPushToTalk = (): void => {
     }
   });
   window.addEventListener("keydown", (e) => {
-    if (e.code !== PTT_CODE) return;
-    if (!useVoiceSettingsStore.getState().pushToTalk) return;
+    const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();
+    if (e.code !== pttKey) return;
+    if (!pushToTalk) return;
     if (isInteractiveTarget(e.target)) return;
     e.preventDefault();
     if (holding) return;
@@ -40,7 +39,7 @@ export const initPushToTalk = (): void => {
     getLiveKitService().pttSetTransmitting(true);
   });
   window.addEventListener("keyup", (e) => {
-    if (e.code !== PTT_CODE) return;
+    if (e.code !== useVoiceSettingsStore.getState().pttKey) return;
     if (!holding) return;
     holding = false;
     if (!useVoiceSettingsStore.getState().pushToTalk) return;

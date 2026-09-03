@@ -521,9 +521,9 @@ impl UserRepository for PostgresUserRepository {
     async fn get_voice_settings(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<(i16, i16, bool, bool, i16, bool)>, RepositoryError> {
-        let row: Option<(i16, i16, bool, bool, i16, bool)> = sqlx::query_as(
-            "SELECT mic_volume, output_volume, noise_suppression, auto_sensitivity, sensitivity, push_to_talk FROM voice_settings WHERE user_id = $1",
+    ) -> Result<Option<(i16, i16, String, bool, i16, bool, String)>, RepositoryError> {
+        let row: Option<(i16, i16, String, bool, i16, bool, String)> = sqlx::query_as(
+            "SELECT mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key FROM voice_settings WHERE user_id = $1",
         )
         .bind(user_id.uuid())
         .fetch_optional(&self.pool)
@@ -537,33 +537,36 @@ impl UserRepository for PostgresUserRepository {
         user_id: &UserId,
         mic_volume: Option<i16>,
         output_volume: Option<i16>,
-        noise_suppression: Option<bool>,
+        noise_mode: Option<&str>,
         auto_sensitivity: Option<bool>,
         sensitivity: Option<i16>,
         push_to_talk: Option<bool>,
-    ) -> Result<(i16, i16, bool, bool, i16, bool), RepositoryError> {
-        let row: (i16, i16, bool, bool, i16, bool) = sqlx::query_as(
+        ptt_key: Option<&str>,
+    ) -> Result<(i16, i16, String, bool, i16, bool, String), RepositoryError> {
+        let row: (i16, i16, String, bool, i16, bool, String) = sqlx::query_as(
             r#"
-                INSERT INTO voice_settings (user_id, mic_volume, output_volume, noise_suppression, auto_sensitivity, sensitivity, push_to_talk, updated_at)
-                VALUES ($1, COALESCE($2, 100), COALESCE($3, 100), COALESCE($4, true), COALESCE($5, true), COALESCE($6, 50), COALESCE($7, false), now())
+                INSERT INTO voice_settings (user_id, mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key, updated_at)
+                VALUES ($1, COALESCE($2, 100), COALESCE($3, 100), COALESCE($4, 'standard'), COALESCE($5, true), COALESCE($6, 50), COALESCE($7, false), COALESCE($8, 'KeyM'), now())
                 ON CONFLICT (user_id) DO UPDATE
                     SET mic_volume = COALESCE($2, voice_settings.mic_volume),
                         output_volume = COALESCE($3, voice_settings.output_volume),
-                        noise_suppression = COALESCE($4, voice_settings.noise_suppression),
+                        noise_mode = COALESCE($4, voice_settings.noise_mode),
                         auto_sensitivity = COALESCE($5, voice_settings.auto_sensitivity),
                         sensitivity = COALESCE($6, voice_settings.sensitivity),
                         push_to_talk = COALESCE($7, voice_settings.push_to_talk),
+                        ptt_key = COALESCE($8, voice_settings.ptt_key),
                         updated_at = now()
-                RETURNING mic_volume, output_volume, noise_suppression, auto_sensitivity, sensitivity, push_to_talk
+                RETURNING mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key
             "#,
         )
         .bind(user_id.uuid())
         .bind(mic_volume)
         .bind(output_volume)
-        .bind(noise_suppression)
+        .bind(noise_mode)
         .bind(auto_sensitivity)
         .bind(sensitivity)
         .bind(push_to_talk)
+        .bind(ptt_key)
         .fetch_one(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
