@@ -796,6 +796,7 @@ function AppearanceSection() {
 }
 function MicTestMeter() {
   const micDeviceId = useVoiceSettingsStore((s) => s.micDeviceId);
+  const noiseMode = useVoiceSettingsStore((s) => s.noiseMode);
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
   const [level, setLevel] = React.useState(-120);
@@ -810,7 +811,7 @@ function MicTestMeter() {
           audio: {
             ...(micDeviceId ? { deviceId: { exact: micDeviceId } } : {}),
             echoCancellation: true,
-            noiseSuppression: true,
+            noiseSuppression: noiseMode !== "off",
             autoGainControl: true,
           },
         });
@@ -860,7 +861,7 @@ function MicTestMeter() {
       stream?.getTracks().forEach((tr) => tr.stop());
       ctx?.close().catch(() => {});
     };
-  }, [micDeviceId]);
+  }, [micDeviceId, noiseMode]);
   const threshold = -72 + 0.72 * (autoSensitivity ? 50 : sensitivity);
   const levelPct = Math.min(100, Math.max(0, ((level + 72) / 72) * 100));
   const thresholdPct = Math.min(100, Math.max(0, ((threshold + 72) / 72) * 100));
