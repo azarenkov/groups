@@ -16,11 +16,13 @@ import {
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
+import { useNotificationPrefsStore } from "../store/notificationPrefsStore";
 import {
-  channelNotifLevel,
-  dmNotifLevel,
-  useNotificationPrefsStore,
-} from "../store/notificationPrefsStore";
+  defaultMentionLevel,
+  desktopNotifAllowed,
+  messageSoundAllowed,
+} from "../store/notificationSettingsStore";
+import { showDesktopNotification } from "../utils/desktopNotification";
 import { mentionsUser } from "../utils/mentions";
 import { playNotificationSound } from "../utils/notificationSound";
 import type { Server } from "../types/server";
@@ -322,7 +324,9 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
-      const level = channelNotifLevel(channelId);
+      const level =
+        useNotificationPrefsStore.getState().channelLevels[channelId] ??
+        defaultMentionLevel();
       if (level === "none") return;
       if (level === "mentions") {
         const myName = useAuthStore.getState().user?.name;
@@ -333,9 +337,12 @@ function dispatch(env: WsEnvelope) {
       }
       const byServer = useChannelStore.getState().channelsByServer;
       let serverId: string | undefined;
+      let channelName: string | undefined;
       for (const [sid, chans] of Object.entries(byServer)) {
-        if (chans.some((c) => c.id === channelId)) {
+        const found = chans.find((c) => c.id === channelId);
+        if (found) {
           serverId = sid;
+          channelName = found.name;
           break;
         }
       }
@@ -344,7 +351,13 @@ function dispatch(env: WsEnvelope) {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpChannel(channelId, serverId);
-      playNotificationSound();
+      if (messageSoundAllowed()) playNotificationSound();
+      if (desktopNotifAllowed()) {
+        showDesktopNotification(
+          channelName ? `#${channelName}` : "Rift",
+          asString(d.content) ?? "",
+        );
+      }
       return;
     }
 
@@ -352,7 +365,10 @@ function dispatch(env: WsEnvelope) {
       const channelId = asString(d.channelId);
       if (!channelId) return;
       if (activeChannelView === channelId) return;
-      if (channelNotifLevel(channelId) !== "mentions") return;
+      const editLevel =
+        useNotificationPrefsStore.getState().channelLevels[channelId] ??
+        defaultMentionLevel();
+      if (editLevel !== "mentions") return;
       scheduleUnreadRefetch();
       return;
     }
@@ -381,13 +397,19 @@ function dispatch(env: WsEnvelope) {
         throttleMarkDmRead(senderId);
         return;
       }
-      if (dmNotifLevel(senderId) === "none") return;
+      const dmLevel =
+        useNotificationPrefsStore.getState().dmLevels[senderId] ??
+        (defaultMentionLevel() === "none" ? "none" : "all");
+      if (dmLevel === "none") return;
       lastDmBumpAt[senderId] = Math.max(
         lastDmBumpAt[senderId] ?? 0,
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
-      playNotificationSound();
+      if (messageSoundAllowed()) playNotificationSound();
+      if (desktopNotifAllowed()) {
+        showDesktopNotification(peerName ?? "Rift", asString(d.content) ?? "");
+      }
       return;
     }
 

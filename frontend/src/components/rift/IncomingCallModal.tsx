@@ -2,6 +2,12 @@ import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useCallStore } from "../../store/callStore";
+import {
+  callAlertsAllowed,
+  desktopNotifAllowed,
+  isQuietNow,
+} from "../../store/notificationSettingsStore";
+import { showDesktopNotification } from "../../utils/desktopNotification";
 import { UserAvatar } from "./Avatar";
 
 const IncomingCallModal: React.FC = () => {
@@ -12,6 +18,11 @@ const IncomingCallModal: React.FC = () => {
 
   useEffect(() => {
     if (!incoming) return;
+    if (!callAlertsAllowed()) return;
+    if (desktopNotifAllowed()) {
+      showDesktopNotification(incoming.callerName, t("incoming"));
+    }
+    if (isQuietNow()) return;
     const AudioCtx =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext })
@@ -49,7 +60,7 @@ const IncomingCallModal: React.FC = () => {
       clearInterval(id);
       ctx.close().catch(() => {});
     };
-  }, [incoming]);
+  }, [incoming, t]);
 
   if (!incoming) return null;
 

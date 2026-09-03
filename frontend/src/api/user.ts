@@ -28,6 +28,16 @@ export interface VoiceSettings {
   pttKey: string;
 }
 
+export interface NotificationSettings {
+  desktopEnabled: boolean;
+  soundsEnabled: boolean;
+  mentions: string;
+  quietHoursEnabled: boolean;
+  quietStart: string;
+  quietEnd: string;
+  callsEnabled: boolean;
+}
+
 export interface Connection {
   provider: string;
   displayName: string;
@@ -160,6 +170,31 @@ class UserAPI {
     const response = await this.client.patch("/v1/users/me/voice", patch, {
       _retry: true,
     } as AxiosRequestConfig);
+    return response.data.data;
+  }
+
+  async getNotificationSettings(): Promise<NotificationSettings | null> {
+    try {
+      const response = await this.client.get("/v1/users/me/notifications");
+      return response.data.data;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "NOTIFICATION_SETTINGS_NOT_SET") {
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  async updateNotificationSettings(
+    patch: Partial<NotificationSettings>,
+  ): Promise<NotificationSettings> {
+    const response = await this.client.patch(
+      "/v1/users/me/notifications",
+      patch,
+      {
+        _retry: true,
+      } as AxiosRequestConfig,
+    );
     return response.data.data;
   }
 
