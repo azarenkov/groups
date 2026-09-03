@@ -4,6 +4,7 @@ export function showDesktopNotification(title: string, body: string): void {
   try {
     if (typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
+    if (document.visibilityState === "visible" && document.hasFocus()) return;
     const n = new Notification(title, { body, silent: true });
     n.onclick = () => {
       try {
