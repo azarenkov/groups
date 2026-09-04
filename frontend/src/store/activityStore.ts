@@ -45,11 +45,8 @@ export const useActivityStore = create<ActivityState>()((set) => ({
   clearAll: () => set({ byUser: {} }),
 }));
 
-export async function loadFriendActivities(): Promise<void> {
-  const ids = useFriendshipStore
-    .getState()
-    .friends.filter((f) => f.status === "accepted")
-    .map((f) => f.friendId);
+export async function loadActivitiesFor(userIds: string[]): Promise<void> {
+  const ids = Array.from(new Set(userIds));
   if (ids.length === 0) return;
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
@@ -57,4 +54,13 @@ export async function loadFriendActivities(): Promise<void> {
     chunks.map((chunk) => userAPI.getActivities(chunk).catch(() => [])),
   );
   useActivityStore.getState().applyBulk(results.flat());
+}
+
+export async function loadFriendActivities(): Promise<void> {
+  await loadActivitiesFor(
+    useFriendshipStore
+      .getState()
+      .friends.filter((f) => f.status === "accepted")
+      .map((f) => f.friendId),
+  );
 }

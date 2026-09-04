@@ -6,6 +6,7 @@ import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
 import { UserAvatar } from "./Avatar";
 import { usePresenceStore } from "../../store/presenceStore";
+import { loadActivitiesFor, useActivityStore } from "../../store/activityStore";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { topRoleFor, useRolesStore } from "../../store/rolesStore";
 import { useServerStore } from "../../store/serverStore";
@@ -23,8 +24,10 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
     for (const m of members) {
       apply(m.id, m.bio ?? "", profileVersion(m.profileUpdatedAt));
     }
+    void loadActivitiesFor(members.map((m) => m.id));
   }, [members]);
   const onlineUsers = usePresenceStore((s) => s.online);
+  const activities = useActivityStore((s) => s.byUser);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const syncTick = useUserNamesStore((s) => s.syncTick);
   const selfUserId = usePresenceStore((s) => s.selfUserId);
@@ -108,9 +111,12 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
         const isOnline = isSelf ? selfOnline : !!onlineUsers[m.id];
         const displayName = nameOverrides[m.id] ?? m.name;
         const topRole = topRoleFor(rolesData, m.id);
-        const statusLabel = isOnline
-          ? t("common:online")
-          : t("common:offline");
+        const game = isOnline ? activities[m.id] : undefined;
+        const statusLabel = game
+          ? t("playing", { game: game.name })
+          : isOnline
+            ? t("common:online")
+            : t("common:offline");
         return (
           <div
             key={m.id}
