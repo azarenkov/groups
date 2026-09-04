@@ -211,7 +211,7 @@ const GAME_CATALOG = [
   { id: 'sea-of-thieves', name: 'Sea of Thieves', processes: ['sotgame.exe'] },
   { id: 'halo-infinite', name: 'Halo Infinite', processes: ['haloinfinite.exe'] },
   { id: 'fall-guys', name: 'Fall Guys', processes: ['fallguys_client_game.exe'] },
-  { id: 'ea-fc', name: 'EA Sports FC 25', processes: ['fc25.exe'] },
+  { id: 'ea-fc', name: 'EA Sports FC', processes: ['fc27.exe', 'fc26.exe', 'fc25.exe'] },
   { id: 'lost-ark', name: 'Lost Ark', processes: ['lostark.exe'] },
   { id: 'black-desert', name: 'Black Desert', processes: ['blackdesert64.exe'] },
   { id: 'albion', name: 'Albion Online', processes: ['albion-online.exe'] },
