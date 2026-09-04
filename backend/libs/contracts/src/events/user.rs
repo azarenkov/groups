@@ -30,6 +30,8 @@ pub struct UserProfileChangedV1 {
     pub bio: String,
     pub show_activity: bool,
     #[serde(default = "default_true")]
+    pub show_game_activity: bool,
+    #[serde(default = "default_true")]
     pub active: bool,
     #[serde(default)]
     pub timezone: String,

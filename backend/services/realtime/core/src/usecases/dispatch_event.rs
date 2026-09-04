@@ -717,6 +717,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "userId": evt.user_id,
                 "bio": evt.bio,
                 "showActivity": evt.show_activity,
+                "showGameActivity": evt.show_game_activity,
                 "occurredAt": evt.occurred_at,
             }),
         );

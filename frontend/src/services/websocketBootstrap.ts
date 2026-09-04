@@ -251,13 +251,17 @@ function dispatch(env: WsEnvelope) {
       if (!userId) return;
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
+      const showGameActivity = d.showGameActivity !== false;
       const version = profileVersion(asString(d.occurredAt));
       const cached = useUserProfileStore.getState().bios[userId];
       if (cached && cached.at > version) return;
       useUserProfileStore.getState().apply(userId, bio, version);
       const auth = useAuthStore.getState();
+      if (!showGameActivity && auth.user?.id !== userId) {
+        useActivityStore.getState().apply(userId, null);
+      }
       if (auth.user?.id === userId) {
-        auth.setUser({ ...auth.user, bio, showActivity });
+        auth.setUser({ ...auth.user, bio, showActivity, showGameActivity });
       } else if (!showActivity) {
         useHomeStore.getState().hideFriendActivity(userId, version);
         scheduleHomeRefresh();

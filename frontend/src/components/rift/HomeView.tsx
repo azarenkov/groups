@@ -79,13 +79,6 @@ const HomeView: React.FC<HomeViewProps> = ({
     [accepted, onlineUsers, activeIds],
   );
   const onlineCount = onlineFriends.length;
-  const playingFriends = useMemo(
-    () =>
-      accepted
-        .filter((f) => !!activities[f.friendId])
-        .map((f) => ({ friend: f, activity: activities[f.friendId] })),
-    [accepted, activities],
-  );
   const activeRooms = useMemo(() => {
     const rooms = new Map<string, { channelId: string; channelName: string; serverId: string; serverName: string; members: ActiveFriend[] }>();
     for (const f of activeFriends) {
@@ -234,43 +227,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </div>
                     );
                   })}
-                </div>
-              )}
-            </div>
-            <div className="home-card home-side-card">
-              <h6 className="home-label">{t("playingNow", { count: playingFriends.length })}</h6>
-              {playingFriends.length === 0 ? (
-                <div className="home-empty compact">
-                  <span className="home-empty-ico"><Icon name="sparkles" size={16} /></span>
-                  <div className="home-empty-text">{t("emptyPlaying")}</div>
-                </div>
-              ) : (
-                <div className="home-online-list">
-                  {playingFriends.map(({ friend, activity }) => (
-                    <div key={friend.friendId} className="home-online-row">
-                      <span className="home-avatar-wrap">
-                        <UserAvatar
-                          userId={friend.friendId}
-                          name={friend.friendName}
-                          className="home-avatar"
-                          style={{ background: colorForId(friend.friendId), width: 30, height: 30 }}
-                        />
-                        <span className="home-avatar-dot live" />
-                      </span>
-                      <span className="who">
-                        <span className="name">{friend.friendName}</span>
-                        <span className="status">{t("playingFor", { game: activity.name, duration: duration(activity.startedAt) })}</span>
-                      </span>
-                      <button
-                        type="button"
-                        className="home-icon-btn"
-                        title={t("message")}
-                        onClick={() => onOpenDm(friend.friendId)}
-                      >
-                        <Icon name="message" size={15} />
-                      </button>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>

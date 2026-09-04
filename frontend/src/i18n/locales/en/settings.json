@@ -89,7 +89,9 @@
     "aboutPlaceholder": "Tell others a bit about yourself…",
     "bioError": "Couldn't save your bio.",
     "showActivity": "Show activity",
-    "showActivityHint": "Show friends your voice and game activity (running games are detected by the desktop app only). Server members can still see who is in its voice channels.",
+    "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a server still see who is in its voice channels.",
+    "showGameActivity": "Show game activity",
+    "showGameActivityHint": "Show friends which game you are playing. Running games are detected by the desktop app only.",
     "aboutEmpty": "Tell others a bit about yourself."
   },
   "privacy": {

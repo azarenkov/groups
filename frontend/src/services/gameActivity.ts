@@ -35,7 +35,7 @@ const run = async (): Promise<void> => {
     stopHeartbeat();
     return;
   }
-  const allowed = auth.user?.showActivity !== false && hiddenFor !== userId;
+  const allowed = auth.user?.showGameActivity !== false && hiddenFor !== userId;
   if (!current || !allowed) {
     stopHeartbeat();
     if (publishedOwner === userId) {
@@ -89,9 +89,9 @@ export const initGameActivity = (): void => {
   useAuthStore.subscribe((state, prev) => {
     const idChanged = state.user?.id !== prev.user?.id;
     const visibilityChanged =
-      state.user?.showActivity !== prev.user?.showActivity;
+      state.user?.showGameActivity !== prev.user?.showGameActivity;
     if (!idChanged && !visibilityChanged) return;
-    if (state.user?.showActivity !== false) hiddenFor = null;
+    if (state.user?.showGameActivity !== false) hiddenFor = null;
     sync();
   });
 };

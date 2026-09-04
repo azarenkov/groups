@@ -18,6 +18,7 @@ pub enum UpdateProfileError {
 pub struct ProfilePatch {
     pub bio: Option<String>,
     pub show_activity: Option<bool>,
+    pub show_game_activity: Option<bool>,
     pub timezone: Option<String>,
     pub request_id: Option<String>,
 }
@@ -31,7 +32,7 @@ impl<W: IdentityUnitOfWork> UpdateProfile<W> {
         Self { unit_of_work }
     }
 
-    pub async fn execute(&self, user_id: UserId, patch: ProfilePatch) -> Result<(String, bool, chrono::DateTime<Utc>), UpdateProfileError> {
+    pub async fn execute(&self, user_id: UserId, patch: ProfilePatch) -> Result<(String, bool, bool, chrono::DateTime<Utc>), UpdateProfileError> {
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
@@ -39,8 +40,9 @@ impl<W: IdentityUnitOfWork> UpdateProfile<W> {
             .ok_or(UpdateProfileError::UserNotFound)?;
         let bio = patch.bio.unwrap_or_else(|| user.bio().to_string());
         let show_activity = patch.show_activity.unwrap_or(user.show_activity());
+        let show_game_activity = patch.show_game_activity.unwrap_or(user.show_game_activity());
         let timezone = patch.timezone.unwrap_or_else(|| user.timezone().to_string());
-        user.update_profile(bio, show_activity, timezone, Utc::now()).map_err(|e| match e {
+        user.update_profile(bio, show_activity, show_game_activity, timezone, Utc::now()).map_err(|e| match e {
             UserError::BioTooLong => UpdateProfileError::BioTooLong,
             _ => UpdateProfileError::UserNotFound,
         })?;
@@ -50,6 +52,6 @@ impl<W: IdentityUnitOfWork> UpdateProfile<W> {
             tx.save_events(&events, patch.request_id.as_deref()).await?;
         }
         tx.commit().await?;
-        Ok((user.bio().to_string(), user.show_activity(), user.updated_at()))
+        Ok((user.bio().to_string(), user.show_activity(), user.show_game_activity(), user.updated_at()))
     }
 }

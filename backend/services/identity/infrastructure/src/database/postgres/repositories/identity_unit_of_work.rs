@@ -127,7 +127,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             UserDto,
             r#"
             SELECT id, name, email, password_hash, created_at, updated_at,
-                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone
+                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
             FROM users
             WHERE id = $1
             FOR UPDATE
@@ -310,7 +310,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                     deleted_at = $12,
                     bio = $13,
                     show_activity = $14,
-                    timezone = $15
+                    show_game_activity = $15,
+                    timezone = $16
                 WHERE id = $1
             "#,
             user.id().uuid(),
@@ -327,6 +328,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             user.deleted_at(),
             user.bio(),
             user.show_activity(),
+            user.show_game_activity(),
             user.timezone(),
         )
         .execute(&mut *self.tx)

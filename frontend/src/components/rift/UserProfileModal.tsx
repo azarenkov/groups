@@ -6,6 +6,7 @@ import { homeAPI, type PublicProfile } from "../../api/home";
 import { useAuthStore } from "../../store/authStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
 import { usePresenceStore } from "../../store/presenceStore";
+import { useActivityStore } from "../../store/activityStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import { userAPI, type Connection } from "../../api/user";
 import { useUserNamesStore } from "../../store/userNamesStore";
@@ -63,6 +64,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const friends = useFriendshipStore((s) => s.friends);
   const onlineUsers = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
+  const gameActivity = useActivityStore((s) => (userId ? s.byUser[userId] : undefined));
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);
@@ -210,7 +212,13 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
               <div className="profile-name">{name || (inactive ? t("deletedUser") : "…")}</div>
               <div className="profile-handle">
                 {name && !inactive ? `@${name} · ` : ""}
-                {inactive ? t("inactive") : online ? t("online") : t("offline")}
+                {inactive
+                  ? t("inactive")
+                  : online && gameActivity
+                    ? t("playing", { game: gameActivity.name })
+                    : online
+                      ? t("online")
+                      : t("offline")}
               </div>
             </>
           )}

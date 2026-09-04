@@ -97,7 +97,7 @@ impl<U: UserRepository, S: ActivityStore, W: IdentityUnitOfWork> SetActivity<U, 
             .find_by_id(&user_id)
             .await?
             .ok_or(ActivityError::UserNotFound)?;
-        if !user.show_activity() {
+        if !user.show_game_activity() {
             if self.store.clear(&user_id).await?.is_some() {
                 publish(self.unit_of_work.as_ref(), user_id, None).await?;
             }
