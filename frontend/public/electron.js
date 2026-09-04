@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, nativeImage, safeStorage, session, shell } = require('electron');
 const fs = require('fs');
+const { exec } = require('child_process');
 const http = require('http');
 const crypto = require('crypto');
 const path = require('path');
@@ -163,6 +164,95 @@ function closeSplash() {
   splashWindow = null;
 }
 
+const GAME_CATALOG = [
+  { id: 'dota2', name: 'Dota 2', processes: ['dota2.exe', 'dota2', 'dota_osx', 'dota2_osx'] },
+];
+const ACTIVITY_POLL_MS = 10000;
+const ACTIVITY_CONFIRM_POLLS = 2;
+
+let activityTimer = null;
+let activityState = null;
+let activityCandidate = null;
+let activityPositive = 0;
+let activityNegative = 0;
+
+function listProcessNames() {
+  return new Promise((resolve) => {
+    const isWin = process.platform === 'win32';
+    const cmd = isWin ? 'tasklist /FO CSV /NH' : 'ps -axo comm=';
+    exec(cmd, { windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+      if (err || !stdout) {
+        resolve(new Set());
+        return;
+      }
+      const names = new Set();
+      for (const rawLine of stdout.split('\n')) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        let name = line;
+        if (isWin) {
+          const match = line.match(/^"([^"]+)"/);
+          if (!match) continue;
+          name = match[1];
+        }
+        name = name.split(/[\\/]/).pop();
+        names.add(name.toLowerCase());
+      }
+      resolve(names);
+    });
+  });
+}
+
+function detectGame(names) {
+  for (const game of GAME_CATALOG) {
+    if (game.processes.some((p) => names.has(p.toLowerCase()))) return game;
+  }
+  return null;
+}
+
+function emitActivity() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('activity:changed', activityState);
+  }
+}
+
+async function pollGameActivity() {
+  const names = await listProcessNames();
+  const game = detectGame(names);
+  if (game) {
+    if (activityCandidate && activityCandidate.id === game.id) {
+      activityPositive += 1;
+    } else {
+      activityCandidate = game;
+      activityPositive = 1;
+    }
+    activityNegative = 0;
+    const differs = !activityState || activityState.gameId !== game.id;
+    if (differs && activityPositive >= ACTIVITY_CONFIRM_POLLS) {
+      activityState = { gameId: game.id, name: game.name, startedAt: new Date().toISOString() };
+      emitActivity();
+    }
+    return;
+  }
+  activityCandidate = null;
+  activityPositive = 0;
+  activityNegative += 1;
+  if (activityState && activityNegative >= ACTIVITY_CONFIRM_POLLS) {
+    activityState = null;
+    emitActivity();
+  }
+}
+
+function startGameActivityWatcher() {
+  if (activityTimer) return;
+  void pollGameActivity();
+  activityTimer = setInterval(() => {
+    void pollGameActivity();
+  }, ACTIVITY_POLL_MS);
+}
+
+ipcMain.handle('activity:get', () => activityState);
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -187,6 +277,7 @@ function createMainWindow() {
     : `file://${path.join(__dirname, '../build/index.html')}`;
 
   mainWindow.loadURL(startURL);
+  startGameActivityWatcher();
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://') || url.startsWith('https://')) {

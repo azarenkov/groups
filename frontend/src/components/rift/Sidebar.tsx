@@ -5,6 +5,7 @@ import type { Server } from "../../types/server";
 import type { Channel, ChannelKind } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 import { colorForId } from "../../utils/avatar";
+import { useActivityStore } from "../../store/activityStore";
 import { ServerLogo, UserAvatar } from "./Avatar";
 import { channelAPI } from "../../api/channel";
 import {
@@ -74,6 +75,17 @@ interface SidebarProps {
   onSetStatus?: (status: "online" | "offline") => void;
 }
 
+const useActivityClock = (enabled: boolean) => {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (!enabled) return;
+    setNow(Date.now());
+    const handle = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(handle);
+  }, [enabled]);
+  return now;
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   servers,
   channelsByServer,
@@ -111,6 +123,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetStatus,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
+  const activities = useActivityStore((s) => s.byUser);
+  const activityNow = useActivityClock(Object.keys(activities).length > 0);
+  const activityDuration = (startedAt: string) => {
+    const minutes = Math.max(0, Math.floor((activityNow - new Date(startedAt).getTime()) / 60_000));
+    if (minutes < 60) return t("durationMinutes", { count: minutes });
+    return t("durationHours", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+  };
   type Screen = { tab: "dms" | "servers"; server: string | null };
   const initialScreen: Screen = { tab: selectedChannelId ? "servers" : "dms", server: null };
   const [screen, setScreen] = React.useState<Screen>(initialScreen);
@@ -367,9 +386,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
       {visibleDirects.map((d) => {
         const unread = unreadByDm[d.id] ?? 0;
+        const activity = activities[d.id];
         const sub =
           d.lastMessage ||
-          (d.online ? t("statusOnline") : t("statusOffline"));
+          (activity
+            ? t("playing", { game: activity.name, duration: activityDuration(activity.startedAt) })
+            : d.online
+              ? t("statusOnline")
+              : t("statusOffline"));
         return (
           <div
             key={d.id}

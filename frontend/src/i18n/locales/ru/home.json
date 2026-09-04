@@ -22,6 +22,9 @@
   "emptyOnlineTitle": "Никого в сети",
   "addFriend": "Добавить друга",
   "statusInVoice": "В голосовом канале",
+  "playingFor": "Играет в {{game}} · {{duration}}",
+  "playingNow": "В игре — {{count}}",
+  "emptyPlaying": "Когда кто-то из друзей запустит игру, он появится здесь.",
   "loadFailed": "Не удалось загрузить главную.",
   "retry": "Повторить"
 }

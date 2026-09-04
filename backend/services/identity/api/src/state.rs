@@ -1,3 +1,5 @@
+use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity::usecases::{
     connections::{
         complete_connection::CompleteConnection, list_connections::ListConnections,
@@ -97,6 +99,10 @@ pub struct AppState {
     >,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresUserRepository>,
+    pub set_activity_usecase:
+        SetActivity<PostgresUserRepository, RedisActivityStore, PostgresIdentityUnitOfWork>,
+    pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
+    pub get_activities_usecase: GetActivities<RedisActivityStore>,
     pub start_connection_usecase:
         StartConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
     pub complete_connection_usecase:

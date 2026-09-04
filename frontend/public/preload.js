@@ -26,6 +26,13 @@ contextBridge.exposeInMainWorld('electron', {
   pickScreenShareSource: (requestId, sourceId) =>
     ipcRenderer.send('screen-share:picked', { requestId, sourceId }),
 
+  getGameActivity: () => ipcRenderer.invoke('activity:get'),
+  onGameActivity: (callback) => {
+    const handler = (_event, activity) => callback(activity ?? null);
+    ipcRenderer.on('activity:changed', handler);
+    return () => ipcRenderer.removeListener('activity:changed', handler);
+  },
+
   isFullscreen: () => ipcRenderer.invoke('window:is-fullscreen'),
   onFullscreenChange: (callback) => {
     const handler = (_event, value) => callback(!!value);

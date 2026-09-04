@@ -18,6 +18,7 @@ import { authAPI } from "./api/auth";
 import { ApiError } from "./utils/apiError";
 import { ws } from "./services/websocket";
 import { installWsBootstrap } from "./services/websocketBootstrap";
+import { initGameActivity } from "./services/gameActivity";
 import "./styles/App.css";
 
 const App: React.FC = () => {
@@ -45,6 +46,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     installWsBootstrap();
+    initGameActivity();
   }, []);
 
   useEffect(() => {

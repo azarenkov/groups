@@ -1,0 +1,143 @@
+use std::{sync::Arc, time::Duration};
+
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use domain::user::id::UserId;
+use identity::ports::activity_store::{ActivityStore, ActivityStoreError, StoredActivity};
+use redis::AsyncCommands;
+use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+
+#[derive(Serialize, Deserialize)]
+struct ActivityRecord {
+    game_id: String,
+    name: String,
+    started_at: DateTime<Utc>,
+}
+
+pub struct RedisActivityStore {
+    client: Option<redis::Client>,
+    connection: Arc<Mutex<Option<redis::aio::ConnectionManager>>>,
+}
+
+impl RedisActivityStore {
+    pub fn from_env() -> Self {
+        let client = std::env::var("REDIS_URL")
+            .ok()
+            .filter(|u| !u.is_empty())
+            .and_then(|url| match redis::Client::open(url) {
+                Ok(client) => Some(client),
+                Err(e) => {
+                    tracing::error!(error = %e, "Invalid REDIS_URL; game activity is disabled");
+                    None
+                }
+            });
+        if client.is_none() {
+            tracing::error!("REDIS_URL is not set; game activity is disabled");
+        }
+        Self {
+            client,
+            connection: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    async fn connection(&self) -> Result<redis::aio::ConnectionManager, ActivityStoreError> {
+        let Some(client) = &self.client else {
+            return Err(ActivityStoreError::Unavailable("redis is not configured".to_string()));
+        };
+        let mut guard = self.connection.lock().await;
+        if let Some(connection) = guard.as_ref() {
+            return Ok(connection.clone());
+        }
+        let connection = client
+            .get_connection_manager()
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        *guard = Some(connection.clone());
+        Ok(connection)
+    }
+
+    fn key(user_id: &UserId) -> String {
+        format!("activity:{}", user_id.uuid())
+    }
+
+    fn decode(raw: Option<String>) -> Option<StoredActivity> {
+        let raw = raw?;
+        let record: ActivityRecord = serde_json::from_str(&raw).ok()?;
+        Some(StoredActivity {
+            game_id: record.game_id,
+            name: record.name,
+            started_at: record.started_at,
+        })
+    }
+}
+
+#[async_trait]
+impl ActivityStore for RedisActivityStore {
+    async fn set(
+        &self,
+        user_id: &UserId,
+        activity: &StoredActivity,
+        ttl: Duration,
+    ) -> Result<Option<StoredActivity>, ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let key = Self::key(user_id);
+        let previous: Option<String> = connection
+            .get(&key)
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        let payload = serde_json::to_string(&ActivityRecord {
+            game_id: activity.game_id.clone(),
+            name: activity.name.clone(),
+            started_at: activity.started_at,
+        })
+        .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        let _: () = connection
+            .set_ex(&key, payload, ttl.as_secs().max(1))
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        Ok(Self::decode(previous))
+    }
+
+    async fn clear(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let key = Self::key(user_id);
+        let previous: Option<String> = connection
+            .get(&key)
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        let _: () = connection
+            .del(&key)
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        Ok(Self::decode(previous))
+    }
+
+    async fn get_many(
+        &self,
+        user_ids: &[UserId],
+    ) -> Result<Vec<(UserId, StoredActivity)>, ActivityStoreError> {
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut connection = self.connection().await?;
+        let keys: Vec<String> = user_ids.iter().map(Self::key).collect();
+        let values: Vec<Option<String>> = if keys.len() == 1 {
+            let single: Option<String> = connection
+                .get(&keys[0])
+                .await
+                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+            vec![single]
+        } else {
+            connection
+                .mget(&keys)
+                .await
+                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?
+        };
+        Ok(user_ids
+            .iter()
+            .zip(values)
+            .filter_map(|(id, raw)| Self::decode(raw).map(|a| (id.clone(), a)))
+            .collect())
+    }
+}

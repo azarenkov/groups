@@ -259,3 +259,13 @@ impl UserProfileChanged {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct UserActivityChanged {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub game_id: Option<String>,
+    pub name: Option<String>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub occurred_at: DateTime<Utc>,
+}

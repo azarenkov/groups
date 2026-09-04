@@ -14,6 +14,7 @@ import {
   useDmPreviewStore,
 } from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
+import { loadFriendActivities, useActivityStore } from "../store/activityStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import {
@@ -516,7 +517,24 @@ function dispatch(env: WsEnvelope) {
 
     case "user.offline": {
       const userId = asString(d.userId);
-      if (userId) usePresenceStore.getState().setOffline(userId);
+      if (userId) {
+        usePresenceStore.getState().setOffline(userId);
+        useActivityStore.getState().apply(userId, null);
+      }
+      return;
+    }
+
+    case "user.activityChanged": {
+      const userId = asString(d.userId);
+      if (!userId) return;
+      const gameId = asString(d.gameId);
+      const name = asString(d.name);
+      const startedAt = asString(d.startedAt);
+      if (gameId && name && startedAt) {
+        useActivityStore.getState().apply(userId, { gameId, name, startedAt });
+      } else {
+        useActivityStore.getState().apply(userId, null);
+      }
       return;
     }
 
@@ -698,6 +716,7 @@ export function installWsBootstrap() {
       .then(() => {
         if (useFriendshipStore.getState().error === null) {
           useUserNamesStore.getState().clear();
+          void loadFriendActivities();
         }
       });
   });

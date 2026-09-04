@@ -22,6 +22,9 @@
   "emptyOnlineTitle": "Nobody online",
   "addFriend": "Add friend",
   "statusInVoice": "In voice",
+  "playingFor": "Playing {{game}} · {{duration}}",
+  "playingNow": "In game — {{count}}",
+  "emptyPlaying": "When a friend launches a game, they will show up here.",
   "loadFailed": "Couldn't load your home page.",
   "retry": "Retry"
 }

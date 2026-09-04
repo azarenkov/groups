@@ -28,7 +28,8 @@ use contracts::events::{
     },
     user::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
-        UserLifecycleV1 as UserLifecycleDto, UserProfileChangedV1 as UserProfileChangedDto,
+        UserActivityChangedV1 as UserActivityChangedDto, UserLifecycleV1 as UserLifecycleDto,
+        UserProfileChangedV1 as UserProfileChangedDto,
         UserRenamedV1 as UserRenamedDto,
     },
 };
@@ -716,6 +717,24 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "userId": evt.user_id,
                 "bio": evt.bio,
                 "showActivity": evt.show_activity,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        let mut recipients = resolver.rename_recipients(evt.user_id).await?;
+        recipients.push(evt.user_id);
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".user.activity_changed") {
+        let evt: UserActivityChangedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "user.activityChanged",
+            json!({
+                "userId": evt.user_id,
+                "gameId": evt.game_id,
+                "name": evt.name,
+                "startedAt": evt.started_at,
                 "occurredAt": evt.occurred_at,
             }),
         );

@@ -41,6 +41,18 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserActivityChangedV1 {
+    pub user_id: Uuid,
+    #[serde(default)]
+    pub game_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub started_at: Option<DateTime<Utc>>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationIssuedV1 {
     pub user_id: Uuid,
     pub verification_code_id: Uuid,

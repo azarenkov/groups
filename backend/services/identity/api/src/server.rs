@@ -1,3 +1,5 @@
+use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use std::{error::Error, sync::Arc};
 
 use actix_cors::Cors;
@@ -96,6 +98,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
+    let activity_store = Arc::new(RedisActivityStore::from_env());
     let reauthenticator = Arc::new(Reauthenticator::new(
         user_repository.clone(),
         hasher.clone(),
@@ -174,6 +177,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         get_appearance_usecase: GetAppearance::new(user_repository.clone()),
         update_appearance_usecase: UpdateAppearance::new(user_repository.clone()),
+        set_activity_usecase: SetActivity::new(
+            user_repository.clone(),
+            activity_store.clone(),
+            unit_of_work.clone(),
+        ),
+        clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
+        get_activities_usecase: GetActivities::new(activity_store.clone()),
         start_connection_usecase: StartConnection::new(
             user_repository.clone(),
             github_connector.clone(),

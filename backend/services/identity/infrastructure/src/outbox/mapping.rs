@@ -1,4 +1,4 @@
-use contracts::events::user::{UserLifecycleV1, UserProfileChangedV1, UserRenamedV1, VerificationIssuedV1};
+use contracts::events::user::{UserActivityChangedV1, UserLifecycleV1, UserProfileChangedV1, UserRenamedV1, VerificationIssuedV1};
 use identity_domain::{events::IdentityEvent, user::events::UserEvent, verification::events::VerificationEvent};
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use serde::Serialize;
@@ -95,6 +95,13 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             show_activity: e.show_activity,
             active: e.active,
             timezone: e.timezone.clone(),
+            occurred_at: e.occurred_at,
+        }),
+        UserEvent::ActivityChanged(e) => encode(&UserActivityChangedV1 {
+            user_id: e.user_id.uuid(),
+            game_id: e.game_id.clone(),
+            name: e.name.clone(),
+            started_at: e.started_at,
             occurred_at: e.occurred_at,
         }),
     }

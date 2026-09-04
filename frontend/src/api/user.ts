@@ -18,6 +18,13 @@ export interface AppearanceSettings {
   reduceMotion: boolean;
 }
 
+export interface UserActivity {
+  userId: string;
+  gameId: string;
+  name: string;
+  startedAt: string;
+}
+
 export interface Connection {
   provider: string;
   displayName: string;
@@ -130,6 +137,26 @@ class UserAPI {
       _retry: true,
     } as AxiosRequestConfig);
     return response.data.data;
+  }
+
+  async setActivity(input: {
+    gameId: string;
+    name: string;
+    startedAt: string;
+  }): Promise<void> {
+    await this.client.put("/v1/users/me/activity", input);
+  }
+
+  async clearActivity(): Promise<void> {
+    await this.client.delete("/v1/users/me/activity");
+  }
+
+  async getActivities(ids: string[]): Promise<UserActivity[]> {
+    if (ids.length === 0) return [];
+    const response = await this.client.get("/v1/users/activity", {
+      params: { ids: ids.join(",") },
+    });
+    return response.data.data.activities;
   }
 
   async uploadAvatar(file: File): Promise<void> {
