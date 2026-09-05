@@ -405,8 +405,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <span className="sb-dm-name-text">{d.name}</span>
                 {activity && (
                   <span className="sb-dm-game" title={activity.name}>
-                    <Icon name="sparkles" size={10} />
-                    <span>{activity.name}</span>
+                    {activity.name}
                   </span>
                 )}
               </div>
