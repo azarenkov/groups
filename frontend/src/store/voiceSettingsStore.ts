@@ -147,8 +147,13 @@ const flushSave = async (): Promise<void> => {
   inFlightPatch = patch;
   inFlightOwner = owner;
   try {
-    const { useAuthStore } = await import("./authStore");
-    const currentId = useAuthStore.getState().user?.id ?? null;
+    const [{ useAuthStore }, { userAPI }] = await Promise.all([
+      import("./authStore"),
+      import("../api/user"),
+    ]);
+    const auth = useAuthStore.getState();
+    const currentId = auth.user?.id ?? null;
+    const accessToken = auth.tokens?.accessToken ?? null;
     if (owner !== null && currentId !== owner) {
       if (pendingOwner === owner) {
         pendingPatch = { ...patch, ...pendingPatch };
@@ -156,8 +161,7 @@ const flushSave = async (): Promise<void> => {
       }
       return;
     }
-    const { userAPI } = await import("../api/user");
-    await userAPI.updateVoiceSettings(patch);
+    await userAPI.updateVoiceSettings(patch, accessToken ?? undefined);
     saveAttempts = 0;
   } catch (err) {
     console.warn("[voice-settings] save failed:", err);

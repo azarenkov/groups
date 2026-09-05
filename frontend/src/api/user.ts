@@ -156,9 +156,13 @@ class UserAPI {
 
   async updateVoiceSettings(
     patch: Partial<VoiceSettings>,
+    accessToken?: string,
   ): Promise<VoiceSettings> {
     const response = await this.client.patch("/v1/users/me/voice", patch, {
       _retry: true,
+      ...(accessToken
+        ? { headers: { Authorization: `Bearer ${accessToken}` } }
+        : {}),
     } as AxiosRequestConfig);
     return response.data.data;
   }
