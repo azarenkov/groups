@@ -49,7 +49,9 @@ const VoicePill: React.FC<VoicePillProps> = ({
   const [noise, setNoise] = useState<NoiseSuppressionMode>(() =>
     getLiveKitService().getNoiseSuppressionMode(),
   );
-  const [noiseStrengthPct, setNoiseStrengthPct] = useState(50);
+  const [noiseStrengthPct, setNoiseStrengthPct] = useState(() =>
+    Math.round(getLiveKitService().getNoiseStrength() * 100),
+  );
   const [meter, setMeter] = useState<number[]>(() => new Array(BARS).fill(0));
   const localTrack = useLocalTrack();
   const trackId = localTrack?.id ?? "";
@@ -78,7 +80,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
   };
 
   useEffect(() => {
-    if (open) setNoise(getLiveKitService().getNoiseSuppressionMode());
+    if (!open) return;
+    const service = getLiveKitService();
+    setNoise(service.getNoiseSuppressionMode());
+    setNoiseStrengthPct(Math.round(service.getNoiseStrength() * 100));
   }, [open]);
 
   const anyOpen = open || inviteOpen;

@@ -55,9 +55,12 @@ const awaitVoiceSettingsSyncedFor = async (
   return waitFor(userId);
 };
 
-const armFallbackMuteRelease = (userId: string | null, callId: string) => {
+const armFallbackMuteRelease = (
+  userId: string | null,
+  callId: string,
+  muteSeqAtFallback: number,
+) => {
   if (!userId) return;
-  const muteSeqAtFallback = useCallStore.getState().micMuteSeq;
   void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
     voiceSettingsReadyFor(userId).then(() => {
       const s = useCallStore.getState();
@@ -363,6 +366,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         peerId: peerId ?? null,
         micMuted: false,
       });
+      const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
       if (get().activeCallId !== callId) {
         await callAPI.leave(callId).catch(() => {});
@@ -421,7 +425,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         return;
       }
       set({ connecting: false });
-      if (!synced) armFallbackMuteRelease(initiatorId, callId);
+      if (!synced) armFallbackMuteRelease(initiatorId, callId, muteSeqBeforeWait);
     } catch (e) {
       set({ connecting: false });
       throw e;
@@ -473,6 +477,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       peerId: recipientIds[0] ?? null,
       micMuted: false,
     });
+    const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
     if (get().activeCallId !== callId) {
       if (pendingLog?.callId === callId) pendingLog = null;
@@ -534,7 +539,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       return;
     }
     set({ connecting: false });
-    if (!synced) armFallbackMuteRelease(initiatorId, callId);
+    if (!synced) armFallbackMuteRelease(initiatorId, callId, muteSeqBeforeWait);
   },
 
   accept: async () => {
@@ -556,6 +561,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         peerId: inc.callerId,
         micMuted: false,
       });
+      const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
       if (get().activeCallId !== inc.callId) {
         await callAPI.leave(inc.callId).catch(() => {});
@@ -614,7 +620,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         return;
       }
       set({ connecting: false });
-      if (!synced) armFallbackMuteRelease(initiatorId, inc.callId);
+      if (!synced) armFallbackMuteRelease(initiatorId, inc.callId, muteSeqBeforeWait);
     } catch (e) {
       set({ connecting: false });
       throw e;
