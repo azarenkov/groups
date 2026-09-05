@@ -1906,7 +1906,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
-  const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.id] : undefined));
+  const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.friendId] : undefined));
   const notifLevel = useNotificationPrefsStore((s) =>
     dm
       ? (s.dmLevels[dm.friendId] ?? "all")
