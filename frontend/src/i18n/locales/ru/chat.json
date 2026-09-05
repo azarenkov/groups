@@ -33,6 +33,7 @@
   "removeFriend": "Удалить из друзей",
   "addFriend": "Добавить в друзья",
   "activeNow": "В сети",
+  "playing": "Играет в {{game}}",
   "offline": "Не в сети",
   "noResults": "Ничего не найдено",
   "noResultsBody": "Не нашлось «{{query}}».",

@@ -386,14 +386,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
       {visibleDirects.map((d) => {
         const unread = unreadByDm[d.id] ?? 0;
-        const activity = activities[d.id];
-        const sub =
-          d.lastMessage ||
-          (activity
-            ? t("playing", { game: activity.name, duration: activityDuration(activity.startedAt) })
-            : d.online
-              ? t("statusOnline")
-              : t("statusOffline"));
+        const activity = d.online ? activities[d.id] : undefined;
+        const sub = activity
+          ? t("playing", { game: activity.name, duration: activityDuration(activity.startedAt) })
+          : d.lastMessage || (d.online ? t("statusOnline") : t("statusOffline"));
         return (
           <div
             key={d.id}
