@@ -75,17 +75,6 @@ interface SidebarProps {
   onSetStatus?: (status: "online" | "offline") => void;
 }
 
-const useActivityClock = (enabled: boolean) => {
-  const [now, setNow] = React.useState(() => Date.now());
-  React.useEffect(() => {
-    if (!enabled) return;
-    setNow(Date.now());
-    const handle = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(handle);
-  }, [enabled]);
-  return now;
-};
-
 const Sidebar: React.FC<SidebarProps> = ({
   servers,
   channelsByServer,
@@ -124,12 +113,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const activities = useActivityStore((s) => s.byUser);
-  const activityNow = useActivityClock(Object.keys(activities).length > 0);
-  const activityDuration = (startedAt: string) => {
-    const minutes = Math.max(0, Math.floor((activityNow - new Date(startedAt).getTime()) / 60_000));
-    if (minutes < 60) return t("durationMinutes", { count: minutes });
-    return t("durationHours", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
-  };
   type Screen = { tab: "dms" | "servers"; server: string | null };
   const initialScreen: Screen = { tab: selectedChannelId ? "servers" : "dms", server: null };
   const [screen, setScreen] = React.useState<Screen>(initialScreen);
@@ -387,9 +370,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       {visibleDirects.map((d) => {
         const unread = unreadByDm[d.id] ?? 0;
         const activity = d.online ? activities[d.id] : undefined;
-        const sub = activity
-          ? t("playing", { game: activity.name, duration: activityDuration(activity.startedAt) })
-          : d.lastMessage || (d.online ? t("statusOnline") : t("statusOffline"));
+        const sub =
+          d.lastMessage ||
+          (d.online ? t("statusOnline") : t("statusOffline"));
         return (
           <div
             key={d.id}
@@ -418,7 +401,15 @@ const Sidebar: React.FC<SidebarProps> = ({
               {d.online && <span className="sb-dm-dot" />}
             </div>
             <div className="sb-dm-main">
-              <div className="sb-dm-name">{d.name}</div>
+              <div className="sb-dm-name">
+                <span className="sb-dm-name-text">{d.name}</span>
+                {activity && (
+                  <span className="sb-dm-game" title={activity.name}>
+                    <Icon name="sparkles" size={10} />
+                    <span>{activity.name}</span>
+                  </span>
+                )}
+              </div>
               <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
                 {sub}
               </div>
