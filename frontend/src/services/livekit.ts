@@ -441,6 +441,7 @@ export class LiveKitService {
   private async enableMicrophoneIfNeeded(): Promise<void> {
     if (!this.room) return;
     if (this.desiredMicMuted) return;
+    if (this.micEnableInFlight) return;
     if (this.room.localParticipant.audioTrackPublications.size > 0) return;
     await this.enableMicrophone();
   }
