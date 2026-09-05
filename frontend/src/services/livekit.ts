@@ -645,6 +645,10 @@ export class LiveKitService {
 
   private async enableDfnPipeline(): Promise<void> {
     if (!this.room) return;
+    const roomAtStart = this.room;
+    const seqAtStart = this.micSwitchSeq;
+    const stale = () =>
+      this.room !== roomAtStart || this.micSwitchSeq !== seqAtStart;
     if (this.dfnPipeline) {
       await this.disableDfnPipeline();
       if (this.dfnPipeline) {
@@ -655,6 +659,7 @@ export class LiveKitService {
       }
     }
     const localTrack = await this.waitForLocalAudioTrack(5000);
+    if (stale()) return;
     if (!localTrack) {
       const err = new Error("Local audio track did not appear in time");
       console.warn("[LiveKitService] enableDfnPipeline:", err.message);
@@ -684,6 +689,7 @@ export class LiveKitService {
       return;
     }
     const { buildDfnPipeline, DENOISER_SAMPLE_RATE } = dfnModule;
+    if (stale()) return;
 
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -749,8 +755,32 @@ export class LiveKitService {
         postGain.connect(postGate);
         postGate.connect(postDest);
         const postTrack = postDest.stream.getAudioTracks()[0];
+        const builtPipeline = pipeline;
+        const builtCtx = ctx;
+        const discard = async () => {
+          try {
+            await builtPipeline.dispose();
+          } catch {}
+          try {
+            builtPipeline.outputTrack.stop();
+          } catch {}
+          try {
+            postTrack?.stop();
+          } catch {}
+          try {
+            await builtCtx.close();
+          } catch {}
+        };
+        if (stale()) {
+          await discard();
+          return;
+        }
         step = "replaceTrack";
         await localTrack.replaceTrack(postTrack ?? pipeline.outputTrack);
+        if (stale()) {
+          await discard();
+          return;
+        }
 
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
