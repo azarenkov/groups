@@ -925,19 +925,30 @@ function VoiceSection() {
     let cancelled = false;
     const media = navigator.mediaDevices;
     if (!media?.enumerateDevices) return;
-    const refresh = () => {
-      media
-        .enumerateDevices()
-        .then((list) => {
-          if (!cancelled) setDevices(list);
-        })
-        .catch(() => {});
+    let permissionAsked = false;
+    const refresh = async () => {
+      try {
+        let list = await media.enumerateDevices();
+        const unlabeled = list.some((d) => d.kind === "audioinput" && !d.label);
+        if (unlabeled && !permissionAsked && media.getUserMedia) {
+          permissionAsked = true;
+          try {
+            const probe = await media.getUserMedia({ audio: true });
+            probe.getTracks().forEach((tr) => tr.stop());
+            list = await media.enumerateDevices();
+          } catch {}
+        }
+        if (!cancelled) setDevices(list);
+      } catch {}
     };
-    refresh();
-    media.addEventListener?.("devicechange", refresh);
+    const onChange = () => {
+      void refresh();
+    };
+    void refresh();
+    media.addEventListener?.("devicechange", onChange);
     return () => {
       cancelled = true;
-      media.removeEventListener?.("devicechange", refresh);
+      media.removeEventListener?.("devicechange", onChange);
     };
   }, []);
   const inputs = devices.filter((d) => d.kind === "audioinput");

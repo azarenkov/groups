@@ -67,6 +67,7 @@ export class LiveKitService {
   private remoteAudioElements: Map<string, HTMLMediaElement[]> = new Map();
   private remoteAudioCtx: AudioContext | null = null;
   private remoteGainNodes: Map<string, GainNode[]> = new Map();
+  private remoteGraphDisabled: boolean = false;
   private remoteSourceNodes: WeakMap<
     HTMLMediaElement,
     { source: MediaElementAudioSourceNode; gain: GainNode; identity: string }
@@ -1289,7 +1290,7 @@ export class LiveKitService {
     this.remoteAudioElements.set(participant.identity, list);
 
     const desiredUiVolume = this.remoteVolumes.get(participant.identity) ?? 1.0;
-    const ctx = this.ensureRemoteAudioCtx();
+    const ctx = this.remoteGraphDisabled ? null : this.ensureRemoteAudioCtx();
     if (ctx) {
       if (ctx.state === "suspended") {
         ctx.resume().catch(() => {});
@@ -1695,12 +1696,51 @@ export class LiveKitService {
   }
 
   private applySinkToCtx(sinkId: string): void {
+    const supportsCtxSink =
+      typeof window !== "undefined" &&
+      typeof (
+        (window.AudioContext?.prototype ?? {}) as { setSinkId?: unknown }
+      ).setSinkId === "function";
+    if (!supportsCtxSink) {
+      this.disableRemoteGraph();
+      return;
+    }
     const ctx = this.remoteAudioCtx as
       | (AudioContext & { setSinkId?: (id: string) => Promise<void> })
       | null;
     ctx?.setSinkId?.(sinkId).catch((e) =>
       console.warn("[LiveKitService] audio context sink switch failed:", e),
     );
+  }
+
+  private disableRemoteGraph(): void {
+    this.remoteGraphDisabled = true;
+    if (!this.room) return;
+    this.room.remoteParticipants.forEach((participant) => {
+      participant.audioTrackPublications.forEach((publication) => {
+        const track = publication.track;
+        if (!track) return;
+        for (const element of Array.from(track.attachedElements)) {
+          const nodes = this.remoteSourceNodes.get(element);
+          if (nodes) {
+            try {
+              nodes.source.disconnect();
+              nodes.gain.disconnect();
+            } catch {}
+            this.remoteSourceNodes.delete(element);
+          }
+          track.detach(element);
+          element.remove();
+        }
+        this.remoteGainNodes.delete(participant.identity);
+        this.remoteAudioElements.delete(participant.identity);
+        const fresh = track.attach();
+        const ui = this.remoteVolumes.get(participant.identity) ?? 1.0;
+        fresh.volume = Math.min(1, ui * this.masterVolume);
+        document.body.appendChild(fresh);
+        this.remoteAudioElements.set(participant.identity, [fresh]);
+      });
+    });
   }
 
   private effectiveGain(uiVolume: number): number {
