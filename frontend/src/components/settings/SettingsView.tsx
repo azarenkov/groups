@@ -1121,6 +1121,7 @@ function NotificationsSection() {
 }
 
 function ShortcutsSection() {
+  const pttKey = useVoiceSettingsStore((s) => s.pttKey);
   const groups = [
     { title: 'Navigation', items: [
       { name: 'Quick switcher',     keys: ['⌘', 'K'] },
@@ -1139,7 +1140,7 @@ function ShortcutsSection() {
     { title: 'Voice', items: [
       { name: 'Toggle mute',        keys: ['⌘', 'M'] },
       { name: 'Toggle deafen',      keys: ['⌘', '⇧', 'D'] },
-      { name: 'Push-to-talk',       keys: ['Space'] },
+      { name: 'Push-to-talk',       keys: [pttKeyLabel(pttKey)] },
       { name: 'Leave voice',        keys: ['⌘', '⇧', 'L'] },
     ]},
   ];
