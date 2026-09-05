@@ -3,6 +3,7 @@ import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 
 let initialized = false;
 let holding = false;
+let holdingCode: string | null = null;
 
 const isTextEntryTarget = (target: EventTarget | null): boolean => {
   const el = target as HTMLElement | null;
@@ -13,8 +14,15 @@ const isTextEntryTarget = (target: EventTarget | null): boolean => {
   );
 };
 
+const stopTransmitting = () => {
+  holding = false;
+  holdingCode = null;
+  getLiveKitService().pttSetTransmitting(false);
+};
+
 const applyEnforcement = (enabled: boolean) => {
   holding = false;
+  holdingCode = null;
   getLiveKitService().setPushToTalkEnforced(enabled);
 };
 
@@ -25,6 +33,10 @@ export const initPushToTalk = (): void => {
   useVoiceSettingsStore.subscribe((state, prev) => {
     if (state.pushToTalk !== prev.pushToTalk) {
       applyEnforcement(state.pushToTalk);
+      return;
+    }
+    if (state.pttKey !== prev.pttKey && holding) {
+      stopTransmitting();
     }
   });
   window.addEventListener("keydown", (e) => {
@@ -35,20 +47,15 @@ export const initPushToTalk = (): void => {
     e.preventDefault();
     if (holding) return;
     holding = true;
+    holdingCode = e.code;
     getLiveKitService().pttSetTransmitting(true);
   });
   window.addEventListener("keyup", (e) => {
-    if (e.code !== useVoiceSettingsStore.getState().pttKey) return;
-    if (!holding) return;
-    holding = false;
-    if (!useVoiceSettingsStore.getState().pushToTalk) return;
-    getLiveKitService().pttSetTransmitting(false);
+    if (!holding || e.code !== holdingCode) return;
+    stopTransmitting();
   });
   window.addEventListener("blur", () => {
     if (!holding) return;
-    holding = false;
-    if (useVoiceSettingsStore.getState().pushToTalk) {
-      getLiveKitService().pttSetTransmitting(false);
-    }
+    stopTransmitting();
   });
 };

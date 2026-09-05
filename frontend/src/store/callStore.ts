@@ -429,8 +429,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
 
   start: async (recipientIds) => {
-    const initiator = await getAuthedIdentity();
-    const initiatorId = initiator.userId;
     if (get().activeCallId) {
       if (recipientIds.length === 1) {
         try {
@@ -447,6 +445,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
       await get().leave();
     }
     set({ connecting: true });
+    const initiator = await getAuthedIdentity().catch((e) => {
+      set({ connecting: false });
+      throw e;
+    });
+    const initiatorId = initiator.userId;
     const session = await callAPI.start(recipientIds).catch((e) => {
       set({ connecting: false });
       throw e;
