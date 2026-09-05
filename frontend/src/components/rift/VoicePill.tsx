@@ -71,7 +71,11 @@ const VoicePill: React.FC<VoicePillProps> = ({
       console.warn("[VoicePill] noise suppression toggle failed:", e);
     }
     const actual = getLiveKitService().getNoiseSuppressionMode();
-    if (actual !== next) setNoise(actual);
+    if (actual !== next) {
+      setNoise(actual);
+      const store = useVoiceSettingsStore.getState();
+      if (store.noiseMode === next) store.update({ noiseMode: actual });
+    }
   };
 
   const handleStrengthChange = (pct: number) => {
