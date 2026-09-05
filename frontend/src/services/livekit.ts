@@ -88,6 +88,7 @@ export class LiveKitService {
   private pushToTalkEnforced: boolean = false;
   private muteBeforePushToTalk: boolean = false;
   private pttHolding: boolean = false;
+  private muteRequestSeq: number = 0;
   private micSwitchChain: Promise<void> = Promise.resolve();
   private micSwitchSeq: number = 0;
   private micRebuildPending: boolean = false;
@@ -219,6 +220,7 @@ export class LiveKitService {
     try {
       this.isConnecting = true;
       this.targetRoomName = roomName ?? null;
+      const muteSeqAtConnect = this.muteRequestSeq;
       console.log("Connecting to LiveKit...", { url });
 
       this.noiseMode = this.defaultNoiseMode;
@@ -250,15 +252,18 @@ export class LiveKitService {
         this.addParticipant(participant);
       });
 
-      if (!startMuted) {
+      const muteChanged = this.muteRequestSeq !== muteSeqAtConnect;
+      if (!startMuted && !muteChanged) {
         this.muteBeforePushToTalk = false;
         if (this.pushToTalkEnforced) {
           this.desiredMicMuted = true;
         }
         await this.enableMicrophone();
-      } else {
+      } else if (startMuted && !muteChanged) {
         this.desiredMicMuted = true;
         this.muteBeforePushToTalk = true;
+      } else if (!this.desiredMicMuted) {
+        await this.enableMicrophone();
       }
       if (this.pushToTalkEnforced) {
         this.applyMicMuted(true);
@@ -485,6 +490,7 @@ export class LiveKitService {
   }
 
   setMicrophoneMuted(muted: boolean): void {
+    this.muteRequestSeq += 1;
     if (this.pushToTalkEnforced) {
       this.muteBeforePushToTalk = muted;
       if (!muted && !this.pttHolding) return;
