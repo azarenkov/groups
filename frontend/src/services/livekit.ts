@@ -376,9 +376,7 @@ export class LiveKitService {
         } catch {}
         return;
       }
-      if (this.desiredMicMuted) {
-        await track.mute().catch(() => {});
-      }
+      await track.mute().catch(() => {});
       try {
         await room.localParticipant.publishTrack(track);
       } catch (error) {
@@ -392,6 +390,7 @@ export class LiveKitService {
         if (this.room !== room || this.micSwitchSeq !== switchSeqAtStart) {
           this.teardownMicGain();
         } else {
+          this.applyMicMuted(this.desiredMicMuted);
           void this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) =>
             console.warn(
               "[LiveKitService] apply noise mode after publish failed:",
