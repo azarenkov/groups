@@ -1623,14 +1623,17 @@ export class LiveKitService {
         for (let i = 0; i < data.length; i++) {
           if (data[i] > max) max = data[i];
         }
+        const now = Date.now();
         let passed: boolean;
         if (autoSensitivity) {
-          if (max < noiseFloor + 6) {
-            noiseFloor = noiseFloor * 0.95 + max * 0.05;
-          } else {
-            noiseFloor = Math.min(noiseFloor + 0.2, 60);
-          }
           passed = max > Math.min(45, noiseFloor + 10);
+          if (!passed && now >= holdUntil) {
+            if (max < noiseFloor + 6) {
+              noiseFloor = noiseFloor * 0.95 + max * 0.05;
+            } else {
+              noiseFloor = Math.min(noiseFloor + 0.2, 60);
+            }
+          }
         } else {
           analyser.getByteTimeDomainData(tdata);
           let sum = 0;
@@ -1642,7 +1645,6 @@ export class LiveKitService {
             20 * Math.log10(Math.max(Math.sqrt(sum / tdata.length), 1e-6));
           passed = db > -72 + 0.72 * sensitivity;
         }
-        const now = Date.now();
         if (passed) holdUntil = now + 250;
         gate.gain.value = now < holdUntil ? 1 : 0;
       }, 50);

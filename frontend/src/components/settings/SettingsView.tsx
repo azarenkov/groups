@@ -798,7 +798,14 @@ function MicTestMeter() {
   const micDeviceId = useVoiceSettingsStore((s) => s.micDeviceId);
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
+  const micVolume = useVoiceSettingsStore((s) => s.micVolume);
   const [level, setLevel] = React.useState(-120);
+  const gainRef = React.useRef<GainNode | null>(null);
+  const micVolumeRef = React.useRef(micVolume);
+  micVolumeRef.current = micVolume;
+  React.useEffect(() => {
+    if (gainRef.current) gainRef.current.gain.value = micVolume / 100;
+  }, [micVolume]);
   React.useEffect(() => {
     let cancelled = false;
     let stream: MediaStream | null = null;
@@ -830,9 +837,13 @@ function MicTestMeter() {
             .webkitAudioContext;
         ctx = new AudioCtx();
         const source = ctx.createMediaStreamSource(stream);
+        const gain = ctx.createGain();
+        gain.gain.value = micVolumeRef.current / 100;
+        gainRef.current = gain;
         analyser = ctx.createAnalyser();
         analyser.fftSize = 1024;
-        source.connect(analyser);
+        source.connect(gain);
+        gain.connect(analyser);
         data = new Uint8Array(analyser.fftSize);
       } catch {
         return;
@@ -857,6 +868,7 @@ function MicTestMeter() {
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      gainRef.current = null;
       stream?.getTracks().forEach((tr) => tr.stop());
       ctx?.close().catch(() => {});
     };
