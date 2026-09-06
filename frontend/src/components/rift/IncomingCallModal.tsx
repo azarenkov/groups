@@ -40,7 +40,7 @@ const IncomingCallModal: React.FC = () => {
       { f: 1174.66, at: 0.32, dur: 0.3 },
     ];
     const ring = () => {
-      if (stopped) return;
+      if (stopped || isQuietNow()) return;
       const base = ctx.currentTime;
       for (const n of notes) {
         const osc = ctx.createOscillator();
