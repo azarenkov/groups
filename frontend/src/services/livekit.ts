@@ -1759,6 +1759,10 @@ export class LiveKitService {
     this.remoteGraphDisabled = true;
     if (!this.room) return;
     this.room.remoteParticipants.forEach((participant) => {
+      this.remoteGainNodes.delete(participant.identity);
+      this.remoteAudioElements.delete(participant.identity);
+      const ui = this.remoteVolumes.get(participant.identity) ?? 1.0;
+      const rebuilt: HTMLMediaElement[] = [];
       participant.audioTrackPublications.forEach((publication) => {
         const track = publication.track;
         if (!track) return;
@@ -1774,14 +1778,14 @@ export class LiveKitService {
           track.detach(element);
           element.remove();
         }
-        this.remoteGainNodes.delete(participant.identity);
-        this.remoteAudioElements.delete(participant.identity);
         const fresh = track.attach();
-        const ui = this.remoteVolumes.get(participant.identity) ?? 1.0;
         fresh.volume = Math.min(1, ui * this.masterVolume);
         document.body.appendChild(fresh);
-        this.remoteAudioElements.set(participant.identity, [fresh]);
+        rebuilt.push(fresh);
       });
+      if (rebuilt.length > 0) {
+        this.remoteAudioElements.set(participant.identity, rebuilt);
+      }
     });
   }
 
