@@ -16,7 +16,10 @@ import {
 import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
-import { useNotificationPrefsStore } from "../store/notificationPrefsStore";
+import {
+  notificationPrefsLoaded,
+  useNotificationPrefsStore,
+} from "../store/notificationPrefsStore";
 import {
   defaultMentionLevel,
   desktopNotifAllowed,
@@ -324,6 +327,10 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
+      if (!notificationPrefsLoaded()) {
+        scheduleUnreadRefetch();
+        return;
+      }
       const level =
         useNotificationPrefsStore.getState().channelLevels[channelId] ??
         defaultMentionLevel();
@@ -395,6 +402,10 @@ function dispatch(env: WsEnvelope) {
       if (recipientId !== selfId) return;
       if (activeDmView === senderId) {
         throttleMarkDmRead(senderId);
+        return;
+      }
+      if (!notificationPrefsLoaded()) {
+        scheduleUnreadRefetch();
         return;
       }
       const dmLevel =

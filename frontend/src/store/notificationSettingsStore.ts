@@ -147,11 +147,12 @@ const flushSave = async (): Promise<void> => {
           await authAPI.handleRefreshFlow();
         } catch {}
       }
-      if (saveAttempts <= 5 && saveTimer === null) {
+      if (saveTimer === null) {
+        const delay = Math.min(60_000, 5_000 * 2 ** Math.min(saveAttempts - 1, 4));
         saveTimer = window.setTimeout(() => {
           saveTimer = null;
           void flushSave();
-        }, 5000);
+        }, delay);
       }
     }
   } finally {
@@ -370,8 +371,18 @@ if (pendingOwner !== null && Object.keys(pendingPatch).length > 0 && saveTimer =
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     const userId = useAuthStore.getState().user?.id ?? null;
+    if (!userId) return;
     const state = useNotificationSettingsStore.getState();
-    if (!userId || state.syncedOwner === userId) return;
+    if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
+      if (saveTimer !== null) {
+        window.clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      savePaused = false;
+      saveAttempts = 0;
+      void flushSave();
+    }
+    if (state.syncedOwner === userId) return;
     if (syncRetryTimer !== null) {
       window.clearTimeout(syncRetryTimer);
       syncRetryTimer = null;
