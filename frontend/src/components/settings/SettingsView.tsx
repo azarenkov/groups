@@ -846,6 +846,9 @@ function MicTestMeter() {
         gain.connect(analyser);
         data = new Uint8Array(analyser.fftSize);
       } catch {
+        stream.getTracks().forEach((tr) => tr.stop());
+        ctx?.close().catch(() => {});
+        ctx = null;
         return;
       }
       void ctx.resume().catch(() => {});

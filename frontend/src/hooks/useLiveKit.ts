@@ -58,6 +58,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const localQuality = useLocalQuality();
   const activeChannelRef = useRef<{ serverId: string; channelId: string } | null>(null);
   const fallbackMutedRef = useRef(false);
+  const fallbackReleasePendingRef = useRef(false);
   const isMutedRef = useRef(false);
   const isConnectedRef = useRef(false);
 
@@ -211,8 +212,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
               voiceSettingsReadyFor(joiningUserId).then(() => {
                 if (!fallbackMutedRef.current) return;
                 if (activeChannelRef.current !== joinAttempt) return;
-                if (moderatorLockedRef.current) return;
+                if (moderatorLockedRef.current) {
+                  fallbackReleasePendingRef.current = true;
+                  return;
+                }
                 fallbackMutedRef.current = false;
+                fallbackReleasePendingRef.current = false;
                 serviceRef.current?.setMicrophoneMuted(false);
                 setIsMuted(false);
               }),
@@ -241,6 +246,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     const service = serviceRef.current;
     if (!service) return;
     fallbackMutedRef.current = false;
+    fallbackReleasePendingRef.current = false;
     try {
       const active = activeChannelRef.current;
       const ownsRoom = !active || service.getActiveRoomName() === active.channelId;
@@ -313,6 +319,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       restoreSelfMute();
       return;
     }
+    if (fallbackMutedRef.current && !fallbackReleasePendingRef.current) {
+      return;
+    }
+    fallbackReleasePendingRef.current = false;
+    fallbackMutedRef.current = false;
+    fallbackReleasePendingRef.current = false;
     serviceRef.current?.setMicrophoneMuted(false);
     setIsMuted(false);
   };
@@ -331,7 +343,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       const moderatorMuted =
         me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
       if (moderatorMuted && !moderatorLockedRef.current) {
-        selfMutedBeforeLockRef.current = isMutedRef.current;
+        selfMutedBeforeLockRef.current =
+          isMutedRef.current && !fallbackMutedRef.current;
         setLock(true, me.mutedBy ?? null);
         serviceRef.current?.setMicrophoneMuted(true);
         setIsMuted(true);
@@ -357,7 +370,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         return;
       }
       if (!moderatorLockedRef.current) {
-        selfMutedBeforeLockRef.current = isMutedRef.current;
+        selfMutedBeforeLockRef.current =
+          isMutedRef.current && !fallbackMutedRef.current;
       }
       serviceRef.current?.setMicrophoneMuted(true);
       setIsMuted(true);
@@ -385,6 +399,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     const service = serviceRef.current;
     if (!service) return;
     fallbackMutedRef.current = false;
+    fallbackReleasePendingRef.current = false;
     const next = !isMutedRef.current;
     if (!next && moderatorLockedRef.current) {
       const active = activeChannelRef.current;
