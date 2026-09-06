@@ -55,31 +55,41 @@ let pendingOwner: string | null = null;
 
 const PENDING_KEY = "rift-notification-settings-pending";
 
-const persistPending = () => {
+type PendingMap = Record<string, Partial<NotificationSyncedSettings>>;
+
+const readPendingMap = (): PendingMap => {
   try {
-    if (pendingOwner !== null && Object.keys(pendingPatch).length > 0) {
-      window.localStorage.setItem(
-        PENDING_KEY,
-        JSON.stringify({ owner: pendingOwner, patch: pendingPatch }),
-      );
+    const raw = window.localStorage.getItem(PENDING_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return parsed as PendingMap;
+  } catch {
+    return {};
+  }
+};
+
+const persistPending = () => {
+  if (pendingOwner === null) return;
+  try {
+    const map = readPendingMap();
+    if (Object.keys(pendingPatch).length > 0) {
+      map[pendingOwner] = pendingPatch;
+    } else {
+      delete map[pendingOwner];
+    }
+    if (Object.keys(map).length > 0) {
+      window.localStorage.setItem(PENDING_KEY, JSON.stringify(map));
     } else {
       window.localStorage.removeItem(PENDING_KEY);
     }
   } catch {}
 };
 
-const restorePending = () => {
-  try {
-    const raw = window.localStorage.getItem(PENDING_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as {
-      owner?: unknown;
-      patch?: Partial<NotificationSyncedSettings>;
-    };
-    if (typeof parsed.owner !== "string" || !parsed.patch) return;
-    pendingOwner = parsed.owner;
-    pendingPatch = { ...parsed.patch };
-  } catch {}
+const restorePendingFor = (owner: string) => {
+  pendingOwner = owner;
+  const stored = readPendingMap()[owner];
+  pendingPatch = stored && typeof stored === "object" ? { ...stored } : {};
 };
 let inFlight = false;
 let inFlightPatch: Partial<NotificationSyncedSettings> = {};
@@ -107,7 +117,6 @@ const cancelPendingSaves = () => {
     saveTimer = null;
   }
   pendingPatch = {};
-  persistPending();
   saveAttempts = 0;
 };
 
@@ -220,13 +229,16 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;
         if (prevOwner !== userId) {
+          cancelPendingSaves();
+          restorePendingFor(userId);
           if (switched) {
-            cancelPendingSaves();
-            set({ ...DEFAULT_SETTINGS, ownerId: userId, syncedOwner: null });
+            set({ ...DEFAULT_SETTINGS, ...pendingPatch, ownerId: userId, syncedOwner: null });
           } else {
-            set({ ownerId: userId, syncedOwner: null });
+            set({ ...pendingPatch, ownerId: userId, syncedOwner: null });
           }
-          pendingOwner = userId;
+        } else if (pendingOwner === null) {
+          restorePendingFor(userId);
+          if (Object.keys(pendingPatch).length > 0) set({ ...pendingPatch });
         }
         const startSeq = editSeq;
         const mySync = ++syncSeq;
@@ -270,6 +282,7 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
             );
             set({ ...local, ownerId: userId, syncedOwner: userId });
             if (!switched) scheduleSave(local, userId);
+            else if (Object.keys(pendingPatch).length > 0) scheduleSave({}, userId);
             syncRetryAttempts = 0;
             return;
           }
@@ -359,14 +372,6 @@ export const desktopNotifAllowed = (): boolean =>
 export const callAlertsAllowed = (): boolean =>
   settingsSyncedForCurrentUser() &&
   useNotificationSettingsStore.getState().callsEnabled;
-
-restorePending();
-if (pendingOwner !== null && Object.keys(pendingPatch).length > 0 && saveTimer === null) {
-  saveTimer = window.setTimeout(() => {
-    saveTimer = null;
-    void flushSave();
-  }, 500);
-}
 
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
