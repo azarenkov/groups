@@ -244,7 +244,11 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
             quietEnd: isTime(saved.quietEnd) ? saved.quietEnd : "08:00",
             callsEnabled: saved.callsEnabled,
           });
+          const prevMentions = get().mentions;
           set({ ...next, ownerId: userId });
+          if (next.mentions !== prevMentions) {
+            void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
+          }
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
