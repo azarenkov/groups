@@ -1225,6 +1225,7 @@ export class LiveKitService {
   }
 
   private ensureRemoteAudioCtx(): AudioContext | null {
+    if (this.remoteGraphDisabled) return null;
     if (this.remoteAudioCtx) return this.remoteAudioCtx;
     try {
       const Ctor =
@@ -1236,6 +1237,7 @@ export class LiveKitService {
       if (this.preferredSpeakerId) {
         this.applySinkToCtx(this.preferredSpeakerId);
       }
+      if (this.remoteGraphDisabled) return null;
       return this.remoteAudioCtx;
     } catch (e) {
       console.warn("[LiveKitService] AudioContext init failed:", e);
