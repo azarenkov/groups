@@ -951,3 +951,28 @@ impl HttpMapping for AppearanceError {
         }
     }
 }
+
+use identity::usecases::user::voice_settings::VoiceSettingsError;
+
+impl HttpMapping for VoiceSettingsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            VoiceSettingsError::Repository(e) => e.to_http_status(),
+            VoiceSettingsError::Invalid => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            VoiceSettingsError::Repository(e) => e.to_user_message(),
+            VoiceSettingsError::Invalid => "Invalid voice settings".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            VoiceSettingsError::Repository(e) => e.to_error_code(),
+            VoiceSettingsError::Invalid => "INVALID_VOICE_SETTINGS",
+        }
+    }
+}

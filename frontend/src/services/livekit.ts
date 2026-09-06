@@ -55,18 +55,47 @@ export class LiveKitService {
   private dfnPipeline: DfnPipeline | null = null;
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
+  private dfnPrevPublishedTrack: MediaStreamTrack | null = null;
+  private dfnPrevChain: {
+    gain: GainNode | null;
+    gate: GainNode | null;
+  } | null = null;
+  private micGainAnalyser: AnalyserNode | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
   private desiredMicMuted: boolean = false;
   private remoteVolumes: Map<string, number> = new Map();
   private remoteAudioElements: Map<string, HTMLMediaElement[]> = new Map();
   private remoteAudioCtx: AudioContext | null = null;
   private remoteGainNodes: Map<string, GainNode[]> = new Map();
+  private remoteGraphDisabled: boolean = false;
   private remoteSourceNodes: WeakMap<
     HTMLMediaElement,
     { source: MediaElementAudioSourceNode; gain: GainNode; identity: string }
   > = new WeakMap();
   private static readonly REMOTE_GAIN_MAX = 6.0;
   private noiseStrength: number = 1.0;
+  private preferredMicId: string | null = null;
+  private preferredSpeakerId: string | null = null;
+  private masterVolume: number = 1.0;
+  private micVolume: number = 1.0;
+  private micGainCtx: AudioContext | null = null;
+  private micGainNode: GainNode | null = null;
+  private micSourceTrack: MediaStreamTrack | null = null;
+  private micGateGain: GainNode | null = null;
+  private micGateTimer: ReturnType<typeof setInterval> | null = null;
+  private micGainRetryCleanup: (() => void) | null = null;
+  private micBypassedTrack: MediaStreamTrack | null = null;
+  private defaultNoiseMode: NoiseSuppressionMode = "standard";
+  private pushToTalkEnforced: boolean = false;
+  private muteBeforePushToTalk: boolean = false;
+  private pttHolding: boolean = false;
+  private muteRequestSeq: number = 0;
+  private speakerSwitchSeq: number = 0;
+  private speakerSwitchChain: Promise<void> = Promise.resolve();
+  private micSwitchChain: Promise<void> = Promise.resolve();
+  private micSwitchSeq: number = 0;
+  private micRebuildPending: boolean = false;
+  private micEnableInFlight: boolean = false;
   private noiseModeChain: Promise<void> = Promise.resolve();
   private localQuality: ConnectionQuality = ConnectionQuality.Unknown;
   private localQualityListeners: Set<(quality: ConnectionQuality) => void> =
@@ -194,14 +223,17 @@ export class LiveKitService {
     try {
       this.isConnecting = true;
       this.targetRoomName = roomName ?? null;
+      const muteSeqAtConnect = this.muteRequestSeq;
       console.log("Connecting to LiveKit...", { url });
 
+      this.noiseMode = this.defaultNoiseMode;
       this.room = new Room({
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: {
+          deviceId: this.preferredMicId ?? undefined,
           echoCancellation: true,
-          noiseSuppression: true,
+          noiseSuppression: this.defaultNoiseMode !== "off",
           autoGainControl: true,
         },
       });
@@ -215,13 +247,29 @@ export class LiveKitService {
       console.log("Attempting room connection...");
       await this.room.connect(url, token, connectOptions);
       console.log("Successfully connected to room");
+      if (this.preferredSpeakerId) {
+        void this.switchDevice("audiooutput", this.preferredSpeakerId);
+      }
 
       this.room.remoteParticipants.forEach((participant) => {
         this.addParticipant(participant);
       });
 
-      if (!startMuted) {
+      const muteChanged = this.muteRequestSeq !== muteSeqAtConnect;
+      if (!startMuted && !muteChanged) {
+        this.muteBeforePushToTalk = false;
+        if (this.pushToTalkEnforced) {
+          this.desiredMicMuted = true;
+        }
         await this.enableMicrophone();
+      } else if (startMuted && !muteChanged) {
+        this.desiredMicMuted = true;
+        this.muteBeforePushToTalk = true;
+      } else if (!this.desiredMicMuted) {
+        await this.enableMicrophone();
+      }
+      if (this.pushToTalkEnforced) {
+        this.applyMicMuted(!(this.pttHolding && !this.muteBeforePushToTalk));
       }
 
       this.isConnecting = false;
@@ -261,11 +309,15 @@ export class LiveKitService {
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
+    this.dfnPrevPublishedTrack = null;
+    this.dfnPrevChain = null;
   }
 
   async disconnect(): Promise<void> {
     this.clearReconnectAbortTimer();
+    this.micSwitchSeq += 1;
     await this.tearDownDfn();
+    this.teardownMicGain();
     if (this.room) {
       console.log("[LiveKitService] Disconnecting from room");
       await this.room.disconnect();
@@ -274,6 +326,7 @@ export class LiveKitService {
       this.participants.clear();
       this.isConnecting = false;
       this.desiredMicMuted = false;
+      this.micRebuildPending = false;
       this.remoteVolumes.clear();
       this.remoteAudioElements.clear();
       this.remoteGainNodes.clear();
@@ -309,15 +362,81 @@ export class LiveKitService {
 
   async enableMicrophone(): Promise<void> {
     if (!this.room) return;
+    const switchSeqAtStart = this.micSwitchSeq;
+    this.micEnableInFlight = true;
 
-    try {
+    const publish = async (deviceId?: string) => {
+      const startedRoom = this.room;
       const track = await createLocalAudioTrack({
+        deviceId,
         echoCancellation: true,
-        noiseSuppression: true,
+        noiseSuppression: this.noiseMode !== "off",
         autoGainControl: true,
       });
-      await this.room.localParticipant.publishTrack(track);
+      const room = this.room;
+      if (
+        !room ||
+        room !== startedRoom ||
+        this.micSwitchSeq !== switchSeqAtStart
+      ) {
+        try {
+          track.stop();
+        } catch {}
+        return;
+      }
+      await track.mute().catch(() => {});
+      try {
+        await room.localParticipant.publishTrack(track);
+      } catch (error) {
+        try {
+          track.stop();
+        } catch {}
+        throw error;
+      }
+      if (this.room === room && this.micSwitchSeq === switchSeqAtStart) {
+        await this.wireMicGain(track);
+        if (this.room !== room || this.micSwitchSeq !== switchSeqAtStart) {
+          this.teardownMicGain();
+        } else {
+          this.applyMicMuted(this.desiredMicMuted);
+          const requestedMode = this.noiseMode;
+          void this.applyNoiseSuppressionMode(requestedMode, true)
+            .catch((e) =>
+              console.warn(
+                "[LiveKitService] apply noise mode after publish failed:",
+                e,
+              ),
+            )
+            .then(() => this.reconcileNoiseModeWithStore(requestedMode));
+        }
+      }
       this.emitLocalTrack();
+    };
+
+    try {
+      let deviceId = this.preferredMicId ?? undefined;
+      if (deviceId) {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          if (
+            !devices.some(
+              (d) => d.kind === "audioinput" && d.deviceId === deviceId,
+            )
+          ) {
+            deviceId = undefined;
+          }
+        } catch {}
+      }
+      try {
+        await publish(deviceId);
+      } catch (error) {
+        if (deviceId === undefined) throw error;
+        console.warn(
+          "[LiveKitService] saved microphone unavailable, falling back to default:",
+          error,
+        );
+        await publish(undefined);
+      }
     } catch (error) {
       console.error("Failed to enable microphone:", error);
       this.onError?.(
@@ -325,11 +444,23 @@ export class LiveKitService {
           ? error
           : new Error("Failed to enable microphone"),
       );
+    } finally {
+      this.micEnableInFlight = false;
     }
+  }
+
+  private async enableMicrophoneIfNeeded(): Promise<void> {
+    if (!this.room) return;
+    if (this.desiredMicMuted) return;
+    if (this.micEnableInFlight) return;
+    if (this.room.localParticipant.audioTrackPublications.size > 0) return;
+    await this.enableMicrophone();
   }
 
   async disableMicrophone(): Promise<void> {
     if (!this.room) return;
+
+    this.teardownMicGain();
 
     if (this.dfnPipeline) {
       try {
@@ -347,6 +478,8 @@ export class LiveKitService {
       this.dfnPipeline = null;
       this.dfnContext = null;
       this.dfnRawTrack = null;
+    this.dfnPrevPublishedTrack = null;
+      this.dfnPrevChain = null;
     }
 
     const audioTracks = Array.from(
@@ -363,6 +496,22 @@ export class LiveKitService {
   }
 
   setMicrophoneMuted(muted: boolean): void {
+    this.muteRequestSeq += 1;
+    if (this.pushToTalkEnforced) {
+      this.muteBeforePushToTalk = muted;
+      if (!muted && !this.pttHolding) return;
+    }
+    this.applyMicMuted(muted);
+  }
+
+  pttSetTransmitting(active: boolean): void {
+    if (!this.pushToTalkEnforced) return;
+    this.pttHolding = active;
+    if (active && this.muteBeforePushToTalk) return;
+    this.applyMicMuted(!active);
+  }
+
+  private applyMicMuted(muted: boolean): void {
     this.desiredMicMuted = muted;
     if (!this.room) return;
 
@@ -371,9 +520,11 @@ export class LiveKitService {
     );
 
     if (!muted && audioTracks.length === 0) {
-      void this.enableMicrophone().catch((err) =>
-        console.warn("[livekit] failed to publish microphone on unmute:", err),
-      );
+      this.micSwitchChain = this.micSwitchChain
+        .then(() => this.enableMicrophoneIfNeeded())
+        .catch((err) =>
+          console.warn("[livekit] failed to publish microphone on unmute:", err),
+        );
       return;
     }
 
@@ -390,6 +541,12 @@ export class LiveKitService {
     if (this.dfnRawTrack) {
       this.dfnRawTrack.enabled = !muted;
     }
+    if (this.micSourceTrack) {
+      this.micSourceTrack.enabled = !muted;
+    }
+    if (this.micBypassedTrack) {
+      this.micBypassedTrack.enabled = !muted && this.micVolume > 0;
+    }
   }
 
   isMicrophoneMuted(): boolean {
@@ -405,15 +562,16 @@ export class LiveKitService {
   }
 
   getLocalAudioMediaStreamTrack(): MediaStreamTrack | null {
-    if (this.dfnPipeline) return this.dfnPipeline.outputTrack;
-    if (!this.room) return null;
-    const publications = Array.from(
-      this.room.localParticipant.audioTrackPublications.values(),
-    );
-    for (const pub of publications) {
-      const track = pub.track?.mediaStreamTrack;
-      if (track) return track;
+    if (this.room) {
+      const publications = Array.from(
+        this.room.localParticipant.audioTrackPublications.values(),
+      );
+      for (const pub of publications) {
+        const track = pub.track?.mediaStreamTrack;
+        if (track) return track;
+      }
     }
+    if (this.dfnPipeline) return this.dfnPipeline.outputTrack;
     return null;
   }
 
@@ -468,7 +626,7 @@ export class LiveKitService {
 
       await this.disableDfnPipeline();
 
-      const track = this.getLocalAudioMediaStreamTrack();
+      const track = this.micSourceTrack ?? this.getLocalAudioMediaStreamTrack();
       if (!track) return;
       try {
         await track.applyConstraints({ noiseSuppression: mode === "standard" });
@@ -500,6 +658,10 @@ export class LiveKitService {
 
   private async enableDfnPipeline(): Promise<void> {
     if (!this.room) return;
+    const roomAtStart = this.room;
+    const seqAtStart = this.micSwitchSeq;
+    const stale = () =>
+      this.room !== roomAtStart || this.micSwitchSeq !== seqAtStart;
     if (this.dfnPipeline) {
       await this.disableDfnPipeline();
       if (this.dfnPipeline) {
@@ -510,6 +672,7 @@ export class LiveKitService {
       }
     }
     const localTrack = await this.waitForLocalAudioTrack(5000);
+    if (stale()) return;
     if (!localTrack) {
       const err = new Error("Local audio track did not appear in time");
       console.warn("[LiveKitService] enableDfnPipeline:", err.message);
@@ -517,7 +680,8 @@ export class LiveKitService {
       this.onError?.(err);
       return;
     }
-    const rawTrack = localTrack.mediaStreamTrack;
+    const publishedTrack = localTrack.mediaStreamTrack;
+    const rawTrack = this.micSourceTrack ?? publishedTrack;
     if (!rawTrack) {
       const err = new Error("Raw mic track missing");
       console.warn("[LiveKitService] enableDfnPipeline:", err.message);
@@ -538,6 +702,7 @@ export class LiveKitService {
       return;
     }
     const { buildDfnPipeline, DENOISER_SAMPLE_RATE } = dfnModule;
+    if (stale()) return;
 
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -547,7 +712,7 @@ export class LiveKitService {
       try {
         step = "applyConstraints";
         try {
-          await rawTrack.applyConstraints({ noiseSuppression: false });
+          await (this.micSourceTrack ?? rawTrack).applyConstraints({ noiseSuppression: false });
         } catch {}
 
         step = "AudioContext";
@@ -579,17 +744,70 @@ export class LiveKitService {
           } catch {}
           this.noiseMode = "standard";
           try {
-            await rawTrack.applyConstraints({ noiseSuppression: true });
+            await (this.micSourceTrack ?? rawTrack).applyConstraints({ noiseSuppression: true });
           } catch {}
           this.onError?.(new Error("Noise suppression models unavailable"));
           return;
         }
+        step = "postChain";
+        const postSource = ctx.createMediaStreamSource(
+          new MediaStream([pipeline.outputTrack]),
+        );
+        const postGain = ctx.createGain();
+        postGain.gain.value = this.micVolume;
+        const postGate = ctx.createGain();
+        postGate.gain.value = 1;
+        const postAnalyser = ctx.createAnalyser();
+        postAnalyser.fftSize = 256;
+        const preSource = ctx.createMediaStreamSource(
+          new MediaStream([rawTrack]),
+        );
+        preSource.connect(postAnalyser);
+        const postDest = ctx.createMediaStreamDestination();
+        postSource.connect(postGain);
+        postGain.connect(postGate);
+        postGate.connect(postDest);
+        const postTrack = postDest.stream.getAudioTracks()[0];
+        const builtPipeline = pipeline;
+        const builtCtx = ctx;
+        const discard = async () => {
+          try {
+            await builtPipeline.dispose();
+          } catch {}
+          try {
+            builtPipeline.outputTrack.stop();
+          } catch {}
+          try {
+            postTrack?.stop();
+          } catch {}
+          try {
+            await builtCtx.close();
+          } catch {}
+        };
+        if (stale()) {
+          await discard();
+          return;
+        }
         step = "replaceTrack";
-        await localTrack.replaceTrack(pipeline.outputTrack);
+        await localTrack.replaceTrack(postTrack ?? pipeline.outputTrack);
+        if (stale()) {
+          await discard();
+          return;
+        }
 
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
         this.dfnRawTrack = rawTrack;
+        this.dfnPrevPublishedTrack = publishedTrack;
+        if (postTrack) {
+          this.dfnPrevChain = {
+            gain: this.micGainNode,
+            gate: this.micGateGain,
+          };
+          this.micGainNode = postGain;
+          this.micGateGain = postGate;
+          this.startMicGate(postAnalyser);
+        }
         rawTrack.enabled = !this.isMicrophoneMuted();
         pipeline.setStrength(this.noiseStrength);
         this.emitLocalTrack();
@@ -621,7 +839,7 @@ export class LiveKitService {
     console.error("[LiveKitService] failed to enable DFN pipeline:", lastErr);
     this.noiseMode = "standard";
     try {
-      await rawTrack.applyConstraints({ noiseSuppression: true });
+      await (this.micSourceTrack ?? rawTrack).applyConstraints({ noiseSuppression: true });
     } catch {}
     this.onError?.(
       lastErr instanceof Error
@@ -644,7 +862,7 @@ export class LiveKitService {
       const localTrack = publication?.track;
       if (localTrack instanceof LocalAudioTrack) {
         try {
-          await localTrack.replaceTrack(rawTrack);
+          await localTrack.replaceTrack(this.dfnPrevPublishedTrack ?? rawTrack);
         } catch (e) {
           console.warn(
             "[LiveKitService] failed to restore raw mic track, keeping DFN pipeline alive:",
@@ -668,6 +886,21 @@ export class LiveKitService {
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
+    this.dfnPrevPublishedTrack = null;
+    if (this.dfnPrevChain) {
+      this.micGainNode = this.dfnPrevChain.gain;
+      this.micGateGain = this.dfnPrevChain.gate;
+      this.dfnPrevChain = null;
+      if (this.micGainNode) {
+        this.micGainNode.gain.value = this.micVolume;
+      }
+      if (this.micGateGain && this.micGainAnalyser) {
+        this.micGateGain.gain.value = 1;
+        this.startMicGate(this.micGainAnalyser);
+      } else {
+        this.stopMicGate();
+      }
+    }
     this.emitLocalTrack();
   }
 
@@ -868,6 +1101,8 @@ export class LiveKitService {
     this.room.on(RoomEvent.Disconnected, (reason) => {
       console.log("Disconnected from room", { reason });
       this.clearReconnectAbortTimer();
+      this.micSwitchSeq += 1;
+      this.teardownMicGain();
       void this.tearDownDfn().then(() => this.emitLocalTrack());
       this.participants.clear();
       this.emitLocalQuality(ConnectionQuality.Unknown);
@@ -914,15 +1149,20 @@ export class LiveKitService {
           );
         }
       }
-      this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) => {
-        console.warn(
-          "[LiveKitService] reapply noise mode after publish failed:",
-          e,
-        );
-      });
     });
 
-    this.room.on(RoomEvent.MediaDevicesError, (error) => {
+    this.room.on(RoomEvent.MediaDevicesError, (error, kind) => {
+      const fromScreenShare = kind === undefined;
+      const dismissed =
+        fromScreenShare &&
+        (error.name === "NotAllowedError" ||
+          error.name === "AbortError" ||
+          error.message.includes("Permission dismissed") ||
+          error.message.includes("Could not start video source"));
+      if (dismissed) {
+        console.warn("[LiveKitService] media device request dismissed:", error);
+        return;
+      }
       console.error("Media devices error:", error);
       this.onError?.(error);
     });
@@ -989,6 +1229,7 @@ export class LiveKitService {
   }
 
   private ensureRemoteAudioCtx(): AudioContext | null {
+    if (this.remoteGraphDisabled) return null;
     if (this.remoteAudioCtx) return this.remoteAudioCtx;
     try {
       const Ctor =
@@ -997,6 +1238,10 @@ export class LiveKitService {
           .webkitAudioContext;
       if (!Ctor) return null;
       this.remoteAudioCtx = new Ctor();
+      if (this.preferredSpeakerId) {
+        void this.applySinkToCtx(this.preferredSpeakerId);
+      }
+      if (this.remoteGraphDisabled) return null;
       return this.remoteAudioCtx;
     } catch (e) {
       console.warn("[LiveKitService] AudioContext init failed:", e);
@@ -1054,7 +1299,7 @@ export class LiveKitService {
     this.remoteAudioElements.set(participant.identity, list);
 
     const desiredUiVolume = this.remoteVolumes.get(participant.identity) ?? 1.0;
-    const ctx = this.ensureRemoteAudioCtx();
+    const ctx = this.remoteGraphDisabled ? null : this.ensureRemoteAudioCtx();
     if (ctx) {
       if (ctx.state === "suspended") {
         ctx.resume().catch(() => {});
@@ -1062,7 +1307,7 @@ export class LiveKitService {
       try {
         const source = ctx.createMediaElementSource(audioElement);
         const gain = ctx.createGain();
-        gain.gain.value = this.uiVolumeToGain(desiredUiVolume);
+        gain.gain.value = this.effectiveGain(desiredUiVolume);
         const compressor = ctx.createDynamicsCompressor();
         compressor.threshold.value = -18;
         compressor.knee.value = 24;
@@ -1086,10 +1331,10 @@ export class LiveKitService {
           "[LiveKitService] failed to wire remote gain node, falling back to element volume:",
           e,
         );
-        audioElement.volume = desiredUiVolume;
+        audioElement.volume = Math.min(1, desiredUiVolume * this.masterVolume);
       }
     } else {
-      audioElement.volume = desiredUiVolume;
+      audioElement.volume = Math.min(1, desiredUiVolume * this.masterVolume);
     }
 
     track.on(TrackEvent.Ended, () => {
@@ -1125,18 +1370,441 @@ export class LiveKitService {
   setRemoteVolume(identity: string, volume: number): void {
     const v = Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, volume));
     this.remoteVolumes.set(identity, v);
-    const gain = this.uiVolumeToGain(v);
+    const gain = this.effectiveGain(v);
     const gains = this.remoteGainNodes.get(identity);
     if (gains && gains.length > 0) {
       for (const g of gains) g.gain.value = gain;
     } else {
       const els = this.remoteAudioElements.get(identity);
-      if (els) for (const el of els) el.volume = Math.min(1, v);
+      if (els) for (const el of els) el.volume = Math.min(1, v * this.masterVolume);
     }
   }
 
   getRemoteVolume(identity: string): number {
     return this.remoteVolumes.get(identity) ?? 1.0;
+  }
+
+  private reconcileNoiseModeWithStore(requested: NoiseSuppressionMode): void {
+    if (!this.room) return;
+    const actual = this.noiseMode;
+    if (actual === requested) return;
+    void import("../store/voiceSettingsStore").then(
+      ({ useVoiceSettingsStore }) => {
+        const store = useVoiceSettingsStore.getState();
+        if (store.noiseMode === requested) store.update({ noiseMode: actual });
+      },
+    );
+  }
+
+  setAudioPreferences(prefs: {
+    micDeviceId?: string | null;
+    speakerDeviceId?: string | null;
+    outputVolume?: number;
+    micVolume?: number;
+    noiseMode?: NoiseSuppressionMode;
+  }): void {
+    if (prefs.noiseMode !== undefined) {
+      const changed = prefs.noiseMode !== this.defaultNoiseMode;
+      this.defaultNoiseMode = prefs.noiseMode;
+      if (changed && this.room && prefs.noiseMode !== this.noiseMode) {
+        const requestedMode = prefs.noiseMode;
+        void this.setNoiseSuppressionMode(requestedMode)
+          .catch((e) =>
+            console.warn("[LiveKitService] live noise toggle failed:", e),
+          )
+          .then(() => this.reconcileNoiseModeWithStore(requestedMode));
+      }
+    }
+    if (
+      prefs.micDeviceId !== undefined &&
+      prefs.micDeviceId !== this.preferredMicId
+    ) {
+      this.preferredMicId = prefs.micDeviceId;
+      if (this.room) {
+        void this.switchDevice("audioinput", this.preferredMicId);
+      }
+    }
+    if (
+      prefs.speakerDeviceId !== undefined &&
+      prefs.speakerDeviceId !== this.preferredSpeakerId
+    ) {
+      this.preferredSpeakerId = prefs.speakerDeviceId;
+      if (this.room) {
+        void this.switchDevice("audiooutput", this.preferredSpeakerId);
+      }
+    }
+    if (prefs.outputVolume !== undefined) {
+      this.masterVolume = Math.max(0, Math.min(1, prefs.outputVolume));
+      this.applyMasterVolume();
+    }
+    if (prefs.micVolume !== undefined) {
+      this.micVolume = Math.max(0, Math.min(1, prefs.micVolume));
+      if (this.micGainNode) {
+        this.micGainNode.gain.value = this.micVolume;
+      }
+      if (this.micBypassedTrack) {
+        this.micBypassedTrack.enabled =
+          !this.desiredMicMuted && this.micVolume > 0;
+      }
+    }
+  }
+
+  private async wireMicGain(track: LocalAudioTrack): Promise<void> {
+    this.teardownMicGain();
+    const raw = track.mediaStreamTrack;
+    if (!raw) return;
+    let ctx: AudioContext | null = null;
+    try {
+      const Ctor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctor) {
+        console.warn(
+          "[LiveKitService] AudioContext unavailable; publishing unprocessed mic",
+        );
+        this.micBypassedTrack = raw;
+        raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
+        return;
+      }
+      ctx = new Ctor();
+      const audioCtx = ctx;
+      if (audioCtx.state === "suspended") {
+        await Promise.race([
+          audioCtx.resume().catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      }
+      if (audioCtx.state !== "running") {
+        console.warn(
+          "[LiveKitService] mic gain AudioContext not running; publishing unprocessed mic without gate:",
+          audioCtx.state,
+        );
+        await audioCtx.close().catch(() => {});
+        this.micBypassedTrack = raw;
+        raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
+        this.scheduleMicGainRetry(track);
+        return;
+      }
+      const source = audioCtx.createMediaStreamSource(new MediaStream([raw]));
+      const gain = audioCtx.createGain();
+      gain.gain.value = this.micVolume;
+      const gate = audioCtx.createGain();
+      gate.gain.value = 1;
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const destination = audioCtx.createMediaStreamDestination();
+      source.connect(gain);
+      gain.connect(gate);
+      gain.connect(analyser);
+      gate.connect(destination);
+      const processed = destination.stream.getAudioTracks()[0];
+      if (!processed) {
+        await audioCtx.close().catch(() => {});
+        return;
+      }
+      await track.replaceTrack(processed);
+      this.micBypassedTrack = null;
+      raw.enabled = !this.desiredMicMuted;
+      this.micGainCtx = ctx;
+      this.micGainNode = gain;
+      this.micGateGain = gate;
+      this.micGainAnalyser = analyser;
+      this.micSourceTrack = raw;
+      this.startMicGate(analyser);
+    } catch (e) {
+      console.warn("[LiveKitService] mic gain wiring failed:", e);
+      if (ctx && this.micGainCtx !== ctx) {
+        void ctx.close().catch(() => {});
+      }
+      this.micBypassedTrack = raw;
+      raw.enabled = !this.desiredMicMuted && this.micVolume > 0;
+      this.scheduleMicGainRetry(track);
+    }
+  }
+
+  private teardownMicGain(): void {
+    this.clearMicGainRetry();
+    this.stopMicGate();
+    this.micBypassedTrack = null;
+    this.micGateGain = null;
+    if (this.micGainCtx) {
+      void this.micGainCtx.close().catch(() => {});
+    }
+    if (this.micSourceTrack) {
+      try {
+        this.micSourceTrack.stop();
+      } catch {}
+    }
+    this.micGainCtx = null;
+    this.micGainNode = null;
+    this.micGainAnalyser = null;
+    this.micSourceTrack = null;
+  }
+
+  setPushToTalkEnforced(enabled: boolean): void {
+    if (enabled === this.pushToTalkEnforced) return;
+    this.pushToTalkEnforced = enabled;
+    this.pttHolding = false;
+    if (enabled) {
+      this.muteBeforePushToTalk = this.desiredMicMuted;
+      this.applyMicMuted(true);
+    } else {
+      this.applyMicMuted(this.muteBeforePushToTalk);
+    }
+  }
+
+  isPushToTalkEnforced(): boolean {
+    return this.pushToTalkEnforced;
+  }
+
+  private async switchDevice(
+    kind: MediaDeviceKind,
+    deviceId: string | null,
+  ): Promise<void> {
+    if (!this.room) return;
+    try {
+      if (kind === "audioinput") {
+        const seq = ++this.micSwitchSeq;
+        const originRoom = this.room;
+        const run = async () => {
+          if (
+            seq !== this.micSwitchSeq ||
+            !this.room ||
+            this.room !== originRoom
+          ) {
+            return;
+          }
+          const hasCapture =
+            this.micRebuildPending ||
+            this.micEnableInFlight ||
+            this.micSourceTrack !== null ||
+            this.dfnPipeline !== null ||
+            this.room.localParticipant.audioTrackPublications.size > 0;
+          if (!hasCapture) return;
+          const mode = this.noiseMode;
+          await this.disableMicrophone();
+          this.micRebuildPending = true;
+          if (seq !== this.micSwitchSeq) return;
+          await this.enableMicrophone();
+          this.micRebuildPending =
+            this.room !== null &&
+            this.micSourceTrack === null &&
+            this.dfnPipeline === null &&
+            this.micBypassedTrack === null &&
+            this.room.localParticipant.audioTrackPublications.size === 0;
+          if (mode === "high") {
+            this.noiseMode = "standard";
+            await this.setNoiseSuppressionMode("high");
+          }
+          this.applyMicMuted(this.desiredMicMuted);
+        };
+        this.micSwitchChain = this.micSwitchChain.then(run, run);
+        await this.micSwitchChain;
+        return;
+      }
+      if (kind === "audiooutput") {
+        const seq = ++this.speakerSwitchSeq;
+        const run = async () => {
+          if (seq !== this.speakerSwitchSeq || !this.room) return;
+          const target = await this.resolveDeviceTarget(kind, deviceId);
+          if (!target || seq !== this.speakerSwitchSeq || !this.room) return;
+          await this.room.switchActiveDevice(kind, target);
+          if (seq === this.speakerSwitchSeq) await this.applySinkToCtx(target);
+        };
+        this.speakerSwitchChain = this.speakerSwitchChain.then(run, run);
+        await this.speakerSwitchChain;
+        return;
+      }
+      const target = await this.resolveDeviceTarget(kind, deviceId);
+      if (target && this.room) {
+        await this.room.switchActiveDevice(kind, target);
+      }
+    } catch (e) {
+      console.warn(`[LiveKitService] ${kind} switch failed:`, e);
+    }
+  }
+
+  private async resolveDeviceTarget(
+    kind: MediaDeviceKind,
+    deviceId: string | null,
+  ): Promise<string | null> {
+    if (deviceId) return deviceId;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const match =
+      devices.find((d) => d.kind === kind && d.deviceId === "default") ??
+      devices.find((d) => d.kind === kind);
+    return match?.deviceId ?? null;
+  }
+
+  private scheduleMicGainRetry(track: LocalAudioTrack): void {
+    this.clearMicGainRetry();
+    const retry = () => {
+      this.clearMicGainRetry();
+      const seqAtRetry = this.micSwitchSeq;
+      const roomAtRetry = this.room;
+      const run = async () => {
+        if (
+          this.micSwitchSeq !== seqAtRetry ||
+          !this.room ||
+          this.room !== roomAtRetry ||
+          this.micSourceTrack
+        ) {
+          return;
+        }
+        const publication = Array.from(
+          this.room.localParticipant.audioTrackPublications.values(),
+        )[0];
+        if (publication?.track !== track) return;
+        await this.wireMicGain(track);
+      };
+      this.micSwitchChain = this.micSwitchChain.then(run, run);
+    };
+    window.addEventListener("pointerdown", retry, { once: true });
+    window.addEventListener("keydown", retry, { once: true });
+    const timer = window.setTimeout(retry, 2000);
+    this.micGainRetryCleanup = () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", retry);
+      window.removeEventListener("keydown", retry);
+    };
+  }
+
+  private clearMicGainRetry(): void {
+    this.micGainRetryCleanup?.();
+    this.micGainRetryCleanup = null;
+  }
+
+  private startMicGate(analyser: AnalyserNode): void {
+    this.stopMicGate();
+    const gateAtStart = this.micGateGain;
+    if (!gateAtStart) return;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const tdata = new Uint8Array(analyser.fftSize);
+    let holdUntil = 0;
+    let noiseFloor = 8;
+    void import("../store/voiceSettingsStore").then(({ useVoiceSettingsStore }) => {
+      if (this.micGateGain !== gateAtStart) return;
+      this.micGateTimer = setInterval(() => {
+        if (this.micGateGain !== gateAtStart) return;
+        const gate = gateAtStart;
+        const { autoSensitivity, sensitivity } =
+          useVoiceSettingsStore.getState();
+        if (this.pushToTalkEnforced && this.pttHolding) {
+          gate.gain.value = 1;
+          return;
+        }
+        analyser.getByteFrequencyData(data);
+        let max = 0;
+        for (let i = 0; i < data.length; i++) {
+          if (data[i] > max) max = data[i];
+        }
+        const now = Date.now();
+        let passed: boolean;
+        if (autoSensitivity) {
+          passed = max > Math.min(45, noiseFloor + 10);
+          if (!passed && now >= holdUntil) {
+            if (max < noiseFloor + 6) {
+              noiseFloor = noiseFloor * 0.95 + max * 0.05;
+            } else {
+              noiseFloor = Math.min(noiseFloor + 0.2, 60);
+            }
+          }
+        } else {
+          analyser.getByteTimeDomainData(tdata);
+          let sum = 0;
+          for (let i = 0; i < tdata.length; i++) {
+            const d = (tdata[i] - 128) / 128;
+            sum += d * d;
+          }
+          const db =
+            20 * Math.log10(Math.max(Math.sqrt(sum / tdata.length), 1e-6));
+          passed = db > -72 + 0.72 * sensitivity;
+        }
+        if (passed) holdUntil = now + 250;
+        gate.gain.value = now < holdUntil ? 1 : 0;
+      }, 50);
+    });
+  }
+
+  private stopMicGate(): void {
+    if (this.micGateTimer) {
+      clearInterval(this.micGateTimer);
+      this.micGateTimer = null;
+    }
+  }
+
+  private async applySinkToCtx(sinkId: string): Promise<void> {
+    const supportsCtxSink =
+      typeof window !== "undefined" &&
+      typeof (
+        (window.AudioContext?.prototype ?? {}) as { setSinkId?: unknown }
+      ).setSinkId === "function";
+    if (!supportsCtxSink) {
+      this.disableRemoteGraph();
+      return;
+    }
+    const ctx = this.remoteAudioCtx as
+      | (AudioContext & { setSinkId?: (id: string) => Promise<void> })
+      | null;
+    if (!ctx?.setSinkId) return;
+    try {
+      await ctx.setSinkId(sinkId);
+    } catch (e) {
+      console.warn("[LiveKitService] audio context sink switch failed:", e);
+    }
+  }
+
+  private disableRemoteGraph(): void {
+    this.remoteGraphDisabled = true;
+    if (!this.room) return;
+    this.room.remoteParticipants.forEach((participant) => {
+      this.remoteGainNodes.delete(participant.identity);
+      this.remoteAudioElements.delete(participant.identity);
+      const ui = this.remoteVolumes.get(participant.identity) ?? 1.0;
+      const rebuilt: HTMLMediaElement[] = [];
+      participant.audioTrackPublications.forEach((publication) => {
+        const track = publication.track;
+        if (!track) return;
+        for (const element of Array.from(track.attachedElements)) {
+          const nodes = this.remoteSourceNodes.get(element);
+          if (nodes) {
+            try {
+              nodes.source.disconnect();
+              nodes.gain.disconnect();
+            } catch {}
+            this.remoteSourceNodes.delete(element);
+          }
+          track.detach(element);
+          element.remove();
+        }
+        const fresh = track.attach();
+        fresh.volume = Math.min(1, ui * this.masterVolume);
+        document.body.appendChild(fresh);
+        rebuilt.push(fresh);
+      });
+      if (rebuilt.length > 0) {
+        this.remoteAudioElements.set(participant.identity, rebuilt);
+      }
+    });
+  }
+
+  private effectiveGain(uiVolume: number): number {
+    return this.uiVolumeToGain(uiVolume) * this.masterVolume;
+  }
+
+  private applyMasterVolume(): void {
+    for (const [identity, gains] of Array.from(this.remoteGainNodes.entries())) {
+      const ui = this.remoteVolumes.get(identity) ?? 1.0;
+      for (const g of gains) g.gain.value = this.effectiveGain(ui);
+    }
+    for (const [identity, els] of Array.from(
+      this.remoteAudioElements.entries(),
+    )) {
+      if (this.remoteGainNodes.has(identity)) continue;
+      const ui = this.remoteVolumes.get(identity) ?? 1.0;
+      for (const el of els) el.volume = Math.min(1, ui * this.masterVolume);
+    }
   }
 
   private notifyParticipantsChange(): void {

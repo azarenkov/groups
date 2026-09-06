@@ -110,6 +110,17 @@ class CallAPI {
     await this.client.post(`/v1/calls/${callId}/leave`, {});
   }
 
+  async leaveWithToken(callId: string, accessToken: string): Promise<void> {
+    await fetch(`${API_BASE_URL}/v1/calls/${callId}/leave`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+  }
+
   async addParticipants(callId: string, recipientIds: string[]): Promise<void> {
     await this.client.post(`/v1/calls/${callId}/participants`, { recipientIds });
   }

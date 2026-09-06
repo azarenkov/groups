@@ -57,6 +57,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const [error, setError] = useState<string | null>(null);
   const localQuality = useLocalQuality();
   const activeChannelRef = useRef<{ serverId: string; channelId: string } | null>(null);
+  const fallbackMutedRef = useRef(false);
+  const fallbackReleasePendingRef = useRef(false);
   const isMutedRef = useRef(false);
   const isConnectedRef = useRef(false);
 
@@ -96,6 +98,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     async (channelId: string, serverId: string, password?: string) => {
       const service = serviceRef.current;
       if (!service) return;
+      let joinAttempt: { serverId: string; channelId: string } | null = null;
       try {
         if (service.isConnectingNow()) {
           console.log("[useLiveKit] Already connecting, skipping join request");
@@ -111,6 +114,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         setIsConnecting(true);
         setError(null);
         activeChannelRef.current = { serverId, channelId };
+        joinAttempt = activeChannelRef.current;
+        const joinAuth = useAuthStore.getState();
+        const joiningUserId =
+          joinAuth.user?.id ||
+          decodeAccessToken(joinAuth.tokens?.accessToken ?? "")?.sub ||
+          null;
         setLock(false);
         selfMutedBeforeLockRef.current = false;
 
@@ -121,6 +130,23 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         const response = await channelAPI.joinVoice(serverId, channelId, {
           password,
         });
+        const postTokenAuth = useAuthStore.getState();
+        const postTokenId =
+          postTokenAuth.user?.id ||
+          decodeAccessToken(postTokenAuth.tokens?.accessToken ?? "")?.sub ||
+          null;
+        if (
+          activeChannelRef.current !== joinAttempt ||
+          postTokenId !== joiningUserId
+        ) {
+          if (activeChannelRef.current === joinAttempt) {
+            activeChannelRef.current = null;
+            setIsConnecting(false);
+          } else if (activeChannelRef.current === null) {
+            setIsConnecting(false);
+          }
+          return;
+        }
 
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
 
@@ -133,21 +159,83 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
           setIsMuted(true);
         }
+        const { awaitVoiceSettingsSyncedFor } = await import(
+          "../store/voiceSettingsStore"
+        );
+        const settingsSynced = await awaitVoiceSettingsSyncedFor(joiningUserId);
+        const afterAuth = useAuthStore.getState();
+        const afterId =
+          afterAuth.user?.id ||
+          decodeAccessToken(afterAuth.tokens?.accessToken ?? "")?.sub ||
+          null;
+        if (
+          afterId !== joiningUserId ||
+          activeChannelRef.current !== joinAttempt
+        ) {
+          if (activeChannelRef.current === joinAttempt) {
+            activeChannelRef.current = null;
+            setIsConnecting(false);
+          }
+          return;
+        }
+        if (!response.muted && !settingsSynced) {
+          fallbackMutedRef.current = true;
+          setIsMuted(true);
+        }
         await service.connect(
           response.token,
           response.url,
           channelId,
-          !!response.muted,
+          !!response.muted || !settingsSynced,
         );
+        const postAuth = useAuthStore.getState();
+        const postId =
+          postAuth.user?.id ||
+          decodeAccessToken(postAuth.tokens?.accessToken ?? "")?.sub ||
+          null;
+        if (
+          postId !== joiningUserId ||
+          activeChannelRef.current !== joinAttempt
+        ) {
+          if (service.getActiveRoomName() === channelId) {
+            await service.disconnect().catch(() => {});
+          }
+          if (activeChannelRef.current === joinAttempt) {
+            activeChannelRef.current = null;
+            setIsConnecting(false);
+          }
+          return;
+        }
+        if (!response.muted && !settingsSynced && joiningUserId) {
+          void import("../store/voiceSettingsStore").then(
+            ({ voiceSettingsReadyFor }) =>
+              voiceSettingsReadyFor(joiningUserId).then(() => {
+                if (!fallbackMutedRef.current) return;
+                if (activeChannelRef.current !== joinAttempt) return;
+                if (moderatorLockedRef.current) {
+                  fallbackReleasePendingRef.current = true;
+                  return;
+                }
+                fallbackMutedRef.current = false;
+                fallbackReleasePendingRef.current = false;
+                serviceRef.current?.setMicrophoneMuted(false);
+                setIsMuted(false);
+              }),
+          );
+        }
 
         setIsConnecting(false);
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
-        activeChannelRef.current = null;
-        setLock(false);
-        selfMutedBeforeLockRef.current = false;
-        setError(err instanceof Error ? err.message : "Failed to join channel");
-        setIsConnecting(false);
+        if (joinAttempt === null || activeChannelRef.current === joinAttempt) {
+          activeChannelRef.current = null;
+          setLock(false);
+          selfMutedBeforeLockRef.current = false;
+          setError(
+            err instanceof Error ? err.message : "Failed to join channel",
+          );
+          setIsConnecting(false);
+        }
         throw err;
       }
     },
@@ -157,6 +245,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const leaveChannel = useCallback(async () => {
     const service = serviceRef.current;
     if (!service) return;
+    fallbackMutedRef.current = false;
+    fallbackReleasePendingRef.current = false;
     try {
       const active = activeChannelRef.current;
       const ownsRoom = !active || service.getActiveRoomName() === active.channelId;
@@ -166,7 +256,9 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       } else {
         console.log("[useLiveKit] Room superseded, skipping disconnect");
       }
-      activeChannelRef.current = null;
+      if (activeChannelRef.current === active) {
+        activeChannelRef.current = null;
+      }
       setParticipants([]);
       setVideoTiles([]);
       setIsCameraEnabled(false);
@@ -227,6 +319,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       restoreSelfMute();
       return;
     }
+    if (fallbackMutedRef.current && !fallbackReleasePendingRef.current) {
+      return;
+    }
+    fallbackReleasePendingRef.current = false;
+    fallbackMutedRef.current = false;
+    fallbackReleasePendingRef.current = false;
     serviceRef.current?.setMicrophoneMuted(false);
     setIsMuted(false);
   };
@@ -245,7 +343,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       const moderatorMuted =
         me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
       if (moderatorMuted && !moderatorLockedRef.current) {
-        selfMutedBeforeLockRef.current = isMutedRef.current;
+        selfMutedBeforeLockRef.current =
+          isMutedRef.current && !fallbackMutedRef.current;
         setLock(true, me.mutedBy ?? null);
         serviceRef.current?.setMicrophoneMuted(true);
         setIsMuted(true);
@@ -271,7 +370,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         return;
       }
       if (!moderatorLockedRef.current) {
-        selfMutedBeforeLockRef.current = isMutedRef.current;
+        selfMutedBeforeLockRef.current =
+          isMutedRef.current && !fallbackMutedRef.current;
       }
       serviceRef.current?.setMicrophoneMuted(true);
       setIsMuted(true);
@@ -298,6 +398,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const toggleMute = useCallback(() => {
     const service = serviceRef.current;
     if (!service) return;
+    fallbackMutedRef.current = false;
+    fallbackReleasePendingRef.current = false;
     const next = !isMutedRef.current;
     if (!next && moderatorLockedRef.current) {
       const active = activeChannelRef.current;

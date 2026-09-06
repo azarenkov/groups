@@ -2834,6 +2834,15 @@ body.electron .body-area::before {
   outline: none;
   transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
 }
+select.s-input {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
 .s-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
@@ -5585,3 +5594,14 @@ a.profile-chip.profile-conn { text-decoration: none; color: inherit; }
 
 :root.reduce-motion { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
 :root.reduce-motion *, :root.reduce-motion *::before, :root.reduce-motion *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+
+.s-mictest { display: flex; flex-direction: column; gap: 10px; padding: 14px 0; }
+.s-mictest-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; font-weight: 600; }
+.s-mictest-hint { font-size: 12px; color: var(--text-muted, #9aa0a8); font-weight: 400; }
+.mic-test { position: relative; height: 14px; border-radius: 7px; background: var(--surface-active); overflow: hidden; }
+.mic-test-fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); border-radius: 7px; transition: width 60ms linear; }
+.mic-test-fill.live { background: var(--voice-live); }
+.mic-test-thr { position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
+
+.s-kbd-btn { cursor: pointer; margin-right: 12px; font: inherit; font-size: 12px; }
+.s-kbd-btn.capturing { border-color: var(--accent); color: var(--accent); }

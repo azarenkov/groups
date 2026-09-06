@@ -76,6 +76,10 @@ let inFlight = false;
 let inFlightPatch: Partial<AppearanceSettings> = {};
 let inFlightOwner: string | null = null;
 let saveAttempts = 0;
+let savePaused = false;
+let syncRetryTimer: number | null = null;
+let syncRetryAttempts = 0;
+let syncRetryInFlight = false;
 let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
@@ -122,6 +126,10 @@ const flushSave = async (): Promise<void> => {
     const { useAuthStore } = await import("./authStore");
     const currentId = useAuthStore.getState().user?.id ?? null;
     if (owner !== null && currentId !== owner) {
+      if (pendingOwner === owner) {
+        pendingPatch = { ...patch, ...pendingPatch };
+        savePaused = true;
+      }
       return;
     }
     const { userAPI } = await import("../api/user");
@@ -150,6 +158,7 @@ const flushSave = async (): Promise<void> => {
     inFlightPatch = {};
     inFlightOwner = null;
     if (
+      !savePaused &&
       saveAttempts === 0 &&
       saveTimer === null &&
       Object.keys(pendingPatch).length > 0
@@ -163,6 +172,7 @@ const scheduleSave = (
   patch: Partial<AppearanceSettings>,
   owner: string | null,
 ) => {
+  savePaused = false;
   if (owner !== pendingOwner) {
     cancelPendingSaves();
     pendingOwner = owner;
@@ -197,6 +207,12 @@ export const useAppearanceStore = create<AppearanceState>()(
       },
 
       syncFromServer: async (userId) => {
+        if (syncRetryTimer !== null) {
+          window.clearTimeout(syncRetryTimer);
+          syncRetryTimer = null;
+        }
+        if (!syncRetryInFlight) syncRetryAttempts = 0;
+        syncRetryInFlight = false;
         const { userAPI } = await import("../api/user");
         const prevOwner = get().ownerId;
         const switched = prevOwner !== null && prevOwner !== userId;
@@ -250,6 +266,7 @@ export const useAppearanceStore = create<AppearanceState>()(
             set({ ...local, ownerId: userId });
             applyAppearance(local);
             if (!switched) scheduleSave(local, userId);
+            syncRetryAttempts = 0;
             return;
           }
           const next = preserveRecentEdits({
@@ -263,8 +280,26 @@ export const useAppearanceStore = create<AppearanceState>()(
           });
           set({ ...next, ownerId: userId });
           applyAppearance(next);
+          if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
+            scheduleSave({}, userId);
+          }
+          syncRetryAttempts = 0;
         } catch (err) {
           console.warn("[appearance] sync failed:", err);
+          const { useAuthStore } = await import("./authStore");
+          const authedId = useAuthStore.getState().user?.id ?? null;
+          if (syncSeq !== mySync || authedId !== userId) return;
+          if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
+            scheduleSave({}, userId);
+          }
+          if (syncRetryAttempts < 5 && syncRetryTimer === null) {
+            syncRetryAttempts += 1;
+            syncRetryTimer = window.setTimeout(() => {
+              syncRetryTimer = null;
+              syncRetryInFlight = true;
+              void get().syncFromServer(userId);
+            }, 5000);
+          }
         }
       },
     }),

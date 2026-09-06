@@ -9,13 +9,68 @@ async function connectToRoom(
   token: string,
   url: string,
   roomName: string,
+  startMuted?: boolean,
 ): Promise<void> {
   const service = getLiveKitService();
   if (service.isConnected() || service.isConnectingNow()) {
     await service.disconnect().catch(() => {});
   }
-  await service.connect(token, url, roomName);
+  await service.connect(token, url, roomName, startMuted);
 }
+
+const getAuthedUserId = async (): Promise<string | null> => {
+  const { useAuthStore } = await import("./authStore");
+  return useAuthStore.getState().user?.id ?? null;
+};
+
+const getAuthedIdentity = async (): Promise<{
+  userId: string | null;
+  accessToken: string | null;
+}> => {
+  const { useAuthStore } = await import("./authStore");
+  const state = useAuthStore.getState();
+  return {
+    userId: state.user?.id ?? null,
+    accessToken: state.tokens?.accessToken ?? null,
+  };
+};
+
+const leaveAsInitiator = async (
+  callId: string,
+  accessToken: string | null,
+): Promise<void> => {
+  if (accessToken) {
+    await callAPI.leaveWithToken(callId, accessToken).catch(() => {});
+  } else {
+    await callAPI.leave(callId).catch(() => {});
+  }
+};
+
+const awaitVoiceSettingsSyncedFor = async (
+  userId: string | null,
+): Promise<boolean> => {
+  const { awaitVoiceSettingsSyncedFor: waitFor } = await import(
+    "./voiceSettingsStore"
+  );
+  return waitFor(userId);
+};
+
+const armFallbackMuteRelease = (
+  userId: string | null,
+  callId: string,
+  muteSeqAtFallback: number,
+) => {
+  if (!userId) return;
+  void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
+    voiceSettingsReadyFor(userId).then(() => {
+      const s = useCallStore.getState();
+      if (s.activeCallId !== callId) return;
+      if (s.micMuteSeq !== muteSeqAtFallback) return;
+      if (!s.micMuted) return;
+      s.setMicMuted(false);
+    }),
+  );
+};
 
 export interface IncomingCall {
   callId: string;
@@ -32,6 +87,7 @@ interface CallState {
   focused: boolean;
   peerId: string | null;
   micMuted: boolean;
+  micMuteSeq: number;
   joinableByPeer: Record<string, string>;
   callError: string | null;
 
@@ -134,6 +190,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   focused: false,
   peerId: null,
   micMuted: false,
+  micMuteSeq: 0,
   joinableByPeer: {},
   callError: null,
 
@@ -143,7 +200,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   setFocused: (focused) => set({ focused }),
   setMicMuted: (muted) => {
     getLiveKitService().setMicrophoneMuted(muted);
-    set({ micMuted: muted });
+    set((s) => ({ micMuted: muted, micMuteSeq: s.micMuteSeq + 1 }));
   },
   setCallError: (callError) => set({ callError }),
   callAvailable: (peerId, callId) =>
@@ -219,7 +276,21 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   rehydrate: async () => {
     if (get().connecting) return;
+    const { useAuthStore } = await import("./authStore");
+    const userId = useAuthStore.getState().user?.id ?? null;
+    let settingsSynced = true;
+    if (userId) {
+      const { voiceSettingsReadyFor } = await import("./voiceSettingsStore");
+      settingsSynced = await Promise.race([
+        voiceSettingsReadyFor(userId).then(() => true),
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), 4000),
+        ),
+      ]);
+    }
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
     const active = await callAPI.getActive().catch(() => null);
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
     if (!active) {
       const service = getLiveKitService();
       if (
@@ -234,20 +305,54 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const participants = Object.fromEntries(
       active.participants.map((p) => [p.userId, p.userName]),
     );
+    set((s) => ({
+      activeCallId: active.callId,
+      participants:
+        s.activeCallId === active.callId
+          ? { ...participants, ...s.participants }
+          : participants,
+      ringing: s.activeCallId === active.callId ? s.ringing : [],
+      focused: s.activeCallId === active.callId ? s.focused : true,
+      ...(settingsSynced ? {} : { micMuted: true }),
+    }));
+    const muteSeqBeforeConnect = get().micMuteSeq;
     const service = getLiveKitService();
     if (!service.isConnected() && !service.isConnectingNow()) {
       try {
-        await connectToRoom(active.token, active.url, active.callId);
+        await connectToRoom(
+          active.token,
+          active.url,
+          active.callId,
+          !settingsSynced,
+        );
       } catch {
+        if (get().activeCallId === active.callId) {
+          set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
+        }
         return;
       }
     }
-    set((s) => ({
-      activeCallId: active.callId,
-      participants,
-      ringing: s.activeCallId === active.callId ? s.ringing : [],
-      focused: s.activeCallId === active.callId ? s.focused : true,
-    }));
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) {
+      const svc = getLiveKitService();
+      if (svc.getActiveRoomName() === active.callId) {
+        await svc.disconnect().catch(() => {});
+      }
+      if (get().activeCallId === active.callId) {
+        set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
+      }
+      return;
+    }
+    if (!settingsSynced && userId) {
+      const muteSeqAtFallback = muteSeqBeforeConnect;
+      void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
+        voiceSettingsReadyFor(userId).then(() => {
+          if (get().activeCallId !== active.callId) return;
+          if (get().micMuteSeq !== muteSeqAtFallback) return;
+          if (!get().micMuted) return;
+          get().setMicMuted(false);
+        }),
+      );
+    }
   },
 
   joinCall: async (callId, peerId) => {
@@ -258,16 +363,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (get().activeCallId) await get().leave();
     set({ connecting: true });
     try {
+      const initiator = await getAuthedIdentity();
+      const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.join(callId);
-      try {
-        await connectToRoom(token, url, callId);
-      } catch (e) {
-        await callAPI.leave(callId).catch(() => {});
-        throw e;
-      }
       set({
         activeCallId: callId,
-        connecting: false,
         participants: Object.fromEntries(
           participants.map((p) => [p.userId, p.userName]),
         ),
@@ -276,6 +376,66 @@ export const useCallStore = create<CallState>()((set, get) => ({
         peerId: peerId ?? null,
         micMuted: false,
       });
+      const muteSeqBeforeWait = get().micMuteSeq;
+      const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
+      if (get().activeCallId !== callId) {
+        await callAPI.leave(callId).catch(() => {});
+        if (get().activeCallId === null) set({ connecting: false });
+        return;
+      }
+      if ((await getAuthedUserId()) !== initiatorId) {
+        set({
+          activeCallId: null,
+          connecting: false,
+          participants: {},
+          ringing: [],
+          focused: false,
+          peerId: null,
+        });
+        await leaveAsInitiator(callId, initiator.accessToken);
+        return;
+      }
+      if (!synced) set({ micMuted: true });
+      try {
+        await connectToRoom(token, url, callId, !synced);
+      } catch (e) {
+        if (get().activeCallId === callId) {
+          set({
+            activeCallId: null,
+            participants: {},
+            ringing: [],
+            focused: false,
+            peerId: null,
+          });
+        }
+        await callAPI.leave(callId).catch(() => {});
+        throw e;
+      }
+      if (
+        get().activeCallId !== callId ||
+        (await getAuthedUserId()) !== initiatorId
+      ) {
+        const service = getLiveKitService();
+        if (service.getActiveRoomName() === callId) {
+          await service.disconnect().catch(() => {});
+        }
+        await leaveAsInitiator(callId, initiator.accessToken);
+        if (get().activeCallId === callId) {
+          set({
+            activeCallId: null,
+            connecting: false,
+            participants: {},
+            ringing: [],
+            focused: false,
+            peerId: null,
+          });
+        } else if (get().activeCallId === null) {
+          set({ connecting: false });
+        }
+        return;
+      }
+      set({ connecting: false });
+      if (!synced) armFallbackMuteRelease(initiatorId, callId, muteSeqBeforeWait);
     } catch (e) {
       set({ connecting: false });
       throw e;
@@ -299,6 +459,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
       await get().leave();
     }
     set({ connecting: true });
+    const initiator = await getAuthedIdentity().catch((e) => {
+      set({ connecting: false });
+      throw e;
+    });
+    const initiatorId = initiator.userId;
     const session = await callAPI.start(recipientIds).catch((e) => {
       set({ connecting: false });
       throw e;
@@ -322,8 +487,30 @@ export const useCallStore = create<CallState>()((set, get) => ({
       peerId: recipientIds[0] ?? null,
       micMuted: false,
     });
+    const muteSeqBeforeWait = get().micMuteSeq;
+    const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
+    if (get().activeCallId !== callId) {
+      if (pendingLog?.callId === callId) pendingLog = null;
+      await callAPI.leave(callId).catch(() => {});
+      if (get().activeCallId === null) set({ connecting: false });
+      return;
+    }
+    if ((await getAuthedUserId()) !== initiatorId) {
+      pendingLog = null;
+      set({
+        activeCallId: null,
+        connecting: false,
+        participants: {},
+        ringing: [],
+        focused: false,
+        peerId: null,
+      });
+      await leaveAsInitiator(callId, initiator.accessToken);
+      return;
+    }
+    if (!synced) set({ micMuted: true });
     try {
-      await connectToRoom(token, url, callId);
+      await connectToRoom(token, url, callId, !synced);
     } catch (e) {
       pendingLog = null;
       set({
@@ -337,7 +524,32 @@ export const useCallStore = create<CallState>()((set, get) => ({
       await callAPI.leave(callId).catch(() => {});
       throw e;
     }
+    if (
+      get().activeCallId !== callId ||
+      (await getAuthedUserId()) !== initiatorId
+    ) {
+      if (pendingLog?.callId === callId) pendingLog = null;
+      const service = getLiveKitService();
+      if (service.getActiveRoomName() === callId) {
+        await service.disconnect().catch(() => {});
+      }
+      await leaveAsInitiator(callId, initiator.accessToken);
+      if (get().activeCallId === callId) {
+        set({
+          activeCallId: null,
+          connecting: false,
+          participants: {},
+          ringing: [],
+          focused: false,
+          peerId: null,
+        });
+      } else if (get().activeCallId === null) {
+        set({ connecting: false });
+      }
+      return;
+    }
     set({ connecting: false });
+    if (!synced) armFallbackMuteRelease(initiatorId, callId, muteSeqBeforeWait);
   },
 
   accept: async () => {
@@ -346,16 +558,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (get().activeCallId) await get().leave();
     set({ connecting: true, incoming: null });
     try {
+      const initiator = await getAuthedIdentity();
+      const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.accept(inc.callId);
-      try {
-        await connectToRoom(token, url, inc.callId);
-      } catch (e) {
-        await callAPI.leave(inc.callId).catch(() => {});
-        throw e;
-      }
       set({
         activeCallId: inc.callId,
-        connecting: false,
         participants: Object.fromEntries(
           participants.map((p) => [p.userId, p.userName]),
         ),
@@ -364,6 +571,66 @@ export const useCallStore = create<CallState>()((set, get) => ({
         peerId: inc.callerId,
         micMuted: false,
       });
+      const muteSeqBeforeWait = get().micMuteSeq;
+      const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
+      if (get().activeCallId !== inc.callId) {
+        await callAPI.leave(inc.callId).catch(() => {});
+        if (get().activeCallId === null) set({ connecting: false });
+        return;
+      }
+      if ((await getAuthedUserId()) !== initiatorId) {
+        set({
+          activeCallId: null,
+          connecting: false,
+          participants: {},
+          ringing: [],
+          focused: false,
+          peerId: null,
+        });
+        await leaveAsInitiator(inc.callId, initiator.accessToken);
+        return;
+      }
+      if (!synced) set({ micMuted: true });
+      try {
+        await connectToRoom(token, url, inc.callId, !synced);
+      } catch (e) {
+        if (get().activeCallId === inc.callId) {
+          set({
+            activeCallId: null,
+            participants: {},
+            ringing: [],
+            focused: false,
+            peerId: null,
+          });
+        }
+        await callAPI.leave(inc.callId).catch(() => {});
+        throw e;
+      }
+      if (
+        get().activeCallId !== inc.callId ||
+        (await getAuthedUserId()) !== initiatorId
+      ) {
+        const service = getLiveKitService();
+        if (service.getActiveRoomName() === inc.callId) {
+          await service.disconnect().catch(() => {});
+        }
+        await leaveAsInitiator(inc.callId, initiator.accessToken);
+        if (get().activeCallId === inc.callId) {
+          set({
+            activeCallId: null,
+            connecting: false,
+            participants: {},
+            ringing: [],
+            focused: false,
+            peerId: null,
+          });
+        } else if (get().activeCallId === null) {
+          set({ connecting: false });
+        }
+        return;
+      }
+      set({ connecting: false });
+      if (!synced) armFallbackMuteRelease(initiatorId, inc.callId, muteSeqBeforeWait);
     } catch (e) {
       set({ connecting: false });
       throw e;
