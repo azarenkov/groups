@@ -1151,12 +1151,14 @@ export class LiveKitService {
       }
     });
 
-    this.room.on(RoomEvent.MediaDevicesError, (error) => {
+    this.room.on(RoomEvent.MediaDevicesError, (error, kind) => {
+      const fromScreenShare = kind === undefined;
       const dismissed =
-        error.name === "NotAllowedError" ||
-        error.name === "AbortError" ||
-        error.message.includes("Permission dismissed") ||
-        error.message.includes("Could not start video source");
+        fromScreenShare &&
+        (error.name === "NotAllowedError" ||
+          error.name === "AbortError" ||
+          error.message.includes("Permission dismissed") ||
+          error.message.includes("Could not start video source"));
       if (dismissed) {
         console.warn("[LiveKitService] media device request dismissed:", error);
         return;
@@ -1237,7 +1239,7 @@ export class LiveKitService {
       if (!Ctor) return null;
       this.remoteAudioCtx = new Ctor();
       if (this.preferredSpeakerId) {
-        this.applySinkToCtx(this.preferredSpeakerId);
+        void this.applySinkToCtx(this.preferredSpeakerId);
       }
       if (this.remoteGraphDisabled) return null;
       return this.remoteAudioCtx;
@@ -1608,7 +1610,7 @@ export class LiveKitService {
           const target = await this.resolveDeviceTarget(kind, deviceId);
           if (!target || seq !== this.speakerSwitchSeq || !this.room) return;
           await this.room.switchActiveDevice(kind, target);
-          if (seq === this.speakerSwitchSeq) this.applySinkToCtx(target);
+          if (seq === this.speakerSwitchSeq) await this.applySinkToCtx(target);
         };
         this.speakerSwitchChain = this.speakerSwitchChain.then(run, run);
         await this.speakerSwitchChain;
@@ -1732,7 +1734,7 @@ export class LiveKitService {
     }
   }
 
-  private applySinkToCtx(sinkId: string): void {
+  private async applySinkToCtx(sinkId: string): Promise<void> {
     const supportsCtxSink =
       typeof window !== "undefined" &&
       typeof (
@@ -1745,9 +1747,12 @@ export class LiveKitService {
     const ctx = this.remoteAudioCtx as
       | (AudioContext & { setSinkId?: (id: string) => Promise<void> })
       | null;
-    ctx?.setSinkId?.(sinkId).catch((e) =>
-      console.warn("[LiveKitService] audio context sink switch failed:", e),
-    );
+    if (!ctx?.setSinkId) return;
+    try {
+      await ctx.setSinkId(sinkId);
+    } catch (e) {
+      console.warn("[LiveKitService] audio context sink switch failed:", e);
+    }
   }
 
   private disableRemoteGraph(): void {

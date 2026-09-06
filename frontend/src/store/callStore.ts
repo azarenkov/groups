@@ -305,6 +305,17 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const participants = Object.fromEntries(
       active.participants.map((p) => [p.userId, p.userName]),
     );
+    set((s) => ({
+      activeCallId: active.callId,
+      participants:
+        s.activeCallId === active.callId
+          ? { ...participants, ...s.participants }
+          : participants,
+      ringing: s.activeCallId === active.callId ? s.ringing : [],
+      focused: s.activeCallId === active.callId ? s.focused : true,
+      ...(settingsSynced ? {} : { micMuted: true }),
+    }));
+    const muteSeqBeforeConnect = get().micMuteSeq;
     const service = getLiveKitService();
     if (!service.isConnected() && !service.isConnectingNow()) {
       try {
@@ -315,6 +326,9 @@ export const useCallStore = create<CallState>()((set, get) => ({
           !settingsSynced,
         );
       } catch {
+        if (get().activeCallId === active.callId) {
+          set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
+        }
         return;
       }
     }
@@ -323,17 +337,13 @@ export const useCallStore = create<CallState>()((set, get) => ({
       if (svc.getActiveRoomName() === active.callId) {
         await svc.disconnect().catch(() => {});
       }
+      if (get().activeCallId === active.callId) {
+        set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
+      }
       return;
     }
-    set((s) => ({
-      activeCallId: active.callId,
-      participants,
-      ringing: s.activeCallId === active.callId ? s.ringing : [],
-      focused: s.activeCallId === active.callId ? s.focused : true,
-      ...(settingsSynced ? {} : { micMuted: true }),
-    }));
     if (!settingsSynced && userId) {
-      const muteSeqAtFallback = get().micMuteSeq;
+      const muteSeqAtFallback = muteSeqBeforeConnect;
       void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
         voiceSettingsReadyFor(userId).then(() => {
           if (get().activeCallId !== active.callId) return;
