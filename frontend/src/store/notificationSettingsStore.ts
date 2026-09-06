@@ -304,6 +304,10 @@ export const isQuietNow = (): boolean => {
 export const defaultMentionLevel = (): MentionLevel =>
   useNotificationSettingsStore.getState().mentions;
 
+export const invalidateNotificationSettingsSync = (): void => {
+  useNotificationSettingsStore.setState({ syncedOwner: null });
+};
+
 export const settingsSyncedForCurrentUser = (): boolean => {
   const userId = useAuthStore.getState().user?.id ?? null;
   return userId !== null && useNotificationSettingsStore.getState().syncedOwner === userId;
