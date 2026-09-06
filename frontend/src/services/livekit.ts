@@ -90,6 +90,8 @@ export class LiveKitService {
   private muteBeforePushToTalk: boolean = false;
   private pttHolding: boolean = false;
   private muteRequestSeq: number = 0;
+  private speakerSwitchSeq: number = 0;
+  private speakerSwitchChain: Promise<void> = Promise.resolve();
   private micSwitchChain: Promise<void> = Promise.resolve();
   private micSwitchSeq: number = 0;
   private micRebuildPending: boolean = false;
@@ -1599,23 +1601,38 @@ export class LiveKitService {
         await this.micSwitchChain;
         return;
       }
-      let target = deviceId;
-      if (!target) {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const match =
-          devices.find((d) => d.kind === kind && d.deviceId === "default") ??
-          devices.find((d) => d.kind === kind);
-        target = match?.deviceId ?? null;
+      if (kind === "audiooutput") {
+        const seq = ++this.speakerSwitchSeq;
+        const run = async () => {
+          if (seq !== this.speakerSwitchSeq || !this.room) return;
+          const target = await this.resolveDeviceTarget(kind, deviceId);
+          if (!target || seq !== this.speakerSwitchSeq || !this.room) return;
+          await this.room.switchActiveDevice(kind, target);
+          if (seq === this.speakerSwitchSeq) this.applySinkToCtx(target);
+        };
+        this.speakerSwitchChain = this.speakerSwitchChain.then(run, run);
+        await this.speakerSwitchChain;
+        return;
       }
-      if (target) {
+      const target = await this.resolveDeviceTarget(kind, deviceId);
+      if (target && this.room) {
         await this.room.switchActiveDevice(kind, target);
-        if (kind === "audiooutput") {
-          this.applySinkToCtx(target);
-        }
       }
     } catch (e) {
       console.warn(`[LiveKitService] ${kind} switch failed:`, e);
     }
+  }
+
+  private async resolveDeviceTarget(
+    kind: MediaDeviceKind,
+    deviceId: string | null,
+  ): Promise<string | null> {
+    if (deviceId) return deviceId;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const match =
+      devices.find((d) => d.kind === kind && d.deviceId === "default") ??
+      devices.find((d) => d.kind === kind);
+    return match?.deviceId ?? null;
   }
 
   private scheduleMicGainRetry(track: LocalAudioTrack): void {
