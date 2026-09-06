@@ -69,12 +69,36 @@ const readPendingMap = (): PendingMap => {
   }
 };
 
+const writePendingMap = (map: PendingMap) => {
+  try {
+    if (Object.keys(map).length > 0) {
+      window.localStorage.setItem(PENDING_KEY, JSON.stringify(map));
+    } else {
+      window.localStorage.removeItem(PENDING_KEY);
+    }
+  } catch {}
+};
+
+const stashPatchFor = (
+  owner: string,
+  patch: Partial<NotificationSyncedSettings>,
+) => {
+  if (Object.keys(patch).length === 0) return;
+  const map = readPendingMap();
+  map[owner] = { ...patch, ...(map[owner] ?? {}) };
+  writePendingMap(map);
+};
+
 const persistPending = () => {
   if (pendingOwner === null) return;
   try {
     const map = readPendingMap();
-    if (Object.keys(pendingPatch).length > 0) {
-      map[pendingOwner] = pendingPatch;
+    const combined =
+      inFlightOwner === pendingOwner
+        ? { ...inFlightPatch, ...pendingPatch }
+        : pendingPatch;
+    if (Object.keys(combined).length > 0) {
+      map[pendingOwner] = combined;
     } else {
       delete map[pendingOwner];
     }
@@ -124,12 +148,12 @@ const flushSave = async (): Promise<void> => {
   if (inFlight) return;
   const patch = pendingPatch;
   const owner = pendingOwner;
-  pendingPatch = {};
-  persistPending();
   if (Object.keys(patch).length === 0) return;
   inFlight = true;
   inFlightPatch = patch;
   inFlightOwner = owner;
+  pendingPatch = {};
+  persistPending();
   try {
     const { useAuthStore } = await import("./authStore");
     const currentId = useAuthStore.getState().user?.id ?? null;
@@ -138,6 +162,8 @@ const flushSave = async (): Promise<void> => {
         pendingPatch = { ...patch, ...pendingPatch };
         persistPending();
         savePaused = true;
+      } else {
+        stashPatchFor(owner, patch);
       }
       return;
     }
@@ -163,11 +189,14 @@ const flushSave = async (): Promise<void> => {
           void flushSave();
         }, delay);
       }
+    } else if (owner !== null) {
+      stashPatchFor(owner, patch);
     }
   } finally {
     inFlight = false;
     inFlightPatch = {};
     inFlightOwner = null;
+    persistPending();
     if (
       !savePaused &&
       saveAttempts === 0 &&
@@ -186,7 +215,11 @@ const scheduleSave = (
   savePaused = false;
   if (owner !== pendingOwner) {
     cancelPendingSaves();
-    pendingOwner = owner;
+    if (owner !== null) {
+      restorePendingFor(owner);
+    } else {
+      pendingOwner = null;
+    }
   }
   pendingPatch = { ...pendingPatch, ...patch };
   persistPending();
@@ -212,7 +245,8 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
         }
         const prevMentions = get().mentions;
         set(patch);
-        scheduleSave(patch, get().ownerId);
+        const owner = useAuthStore.getState().user?.id ?? get().ownerId;
+        scheduleSave(patch, owner);
         if (patch.mentions !== undefined && patch.mentions !== prevMentions) {
           void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
         }
