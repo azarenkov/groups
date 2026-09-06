@@ -28,7 +28,6 @@ const IncomingCallModal: React.FC = () => {
     if (desktopNotifAllowed()) {
       showDesktopNotification(incoming.callerName, t("incoming"));
     }
-    if (isQuietNow()) return;
     const AudioCtx =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext })

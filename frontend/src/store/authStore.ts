@@ -73,6 +73,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     void import("./voiceSettingsStore").then((m) =>
       m.invalidateVoiceSettingsSync(),
     );
+    void import("./notificationSettingsStore").then((m) =>
+      m.invalidateNotificationSettingsSync(),
+    );
     void clearRefreshToken();
   },
 
