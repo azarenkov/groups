@@ -258,11 +258,13 @@ class UserAPI {
     return response.data;
   }
 
-  async getUnread(): Promise<{
+  async getUnread(defaultLevel?: string): Promise<{
     channels: { channelId: string; serverId: string; count: number }[];
     dms: { friendId: string; count: number }[];
   }> {
-    const response = await this.client.get("/v1/me/unread");
+    const response = await this.client.get("/v1/me/unread", {
+      params: defaultLevel ? { default_level: defaultLevel } : undefined,
+    });
     return response.data.data;
   }
 

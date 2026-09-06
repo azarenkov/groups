@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, post, web};
 use chrono::{DateTime, Utc};
 use messaging_domain::channel::id::ChannelId;
 use domain::user::id::UserId;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
 
@@ -61,13 +61,23 @@ struct UnreadResponse {
     dms: Vec<UnreadDmItem>,
 }
 
+#[derive(Debug, Deserialize)]
+struct UnreadQuery {
+    #[serde(default)]
+    default_level: Option<String>,
+}
+
 #[get("/me/unread")]
 async fn get_unread(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
+    query: web::Query<UnreadQuery>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let counts = app_state.get_unread_counts_usecase.execute(user_id).await?;
+    let counts = app_state
+        .get_unread_counts_usecase
+        .execute(user_id, query.default_level.as_deref().unwrap_or("all"))
+        .await?;
     let response = UnreadResponse {
         channels: counts
             .channels

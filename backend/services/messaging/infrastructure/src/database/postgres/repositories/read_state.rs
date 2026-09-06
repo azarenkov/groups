@@ -144,6 +144,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
     async fn channel_unread_counts(
         &self,
         user_id: &UserId,
+        default_level: &str,
     ) -> Result<Vec<ChannelUnread>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
@@ -160,14 +161,15 @@ impl ReadStateRepository for PostgresReadStateRepository {
                AND np.scope_id = m.channel_id
             WHERE m.created_at > COALESCE(r.last_read_at, p.joined_at)
               AND m.author_id <> $1
-              AND COALESCE(np.level, 'all') <> 'none'
+              AND COALESCE(np.level, $2) <> 'none'
               AND (
-                  COALESCE(np.level, 'all') <> 'mentions'
+                  COALESCE(np.level, $2) <> 'mentions'
                   OR $1 = ANY(m.mentions)
               )
             GROUP BY m.channel_id, c.server_id
             "#,
             user_id.uuid(),
+            default_level,
         )
         .fetch_all(&self.pool)
         .await
@@ -186,6 +188,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
     async fn dm_unread_counts(
         &self,
         user_id: &UserId,
+        default_level: &str,
     ) -> Result<Vec<DmUnread>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
@@ -201,10 +204,11 @@ impl ReadStateRepository for PostgresReadStateRepository {
                AND np.scope_id = m.sender_id
             WHERE m.recipient_id = $1
               AND m.created_at > COALESCE(r.last_read_at, '1970-01-01T00:00:00Z'::timestamptz)
-              AND COALESCE(np.level, 'all') <> 'none'
+              AND COALESCE(np.level, $2) <> 'none'
             GROUP BY m.sender_id
             "#,
             user_id.uuid(),
+            default_level,
         )
         .fetch_all(&self.pool)
         .await

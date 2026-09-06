@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useCallStore } from "../../store/callStore";
 import {
-  callAlertsAllowed,
   desktopNotifAllowed,
   isQuietNow,
+  useNotificationSettingsStore,
 } from "../../store/notificationSettingsStore";
 import { showDesktopNotification } from "../../utils/desktopNotification";
 import { UserAvatar } from "./Avatar";
@@ -15,10 +15,14 @@ const IncomingCallModal: React.FC = () => {
   const accept = useCallStore((s) => s.accept);
   const decline = useCallStore((s) => s.decline);
   const { t } = useTranslation("call");
+  const callsEnabled = useNotificationSettingsStore((s) => s.callsEnabled);
+  const quietHoursEnabled = useNotificationSettingsStore((s) => s.quietHoursEnabled);
+  const quietStart = useNotificationSettingsStore((s) => s.quietStart);
+  const quietEnd = useNotificationSettingsStore((s) => s.quietEnd);
 
   useEffect(() => {
     if (!incoming) return;
-    if (!callAlertsAllowed()) return;
+    if (!callsEnabled) return;
     if (desktopNotifAllowed()) {
       showDesktopNotification(incoming.callerName, t("incoming"));
     }
@@ -60,7 +64,7 @@ const IncomingCallModal: React.FC = () => {
       clearInterval(id);
       ctx.close().catch(() => {});
     };
-  }, [incoming, t]);
+  }, [incoming, t, callsEnabled, quietHoursEnabled, quietStart, quietEnd]);
 
   if (!incoming) return null;
 

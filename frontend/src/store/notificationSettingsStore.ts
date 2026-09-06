@@ -163,8 +163,12 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
         for (const key of SETTING_KEYS) {
           if (patch[key] !== undefined) editStamp[key] = editSeq;
         }
+        const prevMentions = get().mentions;
         set(patch);
         scheduleSave(patch, get().ownerId);
+        if (patch.mentions !== undefined && patch.mentions !== prevMentions) {
+          void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
+        }
       },
 
       syncFromServer: async (userId) => {
