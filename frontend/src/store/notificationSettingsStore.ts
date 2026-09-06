@@ -261,9 +261,6 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
           const { useAuthStore } = await import("./authStore");
           const authedId = useAuthStore.getState().user?.id ?? null;
           if (syncSeq !== mySync || authedId !== userId) return;
-          if (prevOwner === userId && get().syncedOwner === null) {
-            set({ syncedOwner: userId });
-          }
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
