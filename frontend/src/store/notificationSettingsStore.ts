@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { ApiError } from "../utils/apiError";
+import { useAuthStore } from "./authStore";
 
 export type MentionLevel = "all" | "mentions" | "none";
 
@@ -17,6 +18,7 @@ export interface NotificationSyncedSettings {
 
 interface NotificationSettingsState extends NotificationSyncedSettings {
   ownerId: string | null;
+  syncedOwner: string | null;
   update: (patch: Partial<NotificationSyncedSettings>) => void;
   syncFromServer: (userId: string) => Promise<void>;
 }
@@ -157,6 +159,7 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
     (set, get) => ({
       ...DEFAULT_SETTINGS,
       ownerId: null,
+      syncedOwner: null,
 
       update: (patch) => {
         editSeq += 1;
@@ -184,9 +187,9 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
         if (prevOwner !== userId) {
           if (switched) {
             cancelPendingSaves();
-            set({ ...DEFAULT_SETTINGS, ownerId: userId });
+            set({ ...DEFAULT_SETTINGS, ownerId: userId, syncedOwner: null });
           } else {
-            set({ ownerId: userId });
+            set({ ownerId: userId, syncedOwner: null });
           }
           pendingOwner = userId;
         }
@@ -230,7 +233,7 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
                     callsEnabled: get().callsEnabled,
                   },
             );
-            set({ ...local, ownerId: userId });
+            set({ ...local, ownerId: userId, syncedOwner: userId });
             if (!switched) scheduleSave(local, userId);
             syncRetryAttempts = 0;
             return;
@@ -245,7 +248,7 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
             callsEnabled: saved.callsEnabled,
           });
           const prevMentions = get().mentions;
-          set({ ...next, ownerId: userId });
+          set({ ...next, ownerId: userId, syncedOwner: userId });
           if (next.mentions !== prevMentions) {
             void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
           }
@@ -258,6 +261,9 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
           const { useAuthStore } = await import("./authStore");
           const authedId = useAuthStore.getState().user?.id ?? null;
           if (syncSeq !== mySync || authedId !== userId) return;
+          if (prevOwner === userId && get().syncedOwner === null) {
+            set({ syncedOwner: userId });
+          }
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
@@ -272,7 +278,10 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
         }
       },
     }),
-    { name: "rift-notification-settings" },
+    {
+      name: "rift-notification-settings",
+      partialize: ({ syncedOwner: _synced, ...rest }) => rest,
+    },
   ),
 );
 
@@ -295,11 +304,21 @@ export const isQuietNow = (): boolean => {
 export const defaultMentionLevel = (): MentionLevel =>
   useNotificationSettingsStore.getState().mentions;
 
+export const settingsSyncedForCurrentUser = (): boolean => {
+  const userId = useAuthStore.getState().user?.id ?? null;
+  return userId !== null && useNotificationSettingsStore.getState().syncedOwner === userId;
+};
+
 export const messageSoundAllowed = (): boolean =>
-  useNotificationSettingsStore.getState().soundsEnabled && !isQuietNow();
+  settingsSyncedForCurrentUser() &&
+  useNotificationSettingsStore.getState().soundsEnabled &&
+  !isQuietNow();
 
 export const desktopNotifAllowed = (): boolean =>
-  useNotificationSettingsStore.getState().desktopEnabled && !isQuietNow();
+  settingsSyncedForCurrentUser() &&
+  useNotificationSettingsStore.getState().desktopEnabled &&
+  !isQuietNow();
 
 export const callAlertsAllowed = (): boolean =>
+  settingsSyncedForCurrentUser() &&
   useNotificationSettingsStore.getState().callsEnabled;
