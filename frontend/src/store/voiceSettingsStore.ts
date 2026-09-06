@@ -350,3 +350,29 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
 );
 
 applyToEngine(useVoiceSettingsStore.getState());
+
+if (typeof navigator !== "undefined" && navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener("devicechange", () => {
+    navigator.mediaDevices
+      .enumerateDevices()
+      .then((list) => {
+        if (!list.some((d) => d.label)) return;
+        const state = useVoiceSettingsStore.getState();
+        const patch: { micDeviceId?: string; speakerDeviceId?: string } = {};
+        if (
+          state.micDeviceId &&
+          !list.some((d) => d.kind === "audioinput" && d.deviceId === state.micDeviceId)
+        ) {
+          patch.micDeviceId = "";
+        }
+        if (
+          state.speakerDeviceId &&
+          !list.some((d) => d.kind === "audiooutput" && d.deviceId === state.speakerDeviceId)
+        ) {
+          patch.speakerDeviceId = "";
+        }
+        if (Object.keys(patch).length > 0) state.updateDevices(patch);
+      })
+      .catch(() => {});
+  });
+}
