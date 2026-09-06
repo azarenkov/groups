@@ -397,12 +397,15 @@ export class LiveKitService {
           this.teardownMicGain();
         } else {
           this.applyMicMuted(this.desiredMicMuted);
-          void this.applyNoiseSuppressionMode(this.noiseMode, true).catch((e) =>
-            console.warn(
-              "[LiveKitService] apply noise mode after publish failed:",
-              e,
-            ),
-          );
+          const requestedMode = this.noiseMode;
+          void this.applyNoiseSuppressionMode(requestedMode, true)
+            .catch((e) =>
+              console.warn(
+                "[LiveKitService] apply noise mode after publish failed:",
+                e,
+              ),
+            )
+            .then(() => this.reconcileNoiseModeWithStore(requestedMode));
         }
       }
       this.emitLocalTrack();
@@ -1375,6 +1378,18 @@ export class LiveKitService {
     return this.remoteVolumes.get(identity) ?? 1.0;
   }
 
+  private reconcileNoiseModeWithStore(requested: NoiseSuppressionMode): void {
+    if (!this.room) return;
+    const actual = this.noiseMode;
+    if (actual === requested) return;
+    void import("../store/voiceSettingsStore").then(
+      ({ useVoiceSettingsStore }) => {
+        const store = useVoiceSettingsStore.getState();
+        if (store.noiseMode === requested) store.update({ noiseMode: actual });
+      },
+    );
+  }
+
   setAudioPreferences(prefs: {
     micDeviceId?: string | null;
     speakerDeviceId?: string | null;
@@ -1386,9 +1401,12 @@ export class LiveKitService {
       const changed = prefs.noiseMode !== this.defaultNoiseMode;
       this.defaultNoiseMode = prefs.noiseMode;
       if (changed && this.room && prefs.noiseMode !== this.noiseMode) {
-        void this.setNoiseSuppressionMode(prefs.noiseMode).catch((e) =>
-          console.warn("[LiveKitService] live noise toggle failed:", e),
-        );
+        const requestedMode = prefs.noiseMode;
+        void this.setNoiseSuppressionMode(requestedMode)
+          .catch((e) =>
+            console.warn("[LiveKitService] live noise toggle failed:", e),
+          )
+          .then(() => this.reconcileNoiseModeWithStore(requestedMode));
       }
     }
     if (
