@@ -52,6 +52,35 @@ const isTime = (v: unknown): v is string =>
 let saveTimer: number | null = null;
 let pendingPatch: Partial<NotificationSyncedSettings> = {};
 let pendingOwner: string | null = null;
+
+const PENDING_KEY = "rift-notification-settings-pending";
+
+const persistPending = () => {
+  try {
+    if (pendingOwner !== null && Object.keys(pendingPatch).length > 0) {
+      window.localStorage.setItem(
+        PENDING_KEY,
+        JSON.stringify({ owner: pendingOwner, patch: pendingPatch }),
+      );
+    } else {
+      window.localStorage.removeItem(PENDING_KEY);
+    }
+  } catch {}
+};
+
+const restorePending = () => {
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as {
+      owner?: unknown;
+      patch?: Partial<NotificationSyncedSettings>;
+    };
+    if (typeof parsed.owner !== "string" || !parsed.patch) return;
+    pendingOwner = parsed.owner;
+    pendingPatch = { ...parsed.patch };
+  } catch {}
+};
 let inFlight = false;
 let inFlightPatch: Partial<NotificationSyncedSettings> = {};
 let inFlightOwner: string | null = null;
@@ -78,6 +107,7 @@ const cancelPendingSaves = () => {
     saveTimer = null;
   }
   pendingPatch = {};
+  persistPending();
   saveAttempts = 0;
 };
 
@@ -86,6 +116,7 @@ const flushSave = async (): Promise<void> => {
   const patch = pendingPatch;
   const owner = pendingOwner;
   pendingPatch = {};
+  persistPending();
   if (Object.keys(patch).length === 0) return;
   inFlight = true;
   inFlightPatch = patch;
@@ -96,6 +127,7 @@ const flushSave = async (): Promise<void> => {
     if (owner !== null && currentId !== owner) {
       if (pendingOwner === owner) {
         pendingPatch = { ...patch, ...pendingPatch };
+        persistPending();
         savePaused = true;
       }
       return;
@@ -107,6 +139,7 @@ const flushSave = async (): Promise<void> => {
     console.warn("[notification-settings] save failed:", err);
     if (owner === pendingOwner) {
       pendingPatch = { ...patch, ...pendingPatch };
+      persistPending();
       saveAttempts += 1;
       if (err instanceof ApiError && err.status === 401) {
         try {
@@ -146,6 +179,7 @@ const scheduleSave = (
     pendingOwner = owner;
   }
   pendingPatch = { ...pendingPatch, ...patch };
+  persistPending();
   saveAttempts = 0;
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
@@ -264,13 +298,14 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
-          if (syncRetryAttempts < 5 && syncRetryTimer === null) {
+          if (syncRetryTimer === null) {
+            const delay = Math.min(60_000, 5_000 * 2 ** Math.min(syncRetryAttempts, 4));
             syncRetryAttempts += 1;
             syncRetryTimer = window.setTimeout(() => {
               syncRetryTimer = null;
               syncRetryInFlight = true;
               void get().syncFromServer(userId);
-            }, 5000);
+            }, delay);
           }
         }
       },
@@ -323,3 +358,25 @@ export const desktopNotifAllowed = (): boolean =>
 export const callAlertsAllowed = (): boolean =>
   settingsSyncedForCurrentUser() &&
   useNotificationSettingsStore.getState().callsEnabled;
+
+restorePending();
+if (pendingOwner !== null && Object.keys(pendingPatch).length > 0 && saveTimer === null) {
+  saveTimer = window.setTimeout(() => {
+    saveTimer = null;
+    void flushSave();
+  }, 500);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    const userId = useAuthStore.getState().user?.id ?? null;
+    const state = useNotificationSettingsStore.getState();
+    if (!userId || state.syncedOwner === userId) return;
+    if (syncRetryTimer !== null) {
+      window.clearTimeout(syncRetryTimer);
+      syncRetryTimer = null;
+    }
+    syncRetryInFlight = true;
+    void state.syncFromServer(userId);
+  });
+}
