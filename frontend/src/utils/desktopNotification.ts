@@ -1,4 +1,7 @@
-import { useNotificationSettingsStore } from "../store/notificationSettingsStore";
+import {
+  settingsSyncedForCurrentUser,
+  useNotificationSettingsStore,
+} from "../store/notificationSettingsStore";
 
 export function showDesktopNotification(title: string, body: string): void {
   try {
@@ -26,10 +29,13 @@ export function requestDesktopNotificationPermission(): void {
 
 export function initDesktopNotifications(): void {
   const onGesture = () => {
+    if (!settingsSyncedForCurrentUser()) return;
     if (useNotificationSettingsStore.getState().desktopEnabled) {
       requestDesktopNotificationPermission();
     }
+    window.removeEventListener("pointerdown", onGesture);
+    window.removeEventListener("keydown", onGesture);
   };
-  window.addEventListener("pointerdown", onGesture, { once: true });
-  window.addEventListener("keydown", onGesture, { once: true });
+  window.addEventListener("pointerdown", onGesture);
+  window.addEventListener("keydown", onGesture);
 }
