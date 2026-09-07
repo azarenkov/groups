@@ -168,8 +168,12 @@ class UserAPI {
     await this.client.put("/v1/users/me/activity", input);
   }
 
-  async clearActivity(): Promise<void> {
-    await this.client.delete("/v1/users/me/activity");
+  async clearActivity(accessToken?: string): Promise<void> {
+    await this.client.delete("/v1/users/me/activity", {
+      ...(accessToken
+        ? { headers: { Authorization: `Bearer ${accessToken}` } }
+        : {}),
+    });
   }
 
   async getActivities(ids: string[]): Promise<UserActivity[]> {

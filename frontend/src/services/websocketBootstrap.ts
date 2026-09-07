@@ -224,12 +224,18 @@ function dispatch(env: WsEnvelope) {
 
     case "friendship.requestSent":
     case "friendship.requestAccepted": {
-      void useFriendshipStore.getState().fetchFriends();
+      void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
       return;
     }
 
     case "friendship.removed": {
-      void useFriendshipStore.getState().fetchFriends();
+      void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
       refetchDmPreviews();
       return;
     }
@@ -300,7 +306,10 @@ function dispatch(env: WsEnvelope) {
       if (me && me.id === userId) {
         void useAuthStore.getState().fetchMe();
       } else {
-        void useFriendshipStore.getState().fetchFriends();
+        void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
       }
       return;
     }

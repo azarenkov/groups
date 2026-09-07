@@ -82,6 +82,18 @@ function sync(): void {
   chain = chain.then(run, run);
 }
 
+export const clearActivityForLogout = async (
+  accessToken: string | null | undefined,
+): Promise<void> => {
+  if (publishedOwner === null) return;
+  publishedOwner = null;
+  stopHeartbeat();
+  if (!accessToken) return;
+  try {
+    await userAPI.clearActivity(accessToken);
+  } catch {}
+};
+
 export const initGameActivity = (): void => {
   if (initialized) return;
   const bridge = window.electron;
