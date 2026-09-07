@@ -91,7 +91,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .load_user_for_update(&user_id)
             .await?
             .ok_or(ActivityError::UserNotFound)?;
-        if !user.show_game_activity() {
+        if user.is_disabled() || user.is_deleted() || !user.show_game_activity() {
             self.store.clear(&user_id).await?;
             tx.save_events(&[activity_event(user_id, None)], None).await?;
             tx.commit().await?;

@@ -735,6 +735,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DisableAccountError::Reauth(e) => e.to_http_status(),
             DisableAccountError::UserNotFound => StatusCode::NOT_FOUND,
+            DisableAccountError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -744,6 +745,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DisableAccountError::Reauth(e) => e.to_user_message(),
             DisableAccountError::UserNotFound => "User not found".to_string(),
+            DisableAccountError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -753,6 +755,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DisableAccountError::Reauth(e) => e.to_error_code(),
             DisableAccountError::UserNotFound => "USER_NOT_FOUND",
+            DisableAccountError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }
@@ -765,6 +768,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DeleteAccountError::Reauth(e) => e.to_http_status(),
             DeleteAccountError::UserNotFound => StatusCode::NOT_FOUND,
+            DeleteAccountError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -774,6 +778,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DeleteAccountError::Reauth(e) => e.to_user_message(),
             DeleteAccountError::UserNotFound => "User not found".to_string(),
+            DeleteAccountError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -783,6 +788,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DeleteAccountError::Reauth(e) => e.to_error_code(),
             DeleteAccountError::UserNotFound => "USER_NOT_FOUND",
+            DeleteAccountError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }

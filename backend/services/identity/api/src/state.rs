@@ -92,6 +92,7 @@ pub struct AppState {
         BcryptHasher,
         RedisAccessRevoker,
         GoogleIdTokenVerifier,
+        RedisActivityStore,
     >,
     pub delete_account_usecase: DeleteAccount<
         PostgresUserRepository,
@@ -99,6 +100,7 @@ pub struct AppState {
         BcryptHasher,
         RedisAccessRevoker,
         GoogleIdTokenVerifier,
+        RedisActivityStore,
     >,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresUserRepository>,

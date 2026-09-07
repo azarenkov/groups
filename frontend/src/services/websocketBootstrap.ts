@@ -161,8 +161,12 @@ function dispatch(env: WsEnvelope) {
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
         purgeServerLocally(serverId);
+        useActivityStore.getState().clearAll();
+        void loadFriendActivities();
         return;
       }
+      useActivityStore.getState().apply(userId, null);
+      void loadActivitiesFor([userId]);
       const channels = useChannelStore.getState().channelsByServer[serverId] ?? [];
       const receipts = useReadReceiptStore.getState();
       for (const c of channels) {
