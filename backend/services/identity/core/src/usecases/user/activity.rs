@@ -60,17 +60,6 @@ fn activity_event(user_id: UserId, activity: Option<&StoredActivity>) -> Identit
     }))
 }
 
-async fn publish<W: IdentityUnitOfWork>(
-    unit_of_work: &W,
-    user_id: UserId,
-    activity: Option<&StoredActivity>,
-) -> Result<(), ActivityError> {
-    let mut tx = unit_of_work.begin().await?;
-    tx.save_events(&[activity_event(user_id, activity)], None).await?;
-    tx.commit().await?;
-    Ok(())
-}
-
 pub struct SetActivity<S: ActivityStore, W: IdentityUnitOfWork> {
     store: Arc<S>,
     unit_of_work: Arc<W>,
@@ -144,8 +133,13 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
     }
 
     pub async fn execute(&self, user_id: UserId) -> Result<(), ActivityError> {
+        let mut tx = self.unit_of_work.begin().await?;
+        if tx.load_user_for_update(&user_id).await?.is_none() {
+            return Err(ActivityError::UserNotFound);
+        }
         self.store.clear(&user_id).await?;
-        publish(self.unit_of_work.as_ref(), user_id, None).await?;
+        tx.save_events(&[activity_event(user_id, None)], None).await?;
+        tx.commit().await?;
         Ok(())
     }
 }
