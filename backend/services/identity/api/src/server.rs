@@ -143,7 +143,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         search_users_usecase: SearchUsers::new(user_repository.clone()),
         get_me_usecase: GetMe::new(user_repository.clone()),
         update_user_locale_usecase: UpdateUserLocale::new(unit_of_work.clone()),
-        update_profile_usecase: UpdateProfile::new(unit_of_work.clone()),
+        update_profile_usecase: UpdateProfile::new(unit_of_work.clone(), activity_store.clone()),
         rename_user_usecase: RenameUser::new(
             user_repository.clone(),
             unit_of_work.clone(),

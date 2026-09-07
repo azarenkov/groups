@@ -14,6 +14,7 @@ let current: LocalActivity | null = null;
 let publishedOwner: string | null = null;
 let heartbeat: number | null = null;
 let hiddenFor: string | null = null;
+let clearRetry: number | null = null;
 let initialized = false;
 let chain: Promise<void> = Promise.resolve();
 
@@ -22,6 +23,14 @@ const stopHeartbeat = () => {
     window.clearInterval(heartbeat);
     heartbeat = null;
   }
+};
+
+const scheduleClearRetry = () => {
+  if (clearRetry !== null) return;
+  clearRetry = window.setTimeout(() => {
+    clearRetry = null;
+    sync();
+  }, 5000);
 };
 
 const run = async (): Promise<void> => {
@@ -39,10 +48,12 @@ const run = async (): Promise<void> => {
   if (!current || !allowed) {
     stopHeartbeat();
     if (publishedOwner === userId) {
-      publishedOwner = null;
       try {
         await userAPI.clearActivity();
-      } catch {}
+        publishedOwner = null;
+      } catch {
+        scheduleClearRetry();
+      }
     }
     return;
   }
@@ -66,9 +77,9 @@ const run = async (): Promise<void> => {
   }
 };
 
-const sync = () => {
+function sync(): void {
   chain = chain.then(run, run);
-};
+}
 
 export const initGameActivity = (): void => {
   if (initialized) return;

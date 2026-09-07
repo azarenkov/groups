@@ -12,7 +12,10 @@ export interface GameActivity {
 interface ActivityState {
   byUser: Record<string, GameActivity>;
   apply: (userId: string, activity: GameActivity | null) => void;
-  applyBulk: (items: (GameActivity & { userId: string })[]) => void;
+  applyBulk: (
+    items: (GameActivity & { userId: string })[],
+    requestedIds?: string[],
+  ) => void;
   clearAll: () => void;
 }
 
@@ -29,9 +32,10 @@ export const useActivityStore = create<ActivityState>()((set) => ({
       return { byUser: { ...state.byUser, [userId]: activity } };
     }),
 
-  applyBulk: (items) =>
+  applyBulk: (items, requestedIds) =>
     set((state) => {
       const next = { ...state.byUser };
+      for (const id of requestedIds ?? []) delete next[id];
       for (const item of items) {
         next[item.userId] = {
           gameId: item.gameId,
@@ -50,10 +54,14 @@ export async function loadActivitiesFor(userIds: string[]): Promise<void> {
   if (ids.length === 0) return;
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
-  const results = await Promise.all(
-    chunks.map((chunk) => userAPI.getActivities(chunk).catch(() => [])),
+  await Promise.all(
+    chunks.map((chunk) =>
+      userAPI
+        .getActivities(chunk)
+        .then((items) => useActivityStore.getState().applyBulk(items, chunk))
+        .catch(() => {}),
+    ),
   );
-  useActivityStore.getState().applyBulk(results.flat());
 }
 
 export async function loadFriendActivities(): Promise<void> {

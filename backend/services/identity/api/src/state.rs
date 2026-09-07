@@ -68,7 +68,7 @@ pub struct AppState {
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
-    pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork>,
+    pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork, RedisActivityStore>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
     pub change_password_usecase: ChangePassword<
         PostgresUserRepository,

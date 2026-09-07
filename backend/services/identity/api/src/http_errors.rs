@@ -828,6 +828,7 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_http_status(),
             UpdateProfileError::BioTooLong => StatusCode::BAD_REQUEST,
             UpdateProfileError::UserNotFound => StatusCode::NOT_FOUND,
+            UpdateProfileError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -835,6 +836,7 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_user_message(),
             UpdateProfileError::BioTooLong => "Bio must be at most 190 characters".to_string(),
             UpdateProfileError::UserNotFound => "User not found".to_string(),
+            UpdateProfileError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -842,6 +844,7 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_error_code(),
             UpdateProfileError::BioTooLong => "BIO_TOO_LONG",
             UpdateProfileError::UserNotFound => "USER_NOT_FOUND",
+            UpdateProfileError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }

@@ -98,9 +98,8 @@ impl<U: UserRepository, S: ActivityStore, W: IdentityUnitOfWork> SetActivity<U, 
             .await?
             .ok_or(ActivityError::UserNotFound)?;
         if !user.show_game_activity() {
-            if self.store.clear(&user_id).await?.is_some() {
-                publish(self.unit_of_work.as_ref(), user_id, None).await?;
-            }
+            self.store.clear(&user_id).await?;
+            publish(self.unit_of_work.as_ref(), user_id, None).await?;
             return Err(ActivityError::Hidden);
         }
         let activity = StoredActivity {
@@ -134,9 +133,8 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
     }
 
     pub async fn execute(&self, user_id: UserId) -> Result<(), ActivityError> {
-        if self.store.clear(&user_id).await?.is_some() {
-            publish(self.unit_of_work.as_ref(), user_id, None).await?;
-        }
+        self.store.clear(&user_id).await?;
+        publish(self.unit_of_work.as_ref(), user_id, None).await?;
         Ok(())
     }
 }
