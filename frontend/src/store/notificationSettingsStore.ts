@@ -275,6 +275,7 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
       },
 
       syncFromServer: async (userId) => {
+        if (get().syncedOwner !== null) set({ syncedOwner: null });
         if (syncRetryTimer !== null) {
           window.clearTimeout(syncRetryTimer);
           syncRetryTimer = null;
