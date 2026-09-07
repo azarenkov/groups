@@ -79,11 +79,13 @@ const run = async (): Promise<void> => {
     stopHeartbeat();
     if (publishedOwner === userId || leasedFor === userId) {
       try {
-        await userAPI.clearActivity(sessionId);
+        const cleared = await userAPI.clearActivity(sessionId);
         publishedOwner = null;
         dropLease();
         if (useAuthStore.getState().user?.id === userId) {
-          useActivityStore.getState().apply(userId, null);
+          useActivityStore
+            .getState()
+            .applyEvent(userId, null, cleared.occurredAt ?? null);
         }
       } catch (e) {
         if (e instanceof ApiError && e.code === "ACTIVITY_LEASED") {
@@ -105,11 +107,15 @@ const run = async (): Promise<void> => {
     publishedOwner = userId;
     dropLease();
     if (useAuthStore.getState().user?.id === userId) {
-      useActivityStore.getState().apply(userId, {
-        gameId: stored.gameId,
-        name: stored.name,
-        startedAt: stored.startedAt,
-      });
+      useActivityStore.getState().applyEvent(
+        userId,
+        {
+          gameId: stored.gameId,
+          name: stored.name,
+          startedAt: stored.startedAt,
+        },
+        stored.changedAt ?? null,
+      );
     }
     startHeartbeat();
   } catch (e) {

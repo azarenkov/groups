@@ -176,13 +176,17 @@ class UserAPI {
     return response.data.data;
   }
 
-  async clearActivity(sessionId: string, accessToken?: string): Promise<void> {
-    await this.client.delete("/v1/users/me/activity", {
+  async clearActivity(
+    sessionId: string,
+    accessToken?: string,
+  ): Promise<{ occurredAt: string }> {
+    const response = await this.client.delete("/v1/users/me/activity", {
       params: { session_id: sessionId },
       ...(accessToken
         ? { headers: { Authorization: `Bearer ${accessToken}` } }
         : {}),
     });
+    return response.data.data;
   }
 
   async getActivities(ids: string[]): Promise<ActivitySnapshot> {

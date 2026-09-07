@@ -171,7 +171,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         }
     }
 
-    pub async fn execute(&self, user_id: UserId, source: &str) -> Result<(), ActivityError> {
+    pub async fn execute(
+        &self,
+        user_id: UserId,
+        source: &str,
+    ) -> Result<DateTime<Utc>, ActivityError> {
         let mut tx = self.unit_of_work.begin().await?;
         if tx.load_user_for_update(&user_id).await?.is_none() {
             return Err(ActivityError::UserNotFound);
@@ -187,10 +191,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
             }
         }
         self.store.clear(&user_id).await?;
-        tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
+        let occurred_at = Utc::now();
+        tx.save_events(&[activity_event(user_id, None, occurred_at)], None)
             .await?;
         tx.commit().await?;
-        Ok(())
+        Ok(occurred_at)
     }
 }
 

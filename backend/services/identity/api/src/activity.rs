@@ -42,6 +42,12 @@ struct ActivitiesResponse {
     activities: Vec<ActivityItem>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ClearedResponse {
+    occurred_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Deserialize)]
 struct ActivityQuery {
     #[serde(default)]
@@ -81,11 +87,11 @@ pub async fn clear_me_activity(
     app_state: web::Data<AppState>,
     query: web::Query<ClearQuery>,
 ) -> Result<impl Responder, HttpError> {
-    app_state
+    let occurred_at = app_state
         .clear_activity_usecase
         .execute(UserId::new(auth_token.id), &query.session_id)
         .await?;
-    Ok(HttpResponse::NoContent().finish())
+    Ok(HttpResponse::Ok().json(ApiResponse::success(ClearedResponse { occurred_at })))
 }
 
 #[get("/activity")]
