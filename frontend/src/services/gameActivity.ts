@@ -124,6 +124,10 @@ const run = async (): Promise<void> => {
       publishedOwner = null;
       dropLease();
       stopHeartbeat();
+      if (useAuthStore.getState().user?.id === userId) {
+        useActivityStore.getState().apply(userId, null);
+        void useAuthStore.getState().fetchMe().catch(() => {});
+      }
     } else if (e instanceof ApiError && e.code === "ACTIVITY_LEASED") {
       publishedOwner = null;
       leasedFor = userId;
