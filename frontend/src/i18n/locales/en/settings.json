@@ -186,7 +186,16 @@
     "mentions": "Mentions",
     "mentionsAll": "All messages",
     "mentionsMentions": "Only @mentions",
-    "mentionsNothing": "Nothing"
+    "mentionsNothing": "Nothing",
+    "mentionsHint": "Default for what notifies you; per-channel settings take priority.",
+    "calls": "Calls",
+    "callAlerts": "Call alerts",
+    "callAlertsHint": "Ringtone and system notification for incoming calls. The in-app incoming call panel is always shown.",
+    "quietTitle": "Quiet hours",
+    "quietEnable": "Enable quiet hours",
+    "quietEnableHint": "Silence sounds and popups on a schedule.",
+    "schedule": "Schedule",
+    "scheduleHint": "Notifications stay quiet during this window."
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",

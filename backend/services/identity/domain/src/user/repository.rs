@@ -108,5 +108,21 @@ pub trait UserRepository {
         push_to_talk: Option<bool>,
         ptt_key: Option<&str>,
     ) -> Result<(i16, i16, String, bool, i16, bool, String), RepositoryError>;
+    async fn get_notification_settings(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<(bool, bool, String, bool, String, String, bool)>, RepositoryError>;
+    #[allow(clippy::too_many_arguments)]
+    async fn apply_notification_settings_patch(
+        &self,
+        user_id: &UserId,
+        desktop_enabled: Option<bool>,
+        sounds_enabled: Option<bool>,
+        mentions: Option<&str>,
+        quiet_hours_enabled: Option<bool>,
+        quiet_start: Option<&str>,
+        quiet_end: Option<&str>,
+        calls_enabled: Option<bool>,
+    ) -> Result<(bool, bool, String, bool, String, String, bool), RepositoryError>;
 
 }

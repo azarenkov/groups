@@ -14,6 +14,7 @@ use identity::usecases::{
     },
     user::{
         appearance::{GetAppearance, UpdateAppearance},
+        notification_settings::{GetNotificationSettings, UpdateNotificationSettings},
         voice_settings::{GetVoiceSettings, UpdateVoiceSettings},
         get_me::GetMe, rename::RenameUser, search_users::SearchUsers,
         update_locale::UpdateUserLocale,
@@ -177,6 +178,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         update_appearance_usecase: UpdateAppearance::new(user_repository.clone()),
         get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone()),
         update_voice_settings_usecase: UpdateVoiceSettings::new(user_repository.clone()),
+        get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),
+        update_notification_settings_usecase: UpdateNotificationSettings::new(
+            user_repository.clone(),
+        ),
         start_connection_usecase: StartConnection::new(
             user_repository.clone(),
             github_connector.clone(),

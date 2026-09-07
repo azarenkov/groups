@@ -34,6 +34,7 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
+import { useNotificationSettingsStore } from "../../store/notificationSettingsStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import {
   PERM_MANAGE_MESSAGES,
@@ -1905,11 +1906,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
+  const globalMentions = useNotificationSettingsStore((s) => s.mentions);
   const notifLevel = useNotificationPrefsStore((s) =>
     dm
-      ? (s.dmLevels[dm.friendId] ?? "all")
+      ? (s.dmLevels[dm.friendId] ?? (globalMentions === "none" ? "none" : "all"))
       : channel
-        ? (s.channelLevels[channel.id] ?? "all")
+        ? (s.channelLevels[channel.id] ?? globalMentions)
         : "all",
   );
   const bellRef = React.useRef<HTMLDivElement>(null);

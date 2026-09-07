@@ -976,3 +976,28 @@ impl HttpMapping for VoiceSettingsError {
         }
     }
 }
+
+use identity::usecases::user::notification_settings::NotificationSettingsError;
+
+impl HttpMapping for NotificationSettingsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            NotificationSettingsError::Repository(e) => e.to_http_status(),
+            NotificationSettingsError::Invalid => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            NotificationSettingsError::Repository(e) => e.to_user_message(),
+            NotificationSettingsError::Invalid => "Invalid notification settings".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            NotificationSettingsError::Repository(e) => e.to_error_code(),
+            NotificationSettingsError::Invalid => "INVALID_NOTIFICATION_SETTINGS",
+        }
+    }
+}

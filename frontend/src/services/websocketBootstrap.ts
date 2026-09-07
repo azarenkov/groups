@@ -17,10 +17,17 @@ import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import {
-  channelNotifLevel,
-  dmNotifLevel,
+  markNotificationPrefsStale,
+  notificationPrefsLoaded,
   useNotificationPrefsStore,
 } from "../store/notificationPrefsStore";
+import {
+  defaultMentionLevel,
+  desktopNotifAllowed,
+  messageSoundAllowed,
+  useNotificationSettingsStore,
+} from "../store/notificationSettingsStore";
+import { showDesktopNotification } from "../utils/desktopNotification";
 import { mentionsUser } from "../utils/mentions";
 import { playNotificationSound } from "../utils/notificationSound";
 import type { Server } from "../types/server";
@@ -28,6 +35,10 @@ import type { Channel } from "../types/channel";
 
 let activeChannelView: string | null = null;
 let activeDmView: string | null = null;
+
+const viewIsForeground = () =>
+  typeof document === "undefined" ||
+  (document.visibilityState === "visible" && document.hasFocus());
 
 export function setActiveChatView(view:
   | { kind: "channel"; id: string }
@@ -318,11 +329,17 @@ function dispatch(env: WsEnvelope) {
       const authorId = asString(d.authorId);
       const selfId = useAuthStore.getState().user?.id;
       if (!channelId || !authorId || authorId === selfId) return;
-      if (activeChannelView === channelId) {
+      if (activeChannelView === channelId && viewIsForeground()) {
         throttleMarkChannelRead(channelId);
         return;
       }
-      const level = channelNotifLevel(channelId);
+      if (!notificationPrefsLoaded()) {
+        scheduleUnreadRefetch();
+        return;
+      }
+      const level =
+        useNotificationPrefsStore.getState().channelLevels[channelId] ??
+        defaultMentionLevel();
       if (level === "none") return;
       if (level === "mentions") {
         const myName = useAuthStore.getState().user?.name;
@@ -333,9 +350,12 @@ function dispatch(env: WsEnvelope) {
       }
       const byServer = useChannelStore.getState().channelsByServer;
       let serverId: string | undefined;
+      let channelName: string | undefined;
       for (const [sid, chans] of Object.entries(byServer)) {
-        if (chans.some((c) => c.id === channelId)) {
+        const found = chans.find((c) => c.id === channelId);
+        if (found) {
           serverId = sid;
+          channelName = found.name;
           break;
         }
       }
@@ -344,15 +364,24 @@ function dispatch(env: WsEnvelope) {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpChannel(channelId, serverId);
-      playNotificationSound();
+      if (messageSoundAllowed()) playNotificationSound();
+      if (desktopNotifAllowed()) {
+        showDesktopNotification(
+          channelName ? `#${channelName}` : "Rift",
+          asString(d.content) ?? "",
+        );
+      }
       return;
     }
 
     case "message.edited": {
       const channelId = asString(d.channelId);
       if (!channelId) return;
-      if (activeChannelView === channelId) return;
-      if (channelNotifLevel(channelId) !== "mentions") return;
+      if (activeChannelView === channelId && viewIsForeground()) return;
+      const editLevel =
+        useNotificationPrefsStore.getState().channelLevels[channelId] ??
+        defaultMentionLevel();
+      if (editLevel !== "mentions") return;
       scheduleUnreadRefetch();
       return;
     }
@@ -377,17 +406,27 @@ function dispatch(env: WsEnvelope) {
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
       if (recipientId !== selfId) return;
-      if (activeDmView === senderId) {
+      if (activeDmView === senderId && viewIsForeground()) {
         throttleMarkDmRead(senderId);
         return;
       }
-      if (dmNotifLevel(senderId) === "none") return;
+      if (!notificationPrefsLoaded()) {
+        scheduleUnreadRefetch();
+        return;
+      }
+      const dmLevel =
+        useNotificationPrefsStore.getState().dmLevels[senderId] ??
+        (defaultMentionLevel() === "none" ? "none" : "all");
+      if (dmLevel === "none") return;
       lastDmBumpAt[senderId] = Math.max(
         lastDmBumpAt[senderId] ?? 0,
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
-      playNotificationSound();
+      if (messageSoundAllowed()) playNotificationSound();
+      if (desktopNotifAllowed()) {
+        showDesktopNotification(peerName ?? "Rift", asString(d.content) ?? "");
+      }
       return;
     }
 
@@ -660,9 +699,28 @@ function purgeServerLocally(id: string) {
 export function installWsBootstrap() {
   if (installed) return;
   installed = true;
+  const onForeground = () => {
+    if (!viewIsForeground()) return;
+    if (activeChannelView) {
+      lastChannelReadAt[activeChannelView] = 0;
+      throttleMarkChannelRead(activeChannelView);
+    }
+    if (activeDmView) {
+      lastDmReadAt[activeDmView] = 0;
+      throttleMarkDmRead(activeDmView);
+    }
+    if (activeChannelView || activeDmView) scheduleUnreadRefetch();
+  };
+  window.addEventListener("focus", onForeground);
+  document.addEventListener("visibilitychange", onForeground);
   ws.on(dispatch);
   ws.onOpen(() => {
     const gen = ++prefsReloadGen;
+    markNotificationPrefsStale();
+    const reconnectUserId = useAuthStore.getState().user?.id;
+    if (reconnectUserId) {
+      void useNotificationSettingsStore.getState().syncFromServer(reconnectUserId);
+    }
     void (async () => {
       let delayMs = 1000;
       for (;;) {

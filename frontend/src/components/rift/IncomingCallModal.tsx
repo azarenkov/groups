@@ -1,7 +1,14 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useCallStore } from "../../store/callStore";
+import {
+  callAlertsAllowed,
+  desktopNotifAllowed,
+  isQuietNow,
+  useNotificationSettingsStore,
+} from "../../store/notificationSettingsStore";
+import { showDesktopNotification } from "../../utils/desktopNotification";
 import { UserAvatar } from "./Avatar";
 
 const IncomingCallModal: React.FC = () => {
@@ -9,9 +16,23 @@ const IncomingCallModal: React.FC = () => {
   const accept = useCallStore((s) => s.accept);
   const decline = useCallStore((s) => s.decline);
   const { t } = useTranslation("call");
+  const callsEnabled = useNotificationSettingsStore((s) => s.callsEnabled);
+  const quietHoursEnabled = useNotificationSettingsStore((s) => s.quietHoursEnabled);
+  const quietStart = useNotificationSettingsStore((s) => s.quietStart);
+  const quietEnd = useNotificationSettingsStore((s) => s.quietEnd);
+  const syncedOwner = useNotificationSettingsStore((s) => s.syncedOwner);
+  const desktopShownForRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!incoming) return;
+    if (!callsEnabled || !callAlertsAllowed()) return;
+    const notifyDesktop = () => {
+      if (desktopShownForRef.current === incoming.callId) return;
+      if (!desktopNotifAllowed()) return;
+      desktopShownForRef.current = incoming.callId;
+      showDesktopNotification(incoming.callerName, t("incoming"));
+    };
+    notifyDesktop();
     const AudioCtx =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext })
@@ -26,6 +47,8 @@ const IncomingCallModal: React.FC = () => {
     ];
     const ring = () => {
       if (stopped) return;
+      notifyDesktop();
+      if (isQuietNow()) return;
       const base = ctx.currentTime;
       for (const n of notes) {
         const osc = ctx.createOscillator();
@@ -49,7 +72,7 @@ const IncomingCallModal: React.FC = () => {
       clearInterval(id);
       ctx.close().catch(() => {});
     };
-  }, [incoming]);
+  }, [incoming, t, callsEnabled, quietHoursEnabled, quietStart, quietEnd, syncedOwner]);
 
   if (!incoming) return null;
 
