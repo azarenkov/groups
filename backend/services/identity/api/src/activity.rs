@@ -14,7 +14,6 @@ use crate::state::AppState;
 #[serde(rename_all = "camelCase")]
 struct ActivityBody {
     game_id: String,
-    name: String,
     started_at: DateTime<Utc>,
     #[serde(default)]
     session_id: String,
@@ -60,7 +59,6 @@ pub async fn set_me_activity(
             UserId::new(auth_token.id),
             ActivityInput {
                 game_id: body.game_id,
-                name: body.name,
                 started_at: body.started_at,
                 source: body.session_id,
             },

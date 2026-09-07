@@ -6,7 +6,7 @@ import { homeAPI, type PublicProfile } from "../../api/home";
 import { useAuthStore } from "../../store/authStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
 import { usePresenceStore } from "../../store/presenceStore";
-import { useActivityStore } from "../../store/activityStore";
+import { loadActivitiesFor, useActivityStore } from "../../store/activityStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import { userAPI, type Connection } from "../../api/user";
 import { useUserNamesStore } from "../../store/userNamesStore";
@@ -65,6 +65,9 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const onlineUsers = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const gameActivity = useActivityStore((s) => (userId ? s.byUser[userId] : undefined));
+  React.useEffect(() => {
+    if (userId) void loadActivitiesFor([userId]);
+  }, [userId]);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);

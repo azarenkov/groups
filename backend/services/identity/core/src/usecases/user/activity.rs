@@ -10,6 +10,7 @@ use ports::repository::RepositoryError;
 
 use crate::ports::activity_audience::{ActivityAudience, ActivityAudienceError};
 use crate::ports::activity_store::{ActivityStore, ActivityStoreError, StoredActivity};
+use crate::usecases::user::game_catalog::game_name;
 
 pub const ACTIVITY_TTL: Duration = Duration::from_secs(60);
 const OWNER_ABANDONED_AFTER_SECS: i64 = 45;
@@ -35,7 +36,6 @@ pub enum ActivityError {
 
 pub struct ActivityInput {
     pub game_id: String,
-    pub name: String,
     pub started_at: DateTime<Utc>,
     pub source: String,
 }
@@ -46,11 +46,6 @@ fn valid_game_id(value: &str) -> bool {
         && value
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-}
-
-fn valid_name(value: &str) -> bool {
-    let trimmed = value.trim();
-    !trimmed.is_empty() && trimmed.chars().count() <= 64
 }
 
 fn activity_event(user_id: UserId, activity: Option<&StoredActivity>) -> IdentityEvent {
@@ -83,12 +78,12 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
         input: ActivityInput,
     ) -> Result<StoredActivity, ActivityError> {
         if !valid_game_id(&input.game_id)
-            || !valid_name(&input.name)
             || !valid_game_id(&input.source)
             || input.started_at > Utc::now() + chrono::Duration::minutes(5)
         {
             return Err(ActivityError::Invalid);
         }
+        let name = game_name(&input.game_id).ok_or(ActivityError::Invalid)?;
         let mut tx = self.unit_of_work.begin().await?;
         let user = tx
             .load_user_for_update(&user_id)
@@ -127,7 +122,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .unwrap_or(true);
         let mut activity = StoredActivity {
             game_id: input.game_id,
-            name: input.name.trim().to_string(),
+            name: name.to_string(),
             started_at: input.started_at,
             published: !needs_publish,
             source: input.source,
