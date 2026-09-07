@@ -40,6 +40,10 @@ export function notificationPrefsLoaded(): boolean {
   return prefsLoaded;
 }
 
+export function markNotificationPrefsStale(): void {
+  prefsLoaded = false;
+}
+
 function advanceRemoteVersion(key: string, version: number | undefined): void {
   if (typeof version !== "number" || !Number.isFinite(version)) return;
   remoteVersions[key] = Math.max(remoteVersions[key] ?? -Infinity, version);

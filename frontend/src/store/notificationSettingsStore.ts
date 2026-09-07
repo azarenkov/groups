@@ -443,7 +443,6 @@ if (typeof window !== "undefined") {
       saveAttempts = 0;
       void flushSave();
     }
-    if (state.syncedOwner === userId) return;
     if (syncRetryTimer !== null) {
       window.clearTimeout(syncRetryTimer);
       syncRetryTimer = null;

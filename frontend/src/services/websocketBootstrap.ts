@@ -17,6 +17,7 @@ import { usePresenceStore } from "../store/presenceStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import {
+  markNotificationPrefsStale,
   notificationPrefsLoaded,
   useNotificationPrefsStore,
 } from "../store/notificationPrefsStore";
@@ -24,6 +25,7 @@ import {
   defaultMentionLevel,
   desktopNotifAllowed,
   messageSoundAllowed,
+  useNotificationSettingsStore,
 } from "../store/notificationSettingsStore";
 import { showDesktopNotification } from "../utils/desktopNotification";
 import { mentionsUser } from "../utils/mentions";
@@ -696,6 +698,11 @@ export function installWsBootstrap() {
   ws.on(dispatch);
   ws.onOpen(() => {
     const gen = ++prefsReloadGen;
+    markNotificationPrefsStale();
+    const reconnectUserId = useAuthStore.getState().user?.id;
+    if (reconnectUserId) {
+      void useNotificationSettingsStore.getState().syncFromServer(reconnectUserId);
+    }
     void (async () => {
       let delayMs = 1000;
       for (;;) {
