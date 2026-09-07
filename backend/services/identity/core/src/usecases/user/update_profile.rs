@@ -59,18 +59,16 @@ impl<W: IdentityUnitOfWork, S: ActivityStore> UpdateProfile<W, S> {
             _ => UpdateProfileError::UserNotFound,
         })?;
         let mut events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
-        if !show_game_activity {
-            let previous = self.activity_store.clear(&user_id).await?;
-            if hid_game_activity || previous.is_some() {
-                events.push(IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
-                    id: EventId::generate(),
-                    user_id,
-                    game_id: None,
-                    name: None,
-                    started_at: None,
-                    occurred_at: Utc::now(),
-                })));
-            }
+        if hid_game_activity {
+            self.activity_store.clear(&user_id).await?;
+            events.push(IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
+                id: EventId::generate(),
+                user_id,
+                game_id: None,
+                name: None,
+                started_at: None,
+                occurred_at: Utc::now(),
+            })));
         }
         if !events.is_empty() {
             tx.save_user(&user).await?;

@@ -9,6 +9,7 @@ use identity_domain::{
 };
 use ports::repository::RepositoryError;
 
+use crate::ports::activity_audience::{ActivityAudience, ActivityAudienceError};
 use crate::ports::activity_store::{ActivityStore, ActivityStoreError, StoredActivity};
 
 pub const ACTIVITY_TTL: Duration = Duration::from_secs(60);
@@ -20,6 +21,8 @@ pub enum ActivityError {
     Repository(#[from] RepositoryError),
     #[error("Activity store error: {0}")]
     Store(#[from] ActivityStoreError),
+    #[error("Activity audience error: {0}")]
+    Audience(#[from] ActivityAudienceError),
     #[error("Invalid activity")]
     Invalid,
     #[error("Activity is hidden by privacy settings")]
@@ -107,7 +110,7 @@ impl<U: UserRepository, S: ActivityStore, W: IdentityUnitOfWork> SetActivity<U, 
             name: input.name.trim().to_string(),
             started_at: input.started_at,
         };
-        let previous = self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
+        let previous = self.store.get(&user_id).await?;
         let changed = previous
             .as_ref()
             .map(|p| p.game_id != activity.game_id)
@@ -115,6 +118,7 @@ impl<U: UserRepository, S: ActivityStore, W: IdentityUnitOfWork> SetActivity<U, 
         if changed {
             publish(self.unit_of_work.as_ref(), user_id, Some(&activity)).await?;
         }
+        self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
         Ok(activity)
     }
 }
@@ -139,22 +143,28 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
     }
 }
 
-pub struct GetActivities<S: ActivityStore> {
+pub struct GetActivities<S: ActivityStore, A: ActivityAudience> {
     store: Arc<S>,
+    audience: Arc<A>,
 }
 
-impl<S: ActivityStore> GetActivities<S> {
-    pub fn new(store: Arc<S>) -> Self {
-        Self { store }
+impl<S: ActivityStore, A: ActivityAudience> GetActivities<S, A> {
+    pub fn new(store: Arc<S>, audience: Arc<A>) -> Self {
+        Self { store, audience }
     }
 
     pub async fn execute(
         &self,
+        viewer: UserId,
         user_ids: Vec<UserId>,
     ) -> Result<Vec<(UserId, StoredActivity)>, ActivityError> {
         if user_ids.len() > MAX_BATCH {
             return Err(ActivityError::Invalid);
         }
-        Ok(self.store.get_many(&user_ids).await?)
+        let visible = self.audience.visible_to(&viewer, &user_ids).await?;
+        if visible.is_empty() {
+            return Ok(Vec::new());
+        }
+        Ok(self.store.get_many(&visible).await?)
     }
 }

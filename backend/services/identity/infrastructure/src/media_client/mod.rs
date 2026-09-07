@@ -1,3 +1,4 @@
+pub mod activity_audience;
 pub mod user_state;
 
 pub(crate) fn with_request_id(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {

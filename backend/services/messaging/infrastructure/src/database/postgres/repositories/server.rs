@@ -47,6 +47,38 @@ impl PostgresServerRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.0)
     }
+
+    pub async fn activity_audience(
+        &self,
+        user_id: uuid::Uuid,
+        candidates: &[uuid::Uuid],
+    ) -> Result<Vec<uuid::Uuid>, RepositoryError> {
+        if candidates.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows: Vec<(uuid::Uuid,)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT related.other
+            FROM (
+                SELECT f.friend_id AS other
+                FROM friendships f
+                WHERE f.user_id = $1 AND f.status = 'accepted'
+                UNION
+                SELECT m2.user_id AS other
+                FROM server_members m1
+                INNER JOIN server_members m2 ON m2.server_id = m1.server_id
+                WHERE m1.user_id = $1
+            ) related
+            WHERE related.other = ANY($2) AND related.other <> $1
+            "#,
+        )
+        .bind(user_id)
+        .bind(candidates)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|r| r.0).collect())
+    }
 }
 
 #[async_trait]

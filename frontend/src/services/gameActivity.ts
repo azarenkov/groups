@@ -14,7 +14,7 @@ let current: LocalActivity | null = null;
 let publishedOwner: string | null = null;
 let heartbeat: number | null = null;
 let hiddenFor: string | null = null;
-let clearRetry: number | null = null;
+let retryTimer: number | null = null;
 let initialized = false;
 let chain: Promise<void> = Promise.resolve();
 
@@ -25,10 +25,10 @@ const stopHeartbeat = () => {
   }
 };
 
-const scheduleClearRetry = () => {
-  if (clearRetry !== null) return;
-  clearRetry = window.setTimeout(() => {
-    clearRetry = null;
+const scheduleRetry = () => {
+  if (retryTimer !== null) return;
+  retryTimer = window.setTimeout(() => {
+    retryTimer = null;
     sync();
   }, 5000);
 };
@@ -52,7 +52,7 @@ const run = async (): Promise<void> => {
         await userAPI.clearActivity();
         publishedOwner = null;
       } catch {
-        scheduleClearRetry();
+        scheduleRetry();
       }
     }
     return;
@@ -73,6 +73,8 @@ const run = async (): Promise<void> => {
       hiddenFor = userId;
       publishedOwner = null;
       stopHeartbeat();
+    } else {
+      scheduleRetry();
     }
   }
 };

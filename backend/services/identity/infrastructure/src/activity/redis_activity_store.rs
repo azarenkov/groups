@@ -74,6 +74,15 @@ impl RedisActivityStore {
 
 #[async_trait]
 impl ActivityStore for RedisActivityStore {
+    async fn get(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let raw: Option<String> = connection
+            .get(Self::key(user_id))
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        Ok(Self::decode(raw))
+    }
+
     async fn set(
         &self,
         user_id: &UserId,

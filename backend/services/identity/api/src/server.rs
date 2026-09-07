@@ -1,5 +1,6 @@
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
+use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use std::{error::Error, sync::Arc};
 
 use actix_cors::Cors;
@@ -101,6 +102,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
     let activity_store = Arc::new(RedisActivityStore::from_env());
+    let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
     let reauthenticator = Arc::new(Reauthenticator::new(
         user_repository.clone(),
         hasher.clone(),
@@ -185,7 +187,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             unit_of_work.clone(),
         ),
         clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
-        get_activities_usecase: GetActivities::new(activity_store.clone()),
+        get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone()),
         get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone()),
         update_voice_settings_usecase: UpdateVoiceSettings::new(user_repository.clone()),
         get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),

@@ -79,7 +79,7 @@ pub async fn clear_me_activity(
 
 #[get("/activity")]
 pub async fn list_activities(
-    _auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     query: web::Query<ActivityQuery>,
 ) -> Result<impl Responder, HttpError> {
@@ -89,7 +89,10 @@ pub async fn list_activities(
         .filter_map(|raw| Uuid::parse_str(raw.trim()).ok())
         .map(UserId::new)
         .collect();
-    let activities = app_state.get_activities_usecase.execute(ids).await?;
+    let activities = app_state
+        .get_activities_usecase
+        .execute(UserId::new(auth_token.id), ids)
+        .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(ActivitiesResponse {
         activities: activities
             .into_iter()

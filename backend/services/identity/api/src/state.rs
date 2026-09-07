@@ -1,5 +1,6 @@
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
+use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use identity::usecases::{
     connections::{
         complete_connection::CompleteConnection, list_connections::ListConnections,
@@ -104,7 +105,7 @@ pub struct AppState {
     pub set_activity_usecase:
         SetActivity<PostgresUserRepository, RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
-    pub get_activities_usecase: GetActivities<RedisActivityStore>,
+    pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient>,
     pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository>,
     pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresUserRepository>,
     pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,

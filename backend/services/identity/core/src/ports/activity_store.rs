@@ -19,6 +19,7 @@ pub enum ActivityStoreError {
 
 #[async_trait]
 pub trait ActivityStore: Send + Sync {
+    async fn get(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError>;
     async fn set(
         &self,
         user_id: &UserId,
