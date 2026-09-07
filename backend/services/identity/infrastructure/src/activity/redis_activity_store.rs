@@ -13,6 +13,12 @@ struct ActivityRecord {
     game_id: String,
     name: String,
     started_at: DateTime<Utc>,
+    #[serde(default = "default_true")]
+    published: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 pub struct RedisActivityStore {
@@ -68,6 +74,7 @@ impl RedisActivityStore {
             game_id: record.game_id,
             name: record.name,
             started_at: record.started_at,
+            published: record.published,
         })
     }
 }
@@ -99,6 +106,7 @@ impl ActivityStore for RedisActivityStore {
             game_id: activity.game_id.clone(),
             name: activity.name.clone(),
             started_at: activity.started_at,
+            published: activity.published,
         })
         .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         let _: () = connection

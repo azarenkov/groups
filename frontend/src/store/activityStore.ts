@@ -14,16 +14,24 @@ interface ActivityState {
   apply: (userId: string, activity: GameActivity | null) => void;
   applyBulk: (
     items: (GameActivity & { userId: string })[],
-    requestedIds?: string[],
+    requestedIds: string[],
+    snapshot: Record<string, number>,
   ) => void;
   clearAll: () => void;
 }
+
+const seqByUser: Record<string, number> = {};
+
+const bumpSeq = (userId: string) => {
+  seqByUser[userId] = (seqByUser[userId] ?? 0) + 1;
+};
 
 export const useActivityStore = create<ActivityState>()((set) => ({
   byUser: {},
 
   apply: (userId, activity) =>
     set((state) => {
+      bumpSeq(userId);
       if (!activity) {
         if (!state.byUser[userId]) return state;
         const { [userId]: _gone, ...rest } = state.byUser;
@@ -32,11 +40,15 @@ export const useActivityStore = create<ActivityState>()((set) => ({
       return { byUser: { ...state.byUser, [userId]: activity } };
     }),
 
-  applyBulk: (items, requestedIds) =>
+  applyBulk: (items, requestedIds, snapshot) =>
     set((state) => {
       const next = { ...state.byUser };
-      for (const id of requestedIds ?? []) delete next[id];
+      const fresh = new Set(
+        requestedIds.filter((id) => (seqByUser[id] ?? 0) === (snapshot[id] ?? 0)),
+      );
+      for (const id of fresh) delete next[id];
       for (const item of items) {
+        if (!fresh.has(item.userId)) continue;
         next[item.userId] = {
           gameId: item.gameId,
           name: item.name,
@@ -55,12 +67,16 @@ export async function loadActivitiesFor(userIds: string[]): Promise<void> {
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
   await Promise.all(
-    chunks.map((chunk) =>
-      userAPI
+    chunks.map((chunk) => {
+      const snapshot: Record<string, number> = {};
+      for (const id of chunk) snapshot[id] = seqByUser[id] ?? 0;
+      return userAPI
         .getActivities(chunk)
-        .then((items) => useActivityStore.getState().applyBulk(items, chunk))
-        .catch(() => {}),
-    ),
+        .then((items) =>
+          useActivityStore.getState().applyBulk(items, chunk, snapshot),
+        )
+        .catch(() => {});
+    }),
   );
 }
 

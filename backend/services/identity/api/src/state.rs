@@ -102,8 +102,7 @@ pub struct AppState {
     >,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresUserRepository>,
-    pub set_activity_usecase:
-        SetActivity<PostgresUserRepository, RedisActivityStore, PostgresIdentityUnitOfWork>,
+    pub set_activity_usecase: SetActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient>,
     pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository>,

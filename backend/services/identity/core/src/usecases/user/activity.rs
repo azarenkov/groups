@@ -5,7 +5,6 @@ use domain::{event::EventId, user::id::UserId};
 use identity_domain::{
     events::IdentityEvent, unit_of_work::IdentityUnitOfWork,
     user::events::UserEvent, user::events::lifecycle::UserActivityChanged,
-    user::repository::UserRepository,
 };
 use ports::repository::RepositoryError;
 
@@ -50,35 +49,36 @@ fn valid_name(value: &str) -> bool {
     !trimmed.is_empty() && trimmed.chars().count() <= 64
 }
 
-async fn publish<W: IdentityUnitOfWork>(
-    unit_of_work: &W,
-    user_id: UserId,
-    activity: Option<&StoredActivity>,
-) -> Result<(), ActivityError> {
-    let event = UserEvent::ActivityChanged(UserActivityChanged {
+fn activity_event(user_id: UserId, activity: Option<&StoredActivity>) -> IdentityEvent {
+    IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
         id: EventId::generate(),
         user_id,
         game_id: activity.map(|a| a.game_id.clone()),
         name: activity.map(|a| a.name.clone()),
         started_at: activity.map(|a| a.started_at),
         occurred_at: Utc::now(),
-    });
+    }))
+}
+
+async fn publish<W: IdentityUnitOfWork>(
+    unit_of_work: &W,
+    user_id: UserId,
+    activity: Option<&StoredActivity>,
+) -> Result<(), ActivityError> {
     let mut tx = unit_of_work.begin().await?;
-    tx.save_events(&[IdentityEvent::from(event)], None).await?;
+    tx.save_events(&[activity_event(user_id, activity)], None).await?;
     tx.commit().await?;
     Ok(())
 }
 
-pub struct SetActivity<U: UserRepository, S: ActivityStore, W: IdentityUnitOfWork> {
-    user_repository: Arc<U>,
+pub struct SetActivity<S: ActivityStore, W: IdentityUnitOfWork> {
     store: Arc<S>,
     unit_of_work: Arc<W>,
 }
 
-impl<U: UserRepository, S: ActivityStore, W: IdentityUnitOfWork> SetActivity<U, S, W> {
-    pub fn new(user_repository: Arc<U>, store: Arc<S>, unit_of_work: Arc<W>) -> Self {
+impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
+    pub fn new(store: Arc<S>, unit_of_work: Arc<W>) -> Self {
         Self {
-            user_repository,
             store,
             unit_of_work,
         }
@@ -95,30 +95,37 @@ impl<U: UserRepository, S: ActivityStore, W: IdentityUnitOfWork> SetActivity<U, 
         {
             return Err(ActivityError::Invalid);
         }
-        let user = self
-            .user_repository
-            .find_by_id(&user_id)
+        let mut tx = self.unit_of_work.begin().await?;
+        let user = tx
+            .load_user_for_update(&user_id)
             .await?
             .ok_or(ActivityError::UserNotFound)?;
         if !user.show_game_activity() {
             self.store.clear(&user_id).await?;
-            publish(self.unit_of_work.as_ref(), user_id, None).await?;
+            tx.save_events(&[activity_event(user_id, None)], None).await?;
+            tx.commit().await?;
             return Err(ActivityError::Hidden);
         }
-        let activity = StoredActivity {
+        let previous = self.store.get(&user_id).await?;
+        let needs_publish = previous
+            .as_ref()
+            .map(|p| p.game_id != input.game_id || !p.published)
+            .unwrap_or(true);
+        let mut activity = StoredActivity {
             game_id: input.game_id,
             name: input.name.trim().to_string(),
             started_at: input.started_at,
+            published: !needs_publish,
         };
-        let previous = self.store.get(&user_id).await?;
-        let changed = previous
-            .as_ref()
-            .map(|p| p.game_id != activity.game_id)
-            .unwrap_or(true);
-        if changed {
-            publish(self.unit_of_work.as_ref(), user_id, Some(&activity)).await?;
-        }
         self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
+        if needs_publish {
+            tx.save_events(&[activity_event(user_id, Some(&activity))], None).await?;
+        }
+        tx.commit().await?;
+        if needs_publish {
+            activity.published = true;
+            self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
+        }
         Ok(activity)
     }
 }

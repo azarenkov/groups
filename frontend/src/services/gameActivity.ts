@@ -63,9 +63,8 @@ const run = async (): Promise<void> => {
     publishedOwner = userId;
     if (heartbeat === null) {
       heartbeat = window.setInterval(() => {
-        const owner = useAuthStore.getState().user?.id ?? null;
-        if (!current || owner === null || owner !== publishedOwner) return;
-        void userAPI.setActivity(current).catch(() => {});
+        if (!current) return;
+        sync();
       }, HEARTBEAT_MS);
     }
   } catch (e) {
