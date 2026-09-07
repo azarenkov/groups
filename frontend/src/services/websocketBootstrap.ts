@@ -600,11 +600,14 @@ function dispatch(env: WsEnvelope) {
       const gameId = asString(d.gameId);
       const name = asString(d.name);
       const startedAt = asString(d.startedAt);
-      if (gameId && name && startedAt) {
-        useActivityStore.getState().apply(userId, { gameId, name, startedAt });
-      } else {
-        useActivityStore.getState().apply(userId, null);
-      }
+      const occurredAt = asString(d.occurredAt) ?? null;
+      useActivityStore
+        .getState()
+        .applyEvent(
+          userId,
+          gameId && name && startedAt ? { gameId, name, startedAt } : null,
+          occurredAt,
+        );
       return;
     }
 
@@ -799,12 +802,25 @@ export function installWsBootstrap() {
     });
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
+    const friendsBefore = useFriendshipStore
+      .getState()
+      .friends.filter((f) => f.status === "accepted")
+      .map((f) => f.friendId);
     void useFriendshipStore
       .getState()
       .fetchFriends()
       .then(() => {
         if (useFriendshipStore.getState().error === null) {
           useUserNamesStore.getState().clear();
+          const after = new Set(
+            useFriendshipStore
+              .getState()
+              .friends.filter((f) => f.status === "accepted")
+              .map((f) => f.friendId),
+          );
+          const gone = friendsBefore.filter((id) => !after.has(id));
+          for (const id of gone) useActivityStore.getState().apply(id, null);
+          if (gone.length > 0) void loadActivitiesFor(gone);
           void loadFriendActivities();
         }
       });

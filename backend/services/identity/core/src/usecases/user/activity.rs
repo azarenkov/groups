@@ -12,6 +12,7 @@ use crate::ports::activity_audience::{ActivityAudience, ActivityAudienceError};
 use crate::ports::activity_store::{ActivityStore, ActivityStoreError, StoredActivity};
 
 pub const ACTIVITY_TTL: Duration = Duration::from_secs(60);
+const OWNER_ABANDONED_AFTER_SECS: i64 = 45;
 const MAX_BATCH: usize = 100;
 
 #[derive(Debug, thiserror::Error)]
@@ -100,17 +101,22 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
         let previous = self.store.get(&user_id).await?;
         if let Some(prev) = previous.as_ref() {
             if !prev.source.is_empty() && prev.source != input.source {
+                let owner_abandoned = Utc::now() - prev.refreshed_at
+                    > chrono::Duration::seconds(OWNER_ABANDONED_AFTER_SECS);
+                if !owner_abandoned {
+                    tx.commit().await?;
+                    return Ok(prev.clone());
+                }
                 if prev.game_id == input.game_id {
                     let adopted = StoredActivity {
                         source: input.source.clone(),
+                        refreshed_at: Utc::now(),
                         ..prev.clone()
                     };
                     self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
                     tx.commit().await?;
                     return Ok(adopted);
                 }
-                tx.commit().await?;
-                return Ok(prev.clone());
             }
         }
         let needs_publish = previous
@@ -123,6 +129,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             started_at: input.started_at,
             published: !needs_publish,
             source: input.source,
+            refreshed_at: Utc::now(),
         };
         self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
         if needs_publish {

@@ -12,6 +12,11 @@ export interface GameActivity {
 interface ActivityState {
   byUser: Record<string, GameActivity>;
   apply: (userId: string, activity: GameActivity | null) => void;
+  applyEvent: (
+    userId: string,
+    activity: GameActivity | null,
+    occurredAt: string | null,
+  ) => void;
   applyBulk: (
     items: (GameActivity & { userId: string })[],
     requestedIds: string[],
@@ -21,6 +26,7 @@ interface ActivityState {
 }
 
 const seqByUser: Record<string, number> = {};
+const lastEventAt: Record<string, number> = {};
 let loadSession = 0;
 
 const bumpSeq = (userId: string) => {
@@ -40,6 +46,16 @@ export const useActivityStore = create<ActivityState>()((set) => ({
       }
       return { byUser: { ...state.byUser, [userId]: activity } };
     }),
+
+  applyEvent: (userId, activity, occurredAt) => {
+    const ts = occurredAt ? Date.parse(occurredAt) : NaN;
+    if (Number.isFinite(ts)) {
+      const last = lastEventAt[userId];
+      if (last !== undefined && ts < last) return;
+      lastEventAt[userId] = ts;
+    }
+    useActivityStore.getState().apply(userId, activity);
+  },
 
   applyBulk: (items, requestedIds, snapshot) =>
     set((state) => {
@@ -62,6 +78,7 @@ export const useActivityStore = create<ActivityState>()((set) => ({
   clearAll: () => {
     loadSession += 1;
     for (const key of Object.keys(seqByUser)) delete seqByUser[key];
+    for (const key of Object.keys(lastEventAt)) delete lastEventAt[key];
     set({ byUser: {} });
   },
 }));
