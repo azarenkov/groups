@@ -217,8 +217,8 @@ impl<S: ActivityStore, A: ActivityAudience> GetActivities<S, A> {
         if user_ids.len() > MAX_BATCH {
             return Err(ActivityError::Invalid);
         }
-        let as_of = Utc::now();
         let visible = self.audience.visible_to(&viewer, &user_ids).await?;
+        let as_of = Utc::now();
         if visible.is_empty() {
             return Ok(ActivitySnapshot {
                 as_of,
