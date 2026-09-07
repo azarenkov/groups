@@ -575,7 +575,10 @@ function dispatch(env: WsEnvelope) {
 
     case "user.online": {
       const userId = asString(d.userId);
-      if (userId) usePresenceStore.getState().setOnline(userId);
+      if (userId) {
+        usePresenceStore.getState().setOnline(userId);
+        void loadActivitiesFor([userId]);
+      }
       return;
     }
 

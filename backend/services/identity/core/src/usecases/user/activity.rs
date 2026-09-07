@@ -101,7 +101,13 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
         if let Some(prev) = previous.as_ref() {
             if !prev.source.is_empty() && prev.source != input.source {
                 if prev.game_id == input.game_id {
-                    self.store.set(&user_id, prev, ACTIVITY_TTL).await?;
+                    let adopted = StoredActivity {
+                        source: input.source.clone(),
+                        ..prev.clone()
+                    };
+                    self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
+                    tx.commit().await?;
+                    return Ok(adopted);
                 }
                 tx.commit().await?;
                 return Ok(prev.clone());
