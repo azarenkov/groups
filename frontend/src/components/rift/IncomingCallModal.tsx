@@ -25,9 +25,13 @@ const IncomingCallModal: React.FC = () => {
   useEffect(() => {
     if (!incoming) return;
     if (!callsEnabled || !callAlertsAllowed()) return;
-    if (desktopNotifAllowed()) {
+    let desktopShown = false;
+    const notifyDesktop = () => {
+      if (desktopShown || !desktopNotifAllowed()) return;
+      desktopShown = true;
       showDesktopNotification(incoming.callerName, t("incoming"));
-    }
+    };
+    notifyDesktop();
     const AudioCtx =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext })
@@ -41,7 +45,9 @@ const IncomingCallModal: React.FC = () => {
       { f: 1174.66, at: 0.32, dur: 0.3 },
     ];
     const ring = () => {
-      if (stopped || isQuietNow()) return;
+      if (stopped) return;
+      notifyDesktop();
+      if (isQuietNow()) return;
       const base = ctx.currentTime;
       for (const n of notes) {
         const osc = ctx.createOscillator();
