@@ -226,7 +226,34 @@ let activityCandidate = null;
 let activityPositive = 0;
 let activityNegative = 0;
 
+function listLinuxProcessNames() {
+  const names = new Set();
+  let entries = [];
+  try {
+    entries = fs.readdirSync('/proc');
+  } catch {
+    return names;
+  }
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue;
+    let name = '';
+    try {
+      const cmdline = fs.readFileSync(`/proc/${entry}/cmdline`, 'utf8');
+      name = cmdline.split('\0')[0] || '';
+    } catch {}
+    if (!name) {
+      try {
+        name = fs.readFileSync(`/proc/${entry}/comm`, 'utf8').trim();
+      } catch {}
+    }
+    if (!name) continue;
+    names.add(name.split(/[\\/]/).pop().toLowerCase());
+  }
+  return names;
+}
+
 function listProcessNames() {
+  if (process.platform === 'linux') return Promise.resolve(listLinuxProcessNames());
   return new Promise((resolve) => {
     const isWin = process.platform === 'win32';
     const cmd = isWin ? 'tasklist /FO CSV /NH' : 'ps -axo comm=';

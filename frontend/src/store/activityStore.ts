@@ -94,6 +94,7 @@ export const useActivityStore = create<ActivityState>()((set) => ({
           name: item.name,
           startedAt: item.startedAt,
         };
+        ensureRevalidation();
       }
       return { byUser: next };
     }),
