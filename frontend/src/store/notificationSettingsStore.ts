@@ -408,6 +408,13 @@ export const defaultMentionLevel = (): MentionLevel =>
   useNotificationSettingsStore.getState().mentions;
 
 export const invalidateNotificationSettingsSync = (): void => {
+  syncSeq += 1;
+  if (syncRetryTimer !== null) {
+    window.clearTimeout(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+  syncRetryAttempts = 0;
+  syncRetryInFlight = false;
   useNotificationSettingsStore.setState({ syncedOwner: null });
 };
 
