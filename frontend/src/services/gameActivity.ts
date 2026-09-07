@@ -90,16 +90,26 @@ function sync(): void {
   chain = chain.then(run, run);
 }
 
-export const clearActivityForLogout = async (
+export const clearActivityForLogout = (
   accessToken: string | null | undefined,
 ): Promise<void> => {
-  if (publishedOwner === null) return;
-  publishedOwner = null;
-  stopHeartbeat();
-  if (!accessToken) return;
-  try {
-    await userAPI.clearActivity(sessionId, accessToken);
-  } catch {}
+  const task = async () => {
+    if (publishedOwner === null) return;
+    stopHeartbeat();
+    if (accessToken) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await userAPI.clearActivity(sessionId, accessToken);
+          break;
+        } catch {
+          await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        }
+      }
+    }
+    publishedOwner = null;
+  };
+  chain = chain.then(task, task);
+  return chain;
 };
 
 export const initGameActivity = (): void => {

@@ -303,7 +303,6 @@ impl User {
         }
         if self.disabled_at.is_none() {
             self.disabled_at = Some(now);
-            self.show_game_activity = false;
             self.updated_at = now;
             self.record(UserEvent::Disabled(UserDisabled::record(self.id, now)));
             self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, self.timezone.clone(), now)));

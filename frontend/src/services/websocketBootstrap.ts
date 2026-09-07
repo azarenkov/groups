@@ -161,8 +161,7 @@ function dispatch(env: WsEnvelope) {
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
         purgeServerLocally(serverId);
-        useActivityStore.getState().clearAll();
-        void loadFriendActivities();
+        void loadActivitiesFor(Object.keys(useActivityStore.getState().byUser));
         return;
       }
       useActivityStore.getState().apply(userId, null);
