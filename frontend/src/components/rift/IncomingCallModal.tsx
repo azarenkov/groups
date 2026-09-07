@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useCallStore } from "../../store/callStore";
@@ -21,14 +21,15 @@ const IncomingCallModal: React.FC = () => {
   const quietStart = useNotificationSettingsStore((s) => s.quietStart);
   const quietEnd = useNotificationSettingsStore((s) => s.quietEnd);
   const syncedOwner = useNotificationSettingsStore((s) => s.syncedOwner);
+  const desktopShownForRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!incoming) return;
     if (!callsEnabled || !callAlertsAllowed()) return;
-    let desktopShown = false;
     const notifyDesktop = () => {
-      if (desktopShown || !desktopNotifAllowed()) return;
-      desktopShown = true;
+      if (desktopShownForRef.current === incoming.callId) return;
+      if (!desktopNotifAllowed()) return;
+      desktopShownForRef.current = incoming.callId;
       showDesktopNotification(incoming.callerName, t("incoming"));
     };
     notifyDesktop();
