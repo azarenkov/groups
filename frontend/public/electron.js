@@ -463,7 +463,7 @@ app.on('ready', () => {
     callback({ responseHeaders: headers });
   });
 
-  const ALLOWED_PERMISSIONS = new Set(['media', 'display-capture', 'fullscreen']);
+  const ALLOWED_PERMISSIONS = new Set(['media', 'display-capture', 'fullscreen', 'notifications']);
 
   const isTrustedSource = (value) => {
     if (!value) return false;

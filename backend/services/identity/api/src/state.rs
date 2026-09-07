@@ -12,6 +12,8 @@ use identity::usecases::{
     },
     user::{
         appearance::{GetAppearance, UpdateAppearance},
+        notification_settings::{GetNotificationSettings, UpdateNotificationSettings},
+        voice_settings::{GetVoiceSettings, UpdateVoiceSettings},
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
         delete_account::DeleteAccount, disable_account::DisableAccount, get_me::GetMe,
         rename::RenameUser, request_email_change::RequestEmailChange,
@@ -103,6 +105,10 @@ pub struct AppState {
         SetActivity<PostgresUserRepository, RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub get_activities_usecase: GetActivities<RedisActivityStore>,
+    pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository>,
+    pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresUserRepository>,
+    pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,
+    pub update_notification_settings_usecase: UpdateNotificationSettings<PostgresUserRepository>,
     pub start_connection_usecase:
         StartConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
     pub complete_connection_usecase:

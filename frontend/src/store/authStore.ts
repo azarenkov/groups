@@ -71,6 +71,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     void import("./userNamesStore").then((m) =>
       m.useUserNamesStore.getState().clear(),
     );
+    void import("./voiceSettingsStore").then((m) =>
+      m.invalidateVoiceSettingsSync(),
+    );
+    void import("./notificationSettingsStore").then((m) =>
+      m.invalidateNotificationSettingsSync(),
+    );
     void clearRefreshToken();
   },
 
@@ -129,6 +135,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
     const { useAppearanceStore } = await import("./appearanceStore");
     void useAppearanceStore.getState().syncFromServer(me.id);
+    const { useVoiceSettingsStore } = await import("./voiceSettingsStore");
+    void useVoiceSettingsStore.getState().syncFromServer(me.id);
+    const { useNotificationSettingsStore } = await import(
+      "./notificationSettingsStore"
+    );
+    void useNotificationSettingsStore.getState().syncFromServer(me.id);
   },
 
   setHydrating: (v) => set({ isHydrating: v }),

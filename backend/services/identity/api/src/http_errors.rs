@@ -952,6 +952,56 @@ impl HttpMapping for AppearanceError {
     }
 }
 
+use identity::usecases::user::voice_settings::VoiceSettingsError;
+
+impl HttpMapping for VoiceSettingsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            VoiceSettingsError::Repository(e) => e.to_http_status(),
+            VoiceSettingsError::Invalid => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            VoiceSettingsError::Repository(e) => e.to_user_message(),
+            VoiceSettingsError::Invalid => "Invalid voice settings".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            VoiceSettingsError::Repository(e) => e.to_error_code(),
+            VoiceSettingsError::Invalid => "INVALID_VOICE_SETTINGS",
+        }
+    }
+}
+
+use identity::usecases::user::notification_settings::NotificationSettingsError;
+
+impl HttpMapping for NotificationSettingsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            NotificationSettingsError::Repository(e) => e.to_http_status(),
+            NotificationSettingsError::Invalid => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            NotificationSettingsError::Repository(e) => e.to_user_message(),
+            NotificationSettingsError::Invalid => "Invalid notification settings".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            NotificationSettingsError::Repository(e) => e.to_error_code(),
+            NotificationSettingsError::Invalid => "INVALID_NOTIFICATION_SETTINGS",
+        }
+    }
+}
+
 use identity::usecases::user::activity::ActivityError;
 
 impl HttpMapping for ActivityError {

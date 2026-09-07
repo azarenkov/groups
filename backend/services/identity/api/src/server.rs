@@ -16,6 +16,8 @@ use identity::usecases::{
     },
     user::{
         appearance::{GetAppearance, UpdateAppearance},
+        notification_settings::{GetNotificationSettings, UpdateNotificationSettings},
+        voice_settings::{GetVoiceSettings, UpdateVoiceSettings},
         get_me::GetMe, rename::RenameUser, search_users::SearchUsers,
         update_locale::UpdateUserLocale,
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
@@ -184,6 +186,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
         get_activities_usecase: GetActivities::new(activity_store.clone()),
+        get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone()),
+        update_voice_settings_usecase: UpdateVoiceSettings::new(user_repository.clone()),
+        get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),
+        update_notification_settings_usecase: UpdateNotificationSettings::new(
+            user_repository.clone(),
+        ),
         start_connection_usecase: StartConnection::new(
             user_repository.clone(),
             github_connector.clone(),

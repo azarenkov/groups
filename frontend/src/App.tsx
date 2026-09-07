@@ -12,6 +12,8 @@ import ServersPage from "./pages/ServersPage";
 import ScreenSharePicker from "./components/rift/ScreenSharePicker";
 import { useAuthStore } from "./store/authStore";
 import { applyAppearance, useAppearanceStore } from "./store/appearanceStore";
+import { initPushToTalk } from "./services/pushToTalk";
+import { initDesktopNotifications } from "./utils/desktopNotification";
 import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
 import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
 import { authAPI } from "./api/auth";
@@ -43,6 +45,11 @@ const App: React.FC = () => {
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
   }, [mode, accent, chatFontSize, reduceMotion]);
+
+  useEffect(() => {
+    initPushToTalk();
+    initDesktopNotifications();
+  }, []);
 
   useEffect(() => {
     installWsBootstrap();

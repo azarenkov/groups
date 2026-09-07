@@ -517,4 +517,114 @@ impl UserRepository for PostgresUserRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row)
     }
+
+    async fn get_voice_settings(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<(i16, i16, String, bool, i16, bool, String)>, RepositoryError> {
+        let row: Option<(i16, i16, String, bool, i16, bool, String)> = sqlx::query_as(
+            "SELECT mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key FROM voice_settings WHERE user_id = $1",
+        )
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
+    }
+
+    async fn apply_voice_settings_patch(
+        &self,
+        user_id: &UserId,
+        mic_volume: Option<i16>,
+        output_volume: Option<i16>,
+        noise_mode: Option<&str>,
+        auto_sensitivity: Option<bool>,
+        sensitivity: Option<i16>,
+        push_to_talk: Option<bool>,
+        ptt_key: Option<&str>,
+    ) -> Result<(i16, i16, String, bool, i16, bool, String), RepositoryError> {
+        let row: (i16, i16, String, bool, i16, bool, String) = sqlx::query_as(
+            r#"
+                INSERT INTO voice_settings (user_id, mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key, updated_at)
+                VALUES ($1, COALESCE($2, 100), COALESCE($3, 100), COALESCE($4, 'standard'), COALESCE($5, true), COALESCE($6, 50), COALESCE($7, false), COALESCE($8, 'KeyM'), now())
+                ON CONFLICT (user_id) DO UPDATE
+                    SET mic_volume = COALESCE($2, voice_settings.mic_volume),
+                        output_volume = COALESCE($3, voice_settings.output_volume),
+                        noise_mode = COALESCE($4, voice_settings.noise_mode),
+                        auto_sensitivity = COALESCE($5, voice_settings.auto_sensitivity),
+                        sensitivity = COALESCE($6, voice_settings.sensitivity),
+                        push_to_talk = COALESCE($7, voice_settings.push_to_talk),
+                        ptt_key = COALESCE($8, voice_settings.ptt_key),
+                        updated_at = now()
+                RETURNING mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key
+            "#,
+        )
+        .bind(user_id.uuid())
+        .bind(mic_volume)
+        .bind(output_volume)
+        .bind(noise_mode)
+        .bind(auto_sensitivity)
+        .bind(sensitivity)
+        .bind(push_to_talk)
+        .bind(ptt_key)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
+    }
+
+    async fn get_notification_settings(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<(bool, bool, String, bool, String, String, bool)>, RepositoryError> {
+        let row: Option<(bool, bool, String, bool, String, String, bool)> = sqlx::query_as(
+            "SELECT desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled FROM notification_settings WHERE user_id = $1",
+        )
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
+    }
+
+    async fn apply_notification_settings_patch(
+        &self,
+        user_id: &UserId,
+        desktop_enabled: Option<bool>,
+        sounds_enabled: Option<bool>,
+        mentions: Option<&str>,
+        quiet_hours_enabled: Option<bool>,
+        quiet_start: Option<&str>,
+        quiet_end: Option<&str>,
+        calls_enabled: Option<bool>,
+    ) -> Result<(bool, bool, String, bool, String, String, bool), RepositoryError> {
+        let row: (bool, bool, String, bool, String, String, bool) = sqlx::query_as(
+            r#"
+                INSERT INTO notification_settings (user_id, desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled, updated_at)
+                VALUES ($1, COALESCE($2, true), COALESCE($3, true), COALESCE($4, 'all'), COALESCE($5, false), COALESCE($6, '22:00'), COALESCE($7, '08:00'), COALESCE($8, true), now())
+                ON CONFLICT (user_id) DO UPDATE
+                    SET desktop_enabled = COALESCE($2, notification_settings.desktop_enabled),
+                        sounds_enabled = COALESCE($3, notification_settings.sounds_enabled),
+                        mentions = COALESCE($4, notification_settings.mentions),
+                        quiet_hours_enabled = COALESCE($5, notification_settings.quiet_hours_enabled),
+                        quiet_start = COALESCE($6, notification_settings.quiet_start),
+                        quiet_end = COALESCE($7, notification_settings.quiet_end),
+                        calls_enabled = COALESCE($8, notification_settings.calls_enabled),
+                        updated_at = now()
+                RETURNING desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled
+            "#,
+        )
+        .bind(user_id.uuid())
+        .bind(desktop_enabled)
+        .bind(sounds_enabled)
+        .bind(mentions)
+        .bind(quiet_hours_enabled)
+        .bind(quiet_start)
+        .bind(quiet_end)
+        .bind(calls_enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row)
+    }
 }

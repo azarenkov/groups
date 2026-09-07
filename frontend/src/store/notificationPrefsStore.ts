@@ -35,9 +35,15 @@ const deferredRemote: Record<string, boolean> = {};
 const remoteVersions: Record<string, number> = {};
 let sessionGen = 0;
 let prefsLoaded = false;
+let loadGen = 0;
 
 export function notificationPrefsLoaded(): boolean {
   return prefsLoaded;
+}
+
+export function markNotificationPrefsStale(): void {
+  prefsLoaded = false;
+  loadGen += 1;
 }
 
 function advanceRemoteVersion(key: string, version: number | undefined): void {
@@ -132,11 +138,13 @@ export const useNotificationPrefsStore = create<NotificationPrefsState>()(
 
     load: async () => {
       const gen = sessionGen;
+      const myLoad = ++loadGen;
       const sessionUserId = useAuthStore.getState().user?.id;
       if (!sessionUserId) return;
       const { preferences } = await userAPI.getNotificationPreferences();
       if (
         sessionGen !== gen ||
+        myLoad !== loadGen ||
         useAuthStore.getState().user?.id !== sessionUserId
       ) {
         return;

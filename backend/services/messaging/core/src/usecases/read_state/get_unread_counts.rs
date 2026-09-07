@@ -27,9 +27,18 @@ impl<R: ReadStateRepository> GetUnreadCounts<R> {
     pub async fn execute(
         &self,
         user_id: UserId,
+        default_level: &str,
     ) -> Result<UnreadCounts, GetUnreadCountsError> {
-        let channels = self.repo.channel_unread_counts(&user_id).await?;
-        let dms = self.repo.dm_unread_counts(&user_id).await?;
+        let channel_default = match default_level {
+            "mentions" | "none" => default_level,
+            _ => "all",
+        };
+        let dm_default = if channel_default == "none" { "none" } else { "all" };
+        let channels = self
+            .repo
+            .channel_unread_counts(&user_id, channel_default)
+            .await?;
+        let dms = self.repo.dm_unread_counts(&user_id, dm_default).await?;
         Ok(UnreadCounts { channels, dms })
     }
 }

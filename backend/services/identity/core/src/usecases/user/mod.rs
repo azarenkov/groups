@@ -11,3 +11,5 @@ pub mod search_users;
 pub mod update_locale;
 pub mod update_profile;
 pub mod activity;
+pub mod notification_settings;
+pub mod voice_settings;

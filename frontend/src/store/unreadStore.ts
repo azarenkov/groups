@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { userAPI } from "../api/user";
 import { useAuthStore } from "./authStore";
+import { defaultMentionLevel } from "./notificationSettingsStore";
 
 interface UnreadState {
   byChannel: Record<string, number>;
@@ -109,7 +110,7 @@ export async function refetchUnread(): Promise<void> {
     const gen = mutationGen;
     let u;
     try {
-      u = await userAPI.getUnread();
+      u = await userAPI.getUnread(defaultMentionLevel());
     } catch (e) {
       scheduleRefetchRetry(token);
       throw e;

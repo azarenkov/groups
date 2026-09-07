@@ -25,6 +25,26 @@ export interface UserActivity {
   startedAt: string;
 }
 
+export interface VoiceSettings {
+  micVolume: number;
+  outputVolume: number;
+  noiseMode: string;
+  autoSensitivity: boolean;
+  sensitivity: number;
+  pushToTalk: boolean;
+  pttKey: string;
+}
+
+export interface NotificationSettings {
+  desktopEnabled: boolean;
+  soundsEnabled: boolean;
+  mentions: string;
+  quietHoursEnabled: boolean;
+  quietStart: string;
+  quietEnd: string;
+  callsEnabled: boolean;
+}
+
 export interface Connection {
   provider: string;
   displayName: string;
@@ -160,6 +180,56 @@ class UserAPI {
     return response.data.data.activities;
   }
 
+  async getVoiceSettings(): Promise<VoiceSettings | null> {
+    try {
+      const response = await this.client.get("/v1/users/me/voice");
+      return response.data.data;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "VOICE_SETTINGS_NOT_SET") {
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  async updateVoiceSettings(
+    patch: Partial<VoiceSettings>,
+    accessToken?: string,
+  ): Promise<VoiceSettings> {
+    const response = await this.client.patch("/v1/users/me/voice", patch, {
+      _retry: true,
+      ...(accessToken
+        ? { headers: { Authorization: `Bearer ${accessToken}` } }
+        : {}),
+    } as AxiosRequestConfig);
+    return response.data.data;
+  }
+
+  async getNotificationSettings(): Promise<NotificationSettings | null> {
+    try {
+      const response = await this.client.get("/v1/users/me/notifications");
+      return response.data.data;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "NOTIFICATION_SETTINGS_NOT_SET") {
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  async updateNotificationSettings(
+    patch: Partial<NotificationSettings>,
+  ): Promise<NotificationSettings> {
+    const response = await this.client.patch(
+      "/v1/users/me/notifications",
+      patch,
+      {
+        _retry: true,
+      } as AxiosRequestConfig,
+    );
+    return response.data.data;
+  }
+
   async uploadAvatar(file: File): Promise<void> {
     const form = new FormData();
     form.append("file", file, file.name);
@@ -220,11 +290,13 @@ class UserAPI {
     return response.data;
   }
 
-  async getUnread(): Promise<{
+  async getUnread(defaultLevel?: string): Promise<{
     channels: { channelId: string; serverId: string; count: number }[];
     dms: { friendId: string; count: number }[];
   }> {
-    const response = await this.client.get("/v1/me/unread");
+    const response = await this.client.get("/v1/me/unread", {
+      params: defaultLevel ? { default_level: defaultLevel } : undefined,
+    });
     return response.data.data;
   }
 

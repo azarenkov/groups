@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { useLocalTrack } from "../../hooks/useLocalTrack";
 import { getLiveKitService, NoiseSuppressionMode } from "../../services/livekit";
+import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 import { UserAvatar } from "./Avatar";
 
 export interface VoicePillInvite {
@@ -48,7 +49,9 @@ const VoicePill: React.FC<VoicePillProps> = ({
   const [noise, setNoise] = useState<NoiseSuppressionMode>(() =>
     getLiveKitService().getNoiseSuppressionMode(),
   );
-  const [noiseStrengthPct, setNoiseStrengthPct] = useState(50);
+  const [noiseStrengthPct, setNoiseStrengthPct] = useState(() =>
+    Math.round(getLiveKitService().getNoiseStrength() * 100),
+  );
   const [meter, setMeter] = useState<number[]>(() => new Array(BARS).fill(0));
   const localTrack = useLocalTrack();
   const trackId = localTrack?.id ?? "";
@@ -57,6 +60,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
 
   const handleNoiseChange = async (next: NoiseSuppressionMode) => {
     setNoise(next);
+    useVoiceSettingsStore.getState().update({ noiseMode: next });
     if (next === "high") {
       setNoiseStrengthPct(50);
       getLiveKitService().setNoiseStrength(0.5);
@@ -67,13 +71,24 @@ const VoicePill: React.FC<VoicePillProps> = ({
       console.warn("[VoicePill] noise suppression toggle failed:", e);
     }
     const actual = getLiveKitService().getNoiseSuppressionMode();
-    if (actual !== next) setNoise(actual);
+    if (actual !== next) {
+      setNoise(actual);
+      const store = useVoiceSettingsStore.getState();
+      if (store.noiseMode === next) store.update({ noiseMode: actual });
+    }
   };
 
   const handleStrengthChange = (pct: number) => {
     setNoiseStrengthPct(pct);
     getLiveKitService().setNoiseStrength(pct / 100);
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const service = getLiveKitService();
+    setNoise(service.getNoiseSuppressionMode());
+    setNoiseStrengthPct(Math.round(service.getNoiseStrength() * 100));
+  }, [open]);
 
   const anyOpen = open || inviteOpen;
   useEffect(() => {
@@ -149,10 +164,26 @@ const VoicePill: React.FC<VoicePillProps> = ({
 
       const bins = analyser.frequencyBinCount;
       const data = new Uint8Array(bins);
+      const tdata = new Uint8Array(analyser.fftSize);
       const usable = Math.floor(bins * 0.6);
       const perBar = Math.max(1, Math.floor(usable / BARS));
-      const SPEAK_ON = 22;
-      const SPEAK_OFF = 12;
+      const speakLevels = (maxSample: number) => {
+        const { autoSensitivity, sensitivity } =
+          useVoiceSettingsStore.getState();
+        if (autoSensitivity || !analyser) {
+          return { above: maxSample > 22, aboveOff: maxSample > 12 };
+        }
+        analyser.getByteTimeDomainData(tdata);
+        let sum = 0;
+        for (let i = 0; i < tdata.length; i++) {
+          const d = (tdata[i] - 128) / 128;
+          sum += d * d;
+        }
+        const db =
+          20 * Math.log10(Math.max(Math.sqrt(sum / tdata.length), 1e-6));
+        const thr = -72 + 0.72 * sensitivity;
+        return { above: db > thr, aboveOff: db > thr - 6 };
+      };
       const SPEAK_RELEASE_MS = 250;
 
       const tick = () => {
@@ -173,10 +204,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
         if (openRef.current) setMeter(next);
 
         const now = performance.now();
+        const lv = speakLevels(maxSample);
         const wantSpeaking = lastSpeaking
-          ? maxSample > SPEAK_OFF ||
-            now - lastSpeakingChangeAt < SPEAK_RELEASE_MS
-          : maxSample > SPEAK_ON;
+          ? lv.aboveOff || now - lastSpeakingChangeAt < SPEAK_RELEASE_MS
+          : lv.above;
         if (wantSpeaking !== lastSpeaking) {
           lastSpeaking = wantSpeaking;
           lastSpeakingChangeAt = now;
