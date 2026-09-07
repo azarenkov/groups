@@ -23,6 +23,12 @@ export interface UserActivity {
   gameId: string;
   name: string;
   startedAt: string;
+  changedAt: string;
+}
+
+export interface ActivitySnapshot {
+  asOf: string;
+  activities: UserActivity[];
 }
 
 export interface VoiceSettings {
@@ -179,12 +185,12 @@ class UserAPI {
     });
   }
 
-  async getActivities(ids: string[]): Promise<UserActivity[]> {
-    if (ids.length === 0) return [];
+  async getActivities(ids: string[]): Promise<ActivitySnapshot> {
+    if (ids.length === 0) return { asOf: new Date().toISOString(), activities: [] };
     const response = await this.client.get("/v1/users/activity", {
       params: { ids: ids.join(",") },
     });
-    return response.data.data.activities;
+    return response.data.data;
   }
 
   async getVoiceSettings(): Promise<VoiceSettings | null> {

@@ -19,14 +19,16 @@ interface ActivityState {
     occurredAt: string | null,
   ) => void;
   applyBulk: (
-    items: (GameActivity & { userId: string })[],
+    items: (GameActivity & { userId: string; changedAt: string })[],
     requestedIds: string[],
     snapshot: Record<string, number>,
+    asOf: string,
   ) => void;
   clearAll: () => void;
 }
 
 const REVALIDATE_MS = 60_000;
+const SNAPSHOT_SKEW_MS = 5_000;
 
 const seqByUser: Record<string, number> = {};
 const lastEventAt: Record<string, number> = {};
@@ -35,6 +37,12 @@ let revalidateTimer: number | null = null;
 
 const bumpSeq = (userId: string) => {
   seqByUser[userId] = (seqByUser[userId] ?? 0) + 1;
+};
+
+const raiseEventFloor = (userId: string, ts: number) => {
+  if (!Number.isFinite(ts)) return;
+  const last = lastEventAt[userId];
+  if (last === undefined || ts > last) lastEventAt[userId] = ts;
 };
 
 const stopRevalidation = () => {
@@ -80,13 +88,17 @@ export const useActivityStore = create<ActivityState>()((set) => ({
     useActivityStore.getState().apply(userId, activity);
   },
 
-  applyBulk: (items, requestedIds, snapshot) =>
+  applyBulk: (items, requestedIds, snapshot, asOf) =>
     set((state) => {
       const next = { ...state.byUser };
       const fresh = new Set(
         requestedIds.filter((id) => (seqByUser[id] ?? 0) === (snapshot[id] ?? 0)),
       );
-      for (const id of fresh) delete next[id];
+      const floor = Date.parse(asOf) - SNAPSHOT_SKEW_MS;
+      for (const id of fresh) {
+        delete next[id];
+        raiseEventFloor(id, floor);
+      }
       for (const item of items) {
         if (!fresh.has(item.userId)) continue;
         next[item.userId] = {
@@ -94,6 +106,7 @@ export const useActivityStore = create<ActivityState>()((set) => ({
           name: item.name,
           startedAt: item.startedAt,
         };
+        raiseEventFloor(item.userId, Date.parse(item.changedAt));
         ensureRevalidation();
       }
       return { byUser: next };
@@ -121,9 +134,9 @@ export async function loadActivitiesFor(userIds: string[]): Promise<void> {
       for (const id of chunk) snapshot[id] = seqByUser[id] ?? 0;
       return userAPI
         .getActivities(chunk)
-        .then((items) => {
+        .then(({ asOf, activities }) => {
           if (session !== loadSession) return;
-          useActivityStore.getState().applyBulk(items, chunk, snapshot);
+          useActivityStore.getState().applyBulk(activities, chunk, snapshot, asOf);
         })
         .catch(() => {});
     }),

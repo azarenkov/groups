@@ -48,15 +48,24 @@ fn valid_game_id(value: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-fn activity_event(user_id: UserId, activity: Option<&StoredActivity>) -> IdentityEvent {
+fn activity_event(
+    user_id: UserId,
+    activity: Option<&StoredActivity>,
+    occurred_at: DateTime<Utc>,
+) -> IdentityEvent {
     IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
         id: EventId::generate(),
         user_id,
         game_id: activity.map(|a| a.game_id.clone()),
         name: activity.map(|a| a.name.clone()),
         started_at: activity.map(|a| a.started_at),
-        occurred_at: Utc::now(),
+        occurred_at,
     }))
+}
+
+pub struct ActivitySnapshot {
+    pub as_of: DateTime<Utc>,
+    pub activities: Vec<(UserId, StoredActivity)>,
 }
 
 pub struct SetActivity<S: ActivityStore, W: IdentityUnitOfWork> {
@@ -91,7 +100,8 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .ok_or(ActivityError::UserNotFound)?;
         if user.is_disabled() || user.is_deleted() || !user.show_game_activity() {
             self.store.clear(&user_id).await?;
-            tx.save_events(&[activity_event(user_id, None)], None).await?;
+            tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
+                .await?;
             tx.commit().await?;
             return Err(ActivityError::Hidden);
         }
@@ -120,17 +130,24 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .as_ref()
             .map(|p| p.game_id != input.game_id || !p.published)
             .unwrap_or(true);
+        let now = Utc::now();
         let mut activity = StoredActivity {
             game_id: input.game_id,
             name: name.to_string(),
             started_at: input.started_at,
             published: !needs_publish,
             source: input.source,
-            refreshed_at: Utc::now(),
+            refreshed_at: now,
+            changed_at: if needs_publish {
+                now
+            } else {
+                previous.as_ref().map(|p| p.changed_at).unwrap_or(now)
+            },
         };
         self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
         if needs_publish {
-            tx.save_events(&[activity_event(user_id, Some(&activity))], None).await?;
+            tx.save_events(&[activity_event(user_id, Some(&activity), now)], None)
+                .await?;
         }
         tx.commit().await?;
         if needs_publish {
@@ -170,7 +187,8 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
             }
         }
         self.store.clear(&user_id).await?;
-        tx.save_events(&[activity_event(user_id, None)], None).await?;
+        tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
+            .await?;
         tx.commit().await?;
         Ok(())
     }
@@ -190,20 +208,25 @@ impl<S: ActivityStore, A: ActivityAudience> GetActivities<S, A> {
         &self,
         viewer: UserId,
         user_ids: Vec<UserId>,
-    ) -> Result<Vec<(UserId, StoredActivity)>, ActivityError> {
+    ) -> Result<ActivitySnapshot, ActivityError> {
         if user_ids.len() > MAX_BATCH {
             return Err(ActivityError::Invalid);
         }
+        let as_of = Utc::now();
         let visible = self.audience.visible_to(&viewer, &user_ids).await?;
         if visible.is_empty() {
-            return Ok(Vec::new());
+            return Ok(ActivitySnapshot {
+                as_of,
+                activities: Vec::new(),
+            });
         }
-        Ok(self
+        let activities = self
             .store
             .get_many(&visible)
             .await?
             .into_iter()
             .filter(|(_, activity)| activity.published)
-            .collect())
+            .collect();
+        Ok(ActivitySnapshot { as_of, activities })
     }
 }

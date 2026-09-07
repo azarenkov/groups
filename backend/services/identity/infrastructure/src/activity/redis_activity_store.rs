@@ -19,6 +19,8 @@ struct ActivityRecord {
     source: String,
     #[serde(default = "Utc::now")]
     refreshed_at: DateTime<Utc>,
+    #[serde(default = "Utc::now")]
+    changed_at: DateTime<Utc>,
 }
 
 fn default_true() -> bool {
@@ -81,6 +83,7 @@ impl RedisActivityStore {
             published: record.published,
             source: record.source,
             refreshed_at: record.refreshed_at,
+            changed_at: record.changed_at,
         })
     }
 }
@@ -115,6 +118,7 @@ impl ActivityStore for RedisActivityStore {
             published: activity.published,
             source: activity.source.clone(),
             refreshed_at: activity.refreshed_at,
+            changed_at: activity.changed_at,
         })
         .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         let _: () = connection

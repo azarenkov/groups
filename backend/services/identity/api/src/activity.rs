@@ -32,11 +32,13 @@ struct ActivityItem {
     game_id: String,
     name: String,
     started_at: DateTime<Utc>,
+    changed_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ActivitiesResponse {
+    as_of: DateTime<Utc>,
     activities: Vec<ActivityItem>,
 }
 
@@ -69,6 +71,7 @@ pub async fn set_me_activity(
         game_id: activity.game_id,
         name: activity.name,
         started_at: activity.started_at,
+        changed_at: activity.changed_at,
     })))
 }
 
@@ -97,18 +100,21 @@ pub async fn list_activities(
         .filter_map(|raw| Uuid::parse_str(raw.trim()).ok())
         .map(UserId::new)
         .collect();
-    let activities = app_state
+    let snapshot = app_state
         .get_activities_usecase
         .execute(UserId::new(auth_token.id), ids)
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(ActivitiesResponse {
-        activities: activities
+        as_of: snapshot.as_of,
+        activities: snapshot
+            .activities
             .into_iter()
             .map(|(user_id, a)| ActivityItem {
                 user_id: user_id.uuid(),
                 game_id: a.game_id,
                 name: a.name,
                 started_at: a.started_at,
+                changed_at: a.changed_at,
             })
             .collect(),
     })))
