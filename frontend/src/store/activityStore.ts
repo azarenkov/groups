@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { userAPI } from "../api/user";
 import { useFriendshipStore } from "./friendshipStore";
+import { useAuthStore } from "./authStore";
 
 export interface GameActivity {
   gameId: string;
@@ -84,7 +85,8 @@ export const useActivityStore = create<ActivityState>()((set) => ({
 }));
 
 export async function loadActivitiesFor(userIds: string[]): Promise<void> {
-  const ids = Array.from(new Set(userIds));
+  const selfId = useAuthStore.getState().user?.id ?? null;
+  const ids = Array.from(new Set(userIds)).filter((id) => id !== selfId);
   if (ids.length === 0) return;
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));

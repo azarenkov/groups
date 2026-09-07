@@ -27,6 +27,8 @@ pub enum ActivityError {
     Invalid,
     #[error("Activity is hidden by privacy settings")]
     Hidden,
+    #[error("Activity is published by another session")]
+    Leased,
     #[error("User not found")]
     UserNotFound,
 }
@@ -105,7 +107,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                     > chrono::Duration::seconds(OWNER_ABANDONED_AFTER_SECS);
                 if !owner_abandoned {
                     tx.commit().await?;
-                    return Ok(prev.clone());
+                    return Err(ActivityError::Leased);
                 }
                 if prev.game_id == input.game_id {
                     let adopted = StoredActivity {
@@ -164,8 +166,12 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         }
         if let Some(prev) = self.store.get(&user_id).await? {
             if !source.is_empty() && !prev.source.is_empty() && prev.source != source {
-                tx.commit().await?;
-                return Ok(());
+                let owner_abandoned = Utc::now() - prev.refreshed_at
+                    > chrono::Duration::seconds(OWNER_ABANDONED_AFTER_SECS);
+                if !owner_abandoned {
+                    tx.commit().await?;
+                    return Err(ActivityError::Leased);
+                }
             }
         }
         self.store.clear(&user_id).await?;

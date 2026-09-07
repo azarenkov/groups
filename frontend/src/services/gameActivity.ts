@@ -10,6 +10,8 @@ interface LocalActivity {
 }
 
 const HEARTBEAT_MS = 30_000;
+const LEASE_CLEAR_RETRY_MS = 10_000;
+const LEASE_CLEAR_MAX_ATTEMPTS = 6;
 
 const sessionId = (() => {
   try {
@@ -21,6 +23,8 @@ const sessionId = (() => {
 
 let current: LocalActivity | null = null;
 let publishedOwner: string | null = null;
+let leasedFor: string | null = null;
+let leaseClearAttempts = 0;
 let heartbeat: number | null = null;
 let hiddenFor: string | null = null;
 let retryTimer: number | null = null;
@@ -34,12 +38,25 @@ const stopHeartbeat = () => {
   }
 };
 
-const scheduleRetry = () => {
+const startHeartbeat = () => {
+  if (heartbeat !== null) return;
+  heartbeat = window.setInterval(() => {
+    if (!current) return;
+    sync();
+  }, HEARTBEAT_MS);
+};
+
+const scheduleRetry = (delay = 5000) => {
   if (retryTimer !== null) return;
   retryTimer = window.setTimeout(() => {
     retryTimer = null;
     sync();
-  }, 5000);
+  }, delay);
+};
+
+const dropLease = () => {
+  leasedFor = null;
+  leaseClearAttempts = 0;
 };
 
 const run = async (): Promise<void> => {
@@ -49,6 +66,10 @@ const run = async (): Promise<void> => {
     publishedOwner = null;
     stopHeartbeat();
   }
+  if (leasedFor !== null && leasedFor !== userId) {
+    dropLease();
+    stopHeartbeat();
+  }
   if (!userId) {
     stopHeartbeat();
     return;
@@ -56,15 +77,24 @@ const run = async (): Promise<void> => {
   const allowed = auth.user?.showGameActivity !== false && hiddenFor !== userId;
   if (!current || !allowed) {
     stopHeartbeat();
-    if (publishedOwner === userId) {
+    if (publishedOwner === userId || leasedFor === userId) {
       try {
         await userAPI.clearActivity(sessionId);
         publishedOwner = null;
+        dropLease();
         if (useAuthStore.getState().user?.id === userId) {
           useActivityStore.getState().apply(userId, null);
         }
-      } catch {
-        scheduleRetry();
+      } catch (e) {
+        if (e instanceof ApiError && e.code === "ACTIVITY_LEASED") {
+          publishedOwner = null;
+          leasedFor = userId;
+          leaseClearAttempts += 1;
+          if (leaseClearAttempts >= LEASE_CLEAR_MAX_ATTEMPTS) dropLease();
+          else scheduleRetry(LEASE_CLEAR_RETRY_MS);
+        } else {
+          scheduleRetry();
+        }
       }
     }
     return;
@@ -73,6 +103,7 @@ const run = async (): Promise<void> => {
   try {
     const stored = await userAPI.setActivity({ ...activity, sessionId });
     publishedOwner = userId;
+    dropLease();
     if (useAuthStore.getState().user?.id === userId) {
       useActivityStore.getState().apply(userId, {
         gameId: stored.gameId,
@@ -80,17 +111,17 @@ const run = async (): Promise<void> => {
         startedAt: stored.startedAt,
       });
     }
-    if (heartbeat === null) {
-      heartbeat = window.setInterval(() => {
-        if (!current) return;
-        sync();
-      }, HEARTBEAT_MS);
-    }
+    startHeartbeat();
   } catch (e) {
     if (e instanceof ApiError && e.code === "ACTIVITY_HIDDEN") {
       hiddenFor = userId;
       publishedOwner = null;
+      dropLease();
       stopHeartbeat();
+    } else if (e instanceof ApiError && e.code === "ACTIVITY_LEASED") {
+      publishedOwner = null;
+      leasedFor = userId;
+      startHeartbeat();
     } else {
       scheduleRetry();
     }
@@ -105,7 +136,7 @@ export const clearActivityForLogout = (
   accessToken: string | null | undefined,
 ): Promise<void> => {
   const task = async () => {
-    if (publishedOwner === null) return;
+    if (publishedOwner === null && leasedFor === null) return;
     stopHeartbeat();
     if (accessToken) {
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -118,6 +149,7 @@ export const clearActivityForLogout = (
       }
     }
     publishedOwner = null;
+    dropLease();
   };
   chain = chain.then(task, task);
   return chain;
