@@ -34,6 +34,7 @@ pub struct ActivityInput {
     pub game_id: String,
     pub name: String,
     pub started_at: DateTime<Utc>,
+    pub source: String,
 }
 
 fn valid_game_id(value: &str) -> bool {
@@ -80,6 +81,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
     ) -> Result<StoredActivity, ActivityError> {
         if !valid_game_id(&input.game_id)
             || !valid_name(&input.name)
+            || !valid_game_id(&input.source)
             || input.started_at > Utc::now() + chrono::Duration::minutes(5)
         {
             return Err(ActivityError::Invalid);
@@ -96,6 +98,15 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             return Err(ActivityError::Hidden);
         }
         let previous = self.store.get(&user_id).await?;
+        if let Some(prev) = previous.as_ref() {
+            if !prev.source.is_empty() && prev.source != input.source {
+                if prev.game_id == input.game_id {
+                    self.store.set(&user_id, prev, ACTIVITY_TTL).await?;
+                }
+                tx.commit().await?;
+                return Ok(prev.clone());
+            }
+        }
         let needs_publish = previous
             .as_ref()
             .map(|p| p.game_id != input.game_id || !p.published)
@@ -105,6 +116,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             name: input.name.trim().to_string(),
             started_at: input.started_at,
             published: !needs_publish,
+            source: input.source,
         };
         self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
         if needs_publish {
@@ -132,10 +144,16 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         }
     }
 
-    pub async fn execute(&self, user_id: UserId) -> Result<(), ActivityError> {
+    pub async fn execute(&self, user_id: UserId, source: &str) -> Result<(), ActivityError> {
         let mut tx = self.unit_of_work.begin().await?;
         if tx.load_user_for_update(&user_id).await?.is_none() {
             return Err(ActivityError::UserNotFound);
+        }
+        if let Some(prev) = self.store.get(&user_id).await? {
+            if !source.is_empty() && !prev.source.is_empty() && prev.source != source {
+                tx.commit().await?;
+                return Ok(());
+            }
         }
         self.store.clear(&user_id).await?;
         tx.save_events(&[activity_event(user_id, None)], None).await?;

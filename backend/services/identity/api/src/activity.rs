@@ -16,6 +16,14 @@ struct ActivityBody {
     game_id: String,
     name: String,
     started_at: DateTime<Utc>,
+    #[serde(default)]
+    session_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClearQuery {
+    #[serde(default)]
+    session_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -54,6 +62,7 @@ pub async fn set_me_activity(
                 game_id: body.game_id,
                 name: body.name,
                 started_at: body.started_at,
+                source: body.session_id,
             },
         )
         .await?;
@@ -69,10 +78,11 @@ pub async fn set_me_activity(
 pub async fn clear_me_activity(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
+    query: web::Query<ClearQuery>,
 ) -> Result<impl Responder, HttpError> {
     app_state
         .clear_activity_usecase
-        .execute(UserId::new(auth_token.id))
+        .execute(UserId::new(auth_token.id), &query.session_id)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }

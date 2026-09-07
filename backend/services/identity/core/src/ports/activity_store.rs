@@ -10,6 +10,7 @@ pub struct StoredActivity {
     pub name: String,
     pub started_at: DateTime<Utc>,
     pub published: bool,
+    pub source: String,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -164,12 +164,14 @@ class UserAPI {
     gameId: string;
     name: string;
     startedAt: string;
+    sessionId: string;
   }): Promise<void> {
     await this.client.put("/v1/users/me/activity", input);
   }
 
-  async clearActivity(accessToken?: string): Promise<void> {
+  async clearActivity(sessionId: string, accessToken?: string): Promise<void> {
     await this.client.delete("/v1/users/me/activity", {
+      params: { session_id: sessionId },
       ...(accessToken
         ? { headers: { Authorization: `Bearer ${accessToken}` } }
         : {}),

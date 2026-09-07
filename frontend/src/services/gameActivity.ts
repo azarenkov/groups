@@ -10,6 +10,14 @@ interface LocalActivity {
 
 const HEARTBEAT_MS = 30_000;
 
+const sessionId = (() => {
+  try {
+    return crypto.randomUUID().replace(/-/g, "");
+  } catch {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  }
+})();
+
 let current: LocalActivity | null = null;
 let publishedOwner: string | null = null;
 let heartbeat: number | null = null;
@@ -49,7 +57,7 @@ const run = async (): Promise<void> => {
     stopHeartbeat();
     if (publishedOwner === userId) {
       try {
-        await userAPI.clearActivity();
+        await userAPI.clearActivity(sessionId);
         publishedOwner = null;
       } catch {
         scheduleRetry();
@@ -59,7 +67,7 @@ const run = async (): Promise<void> => {
   }
   const activity = current;
   try {
-    await userAPI.setActivity(activity);
+    await userAPI.setActivity({ ...activity, sessionId });
     publishedOwner = userId;
     if (heartbeat === null) {
       heartbeat = window.setInterval(() => {
@@ -90,7 +98,7 @@ export const clearActivityForLogout = async (
   stopHeartbeat();
   if (!accessToken) return;
   try {
-    await userAPI.clearActivity(accessToken);
+    await userAPI.clearActivity(sessionId, accessToken);
   } catch {}
 };
 

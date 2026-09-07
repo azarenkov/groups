@@ -14,7 +14,11 @@ import {
   useDmPreviewStore,
 } from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
-import { loadFriendActivities, useActivityStore } from "../store/activityStore";
+import {
+  loadActivitiesFor,
+  loadFriendActivities,
+  useActivityStore,
+} from "../store/activityStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import {
@@ -232,6 +236,14 @@ function dispatch(env: WsEnvelope) {
     }
 
     case "friendship.removed": {
+      const removedSelf = useAuthStore.getState().user?.id;
+      const removedA = asString(d.userId);
+      const removedB = asString(d.otherId);
+      const peer = removedA === removedSelf ? removedB : removedA;
+      if (peer) {
+        useActivityStore.getState().apply(peer, null);
+        void loadActivitiesFor([peer]);
+      }
       void useFriendshipStore
         .getState()
         .fetchFriends()
