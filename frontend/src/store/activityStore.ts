@@ -90,10 +90,14 @@ export const useActivityStore = create<ActivityState>()((set) => ({
   applyBulk: (items, requestedIds, snapshot, asOf) =>
     set((state) => {
       const next = { ...state.byUser };
-      const fresh = new Set(
-        requestedIds.filter((id) => (seqByUser[id] ?? 0) === (snapshot[id] ?? 0)),
-      );
       const floor = Date.parse(asOf);
+      const fresh = new Set(
+        requestedIds.filter(
+          (id) =>
+            (seqByUser[id] ?? 0) === (snapshot[id] ?? 0) &&
+            !(Number.isFinite(floor) && (lastEventAt[id] ?? -Infinity) > floor),
+        ),
+      );
       for (const id of fresh) {
         delete next[id];
         raiseEventFloor(id, floor);
