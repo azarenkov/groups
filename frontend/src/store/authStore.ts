@@ -68,6 +68,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     void import("../services/gameActivity").then((m) =>
       m.clearActivityForLogout(outgoingToken),
     );
+    void import("./activityStore").then((m) => m.useActivityStore.getState().clearAll());
     set({ user: null, tokens: null, isAuthenticated: false, error: null });
     useReadReceiptStore.getState().clear();
     useDmPreviewStore.getState().clear();

@@ -21,6 +21,7 @@ interface ActivityState {
 }
 
 const seqByUser: Record<string, number> = {};
+let loadSession = 0;
 
 const bumpSeq = (userId: string) => {
   seqByUser[userId] = (seqByUser[userId] ?? 0) + 1;
@@ -58,7 +59,11 @@ export const useActivityStore = create<ActivityState>()((set) => ({
       return { byUser: next };
     }),
 
-  clearAll: () => set({ byUser: {} }),
+  clearAll: () => {
+    loadSession += 1;
+    for (const key of Object.keys(seqByUser)) delete seqByUser[key];
+    set({ byUser: {} });
+  },
 }));
 
 export async function loadActivitiesFor(userIds: string[]): Promise<void> {
@@ -66,15 +71,17 @@ export async function loadActivitiesFor(userIds: string[]): Promise<void> {
   if (ids.length === 0) return;
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  const session = loadSession;
   await Promise.all(
     chunks.map((chunk) => {
       const snapshot: Record<string, number> = {};
       for (const id of chunk) snapshot[id] = seqByUser[id] ?? 0;
       return userAPI
         .getActivities(chunk)
-        .then((items) =>
-          useActivityStore.getState().applyBulk(items, chunk, snapshot),
-        )
+        .then((items) => {
+          if (session !== loadSession) return;
+          useActivityStore.getState().applyBulk(items, chunk, snapshot);
+        })
         .catch(() => {});
     }),
   );
