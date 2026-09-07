@@ -89,6 +89,27 @@ const stashPatchFor = (
   writePendingMap(map);
 };
 
+const ackPatchFor = (
+  owner: string,
+  patch: Partial<NotificationSyncedSettings>,
+) => {
+  const map = readPendingMap();
+  const entry = map[owner];
+  if (!entry) return;
+  const remaining: Partial<NotificationSyncedSettings> = { ...entry };
+  for (const key of SETTING_KEYS) {
+    if (patch[key] !== undefined && remaining[key] === patch[key]) {
+      delete remaining[key];
+    }
+  }
+  if (Object.keys(remaining).length > 0) {
+    map[owner] = remaining;
+  } else {
+    delete map[owner];
+  }
+  writePendingMap(map);
+};
+
 const persistPending = () => {
   if (pendingOwner === null) return;
   try {
@@ -169,6 +190,7 @@ const flushSave = async (): Promise<void> => {
     }
     const { userAPI } = await import("../api/user");
     await userAPI.updateNotificationSettings(patch);
+    if (owner !== null) ackPatchFor(owner, patch);
     saveAttempts = 0;
   } catch (err) {
     console.warn("[notification-settings] save failed:", err);

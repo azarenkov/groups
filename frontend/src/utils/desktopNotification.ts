@@ -28,13 +28,24 @@ export function requestDesktopNotificationPermission(): void {
 }
 
 export function initDesktopNotifications(): void {
-  const onGesture = () => {
-    if (!settingsSyncedForCurrentUser()) return;
-    if (useNotificationSettingsStore.getState().desktopEnabled) {
-      requestDesktopNotificationPermission();
-    }
+  const disarm = () => {
     window.removeEventListener("pointerdown", onGesture);
     window.removeEventListener("keydown", onGesture);
+  };
+  const onGesture = () => {
+    try {
+      if (typeof Notification === "undefined" || Notification.permission !== "default") {
+        disarm();
+        return;
+      }
+    } catch {
+      disarm();
+      return;
+    }
+    if (!settingsSyncedForCurrentUser()) return;
+    if (!useNotificationSettingsStore.getState().desktopEnabled) return;
+    requestDesktopNotificationPermission();
+    disarm();
   };
   window.addEventListener("pointerdown", onGesture);
   window.addEventListener("keydown", onGesture);
