@@ -124,6 +124,17 @@ export const useActivityStore = create<ActivityState>()((set) => ({
   },
 }));
 
+const trackedIds = new Map<string, string[]>();
+
+export function trackActivityIds(key: string, ids: string[] | null): void {
+  if (ids === null) trackedIds.delete(key);
+  else trackedIds.set(key, ids);
+}
+
+export function trackedActivityIds(): string[] {
+  return Array.from(new Set(Array.from(trackedIds.values()).flat()));
+}
+
 export async function loadActivitiesFor(userIds: string[]): Promise<void> {
   const selfId = useAuthStore.getState().user?.id ?? null;
   const ids = Array.from(new Set(userIds)).filter((id) => id !== selfId);

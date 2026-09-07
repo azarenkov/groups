@@ -17,6 +17,7 @@ import { usePresenceStore } from "../store/presenceStore";
 import {
   loadActivitiesFor,
   loadFriendActivities,
+  trackedActivityIds,
   useActivityStore,
 } from "../store/activityStore";
 import { useAuthStore } from "../store/authStore";
@@ -803,6 +804,7 @@ export function installWsBootstrap() {
     });
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
+    void loadActivitiesFor(trackedActivityIds());
     const friendsBefore = useFriendshipStore
       .getState()
       .friends.filter((f) => f.status === "accepted")

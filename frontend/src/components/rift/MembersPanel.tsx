@@ -6,7 +6,7 @@ import { channelAPI } from "../../api/channel";
 import type { ChannelParticipant } from "../../types/channel";
 import { UserAvatar } from "./Avatar";
 import { usePresenceStore } from "../../store/presenceStore";
-import { loadActivitiesFor, useActivityStore } from "../../store/activityStore";
+import { loadActivitiesFor, trackActivityIds, useActivityStore } from "../../store/activityStore";
 import { useUserNamesStore } from "../../store/userNamesStore";
 import { topRoleFor, useRolesStore } from "../../store/rolesStore";
 import { useServerStore } from "../../store/serverStore";
@@ -24,8 +24,12 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
     for (const m of members) {
       apply(m.id, m.bio ?? "", profileVersion(m.profileUpdatedAt));
     }
-    void loadActivitiesFor(members.map((m) => m.id));
-  }, [members]);
+    const ids = members.map((m) => m.id);
+    const key = `members:${serverId}:${channelId}`;
+    trackActivityIds(key, ids);
+    void loadActivitiesFor(ids);
+    return () => trackActivityIds(key, null);
+  }, [members, serverId, channelId]);
   const onlineUsers = usePresenceStore((s) => s.online);
   const activities = useActivityStore((s) => s.byUser);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
