@@ -28,7 +28,6 @@ interface ActivityState {
 }
 
 const REVALIDATE_MS = 60_000;
-const SNAPSHOT_SKEW_MS = 5_000;
 
 const seqByUser: Record<string, number> = {};
 const lastEventAt: Record<string, number> = {};
@@ -94,7 +93,7 @@ export const useActivityStore = create<ActivityState>()((set) => ({
       const fresh = new Set(
         requestedIds.filter((id) => (seqByUser[id] ?? 0) === (snapshot[id] ?? 0)),
       );
-      const floor = Date.parse(asOf) - SNAPSHOT_SKEW_MS;
+      const floor = Date.parse(asOf);
       for (const id of fresh) {
         delete next[id];
         raiseEventFloor(id, floor);
