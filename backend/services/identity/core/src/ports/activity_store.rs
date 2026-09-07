@@ -30,6 +30,13 @@ pub trait ActivityStore: Send + Sync {
         activity: &StoredActivity,
         ttl: Duration,
     ) -> Result<Option<StoredActivity>, ActivityStoreError>;
+    async fn set_if_current(
+        &self,
+        user_id: &UserId,
+        expected: &StoredActivity,
+        activity: &StoredActivity,
+        ttl: Duration,
+    ) -> Result<bool, ActivityStoreError>;
     async fn clear(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError>;
     async fn get_many(
         &self,

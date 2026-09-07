@@ -151,8 +151,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
         }
         tx.commit().await?;
         if needs_publish {
+            let provisional = activity.clone();
             activity.published = true;
-            self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
+            self.store
+                .set_if_current(&user_id, &provisional, &activity, ACTIVITY_TTL)
+                .await?;
         }
         Ok(activity)
     }

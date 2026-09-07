@@ -27,6 +27,14 @@ fn default_true() -> bool {
     true
 }
 
+const SET_IF_CURRENT: &str = r#"
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
+  return 1
+end
+return 0
+"#;
+
 pub struct RedisActivityStore {
     client: Option<redis::Client>,
     connection: Arc<Mutex<Option<redis::aio::ConnectionManager>>>,
@@ -51,6 +59,19 @@ impl RedisActivityStore {
             client,
             connection: Arc::new(Mutex::new(None)),
         }
+    }
+
+    fn encode(activity: &StoredActivity) -> Result<String, ActivityStoreError> {
+        serde_json::to_string(&ActivityRecord {
+            game_id: activity.game_id.clone(),
+            name: activity.name.clone(),
+            started_at: activity.started_at,
+            published: activity.published,
+            source: activity.source.clone(),
+            refreshed_at: activity.refreshed_at,
+            changed_at: activity.changed_at,
+        })
+        .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))
     }
 
     async fn connection(&self) -> Result<redis::aio::ConnectionManager, ActivityStoreError> {
@@ -111,21 +132,31 @@ impl ActivityStore for RedisActivityStore {
             .get(&key)
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        let payload = serde_json::to_string(&ActivityRecord {
-            game_id: activity.game_id.clone(),
-            name: activity.name.clone(),
-            started_at: activity.started_at,
-            published: activity.published,
-            source: activity.source.clone(),
-            refreshed_at: activity.refreshed_at,
-            changed_at: activity.changed_at,
-        })
-        .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        let payload = Self::encode(activity)?;
         let _: () = connection
             .set_ex(&key, payload, ttl.as_secs().max(1))
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         Ok(Self::decode(previous))
+    }
+
+    async fn set_if_current(
+        &self,
+        user_id: &UserId,
+        expected: &StoredActivity,
+        activity: &StoredActivity,
+        ttl: Duration,
+    ) -> Result<bool, ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let replaced: i64 = redis::Script::new(SET_IF_CURRENT)
+            .key(Self::key(user_id))
+            .arg(Self::encode(expected)?)
+            .arg(Self::encode(activity)?)
+            .arg(ttl.as_secs().max(1))
+            .invoke_async(&mut connection)
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        Ok(replaced == 1)
     }
 
     async fn clear(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError> {
