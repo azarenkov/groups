@@ -197,6 +197,12 @@ impl<S: ActivityStore, A: ActivityAudience> GetActivities<S, A> {
         if visible.is_empty() {
             return Ok(Vec::new());
         }
-        Ok(self.store.get_many(&visible).await?)
+        Ok(self
+            .store
+            .get_many(&visible)
+            .await?
+            .into_iter()
+            .filter(|(_, activity)| activity.published)
+            .collect())
     }
 }
