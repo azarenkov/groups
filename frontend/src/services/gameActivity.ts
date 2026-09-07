@@ -1,6 +1,7 @@
 import { userAPI } from "../api/user";
 import { useAuthStore } from "../store/authStore";
 import { ApiError } from "../utils/apiError";
+import { useActivityStore } from "../store/activityStore";
 
 interface LocalActivity {
   gameId: string;
@@ -59,6 +60,9 @@ const run = async (): Promise<void> => {
       try {
         await userAPI.clearActivity(sessionId);
         publishedOwner = null;
+        if (useAuthStore.getState().user?.id === userId) {
+          useActivityStore.getState().apply(userId, null);
+        }
       } catch {
         scheduleRetry();
       }
@@ -67,8 +71,15 @@ const run = async (): Promise<void> => {
   }
   const activity = current;
   try {
-    await userAPI.setActivity({ ...activity, sessionId });
+    const stored = await userAPI.setActivity({ ...activity, sessionId });
     publishedOwner = userId;
+    if (useAuthStore.getState().user?.id === userId) {
+      useActivityStore.getState().apply(userId, {
+        gameId: stored.gameId,
+        name: stored.name,
+        startedAt: stored.startedAt,
+      });
+    }
     if (heartbeat === null) {
       heartbeat = window.setInterval(() => {
         if (!current) return;

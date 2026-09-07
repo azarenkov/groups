@@ -165,8 +165,9 @@ class UserAPI {
     name: string;
     startedAt: string;
     sessionId: string;
-  }): Promise<void> {
-    await this.client.put("/v1/users/me/activity", input);
+  }): Promise<UserActivity> {
+    const response = await this.client.put("/v1/users/me/activity", input);
+    return response.data.data;
   }
 
   async clearActivity(sessionId: string, accessToken?: string): Promise<void> {
