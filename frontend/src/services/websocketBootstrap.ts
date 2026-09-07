@@ -151,6 +151,7 @@ function dispatch(env: WsEnvelope) {
       const id = asString(d.id);
       if (!id) return;
       purgeServerLocally(id);
+      void loadActivitiesFor(Object.keys(useActivityStore.getState().byUser));
       return;
     }
 

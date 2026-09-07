@@ -62,6 +62,10 @@ const dropLease = () => {
 const run = async (): Promise<void> => {
   const auth = useAuthStore.getState();
   const userId = auth.user?.id ?? null;
+  if (!userId) {
+    stopHeartbeat();
+    return;
+  }
   if (publishedOwner !== null && publishedOwner !== userId) {
     publishedOwner = null;
     stopHeartbeat();
@@ -69,10 +73,6 @@ const run = async (): Promise<void> => {
   if (leasedFor !== null && leasedFor !== userId) {
     dropLease();
     stopHeartbeat();
-  }
-  if (!userId) {
-    stopHeartbeat();
-    return;
   }
   const allowed = auth.user?.showGameActivity !== false && hiddenFor !== userId;
   if (!current || !allowed) {
