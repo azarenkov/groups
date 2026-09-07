@@ -26,12 +26,33 @@ interface ActivityState {
   clearAll: () => void;
 }
 
+const REVALIDATE_MS = 60_000;
+
 const seqByUser: Record<string, number> = {};
 const lastEventAt: Record<string, number> = {};
 let loadSession = 0;
+let revalidateTimer: number | null = null;
 
 const bumpSeq = (userId: string) => {
   seqByUser[userId] = (seqByUser[userId] ?? 0) + 1;
+};
+
+const stopRevalidation = () => {
+  if (revalidateTimer === null) return;
+  window.clearInterval(revalidateTimer);
+  revalidateTimer = null;
+};
+
+const ensureRevalidation = () => {
+  if (revalidateTimer !== null) return;
+  revalidateTimer = window.setInterval(() => {
+    const ids = Object.keys(useActivityStore.getState().byUser);
+    if (ids.length === 0) {
+      stopRevalidation();
+      return;
+    }
+    void loadActivitiesFor(ids);
+  }, REVALIDATE_MS);
 };
 
 export const useActivityStore = create<ActivityState>()((set) => ({
@@ -45,6 +66,7 @@ export const useActivityStore = create<ActivityState>()((set) => ({
         const { [userId]: _gone, ...rest } = state.byUser;
         return { byUser: rest };
       }
+      ensureRevalidation();
       return { byUser: { ...state.byUser, [userId]: activity } };
     }),
 
@@ -77,6 +99,7 @@ export const useActivityStore = create<ActivityState>()((set) => ({
     }),
 
   clearAll: () => {
+    stopRevalidation();
     loadSession += 1;
     for (const key of Object.keys(seqByUser)) delete seqByUser[key];
     for (const key of Object.keys(lastEventAt)) delete lastEventAt[key];
