@@ -322,6 +322,7 @@ services:
     environment:
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      OUTBOX_LIVENESS_STALE_SECS: ${OUTBOX_LIVENESS_STALE_SECS:-60}
     env_file:
       - path: env/postgres.env
         required: false
@@ -353,6 +354,7 @@ services:
     environment:
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      NOTIFICATION_LIVENESS_STALE_SECS: ${NOTIFICATION_LIVENESS_STALE_SECS:-60}
     env_file:
       - path: env/nats.env
         required: false
@@ -395,6 +397,7 @@ services:
     environment:
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      DISPATCHER_LIVENESS_STALE_SECS: ${DISPATCHER_LIVENESS_STALE_SECS:-30}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     depends_on:
       postgres:
@@ -422,6 +425,7 @@ services:
     environment:
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      LIVEKIT_POOLER_LIVENESS_STALE_SECS: ${LIVEKIT_POOLER_LIVENESS_STALE_SECS:-120}
     env_file:
       - path: env/postgres.env
         required: false
