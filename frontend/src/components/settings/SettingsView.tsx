@@ -16,7 +16,7 @@ import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 import { useNotificationSettingsStore } from "../../store/notificationSettingsStore";
 import { requestDesktopNotificationPermission } from "../../utils/desktopNotification";
 import { useHotkeySettingsStore } from "../../store/hotkeySettingsStore";
-import { bindingBlocker } from "../../services/hotkeys";
+import { activeBindings, bindingBlocker, useActiveBindings } from "../../services/hotkeys";
 import {
   DESKTOP_SHORTCUTS,
   HOTKEY_ACTIONS,
@@ -958,7 +958,7 @@ function VoiceSection() {
       e.stopPropagation();
       if (e.key !== "Escape" && /^[A-Za-z0-9]+$/.test(e.code)) {
         const token = keyTokenFromCode(e.code);
-        const overrides = useHotkeySettingsStore.getState().bindings;
+        const overrides = activeBindings();
         const taken = HOTKEY_ACTIONS.find((a) => {
           const binding = isValidBinding(overrides[a.id]) ? overrides[a.id] : a.defaultBinding;
           return a.scope === "global" && bindingIsBareKey(binding, token);
@@ -1220,7 +1220,7 @@ const SHORTCUT_GROUPS: HotkeyGroup[] = ["navigation", "messaging", "voice"];
 function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
   const { t } = useTranslation("settings");
   const pttKey = useVoiceSettingsStore((s) => s.pttKey);
-  const bindings = useHotkeySettingsStore((s) => s.bindings);
+  const bindings = useActiveBindings();
   const setBinding = useHotkeySettingsStore((s) => s.setBinding);
   const resetAll = useHotkeySettingsStore((s) => s.resetAll);
   const [capturing, setCapturing] = React.useState<HotkeyActionId | null>(null);

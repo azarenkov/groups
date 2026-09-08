@@ -5,25 +5,71 @@ use domain::user::id::UserId;
 use identity_domain::user::repository::UserRepository;
 use ports::repository::RepositoryError;
 
-pub const HOTKEY_ACTIONS: &[(&str, &str)] = &[
-    ("quickSwitcher", "Mod+K"),
-    ("prevChannel", "Alt+ArrowUp"),
-    ("nextChannel", "Alt+ArrowDown"),
-    ("historyBack", "Mod+BracketLeft"),
-    ("historyForward", "Mod+BracketRight"),
-    ("openSettings", "Mod+Comma"),
-    ("editLastMessage", "ArrowUp"),
-    ("toggleMute", "Mod+Shift+M"),
-    ("leaveVoice", "Mod+Shift+L"),
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HotkeyScope {
+    Global,
+    Composer,
+}
+
+pub const HOTKEY_ACTIONS: &[(&str, &str, HotkeyScope)] = &[
+    ("quickSwitcher", "Mod+K", HotkeyScope::Global),
+    ("prevChannel", "Alt+ArrowUp", HotkeyScope::Global),
+    ("nextChannel", "Alt+ArrowDown", HotkeyScope::Global),
+    ("historyBack", "Mod+BracketLeft", HotkeyScope::Global),
+    ("historyForward", "Mod+BracketRight", HotkeyScope::Global),
+    ("openSettings", "Mod+Comma", HotkeyScope::Global),
+    ("editLastMessage", "ArrowUp", HotkeyScope::Composer),
+    ("toggleMute", "Mod+Shift+M", HotkeyScope::Global),
+    ("leaveVoice", "Mod+Shift+L", HotkeyScope::Global),
 ];
 
+const NAV_KEYS: &[&str] = &[
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight",
+    "Home",
+    "End",
+    "PageUp",
+    "PageDown",
+    "Escape",
+];
+
+fn action_scope(action: &str) -> Option<HotkeyScope> {
+    HOTKEY_ACTIONS
+        .iter()
+        .find(|(id, _, _)| *id == action)
+        .map(|(_, _, scope)| *scope)
+}
+
 fn known_action(action: &str) -> bool {
-    HOTKEY_ACTIONS.iter().any(|(id, _)| *id == action)
+    action_scope(action).is_some()
 }
 
 fn defaults_json() -> String {
-    let defaults: BTreeMap<&str, &str> = HOTKEY_ACTIONS.iter().copied().collect();
+    let defaults: BTreeMap<&str, &str> = HOTKEY_ACTIONS
+        .iter()
+        .map(|(id, default, _)| (*id, *default))
+        .collect();
     serde_json::to_string(&defaults).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn is_function_key(key: &str) -> bool {
+    key.len() >= 2 && key.starts_with('F') && key[1..].bytes().all(|b| b.is_ascii_digit())
+}
+
+pub fn binding_allowed_for(scope: HotkeyScope, binding: &str) -> bool {
+    let parts: Vec<&str> = binding.split('+').collect();
+    let Some((key, modifiers)) = parts.split_last() else {
+        return false;
+    };
+    if modifiers.iter().any(|m| matches!(*m, "Mod" | "Ctrl" | "Alt")) {
+        return true;
+    }
+    match scope {
+        HotkeyScope::Global => is_function_key(key) || *key == "Escape",
+        HotkeyScope::Composer => is_function_key(key) || NAV_KEYS.contains(key),
+    }
 }
 
 const MODIFIERS: &[&str] = &["Mod", "Ctrl", "Alt", "Shift"];
@@ -166,7 +212,13 @@ impl<U: UserRepository> UpdateHotkeySettings<U> {
             return Err(HotkeySettingsError::Invalid);
         }
         for (action, binding) in &patch.bindings {
-            if !known_action(action) || binding.as_deref().is_some_and(|b| !valid_binding(b)) {
+            let Some(scope) = action_scope(action) else {
+                return Err(HotkeySettingsError::Invalid);
+            };
+            if binding
+                .as_deref()
+                .is_some_and(|b| !valid_binding(b) || !binding_allowed_for(scope, b))
+            {
                 return Err(HotkeySettingsError::Invalid);
             }
         }

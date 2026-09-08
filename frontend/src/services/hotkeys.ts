@@ -1,6 +1,7 @@
 import React from "react";
 
-import { useHotkeySettingsStore } from "../store/hotkeySettingsStore";
+import { useAuthStore } from "../store/authStore";
+import { useHotkeySettingsStore, type HotkeyBindings } from "../store/hotkeySettingsStore";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 import {
   HOTKEY_ACTIONS,
@@ -45,8 +46,23 @@ type HotkeyHandler = () => void;
 const handlers = new Map<HotkeyActionId, HotkeyHandler[]>();
 let installed = false;
 
+const EMPTY_BINDINGS: HotkeyBindings = {};
+
+export function activeBindings(): HotkeyBindings {
+  const userId = useAuthStore.getState().user?.id ?? null;
+  const { bindings, ownerId } = useHotkeySettingsStore.getState();
+  return userId !== null && ownerId === userId ? bindings : EMPTY_BINDINGS;
+}
+
+export function useActiveBindings(): HotkeyBindings {
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  return useHotkeySettingsStore((s) =>
+    userId !== null && s.ownerId === userId ? s.bindings : EMPTY_BINDINGS,
+  );
+}
+
 export function bindingFor(id: HotkeyActionId): string {
-  const override = useHotkeySettingsStore.getState().bindings[id];
+  const override = activeBindings()[id];
   return isValidBinding(override) ? override : hotkeyAction(id).defaultBinding;
 }
 

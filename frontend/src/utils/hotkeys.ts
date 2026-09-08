@@ -164,7 +164,11 @@ const modifiersFromEvent = (e: KeyboardEvent) =>
     ? { mod: e.metaKey, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey }
     : { mod: e.ctrlKey, ctrl: false, alt: e.altKey, shift: e.shiftKey };
 
+const isAltGraph = (e: KeyboardEvent): boolean =>
+  typeof e.getModifierState === "function" && e.getModifierState("AltGraph");
+
 export function bindingFromEvent(e: KeyboardEvent): string | null {
+  if (isAltGraph(e)) return null;
   const key = keyTokenFromEvent(e);
   if (!key) return null;
   const mods = modifiersFromEvent(e);
@@ -178,6 +182,7 @@ export function bindingFromEvent(e: KeyboardEvent): string | null {
 }
 
 export function eventMatches(e: KeyboardEvent, binding: string): boolean {
+  if (isAltGraph(e)) return false;
   const raw = parseBinding(binding);
   const parsed = raw ? platformModifiers(raw) : null;
   if (!parsed) return false;

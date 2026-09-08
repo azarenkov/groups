@@ -232,15 +232,20 @@ export const useHotkeySettingsStore = create<HotkeySettingsState>()(
       setBinding: (action, binding) => {
         if (!isHotkeyActionId(action)) return;
         if (binding !== null && !isValidBinding(binding)) return;
+        const userId = useAuthStore.getState().user?.id ?? null;
+        if (userId === null) return;
         editSeq += 1;
         editStamp[action] = editSeq;
         const patch: HotkeyPatch = { [action]: binding };
-        set({ bindings: applyPatch(get().bindings, patch) });
-        scheduleSave(patch, useAuthStore.getState().user?.id ?? get().ownerId);
+        const owned = get().ownerId === userId ? get().bindings : {};
+        set({ bindings: applyPatch(owned, patch), ownerId: userId });
+        scheduleSave(patch, userId);
       },
 
       resetAll: () => {
-        const overridden = Object.keys(get().bindings);
+        const userId = useAuthStore.getState().user?.id ?? null;
+        if (userId === null) return;
+        const overridden = get().ownerId === userId ? Object.keys(get().bindings) : [];
         if (overridden.length === 0) return;
         editSeq += 1;
         const patch: HotkeyPatch = {};
@@ -249,7 +254,7 @@ export const useHotkeySettingsStore = create<HotkeySettingsState>()(
           patch[action] = null;
         }
         set({ bindings: {} });
-        scheduleSave(patch, useAuthStore.getState().user?.id ?? get().ownerId);
+        scheduleSave(patch, userId);
       },
 
       syncFromServer: async (userId) => {
