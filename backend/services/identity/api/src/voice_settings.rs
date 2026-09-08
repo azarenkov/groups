@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, patch, web};
 use api_common::api_error::StatusCode;
 use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
-use identity::usecases::user::voice_settings::{VoiceSettings, VoiceSettingsPatch};
+use identity_domain::user::settings::voice::{VoiceSettings, VoiceSettingsPatch};
 use identity_domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
 
@@ -24,13 +24,13 @@ struct VoiceSettingsResponse {
 impl From<VoiceSettings> for VoiceSettingsResponse {
     fn from(settings: VoiceSettings) -> Self {
         Self {
-            mic_volume: settings.mic_volume,
-            output_volume: settings.output_volume,
-            noise_mode: settings.noise_mode,
-            auto_sensitivity: settings.auto_sensitivity,
-            sensitivity: settings.sensitivity,
-            push_to_talk: settings.push_to_talk,
-            ptt_key: settings.ptt_key,
+            mic_volume: settings.mic_volume(),
+            output_volume: settings.output_volume(),
+            noise_mode: settings.noise_mode().as_str().to_string(),
+            auto_sensitivity: settings.auto_sensitivity(),
+            sensitivity: settings.sensitivity(),
+            push_to_talk: settings.push_to_talk(),
+            ptt_key: settings.ptt_key().as_str().to_string(),
         }
     }
 }

@@ -942,21 +942,21 @@ impl HttpMapping for AppearanceError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AppearanceError::Repository(e) => e.to_http_status(),
-            AppearanceError::Invalid => StatusCode::BAD_REQUEST,
+            AppearanceError::Invalid(_) => StatusCode::BAD_REQUEST,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
             AppearanceError::Repository(e) => e.to_user_message(),
-            AppearanceError::Invalid => "Invalid appearance settings".to_string(),
+            AppearanceError::Invalid(e) => e.to_string(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
             AppearanceError::Repository(e) => e.to_error_code(),
-            AppearanceError::Invalid => "INVALID_APPEARANCE",
+            AppearanceError::Invalid(_) => "INVALID_APPEARANCE",
         }
     }
 }
@@ -967,21 +967,21 @@ impl HttpMapping for VoiceSettingsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             VoiceSettingsError::Repository(e) => e.to_http_status(),
-            VoiceSettingsError::Invalid => StatusCode::BAD_REQUEST,
+            VoiceSettingsError::Invalid(_) => StatusCode::BAD_REQUEST,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
             VoiceSettingsError::Repository(e) => e.to_user_message(),
-            VoiceSettingsError::Invalid => "Invalid voice settings".to_string(),
+            VoiceSettingsError::Invalid(e) => e.to_string(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
             VoiceSettingsError::Repository(e) => e.to_error_code(),
-            VoiceSettingsError::Invalid => "INVALID_VOICE_SETTINGS",
+            VoiceSettingsError::Invalid(_) => "INVALID_VOICE_SETTINGS",
         }
     }
 }
@@ -992,51 +992,49 @@ impl HttpMapping for NotificationSettingsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             NotificationSettingsError::Repository(e) => e.to_http_status(),
-            NotificationSettingsError::Invalid => StatusCode::BAD_REQUEST,
+            NotificationSettingsError::Invalid(_) => StatusCode::BAD_REQUEST,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
             NotificationSettingsError::Repository(e) => e.to_user_message(),
-            NotificationSettingsError::Invalid => "Invalid notification settings".to_string(),
+            NotificationSettingsError::Invalid(e) => e.to_string(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
             NotificationSettingsError::Repository(e) => e.to_error_code(),
-            NotificationSettingsError::Invalid => "INVALID_NOTIFICATION_SETTINGS",
+            NotificationSettingsError::Invalid(_) => "INVALID_NOTIFICATION_SETTINGS",
         }
     }
 }
 
 use identity::usecases::user::hotkey_settings::HotkeySettingsError;
+use identity_domain::user::settings::hotkeys::HotkeyError;
 
 impl HttpMapping for HotkeySettingsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             HotkeySettingsError::Repository(e) => e.to_http_status(),
-            HotkeySettingsError::Invalid => StatusCode::BAD_REQUEST,
-            HotkeySettingsError::Conflict => StatusCode::CONFLICT,
+            HotkeySettingsError::Invalid(HotkeyError::Conflict(_)) => StatusCode::CONFLICT,
+            HotkeySettingsError::Invalid(_) => StatusCode::BAD_REQUEST,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
             HotkeySettingsError::Repository(e) => e.to_user_message(),
-            HotkeySettingsError::Invalid => "Invalid hotkey settings".to_string(),
-            HotkeySettingsError::Conflict => {
-                "Hotkey binding is already used by another action".to_string()
-            }
+            HotkeySettingsError::Invalid(e) => e.to_string(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
             HotkeySettingsError::Repository(e) => e.to_error_code(),
-            HotkeySettingsError::Invalid => "INVALID_HOTKEY_SETTINGS",
-            HotkeySettingsError::Conflict => "HOTKEY_CONFLICT",
+            HotkeySettingsError::Invalid(HotkeyError::Conflict(_)) => "HOTKEY_CONFLICT",
+            HotkeySettingsError::Invalid(_) => "INVALID_HOTKEY_SETTINGS",
         }
     }
 }

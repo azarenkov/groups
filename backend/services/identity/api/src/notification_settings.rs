@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, patch, web};
 use api_common::api_error::StatusCode;
 use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
-use identity::usecases::user::notification_settings::{
+use identity_domain::user::settings::notification::{
     NotificationSettings, NotificationSettingsPatch,
 };
 use identity_domain::user::id::UserId;
@@ -26,13 +26,13 @@ struct NotificationSettingsResponse {
 impl From<NotificationSettings> for NotificationSettingsResponse {
     fn from(settings: NotificationSettings) -> Self {
         Self {
-            desktop_enabled: settings.desktop_enabled,
-            sounds_enabled: settings.sounds_enabled,
-            mentions: settings.mentions,
-            quiet_hours_enabled: settings.quiet_hours_enabled,
-            quiet_start: settings.quiet_start,
-            quiet_end: settings.quiet_end,
-            calls_enabled: settings.calls_enabled,
+            desktop_enabled: settings.desktop_enabled(),
+            sounds_enabled: settings.sounds_enabled(),
+            mentions: settings.mentions().as_str().to_string(),
+            quiet_hours_enabled: settings.quiet_hours_enabled(),
+            quiet_start: settings.quiet_start().as_str().to_string(),
+            quiet_end: settings.quiet_end().as_str().to_string(),
+            calls_enabled: settings.calls_enabled(),
         }
     }
 }

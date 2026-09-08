@@ -4,7 +4,7 @@ use actix_web::{HttpResponse, Responder, get, patch, web};
 use api_common::api_error::StatusCode;
 use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
-use identity::usecases::user::hotkey_settings::{HotkeySettings, HotkeySettingsPatch};
+use identity_domain::user::settings::hotkeys::{HotkeyBindings, HotkeyPatch};
 use identity_domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
 
@@ -17,10 +17,14 @@ struct HotkeySettingsResponse {
     bindings: BTreeMap<String, String>,
 }
 
-impl From<HotkeySettings> for HotkeySettingsResponse {
-    fn from(settings: HotkeySettings) -> Self {
+impl From<HotkeyBindings> for HotkeySettingsResponse {
+    fn from(settings: HotkeyBindings) -> Self {
         Self {
-            bindings: settings.bindings,
+            bindings: settings
+                .overrides()
+                .iter()
+                .map(|(action, binding)| (action.id().to_string(), binding.as_str().to_string()))
+                .collect(),
         }
     }
 }
@@ -64,7 +68,7 @@ pub async fn update_me_hotkey_settings(
         .update_hotkey_settings_usecase
         .execute(
             UserId::new(auth_token.id),
-            HotkeySettingsPatch {
+            HotkeyPatch {
                 bindings: body.bindings,
             },
         )
