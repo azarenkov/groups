@@ -38,6 +38,13 @@ spec:
         {{- end }}
     spec:
       terminationGracePeriodSeconds: {{ .Values.shutdown.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       {{- include "rift.podScheduling" . | nindent 6 }}
       containers:
         - name: nginx
@@ -47,16 +54,19 @@ spec:
             - /bin/sh
             - -c
             - >-
+              mkdir -p /tmp/nginx;
               export NGINX_RESOLVER="$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf)";
-              exec /docker-entrypoint.sh nginx -g 'daemon off;'
+              exec /docker-entrypoint.sh nginx -c /tmp/nginx/nginx.conf -g 'daemon off;'
           env:
             - name: NGINX_ENVSUBST_OUTPUT_DIR
-              value: /etc/nginx
+              value: /tmp/nginx
             - name: NGINX_ENVSUBST_FILTER
               value: "^NGINX_"
+          securityContext:
+            {{- include "rift.containerSecurityContext" . | nindent 12 }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
             - name: livekit
               containerPort: 7880
           startupProbe:
@@ -87,10 +97,14 @@ spec:
             - name: nginx-template
               mountPath: /etc/nginx/templates
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: nginx-template
           configMap:
             name: {{ .Release.Name }}-gateway
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

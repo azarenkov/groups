@@ -29,7 +29,7 @@ Images come from `image.registry/<service>:image.tag` (defaults to `ghcr.io/rift
 
 ## Gateway config
 
-`files/nginx.conf.template` is generated from `docker/nginx/nginx.conf` by `deploy/helm/sync-nginx.sh`; rerun it after changing the nginx config. The only substitution is the DNS resolver, which the container derives from `/etc/resolv.conf` at start.
+`files/nginx.conf.template` is generated from `docker/nginx/nginx.conf` by `deploy/helm/sync-nginx.sh`; rerun it after changing the nginx config. The script adapts the config for the unprivileged nginx image (listen on 8080, pid and temp paths under `/tmp`, logs to stdout/stderr) and leaves the DNS resolver as a placeholder that the container fills from `/etc/resolv.conf` at start. The gateway runs as uid 101 with a read-only root filesystem like every other workload.
 
 ## Usage
 
