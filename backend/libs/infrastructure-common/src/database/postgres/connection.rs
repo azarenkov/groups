@@ -47,6 +47,11 @@ async fn health_check(pool: &Pool<Postgres>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+const PING_TIMEOUT: Duration = Duration::from_secs(1);
+
 pub async fn ping_pool(pool: &Pool<Postgres>) -> bool {
-    sqlx::query("SELECT 1").execute(pool).await.is_ok()
+    matches!(
+        tokio::time::timeout(PING_TIMEOUT, sqlx::query("SELECT 1").execute(pool)).await,
+        Ok(Ok(_))
+    )
 }
