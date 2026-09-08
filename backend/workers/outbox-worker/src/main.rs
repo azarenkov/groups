@@ -123,7 +123,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         tracing::info!("Shutdown requested during idle, exiting");
                         break;
                     }
-                    _ = tokio::time::sleep(idle_interval) => {}
+                    _ = heartbeat.keep_alive_for(idle_interval) => {}
                 }
             }
             Ok(_) => {}
@@ -131,7 +131,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 tracing::error!(error = %e, "Outbox batch failed, backing off");
                 tokio::select! {
                     _ = shutdown_rx.changed() => break,
-                    _ = tokio::time::sleep(idle_interval) => {}
+                    _ = heartbeat.keep_alive_for(idle_interval) => {}
                 }
             }
         }

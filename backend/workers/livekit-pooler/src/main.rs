@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 tracing::info!("Shutdown requested, exiting");
                 break;
             }
-            _ = tokio::time::sleep(interval) => {}
+            _ = heartbeat.keep_alive_for(interval) => {}
         }
     }
 

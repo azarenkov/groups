@@ -360,6 +360,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn keep_alive_for_pulses_through_long_waits() {
+        let heartbeat = Heartbeat::new(Duration::from_millis(40));
+        let liveness = Liveness::default().watch(heartbeat.clone());
+        let waiter = tokio::spawn({
+            let heartbeat = heartbeat.clone();
+            async move { heartbeat.keep_alive_for(Duration::from_millis(150)).await }
+        });
+        for _ in 0..5 {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+            assert!(liveness.is_alive());
+        }
+        waiter.await.unwrap();
+        assert!(liveness.is_alive());
+    }
+
+    #[tokio::test]
     async fn liveness_requires_every_heartbeat_to_be_fresh() {
         let fresh = Heartbeat::new(Duration::from_secs(5));
         let stale = Heartbeat::new(Duration::from_millis(10));
