@@ -186,12 +186,9 @@ logger = logging.getLogger("nsfw-detector")
 inference_lock = threading.Lock()
 models: dict = {}
 models_ready = threading.Event()
-models_failed = threading.Event()
-load_error: str | None = None
 
 
 def load_models() -> None:
-    global load_error
     try:
         models["nsfw"] = pipeline("image-classification", model="/model")
         models["concept"] = pipeline("zero-shot-image-classification", model="/clip")
@@ -201,11 +198,9 @@ def load_models() -> None:
         models["ru_toxicity"] = pipeline(
             "text-classification", model="/ru-toxicity", top_k=None
         )
-    except Exception as exc:
-        load_error = str(exc)
-        models_failed.set()
-        logger.exception("model loading failed")
-        return
+    except Exception:
+        logger.exception("model loading failed; exiting so the orchestrator restarts the service")
+        os._exit(1)
     models_ready.set()
     logger.info("models loaded")
 
@@ -322,8 +317,6 @@ def readiness_response() -> Response:
 
 @app.get("/livez")
 async def livez():
-    if models_failed.is_set():
-        return Response(status_code=503)
     return Response(status_code=200)
 
 
