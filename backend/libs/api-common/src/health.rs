@@ -36,9 +36,10 @@ struct CachedProbe {
 
 impl CachedProbe {
     async fn check(&self) -> bool {
+        let requested_at = Instant::now();
         let mut last = self.last.lock().await;
         if let Some((at, ok)) = *last {
-            if at.elapsed() < self.ttl {
+            if at >= requested_at || at.elapsed() < self.ttl {
                 return ok;
             }
         }
@@ -223,10 +224,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn zero_ttl_reevaluates_sequential_checks() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let readiness = Readiness::builder()
+            .cache_ttl(Duration::ZERO)
+            .add_probe(counting_probe(calls.clone(), true))
+            .build();
+        readiness.mark_ready();
+        assert!(readiness.check().await);
+        assert!(readiness.check().await);
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
     async fn concurrent_checks_share_one_evaluation() {
         let calls = Arc::new(AtomicUsize::new(0));
         let readiness = Readiness::builder()
-            .cache_ttl(Duration::from_secs(5))
+            .cache_ttl(Duration::ZERO)
             .add_probe({
                 let calls = calls.clone();
                 move || {
