@@ -1,0 +1,78 @@
+{{- if .Values.realtime.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realtime
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: realtime
+spec:
+  replicas: {{ .Values.realtime.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" . "component" "realtime") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rift.selectorLabels" (dict "root" . "component" "realtime") | nindent 8 }}
+      annotations:
+        {{- include "rift.checksums" . | nindent 8 }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.shutdown.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "rift.podSecurityContext" . | nindent 8 }}
+      {{- include "rift.podScheduling" . | nindent 6 }}
+      containers:
+        - name: realtime
+          image: {{ include "rift.image" (dict "root" . "service" "realtime") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: ws
+              containerPort: 8083
+            - name: ws-health
+              containerPort: 8084
+            - name: disp-health
+              containerPort: 8085
+          env:
+            - name: BIND_ADDRESS
+              value: "0.0.0.0:8083"
+            - name: WEBSOCKET_HEALTH_PORT
+              value: "8084"
+            - name: DISPATCHER_HEALTH_PORT
+              value: "8085"
+            {{- range $key, $value := .Values.realtime.env }}
+            - name: {{ $key }}
+              value: {{ $value | toString | quote }}
+            {{- end }}
+          {{- include "rift.envFrom" . | nindent 10 }}
+          {{- include "rift.probes" (dict "root" . "readyPort" "ws-health" "livePort" "disp-health") | nindent 10 }}
+          {{- include "rift.preStop" . | nindent 10 }}
+          securityContext:
+            {{- include "rift.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.realtime.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: realtime
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: realtime
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rift.selectorLabels" (dict "root" . "component" "realtime") | nindent 4 }}
+  ports:
+    - name: ws
+      port: 8083
+      targetPort: ws
+{{- end }}

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: rift
+description: Rift chat platform backend services, workers, moderation service and nginx gateway
+type: application
+version: 0.1.0
+appVersion: latest
+kubeVersion: ">=1.25.0-0"

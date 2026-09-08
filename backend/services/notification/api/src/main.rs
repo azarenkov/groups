@@ -17,6 +17,9 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    if let Some(code) = api_common::health::run_probe_from_args() {
+        std::process::exit(code);
+    }
     infrastructure_common::observability::init("notification-service");
 
     let notification_config = NotificationConfig::from_env()?;

@@ -11,5 +11,8 @@ use std::error::Error;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    if let Some(code) = api_common::health::run_probe_from_args() {
+        std::process::exit(code);
+    }
     crate::server::run().await
 }

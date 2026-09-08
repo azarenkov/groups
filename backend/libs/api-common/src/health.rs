@@ -195,6 +195,55 @@ pub fn bind(port: u16, readiness: Readiness, liveness: Liveness) -> io::Result<S
     Ok(server)
 }
 
+const CLI_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
+pub fn run_probe_from_args() -> Option<i32> {
+    let mut args = std::env::args().skip(1);
+    if args.next().as_deref() != Some("--probe") {
+        return None;
+    }
+    let Some(url) = args.next() else {
+        eprintln!("usage: --probe http://127.0.0.1:<port>/readyz");
+        return Some(2);
+    };
+    Some(if probe_url(&url) { 0 } else { 1 })
+}
+
+fn probe_url(url: &str) -> bool {
+    use std::{
+        io::{Read, Write},
+        net::{TcpStream, ToSocketAddrs},
+    };
+
+    let Some(rest) = url.strip_prefix("http://") else {
+        return false;
+    };
+    let (host_port, path) = match rest.find('/') {
+        Some(index) => (&rest[..index], &rest[index..]),
+        None => (rest, "/"),
+    };
+    let Some(addr) = host_port.to_socket_addrs().ok().and_then(|mut addrs| addrs.next()) else {
+        return false;
+    };
+    let Ok(mut stream) = TcpStream::connect_timeout(&addr, CLI_PROBE_TIMEOUT) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(CLI_PROBE_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(CLI_PROBE_TIMEOUT));
+    let request = format!("GET {path} HTTP/1.0\r\nHost: {host_port}\r\nConnection: close\r\n\r\n");
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+    let mut response = Vec::new();
+    let _ = stream.take(512).read_to_end(&mut response);
+    let status = String::from_utf8_lossy(&response);
+    status
+        .split_whitespace()
+        .nth(1)
+        .and_then(|code| code.parse::<u16>().ok())
+        .is_some_and(|code| (200..300).contains(&code))
+}
+
 pub async fn livez(liveness: Option<web::Data<Liveness>>) -> HttpResponse {
     match liveness {
         Some(liveness) if !liveness.is_alive() => HttpResponse::ServiceUnavailable().finish(),
@@ -326,6 +375,28 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(!liveness.is_alive());
         assert!(Liveness::default().is_alive());
+    }
+
+    #[actix_web::test]
+    async fn cli_probe_reports_health_server_status() {
+        let readiness = Readiness::builder().build();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let server = bind(port, readiness.clone(), Liveness::default()).unwrap();
+        let handle = server.handle();
+        let task = actix_web::rt::spawn(server);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let live = format!("http://127.0.0.1:{port}/livez");
+        let ready = format!("http://127.0.0.1:{port}/readyz");
+        assert!(tokio::task::spawn_blocking({ let live = live.clone(); move || probe_url(&live) }).await.unwrap());
+        assert!(!tokio::task::spawn_blocking({ let ready = ready.clone(); move || probe_url(&ready) }).await.unwrap());
+        readiness.mark_ready();
+        assert!(tokio::task::spawn_blocking(move || probe_url(&ready)).await.unwrap());
+        assert!(!probe_url("http://127.0.0.1:1/readyz"));
+        assert!(!probe_url("https://127.0.0.1/readyz"));
+        handle.stop(false).await;
+        let _ = task.await;
     }
 
     #[tokio::test]

@@ -1,0 +1,211 @@
+image:
+  registry: ghcr.io/rift-space/rift
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+config:
+  RUST_LOG: info
+  NATS_URL: nats://nats:4222
+  NATS_SUBJECT_PREFIX: rift.events
+  NATS_REPLICAS: "1"
+  NATS_STREAM_HOT_MAX_BYTES: "2147483648"
+  NATS_STREAM_COLD_MAX_BYTES: "536870912"
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: postgres
+  POSTGRES_DB: rift
+  POSTGRES_OPTIONS: ""
+  POSTGRES_MAX_CONNECTIONS: "10"
+  POSTGRES_MIN_CONNECTIONS: "2"
+  POSTGRES_CONNECT_TIMEOUT_SECONDS: "30"
+  POSTGRES_IDLE_TIMEOUT_SECONDS: "600"
+  POSTGRES_MAX_LIFETIME_SECONDS: "1800"
+  POSTGRES_RUN_MIGRATIONS: "true"
+  REDIS_URL: redis://redis:6379
+  LIVEKIT_URL: http://livekit:7880
+  LIVEKIT_CLIENT_URL: wss://rift.example.com
+  LIVEKIT_API_KEY: rift-server
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_BUCKET: rift-attachments
+  NSFW_DETECTOR_URL: http://nsfw-detector:8000
+  NSFW_THRESHOLD: "0.8"
+  TEXT_TOXICITY_THRESHOLD: "0.8"
+  PUBLIC_API_URL: https://rift.example.com
+  PUBLIC_APP_URL: ""
+  MESSAGING_INTERNAL_URL: http://messaging-service:8080
+  MEDIA_INTERNAL_URL: http://media-service:8080
+  VOICE_INTERNAL_URL: http://voice-service:8080
+  TRUST_FORWARDED_HEADERS: "true"
+  RATE_LIMITING_REQUESTS: "10"
+  RATE_LIMITING_BURST_SIZE: "20"
+  RESERVED_USERNAMES: ""
+  GOOGLE_CLIENT_ID: ""
+  MAILER_HOST: smtp.example.com
+  MAILER_PORT: "465"
+  MAILER_FROM: noreply@example.com
+  MAILER_PASSWORD_RESET_BASE_URL: https://rift.example.com
+  HEALTH_PROBE_TIMEOUT_MS: "2000"
+  HEALTH_PROBE_CACHE_MS: "5000"
+  SHUTDOWN_DRAIN_MS: "3000"
+  SHUTDOWN_TIMEOUT_SECS: "25"
+
+secrets:
+  existingSecret: ""
+  JWT_SECRET: ""
+  POSTGRES_PASSWORD: ""
+  LIVEKIT_API_SECRET: ""
+  MINIO_ROOT_USER: ""
+  MINIO_ROOT_PASSWORD: ""
+  MAILER_USERNAME: ""
+  MAILER_PASSWORD: ""
+  GITHUB_CLIENT_ID: ""
+  GITHUB_CLIENT_SECRET: ""
+  STEAM_API_KEY: ""
+
+probes:
+  startup:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 60
+  readiness:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+shutdown:
+  preStopSeconds: 5
+  terminationGracePeriodSeconds: 40
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+httpServices:
+  identity-service:
+    enabled: true
+    replicas: 2
+    env: {}
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { memory: 512Mi }
+  media-service:
+    enabled: true
+    replicas: 2
+    env: {}
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { memory: 512Mi }
+  messaging-service:
+    enabled: true
+    replicas: 2
+    env: {}
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { memory: 512Mi }
+  voice-service:
+    enabled: true
+    replicas: 2
+    env: {}
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { memory: 512Mi }
+
+realtime:
+  enabled: true
+  replicas: 2
+  env:
+    WEBSOCKET_OUTBOUND_BUFFER: "64"
+    DISPATCHER_USER_STREAM: RIFT_USER_EVENTS
+    DISPATCHER_CHANNEL_STREAM: RIFT_CHANNEL_EVENTS
+    DISPATCHER_MESSAGE_STREAM: RIFT_MESSAGE_EVENTS
+    DISPATCHER_DM_MESSAGE_STREAM: RIFT_DM_MESSAGE_EVENTS
+    DISPATCHER_SERVER_STREAM: RIFT_SERVER_EVENTS
+    DISPATCHER_CONSUMER_PREFIX: event-dispatcher
+    DISPATCHER_MAX_DELIVER: "10"
+    DISPATCHER_LIVENESS_STALE_SECS: "30"
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+workers:
+  outbox-worker:
+    enabled: true
+    replicas: 1
+    healthPort: 8081
+    env:
+      HEALTH_PORT: "8081"
+      OUTBOX_BATCH_SIZE: "100"
+      OUTBOX_IDLE_INTERVAL_MS: "500"
+      OUTBOX_MAX_ATTEMPTS: "50"
+      OUTBOX_BACKOFF_BASE_SECS: "5"
+      OUTBOX_BACKOFF_MAX_MULTIPLIER: "10"
+      OUTBOX_CLEANUP_INTERVAL_SECS: "3600"
+      OUTBOX_CLEANUP_RETENTION_SECS: "604800"
+      OUTBOX_CLEANUP_BATCH_SIZE: "10000"
+      OUTBOX_LIVENESS_STALE_SECS: "60"
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { memory: 256Mi }
+  notification-service:
+    enabled: true
+    replicas: 1
+    healthPort: 8082
+    env:
+      HEALTH_PORT: "8082"
+      NOTIFICATION_USER_STREAM: RIFT_USER_EVENTS
+      NOTIFICATION_VERIFICATION_CONSUMER: notification-service-verification
+      NOTIFICATION_MAX_DELIVER: "5"
+      NOTIFICATION_LIVENESS_STALE_SECS: "60"
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { memory: 256Mi }
+  livekit-pooler:
+    enabled: true
+    replicas: 1
+    healthPort: 8086
+    env:
+      LIVEKIT_POOLER_HEALTH_PORT: "8086"
+      LIVEKIT_POOLER_INTERVAL_SECS: "30"
+      LIVEKIT_POOLER_GRACE_SECS: "20"
+      LIVEKIT_POOLER_REQUEST_TIMEOUT_SECS: "10"
+      LIVEKIT_POOLER_MAX_ABORTS_PER_PASS: "500"
+      LIVEKIT_POOLER_LIVENESS_STALE_SECS: "120"
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { memory: 256Mi }
+
+nsfwDetector:
+  enabled: true
+  replicas: 1
+  startupFailureThreshold: 120
+  env: {}
+  resources:
+    requests: { cpu: 500m, memory: 2Gi }
+    limits: { memory: 4Gi }
+
+gateway:
+  enabled: true
+  replicas: 2
+  image: nginx:1.27-alpine
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+  service:
+    type: ClusterIP
+    port: 80
+    livekitPort: 7880
+  ingress:
+    enabled: false
+    className: ""
+    host: rift.example.com
+    annotations: {}
+    tls: []
+
+livekit:
+  externalName: ""

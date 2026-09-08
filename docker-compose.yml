@@ -169,8 +169,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      test: ["CMD", "identity-service", "--probe", "http://127.0.0.1:8080/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -217,8 +216,7 @@ services:
       nats:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      test: ["CMD", "media-service", "--probe", "http://127.0.0.1:8080/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -266,8 +264,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      test: ["CMD", "messaging-service", "--probe", "http://127.0.0.1:8080/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -308,8 +305,7 @@ services:
       nats:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/readyz || exit 1"]
+      test: ["CMD", "voice-service", "--probe", "http://127.0.0.1:8080/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -339,8 +335,7 @@ services:
       nats:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8081/readyz || exit 1"]
+      test: ["CMD", "outbox-worker", "--probe", "http://127.0.0.1:8081/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -366,8 +361,7 @@ services:
       nats:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8082/readyz || exit 1"]
+      test: ["CMD", "notification-service", "--probe", "http://127.0.0.1:8082/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -409,8 +403,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz || exit 1"]
+      test: ["CMD", "realtime", "--probe", "http://127.0.0.1:8084/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -438,8 +431,7 @@ services:
       livekit:
         condition: service_started
     healthcheck:
-      test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8086/readyz || exit 1"]
+      test: ["CMD", "livekit-pooler", "--probe", "http://127.0.0.1:8086/readyz"]
       interval: 10s
       timeout: 3s
       retries: 3
