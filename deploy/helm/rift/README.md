@@ -4,6 +4,8 @@ Deploys the Rift backend to Kubernetes: four HTTP APIs (`identity-service`, `med
 
 Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them. Set `livekit.externalName` to the LiveKit host if it lives outside the namespace so the gateway's `livekit:7880` upstream resolves.
 
+Voice clients connect to `config.LIVEKIT_CLIENT_URL`. The gateway proxies LiveKit on its `livekit` port (7880), and with `gateway.ingress.enabled` a second rule for `gateway.ingress.livekitHost` routes that host to it, so `LIVEKIT_CLIENT_URL` should be `wss://<livekitHost>` (or a separately published LiveKit endpoint). WebSocket upgrades on `/ws` and the LiveKit host need an ingress controller that supports them; for ingress-nginx set the read/send timeout annotations accordingly.
+
 ## Probes and shutdown
 
 | Workload | Ready/startup | Live | Notes |

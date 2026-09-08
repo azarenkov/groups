@@ -24,7 +24,7 @@ config:
   POSTGRES_RUN_MIGRATIONS: "true"
   REDIS_URL: redis://redis:6379
   LIVEKIT_URL: http://livekit:7880
-  LIVEKIT_CLIENT_URL: wss://rift.example.com
+  LIVEKIT_CLIENT_URL: wss://livekit.rift.example.com
   LIVEKIT_API_KEY: rift-server
   MINIO_ENDPOINT: http://minio:9000
   MINIO_BUCKET: rift-attachments
@@ -204,6 +204,7 @@ gateway:
     enabled: false
     className: ""
     host: rift.example.com
+    livekitHost: livekit.rift.example.com
     annotations: {}
     tls: []
 

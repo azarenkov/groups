@@ -142,5 +142,17 @@ spec:
                 name: {{ .Release.Name }}-gateway
                 port:
                   name: http
+    {{- with .Values.gateway.ingress.livekitHost }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Release.Name }}-gateway
+                port:
+                  name: livekit
+    {{- end }}
 {{- end }}
 {{- end }}
