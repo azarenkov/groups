@@ -40,6 +40,12 @@ export const HOTKEY_ACTIONS: HotkeyAction[] = [
 
 export const HOTKEY_ACTION_IDS: HotkeyActionId[] = HOTKEY_ACTIONS.map((a) => a.id);
 
+export const DESKTOP_SHORTCUTS: { id: string; binding: string }[] = [
+  { id: "zoomIn", binding: "Mod+Equal" },
+  { id: "zoomOut", binding: "Mod+Minus" },
+  { id: "zoomReset", binding: "Mod+0" },
+];
+
 export const isHotkeyActionId = (value: unknown): value is HotkeyActionId =>
   typeof value === "string" && (HOTKEY_ACTION_IDS as string[]).includes(value);
 

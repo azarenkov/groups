@@ -16,9 +16,10 @@ import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 import { useNotificationSettingsStore } from "../../store/notificationSettingsStore";
 import { requestDesktopNotificationPermission } from "../../utils/desktopNotification";
 import { useHotkeySettingsStore } from "../../store/hotkeySettingsStore";
+import { bindingBlocker } from "../../services/hotkeys";
 import {
+  DESKTOP_SHORTCUTS,
   HOTKEY_ACTIONS,
-  bindingAvailable,
   bindingFromEvent,
   bindingIsBareKey,
   bindingKeycaps,
@@ -1215,12 +1216,6 @@ interface ShortcutsSectionProps {
 
 const SHORTCUT_GROUPS: HotkeyGroup[] = ["navigation", "messaging", "voice"];
 
-const DESKTOP_SHORTCUTS: { id: string; binding: string }[] = [
-  { id: "zoomIn", binding: "Mod+Equal" },
-  { id: "zoomOut", binding: "Mod+Minus" },
-  { id: "zoomReset", binding: "Mod+0" },
-];
-
 function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
   const { t } = useTranslation("settings");
   const pttKey = useVoiceSettingsStore((s) => s.pttKey);
@@ -1328,16 +1323,22 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
           {HOTKEY_ACTIONS.filter((a) => a.group === group).map((action) => {
             const isCapturing = capturing === action.id;
             const overridden = bindings[action.id] !== undefined;
-            const hint = bindingAvailable(currentBinding(action.id))
-              ? t(`shortcuts.hints.${action.id}`, { defaultValue: "" })
-              : t("shortcuts.unavailableHere");
+            const blocker = bindingBlocker(action, currentBinding(action.id));
+            const hint =
+              blocker === null
+                ? t(`shortcuts.hints.${action.id}`, { defaultValue: "" })
+                : blocker.kind === "platform"
+                  ? t("shortcuts.unavailableHere")
+                  : t("shortcuts.conflict", {
+                      action: actionName(blocker.kind === "desktop" ? blocker.id : "pushToTalk"),
+                    });
             const active = notice?.id === action.id ? notice.text : hint;
             return (
               <div className={"kbd-row" + (isCapturing ? " capturing" : "")} key={action.id}>
                 <div className="kbd-text">
                   <span className="kbd-name">{actionName(action.id)}</span>
                   {active && (
-                    <span className={"kbd-hint" + (notice?.id === action.id ? " warn" : "")}>
+                    <span className={"kbd-hint" + (notice?.id === action.id || blocker !== null ? " warn" : "")}>
                       {active}
                     </span>
                   )}

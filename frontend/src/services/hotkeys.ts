@@ -1,17 +1,44 @@
 import React from "react";
 
 import { useHotkeySettingsStore } from "../store/hotkeySettingsStore";
+import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 import {
+  DESKTOP_SHORTCUTS,
   HOTKEY_ACTIONS,
+  bindingAvailable,
+  bindingIsBareKey,
   eventMatches,
   hasStrongModifier,
   hotkeyAction,
   isTextEntryTarget,
   isValidBinding,
+  keyTokenFromCode,
   keyTokenFromEvent,
   parseBinding,
+  type HotkeyAction,
   type HotkeyActionId,
 } from "../utils/hotkeys";
+
+export type BindingBlocker =
+  | { kind: "platform" }
+  | { kind: "desktop"; id: string }
+  | { kind: "pushToTalk" }
+  | null;
+
+export function bindingBlocker(action: HotkeyAction, binding: string): BindingBlocker {
+  if (!bindingAvailable(binding)) return { kind: "platform" };
+  if (typeof window !== "undefined" && window.electron) {
+    const reserved = DESKTOP_SHORTCUTS.find((d) => d.binding === binding);
+    if (reserved) return { kind: "desktop", id: reserved.id };
+  }
+  if (
+    action.scope === "global" &&
+    bindingIsBareKey(binding, keyTokenFromCode(useVoiceSettingsStore.getState().pttKey))
+  ) {
+    return { kind: "pushToTalk" };
+  }
+  return null;
+}
 
 type HotkeyHandler = () => void;
 
@@ -56,6 +83,7 @@ export function initHotkeys(): void {
       if (!stack || stack.length === 0) continue;
       const binding = bindingFor(action.id);
       if (!eventMatches(e, binding)) continue;
+      if (bindingBlocker(action, binding) !== null) return;
       const parsed = parseBinding(binding);
       if (parsed && !hasStrongModifier(parsed) && isTextEntryTarget(e.target)) return;
       e.preventDefault();
