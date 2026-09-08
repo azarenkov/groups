@@ -149,6 +149,8 @@ services:
         required: false
       - path: env/identity-service.env
         required: false
+      - path: env/health.env
+        required: false
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
@@ -191,6 +193,8 @@ services:
       - path: env/http.env
         required: false
       - path: env/media-service.env
+        required: false
+      - path: env/health.env
         required: false
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
@@ -236,6 +240,8 @@ services:
       - path: env/http.env
         required: false
       - path: env/messaging-service.env
+        required: false
+      - path: env/health.env
         required: false
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
@@ -283,6 +289,8 @@ services:
         required: false
       - path: env/voice-service.env
         required: false
+      - path: env/health.env
+        required: false
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
@@ -318,6 +326,8 @@ services:
         required: false
       - path: env/outbox.env
         required: false
+      - path: env/health.env
+        required: false
     depends_on:
       postgres:
         condition: service_healthy
@@ -343,6 +353,8 @@ services:
       - path: env/nats.env
         required: false
       - path: env/notification.env
+        required: false
+      - path: env/health.env
         required: false
     depends_on:
       nats:
@@ -378,6 +390,8 @@ services:
         required: false
       - path: env/event-dispatcher.env
         required: false
+      - path: env/health.env
+        required: false
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     depends_on:
@@ -407,6 +421,8 @@ services:
       - path: env/postgres.env
         required: false
       - path: env/livekit-pooler.env
+        required: false
+      - path: env/health.env
         required: false
     depends_on:
       postgres:
