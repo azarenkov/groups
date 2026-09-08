@@ -133,7 +133,6 @@ async fn ensure_bucket(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static>(
     jetstream: &Context,
     store: &kv::Store,
@@ -231,6 +230,7 @@ async fn list_members(store: &kv::Store) -> Result<Vec<String>, async_nats::Erro
     Ok(members)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static>(
     jetstream: &Context,
     cfg: &DispatcherSettings,
