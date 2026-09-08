@@ -144,9 +144,15 @@ const flushSave = async (): Promise<void> => {
       return;
     }
     const { userAPI } = await import("../api/user");
-    await userAPI.updateHotkeySettings(patch);
+    const saved = await userAPI.updateHotkeySettings(patch);
     if (owner !== null) ackPatchFor(owner, patch);
     saveAttempts = 0;
+    if (owner !== null && useAuthStore.getState().user?.id === owner) {
+      const newer = pendingOwner === owner ? pendingPatch : {};
+      useHotkeySettingsStore.setState({
+        bindings: applyPatch(sanitize(saved.bindings), newer),
+      });
+    }
   } catch (err) {
     console.warn("[hotkey-settings] save failed:", err);
     const rejected =
