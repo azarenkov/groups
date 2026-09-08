@@ -46,7 +46,7 @@ impl Heartbeat {
     }
 
     pub async fn keep_alive_for(&self, duration: Duration) {
-        let step = (self.inner.stale_after / 2).max(Duration::from_millis(100));
+        let step = (self.inner.stale_after / 4).max(Duration::from_millis(10));
         let deadline = Instant::now() + duration;
         loop {
             self.beat();
