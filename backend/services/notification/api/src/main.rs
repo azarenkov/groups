@@ -1,6 +1,7 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
+use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
 use infrastructure_common::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
@@ -8,7 +9,7 @@ use infrastructure_common::{
 };
 use notification_core::usecases::send_verification_email::SendVerificationEmail;
 use notification_infrastructure::consumers::verification::{self, VerificationConsumerSpec};
-use tokio::{signal, sync::watch};
+use tokio::sync::watch;
 
 use crate::config::NotificationConfig;
 
@@ -41,6 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         readiness.clone(),
         Liveness::default().watch(heartbeat.clone()),
     )?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -69,10 +71,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!("Notification service started");
     readiness.mark_ready();
 
+    let shutdown_config = ShutdownConfig::from_env();
     let outcome = tokio::select! {
-        signal = signal::ctrl_c() => {
-            signal?;
-            tracing::info!("Shutdown signal received, exiting");
+        _ = wait_for_signal() => {
+            drain(&readiness, &shutdown_config).await;
             let _ = shutdown_tx.send(true);
             match consumer.await {
                 Ok(result) => result,
@@ -86,6 +88,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         },
     };
 
-    health_handle.abort();
+    readiness.mark_not_ready();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
     outcome
 }

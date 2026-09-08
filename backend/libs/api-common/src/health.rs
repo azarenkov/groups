@@ -70,6 +70,10 @@ impl Readiness {
         self.started.store(true, Ordering::Release);
     }
 
+    pub fn mark_not_ready(&self) {
+        self.started.store(false, Ordering::Release);
+    }
+
     pub async fn check(&self) -> bool {
         if !self.started.load(Ordering::Acquire) {
             return false;
@@ -184,6 +188,7 @@ pub fn bind(port: u16, readiness: Readiness, liveness: Liveness) -> io::Result<S
             .service(web::resource("/readyz").to(readyz))
     })
     .workers(1)
+    .disable_signals()
     .bind(("0.0.0.0", port))?
     .run();
     tracing::info!(port, "Health server listening");
@@ -224,6 +229,15 @@ mod tests {
         assert!(!readiness.check().await);
         readiness.mark_ready();
         assert!(readiness.check().await);
+    }
+
+    #[tokio::test]
+    async fn mark_not_ready_flips_back_to_503() {
+        let readiness = Readiness::builder().build();
+        readiness.mark_ready();
+        assert!(readiness.check().await);
+        readiness.mark_not_ready();
+        assert!(!readiness.check().await);
     }
 
     #[tokio::test]

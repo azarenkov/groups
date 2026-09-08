@@ -1,6 +1,8 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
+use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use tokio::sync::watch;
 use infrastructure_common::config::{livekit::LiveKitConfig, postgres::PostgresConfig};
 use messaging::usecases::channel::{
     abort_voice_connection::AbortVoiceConnection, reconcile_voice_presence::ReconcileVoicePresence,
@@ -13,8 +15,6 @@ use messaging_infrastructure::{
     },
     voice::livekit_room_inspector::LiveKitRoomInspector,
 };
-use tokio::signal;
-
 use crate::config::PoolerConfig;
 
 mod config;
@@ -46,6 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         readiness.clone(),
         Liveness::default().watch(heartbeat.clone()),
     )?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -79,11 +80,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     readiness.mark_ready();
 
-    let shutdown = signal::ctrl_c();
-    tokio::pin!(shutdown);
+    let shutdown_config = ShutdownConfig::from_env();
+    let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+    actix_web::rt::spawn({
+        let readiness = readiness.clone();
+        async move {
+            wait_for_signal().await;
+            drain(&readiness, &shutdown_config).await;
+            let _ = shutdown_tx.send(true);
+        }
+    });
 
     loop {
         heartbeat.beat();
+        if *shutdown_rx.borrow() {
+            tracing::info!("Shutdown requested, exiting");
+            break;
+        }
         match reconcile.execute().await {
             Ok(summary) => {
                 if summary.db_entries_checked > 0
@@ -110,14 +123,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
 
         tokio::select! {
-            _ = &mut shutdown => {
-                tracing::info!("Shutdown signal received, exiting");
+            _ = shutdown_rx.changed() => {
+                tracing::info!("Shutdown requested, exiting");
                 break;
             }
             _ = tokio::time::sleep(interval) => {}
         }
     }
 
-    health_handle.abort();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
     Ok(())
 }

@@ -4,6 +4,7 @@ pub mod config;
 pub mod context;
 pub mod dto;
 pub mod health;
+pub mod shutdown;
 pub mod middleware;
 pub mod pagination;
 pub mod rate_limiting;

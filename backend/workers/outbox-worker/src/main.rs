@@ -11,7 +11,8 @@ use infrastructure_common::{
     outbox::dispatcher::OutboxDispatcher,
 };
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
-use tokio::signal;
+use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use tokio::sync::watch;
 
 use crate::config::WorkerConfig;
 
@@ -50,6 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         readiness.clone(),
         Liveness::default().watch(heartbeat.clone()),
     )?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -95,42 +97,47 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cleanup_batch_size,
     ));
 
-    let shutdown = signal::ctrl_c();
-    tokio::pin!(shutdown);
+    let shutdown_config = ShutdownConfig::from_env();
+    let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+    actix_web::rt::spawn({
+        let readiness = readiness.clone();
+        async move {
+            wait_for_signal().await;
+            drain(&readiness, &shutdown_config).await;
+            let _ = shutdown_tx.send(true);
+        }
+    });
 
     loop {
         heartbeat.beat();
-        tokio::select! {
-            _ = &mut shutdown => {
-                tracing::info!("Shutdown signal received, exiting");
-                break;
+        if *shutdown_rx.borrow() {
+            tracing::info!("Shutdown requested, exiting");
+            break;
+        }
+        match run_batch(&dispatcher, batch_size).await {
+            Ok(0) => {
+                tokio::select! {
+                    _ = shutdown_rx.changed() => {
+                        tracing::info!("Shutdown requested during idle, exiting");
+                        break;
+                    }
+                    _ = tokio::time::sleep(idle_interval) => {}
+                }
             }
-            result = run_batch(&dispatcher, batch_size) => {
-                match result {
-                    Ok(0) => {
-                        tokio::select! {
-                            _ = &mut shutdown => {
-                                tracing::info!("Shutdown signal received during idle, exiting");
-                                break;
-                            }
-                            _ = tokio::time::sleep(idle_interval) => {}
-                        }
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        tracing::error!(error = %e, "Outbox batch failed, backing off");
-                        tokio::select! {
-                            _ = &mut shutdown => break,
-                            _ = tokio::time::sleep(idle_interval) => {}
-                        }
-                    }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::error!(error = %e, "Outbox batch failed, backing off");
+                tokio::select! {
+                    _ = shutdown_rx.changed() => break,
+                    _ = tokio::time::sleep(idle_interval) => {}
                 }
             }
         }
     }
 
     cleanup_handle.abort();
-    health_handle.abort();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
 
     Ok(())
 }

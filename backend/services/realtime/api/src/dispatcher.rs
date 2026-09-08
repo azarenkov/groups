@@ -6,7 +6,8 @@ use infrastructure_common::{
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
-use tokio::{signal, sync::watch};
+use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use tokio::sync::watch;
 
 use std::{sync::Arc, time::Duration};
 
@@ -70,6 +71,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         readiness.clone(),
         Liveness::default().watch(heartbeat.clone()),
     )?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -124,14 +126,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     tracing::info!("Event dispatcher started");
     readiness.mark_ready();
 
-    signal::ctrl_c().await?;
-    tracing::info!("Shutdown signal received, stopping consumers");
+    wait_for_signal().await;
+    drain(&readiness, &ShutdownConfig::from_env()).await;
+    tracing::info!("Stopping consumers");
 
     let _ = shutdown_tx.send(true);
     for h in consumer_handles {
         let _ = h.await;
     }
-    health_handle.abort();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
 
     Ok(())
 }

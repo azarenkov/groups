@@ -24,7 +24,7 @@ jsonwebtoken = { workspace = true }
 anyhow = { workspace = true }
 governor = "0.10"
 redis = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt", "time", "sync"] }
+tokio = { workspace = true, features = ["macros", "rt", "time", "sync", "signal"] }
 async-nats = { workspace = true }
 validator = { workspace = true }
 envy = { workspace = true }

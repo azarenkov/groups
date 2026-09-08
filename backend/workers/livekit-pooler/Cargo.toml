@@ -14,5 +14,5 @@ dotenv = { workspace = true }
 envy = { workspace = true }
 serde = { workspace = true }
 
-tokio = { workspace = true, features = ["macros", "signal", "time", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "signal", "time", "rt-multi-thread", "sync"] }
 actix-web = { workspace = true }
