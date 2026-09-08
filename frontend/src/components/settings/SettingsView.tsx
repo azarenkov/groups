@@ -956,6 +956,16 @@ function VoiceSection() {
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (/^(Shift|Control|Alt|Meta)(Left|Right)$/.test(e.code)) {
+        setPttNotice(t("voice.pttUnsupported"));
+        if (pttNoticeTimer.current !== null) window.clearTimeout(pttNoticeTimer.current);
+        pttNoticeTimer.current = window.setTimeout(() => {
+          pttNoticeTimer.current = null;
+          setPttNotice(null);
+        }, 2500);
+        setCapturingKey(false);
+        return;
+      }
       if (e.key !== "Escape" && /^[A-Za-z0-9]+$/.test(e.code)) {
         const token = keyTokenFromCode(e.code);
         const overrides = activeBindings();
@@ -1353,7 +1363,27 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
                       className="kbd-reset"
                       title={t("shortcuts.reset")}
                       aria-label={t("shortcuts.reset")}
-                      onClick={() => setBinding(action.id, null)}
+                      onClick={() => {
+                        const fallback = action.defaultBinding;
+                        const taken =
+                          HOTKEY_ACTIONS.find(
+                            (a) => a.id !== action.id && currentBinding(a.id) === fallback,
+                          ) ??
+                          (window.electron && desktopReservedId(fallback)
+                            ? { id: desktopReservedId(fallback) as string }
+                            : undefined) ??
+                          (bindingIsBareKey(fallback, keyTokenFromCode(pttKey))
+                            ? { id: "pushToTalk" }
+                            : undefined);
+                        if (taken) {
+                          showNotice(
+                            action.id,
+                            t("shortcuts.conflict", { action: actionName(taken.id) }),
+                          );
+                          return;
+                        }
+                        setBinding(action.id, null);
+                      }}
                     >
                       <Icon name="refresh" size={13} />
                     </button>

@@ -53,8 +53,22 @@ fn valid_noise_mode(mode: &str) -> bool {
     matches!(mode, "off" | "standard" | "high")
 }
 
+const MODIFIER_CODES: &[&str] = &[
+    "ShiftLeft",
+    "ShiftRight",
+    "ControlLeft",
+    "ControlRight",
+    "AltLeft",
+    "AltRight",
+    "MetaLeft",
+    "MetaRight",
+];
+
 fn valid_ptt_key(key: &str) -> bool {
-    !key.is_empty() && key.len() <= 32 && key.chars().all(|c| c.is_ascii_alphanumeric())
+    !key.is_empty()
+        && key.len() <= 32
+        && key.chars().all(|c| c.is_ascii_alphanumeric())
+        && !MODIFIER_CODES.contains(&key)
 }
 
 pub struct GetVoiceSettings<U: UserRepository> {

@@ -163,6 +163,7 @@
     "pttBind": "Keybind",
     "pttBindHint": "Click to bind a different key.",
     "pttPressKey": "Press a key…",
+    "pttUnsupported": "A modifier key can't be used for push-to-talk.",
     "noiseOff": "Off",
     "noiseStandard": "Standard",
     "noiseHigh": "High",
