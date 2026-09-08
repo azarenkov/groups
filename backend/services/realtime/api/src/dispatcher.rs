@@ -6,7 +6,7 @@ use infrastructure_common::{
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
 use api_common::health::{self, Liveness, Readiness};
-use api_common::shutdown::{ShutdownConfig, wait_for_signal};
+use api_common::shutdown::{ShutdownConfig, ShutdownSignal};
 use tokio::sync::watch;
 
 use std::{sync::Arc, time::Duration};
@@ -23,7 +23,7 @@ use realtime_infrastructure::{
 
 use crate::config::DispatcherConfig;
 
-pub async fn run() -> Result<(), Box<dyn Error>> {
+pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let cfg = DispatcherConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
     let pg_cfg = PostgresConfig::from_env()?;
@@ -127,7 +127,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     tracing::info!("Event dispatcher started");
     readiness.mark_ready();
 
-    wait_for_signal().await;
+    shutdown.wait().await;
     readiness.mark_not_ready();
     let _ = shutdown_tx.send(true);
     tracing::info!("Stopping consumers");

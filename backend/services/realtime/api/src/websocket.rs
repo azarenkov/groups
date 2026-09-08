@@ -8,7 +8,7 @@ use infrastructure_common::{
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
 use api_common::health::{self, Liveness, Readiness};
-use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use api_common::shutdown::{ShutdownConfig, ShutdownSignal, drain};
 
 use std::sync::Arc;
 
@@ -19,7 +19,7 @@ use crate::{
     ws::{WsState, presence_preference, ws_handler},
 };
 
-pub async fn run() -> Result<(), Box<dyn Error>> {
+pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let cfg = WebsocketConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
     let pg_cfg = PostgresConfig::from_env()?;
@@ -118,7 +118,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 .map_err(|e| Box::<dyn Error>::from(e))?
                 .map_err(|e| Box::<dyn Error>::from(e));
         }
-        _ = wait_for_signal() => {}
+        _ = shutdown.wait() => {}
     }
     drain(&readiness, &shutdown_config).await;
     tracing::info!("Stopping websocket server");

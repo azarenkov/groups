@@ -1,6 +1,7 @@
 use std::{io, time::Duration};
 
 use actix_web::dev::Server;
+use tokio::sync::watch;
 
 use crate::health::Readiness;
 
@@ -70,6 +71,34 @@ pub async fn wait_for_signal() {
     tracing::info!("SIGINT received");
 }
 
+#[derive(Clone)]
+pub struct ShutdownSignal {
+    rx: watch::Receiver<bool>,
+}
+
+impl ShutdownSignal {
+    pub fn install() -> Self {
+        let (tx, rx) = watch::channel(false);
+        actix_web::rt::spawn(async move {
+            wait_for_signal().await;
+            let _ = tx.send(true);
+        });
+        Self { rx }
+    }
+
+    pub async fn wait(&mut self) {
+        if *self.rx.borrow() {
+            return;
+        }
+        while self.rx.changed().await.is_ok() {
+            if *self.rx.borrow() {
+                return;
+            }
+        }
+        std::future::pending::<()>().await;
+    }
+}
+
 pub async fn drain(readiness: &Readiness, config: &ShutdownConfig) {
     readiness.mark_not_ready();
     tracing::info!(
@@ -111,6 +140,30 @@ mod tests {
             .await
             .expect("signal handled")
             .expect("waiter task");
+    }
+
+    #[actix_web::test]
+    async fn installed_signal_is_broadcast_to_every_waiter() {
+        let signal = ShutdownSignal::install();
+        let mut first = signal.clone();
+        let mut second = signal.clone();
+        let waiters = actix_web::rt::spawn(async move {
+            tokio::join!(first.wait(), second.wait());
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let status = std::process::Command::new("kill")
+            .args(["-TERM", &std::process::id().to_string()])
+            .status()
+            .expect("kill");
+        assert!(status.success());
+        tokio::time::timeout(Duration::from_secs(2), waiters)
+            .await
+            .expect("both waiters released")
+            .expect("waiter task");
+        let mut late = signal.clone();
+        tokio::time::timeout(Duration::from_millis(100), late.wait())
+            .await
+            .expect("late waiter sees the stored signal");
     }
 
     #[test]

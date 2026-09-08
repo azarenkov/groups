@@ -44,6 +44,19 @@ impl Heartbeat {
     pub fn is_fresh(&self) -> bool {
         self.inner.is_fresh()
     }
+
+    pub async fn keep_alive_for(&self, duration: Duration) {
+        let step = (self.inner.stale_after / 4).max(Duration::from_millis(10));
+        let deadline = Instant::now() + duration;
+        loop {
+            self.beat();
+            let now = Instant::now();
+            if now >= deadline {
+                return;
+            }
+            tokio::time::sleep((deadline - now).min(step)).await;
+        }
+    }
 }
 
 #[derive(Clone, Default)]
