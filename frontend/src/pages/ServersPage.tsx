@@ -716,8 +716,19 @@ const ServersPage: React.FC = () => {
       ];
     if (next.id !== selectedDm?.id) handleSelectDm(next);
   };
-  useHotkey("nextChannel", () => stepConversation(1), !settingsOpen);
-  useHotkey("prevChannel", () => stepConversation(-1), !settingsOpen);
+  const navigationBlocked =
+    settingsOpen ||
+    !!serverSettings ||
+    !!passwordPrompt ||
+    !!deleteConfirm ||
+    !!channelModal ||
+    !!inviteModalServer ||
+    isServerModalOpen ||
+    isDmModalOpen ||
+    isAddFriendOpen ||
+    isPendingOpen;
+  useHotkey("nextChannel", () => stepConversation(1), !navigationBlocked);
+  useHotkey("prevChannel", () => stepConversation(-1), !navigationBlocked);
 
   const handleVoiceLeave = useCallback(() => {
     setJoinedChannel(null);
