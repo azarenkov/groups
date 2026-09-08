@@ -1,4 +1,9 @@
 use chrono::{DateTime, Utc};
+use std::collections::BTreeMap;
+use identity_domain::user::settings::{
+    appearance::AppearanceSettings, hotkeys::HotkeyBindings,
+    notification::NotificationSettings, voice::VoiceSettings,
+};
 use async_trait::async_trait;
 
 use identity_domain::{user::User, user::email::Email, user::repository::UserRepository};
@@ -475,7 +480,7 @@ impl UserRepository for PostgresUserRepository {
     async fn get_appearance(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<(String, String, i16, bool)>, RepositoryError> {
+    ) -> Result<Option<AppearanceSettings>, RepositoryError> {
         let row: Option<(String, String, i16, bool)> = sqlx::query_as(
             "SELECT theme, accent, chat_font_size, reduce_motion FROM user_settings WHERE user_id = $1",
         )
@@ -483,45 +488,13 @@ impl UserRepository for PostgresUserRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row)
-    }
-
-    async fn apply_appearance_patch(
-        &self,
-        user_id: &UserId,
-        theme: Option<&str>,
-        accent: Option<&str>,
-        chat_font_size: Option<i16>,
-        reduce_motion: Option<bool>,
-    ) -> Result<(String, String, i16, bool), RepositoryError> {
-        let row: (String, String, i16, bool) = sqlx::query_as(
-            r#"
-                INSERT INTO user_settings (user_id, theme, accent, chat_font_size, reduce_motion, updated_at)
-                VALUES ($1, COALESCE($2, 'system'), COALESCE($3, ''), COALESCE($4, 14), COALESCE($5, false), now())
-                ON CONFLICT (user_id) DO UPDATE
-                    SET theme = COALESCE($2, user_settings.theme),
-                        accent = COALESCE($3, user_settings.accent),
-                        chat_font_size = COALESCE($4, user_settings.chat_font_size),
-                        reduce_motion = COALESCE($5, user_settings.reduce_motion),
-                        updated_at = now()
-                RETURNING theme, accent, chat_font_size, reduce_motion
-            "#,
-        )
-        .bind(user_id.uuid())
-        .bind(theme)
-        .bind(accent)
-        .bind(chat_font_size)
-        .bind(reduce_motion)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row)
+        Ok(row.map(|r| AppearanceSettings::restore(&r.0, r.1, r.2, r.3)))
     }
 
     async fn get_voice_settings(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<(i16, i16, String, bool, i16, bool, String)>, RepositoryError> {
+    ) -> Result<Option<VoiceSettings>, RepositoryError> {
         let row: Option<(i16, i16, String, bool, i16, bool, String)> = sqlx::query_as(
             "SELECT mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key FROM voice_settings WHERE user_id = $1",
         )
@@ -529,54 +502,13 @@ impl UserRepository for PostgresUserRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row)
-    }
-
-    async fn apply_voice_settings_patch(
-        &self,
-        user_id: &UserId,
-        mic_volume: Option<i16>,
-        output_volume: Option<i16>,
-        noise_mode: Option<&str>,
-        auto_sensitivity: Option<bool>,
-        sensitivity: Option<i16>,
-        push_to_talk: Option<bool>,
-        ptt_key: Option<&str>,
-    ) -> Result<(i16, i16, String, bool, i16, bool, String), RepositoryError> {
-        let row: (i16, i16, String, bool, i16, bool, String) = sqlx::query_as(
-            r#"
-                INSERT INTO voice_settings (user_id, mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key, updated_at)
-                VALUES ($1, COALESCE($2, 100), COALESCE($3, 100), COALESCE($4, 'standard'), COALESCE($5, true), COALESCE($6, 50), COALESCE($7, false), COALESCE($8, 'KeyM'), now())
-                ON CONFLICT (user_id) DO UPDATE
-                    SET mic_volume = COALESCE($2, voice_settings.mic_volume),
-                        output_volume = COALESCE($3, voice_settings.output_volume),
-                        noise_mode = COALESCE($4, voice_settings.noise_mode),
-                        auto_sensitivity = COALESCE($5, voice_settings.auto_sensitivity),
-                        sensitivity = COALESCE($6, voice_settings.sensitivity),
-                        push_to_talk = COALESCE($7, voice_settings.push_to_talk),
-                        ptt_key = COALESCE($8, voice_settings.ptt_key),
-                        updated_at = now()
-                RETURNING mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key
-            "#,
-        )
-        .bind(user_id.uuid())
-        .bind(mic_volume)
-        .bind(output_volume)
-        .bind(noise_mode)
-        .bind(auto_sensitivity)
-        .bind(sensitivity)
-        .bind(push_to_talk)
-        .bind(ptt_key)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row)
+        Ok(row.map(|r| VoiceSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6)))
     }
 
     async fn get_notification_settings(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<(bool, bool, String, bool, String, String, bool)>, RepositoryError> {
+    ) -> Result<Option<NotificationSettings>, RepositoryError> {
         let row: Option<(bool, bool, String, bool, String, String, bool)> = sqlx::query_as(
             "SELECT desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled FROM notification_settings WHERE user_id = $1",
         )
@@ -584,54 +516,13 @@ impl UserRepository for PostgresUserRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row)
-    }
-
-    async fn apply_notification_settings_patch(
-        &self,
-        user_id: &UserId,
-        desktop_enabled: Option<bool>,
-        sounds_enabled: Option<bool>,
-        mentions: Option<&str>,
-        quiet_hours_enabled: Option<bool>,
-        quiet_start: Option<&str>,
-        quiet_end: Option<&str>,
-        calls_enabled: Option<bool>,
-    ) -> Result<(bool, bool, String, bool, String, String, bool), RepositoryError> {
-        let row: (bool, bool, String, bool, String, String, bool) = sqlx::query_as(
-            r#"
-                INSERT INTO notification_settings (user_id, desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled, updated_at)
-                VALUES ($1, COALESCE($2, true), COALESCE($3, true), COALESCE($4, 'all'), COALESCE($5, false), COALESCE($6, '22:00'), COALESCE($7, '08:00'), COALESCE($8, true), now())
-                ON CONFLICT (user_id) DO UPDATE
-                    SET desktop_enabled = COALESCE($2, notification_settings.desktop_enabled),
-                        sounds_enabled = COALESCE($3, notification_settings.sounds_enabled),
-                        mentions = COALESCE($4, notification_settings.mentions),
-                        quiet_hours_enabled = COALESCE($5, notification_settings.quiet_hours_enabled),
-                        quiet_start = COALESCE($6, notification_settings.quiet_start),
-                        quiet_end = COALESCE($7, notification_settings.quiet_end),
-                        calls_enabled = COALESCE($8, notification_settings.calls_enabled),
-                        updated_at = now()
-                RETURNING desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled
-            "#,
-        )
-        .bind(user_id.uuid())
-        .bind(desktop_enabled)
-        .bind(sounds_enabled)
-        .bind(mentions)
-        .bind(quiet_hours_enabled)
-        .bind(quiet_start)
-        .bind(quiet_end)
-        .bind(calls_enabled)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row)
+        Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6)))
     }
 
     async fn get_hotkey_settings(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<String>, RepositoryError> {
+    ) -> Result<Option<HotkeyBindings>, RepositoryError> {
         let row: Option<(String,)> = sqlx::query_as(
             "SELECT bindings::text FROM hotkey_settings WHERE user_id = $1",
         )
@@ -639,56 +530,20 @@ impl UserRepository for PostgresUserRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| r.0))
-    }
-
-    async fn apply_hotkey_settings_patch(
-        &self,
-        user_id: &UserId,
-        patch_json: &str,
-        defaults_json: &str,
-    ) -> Result<Option<String>, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query(
-            "INSERT INTO hotkey_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
-        )
-        .bind(user_id.uuid())
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        let row: Option<(String,)> = sqlx::query_as(
-            r#"
-                WITH current AS (
-                    SELECT bindings FROM hotkey_settings WHERE user_id = $1 FOR UPDATE
-                ),
-                merged AS (
-                    SELECT jsonb_strip_nulls(current.bindings || $2::jsonb) AS bindings FROM current
-                ),
-                effective AS (
-                    SELECT value FROM merged, jsonb_each_text($3::jsonb || merged.bindings)
-                ),
-                valid AS (
-                    SELECT (SELECT count(*) FROM effective) = (SELECT count(DISTINCT value) FROM effective) AS ok
-                )
-                UPDATE hotkey_settings
-                    SET bindings = merged.bindings,
-                        updated_at = now()
-                FROM merged, valid
-                WHERE hotkey_settings.user_id = $1 AND valid.ok
-                RETURNING hotkey_settings.bindings::text
-            "#,
-        )
-        .bind(user_id.uuid())
-        .bind(patch_json)
-        .bind(defaults_json)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| r.0))
+        Ok(row.map(|r| restore_hotkey_bindings(&r.0)))
     }
 }
+
+pub fn restore_hotkey_bindings(raw: &str) -> HotkeyBindings {
+    let stored: BTreeMap<String, serde_json::Value> = serde_json::from_str(raw).unwrap_or_default();
+    HotkeyBindings::restore(
+        stored
+            .into_iter()
+            .filter_map(|(action, value)| match value {
+                serde_json::Value::String(binding) => Some((action, binding)),
+                _ => None,
+            })
+            .collect(),
+    )
+}
+

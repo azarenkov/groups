@@ -1,4 +1,8 @@
 use async_trait::async_trait;
+use crate::user::settings::{
+    appearance::AppearanceSettings, hotkeys::HotkeyBindings,
+    notification::NotificationSettings, voice::VoiceSettings,
+};
 use chrono::{DateTime, Utc};
 
 use crate::{user::User, user::email::Email, user::id::UserId, user::name::UserName};
@@ -83,56 +87,17 @@ pub trait UserRepository {
     async fn get_appearance(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<(String, String, i16, bool)>, RepositoryError>;
-    async fn apply_appearance_patch(
-        &self,
-        user_id: &UserId,
-        theme: Option<&str>,
-        accent: Option<&str>,
-        chat_font_size: Option<i16>,
-        reduce_motion: Option<bool>,
-    ) -> Result<(String, String, i16, bool), RepositoryError>;
+    ) -> Result<Option<AppearanceSettings>, RepositoryError>;
     async fn get_voice_settings(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<(i16, i16, String, bool, i16, bool, String)>, RepositoryError>;
-    #[allow(clippy::too_many_arguments)]
-    async fn apply_voice_settings_patch(
-        &self,
-        user_id: &UserId,
-        mic_volume: Option<i16>,
-        output_volume: Option<i16>,
-        noise_mode: Option<&str>,
-        auto_sensitivity: Option<bool>,
-        sensitivity: Option<i16>,
-        push_to_talk: Option<bool>,
-        ptt_key: Option<&str>,
-    ) -> Result<(i16, i16, String, bool, i16, bool, String), RepositoryError>;
+    ) -> Result<Option<VoiceSettings>, RepositoryError>;
     async fn get_notification_settings(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<(bool, bool, String, bool, String, String, bool)>, RepositoryError>;
-    #[allow(clippy::too_many_arguments)]
-    async fn apply_notification_settings_patch(
-        &self,
-        user_id: &UserId,
-        desktop_enabled: Option<bool>,
-        sounds_enabled: Option<bool>,
-        mentions: Option<&str>,
-        quiet_hours_enabled: Option<bool>,
-        quiet_start: Option<&str>,
-        quiet_end: Option<&str>,
-        calls_enabled: Option<bool>,
-    ) -> Result<(bool, bool, String, bool, String, String, bool), RepositoryError>;
+    ) -> Result<Option<NotificationSettings>, RepositoryError>;
     async fn get_hotkey_settings(
         &self,
         user_id: &UserId,
-    ) -> Result<Option<String>, RepositoryError>;
-    async fn apply_hotkey_settings_patch(
-        &self,
-        user_id: &UserId,
-        patch_json: &str,
-        defaults_json: &str,
-    ) -> Result<Option<String>, RepositoryError>;
-
+    ) -> Result<Option<HotkeyBindings>, RepositoryError>;
 }

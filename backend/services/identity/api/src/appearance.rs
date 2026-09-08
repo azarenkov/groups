@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, patch, web};
 use api_common::api_error::StatusCode;
 use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
-use identity::usecases::user::appearance::{AppearancePatch, AppearanceSettings};
+use identity_domain::user::settings::appearance::{AppearancePatch, AppearanceSettings};
 use identity_domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
 
@@ -21,10 +21,10 @@ struct AppearanceResponse {
 impl From<AppearanceSettings> for AppearanceResponse {
     fn from(settings: AppearanceSettings) -> Self {
         Self {
-            theme: settings.theme,
-            accent: settings.accent,
-            chat_font_size: settings.chat_font_size,
-            reduce_motion: settings.reduce_motion,
+            theme: settings.theme().as_str().to_string(),
+            accent: settings.accent().to_string(),
+            chat_font_size: settings.chat_font_size(),
+            reduce_motion: settings.reduce_motion(),
         }
     }
 }

@@ -2,6 +2,7 @@ pub use domain::user::{email, id, locale, name};
 
 pub mod events;
 pub mod repository;
+pub mod settings;
 
 #[cfg(test)]
 mod tests;
