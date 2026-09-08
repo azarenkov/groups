@@ -18,6 +18,7 @@ import { requestDesktopNotificationPermission } from "../../utils/desktopNotific
 import { useHotkeySettingsStore } from "../../store/hotkeySettingsStore";
 import {
   HOTKEY_ACTIONS,
+  bindingAvailable,
   bindingFromEvent,
   bindingKeycaps,
   bindingVerdict,
@@ -1301,7 +1302,9 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
           {HOTKEY_ACTIONS.filter((a) => a.group === group).map((action) => {
             const isCapturing = capturing === action.id;
             const overridden = bindings[action.id] !== undefined;
-            const hint = t(`shortcuts.hints.${action.id}`, { defaultValue: "" });
+            const hint = bindingAvailable(currentBinding(action.id))
+              ? t(`shortcuts.hints.${action.id}`, { defaultValue: "" })
+              : t("shortcuts.unavailableHere");
             const active = notice?.id === action.id ? notice.text : hint;
             return (
               <div className={"kbd-row" + (isCapturing ? " capturing" : "")} key={action.id}>

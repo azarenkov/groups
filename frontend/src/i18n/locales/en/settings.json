@@ -239,7 +239,8 @@
     "openVoice": "Configure",
     "needModifier": "Add a modifier: {{mods}}.",
     "conflict": "Already used by: {{action}}.",
-    "unsupportedKey": "This key is not supported."
+    "unsupportedKey": "This key is not supported.",
+    "unavailableHere": "Not available on this platform."
   },
   "language": {
     "title": "Language",

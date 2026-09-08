@@ -239,7 +239,8 @@
     "openVoice": "Настроить",
     "needModifier": "Добавьте модификатор: {{mods}}.",
     "conflict": "Уже используется: {{action}}.",
-    "unsupportedKey": "Эта клавиша не поддерживается."
+    "unsupportedKey": "Эта клавиша не поддерживается.",
+    "unavailableHere": "Недоступно на этой платформе."
   },
   "language": {
     "title": "Язык",
