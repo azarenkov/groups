@@ -10,8 +10,6 @@ use std::sync::Arc;
 
 use realtime_core::{ports::projection::RealtimeProjection, usecases::apply_projection::ApplyProjection};
 
-const HEARTBEAT_TICK: Duration = Duration::from_secs(5);
-
 pub struct CatchupSpec {
     pub stream: String,
     pub consumer_name: String,
@@ -27,7 +25,7 @@ pub async fn run_catchup<R: RealtimeProjection + 'static>(
     heartbeat: Heartbeat,
 ) {
     let consumer = NatsEventConsumer::new(jetstream, spec.stream.clone());
-    let mut pulse = tokio::time::interval(HEARTBEAT_TICK);
+    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
     pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
         heartbeat.beat();
