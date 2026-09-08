@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use std::time::Duration;
-
 use api_common::health::Heartbeat;
 use api_common::middleware::request_id::REQUEST_ID;
 use contracts::events::user::VerificationIssuedV1;
@@ -11,8 +9,6 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use notification_core::usecases::send_verification_email::{SendVerificationEmail, VerificationIssued};
 use ports::{event_consumer::ConsumedMessage, event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
 use tracing::Instrument;
-
-const HEARTBEAT_TICK: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct VerificationConsumerSpec {
@@ -55,7 +51,7 @@ pub async fn run<M: Mailer>(
         "Verification consumer subscribed",
     );
 
-    let mut pulse = tokio::time::interval(HEARTBEAT_TICK);
+    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
     pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
         heartbeat.beat();
