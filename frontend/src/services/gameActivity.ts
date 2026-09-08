@@ -126,7 +126,22 @@ const run = async (): Promise<void> => {
       stopHeartbeat();
       if (useAuthStore.getState().user?.id === userId) {
         useActivityStore.getState().apply(userId, null);
-        void useAuthStore.getState().fetchMe().catch(() => {});
+        void userAPI
+          .getMe()
+          .then((me) => {
+            const auth = useAuthStore.getState();
+            if (auth.user?.id !== userId || me.id !== userId) return;
+            useActivityStore
+              .getState()
+              .applyEvent(userId, null, me.profileUpdatedAt ?? null);
+            auth.setUser({
+              ...auth.user,
+              bio: me.bio,
+              showActivity: me.showActivity,
+              showGameActivity: me.showGameActivity,
+            });
+          })
+          .catch(() => {});
       }
     } else if (e instanceof ApiError && e.code === "ACTIVITY_LEASED") {
       publishedOwner = null;
