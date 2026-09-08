@@ -292,7 +292,9 @@ function dispatch(env: WsEnvelope) {
       useUserProfileStore.getState().apply(userId, bio, version);
       const auth = useAuthStore.getState();
       if (!showGameActivity && auth.user?.id !== userId) {
-        useActivityStore.getState().apply(userId, null);
+        useActivityStore
+          .getState()
+          .applyEvent(userId, null, asString(d.occurredAt) ?? null);
       }
       if (auth.user?.id === userId) {
         auth.setUser({ ...auth.user, bio, showActivity, showGameActivity });
