@@ -6,7 +6,7 @@ use infrastructure_common::{
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
 use api_common::health::{self, Liveness, Readiness};
-use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use api_common::shutdown::{ShutdownConfig, wait_for_signal};
 use tokio::sync::watch;
 
 use std::{sync::Arc, time::Duration};
@@ -128,13 +128,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     readiness.mark_ready();
 
     wait_for_signal().await;
-    drain(&readiness, &ShutdownConfig::from_env()).await;
-    tracing::info!("Stopping consumers");
-
+    readiness.mark_not_ready();
     let _ = shutdown_tx.send(true);
-    for h in consumer_handles {
-        let _ = h.await;
-    }
+    tracing::info!("Stopping consumers");
+    let drain_delay = tokio::time::sleep(ShutdownConfig::from_env().drain_delay);
+    let consumers_done = async {
+        for h in consumer_handles {
+            let _ = h.await;
+        }
+    };
+    tokio::join!(consumers_done, drain_delay);
     health_server_handle.stop(false).await;
     let _ = health_handle.await;
 
