@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useHotkey } from "../../services/hotkeys";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
@@ -143,6 +144,12 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     void fetchRoles(serverId).catch(() => {});
   }, [serverId, fetchRoles]);
   const muteLocked = isModeratorMuted && serverOwnerId !== currentUserId;
+  useHotkey("toggleMute", () => {
+    if (!muteLocked) toggleMute();
+  });
+  useHotkey("leaveVoice", () => {
+    void handleLeave();
+  });
   const canModerateMute =
     !!currentUserId &&
     (serverOwnerId === currentUserId ||

@@ -627,4 +627,41 @@ impl UserRepository for PostgresUserRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row)
     }
+
+    async fn get_hotkey_settings(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<String>, RepositoryError> {
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT bindings::text FROM hotkey_settings WHERE user_id = $1",
+        )
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| r.0))
+    }
+
+    async fn apply_hotkey_settings_patch(
+        &self,
+        user_id: &UserId,
+        patch_json: &str,
+    ) -> Result<String, RepositoryError> {
+        let row: (String,) = sqlx::query_as(
+            r#"
+                INSERT INTO hotkey_settings (user_id, bindings, updated_at)
+                VALUES ($1, jsonb_strip_nulls($2::jsonb), now())
+                ON CONFLICT (user_id) DO UPDATE
+                    SET bindings = jsonb_strip_nulls(hotkey_settings.bindings || $2::jsonb),
+                        updated_at = now()
+                RETURNING bindings::text
+            "#,
+        )
+        .bind(user_id.uuid())
+        .bind(patch_json)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.0)
+    }
 }

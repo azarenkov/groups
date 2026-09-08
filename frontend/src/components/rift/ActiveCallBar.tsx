@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import VoicePill from "./VoicePill";
 import { useCallStore } from "../../store/callStore";
+import { useHotkey } from "../../services/hotkeys";
 
 const ActiveCallBar: React.FC = () => {
   const activeCallId = useCallStore((s) => s.activeCallId);
@@ -13,6 +14,10 @@ const ActiveCallBar: React.FC = () => {
   const setMicMuted = useCallStore((s) => s.setMicMuted);
   const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
   const { t } = useTranslation(["call", "voice"]);
+  useHotkey("toggleMute", () => setMicMuted(!muted), !!activeCallId);
+  useHotkey("leaveVoice", () => {
+    void leave();
+  }, !!activeCallId);
 
   useEffect(() => {
     setMountPoint(document.getElementById("voice-dock-slot"));

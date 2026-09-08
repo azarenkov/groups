@@ -1011,6 +1011,31 @@ impl HttpMapping for NotificationSettingsError {
     }
 }
 
+use identity::usecases::user::hotkey_settings::HotkeySettingsError;
+
+impl HttpMapping for HotkeySettingsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            HotkeySettingsError::Repository(e) => e.to_http_status(),
+            HotkeySettingsError::Invalid => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            HotkeySettingsError::Repository(e) => e.to_user_message(),
+            HotkeySettingsError::Invalid => "Invalid hotkey settings".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            HotkeySettingsError::Repository(e) => e.to_error_code(),
+            HotkeySettingsError::Invalid => "INVALID_HOTKEY_SETTINGS",
+        }
+    }
+}
+
 use identity::usecases::user::activity::ActivityError;
 
 impl HttpMapping for ActivityError {

@@ -10,6 +10,7 @@ mod appearance;
 mod connections;
 mod user;
 mod notification_settings;
+mod hotkey_settings;
 mod voice_settings;
 
 use std::error::Error;

@@ -52,6 +52,7 @@ import CallReturnBar, { CallErrorToast } from "../components/rift/CallReturnBar"
 import VoiceRoomSplash from "../components/rift/VoiceRoomSplash";
 import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
+import { useHotkey } from "../services/hotkeys";
 import ServerSettingsView from "../components/rift/ServerSettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
@@ -100,16 +101,7 @@ const ServersPage: React.FC = () => {
     clearChannels,
   } = useChannelStore();
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
-        e.preventDefault();
-        setSettingsOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useHotkey("openSettings", () => setSettingsOpen(true));
 
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [serverModalView, setServerModalView] = useState<
@@ -693,6 +685,39 @@ const ServersPage: React.FC = () => {
     setSelectedDm(newDm);
     setIsDmModalOpen(false);
   };
+
+  const stepConversation = (delta: -1 | 1) => {
+    if (selectedServer && !selectedDm) {
+      const list = (channelsByServer[selectedServer.id] ?? []).filter(
+        (c) => c.kind === "text",
+      );
+      if (list.length === 0) return;
+      const idx = list.findIndex((c) => c.id === selectedChannelId);
+      const next =
+        list[
+          idx < 0
+            ? delta > 0
+              ? 0
+              : list.length - 1
+            : (idx + delta + list.length) % list.length
+        ];
+      if (next.id !== selectedChannelId) handleSelectChannel(selectedServer, next);
+      return;
+    }
+    if (acceptedFriends.length === 0) return;
+    const idx = acceptedFriends.findIndex((d) => d.id === selectedDm?.id);
+    const next =
+      acceptedFriends[
+        idx < 0
+          ? delta > 0
+            ? 0
+            : acceptedFriends.length - 1
+          : (idx + delta + acceptedFriends.length) % acceptedFriends.length
+      ];
+    if (next.id !== selectedDm?.id) handleSelectDm(next);
+  };
+  useHotkey("nextChannel", () => stepConversation(1), !settingsOpen);
+  useHotkey("prevChannel", () => stepConversation(-1), !settingsOpen);
 
   const handleVoiceLeave = useCallback(() => {
     setJoinedChannel(null);

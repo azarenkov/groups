@@ -82,6 +82,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     void import("./notificationSettingsStore").then((m) =>
       m.invalidateNotificationSettingsSync(),
     );
+    void import("./hotkeySettingsStore").then((m) =>
+      m.invalidateHotkeySettingsSync(),
+    );
     void clearRefreshToken();
   },
 
@@ -146,6 +149,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       "./notificationSettingsStore"
     );
     void useNotificationSettingsStore.getState().syncFromServer(me.id);
+    const { useHotkeySettingsStore } = await import("./hotkeySettingsStore");
+    void useHotkeySettingsStore.getState().syncFromServer(me.id);
   },
 
   setHydrating: (v) => set({ isHydrating: v }),
