@@ -11,7 +11,7 @@ use infrastructure_common::{
     outbox::dispatcher::OutboxDispatcher,
 };
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
-use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use api_common::shutdown::wait_for_signal;
 use tokio::sync::watch;
 
 use crate::config::WorkerConfig;
@@ -100,13 +100,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cleanup_batch_size,
     ));
 
-    let shutdown_config = ShutdownConfig::from_env();
     let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
     actix_web::rt::spawn({
         let readiness = readiness.clone();
         async move {
             wait_for_signal().await;
-            drain(&readiness, &shutdown_config).await;
+            readiness.mark_not_ready();
             let _ = shutdown_tx.send(true);
         }
     });
@@ -117,7 +116,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tracing::info!("Shutdown requested, exiting");
             break;
         }
-        match run_batch(&dispatcher, batch_size).await {
+        match run_batch(&dispatcher, batch_size, &heartbeat).await {
             Ok(0) => {
                 tokio::select! {
                     _ = shutdown_rx.changed() => {
@@ -148,6 +147,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn run_batch<P>(
     dispatcher: &OutboxDispatcher<P>,
     batch_size: u32,
+    heartbeat: &Heartbeat,
 ) -> Result<usize, Box<dyn Error>>
 where
     P: OutboxPublisher,
@@ -158,6 +158,7 @@ where
             break;
         }
         processed += 1;
+        heartbeat.beat();
     }
     Ok(processed)
 }
