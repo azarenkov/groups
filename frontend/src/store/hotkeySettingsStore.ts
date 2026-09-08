@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { ApiError } from "../utils/apiError";
-import { isHotkeyActionId, isValidBinding } from "../utils/hotkeys";
+import { HOTKEY_ACTION_IDS, isHotkeyActionId, isValidBinding } from "../utils/hotkeys";
 import { useAuthStore } from "./authStore";
 
 export type HotkeyBindings = Record<string, string>;
@@ -245,15 +245,13 @@ export const useHotkeySettingsStore = create<HotkeySettingsState>()(
       resetAll: () => {
         const userId = useAuthStore.getState().user?.id ?? null;
         if (userId === null) return;
-        const overridden = get().ownerId === userId ? Object.keys(get().bindings) : [];
-        if (overridden.length === 0) return;
         editSeq += 1;
         const patch: HotkeyPatch = {};
-        for (const action of overridden) {
+        for (const action of HOTKEY_ACTION_IDS) {
           editStamp[action] = editSeq;
           patch[action] = null;
         }
-        set({ bindings: {} });
+        set({ bindings: {}, ownerId: userId });
         scheduleSave(patch, userId);
       },
 
