@@ -43,6 +43,7 @@ export const initPushToTalk = (): void => {
     const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();
     if (e.code !== pttKey) return;
     if (!pushToTalk) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     if (isTextEntryTarget(e.target)) return;
     e.preventDefault();
     if (holding) return;

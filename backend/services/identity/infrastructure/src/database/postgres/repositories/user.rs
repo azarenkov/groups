@@ -648,15 +648,25 @@ impl UserRepository for PostgresUserRepository {
         patch_json: &str,
         defaults_json: &str,
     ) -> Result<Option<String>, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query(
+            "INSERT INTO hotkey_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+        )
+        .bind(user_id.uuid())
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         let row: Option<(String,)> = sqlx::query_as(
             r#"
-                WITH merged AS (
-                    SELECT jsonb_strip_nulls(
-                        COALESCE(
-                            (SELECT bindings FROM hotkey_settings WHERE user_id = $1 FOR UPDATE),
-                            '{}'::jsonb
-                        ) || $2::jsonb
-                    ) AS bindings
+                WITH current AS (
+                    SELECT bindings FROM hotkey_settings WHERE user_id = $1 FOR UPDATE
+                ),
+                merged AS (
+                    SELECT jsonb_strip_nulls(current.bindings || $2::jsonb) AS bindings FROM current
                 ),
                 effective AS (
                     SELECT value FROM merged, jsonb_each_text($3::jsonb || merged.bindings)
@@ -664,20 +674,21 @@ impl UserRepository for PostgresUserRepository {
                 valid AS (
                     SELECT (SELECT count(*) FROM effective) = (SELECT count(DISTINCT value) FROM effective) AS ok
                 )
-                INSERT INTO hotkey_settings (user_id, bindings, updated_at)
-                SELECT $1, merged.bindings, now() FROM merged, valid WHERE valid.ok
-                ON CONFLICT (user_id) DO UPDATE
-                    SET bindings = EXCLUDED.bindings,
+                UPDATE hotkey_settings
+                    SET bindings = merged.bindings,
                         updated_at = now()
-                RETURNING bindings::text
+                FROM merged, valid
+                WHERE hotkey_settings.user_id = $1 AND valid.ok
+                RETURNING hotkey_settings.bindings::text
             "#,
         )
         .bind(user_id.uuid())
         .bind(patch_json)
         .bind(defaults_json)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.map(|r| r.0))
     }
 }
