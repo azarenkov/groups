@@ -113,14 +113,11 @@ export function parseBinding(binding: string): ParsedBinding | null {
 
 export const bindingAvailable = (binding: string): boolean => {
   const parsed = parseBinding(binding);
-  return !!parsed && (IS_MAC || !(parsed.mod && parsed.ctrl));
+  return !!parsed && (IS_MAC || !parsed.ctrl);
 };
 
-const platformModifiers = (parsed: ParsedBinding): ParsedBinding | null => {
-  if (IS_MAC) return parsed;
-  if (parsed.mod && parsed.ctrl) return null;
-  return parsed.ctrl ? { ...parsed, mod: true, ctrl: false } : parsed;
-};
+const platformModifiers = (parsed: ParsedBinding): ParsedBinding | null =>
+  IS_MAC || !parsed.ctrl ? parsed : null;
 
 export const isValidBinding = (binding: unknown): binding is string =>
   typeof binding === "string" && parseBinding(binding) !== null;
@@ -220,8 +217,8 @@ export function bindingKeycaps(binding: string): string[] {
     if (parsed.shift) caps.push("⇧");
     if (parsed.mod) caps.push("⌘");
   } else {
-    if (parsed.mod) caps.push(parsed.ctrl ? "⌘" : "Ctrl");
-    if (parsed.ctrl) caps.push("Ctrl");
+    if (parsed.ctrl) caps.push("⌃");
+    if (parsed.mod) caps.push("Ctrl");
     if (parsed.alt) caps.push("Alt");
     if (parsed.shift) caps.push("Shift");
   }
