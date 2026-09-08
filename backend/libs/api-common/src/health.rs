@@ -38,10 +38,10 @@ impl CachedProbe {
     async fn check(&self) -> bool {
         let requested_at = Instant::now();
         let mut last = self.last.lock().await;
-        if let Some((at, ok)) = *last {
-            if at >= requested_at || at.elapsed() < self.ttl {
-                return ok;
-            }
+        if let Some((at, ok)) = *last
+            && (at >= requested_at || at.elapsed() < self.ttl)
+        {
+            return ok;
         }
         let ok = matches!(
             tokio::time::timeout(self.timeout, (self.probe)()).await,
