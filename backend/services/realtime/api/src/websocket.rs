@@ -115,8 +115,8 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
             health_server_handle.stop(false).await;
             let _ = health_handle.await;
             return finished
-                .map_err(|e| Box::<dyn Error>::from(e))?
-                .map_err(|e| Box::<dyn Error>::from(e));
+                .map_err(Box::<dyn Error>::from)?
+                .map_err(Box::<dyn Error>::from);
         }
         _ = shutdown.wait() => {}
     }
