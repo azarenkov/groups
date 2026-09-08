@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
-use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use api_common::shutdown::{ShutdownConfig, wait_for_signal};
 use infrastructure_common::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
@@ -77,9 +77,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let shutdown_config = ShutdownConfig::from_env();
     let outcome = tokio::select! {
         _ = wait_for_signal() => {
-            drain(&readiness, &shutdown_config).await;
+            readiness.mark_not_ready();
             let _ = shutdown_tx.send(true);
-            match consumer.await {
+            let (finished, _) = tokio::join!(
+                &mut consumer,
+                tokio::time::sleep(shutdown_config.drain_delay),
+            );
+            match finished {
                 Ok(result) => result,
                 Err(e) => Err(Box::<dyn Error>::from(e)),
             }
