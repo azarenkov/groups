@@ -1,7 +1,9 @@
 import io
+import logging
 import os
 import re
 import threading
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -179,12 +181,37 @@ ALLOWLIST = frozenset(
     ]
 )
 
-app = FastAPI()
-nsfw_classifier = pipeline("image-classification", model="/model")
-concept_classifier = pipeline("zero-shot-image-classification", model="/clip")
-en_toxicity = pipeline("text-classification", model="/en-toxicity", top_k=None)
-ru_toxicity = pipeline("text-classification", model="/ru-toxicity", top_k=None)
+logger = logging.getLogger("nsfw-detector")
+
 inference_lock = threading.Lock()
+models: dict = {}
+models_ready = threading.Event()
+
+
+def load_models() -> None:
+    try:
+        models["nsfw"] = pipeline("image-classification", model="/model")
+        models["concept"] = pipeline("zero-shot-image-classification", model="/clip")
+        models["en_toxicity"] = pipeline(
+            "text-classification", model="/en-toxicity", top_k=None
+        )
+        models["ru_toxicity"] = pipeline(
+            "text-classification", model="/ru-toxicity", top_k=None
+        )
+    except Exception:
+        logger.exception("model loading failed; exiting so the orchestrator restarts the service")
+        os._exit(1)
+    models_ready.set()
+    logger.info("models loaded")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    threading.Thread(target=load_models, name="model-loader", daemon=True).start()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 def classify(body: bytes):
@@ -194,8 +221,8 @@ def classify(body: bytes):
         return None
 
     with inference_lock:
-        nsfw_results = nsfw_classifier(image)
-        concept_results = concept_classifier(
+        nsfw_results = models["nsfw"](image)
+        concept_results = models["concept"](
             image, candidate_labels=BLOCKED_LABELS + NEUTRAL_LABELS
         )
 
@@ -260,8 +287,8 @@ def toxicity_score(text: str) -> float:
     flat, _ = normalize_text(text)
     cyr = transliterate(flat)
     with inference_lock:
-        en_results = label_scores(en_toxicity(text[:512]))
-        ru_results = label_scores(ru_toxicity(cyr[:512]))
+        en_results = label_scores(models["en_toxicity"](text[:512]))
+        ru_results = label_scores(models["ru_toxicity"](cyr[:512]))
     en_score = next(
         (r["score"] for r in en_results if r["label"] == "toxic"), 0.0
     )
@@ -282,13 +309,31 @@ def moderate_text(text: str):
     return {"allowed": True, "category": None, "score": score, "match": None}
 
 
+def readiness_response() -> Response:
+    if models_ready.is_set():
+        return Response(status_code=200)
+    return Response(status_code=503)
+
+
+@app.get("/livez")
+async def livez():
+    return Response(status_code=200)
+
+
+@app.get("/readyz")
+async def readyz():
+    return readiness_response()
+
+
 @app.get("/healthz")
 async def healthz():
-    return {"ok": True}
+    return readiness_response()
 
 
 @app.post("/check")
 async def check(request: Request):
+    if not models_ready.is_set():
+        return Response(status_code=503)
     body = await request.body()
     if not body or len(body) > MAX_BODY_BYTES:
         return Response(status_code=400)
@@ -300,6 +345,8 @@ async def check(request: Request):
 
 @app.post("/moderate/text")
 async def moderate(request: Request):
+    if not models_ready.is_set():
+        return Response(status_code=503)
     try:
         data = await request.json()
     except Exception:
