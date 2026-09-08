@@ -1018,6 +1018,7 @@ impl HttpMapping for HotkeySettingsError {
         match self {
             HotkeySettingsError::Repository(e) => e.to_http_status(),
             HotkeySettingsError::Invalid => StatusCode::BAD_REQUEST,
+            HotkeySettingsError::Conflict => StatusCode::CONFLICT,
         }
     }
 
@@ -1025,6 +1026,9 @@ impl HttpMapping for HotkeySettingsError {
         match self {
             HotkeySettingsError::Repository(e) => e.to_user_message(),
             HotkeySettingsError::Invalid => "Invalid hotkey settings".to_string(),
+            HotkeySettingsError::Conflict => {
+                "Hotkey binding is already used by another action".to_string()
+            }
         }
     }
 
@@ -1032,6 +1036,7 @@ impl HttpMapping for HotkeySettingsError {
         match self {
             HotkeySettingsError::Repository(e) => e.to_error_code(),
             HotkeySettingsError::Invalid => "INVALID_HOTKEY_SETTINGS",
+            HotkeySettingsError::Conflict => "HOTKEY_CONFLICT",
         }
     }
 }

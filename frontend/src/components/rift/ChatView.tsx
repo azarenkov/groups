@@ -1824,6 +1824,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                 text === "" &&
                 !mentionQuery &&
                 !e.nativeEvent.isComposing &&
+                !e.nativeEvent.repeat &&
                 eventMatches(e.nativeEvent, bindingFor("editLastMessage"))
               ) {
                 const last = [...messages]

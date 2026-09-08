@@ -1250,9 +1250,9 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
         showNotice(capturing, t("shortcuts.needModifier", { mods: modifierGlyphs() }));
         return;
       }
-      const clash = HOTKEY_ACTIONS.find(
-        (a) => a.id !== capturing && currentBinding(a.id) === binding,
-      );
+      const clash =
+        HOTKEY_ACTIONS.find((a) => a.id !== capturing && currentBinding(a.id) === binding) ??
+        (window.electron ? DESKTOP_SHORTCUTS.find((d) => d.binding === binding) : undefined);
       if (clash) {
         showNotice(capturing, t("shortcuts.conflict", { action: actionName(clash.id) }));
         return;

@@ -132,6 +132,7 @@ pub trait UserRepository {
         &self,
         user_id: &UserId,
         patch_json: &str,
-    ) -> Result<String, RepositoryError>;
+        defaults_json: &str,
+    ) -> Result<Option<String>, RepositoryError>;
 
 }

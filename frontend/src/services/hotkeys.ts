@@ -48,7 +48,7 @@ export function initHotkeys(): void {
   if (installed) return;
   installed = true;
   window.addEventListener("keydown", (e) => {
-    if (e.defaultPrevented || e.isComposing) return;
+    if (e.defaultPrevented || e.isComposing || e.repeat) return;
     if (!keyTokenFromEvent(e)) return;
     for (const action of HOTKEY_ACTIONS) {
       if (action.scope !== "global") continue;

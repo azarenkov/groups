@@ -149,7 +149,19 @@ const flushSave = async (): Promise<void> => {
     saveAttempts = 0;
   } catch (err) {
     console.warn("[hotkey-settings] save failed:", err);
-    if (owner === pendingOwner) {
+    const rejected =
+      err instanceof ApiError &&
+      (err.code === "HOTKEY_CONFLICT" || err.code === "INVALID_HOTKEY_SETTINGS");
+    if (rejected) {
+      if (owner !== null) {
+        ackPatchFor(owner, patch);
+        for (const action of Object.keys(patch)) delete editStamp[action];
+        if (useAuthStore.getState().user?.id === owner) {
+          void useHotkeySettingsStore.getState().syncFromServer(owner);
+        }
+      }
+      saveAttempts = 0;
+    } else if (owner === pendingOwner) {
       pendingPatch = { ...patch, ...pendingPatch };
       persistPending();
       saveAttempts += 1;

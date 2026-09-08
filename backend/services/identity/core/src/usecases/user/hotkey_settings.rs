@@ -5,17 +5,26 @@ use domain::user::id::UserId;
 use identity_domain::user::repository::UserRepository;
 use ports::repository::RepositoryError;
 
-pub const HOTKEY_ACTIONS: &[&str] = &[
-    "quickSwitcher",
-    "prevChannel",
-    "nextChannel",
-    "historyBack",
-    "historyForward",
-    "openSettings",
-    "editLastMessage",
-    "toggleMute",
-    "leaveVoice",
+pub const HOTKEY_ACTIONS: &[(&str, &str)] = &[
+    ("quickSwitcher", "Mod+K"),
+    ("prevChannel", "Alt+ArrowUp"),
+    ("nextChannel", "Alt+ArrowDown"),
+    ("historyBack", "Mod+BracketLeft"),
+    ("historyForward", "Mod+BracketRight"),
+    ("openSettings", "Mod+Comma"),
+    ("editLastMessage", "ArrowUp"),
+    ("toggleMute", "Mod+Shift+M"),
+    ("leaveVoice", "Mod+Shift+L"),
 ];
+
+fn known_action(action: &str) -> bool {
+    HOTKEY_ACTIONS.iter().any(|(id, _)| *id == action)
+}
+
+fn defaults_json() -> String {
+    let defaults: BTreeMap<&str, &str> = HOTKEY_ACTIONS.iter().copied().collect();
+    serde_json::to_string(&defaults).unwrap_or_else(|_| "{}".to_string())
+}
 
 const MODIFIERS: &[&str] = &["Mod", "Ctrl", "Alt", "Shift"];
 
@@ -62,6 +71,8 @@ pub enum HotkeySettingsError {
     Repository(#[from] RepositoryError),
     #[error("Invalid hotkey settings")]
     Invalid,
+    #[error("Hotkey binding is already used by another action")]
+    Conflict,
 }
 
 pub struct HotkeySettingsPatch {
@@ -106,7 +117,7 @@ fn parse_bindings(raw: &str) -> HotkeySettings {
         .into_iter()
         .filter_map(|(action, value)| match value {
             serde_json::Value::String(binding)
-                if HOTKEY_ACTIONS.contains(&action.as_str()) && valid_binding(&binding) =>
+                if known_action(&action) && valid_binding(&binding) =>
             {
                 Some((action, binding))
             }
@@ -155,9 +166,7 @@ impl<U: UserRepository> UpdateHotkeySettings<U> {
             return Err(HotkeySettingsError::Invalid);
         }
         for (action, binding) in &patch.bindings {
-            if !HOTKEY_ACTIONS.contains(&action.as_str())
-                || binding.as_deref().is_some_and(|b| !valid_binding(b))
-            {
+            if !known_action(action) || binding.as_deref().is_some_and(|b| !valid_binding(b)) {
                 return Err(HotkeySettingsError::Invalid);
             }
         }
@@ -165,8 +174,9 @@ impl<U: UserRepository> UpdateHotkeySettings<U> {
             serde_json::to_string(&patch.bindings).map_err(|_| HotkeySettingsError::Invalid)?;
         let raw = self
             .user_repository
-            .apply_hotkey_settings_patch(&user_id, &patch_json)
-            .await?;
+            .apply_hotkey_settings_patch(&user_id, &patch_json, &defaults_json())
+            .await?
+            .ok_or(HotkeySettingsError::Conflict)?;
         Ok(parse_bindings(&raw))
     }
 }

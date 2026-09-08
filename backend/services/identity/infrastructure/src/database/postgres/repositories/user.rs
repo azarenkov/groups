@@ -646,22 +646,38 @@ impl UserRepository for PostgresUserRepository {
         &self,
         user_id: &UserId,
         patch_json: &str,
-    ) -> Result<String, RepositoryError> {
-        let row: (String,) = sqlx::query_as(
+        defaults_json: &str,
+    ) -> Result<Option<String>, RepositoryError> {
+        let row: Option<(String,)> = sqlx::query_as(
             r#"
+                WITH merged AS (
+                    SELECT jsonb_strip_nulls(
+                        COALESCE(
+                            (SELECT bindings FROM hotkey_settings WHERE user_id = $1 FOR UPDATE),
+                            '{}'::jsonb
+                        ) || $2::jsonb
+                    ) AS bindings
+                ),
+                effective AS (
+                    SELECT value FROM merged, jsonb_each_text($3::jsonb || merged.bindings)
+                ),
+                valid AS (
+                    SELECT (SELECT count(*) FROM effective) = (SELECT count(DISTINCT value) FROM effective) AS ok
+                )
                 INSERT INTO hotkey_settings (user_id, bindings, updated_at)
-                VALUES ($1, jsonb_strip_nulls($2::jsonb), now())
+                SELECT $1, merged.bindings, now() FROM merged, valid WHERE valid.ok
                 ON CONFLICT (user_id) DO UPDATE
-                    SET bindings = jsonb_strip_nulls(hotkey_settings.bindings || $2::jsonb),
+                    SET bindings = EXCLUDED.bindings,
                         updated_at = now()
                 RETURNING bindings::text
             "#,
         )
         .bind(user_id.uuid())
         .bind(patch_json)
-        .fetch_one(&self.pool)
+        .bind(defaults_json)
+        .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.0)
+        Ok(row.map(|r| r.0))
     }
 }
