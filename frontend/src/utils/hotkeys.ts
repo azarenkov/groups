@@ -40,11 +40,17 @@ export const HOTKEY_ACTIONS: HotkeyAction[] = [
 
 export const HOTKEY_ACTION_IDS: HotkeyActionId[] = HOTKEY_ACTIONS.map((a) => a.id);
 
-export const DESKTOP_SHORTCUTS: { id: string; binding: string }[] = [
-  { id: "zoomIn", binding: "Mod+Equal" },
-  { id: "zoomOut", binding: "Mod+Minus" },
-  { id: "zoomReset", binding: "Mod+0" },
+export const DESKTOP_SHORTCUTS: { id: string; binding: string; key: string }[] = [
+  { id: "zoomIn", binding: "Mod+Equal", key: "Equal" },
+  { id: "zoomOut", binding: "Mod+Minus", key: "Minus" },
+  { id: "zoomReset", binding: "Mod+0", key: "0" },
 ];
+
+export function desktopReservedId(binding: string): string | null {
+  const parsed = parseBinding(binding);
+  if (!parsed || !(parsed.mod || parsed.ctrl)) return null;
+  return DESKTOP_SHORTCUTS.find((d) => d.key === parsed.key)?.id ?? null;
+}
 
 export const isHotkeyActionId = (value: unknown): value is HotkeyActionId =>
   typeof value === "string" && (HOTKEY_ACTION_IDS as string[]).includes(value);

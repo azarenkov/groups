@@ -25,6 +25,7 @@ import {
   bindingKeycaps,
   bindingVerdict,
   codeLabel,
+  desktopReservedId,
   hotkeyAction,
   isValidBinding,
   keyTokenFromCode,
@@ -1272,7 +1273,9 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
       }
       const clash =
         HOTKEY_ACTIONS.find((a) => a.id !== capturing && currentBinding(a.id) === binding) ??
-        (window.electron ? DESKTOP_SHORTCUTS.find((d) => d.binding === binding) : undefined) ??
+        (window.electron && desktopReservedId(binding)
+          ? { id: desktopReservedId(binding) as string }
+          : undefined) ??
         (bindingIsBareKey(binding, keyTokenFromCode(pttKey)) ? { id: "pushToTalk" } : undefined);
       if (clash) {
         showNotice(capturing, t("shortcuts.conflict", { action: actionName(clash.id) }));

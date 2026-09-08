@@ -3,10 +3,10 @@ import React from "react";
 import { useHotkeySettingsStore } from "../store/hotkeySettingsStore";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 import {
-  DESKTOP_SHORTCUTS,
   HOTKEY_ACTIONS,
   bindingAvailable,
   bindingIsBareKey,
+  desktopReservedId,
   eventMatches,
   hasStrongModifier,
   hotkeyAction,
@@ -28,8 +28,8 @@ export type BindingBlocker =
 export function bindingBlocker(action: HotkeyAction, binding: string): BindingBlocker {
   if (!bindingAvailable(binding)) return { kind: "platform" };
   if (typeof window !== "undefined" && window.electron) {
-    const reserved = DESKTOP_SHORTCUTS.find((d) => d.binding === binding);
-    if (reserved) return { kind: "desktop", id: reserved.id };
+    const reserved = desktopReservedId(binding);
+    if (reserved) return { kind: "desktop", id: reserved };
   }
   if (
     action.scope === "global" &&
