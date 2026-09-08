@@ -150,9 +150,11 @@ services:
         required: false
       - path: env/identity-service.env
         required: false
-      - path: env/health.env
-        required: false
     environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
       NSFW_THRESHOLD: ${NSFW_THRESHOLD:-0.8}
@@ -195,9 +197,11 @@ services:
         required: false
       - path: env/media-service.env
         required: false
-      - path: env/health.env
-        required: false
     environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
@@ -242,9 +246,11 @@ services:
         required: false
       - path: env/messaging-service.env
         required: false
-      - path: env/health.env
-        required: false
     environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
@@ -290,9 +296,11 @@ services:
         required: false
       - path: env/voice-service.env
         required: false
-      - path: env/health.env
-        required: false
     environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
     depends_on:
@@ -320,14 +328,17 @@ services:
     stop_grace_period: 35s
     networks:
       - rift-network
+    environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
     env_file:
       - path: env/postgres.env
         required: false
       - path: env/nats.env
         required: false
       - path: env/outbox.env
-        required: false
-      - path: env/health.env
         required: false
     depends_on:
       postgres:
@@ -350,12 +361,15 @@ services:
     stop_grace_period: 35s
     networks:
       - rift-network
+    environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
     env_file:
       - path: env/nats.env
         required: false
       - path: env/notification.env
-        required: false
-      - path: env/health.env
         required: false
     depends_on:
       nats:
@@ -391,9 +405,11 @@ services:
         required: false
       - path: env/event-dispatcher.env
         required: false
-      - path: env/health.env
-        required: false
     environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     depends_on:
       postgres:
@@ -418,12 +434,15 @@ services:
     stop_grace_period: 35s
     networks:
       - rift-network
+    environment:
+      HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
+      HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
+      SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
     env_file:
       - path: env/postgres.env
         required: false
       - path: env/livekit-pooler.env
-        required: false
-      - path: env/health.env
         required: false
     depends_on:
       postgres:
