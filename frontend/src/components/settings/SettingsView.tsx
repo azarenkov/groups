@@ -20,11 +20,13 @@ import {
   HOTKEY_ACTIONS,
   bindingAvailable,
   bindingFromEvent,
+  bindingIsBareKey,
   bindingKeycaps,
   bindingVerdict,
   codeLabel,
   hotkeyAction,
   isValidBinding,
+  keyTokenFromCode,
   modifierGlyphs,
   type HotkeyActionId,
   type HotkeyGroup,
@@ -939,19 +941,42 @@ function VoiceSection() {
   const updateDevices = useVoiceSettingsStore((s) => s.updateDevices);
   const [devices, setDevices] = React.useState<MediaDeviceInfo[]>([]);
   const [capturingKey, setCapturingKey] = React.useState(false);
+  const [pttNotice, setPttNotice] = React.useState<string | null>(null);
+  const pttNoticeTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (pttNoticeTimer.current !== null) window.clearTimeout(pttNoticeTimer.current);
+    },
+    [],
+  );
   React.useEffect(() => {
     if (!capturingKey) return;
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (e.key !== "Escape" && /^[A-Za-z0-9]+$/.test(e.code)) {
-        update({ pttKey: e.code });
+        const token = keyTokenFromCode(e.code);
+        const overrides = useHotkeySettingsStore.getState().bindings;
+        const taken = HOTKEY_ACTIONS.find((a) => {
+          const binding = isValidBinding(overrides[a.id]) ? overrides[a.id] : a.defaultBinding;
+          return a.scope === "global" && bindingIsBareKey(binding, token);
+        });
+        if (taken) {
+          setPttNotice(t("shortcuts.conflict", { action: t(`shortcuts.actions.${taken.id}`) }));
+          if (pttNoticeTimer.current !== null) window.clearTimeout(pttNoticeTimer.current);
+          pttNoticeTimer.current = window.setTimeout(() => {
+            pttNoticeTimer.current = null;
+            setPttNotice(null);
+          }, 2500);
+        } else {
+          update({ pttKey: e.code });
+        }
       }
       setCapturingKey(false);
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [capturingKey, update]);
+  }, [capturingKey, update, t]);
   React.useEffect(() => {
     let cancelled = false;
     const media = navigator.mediaDevices;
@@ -1052,7 +1077,7 @@ function VoiceSection() {
 
       <div className="s-section">
         <h2>{t("voice.behavior")}</h2>
-        <SettingsRow label={t("voice.pushToTalk")} hint={t("voice.pushToTalkHint", { key: pttKeyLabel(pttKey) })}>
+        <SettingsRow label={t("voice.pushToTalk")} hint={pttNotice ?? t("voice.pushToTalkHint", { key: pttKeyLabel(pttKey) })}>
           <button
             type="button"
             className={"kbd s-kbd-btn" + (capturingKey ? " capturing" : "")}
@@ -1252,7 +1277,8 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
       }
       const clash =
         HOTKEY_ACTIONS.find((a) => a.id !== capturing && currentBinding(a.id) === binding) ??
-        (window.electron ? DESKTOP_SHORTCUTS.find((d) => d.binding === binding) : undefined);
+        (window.electron ? DESKTOP_SHORTCUTS.find((d) => d.binding === binding) : undefined) ??
+        (bindingIsBareKey(binding, keyTokenFromCode(pttKey)) ? { id: "pushToTalk" } : undefined);
       if (clash) {
         showNotice(capturing, t("shortcuts.conflict", { action: actionName(clash.id) }));
         return;
@@ -1269,7 +1295,7 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
       window.removeEventListener("pointerdown", cancel, true);
       window.removeEventListener("blur", cancel);
     };
-  }, [capturing, currentBinding, actionName, setBinding, showNotice, t]);
+  }, [capturing, currentBinding, actionName, setBinding, showNotice, t, pttKey]);
 
   const overriddenCount = HOTKEY_ACTIONS.filter((a) => bindings[a.id] !== undefined).length;
   const isDesktop = typeof window !== "undefined" && !!window.electron;

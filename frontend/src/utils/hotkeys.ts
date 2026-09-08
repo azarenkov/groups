@@ -122,14 +122,29 @@ const platformModifiers = (parsed: ParsedBinding): ParsedBinding | null =>
 export const isValidBinding = (binding: unknown): binding is string =>
   typeof binding === "string" && parseBinding(binding) !== null;
 
-export function keyTokenFromEvent(e: KeyboardEvent): string | null {
-  const code = e.code;
+export function keyTokenFromCode(code: string): string | null {
   if (/^Key[A-Z]$/.test(code)) return code.slice(3);
   if (/^Digit[0-9]$/.test(code)) return code.slice(5);
   if (FUNCTION_KEY.test(code)) return code;
   if (code in CODE_TOKENS) return CODE_TOKENS[code];
   if (NAMED_KEYS.has(code)) return code;
   return null;
+}
+
+export const keyTokenFromEvent = (e: KeyboardEvent): string | null =>
+  keyTokenFromCode(e.code);
+
+export function bindingIsBareKey(binding: string, token: string | null): boolean {
+  const parsed = parseBinding(binding);
+  return (
+    !!parsed &&
+    token !== null &&
+    !parsed.mod &&
+    !parsed.ctrl &&
+    !parsed.alt &&
+    !parsed.shift &&
+    parsed.key === token
+  );
 }
 
 const modifiersFromEvent = (e: KeyboardEvent) =>
