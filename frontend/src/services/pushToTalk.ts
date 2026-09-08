@@ -1,6 +1,18 @@
 import { getLiveKitService } from "./livekit";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 
+const MODIFIER_KEYS = ["metaKey", "ctrlKey", "altKey", "shiftKey"] as const;
+const MODIFIER_FLAGS: Record<string, (typeof MODIFIER_KEYS)[number]> = {
+  ShiftLeft: "shiftKey",
+  ShiftRight: "shiftKey",
+  ControlLeft: "ctrlKey",
+  ControlRight: "ctrlKey",
+  AltLeft: "altKey",
+  AltRight: "altKey",
+  MetaLeft: "metaKey",
+  MetaRight: "metaKey",
+};
+
 let initialized = false;
 let holding = false;
 let holdingCode: string | null = null;
@@ -43,6 +55,8 @@ export const initPushToTalk = (): void => {
     const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();
     if (e.code !== pttKey) return;
     if (!pushToTalk) return;
+    const own = MODIFIER_FLAGS[pttKey];
+    if (MODIFIER_KEYS.some((flag) => flag !== own && e[flag])) return;
     if (isTextEntryTarget(e.target)) return;
     e.preventDefault();
     if (holding) return;

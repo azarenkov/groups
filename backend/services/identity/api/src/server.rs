@@ -17,6 +17,7 @@ use identity::usecases::{
     },
     user::{
         appearance::{GetAppearance, UpdateAppearance},
+        hotkey_settings::{GetHotkeySettings, UpdateHotkeySettings},
         notification_settings::{GetNotificationSettings, UpdateNotificationSettings},
         voice_settings::{GetVoiceSettings, UpdateVoiceSettings},
         get_me::GetMe, rename::RenameUser, search_users::SearchUsers,
@@ -192,6 +193,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         update_notification_settings_usecase: UpdateNotificationSettings::new(
             user_repository.clone(),
         ),
+        get_hotkey_settings_usecase: GetHotkeySettings::new(user_repository.clone()),
+        update_hotkey_settings_usecase: UpdateHotkeySettings::new(user_repository.clone()),
         start_connection_usecase: StartConnection::new(
             user_repository.clone(),
             github_connector.clone(),

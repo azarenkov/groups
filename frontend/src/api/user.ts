@@ -18,6 +18,10 @@ export interface AppearanceSettings {
   reduceMotion: boolean;
 }
 
+export interface HotkeySettings {
+  bindings: Record<string, string>;
+}
+
 export interface UserActivity {
   userId: string;
   gameId: string;
@@ -240,6 +244,31 @@ class UserAPI {
     const response = await this.client.patch(
       "/v1/users/me/notifications",
       patch,
+      {
+        _retry: true,
+      } as AxiosRequestConfig,
+    );
+    return response.data.data;
+  }
+
+  async getHotkeySettings(): Promise<HotkeySettings | null> {
+    try {
+      const response = await this.client.get("/v1/users/me/hotkeys");
+      return response.data.data;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "HOTKEY_SETTINGS_NOT_SET") {
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  async updateHotkeySettings(
+    bindings: Record<string, string | null>,
+  ): Promise<HotkeySettings> {
+    const response = await this.client.patch(
+      "/v1/users/me/hotkeys",
+      { bindings },
       {
         _retry: true,
       } as AxiosRequestConfig,

@@ -1,4 +1,5 @@
 import React from "react";
+import { useHotkey } from "../../services/hotkeys";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import type { Server } from "../../types/server";
@@ -147,21 +148,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     setScreen(historyRef.current[idx]);
     syncNavState();
   };
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-      if (e.key === "[") {
-        e.preventDefault();
-        goHistory(-1);
-      } else if (e.key === "]") {
-        e.preventDefault();
-        goHistory(1);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useHotkey("historyBack", () => goHistory(-1));
+  useHotkey("historyForward", () => goHistory(1));
   const setTab = (next: "dms" | "servers") => {
     const latest = historyRef.current[historyIdxRef.current];
     navigateTo({
@@ -270,17 +258,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [statusMenuOpen]);
 
   const searchInputRef = React.useRef<HTMLInputElement>(null);
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useHotkey("quickSwitcher", () => {
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  });
 
   const query = searchQuery;
   const setQuery = onSearchQueryChange;

@@ -21,6 +21,7 @@ import { ApiError } from "./utils/apiError";
 import { ws } from "./services/websocket";
 import { installWsBootstrap } from "./services/websocketBootstrap";
 import { initGameActivity } from "./services/gameActivity";
+import { initHotkeys } from "./services/hotkeys";
 import "./styles/App.css";
 
 const App: React.FC = () => {
@@ -54,6 +55,7 @@ const App: React.FC = () => {
   useEffect(() => {
     installWsBootstrap();
     initGameActivity();
+    initHotkeys();
   }, []);
 
   useEffect(() => {

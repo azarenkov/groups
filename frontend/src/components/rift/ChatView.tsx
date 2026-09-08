@@ -1,4 +1,6 @@
 import React from "react";
+import { bindingFor } from "../../services/hotkeys";
+import { eventMatches } from "../../utils/hotkeys";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
@@ -1818,6 +1820,27 @@ const ChatView: React.FC<ChatViewProps> = ({
               updateMentionQuery(e.target.value, e.target.selectionStart);
             }}
             onKeyDown={(e) => {
+              if (
+                text === "" &&
+                !mentionQuery &&
+                !e.nativeEvent.isComposing &&
+                !e.nativeEvent.repeat &&
+                eventMatches(e.nativeEvent, bindingFor("editLastMessage"))
+              ) {
+                const last = [...messages]
+                  .reverse()
+                  .find(
+                    (m) =>
+                      m.authorId === currentUserId &&
+                      !m.callStatus &&
+                      !m.inviteServerId,
+                  );
+                if (last) {
+                  e.preventDefault();
+                  startEdit(last);
+                }
+                return;
+              }
               if (!mentionQuery || mentionSuggestions.length === 0) return;
               if (e.key === "ArrowDown") {
                 e.preventDefault();

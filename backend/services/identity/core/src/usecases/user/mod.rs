@@ -13,4 +13,5 @@ pub mod update_profile;
 pub mod activity;
 pub mod game_catalog;
 pub mod notification_settings;
+pub mod hotkey_settings;
 pub mod voice_settings;

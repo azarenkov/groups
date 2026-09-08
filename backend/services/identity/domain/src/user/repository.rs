@@ -124,5 +124,15 @@ pub trait UserRepository {
         quiet_end: Option<&str>,
         calls_enabled: Option<bool>,
     ) -> Result<(bool, bool, String, bool, String, String, bool), RepositoryError>;
+    async fn get_hotkey_settings(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<String>, RepositoryError>;
+    async fn apply_hotkey_settings_patch(
+        &self,
+        user_id: &UserId,
+        patch_json: &str,
+        defaults_json: &str,
+    ) -> Result<Option<String>, RepositoryError>;
 
 }

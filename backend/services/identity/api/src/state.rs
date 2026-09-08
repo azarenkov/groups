@@ -13,6 +13,7 @@ use identity::usecases::{
     },
     user::{
         appearance::{GetAppearance, UpdateAppearance},
+        hotkey_settings::{GetHotkeySettings, UpdateHotkeySettings},
         notification_settings::{GetNotificationSettings, UpdateNotificationSettings},
         voice_settings::{GetVoiceSettings, UpdateVoiceSettings},
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
@@ -111,6 +112,8 @@ pub struct AppState {
     pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresUserRepository>,
     pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,
     pub update_notification_settings_usecase: UpdateNotificationSettings<PostgresUserRepository>,
+    pub get_hotkey_settings_usecase: GetHotkeySettings<PostgresUserRepository>,
+    pub update_hotkey_settings_usecase: UpdateHotkeySettings<PostgresUserRepository>,
     pub start_connection_usecase:
         StartConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
     pub complete_connection_usecase:
