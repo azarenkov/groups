@@ -159,6 +159,8 @@ const flushSave = async (): Promise<void> => {
       err instanceof ApiError &&
       (err.code === "HOTKEY_CONFLICT" || err.code === "INVALID_HOTKEY_SETTINGS");
     if (rejected) {
+      inFlightPatch = {};
+      inFlightOwner = null;
       if (owner !== null) {
         ackPatchFor(owner, patch);
         for (const action of Object.keys(patch)) delete editStamp[action];
