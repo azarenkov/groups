@@ -115,8 +115,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let apply = apply.clone();
         let rx = shutdown_rx.clone();
         let heartbeat = liveness.register(stale_after);
+        let liveness = liveness.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
-            run_catchup(jetstream, spec, apply, rx, heartbeat).await;
+            run_catchup(jetstream, spec, apply, rx, heartbeat.clone()).await;
+            liveness.release(&heartbeat);
         }));
     }
 
