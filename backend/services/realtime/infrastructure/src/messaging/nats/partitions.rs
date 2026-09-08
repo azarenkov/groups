@@ -61,10 +61,14 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
         }
         beat();
         tokio::select! {
-            _ = shutdown.changed() => return,
+            _ = shutdown.changed() => {
+                liveness.release(&heartbeat);
+                return;
+            }
             _ = tokio::time::sleep(TICK) => {}
         }
         if *shutdown.borrow() {
+            liveness.release(&heartbeat);
             return;
         }
     };
@@ -107,6 +111,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
     )
     .await;
     let _ = store.purge(format!("{MEMBER_PREFIX}{instance}")).await;
+    liveness.release(&heartbeat);
     tracing::info!(%instance, "Partition manager stopped");
 }
 
@@ -242,8 +247,10 @@ fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: Real
         let dispatch = dispatch.clone();
         let rx = rx.clone();
         let heartbeat = liveness.register(stale_after);
+        let liveness = liveness.clone();
         handles.push(actix_web::rt::spawn(async move {
-            run_consumer(jetstream, spec, dispatch, rx, heartbeat).await;
+            run_consumer(jetstream, spec, dispatch, rx, heartbeat.clone()).await;
+            liveness.release(&heartbeat);
         }));
     }
     OwnedPartition {

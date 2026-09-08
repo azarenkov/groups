@@ -321,13 +321,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dropped_registered_heartbeat_stops_being_watched() {
+    async fn dropped_registered_heartbeat_stays_watched_until_released() {
         let liveness = Liveness::default();
         let worker = liveness.register(Duration::from_millis(10));
         assert_eq!(liveness.watched(), 1);
+        let abandoned = worker.clone();
+        drop(worker);
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(!liveness.is_alive());
-        drop(worker);
+        assert_eq!(liveness.watched(), 1);
+        liveness.release(&abandoned);
         assert!(liveness.is_alive());
         assert_eq!(liveness.watched(), 0);
     }
