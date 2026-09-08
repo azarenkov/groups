@@ -30,6 +30,8 @@ pub enum ActivityError {
     Hidden,
     #[error("Activity is published by another session")]
     Leased,
+    #[error("Activity changed concurrently")]
+    Superseded,
     #[error("User not found")]
     UserNotFound,
 }
@@ -153,9 +155,23 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
         if needs_publish {
             let provisional = activity.clone();
             activity.published = true;
-            self.store
+            let finalized = self
+                .store
                 .set_if_current(&user_id, &provisional, &activity, ACTIVITY_TTL)
                 .await?;
+            if !finalized {
+                return match self.store.get(&user_id).await? {
+                    Some(current) if current.source == activity.source && current.published => {
+                        Ok(current)
+                    }
+                    Some(current)
+                        if !current.source.is_empty() && current.source != activity.source =>
+                    {
+                        Err(ActivityError::Leased)
+                    }
+                    _ => Err(ActivityError::Superseded),
+                };
+            }
         }
         Ok(activity)
     }
