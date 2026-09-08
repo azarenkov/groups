@@ -26,18 +26,22 @@ export type BindingBlocker =
   | { kind: "pushToTalk" }
   | null;
 
+export function pushToTalkReserves(action: HotkeyAction, binding: string): boolean {
+  const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();
+  return (
+    pushToTalk &&
+    action.scope === "global" &&
+    bindingIsBareKey(binding, keyTokenFromCode(pttKey))
+  );
+}
+
 export function bindingBlocker(action: HotkeyAction, binding: string): BindingBlocker {
   if (!bindingAvailable(binding)) return { kind: "platform" };
   if (typeof window !== "undefined" && window.electron) {
     const reserved = desktopReservedId(binding);
     if (reserved) return { kind: "desktop", id: reserved };
   }
-  if (
-    action.scope === "global" &&
-    bindingIsBareKey(binding, keyTokenFromCode(useVoiceSettingsStore.getState().pttKey))
-  ) {
-    return { kind: "pushToTalk" };
-  }
+  if (pushToTalkReserves(action, binding)) return { kind: "pushToTalk" };
   return null;
 }
 

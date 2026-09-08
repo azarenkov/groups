@@ -16,7 +16,12 @@ import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 import { useNotificationSettingsStore } from "../../store/notificationSettingsStore";
 import { requestDesktopNotificationPermission } from "../../utils/desktopNotification";
 import { useHotkeySettingsStore } from "../../store/hotkeySettingsStore";
-import { activeBindings, bindingBlocker, useActiveBindings } from "../../services/hotkeys";
+import {
+  activeBindings,
+  bindingBlocker,
+  pushToTalkReserves,
+  useActiveBindings,
+} from "../../services/hotkeys";
 import {
   DESKTOP_SHORTCUTS,
   HOTKEY_ACTIONS,
@@ -1230,6 +1235,7 @@ const SHORTCUT_GROUPS: HotkeyGroup[] = ["navigation", "messaging", "voice"];
 function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
   const { t } = useTranslation("settings");
   const pttKey = useVoiceSettingsStore((s) => s.pttKey);
+  const pushToTalk = useVoiceSettingsStore((s) => s.pushToTalk);
   const bindings = useActiveBindings();
   const setBinding = useHotkeySettingsStore((s) => s.setBinding);
   const resetAll = useHotkeySettingsStore((s) => s.resetAll);
@@ -1286,7 +1292,7 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
         (window.electron && desktopReservedId(binding)
           ? { id: desktopReservedId(binding) as string }
           : undefined) ??
-        (bindingIsBareKey(binding, keyTokenFromCode(pttKey)) ? { id: "pushToTalk" } : undefined);
+        (pushToTalkReserves(action, binding) ? { id: "pushToTalk" } : undefined);
       if (clash) {
         showNotice(capturing, t("shortcuts.conflict", { action: actionName(clash.id) }));
         return;
@@ -1303,7 +1309,7 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
       window.removeEventListener("pointerdown", cancel, true);
       window.removeEventListener("blur", cancel);
     };
-  }, [capturing, currentBinding, actionName, setBinding, showNotice, t, pttKey]);
+  }, [capturing, currentBinding, actionName, setBinding, showNotice, t, pttKey, pushToTalk]);
 
   const overriddenCount = HOTKEY_ACTIONS.filter((a) => bindings[a.id] !== undefined).length;
   const isDesktop = typeof window !== "undefined" && !!window.electron;
@@ -1372,7 +1378,7 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
                           (window.electron && desktopReservedId(fallback)
                             ? { id: desktopReservedId(fallback) as string }
                             : undefined) ??
-                          (bindingIsBareKey(fallback, keyTokenFromCode(pttKey))
+                          (pushToTalkReserves(action, fallback)
                             ? { id: "pushToTalk" }
                             : undefined);
                         if (taken) {
