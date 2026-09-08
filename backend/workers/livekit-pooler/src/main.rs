@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
-use api_common::shutdown::{ShutdownConfig, drain, wait_for_signal};
+use api_common::shutdown::wait_for_signal;
 use tokio::sync::watch;
 use infrastructure_common::config::{livekit::LiveKitConfig, postgres::PostgresConfig};
 use messaging::usecases::channel::{
@@ -80,13 +80,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     readiness.mark_ready();
 
-    let shutdown_config = ShutdownConfig::from_env();
     let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
     actix_web::rt::spawn({
         let readiness = readiness.clone();
         async move {
             wait_for_signal().await;
-            drain(&readiness, &shutdown_config).await;
+            readiness.mark_not_ready();
             let _ = shutdown_tx.send(true);
         }
     });
@@ -97,7 +96,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tracing::info!("Shutdown requested, exiting");
             break;
         }
-        match reconcile.execute().await {
+        match reconcile.execute_with_progress(&|| heartbeat.beat()).await {
             Ok(summary) => {
                 if summary.db_entries_checked > 0
                     || summary.aborted > 0

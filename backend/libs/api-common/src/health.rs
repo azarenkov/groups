@@ -4,7 +4,7 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -79,10 +79,11 @@ impl Readiness {
         if !self.started.load(Ordering::Acquire) {
             return false;
         }
-        join_all(self.probes.iter().map(CachedProbe::check))
+        let probes_ok = join_all(self.probes.iter().map(CachedProbe::check))
             .await
             .into_iter()
-            .all(|ok| ok)
+            .all(|ok| ok);
+        probes_ok && self.started.load(Ordering::Acquire)
     }
 }
 
@@ -134,49 +135,7 @@ impl ReadinessBuilder {
     }
 }
 
-#[derive(Clone)]
-pub struct Heartbeat {
-    origin: Instant,
-    last_ms: Arc<AtomicU64>,
-    stale_after: Duration,
-}
-
-impl Heartbeat {
-    pub fn new(stale_after: Duration) -> Self {
-        Self {
-            origin: Instant::now(),
-            last_ms: Arc::new(AtomicU64::new(0)),
-            stale_after,
-        }
-    }
-
-    pub fn beat(&self) {
-        let elapsed = self.origin.elapsed().as_millis() as u64;
-        self.last_ms.store(elapsed, Ordering::Release);
-    }
-
-    pub fn is_fresh(&self) -> bool {
-        let now = self.origin.elapsed().as_millis() as u64;
-        let last = self.last_ms.load(Ordering::Acquire);
-        now.saturating_sub(last) < self.stale_after.as_millis() as u64
-    }
-}
-
-#[derive(Clone, Default)]
-pub struct Liveness {
-    heartbeats: Vec<Heartbeat>,
-}
-
-impl Liveness {
-    pub fn watch(mut self, heartbeat: Heartbeat) -> Self {
-        self.heartbeats.push(heartbeat);
-        self
-    }
-
-    pub fn is_alive(&self) -> bool {
-        self.heartbeats.iter().all(Heartbeat::is_fresh)
-    }
-}
+pub use infrastructure_common::health::{Heartbeat, Liveness};
 
 pub fn bind(port: u16, readiness: Readiness, liveness: Liveness) -> io::Result<Server> {
     let readiness_data = web::Data::new(readiness);
@@ -239,6 +198,25 @@ mod tests {
         assert!(readiness.check().await);
         readiness.mark_not_ready();
         assert!(!readiness.check().await);
+    }
+
+    #[tokio::test]
+    async fn mark_not_ready_invalidates_in_flight_check() {
+        let readiness = Readiness::builder()
+            .cache_ttl(Duration::ZERO)
+            .add_probe(|| async {
+                tokio::time::sleep(Duration::from_millis(60)).await;
+                true
+            })
+            .build();
+        readiness.mark_ready();
+        let in_flight = tokio::spawn({
+            let readiness = readiness.clone();
+            async move { readiness.check().await }
+        });
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        readiness.mark_not_ready();
+        assert!(!in_flight.await.unwrap());
     }
 
     #[tokio::test]
@@ -340,6 +318,18 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(!liveness.is_alive());
         assert!(Liveness::default().is_alive());
+    }
+
+    #[tokio::test]
+    async fn dropped_registered_heartbeat_stops_being_watched() {
+        let liveness = Liveness::default();
+        let worker = liveness.register(Duration::from_millis(10));
+        assert_eq!(liveness.watched(), 1);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!liveness.is_alive());
+        drop(worker);
+        assert!(liveness.is_alive());
+        assert_eq!(liveness.watched(), 0);
     }
 
     #[tokio::test]

@@ -351,7 +351,7 @@ services:
         condition: service_healthy
     healthcheck:
       test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8081/readyz || exit 1"]
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8081/readyz && wget --spider -q http://127.0.0.1:8081/livez || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -381,7 +381,7 @@ services:
         condition: service_healthy
     healthcheck:
       test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8082/readyz || exit 1"]
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8082/readyz && wget --spider -q http://127.0.0.1:8082/livez || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -426,7 +426,7 @@ services:
         condition: service_healthy
     healthcheck:
       test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz || exit 1"]
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8084/readyz && wget --spider -q http://127.0.0.1:8084/livez && wget --spider -q http://127.0.0.1:8085/livez || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -458,7 +458,7 @@ services:
         condition: service_started
     healthcheck:
       test:
-        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8086/readyz || exit 1"]
+        ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8086/readyz && wget --spider -q http://127.0.0.1:8086/livez || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3

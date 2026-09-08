@@ -1,6 +1,7 @@
 pub mod config;
 pub mod database;
 pub mod hasher;
+pub mod health;
 pub mod mailer;
 pub mod messaging;
 pub mod observability;
