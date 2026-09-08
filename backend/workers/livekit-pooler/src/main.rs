@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     loop {
         heartbeat.beat();
-        match reconcile.execute().await {
+        match reconcile.execute_with_progress(&|| heartbeat.beat()).await {
             Ok(summary) => {
                 if summary.db_entries_checked > 0
                     || summary.aborted > 0

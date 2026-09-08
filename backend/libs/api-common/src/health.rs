@@ -4,7 +4,7 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -130,49 +130,7 @@ impl ReadinessBuilder {
     }
 }
 
-#[derive(Clone)]
-pub struct Heartbeat {
-    origin: Instant,
-    last_ms: Arc<AtomicU64>,
-    stale_after: Duration,
-}
-
-impl Heartbeat {
-    pub fn new(stale_after: Duration) -> Self {
-        Self {
-            origin: Instant::now(),
-            last_ms: Arc::new(AtomicU64::new(0)),
-            stale_after,
-        }
-    }
-
-    pub fn beat(&self) {
-        let elapsed = self.origin.elapsed().as_millis() as u64;
-        self.last_ms.store(elapsed, Ordering::Release);
-    }
-
-    pub fn is_fresh(&self) -> bool {
-        let now = self.origin.elapsed().as_millis() as u64;
-        let last = self.last_ms.load(Ordering::Acquire);
-        now.saturating_sub(last) < self.stale_after.as_millis() as u64
-    }
-}
-
-#[derive(Clone, Default)]
-pub struct Liveness {
-    heartbeats: Vec<Heartbeat>,
-}
-
-impl Liveness {
-    pub fn watch(mut self, heartbeat: Heartbeat) -> Self {
-        self.heartbeats.push(heartbeat);
-        self
-    }
-
-    pub fn is_alive(&self) -> bool {
-        self.heartbeats.iter().all(Heartbeat::is_fresh)
-    }
-}
+pub use infrastructure_common::health::{Heartbeat, Liveness};
 
 pub fn bind(port: u16, readiness: Readiness, liveness: Liveness) -> io::Result<Server> {
     let readiness_data = web::Data::new(readiness);
@@ -326,6 +284,18 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(!liveness.is_alive());
         assert!(Liveness::default().is_alive());
+    }
+
+    #[tokio::test]
+    async fn dropped_registered_heartbeat_stops_being_watched() {
+        let liveness = Liveness::default();
+        let worker = liveness.register(Duration::from_millis(10));
+        assert_eq!(liveness.watched(), 1);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!liveness.is_alive());
+        drop(worker);
+        assert!(liveness.is_alive());
+        assert_eq!(liveness.watched(), 0);
     }
 
     #[tokio::test]

@@ -5,7 +5,7 @@ use infrastructure_common::{
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
-use api_common::health::{self, Heartbeat, Liveness, Readiness};
+use api_common::health::{self, Liveness, Readiness};
 use tokio::{signal, sync::watch};
 
 use std::{sync::Arc, time::Duration};
@@ -64,12 +64,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .build()
     };
 
-    let heartbeat = Heartbeat::new(Duration::from_secs(cfg.dispatcher_liveness_stale_secs));
-    let health_server = health::bind(
-        cfg.dispatcher_health_port,
-        readiness.clone(),
-        Liveness::default().watch(heartbeat.clone()),
-    )?;
+    let stale_after = Duration::from_secs(cfg.dispatcher_liveness_stale_secs);
+    let liveness = Liveness::default();
+    let health_server = health::bind(cfg.dispatcher_health_port, readiness.clone(), liveness.clone())?;
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -89,11 +86,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let replicas = nats_cfg.replicas;
         let dispatch = dispatch.clone();
         let rx = shutdown_rx.clone();
-        let heartbeat = heartbeat.clone();
-        let beat: Arc<dyn Fn() + Send + Sync> = Arc::new(move || heartbeat.beat());
+        let liveness = liveness.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
-            run_partitioned(jetstream, settings, prefix, partitions, replicas, dispatch, rx, beat)
-                .await;
+            run_partitioned(
+                jetstream, settings, prefix, partitions, replicas, dispatch, rx, liveness, stale_after,
+            )
+            .await;
         }));
     }
 
@@ -116,8 +114,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let jetstream = jetstream.clone();
         let apply = apply.clone();
         let rx = shutdown_rx.clone();
+        let heartbeat = liveness.register(stale_after);
         consumer_handles.push(actix_web::rt::spawn(async move {
-            run_catchup(jetstream, spec, apply, rx).await;
+            run_catchup(jetstream, spec, apply, rx, heartbeat).await;
         }));
     }
 

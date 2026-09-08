@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 tracing::info!("Shutdown signal received, exiting");
                 break;
             }
-            result = run_batch(&dispatcher, batch_size) => {
+            result = run_batch(&dispatcher, batch_size, &heartbeat) => {
                 match result {
                     Ok(0) => {
                         tokio::select! {
@@ -138,6 +138,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn run_batch<P>(
     dispatcher: &OutboxDispatcher<P>,
     batch_size: u32,
+    heartbeat: &Heartbeat,
 ) -> Result<usize, Box<dyn Error>>
 where
     P: OutboxPublisher,
@@ -148,6 +149,7 @@ where
             break;
         }
         processed += 1;
+        heartbeat.beat();
     }
     Ok(processed)
 }
