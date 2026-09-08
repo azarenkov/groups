@@ -2,6 +2,7 @@
   "close": "Close",
   "inVoice": "Voice — {{room}}",
   "online": "Online",
+  "playing": "Playing {{game}}",
   "offline": "Offline",
   "inactive": "Account unavailable",
   "deletedUser": "Deleted user",

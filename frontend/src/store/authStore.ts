@@ -12,6 +12,7 @@ interface User {
   linkedProviders?: string[];
   bio?: string;
   showActivity?: boolean;
+  showGameActivity?: boolean;
   timezone?: string;
 }
 
@@ -63,6 +64,11 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   logout: () => {
+    const outgoingToken = get().tokens?.accessToken ?? null;
+    void import("../services/gameActivity").then((m) =>
+      m.clearActivityForLogout(outgoingToken),
+    );
+    void import("./activityStore").then((m) => m.useActivityStore.getState().clearAll());
     set({ user: null, tokens: null, isAuthenticated: false, error: null });
     useReadReceiptStore.getState().clear();
     useDmPreviewStore.getState().clear();
@@ -106,6 +112,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         linkedProviders: me.linkedProviders,
         bio: stale && current?.id === me.id ? current.bio : me.bio,
         showActivity: stale && current?.id === me.id ? current.showActivity : me.showActivity,
+        showGameActivity: stale && current?.id === me.id ? current.showGameActivity : me.showGameActivity,
         timezone: me.timezone,
       },
     });
@@ -121,7 +128,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         .updateProfile({ timezone: localZone })
         .then((saved) => {
           const u = get().user;
-          if (u && u.id === me.id) set({ user: { ...u, timezone: localZone, bio: saved.bio, showActivity: saved.showActivity } });
+          if (u && u.id === me.id) set({ user: { ...u, timezone: localZone, bio: saved.bio, showActivity: saved.showActivity, showGameActivity: saved.showGameActivity } });
         })
         .catch((err) => console.warn("[auth] timezone sync failed:", err));
     }

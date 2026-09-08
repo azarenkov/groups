@@ -14,6 +14,12 @@ import {
   useDmPreviewStore,
 } from "../store/dmPreviewStore";
 import { usePresenceStore } from "../store/presenceStore";
+import {
+  loadActivitiesFor,
+  loadFriendActivities,
+  trackedActivityIds,
+  useActivityStore,
+} from "../store/activityStore";
 import { useAuthStore } from "../store/authStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import {
@@ -146,6 +152,7 @@ function dispatch(env: WsEnvelope) {
       const id = asString(d.id);
       if (!id) return;
       purgeServerLocally(id);
+      void loadActivitiesFor(Object.keys(useActivityStore.getState().byUser));
       return;
     }
 
@@ -156,8 +163,11 @@ function dispatch(env: WsEnvelope) {
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
         purgeServerLocally(serverId);
+        void loadActivitiesFor(Object.keys(useActivityStore.getState().byUser));
         return;
       }
+      useActivityStore.getState().apply(userId, null);
+      void loadActivitiesFor([userId]);
       const channels = useChannelStore.getState().channelsByServer[serverId] ?? [];
       const receipts = useReadReceiptStore.getState();
       for (const c of channels) {
@@ -223,12 +233,26 @@ function dispatch(env: WsEnvelope) {
 
     case "friendship.requestSent":
     case "friendship.requestAccepted": {
-      void useFriendshipStore.getState().fetchFriends();
+      void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
       return;
     }
 
     case "friendship.removed": {
-      void useFriendshipStore.getState().fetchFriends();
+      const removedSelf = useAuthStore.getState().user?.id;
+      const removedA = asString(d.userId);
+      const removedB = asString(d.otherId);
+      const peer = removedA === removedSelf ? removedB : removedA;
+      if (peer) {
+        useActivityStore.getState().apply(peer, null);
+        void loadActivitiesFor([peer]);
+      }
+      void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
       refetchDmPreviews();
       return;
     }
@@ -261,13 +285,19 @@ function dispatch(env: WsEnvelope) {
       if (!userId) return;
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
+      const showGameActivity = d.showGameActivity !== false;
       const version = profileVersion(asString(d.occurredAt));
       const cached = useUserProfileStore.getState().bios[userId];
       if (cached && cached.at > version) return;
       useUserProfileStore.getState().apply(userId, bio, version);
       const auth = useAuthStore.getState();
+      if (!showGameActivity && auth.user?.id !== userId) {
+        useActivityStore
+          .getState()
+          .applyEvent(userId, null, asString(d.occurredAt) ?? null);
+      }
       if (auth.user?.id === userId) {
-        auth.setUser({ ...auth.user, bio, showActivity });
+        auth.setUser({ ...auth.user, bio, showActivity, showGameActivity });
       } else if (!showActivity) {
         useHomeStore.getState().hideFriendActivity(userId, version);
         scheduleHomeRefresh();
@@ -295,7 +325,10 @@ function dispatch(env: WsEnvelope) {
       if (me && me.id === userId) {
         void useAuthStore.getState().fetchMe();
       } else {
-        void useFriendshipStore.getState().fetchFriends();
+        void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
       }
       return;
     }
@@ -549,13 +582,36 @@ function dispatch(env: WsEnvelope) {
 
     case "user.online": {
       const userId = asString(d.userId);
-      if (userId) usePresenceStore.getState().setOnline(userId);
+      if (userId) {
+        usePresenceStore.getState().setOnline(userId);
+        void loadActivitiesFor([userId]);
+      }
       return;
     }
 
     case "user.offline": {
       const userId = asString(d.userId);
-      if (userId) usePresenceStore.getState().setOffline(userId);
+      if (userId) {
+        usePresenceStore.getState().setOffline(userId);
+        useActivityStore.getState().apply(userId, null);
+      }
+      return;
+    }
+
+    case "user.activityChanged": {
+      const userId = asString(d.userId);
+      if (!userId) return;
+      const gameId = asString(d.gameId);
+      const name = asString(d.name);
+      const startedAt = asString(d.startedAt);
+      const occurredAt = asString(d.occurredAt) ?? null;
+      useActivityStore
+        .getState()
+        .applyEvent(
+          userId,
+          gameId && name && startedAt ? { gameId, name, startedAt } : null,
+          occurredAt,
+        );
       return;
     }
 
@@ -750,12 +806,27 @@ export function installWsBootstrap() {
     });
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
+    void loadActivitiesFor(trackedActivityIds());
+    const friendsBefore = useFriendshipStore
+      .getState()
+      .friends.filter((f) => f.status === "accepted")
+      .map((f) => f.friendId);
     void useFriendshipStore
       .getState()
       .fetchFriends()
       .then(() => {
         if (useFriendshipStore.getState().error === null) {
           useUserNamesStore.getState().clear();
+          const after = new Set(
+            useFriendshipStore
+              .getState()
+              .friends.filter((f) => f.status === "accepted")
+              .map((f) => f.friendId),
+          );
+          const gone = friendsBefore.filter((id) => !after.has(id));
+          for (const id of gone) useActivityStore.getState().apply(id, null);
+          if (gone.length > 0) void loadActivitiesFor(gone);
+          void loadFriendActivities();
         }
       });
   });

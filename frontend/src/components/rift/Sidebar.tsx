@@ -5,6 +5,7 @@ import type { Server } from "../../types/server";
 import type { Channel, ChannelKind } from "../../types/channel";
 import type { MockDirect } from "../../data/mockData";
 import { colorForId } from "../../utils/avatar";
+import { useActivityStore } from "../../store/activityStore";
 import { ServerLogo, UserAvatar } from "./Avatar";
 import { channelAPI } from "../../api/channel";
 import {
@@ -111,6 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetStatus,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
+  const activities = useActivityStore((s) => s.byUser);
   type Screen = { tab: "dms" | "servers"; server: string | null };
   const initialScreen: Screen = { tab: selectedChannelId ? "servers" : "dms", server: null };
   const [screen, setScreen] = React.useState<Screen>(initialScreen);
@@ -367,6 +369,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
       {visibleDirects.map((d) => {
         const unread = unreadByDm[d.id] ?? 0;
+        const activity = d.online ? activities[d.id] : undefined;
         const sub =
           d.lastMessage ||
           (d.online ? t("statusOnline") : t("statusOffline"));
@@ -398,7 +401,14 @@ const Sidebar: React.FC<SidebarProps> = ({
               {d.online && <span className="sb-dm-dot" />}
             </div>
             <div className="sb-dm-main">
-              <div className="sb-dm-name">{d.name}</div>
+              <div className="sb-dm-name">
+                <span className="sb-dm-name-text">{d.name}</span>
+                {activity && (
+                  <span className="sb-dm-game" title={activity.name}>
+                    {activity.name}
+                  </span>
+                )}
+              </div>
               <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
                 {sub}
               </div>

@@ -735,6 +735,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DisableAccountError::Reauth(e) => e.to_http_status(),
             DisableAccountError::UserNotFound => StatusCode::NOT_FOUND,
+            DisableAccountError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -744,6 +745,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DisableAccountError::Reauth(e) => e.to_user_message(),
             DisableAccountError::UserNotFound => "User not found".to_string(),
+            DisableAccountError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -753,6 +755,7 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DisableAccountError::Reauth(e) => e.to_error_code(),
             DisableAccountError::UserNotFound => "USER_NOT_FOUND",
+            DisableAccountError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }
@@ -765,6 +768,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DeleteAccountError::Reauth(e) => e.to_http_status(),
             DeleteAccountError::UserNotFound => StatusCode::NOT_FOUND,
+            DeleteAccountError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -774,6 +778,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DeleteAccountError::Reauth(e) => e.to_user_message(),
             DeleteAccountError::UserNotFound => "User not found".to_string(),
+            DeleteAccountError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -783,6 +788,7 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DeleteAccountError::Reauth(e) => e.to_error_code(),
             DeleteAccountError::UserNotFound => "USER_NOT_FOUND",
+            DeleteAccountError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }
@@ -828,6 +834,7 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_http_status(),
             UpdateProfileError::BioTooLong => StatusCode::BAD_REQUEST,
             UpdateProfileError::UserNotFound => StatusCode::NOT_FOUND,
+            UpdateProfileError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -835,6 +842,7 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_user_message(),
             UpdateProfileError::BioTooLong => "Bio must be at most 190 characters".to_string(),
             UpdateProfileError::UserNotFound => "User not found".to_string(),
+            UpdateProfileError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -842,6 +850,7 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_error_code(),
             UpdateProfileError::BioTooLong => "BIO_TOO_LONG",
             UpdateProfileError::UserNotFound => "USER_NOT_FOUND",
+            UpdateProfileError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }
@@ -998,6 +1007,49 @@ impl HttpMapping for NotificationSettingsError {
         match self {
             NotificationSettingsError::Repository(e) => e.to_error_code(),
             NotificationSettingsError::Invalid => "INVALID_NOTIFICATION_SETTINGS",
+        }
+    }
+}
+
+use identity::usecases::user::activity::ActivityError;
+
+impl HttpMapping for ActivityError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ActivityError::Repository(e) => e.to_http_status(),
+            ActivityError::Store(_) => StatusCode::SERVICE_UNAVAILABLE,
+            ActivityError::Audience(_) => StatusCode::SERVICE_UNAVAILABLE,
+            ActivityError::Invalid => StatusCode::BAD_REQUEST,
+            ActivityError::Hidden => StatusCode::FORBIDDEN,
+            ActivityError::Leased => StatusCode::CONFLICT,
+            ActivityError::Superseded => StatusCode::CONFLICT,
+            ActivityError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ActivityError::Repository(e) => e.to_user_message(),
+            ActivityError::Store(_) => "Activity is temporarily unavailable".to_string(),
+            ActivityError::Audience(_) => "Activity is temporarily unavailable".to_string(),
+            ActivityError::Invalid => "Invalid activity".to_string(),
+            ActivityError::Hidden => "Activity is hidden by privacy settings".to_string(),
+            ActivityError::Leased => "Activity is published by another session".to_string(),
+            ActivityError::Superseded => "Activity changed concurrently".to_string(),
+            ActivityError::UserNotFound => "User not found".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ActivityError::Repository(e) => e.to_error_code(),
+            ActivityError::Store(_) => "ACTIVITY_UNAVAILABLE",
+            ActivityError::Audience(_) => "ACTIVITY_UNAVAILABLE",
+            ActivityError::Invalid => "INVALID_ACTIVITY",
+            ActivityError::Hidden => "ACTIVITY_HIDDEN",
+            ActivityError::Leased => "ACTIVITY_LEASED",
+            ActivityError::Superseded => "ACTIVITY_SUPERSEDED",
+            ActivityError::UserNotFound => "USER_NOT_FOUND",
         }
     }
 }

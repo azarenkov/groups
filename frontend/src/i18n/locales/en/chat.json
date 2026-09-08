@@ -33,6 +33,7 @@
   "removeFriend": "Remove friend",
   "addFriend": "Add friend",
   "activeNow": "Active now",
+  "playing": "Playing {{game}}",
   "offline": "Offline",
   "noResults": "No results",
   "noResultsBody": "Nothing matched \"{{query}}\".",

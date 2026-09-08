@@ -108,6 +108,7 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const [bioError, setBioError] = React.useState<string | null>(null);
   const [bioEditing, setBioEditing] = React.useState(false);
   const [activityBusy, setActivityBusy] = React.useState(false);
+  const [gameActivityBusy, setGameActivityBusy] = React.useState(false);
   const bioBaseline = React.useRef(user?.bio ?? "");
   React.useEffect(() => {
     const remote = user?.bio ?? "";
@@ -119,7 +120,7 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   }, [user?.bio]);
   const bioDirty = bio.trim() !== (user?.bio ?? "");
   const profileQueue = React.useRef<Promise<void>>(Promise.resolve());
-  const runProfileUpdate = (patch: { bio?: string; showActivity?: boolean }) => {
+  const runProfileUpdate = (patch: { bio?: string; showActivity?: boolean; showGameActivity?: boolean }) => {
     const initiator = useAuthStore.getState().user?.id;
     const next = profileQueue.current.then(async () => {
       if (!initiator || useAuthStore.getState().user?.id !== initiator) return;
@@ -130,7 +131,7 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
       const cached = useUserProfileStore.getState().bios[current.id];
       if (cached && cached.at > version) return;
       useUserProfileStore.getState().apply(current.id, saved.bio, version);
-      useAuthStore.getState().setUser({ ...current, bio: saved.bio, showActivity: saved.showActivity });
+      useAuthStore.getState().setUser({ ...current, bio: saved.bio, showActivity: saved.showActivity, showGameActivity: saved.showGameActivity });
     });
     profileQueue.current = next.catch(() => {});
     return next;
@@ -160,6 +161,18 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
       console.warn("[account] activity toggle failed:", err);
     } finally {
       setActivityBusy(false);
+    }
+  };
+  const toggleGameActivity = async () => {
+    if (!user || gameActivityBusy) return;
+    const next = !(user.showGameActivity ?? true);
+    setGameActivityBusy(true);
+    try {
+      await runProfileUpdate({ showGameActivity: next });
+    } catch (err) {
+      console.warn("[account] game activity toggle failed:", err);
+    } finally {
+      setGameActivityBusy(false);
     }
   };
   const passwordHint = user?.passwordChangedAt
@@ -449,6 +462,9 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
         )}
         <SettingsRow label={t("account.showActivity")} hint={t("account.showActivityHint")}>
           <Switch on={user?.showActivity ?? true} onClick={() => void toggleActivity()} />
+        </SettingsRow>
+        <SettingsRow label={t("account.showGameActivity")} hint={t("account.showGameActivityHint")}>
+          <Switch on={user?.showGameActivity ?? true} onClick={() => void toggleGameActivity()} />
         </SettingsRow>
       </div>
 

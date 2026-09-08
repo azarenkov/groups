@@ -2,6 +2,7 @@
   "close": "Закрыть",
   "inVoice": "Голос — {{room}}",
   "online": "В сети",
+  "playing": "Играет в {{game}}",
   "offline": "Не в сети",
   "inactive": "Аккаунт недоступен",
   "deletedUser": "Удалённый пользователь",

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, nativeImage, safeStorage, session, shell } = require('electron');
 const fs = require('fs');
+const { exec } = require('child_process');
 const http = require('http');
 const crypto = require('crypto');
 const path = require('path');
@@ -163,6 +164,172 @@ function closeSplash() {
   splashWindow = null;
 }
 
+const GAME_CATALOG = [
+  { id: 'dota2', name: 'Dota 2', processes: ['dota2.exe', 'dota2', 'dota_osx', 'dota2_osx'] },
+  { id: 'cs2', name: 'Counter-Strike 2', processes: ['cs2.exe', 'cs2'] },
+  { id: 'deadlock', name: 'Deadlock', processes: ['project8.exe', 'project8'] },
+  { id: 'tf2', name: 'Team Fortress 2', processes: ['tf_win64.exe', 'tf_linux64', 'tf_osx64'] },
+  { id: 'lol', name: 'League of Legends', processes: ['league of legends.exe', 'league of legends'] },
+  { id: 'valorant', name: 'VALORANT', processes: ['valorant-win64-shipping.exe'] },
+  { id: 'fortnite', name: 'Fortnite', processes: ['fortniteclient-win64-shipping.exe'] },
+  { id: 'apex', name: 'Apex Legends', processes: ['r5apex.exe', 'r5apex_dx12.exe'] },
+  { id: 'pubg', name: 'PUBG: Battlegrounds', processes: ['tslgame.exe'] },
+  { id: 'warzone', name: 'Call of Duty', processes: ['cod.exe', 'modernwarfare.exe'] },
+  { id: 'overwatch2', name: 'Overwatch 2', processes: ['overwatch.exe'] },
+  { id: 'marvel-rivals', name: 'Marvel Rivals', processes: ['marvel-win64-shipping.exe'] },
+  { id: 'r6', name: 'Rainbow Six Siege', processes: ['rainbowsix.exe', 'rainbowsix_be.exe'] },
+  { id: 'rocket-league', name: 'Rocket League', processes: ['rocketleague.exe'] },
+  { id: 'gta5', name: 'Grand Theft Auto V', processes: ['gta5.exe', 'gta5_enhanced.exe'] },
+  { id: 'rust', name: 'Rust', processes: ['rustclient.exe'] },
+  { id: 'tarkov', name: 'Escape from Tarkov', processes: ['escapefromtarkov.exe'] },
+  { id: 'wow', name: 'World of Warcraft', processes: ['wow.exe', 'wowclassic.exe', 'world of warcraft'] },
+  { id: 'hearthstone', name: 'Hearthstone', processes: ['hearthstone.exe', 'hearthstone'] },
+  { id: 'sc2', name: 'StarCraft II', processes: ['sc2_x64.exe', 'sc2'] },
+  { id: 'diablo4', name: 'Diablo IV', processes: ['diablo iv.exe'] },
+  { id: 'poe', name: 'Path of Exile', processes: ['pathofexile.exe', 'pathofexilesteam.exe', 'pathofexile_x64.exe', 'pathofexile_x64steam.exe'] },
+  { id: 'warframe', name: 'Warframe', processes: ['warframe.x64.exe'] },
+  { id: 'destiny2', name: 'Destiny 2', processes: ['destiny2.exe'] },
+  { id: 'helldivers2', name: 'Helldivers 2', processes: ['helldivers2.exe'] },
+  { id: 'genshin', name: 'Genshin Impact', processes: ['genshinimpact.exe'] },
+  { id: 'war-thunder', name: 'War Thunder', processes: ['aces.exe'] },
+  { id: 'wot', name: 'World of Tanks', processes: ['worldoftanks.exe'] },
+  { id: 'minecraft', name: 'Minecraft', processes: ['minecraft.windows.exe'] },
+  { id: 'roblox', name: 'Roblox', processes: ['robloxplayerbeta.exe', 'robloxplayer'] },
+  { id: 'elden-ring', name: 'Elden Ring', processes: ['eldenring.exe'] },
+  { id: 'bg3', name: "Baldur's Gate 3", processes: ['bg3.exe', 'bg3_dx11.exe'] },
+  { id: 'cyberpunk', name: 'Cyberpunk 2077', processes: ['cyberpunk2077.exe'] },
+  { id: 'witcher3', name: 'The Witcher 3', processes: ['witcher3.exe'] },
+  { id: 'hogwarts', name: 'Hogwarts Legacy', processes: ['hogwartslegacy.exe'] },
+  { id: 'palworld', name: 'Palworld', processes: ['palworld-win64-shipping.exe'] },
+  { id: 'dbd', name: 'Dead by Daylight', processes: ['deadbydaylight-win64-shipping.exe'] },
+  { id: 'phasmophobia', name: 'Phasmophobia', processes: ['phasmophobia.exe'] },
+  { id: 'among-us', name: 'Among Us', processes: ['among us.exe'] },
+  { id: 'terraria', name: 'Terraria', processes: ['terraria.exe'] },
+  { id: 'stardew', name: 'Stardew Valley', processes: ['stardew valley.exe', 'stardew valley'] },
+  { id: 'l4d2', name: 'Left 4 Dead 2', processes: ['left4dead2.exe'] },
+  { id: 'gmod', name: "Garry's Mod", processes: ['gmod.exe'] },
+  { id: 'sea-of-thieves', name: 'Sea of Thieves', processes: ['sotgame.exe'] },
+  { id: 'halo-infinite', name: 'Halo Infinite', processes: ['haloinfinite.exe'] },
+  { id: 'fall-guys', name: 'Fall Guys', processes: ['fallguys_client_game.exe'] },
+  { id: 'ea-fc', name: 'EA Sports FC', processes: ['fc27.exe', 'fc26.exe', 'fc25.exe'] },
+  { id: 'lost-ark', name: 'Lost Ark', processes: ['lostark.exe'] },
+  { id: 'black-desert', name: 'Black Desert', processes: ['blackdesert64.exe'] },
+  { id: 'albion', name: 'Albion Online', processes: ['albion-online.exe'] },
+  { id: 'osu', name: 'osu!', processes: ['osu!.exe'] },
+];
+const ACTIVITY_POLL_MS = 10000;
+const ACTIVITY_CONFIRM_POLLS = 2;
+
+let activityTimer = null;
+let activityState = null;
+let activityCandidate = null;
+let activityPositive = 0;
+let activityNegative = 0;
+
+function listLinuxProcessNames() {
+  const names = new Set();
+  let entries = [];
+  try {
+    entries = fs.readdirSync('/proc');
+  } catch {
+    return names;
+  }
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue;
+    let name = '';
+    try {
+      const cmdline = fs.readFileSync(`/proc/${entry}/cmdline`, 'utf8');
+      name = cmdline.split('\0')[0] || '';
+    } catch {}
+    if (!name) {
+      try {
+        name = fs.readFileSync(`/proc/${entry}/comm`, 'utf8').trim();
+      } catch {}
+    }
+    if (!name) continue;
+    names.add(name.split(/[\\/]/).pop().toLowerCase());
+  }
+  return names;
+}
+
+function listProcessNames() {
+  if (process.platform === 'linux') return Promise.resolve(listLinuxProcessNames());
+  return new Promise((resolve) => {
+    const isWin = process.platform === 'win32';
+    const cmd = isWin ? 'tasklist /FO CSV /NH' : 'ps -axo comm=';
+    exec(cmd, { windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+      if (err || !stdout) {
+        resolve(new Set());
+        return;
+      }
+      const names = new Set();
+      for (const rawLine of stdout.split('\n')) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        let name = line;
+        if (isWin) {
+          const match = line.match(/^"([^"]+)"/);
+          if (!match) continue;
+          name = match[1];
+        }
+        name = name.split(/[\\/]/).pop();
+        names.add(name.toLowerCase());
+      }
+      resolve(names);
+    });
+  });
+}
+
+function detectGame(names) {
+  for (const game of GAME_CATALOG) {
+    if (game.processes.some((p) => names.has(p.toLowerCase()))) return game;
+  }
+  return null;
+}
+
+function emitActivity() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('activity:changed', activityState);
+  }
+}
+
+async function pollGameActivity() {
+  const names = await listProcessNames();
+  const game = detectGame(names);
+  if (game) {
+    if (activityCandidate && activityCandidate.id === game.id) {
+      activityPositive += 1;
+    } else {
+      activityCandidate = game;
+      activityPositive = 1;
+    }
+    activityNegative = 0;
+    const differs = !activityState || activityState.gameId !== game.id;
+    if (differs && activityPositive >= ACTIVITY_CONFIRM_POLLS) {
+      activityState = { gameId: game.id, name: game.name, startedAt: new Date().toISOString() };
+      emitActivity();
+    }
+    return;
+  }
+  activityCandidate = null;
+  activityPositive = 0;
+  activityNegative += 1;
+  if (activityState && activityNegative >= ACTIVITY_CONFIRM_POLLS) {
+    activityState = null;
+    emitActivity();
+  }
+}
+
+function startGameActivityWatcher() {
+  if (activityTimer) return;
+  void pollGameActivity();
+  activityTimer = setInterval(() => {
+    void pollGameActivity();
+  }, ACTIVITY_POLL_MS);
+}
+
+ipcMain.handle('activity:get', () => activityState);
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -187,6 +354,7 @@ function createMainWindow() {
     : `file://${path.join(__dirname, '../build/index.html')}`;
 
   mainWindow.loadURL(startURL);
+  startGameActivityWatcher();
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://') || url.startsWith('https://')) {

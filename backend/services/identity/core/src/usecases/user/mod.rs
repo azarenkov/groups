@@ -10,5 +10,7 @@ pub mod request_email_change;
 pub mod search_users;
 pub mod update_locale;
 pub mod update_profile;
+pub mod activity;
+pub mod game_catalog;
 pub mod notification_settings;
 pub mod voice_settings;

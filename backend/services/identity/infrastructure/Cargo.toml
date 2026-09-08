@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+redis = { workspace = true }
 api-common = { workspace = true }
 identity = { workspace = true }
 contracts = { workspace = true }

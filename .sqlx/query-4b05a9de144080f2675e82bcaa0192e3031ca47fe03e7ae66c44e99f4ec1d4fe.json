@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone\n            FROM users\n            WHERE id = $1\n            FOR UPDATE\n            ",
+  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE id = $1\n            FOR UPDATE\n            ",
   "describe": {
     "columns": [
       {
@@ -80,6 +80,11 @@
       },
       {
         "ordinal": 15,
+        "name": "show_game_activity",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
         "name": "timezone",
         "type_info": "Varchar"
       }
@@ -105,8 +110,9 @@
       true,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "1221d4bcfe5c4006f5d2f3f8d11f5558def95ee301a568e59cc873fdfb76f30c"
+  "hash": "4b05a9de144080f2675e82bcaa0192e3031ca47fe03e7ae66c44e99f4ec1d4fe"
 }

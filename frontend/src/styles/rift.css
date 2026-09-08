@@ -331,7 +331,19 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
 }
 .sb-dm-main { flex: 1; min-width: 0; }
 .sb-dm-name {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
   font-size: 15px; font-weight: 600; color: var(--fg-1);
+}
+.sb-dm-name-text {
+  flex: 0 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sb-dm-game {
+  flex: 0 1 auto; min-width: 0; max-width: 110px;
+  padding: 1px 6px; border-radius: 6px;
+  font-size: 10px; font-weight: 600; line-height: 16px;
+  color: var(--voice-live);
+  background: color-mix(in srgb, var(--voice-live) 14%, transparent);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .sb-dm-sub {

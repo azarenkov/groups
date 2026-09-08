@@ -1,3 +1,6 @@
+use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
+use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use identity::usecases::{
     connections::{
         complete_connection::CompleteConnection, list_connections::ListConnections,
@@ -66,7 +69,7 @@ pub struct AppState {
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
-    pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork>,
+    pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork, RedisActivityStore>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
     pub change_password_usecase: ChangePassword<
         PostgresUserRepository,
@@ -89,6 +92,7 @@ pub struct AppState {
         BcryptHasher,
         RedisAccessRevoker,
         GoogleIdTokenVerifier,
+        RedisActivityStore,
     >,
     pub delete_account_usecase: DeleteAccount<
         PostgresUserRepository,
@@ -96,9 +100,13 @@ pub struct AppState {
         BcryptHasher,
         RedisAccessRevoker,
         GoogleIdTokenVerifier,
+        RedisActivityStore,
     >,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresUserRepository>,
+    pub set_activity_usecase: SetActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
+    pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
+    pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient>,
     pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository>,
     pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresUserRepository>,
     pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,

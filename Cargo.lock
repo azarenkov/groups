@@ -1894,6 +1894,7 @@ dependencies = [
  "infrastructure-common",
  "jsonwebtoken 10.3.0",
  "ports",
+ "redis",
  "reqwest",
  "serde",
  "serde_json",

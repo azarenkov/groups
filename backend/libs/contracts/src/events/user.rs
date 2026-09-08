@@ -30,6 +30,8 @@ pub struct UserProfileChangedV1 {
     pub bio: String,
     pub show_activity: bool,
     #[serde(default = "default_true")]
+    pub show_game_activity: bool,
+    #[serde(default = "default_true")]
     pub active: bool,
     #[serde(default)]
     pub timezone: String,
@@ -38,6 +40,18 @@ pub struct UserProfileChangedV1 {
 
 fn default_true() -> bool {
     true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserActivityChangedV1 {
+    pub user_id: Uuid,
+    #[serde(default)]
+    pub game_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub started_at: Option<DateTime<Utc>>,
+    pub occurred_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

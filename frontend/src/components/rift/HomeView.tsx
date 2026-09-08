@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { ActiveFriend, HomeOverview, RecentRoom } from "../../api/home";
 import type { Friendship } from "../../types/friendship";
 import { colorForId } from "../../utils/avatar";
+import { useActivityStore } from "../../store/activityStore";
 import { UserAvatar } from "./Avatar";
 import Icon from "./Icon";
 import "../../styles/home.css";
@@ -55,6 +56,7 @@ const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const { t } = useTranslation("home");
   const now = useNow(30_000);
+  const activities = useActivityStore((s) => s.byUser);
   const activeFriends = useMemo<ActiveFriend[]>(() => overview?.activeFriends ?? [], [overview]);
   const recentRooms = useMemo<RecentRoom[]>(() => overview?.recentRooms ?? [], [overview]);
 
@@ -141,7 +143,13 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </span>
                       <span className="who">
                         <span className="name">{f.friendName}</span>
-                        <span className="status">{activeIds.has(f.friendId) ? t("statusInVoice") : t("statusOnline")}</span>
+                        <span className="status">
+                          {activities[f.friendId]
+                            ? t("playingFor", { game: activities[f.friendId].name, duration: duration(activities[f.friendId].startedAt) })
+                            : activeIds.has(f.friendId)
+                              ? t("statusInVoice")
+                              : t("statusOnline")}
+                        </span>
                       </span>
                       <button
                         type="button"

@@ -19,3 +19,15 @@ pub struct ResolvedUserV1 {
     pub id: Uuid,
     pub name: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityAudienceRequestV1 {
+    pub ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityAudienceResponseV1 {
+    pub ids: Vec<Uuid>,
+}

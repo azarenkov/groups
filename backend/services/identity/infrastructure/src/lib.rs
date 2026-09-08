@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod database;
 pub mod media_client;
 pub mod auth;

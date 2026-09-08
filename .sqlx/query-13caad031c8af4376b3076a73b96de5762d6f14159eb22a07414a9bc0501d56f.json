@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone\n            FROM users\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE LOWER(name COLLATE \"C\") = LOWER($1 COLLATE \"C\")\n            ",
   "describe": {
     "columns": [
       {
@@ -80,13 +80,18 @@
       },
       {
         "ordinal": 15,
+        "name": "show_game_activity",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
         "name": "timezone",
         "type_info": "Varchar"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -105,8 +110,9 @@
       true,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "c90b35b5ba089820c819c17ea681eb79d62ccc00c8f6c962684278c1e922578f"
+  "hash": "13caad031c8af4376b3076a73b96de5762d6f14159eb22a07414a9bc0501d56f"
 }

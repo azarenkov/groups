@@ -241,21 +241,33 @@ pub struct UserProfileChanged {
     pub user_id: UserId,
     pub bio: String,
     pub show_activity: bool,
+    pub show_game_activity: bool,
     pub active: bool,
     pub timezone: String,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl UserProfileChanged {
-    pub fn record(user_id: UserId, bio: String, show_activity: bool, active: bool, timezone: String, now: DateTime<Utc>) -> Self {
+    pub fn record(user_id: UserId, bio: String, show_activity: bool, show_game_activity: bool, active: bool, timezone: String, now: DateTime<Utc>) -> Self {
         Self {
             id: EventId::generate(),
             user_id,
             bio,
             show_activity,
+            show_game_activity,
             active,
             timezone,
             occurred_at: now,
         }
     }
+}
+
+#[derive(Debug)]
+pub struct UserActivityChanged {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub game_id: Option<String>,
+    pub name: Option<String>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub occurred_at: DateTime<Utc>,
 }

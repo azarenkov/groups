@@ -18,6 +18,19 @@ export interface AppearanceSettings {
   reduceMotion: boolean;
 }
 
+export interface UserActivity {
+  userId: string;
+  gameId: string;
+  name: string;
+  startedAt: string;
+  changedAt: string;
+}
+
+export interface ActivitySnapshot {
+  asOf: string;
+  activities: UserActivity[];
+}
+
 export interface VoiceSettings {
   micVolume: number;
   outputVolume: number;
@@ -54,6 +67,7 @@ export interface MeProfile {
   linkedProviders: string[];
   bio: string;
   showActivity: boolean;
+  showGameActivity: boolean;
   timezone: string;
   profileUpdatedAt: string;
 }
@@ -152,6 +166,37 @@ class UserAPI {
     return response.data.data;
   }
 
+  async setActivity(input: {
+    gameId: string;
+    name: string;
+    startedAt: string;
+    sessionId: string;
+  }): Promise<UserActivity> {
+    const response = await this.client.put("/v1/users/me/activity", input);
+    return response.data.data;
+  }
+
+  async clearActivity(
+    sessionId: string,
+    accessToken?: string,
+  ): Promise<{ occurredAt: string }> {
+    const response = await this.client.delete("/v1/users/me/activity", {
+      params: { session_id: sessionId },
+      ...(accessToken
+        ? { headers: { Authorization: `Bearer ${accessToken}` } }
+        : {}),
+    });
+    return response.data.data;
+  }
+
+  async getActivities(ids: string[]): Promise<ActivitySnapshot> {
+    if (ids.length === 0) return { asOf: new Date().toISOString(), activities: [] };
+    const response = await this.client.get("/v1/users/activity", {
+      params: { ids: ids.join(",") },
+    });
+    return response.data.data;
+  }
+
   async getVoiceSettings(): Promise<VoiceSettings | null> {
     try {
       const response = await this.client.get("/v1/users/me/voice");
@@ -244,7 +289,7 @@ class UserAPI {
     await this.client.delete("/v1/users/me", { data: reauth });
   }
 
-  async updateProfile(patch: { bio?: string; showActivity?: boolean; timezone?: string }): Promise<{ bio: string; showActivity: boolean; profileUpdatedAt: string }> {
+  async updateProfile(patch: { bio?: string; showActivity?: boolean; showGameActivity?: boolean; timezone?: string }): Promise<{ bio: string; showActivity: boolean; showGameActivity: boolean; profileUpdatedAt: string }> {
     const response = await this.client.patch("/v1/users/me/profile", patch);
     return response.data.data;
   }

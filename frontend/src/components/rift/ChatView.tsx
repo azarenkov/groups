@@ -34,6 +34,7 @@ import { useUserNamesStore } from "../../store/userNamesStore";
 import { useAuthStore } from "../../store/authStore";
 import { refetchUnread } from "../../store/unreadStore";
 import { useNotificationPrefsStore } from "../../store/notificationPrefsStore";
+import { useActivityStore } from "../../store/activityStore";
 import { useNotificationSettingsStore } from "../../store/notificationSettingsStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import {
@@ -1906,6 +1907,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onRemoveFriend,
 }) => {
   const [bellOpen, setBellOpen] = React.useState(false);
+  const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.friendId] : undefined));
   const globalMentions = useNotificationSettingsStore((s) => s.mentions);
   const notifLevel = useNotificationPrefsStore((s) =>
     dm
@@ -2049,7 +2051,11 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         </button>
         <span className="sep" />
         <span className="topic">
-          {dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}
+          {dm.online && dmActivity
+            ? i18n.t("playing", { ns: "chat", game: dmActivity.name })
+            : dm.online
+              ? i18n.t("activeNow", { ns: "chat" })
+              : i18n.t("offline", { ns: "chat" })}
         </span>
         <div className="right">
           <button

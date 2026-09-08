@@ -24,6 +24,7 @@ pub struct MeProfile {
     pub linked_providers: Vec<String>,
     pub bio: String,
     pub show_activity: bool,
+    pub show_game_activity: bool,
     pub timezone: String,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -68,6 +69,7 @@ where
             linked_providers,
             bio: user.bio().to_string(),
             show_activity: user.show_activity(),
+            show_game_activity: user.show_game_activity(),
             timezone: user.timezone().to_string(),
             profile_updated_at: user.updated_at(),
         })

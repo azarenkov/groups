@@ -90,6 +90,8 @@
     "bioError": "Couldn't save your bio.",
     "showActivity": "Show activity",
     "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a server still see who is in its voice channels.",
+    "showGameActivity": "Show game activity",
+    "showGameActivityHint": "Show friends and members of shared servers which game you are playing. Running games are detected by the desktop app only.",
     "aboutEmpty": "Tell others a bit about yourself."
   },
   "privacy": {
