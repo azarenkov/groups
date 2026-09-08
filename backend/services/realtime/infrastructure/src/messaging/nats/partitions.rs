@@ -133,6 +133,7 @@ async fn ensure_bucket(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static>(
     jetstream: &Context,
     store: &kv::Store,
