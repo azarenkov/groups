@@ -12,8 +12,6 @@ use std::sync::Arc;
 
 use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::DispatchEvent};
 
-const HEARTBEAT_TICK: Duration = Duration::from_secs(5);
-
 #[derive(Clone)]
 pub struct ConsumerSpec {
     pub stream: String,
@@ -33,7 +31,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
 ) {
     let event_consumer =
         NatsEventConsumer::new(jetstream.clone(), spec.stream.clone());
-    let mut pulse = tokio::time::interval(HEARTBEAT_TICK);
+    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
     pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
     loop {
