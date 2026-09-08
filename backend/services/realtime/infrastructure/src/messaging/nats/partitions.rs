@@ -45,6 +45,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
     replicas: usize,
     dispatch: Arc<DispatchEvent<D, P>>,
     mut shutdown: watch::Receiver<bool>,
+    beat: Arc<dyn Fn() + Send + Sync>,
 ) {
     let instance = uuid::Uuid::new_v4().to_string();
     let store = loop {
@@ -54,6 +55,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
                 tracing::warn!(error = %e, "Failed to open partition lease bucket; retrying");
             }
         }
+        beat();
         tokio::select! {
             _ = shutdown.changed() => return,
             _ = tokio::time::sleep(TICK) => {}
@@ -66,6 +68,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
 
     let mut owned: HashMap<u32, OwnedPartition> = HashMap::new();
     loop {
+        beat();
         tick(
             &jetstream,
             &store,

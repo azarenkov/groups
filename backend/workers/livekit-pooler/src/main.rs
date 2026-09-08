@@ -1,6 +1,6 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
-use api_common::health::{self, Readiness};
+use api_common::health::{self, Heartbeat, Liveness, Readiness};
 use infrastructure_common::config::{livekit::LiveKitConfig, postgres::PostgresConfig};
 use messaging::usecases::channel::{
     abort_voice_connection::AbortVoiceConnection, reconcile_voice_presence::ReconcileVoicePresence,
@@ -38,8 +38,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let health_server =
-        health::bind(pooler_config.livekit_pooler_health_port, readiness.clone())?;
+    let heartbeat = Heartbeat::new(Duration::from_secs(
+        pooler_config.livekit_pooler_liveness_stale_secs,
+    ));
+    let health_server = health::bind(
+        pooler_config.livekit_pooler_health_port,
+        readiness.clone(),
+        Liveness::default().watch(heartbeat.clone()),
+    )?;
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -77,6 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::pin!(shutdown);
 
     loop {
+        heartbeat.beat();
         match reconcile.execute().await {
             Ok(summary) => {
                 if summary.db_entries_checked > 0

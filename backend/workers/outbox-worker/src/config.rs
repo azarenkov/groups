@@ -20,6 +20,8 @@ pub struct WorkerConfig {
     pub outbox_cleanup_batch_size: i64,
     #[serde(default = "default_health_port")]
     pub health_port: u16,
+    #[serde(default = "default_liveness_stale_secs")]
+    pub outbox_liveness_stale_secs: u64,
 }
 
 impl WorkerConfig {
@@ -63,4 +65,8 @@ fn default_cleanup_batch_size() -> i64 {
 
 fn default_health_port() -> u16 {
     8081
+}
+
+fn default_liveness_stale_secs() -> u64 {
+    60
 }

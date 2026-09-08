@@ -4,7 +4,7 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -129,11 +129,57 @@ impl ReadinessBuilder {
     }
 }
 
-pub fn bind(port: u16, readiness: Readiness) -> io::Result<Server> {
+#[derive(Clone)]
+pub struct Heartbeat {
+    origin: Instant,
+    last_ms: Arc<AtomicU64>,
+    stale_after: Duration,
+}
+
+impl Heartbeat {
+    pub fn new(stale_after: Duration) -> Self {
+        Self {
+            origin: Instant::now(),
+            last_ms: Arc::new(AtomicU64::new(0)),
+            stale_after,
+        }
+    }
+
+    pub fn beat(&self) {
+        let elapsed = self.origin.elapsed().as_millis() as u64;
+        self.last_ms.store(elapsed, Ordering::Release);
+    }
+
+    pub fn is_fresh(&self) -> bool {
+        let now = self.origin.elapsed().as_millis() as u64;
+        let last = self.last_ms.load(Ordering::Acquire);
+        now.saturating_sub(last) < self.stale_after.as_millis() as u64
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct Liveness {
+    heartbeats: Vec<Heartbeat>,
+}
+
+impl Liveness {
+    pub fn watch(mut self, heartbeat: Heartbeat) -> Self {
+        self.heartbeats.push(heartbeat);
+        self
+    }
+
+    pub fn is_alive(&self) -> bool {
+        self.heartbeats.iter().all(Heartbeat::is_fresh)
+    }
+}
+
+pub fn bind(port: u16, readiness: Readiness, liveness: Liveness) -> io::Result<Server> {
     let readiness_data = web::Data::new(readiness);
+    let liveness_data = web::Data::new(liveness);
     let server = HttpServer::new(move || {
         App::new()
             .app_data(readiness_data.clone())
+            .app_data(liveness_data.clone())
             .service(web::resource("/livez").to(livez))
             .service(web::resource("/readyz").to(readyz))
     })
@@ -144,8 +190,11 @@ pub fn bind(port: u16, readiness: Readiness) -> io::Result<Server> {
     Ok(server)
 }
 
-pub async fn livez() -> HttpResponse {
-    HttpResponse::Ok().finish()
+pub async fn livez(liveness: Option<web::Data<Liveness>>) -> HttpResponse {
+    match liveness {
+        Some(liveness) if !liveness.is_alive() => HttpResponse::ServiceUnavailable().finish(),
+        _ => HttpResponse::Ok().finish(),
+    }
 }
 
 pub async fn readyz(readiness: web::Data<Readiness>) -> HttpResponse {
@@ -242,6 +291,27 @@ mod tests {
         let results = join_all((0..5).map(|_| readiness.check())).await;
         assert!(results.into_iter().all(|ok| ok));
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn heartbeat_goes_stale_without_beats() {
+        let heartbeat = Heartbeat::new(Duration::from_millis(40));
+        let liveness = Liveness::default().watch(heartbeat.clone());
+        assert!(liveness.is_alive());
+        tokio::time::sleep(Duration::from_millis(60)).await;
+        assert!(!liveness.is_alive());
+        heartbeat.beat();
+        assert!(liveness.is_alive());
+    }
+
+    #[tokio::test]
+    async fn liveness_requires_every_heartbeat_to_be_fresh() {
+        let fresh = Heartbeat::new(Duration::from_secs(5));
+        let stale = Heartbeat::new(Duration::from_millis(10));
+        let liveness = Liveness::default().watch(fresh).watch(stale);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!liveness.is_alive());
+        assert!(Liveness::default().is_alive());
     }
 
     #[tokio::test]

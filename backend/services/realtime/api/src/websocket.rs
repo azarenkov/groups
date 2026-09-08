@@ -7,7 +7,7 @@ use infrastructure_common::{
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
-use api_common::health::{self, Readiness};
+use api_common::health::{self, Liveness, Readiness};
 use tokio::signal;
 
 use std::sync::Arc;
@@ -68,7 +68,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .build()
     };
 
-    let health_server = health::bind(cfg.websocket_health_port, readiness.clone())?;
+    let health_server =
+        health::bind(cfg.websocket_health_port, readiness.clone(), Liveness::default())?;
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");

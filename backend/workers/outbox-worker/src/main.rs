@@ -10,7 +10,7 @@ use infrastructure_common::{
     },
     outbox::dispatcher::OutboxDispatcher,
 };
-use api_common::health::{self, Readiness};
+use api_common::health::{self, Heartbeat, Liveness, Readiness};
 use tokio::signal;
 
 use crate::config::WorkerConfig;
@@ -44,7 +44,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let health_server = health::bind(worker_config.health_port, readiness.clone())?;
+    let heartbeat = Heartbeat::new(Duration::from_secs(worker_config.outbox_liveness_stale_secs));
+    let health_server = health::bind(
+        worker_config.health_port,
+        readiness.clone(),
+        Liveness::default().watch(heartbeat.clone()),
+    )?;
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -94,6 +99,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::pin!(shutdown);
 
     loop {
+        heartbeat.beat();
         tokio::select! {
             _ = &mut shutdown => {
                 tracing::info!("Shutdown signal received, exiting");

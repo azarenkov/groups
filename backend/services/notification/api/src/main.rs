@@ -1,6 +1,6 @@
-use std::{error::Error, sync::Arc};
+use std::{error::Error, sync::Arc, time::Duration};
 
-use api_common::health::{self, Readiness};
+use api_common::health::{self, Heartbeat, Liveness, Readiness};
 use infrastructure_common::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
@@ -33,7 +33,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let health_server = health::bind(notification_config.health_port, readiness.clone())?;
+    let heartbeat = Heartbeat::new(Duration::from_secs(
+        notification_config.notification_liveness_stale_secs,
+    ));
+    let health_server = health::bind(
+        notification_config.health_port,
+        readiness.clone(),
+        Liveness::default().watch(heartbeat.clone()),
+    )?;
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -55,6 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         spec,
         send_verification_email,
         shutdown_rx,
+        heartbeat,
     ));
     tokio::pin!(consumer);
 
