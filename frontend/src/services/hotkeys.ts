@@ -65,9 +65,28 @@ export function useActiveBindings(): HotkeyBindings {
   );
 }
 
-export function bindingFor(id: HotkeyActionId): string {
-  const override = activeBindings()[id];
-  return isValidBinding(override) ? override : hotkeyAction(id).defaultBinding;
+export function defaultClaimedBy(
+  bindings: HotkeyBindings,
+  id: HotkeyActionId,
+): HotkeyActionId | null {
+  const fallback = hotkeyAction(id).defaultBinding;
+  const claimer = HOTKEY_ACTIONS.find(
+    (a) => a.id !== id && isValidBinding(bindings[a.id]) && bindings[a.id] === fallback,
+  );
+  return claimer ? claimer.id : null;
+}
+
+export function effectiveBinding(
+  bindings: HotkeyBindings,
+  id: HotkeyActionId,
+): string | null {
+  const override = bindings[id];
+  if (isValidBinding(override)) return override;
+  return defaultClaimedBy(bindings, id) === null ? hotkeyAction(id).defaultBinding : null;
+}
+
+export function bindingFor(id: HotkeyActionId): string | null {
+  return effectiveBinding(activeBindings(), id);
 }
 
 export function registerHotkey(id: HotkeyActionId, handler: HotkeyHandler): () => void {
@@ -102,7 +121,7 @@ export function initHotkeys(): void {
       const stack = handlers.get(action.id);
       if (!stack || stack.length === 0) continue;
       const binding = bindingFor(action.id);
-      if (!eventMatches(e, binding)) continue;
+      if (binding === null || !eventMatches(e, binding)) continue;
       if (bindingBlocker(action, binding) !== null) return;
       const parsed = parseBinding(binding);
       if (parsed && !hasStrongModifier(parsed) && isTextEntryTarget(e.target)) return;

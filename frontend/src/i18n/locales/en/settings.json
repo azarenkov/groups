@@ -244,7 +244,9 @@
     "needModifier": "Add a modifier: {{mods}}.",
     "conflict": "Already used by: {{action}}.",
     "unsupportedKey": "This key is not supported.",
-    "unavailableHere": "Not available on this platform."
+    "unavailableHere": "Not available on this platform.",
+    "unbound": "Not assigned",
+    "unboundHint": "The default shortcut is used by {{action}}. Click to assign another one."
   },
   "language": {
     "title": "Language",

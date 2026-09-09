@@ -1825,7 +1825,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                 !mentionQuery &&
                 !e.nativeEvent.isComposing &&
                 !e.nativeEvent.repeat &&
-                eventMatches(e.nativeEvent, bindingFor("editLastMessage"))
+                eventMatches(e.nativeEvent, bindingFor("editLastMessage") ?? "")
               ) {
                 const last = [...messages]
                   .reverse()

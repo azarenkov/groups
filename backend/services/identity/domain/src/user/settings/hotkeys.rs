@@ -235,7 +235,19 @@ impl HotkeyBindings {
         &self.overrides
     }
 
-    pub fn effective(&self, action: HotkeyAction) -> Binding {
+    pub fn effective(&self, action: HotkeyAction) -> Option<Binding> {
+        if let Some(binding) = self.overrides.get(&action) {
+            return Some(binding.clone());
+        }
+        let default = action.default_binding();
+        let claimed = self
+            .overrides
+            .iter()
+            .any(|(other, binding)| *other != action && *binding == default);
+        (!claimed).then_some(default)
+    }
+
+    fn requested(&self, action: HotkeyAction) -> Binding {
         self.overrides
             .get(&action)
             .cloned()
@@ -267,8 +279,13 @@ impl HotkeyBindings {
         }
         let mut seen: BTreeMap<Binding, HotkeyAction> = BTreeMap::new();
         for action in HotkeyAction::ALL {
-            if let Some(previous) = seen.insert(next.effective(action), action) {
-                let holder = if touched.contains(&previous) && !touched.contains(&action) {
+            if let Some(previous) = seen.insert(next.requested(action), action) {
+                let previous_touched = touched.contains(&previous);
+                let action_touched = touched.contains(&action);
+                if !previous_touched && !action_touched {
+                    continue;
+                }
+                let holder = if previous_touched && !action_touched {
                     action
                 } else {
                     previous

@@ -484,6 +484,22 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.map(|r| r.call_id))
     }
 
+    async fn joined_at(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        let row: Option<(Option<DateTime<Utc>>,)> = sqlx::query_as(
+            "SELECT COALESCE(answered_at, updated_at) FROM call_participants WHERE call_id = $1 AND user_id = $2 AND status = 'joined'",
+        )
+        .bind(call_id)
+        .bind(user_id.uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.and_then(|(at,)| at))
+    }
+
     async fn active_call_between(
         &self,
         user_a: &UserId,

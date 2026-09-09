@@ -75,7 +75,9 @@ class CallAPI {
     return response.data.data;
   }
 
-  async getActive(): Promise<({ callId: string } & CallToken) | null> {
+  async getActive(): Promise<
+    ({ callId: string; startedAt?: string | null } & CallToken) | null
+  > {
     const response = await this.client.get("/v1/calls/active");
     return response.data.data ?? null;
   }

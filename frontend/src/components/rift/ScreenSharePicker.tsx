@@ -17,6 +17,20 @@ const ScreenSharePicker: React.FC = () => {
     return api.onScreenShareSources((data) => setPending(data));
   }, []);
 
+  useEffect(() => {
+    if (!pending) return;
+    const requestId = pending.requestId;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.electron?.pickScreenShareSource?.(requestId, null);
+      setPending((current) => (current?.requestId === requestId ? null : current));
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [pending]);
+
   if (!pending) return null;
 
   const resolve = (sourceId: string | null) => {

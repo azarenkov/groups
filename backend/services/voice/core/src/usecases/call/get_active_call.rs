@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use voice_domain::{call::repository::CallParticipantView, call::repository::CallRepository};
 use domain::{channel::id::ChannelId, channel::token::ChannelToken, user::id::UserId};
 use ports::repository::RepositoryError;
@@ -23,6 +24,7 @@ pub struct ActiveCallResult {
     pub url: String,
     pub participants: Vec<CallParticipantView>,
     pub video: bool,
+    pub started_at: Option<DateTime<Utc>>,
 }
 
 pub struct GetActiveCall<C, V, U>
@@ -72,15 +74,17 @@ where
             .create_token(&user_id, &user_name, &room)
             .await?;
 
-        let participants = self.call_repository.list_active(call_id).await?;        let video = self.call_repository.call_video(call_id).await?;
-
+        let participants = self.call_repository.list_active(call_id).await?;
+        let video = self.call_repository.call_video(call_id).await?;
+        let started_at = self.call_repository.joined_at(call_id, &user_id).await?;
 
         Ok(Some(ActiveCallResult {
             call_id,
             token,
             url: self.voice_service.client_url(),
             participants,
-        video,
+            video,
+            started_at,
         }))
     }
 }

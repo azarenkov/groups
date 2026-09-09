@@ -337,9 +337,13 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const participants = Object.fromEntries(
       active.participants.map((p) => [p.userId, p.userName]),
     );
+    const recovered = active.startedAt ? Date.parse(active.startedAt) : NaN;
+    const recoveredStartedAt = Number.isFinite(recovered)
+      ? Math.min(recovered, Date.now())
+      : Date.now();
     set((s) => ({
       activeCallId: active.callId,
-      startedAt: s.activeCallId === active.callId ? s.startedAt : Date.now(),
+      startedAt: s.activeCallId === active.callId ? s.startedAt : recoveredStartedAt,
       attention: s.activeCallId === active.callId ? s.attention : false,
       participants:
         s.activeCallId === active.callId
