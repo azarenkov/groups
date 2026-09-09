@@ -194,10 +194,7 @@ gateway:
   replicas: 2
   image: nginxinc/nginx-unprivileged:1.27-alpine
   clusterDomain: cluster.local
-  trustedProxies:
-    - 10.0.0.0/8
-    - 172.16.0.0/12
-    - 192.168.0.0/16
+  trustedProxies: []
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { memory: 256Mi }
