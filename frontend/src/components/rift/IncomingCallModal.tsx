@@ -80,6 +80,7 @@ const IncomingCallModal: React.FC = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.preventDefault();
+      e.stopImmediatePropagation();
       dismissIncoming();
     };
     window.addEventListener("keydown", onKey, true);
