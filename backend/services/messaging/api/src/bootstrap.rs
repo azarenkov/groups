@@ -454,7 +454,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .app_data(rate_limiter_data.clone())
             .app_data(access_revocations_data.clone())
             .wrap(RequestIdMiddleware)
-            .wrap(Logger::default())
+            .wrap(Logger::default().exclude("/readyz").exclude("/livez"))
             .wrap(cors)
             .configure(routes::configure)
     })
