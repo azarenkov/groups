@@ -203,7 +203,7 @@ fn mute_authority_follows_rank_and_mute_authorship() {
     assert!(f.server.ensure_can_unmute(&f.owner, &f.member, Some(&f.admin)).is_ok());
     assert!(f.server.ensure_can_unmute(&f.member, &f.member, Some(&f.member)).is_ok());
     assert_eq!(
-        f.server.ensure_can_unmute(&f.member, &f.member, Some(&f.moderator)).unwrap_err(),
-        PolicyError::NotAllowed
+        f.server.ensure_can_unmute(&f.member, &f.member, Some(&f.moderator)).unwrap(),
+        ModerationGrant::SelfService
     );
 }

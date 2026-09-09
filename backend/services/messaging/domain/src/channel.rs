@@ -24,6 +24,7 @@ use domain::{password_hash::PasswordHash, user::id::UserId};
 pub enum UnmuteOutcome {
     Removed,
     DowngradedToSelfMute,
+    SelfMuteCleared,
 }
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
@@ -597,15 +598,30 @@ impl Channel {
             .as_ref()
             .ok_or(ChannelError::VoiceNotSupported)?;
         let mute_record = muted.get(&target).ok_or(ChannelError::NotMuted)?;
+        let muted_by = mute_record.muted_by;
+        let self_muted = mute_record.self_muted;
 
-        let is_self_unmute_of_self_mute = target == initiator && mute_record.muted_by == initiator;
+        if target == initiator && muted_by != initiator && !grant.overrides_others() {
+            if !self_muted {
+                return Err(ChannelError::NotAllowed);
+            }
+            if let Some(record) = self
+                .muted_participants
+                .as_mut()
+                .and_then(|m| m.get_mut(&target))
+            {
+                record.self_muted = false;
+            }
+            return Ok(UnmuteOutcome::SelfMuteCleared);
+        }
+
+        let is_self_unmute_of_self_mute = target == initiator && muted_by == initiator;
 
         if !is_self_unmute_of_self_mute && !grant.overrides_others() {
             return Err(ChannelError::NotAllowed);
         }
 
-        let keeps_self_mute =
-            mute_record.muted_by != target && mute_record.self_muted && initiator != target;
+        let keeps_self_mute = muted_by != target && self_muted && initiator != target;
         if keeps_self_mute {
             self.muted_participants
                 .as_mut()

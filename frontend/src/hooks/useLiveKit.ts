@@ -559,15 +559,29 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     setSelfMuted(!isMutedRef.current);
   }, []);
 
+  const clearSelfMuteFlag = () => {
+    const active = activeChannelRef.current;
+    const auth = useAuthStore.getState();
+    const userId =
+      auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+    if (!active || !userId) return;
+    channelAPI.unmute(active.serverId, active.channelId, userId).catch((err) => {
+      console.warn("[useLiveKit] failed to clear self-mute under moderator mute:", err);
+    });
+  };
+
   const releaseSelfDeafen = () => {
     applySelfDeafened(false);
     if (!deafenLockedRef.current) serviceRef.current?.setDeafened(false);
-    const restoreMic =
-      !micMutedBeforeDeafenRef.current &&
-      isMutedRef.current &&
-      !moderatorLockedRef.current;
+    const deafenCreatedMute = !micMutedBeforeDeafenRef.current;
     micMutedBeforeDeafenRef.current = false;
-    if (restoreMic) setSelfMuted(false);
+    if (!deafenCreatedMute || !isMutedRef.current) return;
+    if (!moderatorLockedRef.current) {
+      setSelfMuted(false);
+      return;
+    }
+    selfMutedBeforeLockRef.current = false;
+    clearSelfMuteFlag();
   };
 
   const toggleDeafen = useCallback(() => {

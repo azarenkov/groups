@@ -399,11 +399,7 @@ impl Server {
             return Ok(ModerationGrant::Owner);
         }
         if actor == target {
-            return if muted_by == Some(actor) {
-                Ok(ModerationGrant::SelfService)
-            } else {
-                Err(PolicyError::NotAllowed)
-            };
+            return Ok(ModerationGrant::SelfService);
         }
         if muted_by.is_some_and(|by| self.is_owner(by)) {
             return Err(PolicyError::NotAllowed);
