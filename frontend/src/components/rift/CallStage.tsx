@@ -26,7 +26,13 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || isTextEntryTarget(e.target)) return;
-      if (document.querySelector(".settings-overlay, .modal-overlay, .ssp-overlay")) return;
+      if (
+        document.querySelector(
+          ".settings-overlay, .modal-overlay, .ssp-overlay, .cs-menu-pop, .call-invite-pop, .vp-popover, .acb-add",
+        )
+      ) {
+        return;
+      }
       e.preventDefault();
       onMinimize();
     };

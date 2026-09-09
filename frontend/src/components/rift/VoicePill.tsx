@@ -102,10 +102,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        setInviteOpen(false);
-      }
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      setOpen(false);
+      setInviteOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
