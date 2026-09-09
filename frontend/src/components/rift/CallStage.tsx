@@ -28,7 +28,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       if (e.key !== "Escape" || e.defaultPrevented || isTextEntryTarget(e.target)) return;
       if (
         document.querySelector(
-          ".settings-overlay, .modal-overlay, .ssp-overlay, .cs-menu-pop, .call-invite-pop, .vp-popover, .acb-add",
+          ".settings-overlay, .modal-overlay, .ssp-overlay, .incoming-call, .cs-menu-pop, .call-invite-pop, .vp-popover, .acb-add",
         )
       ) {
         return;

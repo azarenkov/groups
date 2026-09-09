@@ -75,6 +75,17 @@ const IncomingCallModal: React.FC = () => {
     };
   }, [incoming, t, callsEnabled, quietHoursEnabled, quietStart, quietEnd, syncedOwner]);
 
+  useEffect(() => {
+    if (!incoming) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      dismissIncoming();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [incoming, dismissIncoming]);
+
   if (!incoming) return null;
 
   return (
