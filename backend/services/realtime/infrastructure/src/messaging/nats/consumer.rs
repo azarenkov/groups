@@ -109,7 +109,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
 
         tokio::select! {
             _ = shutdown.changed() => return,
-            _ = tokio::time::sleep(Duration::from_secs(3)) => {}
+            _ = heartbeat.keep_alive_for(Duration::from_secs(3)) => {}
         }
     }
 }
