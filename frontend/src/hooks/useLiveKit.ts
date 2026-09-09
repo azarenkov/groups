@@ -189,7 +189,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           response.deafenedBy !== joiningUserId
         ) {
           selfDeafenedBeforeLockRef.current = false;
-          selfMutedBeforeDeafenLockRef.current = !!response.muted;
+          const moderatorMutedOnJoin =
+            !!response.mutedBy && response.mutedBy !== joiningUserId;
+          selfMutedBeforeDeafenLockRef.current =
+            !!response.muted && (!moderatorMutedOnJoin || !!response.selfMuted);
           setDeafenLock(true, response.deafenedBy);
           setIsMuted(true);
           useVoicePresenceStore
