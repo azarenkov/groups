@@ -8,15 +8,7 @@ metadata:
     app.kubernetes.io/component: gateway
 data:
   nginx.conf.template: |
-{{- $realIp := list }}
-{{- range .Values.gateway.trustedProxies }}
-{{- $realIp = append $realIp (printf "set_real_ip_from %s;" .) }}
-{{- end }}
-{{- if $realIp }}
-{{- $realIp = append $realIp "real_ip_header X-Forwarded-For;" }}
-{{- $realIp = append $realIp "real_ip_recursive on;" }}
-{{- end }}
-{{ .Files.Get "files/nginx.conf.template" | replace "__NGINX_REAL_IP__" (join "\n    " $realIp) | indent 4 }}
+{{ include "rift.gatewayConfig" . | indent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -40,7 +32,7 @@ spec:
       labels:
         {{- include "rift.selectorLabels" (dict "root" . "component" "gateway") | nindent 8 }}
       annotations:
-        checksum/nginx: {{ .Files.Get "files/nginx.conf.template" | sha256sum }}
+        checksum/nginx: {{ include "rift.gatewayConfig" . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

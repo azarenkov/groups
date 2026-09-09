@@ -103,3 +103,15 @@ imagePullSecrets:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- end }}
+
+{{- define "rift.gatewayConfig" -}}
+{{- $realIp := list }}
+{{- range .Values.gateway.trustedProxies }}
+{{- $realIp = append $realIp (printf "set_real_ip_from %s;" .) }}
+{{- end }}
+{{- if $realIp }}
+{{- $realIp = append $realIp "real_ip_header X-Forwarded-For;" }}
+{{- $realIp = append $realIp "real_ip_recursive on;" }}
+{{- end }}
+{{- .Files.Get "files/nginx.conf.template" | replace "__NGINX_REAL_IP__" (join "\n    " $realIp) -}}
+{{- end }}
