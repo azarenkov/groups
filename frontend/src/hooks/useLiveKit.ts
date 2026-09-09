@@ -359,6 +359,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     });
   };
 
+  const selfMutedNow = () =>
+    deafenLockedRef.current
+      ? selfMutedBeforeDeafenLockRef.current
+      : isMutedRef.current && !fallbackMutedRef.current;
   const liftModeratorLock = () => {
     setLock(false);
     if (selfMutedBeforeLockRef.current) {
@@ -366,6 +370,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       restoreSelfMute();
       return;
     }
+    if (deafenLockedRef.current) return;
     if (fallbackMutedRef.current && !fallbackReleasePendingRef.current) {
       return;
     }
@@ -378,8 +383,9 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const engageDeafenLock = (by: string | null) => {
     if (!deafenLockedRef.current) {
       selfDeafenedBeforeLockRef.current = isDeafenedRef.current;
-      selfMutedBeforeDeafenLockRef.current =
-        isMutedRef.current && !fallbackMutedRef.current;
+      selfMutedBeforeDeafenLockRef.current = moderatorLockedRef.current
+        ? selfMutedBeforeLockRef.current
+        : isMutedRef.current && !fallbackMutedRef.current;
     }
     setDeafenLock(true, by);
     serviceRef.current?.setDeafened(true);
@@ -419,8 +425,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       const moderatorMuted =
         me.isMuted && !!me.mutedBy && me.mutedBy !== selfId;
       if (moderatorMuted && !moderatorLockedRef.current) {
-        selfMutedBeforeLockRef.current =
-          isMutedRef.current && !fallbackMutedRef.current;
+        selfMutedBeforeLockRef.current = selfMutedNow();
         setLock(true, me.mutedBy ?? null);
         serviceRef.current?.setMicrophoneMuted(true);
         setIsMuted(true);
@@ -452,8 +457,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         return;
       }
       if (!moderatorLockedRef.current) {
-        selfMutedBeforeLockRef.current =
-          isMutedRef.current && !fallbackMutedRef.current;
+        selfMutedBeforeLockRef.current = selfMutedNow();
       }
       serviceRef.current?.setMicrophoneMuted(true);
       setIsMuted(true);
