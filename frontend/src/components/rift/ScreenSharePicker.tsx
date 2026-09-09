@@ -22,8 +22,9 @@ const ScreenSharePicker: React.FC = () => {
     const requestId = pending.requestId;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (document.querySelector(".incoming-call")) return;
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       window.electron?.pickScreenShareSource?.(requestId, null);
       setPending((current) => (current?.requestId === requestId ? null : current));
     };
