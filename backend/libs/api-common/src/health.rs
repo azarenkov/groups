@@ -178,7 +178,7 @@ mod tests {
         assert!(readiness.check().await);
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn slow_probe_times_out_as_not_ready() {
         let readiness = Readiness::builder()
             .probe_timeout(Duration::from_millis(20))
@@ -189,9 +189,9 @@ mod tests {
             })
             .build();
         readiness.mark_ready();
-        let started = Instant::now();
+        let started = tokio::time::Instant::now();
         assert!(!readiness.check().await);
-        assert!(started.elapsed() < Duration::from_millis(150));
+        assert_eq!(started.elapsed(), Duration::from_millis(20));
     }
 
     #[tokio::test]
@@ -258,7 +258,7 @@ mod tests {
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn probes_run_concurrently() {
         let readiness = Readiness::builder()
             .cache_ttl(Duration::ZERO)
@@ -272,8 +272,8 @@ mod tests {
             })
             .build();
         readiness.mark_ready();
-        let started = Instant::now();
+        let started = tokio::time::Instant::now();
         assert!(readiness.check().await);
-        assert!(started.elapsed() < Duration::from_millis(110));
+        assert_eq!(started.elapsed(), Duration::from_millis(60));
     }
 }
