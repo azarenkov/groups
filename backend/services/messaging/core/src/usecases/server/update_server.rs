@@ -63,6 +63,10 @@ impl<W: ServerUnitOfWork, TM: TextModeration> UpdateServer<W, TM> {
             description,
             ctx,
         } = request;
+        {
+            let mut precheck = self.unit_of_work.begin(&server_id).await?;
+            precheck.load_server().await?.ensure_can_manage(&owner_id)?;
+        }
         match ensure_server_text_allowed(self.text_moderation.as_ref(), &name, description.as_deref())
             .await
         {
