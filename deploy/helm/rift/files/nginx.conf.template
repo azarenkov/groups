@@ -29,7 +29,7 @@ http {
     access_log /dev/stdout main;
     error_log /dev/stderr warn;
 
-    resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+    resolver ${NGINX_RESOLVER} valid=10s ipv6=${NGINX_RESOLVER_IPV6};
     resolver_timeout 5s;
     __NGINX_REAL_IP__
 

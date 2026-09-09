@@ -68,6 +68,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: NGINX_CLUSTER_DOMAIN
               value: {{ .Values.gateway.clusterDomain | quote }}
+            - name: NGINX_RESOLVER_IPV6
+              value: {{ .Values.gateway.resolverIpv6 | quote }}
           securityContext:
             {{- include "rift.containerSecurityContext" . | nindent 12 }}
           ports:
@@ -152,7 +154,7 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
-    - host: {{ .Values.gateway.ingress.host }}
+    - host: {{ .Values.gateway.ingress.host | quote }}
       http:
         paths:
           - path: /
@@ -163,7 +165,7 @@ spec:
                 port:
                   name: http
     {{- with .Values.gateway.ingress.livekitHost }}
-    - host: {{ . }}
+    - host: {{ . | quote }}
       http:
         paths:
           - path: /
