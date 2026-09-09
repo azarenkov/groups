@@ -257,11 +257,14 @@ def transliterate(latin: str) -> str:
     return latin.translate(TRANSLIT_SINGLE)
 
 
-def dictionary_match(text: str):
+def is_allowlisted(token: str) -> bool:
+    flat, collapsed = normalize_text(token)
+    plain = re.sub(r"[^a-zа-яё]", "", token.lower())
+    return flat in ALLOWLIST or collapsed in ALLOWLIST or plain in ALLOWLIST
+
+
+def match_blocked_roots(text: str):
     flat, collapsed = normalize_text(text)
-    plain = re.sub(r"[^a-zа-яё]", "", text.lower())
-    if flat in ALLOWLIST or collapsed in ALLOWLIST or plain in ALLOWLIST:
-        return None
     cyr_flat = transliterate(flat)
     cyr_collapsed = transliterate(collapsed)
     for root in EN_BLOCKED:
@@ -270,6 +273,21 @@ def dictionary_match(text: str):
     for root in RU_BLOCKED:
         if root in flat or root in collapsed or root in cyr_flat or root in cyr_collapsed:
             return root
+    return None
+
+
+def dictionary_match(text: str):
+    tokens = [token for token in re.split(r"\s+", text.strip()) if token]
+    kept = []
+    for token in tokens:
+        if is_allowlisted(token):
+            continue
+        kept.append(token)
+        root = match_blocked_roots(token)
+        if root is not None:
+            return root
+    if len(kept) > 1:
+        return match_blocked_roots(" ".join(kept))
     return None
 
 
