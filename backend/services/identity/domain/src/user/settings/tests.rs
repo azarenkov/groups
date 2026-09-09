@@ -149,6 +149,15 @@ fn override_claiming_a_new_default_unbinds_that_default_until_reassigned() {
     assert_eq!(reassigned.effective(HotkeyAction::ToggleCallView).unwrap().as_str(), "Mod+Shift+V");
     let released = restored.apply(&hotkey_patch(&[("historyBack", None)])).unwrap();
     assert_eq!(released.effective(HotkeyAction::ToggleCallView).unwrap().as_str(), "Mod+Shift+O");
+
+    let legacy: BTreeMap<String, String> = [("leaveVoice", "Mod+Shift+D")]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    let legacy = HotkeyBindings::restore(legacy);
+    assert_eq!(legacy.effective(HotkeyAction::ToggleDeafen), None);
+    assert_eq!(legacy.effective(HotkeyAction::LeaveVoice).unwrap().as_str(), "Mod+Shift+D");
+    assert!(legacy.apply(&hotkey_patch(&[("openSettings", Some("Mod+Shift+P"))])).is_ok());
 }
 
 #[test]
