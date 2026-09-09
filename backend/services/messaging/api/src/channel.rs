@@ -5,7 +5,9 @@ use messaging::dto::requests::channel::{
     edit_channel_message::EditChannelMessageRequest,
     join_text_channel::JoinTextChannelRequest, join_voice_channel::JoinVoiceChannelRequest,
     list_channel_messages::ListChannelMessagesRequest,
+    deafen_channel::DeafenChannelRequest,
     list_channel_participants::ListChannelParticipantsRequest, mute_channel::MuteChannelRequest,
+    undeafen_channel::UndeafenChannelRequest,
     search_channel_messages::SearchChannelMessagesRequest,
     send_channel_message::SendChannelMessageRequest, unmute_channel::UnmuteChannelRequest,
 };
@@ -127,6 +129,46 @@ async fn unmute_channel(
         .unmute_channel_usecase
         .execute(data, user_id)
         .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[post("/{server_id}/channels/{channel_id}/deafen")]
+async fn deafen_channel(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<MuteRequestBody>,
+) -> Result<HttpResponse, HttpError> {
+    let (server_id, channel_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+    let data = DeafenChannelRequest {
+        channel_id,
+        server_id,
+        target_user_id: body.target_user_id,
+        ctx: request_context(&req),
+    };
+    app_state.deafen_channel_usecase.execute(data, user_id).await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[post("/{server_id}/channels/{channel_id}/undeafen")]
+async fn undeafen_channel(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<MuteRequestBody>,
+) -> Result<HttpResponse, HttpError> {
+    let (server_id, channel_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+    let data = UndeafenChannelRequest {
+        channel_id,
+        server_id,
+        target_user_id: body.target_user_id,
+        ctx: request_context(&req),
+    };
+    app_state.undeafen_channel_usecase.execute(data, user_id).await?;
     Ok(HttpResponse::NoContent().finish())
 }
 

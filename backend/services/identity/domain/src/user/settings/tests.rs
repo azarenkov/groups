@@ -70,11 +70,11 @@ fn apply_sets_and_resets_overrides() {
     let next = bindings
         .apply(&hotkey_patch(&[("toggleMute", Some("Mod+Shift+X"))]))
         .unwrap();
-    assert_eq!(next.effective(HotkeyAction::ToggleMute).as_str(), "Mod+Shift+X");
+    assert_eq!(next.effective(HotkeyAction::ToggleMute).unwrap().as_str(), "Mod+Shift+X");
     assert_eq!(next.overrides().len(), 1);
     let reset = next.apply(&hotkey_patch(&[("toggleMute", None)])).unwrap();
     assert!(reset.overrides().is_empty());
-    assert_eq!(reset.effective(HotkeyAction::ToggleMute).as_str(), "Mod+Shift+M");
+    assert_eq!(reset.effective(HotkeyAction::ToggleMute).unwrap().as_str(), "Mod+Shift+M");
 }
 
 #[test]
@@ -122,8 +122,42 @@ fn apply_allows_reusing_a_freed_chord() {
     let reused = moved
         .apply(&hotkey_patch(&[("leaveVoice", Some("Mod+K"))]))
         .unwrap();
-    assert_eq!(reused.effective(HotkeyAction::LeaveVoice).as_str(), "Mod+K");
-    assert_eq!(reused.effective(HotkeyAction::QuickSwitcher).as_str(), "Mod+P");
+    assert_eq!(reused.effective(HotkeyAction::LeaveVoice).unwrap().as_str(), "Mod+K");
+    assert_eq!(reused.effective(HotkeyAction::QuickSwitcher).unwrap().as_str(), "Mod+P");
+}
+
+#[test]
+fn override_claiming_a_new_default_unbinds_that_default_until_reassigned() {
+    let stored: BTreeMap<String, String> = [("historyBack", "Mod+Shift+O")]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    let restored = HotkeyBindings::restore(stored);
+    assert_eq!(restored.effective(HotkeyAction::ToggleCallView), None);
+    assert_eq!(restored.effective(HotkeyAction::HistoryBack).unwrap().as_str(), "Mod+Shift+O");
+    let unrelated = restored
+        .apply(&hotkey_patch(&[("quickSwitcher", Some("Mod+P"))]))
+        .unwrap();
+    assert_eq!(unrelated.effective(HotkeyAction::ToggleCallView), None);
+    assert_eq!(
+        restored.apply(&hotkey_patch(&[("toggleCallView", Some("Mod+Shift+O"))])),
+        Err(HotkeyError::Conflict(HotkeyAction::HistoryBack))
+    );
+    let reassigned = restored
+        .apply(&hotkey_patch(&[("toggleCallView", Some("Mod+Shift+V"))]))
+        .unwrap();
+    assert_eq!(reassigned.effective(HotkeyAction::ToggleCallView).unwrap().as_str(), "Mod+Shift+V");
+    let released = restored.apply(&hotkey_patch(&[("historyBack", None)])).unwrap();
+    assert_eq!(released.effective(HotkeyAction::ToggleCallView).unwrap().as_str(), "Mod+Shift+O");
+
+    let legacy: BTreeMap<String, String> = [("leaveVoice", "Mod+Shift+D")]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    let legacy = HotkeyBindings::restore(legacy);
+    assert_eq!(legacy.effective(HotkeyAction::ToggleDeafen), None);
+    assert_eq!(legacy.effective(HotkeyAction::LeaveVoice).unwrap().as_str(), "Mod+Shift+D");
+    assert!(legacy.apply(&hotkey_patch(&[("openSettings", Some("Mod+Shift+P"))])).is_ok());
 }
 
 #[test]
@@ -138,7 +172,7 @@ fn restore_drops_unknown_actions_and_invalid_chords() {
     .collect();
     let restored = HotkeyBindings::restore(stored);
     assert_eq!(restored.overrides().len(), 1);
-    assert_eq!(restored.effective(HotkeyAction::ToggleMute).as_str(), "Mod+Shift+X");
+    assert_eq!(restored.effective(HotkeyAction::ToggleMute).unwrap().as_str(), "Mod+Shift+X");
 }
 
 #[test]

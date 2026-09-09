@@ -16,3 +16,9 @@ pub enum Publication {
     Full,
     Restricted,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Subscription {
+    Full,
+    Suspended,
+}

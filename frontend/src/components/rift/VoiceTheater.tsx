@@ -11,7 +11,8 @@ const TileVolumeMenu: React.FC<{
   id: string;
   className?: string;
   moderate?: { muted: boolean; onToggle: () => void };
-}> = ({ id, className, moderate }) => {
+  deafen?: { deafened: boolean; onToggle: () => void };
+}> = ({ id, className, moderate, deafen }) => {
   const [open, setOpen] = useState(false);
   const [vol, setVol] = useState(100);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -32,7 +33,10 @@ const TileVolumeMenu: React.FC<{
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -51,7 +55,7 @@ const TileVolumeMenu: React.FC<{
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
       const menuW = 216;
-      const menuH = moderate ? 96 : 54;
+      const menuH = 54 + (moderate ? 42 : 0) + (deafen ? 42 : 0);
       let left = r.left - menuW - 8;
       if (left < 8) left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
       let top = r.top;
@@ -122,6 +126,23 @@ const TileVolumeMenu: React.FC<{
                 </span>
               </button>
             )}
+            {deafen && (
+              <button
+                type="button"
+                className="cs-menu-item"
+                onClick={() => {
+                  deafen.onToggle();
+                  setOpen(false);
+                }}
+              >
+                <Icon name={deafen.deafened ? "headphones" : "headphones-off"} size={15} />
+                <span>
+                  {deafen.deafened
+                    ? i18nTheater.t("voice:undeafenMember")
+                    : i18nTheater.t("voice:deafenMember")}
+                </span>
+              </button>
+            )}
           </div>,
           document.body,
         )}
@@ -137,6 +158,8 @@ export interface TheaterEntry {
   initials: string;
   speaking: boolean;
   muted: boolean;
+  deafened: boolean;
+  moderatorDeafened: boolean;
   camera: VideoTile | null;
 }
 
@@ -146,6 +169,9 @@ interface VoiceTheaterProps {
   liveName?: string | null;
   isMuted: boolean;
   muteLocked?: boolean;
+  isDeafened?: boolean;
+  deafenLocked?: boolean;
+  onToggleDeafen?: () => void;
   cameraOn: boolean;
   screenOn: boolean;
   onToggleMute: () => void;
@@ -153,6 +179,7 @@ interface VoiceTheaterProps {
   onToggleScreen: () => void;
   onLeave: () => void;
   onMinimize?: () => void;
+  minimizeTitle?: string;
   invite?: {
     candidates: { id: string; name: string }[];
     onAdd: (ids: string[]) => void;
@@ -160,7 +187,9 @@ interface VoiceTheaterProps {
   viewersFor?: (id: string) => number | undefined;
   onWatchChange?: (id: string, watching: boolean) => void;
   onModerateMute?: (id: string, currentlyMuted: boolean) => void;
+  onModerateDeafen?: (id: string, currentlyDeafened: boolean) => void;
   moderationExcluded?: string[];
+  deafenExcluded?: string[];
 }
 
 const STRIP_MAX = 6;
@@ -171,6 +200,9 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   liveName,
   isMuted,
   muteLocked,
+  isDeafened,
+  deafenLocked,
+  onToggleDeafen,
   cameraOn,
   screenOn,
   onToggleMute,
@@ -178,11 +210,14 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   onToggleScreen,
   onLeave,
   onMinimize,
+  minimizeTitle,
   invite,
   viewersFor,
   onWatchChange,
   onModerateMute,
+  onModerateDeafen,
   moderationExcluded,
+  deafenExcluded,
 }) => {
   const { t } = useTranslation(["call", "voice"]);
   const [addOpen, setAddOpen] = useState(false);
@@ -196,8 +231,18 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         setAddOpen(false);
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setAddOpen(false);
+    };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [addOpen]);
 
   const toggleSelected = (id: string) =>
@@ -232,7 +277,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           <button
             type="button"
             className="call-min"
-            title={t("minimize")}
+            title={minimizeTitle ?? t("minimize")}
             onClick={onMinimize}
           >
             <Icon name="chevron" size={16} />
@@ -279,6 +324,11 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                         <Icon name="mic-off" size={16} />
                       </span>
                     )}
+                    {r.deafened && (
+                      <span className="call-empty-mute deaf">
+                        <Icon name="headphones-off" size={16} />
+                      </span>
+                    )}
                     {!r.isSelf && (
                       <TileVolumeMenu
                         id={r.id}
@@ -288,6 +338,17 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                             ? {
                                 muted: r.muted,
                                 onToggle: () => onModerateMute(r.id, r.muted),
+                              }
+                            : undefined
+                        }
+                        deafen={
+                          onModerateDeafen &&
+                          !moderationExcluded?.includes(r.id) &&
+                          !deafenExcluded?.includes(r.id)
+                            ? {
+                                deafened: r.moderatorDeafened,
+                                onToggle: () =>
+                                  onModerateDeafen(r.id, r.moderatorDeafened),
                               }
                             : undefined
                         }
@@ -319,6 +380,23 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           >
             <Icon name={isMuted ? "mic-off" : "mic"} size={18} />
           </button>
+          {onToggleDeafen && (
+            <button
+              type="button"
+              className={"cp-btn" + (isDeafened ? " danger" : "")}
+              disabled={deafenLocked}
+              title={
+                deafenLocked
+                  ? t("voice:deafenedByModerator")
+                  : isDeafened
+                    ? t("voice:undeafenSelf")
+                    : t("voice:deafenSelf")
+              }
+              onClick={onToggleDeafen}
+            >
+              <Icon name={isDeafened ? "headphones-off" : "headphones"} size={18} />
+            </button>
+          )}
           <button
             type="button"
             className={"cp-btn" + (cameraOn ? " active" : "")}
@@ -428,6 +506,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
               )}
               <div className={"cs-tile-name" + (r.muted ? " muted" : "")}>
                 <Icon name={r.muted ? "mic-off" : "mic"} size={12} />
+                {r.deafened && <Icon name="headphones-off" size={12} />}
                 <span>{r.isSelf ? t("you") : r.name}</span>
               </div>
               {!r.isSelf && (
@@ -439,6 +518,17 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                       ? {
                           muted: r.muted,
                           onToggle: () => onModerateMute(r.id, r.muted),
+                        }
+                      : undefined
+                  }
+                  deafen={
+                    onModerateDeafen &&
+                    !moderationExcluded?.includes(r.id) &&
+                    !deafenExcluded?.includes(r.id)
+                      ? {
+                          deafened: r.moderatorDeafened,
+                          onToggle: () =>
+                            onModerateDeafen(r.id, r.moderatorDeafened),
                         }
                       : undefined
                   }

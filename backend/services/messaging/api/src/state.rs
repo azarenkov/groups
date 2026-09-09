@@ -9,7 +9,8 @@ use messaging::usecases::{
         delete_channel_message::DeleteChannelMessage,
         edit_channel_message::EditChannelMessage, join_text_channel::JoinTextChannel,
         join_voice_channel::JoinVoiceChannel, list_channel_messages::ListChannelMessages,
-        list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
+        deafen_channel::DeafenChannel, list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
+        undeafen_channel::UndeafenChannel,
         search_channel_messages::SearchChannelMessages,
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
         update_stream_viewer::UpdateStreamViewer,
@@ -93,6 +94,16 @@ pub struct AppState {
         PostgresServerUnitOfWork,
     >,
     pub unmute_channel_usecase: UnmuteChannel<
+        PostgresChannelRepository,
+        PostgresUserProfileRepository,
+        PostgresServerUnitOfWork,
+    >,
+    pub deafen_channel_usecase: DeafenChannel<
+        PostgresChannelRepository,
+        PostgresUserProfileRepository,
+        PostgresServerUnitOfWork,
+    >,
+    pub undeafen_channel_usecase: UndeafenChannel<
         PostgresChannelRepository,
         PostgresUserProfileRepository,
         PostgresServerUnitOfWork,

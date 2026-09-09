@@ -45,5 +45,11 @@
   "splashInvite": "Invite people",
   "muteMember": "Mute member",
   "unmuteMember": "Unmute member",
-  "mutedByModerator": "Muted by a moderator"
+  "mutedByModerator": "Muted by a moderator",
+  "deafenSelf": "Deafen",
+  "undeafenSelf": "Undeafen",
+  "deafened": "Deafened",
+  "deafenMember": "Deafen member",
+  "undeafenMember": "Undeafen member",
+  "deafenedByModerator": "Deafened by a moderator"
 }

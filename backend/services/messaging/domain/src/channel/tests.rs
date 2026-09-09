@@ -71,6 +71,34 @@ fn moderator_unmute_downgrades_to_self_mute_when_user_was_self_muted() {
 }
 
 #[test]
+fn self_unmute_under_moderator_mute_clears_only_the_self_mute_flag() {
+    let owner = UserId::generate();
+    let user = UserId::generate();
+    let moderator = UserId::generate();
+    let mut channel = voice_channel(owner);
+    channel.mute(user, user, ModerationGrant::SelfService, Utc::now()).unwrap();
+    channel.mute(user, moderator, ModerationGrant::Moderator, Utc::now()).unwrap();
+    channel.pull_events();
+    assert_eq!(
+        channel.unmute(user, user, ModerationGrant::SelfService, Utc::now()).unwrap(),
+        UnmuteOutcome::SelfMuteCleared
+    );
+    let record = channel.mute_record(&user).unwrap();
+    assert_eq!(record.muted_by, moderator);
+    assert!(!record.self_muted);
+    assert_eq!(channel.publication_for(&user), Publication::Restricted);
+    assert!(channel.pull_events().is_empty());
+    assert_eq!(
+        channel.unmute(user, user, ModerationGrant::SelfService, Utc::now()).unwrap_err(),
+        ChannelError::NotAllowed
+    );
+    assert_eq!(
+        channel.unmute(user, moderator, ModerationGrant::Moderator, Utc::now()).unwrap(),
+        UnmuteOutcome::Removed
+    );
+}
+
+#[test]
 fn self_service_only_lifts_own_mute() {
     let owner = UserId::generate();
     let user = UserId::generate();

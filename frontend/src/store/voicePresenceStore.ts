@@ -5,16 +5,34 @@ export interface VoicePresenceMember {
   name: string;
   isMuted: boolean;
   mutedBy?: string;
+  deafenedBy?: string;
   cameraOn: boolean;
   screenOn: boolean;
 }
 
+interface PendingOverlay {
+  isMuted?: boolean;
+  mutedBy?: string;
+  deafenedBy?: string | null;
+  serverId?: string;
+}
+
+const applyOverlay = (
+  member: VoicePresenceMember,
+  overlay: PendingOverlay,
+): VoicePresenceMember => ({
+  ...member,
+  ...(overlay.isMuted !== undefined
+    ? { isMuted: overlay.isMuted, mutedBy: overlay.mutedBy }
+    : {}),
+  ...(overlay.deafenedBy !== undefined
+    ? { deafenedBy: overlay.deafenedBy ?? undefined }
+    : {}),
+});
+
 interface VoicePresenceState {
   byChannel: Record<string, VoicePresenceMember[]>;
-  pendingMutes: Record<
-    string,
-    Record<string, { isMuted: boolean; mutedBy?: string; serverId?: string }>
-  >;
+  pendingMutes: Record<string, Record<string, PendingOverlay>>;
   addMember: (channelId: string, member: VoicePresenceMember) => void;
   removeMember: (channelId: string, userId: string) => void;
   renameMember: (userId: string, name: string) => void;
@@ -24,6 +42,12 @@ interface VoicePresenceState {
     userId: string,
     isMuted: boolean,
     mutedBy?: string,
+    serverId?: string,
+  ) => void;
+  setChannelDeafen: (
+    channelId: string,
+    userId: string,
+    deafenedBy: string | undefined,
     serverId?: string,
   ) => void;
   setChannelMedia: (
@@ -47,9 +71,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
     set((state) => {
       const existing = state.byChannel[channelId] || [];
       const overlay = state.pendingMutes[channelId]?.[incoming.id];
-      const member = overlay
-        ? { ...incoming, isMuted: overlay.isMuted, mutedBy: overlay.mutedBy }
-        : incoming;
+      const member = overlay ? applyOverlay(incoming, overlay) : incoming;
       let pendingMutes = state.pendingMutes;
       if (overlay) {
         const channelPending = { ...state.pendingMutes[channelId] };
@@ -69,6 +91,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
                 name: member.name,
                 isMuted: member.isMuted,
                 mutedBy: member.mutedBy,
+                deafenedBy: member.deafenedBy ?? m.deafenedBy,
                 cameraOn: member.cameraOn,
                 screenOn: member.screenOn,
               }
@@ -102,9 +125,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       const overlay = state.pendingMutes[channelId];
       const merged = overlay
         ? members.map((m) =>
-            overlay[m.id]
-              ? { ...m, isMuted: overlay[m.id].isMuted, mutedBy: overlay[m.id].mutedBy }
-              : m,
+            overlay[m.id] ? applyOverlay(m, overlay[m.id]) : m,
           )
         : members;
       const pendingMutes = { ...state.pendingMutes };
@@ -150,6 +171,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
             [channelId]: {
               ...(state.pendingMutes[channelId] ?? {}),
               [userId]: {
+                ...(state.pendingMutes[channelId]?.[userId] ?? {}),
                 isMuted,
                 mutedBy: isMuted ? mutedBy : undefined,
                 serverId,
@@ -162,6 +184,30 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
         m.id === userId
           ? { ...m, isMuted, mutedBy: isMuted ? mutedBy : undefined }
           : m,
+      );
+      return { byChannel: { ...state.byChannel, [channelId]: next } };
+    }),
+
+  setChannelDeafen: (channelId, userId, deafenedBy, serverId) =>
+    set((state) => {
+      const existing = state.byChannel[channelId];
+      if (!existing || !existing.some((m) => m.id === userId)) {
+        return {
+          pendingMutes: {
+            ...state.pendingMutes,
+            [channelId]: {
+              ...(state.pendingMutes[channelId] ?? {}),
+              [userId]: {
+                ...(state.pendingMutes[channelId]?.[userId] ?? {}),
+                deafenedBy: deafenedBy ?? null,
+                serverId,
+              },
+            },
+          },
+        };
+      }
+      const next = existing.map((m) =>
+        m.id === userId ? { ...m, deafenedBy } : m,
       );
       return { byChannel: { ...state.byChannel, [channelId]: next } };
     }),

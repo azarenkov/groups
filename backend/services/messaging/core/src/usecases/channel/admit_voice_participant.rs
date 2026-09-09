@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::moderation::Publication, channel::repository::ChannelRepository, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::repository::ServerRepository};
+
+use crate::usecases::channel::voice_access::participant_access;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -80,10 +82,9 @@ where
             return Ok(Admission::Rejected);
         }
 
-        match channel.publication_for(&user_id) {
-            Publication::Restricted => self.voice_service.mute_participant(&channel_id, &user_id).await?,
-            Publication::Full => self.voice_service.unmute_participant(&channel_id, &user_id).await?,
-        }
+        self.voice_service
+            .apply_participant_access(&channel_id, &user_id, participant_access(&channel, &user_id))
+            .await?;
         Ok(Admission::Admitted)
     }
 }

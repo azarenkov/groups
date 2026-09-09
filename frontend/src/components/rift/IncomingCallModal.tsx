@@ -15,6 +15,7 @@ const IncomingCallModal: React.FC = () => {
   const incoming = useCallStore((s) => s.incoming);
   const accept = useCallStore((s) => s.accept);
   const decline = useCallStore((s) => s.decline);
+  const dismissIncoming = useCallStore((s) => s.dismissIncoming);
   const { t } = useTranslation("call");
   const callsEnabled = useNotificationSettingsStore((s) => s.callsEnabled);
   const quietHoursEnabled = useNotificationSettingsStore((s) => s.quietHoursEnabled);
@@ -74,6 +75,18 @@ const IncomingCallModal: React.FC = () => {
     };
   }, [incoming, t, callsEnabled, quietHoursEnabled, quietStart, quietEnd, syncedOwner]);
 
+  useEffect(() => {
+    if (!incoming) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      dismissIncoming();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [incoming, dismissIncoming]);
+
   if (!incoming) return null;
 
   return (
@@ -93,6 +106,15 @@ const IncomingCallModal: React.FC = () => {
         </div>
       </div>
       <div className="ic-actions">
+        <button
+          type="button"
+          className="ic-btn ignore"
+          onClick={() => dismissIncoming()}
+          title={t("dismiss")}
+          aria-label={t("dismiss")}
+        >
+          <Icon name="bell-off" size={17} />
+        </button>
         <button
           type="button"
           className="ic-btn decline"

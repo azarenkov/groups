@@ -221,7 +221,9 @@
       "openSettings": "Open settings",
       "editLastMessage": "Edit last message",
       "toggleMute": "Toggle microphone",
+      "toggleDeafen": "Toggle deafen",
       "leaveVoice": "Leave voice channel",
+      "toggleCallView": "Minimize / restore the call",
       "pushToTalk": "Push-to-talk",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
@@ -231,6 +233,7 @@
       "prevChannel": "Text channels on a server, direct messages on Home.",
       "nextChannel": "Text channels on a server, direct messages on Home.",
       "editLastMessage": "When the composer is empty.",
+      "toggleDeafen": "Also mutes your microphone.",
       "leaveVoice": "Also hangs up a direct call.",
       "pushToTalk": "The hold key is configured in Voice & Video.",
       "desktopOnly": "Desktop app only."
@@ -243,7 +246,9 @@
     "needModifier": "Add a modifier: {{mods}}.",
     "conflict": "Already used by: {{action}}.",
     "unsupportedKey": "This key is not supported.",
-    "unavailableHere": "Not available on this platform."
+    "unavailableHere": "Not available on this platform.",
+    "unbound": "Not assigned",
+    "unboundHint": "The default shortcut is used by {{action}}. Click to assign another one."
   },
   "language": {
     "title": "Language",

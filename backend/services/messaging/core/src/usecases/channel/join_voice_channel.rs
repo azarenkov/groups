@@ -1,6 +1,9 @@
 use std::sync::Arc;
+use ports::voice_service::ParticipantAccess;
 
-use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::moderation::Publication, channel::repository::ChannelRepository};
+use crate::usecases::channel::voice_access::participant_access;
+
+use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
 use domain::{user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 
@@ -135,17 +138,16 @@ where
             .await?;
 
         let mute_record = channel.mute_record(&user_id);
-        let channel_token = match channel.publication_for(&user_id) {
-            Publication::Restricted => {
-                self.voice_service
-                    .create_token_without_microphone(&user_id, &user_name, channel.id())
-                    .await?
-            }
-            Publication::Full => {
-                self.voice_service
-                    .create_token(&user_id, &user_name, channel.id())
-                    .await?
-            }
+        let deafen_record = channel.deafen_record(&user_id);
+        let access = participant_access(&channel, &user_id);
+        let channel_token = if access == ParticipantAccess::FULL {
+            self.voice_service
+                .create_token(&user_id, &user_name, channel.id())
+                .await?
+        } else {
+            self.voice_service
+                .create_token_with_access(&user_id, &user_name, channel.id(), access)
+                .await?
         };
 
         if !self.user_repository.is_active(&user_id).await? {
@@ -159,6 +161,7 @@ where
             mute_record.is_some(),
             mute_record.map(|m| m.muted_by.uuid()),
             mute_record.is_some_and(|m| m.self_muted),
+            deafen_record.map(|d| d.deafened_by.uuid()),
         );
         Ok(response)
     }

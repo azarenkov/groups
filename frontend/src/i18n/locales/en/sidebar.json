@@ -43,5 +43,7 @@
   "home": "Home",
   "muteMember": "Mute",
   "unmuteMember": "Unmute",
+  "deafenMember": "Deafen",
+  "undeafenMember": "Undeafen",
   "backToServers": "Back to servers"
 }

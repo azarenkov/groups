@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -442,6 +442,18 @@ impl ServerTransaction for PostgresServerTransaction {
         .execute(&mut **tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query(
+            r#"
+                DELETE FROM channel_deafened_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+        )
+        .bind(user_id.uuid())
+        .bind(server_id.uuid())
+        .execute(&mut **tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
     }
 
@@ -491,6 +503,43 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(())
     }
 
+    async fn save_deafen_state(
+        &mut self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+        deafen: Option<&ParticipantDeafen>,
+    ) -> Result<(), RepositoryError> {
+        match deafen {
+            Some(deafen) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO channel_deafened_participants (channel_id, user_id, deafened_by, deafened_at)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (channel_id, user_id) DO UPDATE
+                        SET deafened_by = EXCLUDED.deafened_by,
+                            deafened_at = EXCLUDED.deafened_at
+                    "#,
+                )
+                .bind(channel_id.uuid())
+                .bind(user_id.uuid())
+                .bind(deafen.deafened_by.uuid())
+                .bind(deafen.deafened_at)
+                .execute(&mut *self.tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            }
+            None => {
+                sqlx::query("DELETE FROM channel_deafened_participants WHERE channel_id = $1 AND user_id = $2")
+                    .bind(channel_id.uuid())
+                    .bind(user_id.uuid())
+                    .execute(&mut *self.tx)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?;
+            }
+        }
+        Ok(())
+    }
+
     async fn insert_channel(&mut self, channel: &Channel) -> Result<(), RepositoryError> {
         let kind_dto = ChannelKindDto::from(channel.kind());
         let visibility_dto = ChannelVisibilityDto::from(&channel.visibility());
@@ -529,6 +578,18 @@ impl ServerTransaction for PostgresServerTransaction {
                 mute.muted_at,
                 mute.self_muted,
             )
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+        for deafen in channel.deafened_participants_list() {
+            sqlx::query(
+                "INSERT INTO channel_deafened_participants (channel_id, user_id, deafened_by, deafened_at) VALUES ($1, $2, $3, $4)",
+            )
+            .bind(channel.id().uuid())
+            .bind(deafen.user_id.uuid())
+            .bind(deafen.deafened_by.uuid())
+            .bind(deafen.deafened_at)
             .execute(&mut *self.tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;

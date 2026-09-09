@@ -6,7 +6,7 @@ use contracts::events::{
         ParticipantConnectionAbortedV1 as ParticipantConnectionAbortedDto,
         ParticipantJoinedV1 as ParticipantSimple, ParticipantLeftV1 as ParticipantLeftDto,
         ParticipantMediaV1 as ParticipantMediaDto, ParticipantMutedV1 as ParticipantMutedDto,
-        ParticipantUnmutedV1 as ParticipantUnmutedDto, StreamViewersV1 as StreamViewersDto,
+        ParticipantUnmutedV1 as ParticipantUnmutedDto, ParticipantDeafenedV1 as ParticipantDeafenedDto, ParticipantUndeafenedV1 as ParticipantUndeafenedDto, StreamViewersV1 as StreamViewersDto,
         TextChannelJoinedV1 as TextJoinedDto,
     },
     dm_message::{
@@ -370,6 +370,40 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "serverId": evt.server_id,
                 "userId": evt.user_id,
                 "unmutedBy": evt.unmuted_by,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".channel.participant.deafened") {
+        let evt: ParticipantDeafenedDto = serde_json::from_slice(payload)?;
+        let recipients = resolver.server_members(evt.server_id).await?;
+        let envelope = Envelope::new(
+            "channel.participant.deafened",
+            json!({
+                "channelId": evt.channel_id,
+                "serverId": evt.server_id,
+                "userId": evt.user_id,
+                "deafenedBy": evt.deafened_by,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".channel.participant.undeafened") {
+        let evt: ParticipantUndeafenedDto = serde_json::from_slice(payload)?;
+        let recipients = resolver.server_members(evt.server_id).await?;
+        let envelope = Envelope::new(
+            "channel.participant.undeafened",
+            json!({
+                "channelId": evt.channel_id,
+                "serverId": evt.server_id,
+                "userId": evt.user_id,
+                "undeafenedBy": evt.undeafened_by,
                 "occurredAt": evt.occurred_at,
             }),
         );

@@ -148,6 +148,28 @@ class ChannelAPI {
     );
   }
 
+  async deafen(
+    serverId: string,
+    channelId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/deafen`,
+      { targetUserId },
+    );
+  }
+
+  async undeafen(
+    serverId: string,
+    channelId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.client.post(
+      `/v1/servers/${serverId}/channels/${channelId}/undeafen`,
+      { targetUserId },
+    );
+  }
+
   async listMessages(
     serverId: string,
     channelId: string,

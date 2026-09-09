@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, server::id::ServerId};
+use crate::{channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantDeafened, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUndeafened, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, server::id::ServerId};
 
 pub mod lifecycle;
 pub mod participant;
@@ -14,6 +14,8 @@ pub enum ChannelEvent {
     ParticipantLeft(ParticipantLeft),
     ParticipantMuted(ParticipantMuted),
     ParticipantUnmuted(ParticipantUnmuted),
+    ParticipantDeafened(ParticipantDeafened),
+    ParticipantUndeafened(ParticipantUndeafened),
     ParticipantConnectionAborted(ParticipantConnectionAborted),
     ParticipantMediaChanged(ParticipantMediaChanged),
     TextJoined(TextChannelJoined),
@@ -29,6 +31,8 @@ impl ChannelEvent {
             Self::ParticipantLeft(e) => &e.channel_id,
             Self::ParticipantMuted(e) => &e.channel_id,
             Self::ParticipantUnmuted(e) => &e.channel_id,
+            Self::ParticipantDeafened(e) => &e.channel_id,
+            Self::ParticipantUndeafened(e) => &e.channel_id,
             Self::ParticipantConnectionAborted(e) => &e.channel_id,
             Self::ParticipantMediaChanged(e) => &e.channel_id,
             Self::TextJoined(e) => &e.channel_id,
@@ -44,6 +48,8 @@ impl ChannelEvent {
             Self::ParticipantLeft(e) => &e.server_id,
             Self::ParticipantMuted(e) => &e.server_id,
             Self::ParticipantUnmuted(e) => &e.server_id,
+            Self::ParticipantDeafened(e) => &e.server_id,
+            Self::ParticipantUndeafened(e) => &e.server_id,
             Self::ParticipantConnectionAborted(e) => &e.server_id,
             Self::ParticipantMediaChanged(e) => &e.server_id,
             Self::TextJoined(e) => &e.server_id,
@@ -59,6 +65,8 @@ impl ChannelEvent {
             Self::ParticipantLeft(e) => e.occurred_at,
             Self::ParticipantMuted(e) => e.occurred_at,
             Self::ParticipantUnmuted(e) => e.occurred_at,
+            Self::ParticipantDeafened(e) => e.occurred_at,
+            Self::ParticipantUndeafened(e) => e.occurred_at,
             Self::ParticipantConnectionAborted(e) => e.occurred_at,
             Self::ParticipantMediaChanged(e) => e.occurred_at,
             Self::TextJoined(e) => e.joined_at,
@@ -114,6 +122,8 @@ impl ChannelEvent {
             Self::ParticipantLeft(_) => "participant.left",
             Self::ParticipantMuted(_) => "participant.muted",
             Self::ParticipantUnmuted(_) => "participant.unmuted",
+            Self::ParticipantDeafened(_) => "participant.deafened",
+            Self::ParticipantUndeafened(_) => "participant.undeafened",
             Self::ParticipantConnectionAborted(_) => "participant.connection_aborted",
             Self::ParticipantMediaChanged(e) => match (e.source, e.enabled) {
                 (MediaSource::Camera, true) => "participant.camera.on",

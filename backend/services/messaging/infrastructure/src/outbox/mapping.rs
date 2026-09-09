@@ -1,8 +1,8 @@
 use contracts::events::{
     channel::{
         ChannelCreatedV1, ChannelDeletedV1, ChannelRenamedV1, ParticipantConnectionAbortedV1,
-        ParticipantJoinedV1, ParticipantLeftV1, ParticipantMediaV1, ParticipantMutedV1,
-        ParticipantUnmutedV1, TextChannelJoinedV1,
+        ParticipantDeafenedV1, ParticipantJoinedV1, ParticipantLeftV1, ParticipantMediaV1,
+        ParticipantMutedV1, ParticipantUndeafenedV1, ParticipantUnmutedV1, TextChannelJoinedV1,
     },
     dm_message::{DmMessageDeletedV1, DmMessageEditedV1, DmMessageSentV1},
     friendship::{FriendRequestAcceptedV1, FriendRequestSentV1, FriendshipRemovedV1},
@@ -83,6 +83,20 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
             server_id: e.server_id.uuid(),
             user_id: e.user_id.uuid(),
             unmuted_by: e.unmuted_by.uuid(),
+            occurred_at: e.occurred_at,
+        })?,
+        ChannelEvent::ParticipantDeafened(e) => encode(&ParticipantDeafenedV1 {
+            channel_id: e.channel_id.uuid(),
+            server_id: e.server_id.uuid(),
+            user_id: e.user_id.uuid(),
+            deafened_by: e.deafened_by.uuid(),
+            occurred_at: e.occurred_at,
+        })?,
+        ChannelEvent::ParticipantUndeafened(e) => encode(&ParticipantUndeafenedV1 {
+            channel_id: e.channel_id.uuid(),
+            server_id: e.server_id.uuid(),
+            user_id: e.user_id.uuid(),
+            undeafened_by: e.undeafened_by.uuid(),
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantConnectionAborted(e) => encode(&ParticipantConnectionAbortedV1 {

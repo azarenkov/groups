@@ -3,6 +3,7 @@ use voice::dto::requests::call::{
     add_participants::AddCallParticipantsRequest, start_call::StartCallRequest,
 };
 use domain::user::id::UserId;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
@@ -41,6 +42,17 @@ struct StartCallResponse {
     url: String,
     participants: Vec<CallParticipantDto>,
     video: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ActiveCallResponse {
+    call_id: Uuid,
+    token: String,
+    url: String,
+    participants: Vec<CallParticipantDto>,
+    video: bool,
+    started_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -107,9 +119,10 @@ async fn get_active_call(
         .get_active_call_usecase
         .execute(user_id)
         .await?
-        .map(|r| StartCallResponse {
+        .map(|r| ActiveCallResponse {
             call_id: r.call_id,
             video: r.video,
+            started_at: r.started_at,
             token: r.token.as_str().to_string(),
             url: r.url,
             participants: r

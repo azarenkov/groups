@@ -246,6 +246,7 @@ class ServerAPI {
       userName: string;
       isMuted: boolean;
       mutedBy?: string | null;
+      deafenedBy?: string | null;
       cameraOn: boolean;
       screenOn: boolean;
     }[];

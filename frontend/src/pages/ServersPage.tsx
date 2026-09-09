@@ -57,6 +57,7 @@ import ServerSettingsView from "../components/rift/ServerSettingsView";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
+import { useLocalDeafened } from "../hooks/useLocalDeafened";
 import { qualityClass, qualityLabel } from "../utils/quality";
 import { Channel, ChannelKind, ChannelParticipant } from "../types/channel";
 import { Server } from "../types/server";
@@ -72,6 +73,7 @@ const ServersPage: React.FC = () => {
   const { t: tSidebar } = useTranslation("sidebar");
   const localQuality = useLocalQuality();
   const voiceParticipants = useParticipants();
+  const selfDeafened = useLocalDeafened();
   const voicePresenceByChannel = useVoicePresenceStore((s) => s.byChannel);
   const streamViewerCounts = useStreamViewersStore((s) => s.counts);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
@@ -290,6 +292,7 @@ const ServersPage: React.FC = () => {
               name: string;
               isMuted: boolean;
               mutedBy?: string;
+              deafenedBy?: string;
               cameraOn: boolean;
               screenOn: boolean;
             }[]
@@ -300,6 +303,7 @@ const ServersPage: React.FC = () => {
               name: item.userName,
               isMuted: item.isMuted,
               mutedBy: item.mutedBy ?? undefined,
+              deafenedBy: item.deafenedBy ?? undefined,
               cameraOn: item.cameraOn,
               screenOn: item.screenOn,
             });
@@ -524,7 +528,10 @@ const ServersPage: React.FC = () => {
   };
 
   const handleSelectDm = (dm: MockDirect) => {
-    useCallStore.getState().setFocused(false);
+    const cs = useCallStore.getState();
+    const inCallWithDm =
+      !!cs.activeCallId && (cs.peerId === dm.id || dm.id in cs.participants);
+    cs.setFocused(inCallWithDm);
     setSelectedDm(dm);
     setSelectedChannel(null);
     useUnreadStore.getState().resetDm(dm.id);
@@ -742,6 +749,7 @@ const ServersPage: React.FC = () => {
   const activeCallId = useCallStore((s) => s.activeCallId);
   const callFocused = useCallStore((s) => s.focused);
   const callPeerId = useCallStore((s) => s.peerId);
+  const callParticipants = useCallStore((s) => s.participants);
   const prevActiveCallRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevActiveCallRef.current;
@@ -754,7 +762,7 @@ const ServersPage: React.FC = () => {
 
   useEffect(() => {
     if (!callFocused || !activeCallId || !callPeerId) return;
-    if (selectedDm?.id === callPeerId) return;
+    if (selectedDm && (selectedDm.id === callPeerId || selectedDm.id in callParticipants)) return;
     const peer = acceptedFriends.find((d) => d.id === callPeerId);
     if (!peer) return;
     setSelectedDm(peer);
@@ -764,6 +772,7 @@ const ServersPage: React.FC = () => {
     callFocused,
     activeCallId,
     callPeerId,
+    callParticipants,
     selectedDm,
     acceptedFriends,
     setSelectedChannel,
@@ -964,6 +973,8 @@ const ServersPage: React.FC = () => {
       color: string;
       isMuted?: boolean;
       mutedBy?: string;
+      isDeafened?: boolean;
+      deafenedBy?: string;
       isSharingScreen?: boolean;
       isCameraOn?: boolean;
     }[]
@@ -977,11 +988,19 @@ const ServersPage: React.FC = () => {
         color: string;
         isMuted?: boolean;
         mutedBy?: string;
+        isDeafened?: boolean;
+        deafenedBy?: string;
         isSharingScreen?: boolean;
         isCameraOn?: boolean;
       }[]
     > = {};
+    const joinedChannelId = joinedChannel?.channel.id ?? null;
+    const selfId = user?.id ?? null;
+    const liveDeafened = new Set(
+      voiceParticipants.filter((p) => p.isDeafened).map((p) => p.identity),
+    );
     for (const [channelId, members] of Object.entries(voicePresenceByChannel)) {
+      const live = channelId === joinedChannelId;
       out[channelId] = members.map((m) => ({
         id: m.id,
         name: m.name,
@@ -989,12 +1008,16 @@ const ServersPage: React.FC = () => {
         color: colorForId(m.id),
         isMuted: m.isMuted,
         mutedBy: m.mutedBy,
+        isDeafened:
+          !!m.deafenedBy ||
+          (live && (m.id === selfId ? selfDeafened : liveDeafened.has(m.id))),
+        deafenedBy: m.deafenedBy,
         isSharingScreen: m.screenOn,
         isCameraOn: m.cameraOn,
       }));
     }
     return out;
-  }, [voicePresenceByChannel]);
+  }, [voicePresenceByChannel, voiceParticipants, joinedChannel?.channel.id, user?.id, selfDeafened]);
 
 
   return (
@@ -1014,6 +1037,7 @@ const ServersPage: React.FC = () => {
                     name: userName || "You",
                     initials: initialFor(userName),
                     color: colorForId(user?.id || "you"),
+                    ...(selfDeafened ? { isDeafened: true } : {}),
                   },
                   ...voiceParticipants.map((p) => {
                     const name =
@@ -1023,6 +1047,7 @@ const ServersPage: React.FC = () => {
                       name,
                       initials: initialFor(name),
                       color: colorForId(p.identity),
+                      ...(p.isDeafened ? { isDeafened: true } : {}),
                     };
                   }),
                 ]
@@ -1402,7 +1427,19 @@ const ServersPage: React.FC = () => {
       />
 
       <IncomingCallModal />
-      <ActiveCallBar />
+      <ActiveCallBar
+        dockId={
+          settingsOpen
+            ? "settings-voice-dock"
+            : serverSettings
+              ? "server-settings-voice-dock"
+              : "voice-dock-slot"
+        }
+        onOpen={() => {
+          setSettingsOpen(false);
+          setServerSettings(null);
+        }}
+      />
 
       <UserProfileModal
         onOpenDm={handleOpenDmFromHome}

@@ -1,4 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { isTextEntryTarget } from "../../utils/hotkeys";
 import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
 import { useCallStore } from "../../store/callStore";
 import { useAuthStore } from "../../store/authStore";
@@ -15,10 +17,30 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const addParticipants = useCallStore((s) => s.addParticipants);
   const muted = useCallStore((s) => s.micMuted);
   const setMicMuted = useCallStore((s) => s.setMicMuted);
+  const deafened = useCallStore((s) => s.deafened);
+  const setDeafened = useCallStore((s) => s.setDeafened);
   const user = useAuthStore((s) => s.user);
   const friends = useFriendshipStore((s) => s.friends);
   const voiceParticipants = useParticipants();
   const videoTiles = useVideoTiles();
+  const { t } = useTranslation("call");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || isTextEntryTarget(e.target)) return;
+      if (
+        document.querySelector(
+          ".settings-overlay, .modal-overlay, .ssp-overlay, .incoming-call, .cs-menu-pop, .call-invite-pop, .vp-popover, .acb-add",
+        )
+      ) {
+        return;
+      }
+      e.preventDefault();
+      onMinimize();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onMinimize]);
 
   const selfId = user?.id || "you";
   const selfName = user?.name || "You";
@@ -40,6 +62,13 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const mutedIds = useMemo(
     () =>
       new Set(voiceParticipants.filter((p) => p.isMuted).map((p) => p.identity)),
+    [voiceParticipants],
+  );
+  const deafenedIds = useMemo(
+    () =>
+      new Set(
+        voiceParticipants.filter((p) => p.isDeafened).map((p) => p.identity),
+      ),
     [voiceParticipants],
   );
   const cameraByIdentity = useMemo(() => {
@@ -67,6 +96,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       initials: initialFor(name),
       speaking: speakingIds.has(id),
       muted: id === selfId ? muted : mutedIds.has(id),
+      deafened: id === selfId ? deafened : deafenedIds.has(id),
+      moderatorDeafened: false,
       camera: cameraByIdentity.get(id) ?? null,
     }));
   }, [
@@ -77,6 +108,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     speakingIds,
     mutedIds,
     muted,
+    deafenedIds,
+    deafened,
     cameraByIdentity,
   ]);
 
@@ -104,6 +137,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       screenTile={screenTile}
       liveName={sharerName}
       isMuted={muted}
+      isDeafened={deafened}
+      onToggleDeafen={() => setDeafened(!deafened)}
       cameraOn={localCameraOn}
       screenOn={localScreenOn}
       onToggleMute={toggleMute}
@@ -119,6 +154,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       }
       onLeave={() => leave()}
       onMinimize={onMinimize}
+      minimizeTitle={t("minimizeCall")}
       invite={{
         candidates,
         onAdd: (ids) =>

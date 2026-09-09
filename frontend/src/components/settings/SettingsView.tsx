@@ -20,6 +20,8 @@ import {
   activeBindings,
   bindingBlocker,
   pushToTalkReserves,
+  defaultClaimedBy,
+  effectiveBinding,
   useActiveBindings,
 } from "../../services/hotkeys";
 import {
@@ -32,7 +34,6 @@ import {
   codeLabel,
   desktopReservedId,
   hotkeyAction,
-  isValidBinding,
   keyTokenFromCode,
   modifierGlyphs,
   type HotkeyActionId,
@@ -981,8 +982,8 @@ function VoiceSection() {
         const token = keyTokenFromCode(e.code);
         const overrides = activeBindings();
         const taken = HOTKEY_ACTIONS.find((a) => {
-          const binding = isValidBinding(overrides[a.id]) ? overrides[a.id] : a.defaultBinding;
-          return a.scope === "global" && bindingIsBareKey(binding, token);
+          const binding = effectiveBinding(overrides, a.id);
+          return a.scope === "global" && binding !== null && bindingIsBareKey(binding, token);
         });
         if (taken) {
           setPttNotice(t("shortcuts.conflict", { action: t(`shortcuts.actions.${taken.id}`) }));
@@ -1250,8 +1251,7 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
   const noticeTimer = React.useRef<number | null>(null);
 
   const currentBinding = React.useCallback(
-    (id: HotkeyActionId): string =>
-      isValidBinding(bindings[id]) ? bindings[id] : hotkeyAction(id).defaultBinding,
+    (id: HotkeyActionId): string | null => effectiveBinding(bindings, id),
     [bindings],
   );
   const actionName = React.useCallback(
@@ -1348,22 +1348,26 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
           {HOTKEY_ACTIONS.filter((a) => a.group === group).map((action) => {
             const isCapturing = capturing === action.id;
             const overridden = bindings[action.id] !== undefined;
-            const blocker = bindingBlocker(action, currentBinding(action.id));
+            const binding = currentBinding(action.id);
+            const claimer = binding === null ? defaultClaimedBy(bindings, action.id) : null;
+            const blocker = binding === null ? null : bindingBlocker(action, binding);
             const hint =
-              blocker === null
-                ? t(`shortcuts.hints.${action.id}`, { defaultValue: "" })
-                : blocker.kind === "platform"
-                  ? t("shortcuts.unavailableHere")
-                  : t("shortcuts.conflict", {
-                      action: actionName(blocker.kind === "desktop" ? blocker.id : "pushToTalk"),
-                    });
+              claimer !== null
+                ? t("shortcuts.unboundHint", { action: actionName(claimer) })
+                : blocker === null
+                  ? t(`shortcuts.hints.${action.id}`, { defaultValue: "" })
+                  : blocker.kind === "platform"
+                    ? t("shortcuts.unavailableHere")
+                    : t("shortcuts.conflict", {
+                        action: actionName(blocker.kind === "desktop" ? blocker.id : "pushToTalk"),
+                      });
             const active = notice?.id === action.id ? notice.text : hint;
             return (
               <div className={"kbd-row" + (isCapturing ? " capturing" : "")} key={action.id}>
                 <div className="kbd-text">
                   <span className="kbd-name">{actionName(action.id)}</span>
                   {active && (
-                    <span className={"kbd-hint" + (notice?.id === action.id || blocker !== null ? " warn" : "")}>
+                    <span className={"kbd-hint" + (notice?.id === action.id || blocker !== null || claimer !== null ? " warn" : "")}>
                       {active}
                     </span>
                   )}
@@ -1409,8 +1413,10 @@ function ShortcutsSection({ onNavigate }: ShortcutsSectionProps) {
                   >
                     {isCapturing ? (
                       <span className="kbd kbd-wait">{t("shortcuts.pressKeys")}</span>
+                    ) : binding === null ? (
+                      <span className="kbd kbd-wait">{t("shortcuts.unbound")}</span>
                     ) : (
-                      renderKeys(currentBinding(action.id))
+                      renderKeys(binding)
                     )}
                   </button>
                 </span>
@@ -1603,6 +1609,7 @@ function SettingsView({ open, onClose, onSignOut }: SettingsViewProps) {
           <span className="ic"><Icon name="logout" size={15} /></span>
           {t("logOut")}
         </button>
+        <div id="settings-voice-dock" className="settings-voice-dock" />
       </nav>
 
       <div className="settings-pane">

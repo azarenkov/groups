@@ -120,6 +120,64 @@ impl ParticipantMuted {
 }
 
 #[derive(Debug)]
+pub struct ParticipantDeafened {
+    pub id: EventId,
+    pub channel_id: ChannelId,
+    pub server_id: ServerId,
+    pub user_id: UserId,
+    pub deafened_by: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ParticipantDeafened {
+    pub fn record(
+        channel_id: ChannelId,
+        server_id: ServerId,
+        user_id: UserId,
+        deafened_by: UserId,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            channel_id,
+            server_id,
+            user_id,
+            deafened_by,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ParticipantUndeafened {
+    pub id: EventId,
+    pub channel_id: ChannelId,
+    pub server_id: ServerId,
+    pub user_id: UserId,
+    pub undeafened_by: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl ParticipantUndeafened {
+    pub fn record(
+        channel_id: ChannelId,
+        server_id: ServerId,
+        user_id: UserId,
+        undeafened_by: UserId,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            channel_id,
+            server_id,
+            user_id,
+            undeafened_by,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ParticipantUnmuted {
     pub id: EventId,
     pub channel_id: ChannelId,

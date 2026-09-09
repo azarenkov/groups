@@ -64,6 +64,12 @@ pub trait CallRepository {
 
     async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError>;
 
+    async fn joined_at(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+
     async fn active_call_between(
         &self,
         user_a: &UserId,

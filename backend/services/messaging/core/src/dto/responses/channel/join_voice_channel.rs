@@ -7,6 +7,7 @@ pub struct JoinVoiceChannelResponse {
     pub muted: bool,
     pub muted_by: Option<uuid::Uuid>,
     pub self_muted: bool,
+    pub deafened_by: Option<uuid::Uuid>,
 }
 
 impl JoinVoiceChannelResponse {
@@ -16,6 +17,7 @@ impl JoinVoiceChannelResponse {
         muted: bool,
         muted_by: Option<uuid::Uuid>,
         self_muted: bool,
+        deafened_by: Option<uuid::Uuid>,
     ) -> Self {
         Self {
             token,
@@ -23,6 +25,7 @@ impl JoinVoiceChannelResponse {
             muted,
             muted_by,
             self_muted,
+            deafened_by,
         }
     }
 }

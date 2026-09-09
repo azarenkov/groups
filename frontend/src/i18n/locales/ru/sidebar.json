@@ -43,5 +43,7 @@
   "home": "Главная",
   "muteMember": "Замьютить",
   "unmuteMember": "Размьютить",
+  "deafenMember": "Отключить звук",
+  "undeafenMember": "Включить звук",
   "backToServers": "Вернуться к списку серверов"
 }

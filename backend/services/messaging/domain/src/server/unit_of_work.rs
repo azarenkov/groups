@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
+use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -40,6 +40,12 @@ pub trait ServerTransaction: Send {
         channel_id: &ChannelId,
         user_id: &UserId,
         mute: Option<&ParticipantMute>,
+    ) -> Result<(), RepositoryError>;
+    async fn save_deafen_state(
+        &mut self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+        deafen: Option<&ParticipantDeafen>,
     ) -> Result<(), RepositoryError>;
     async fn insert_channel(&mut self, channel: &Channel) -> Result<(), RepositoryError>;
     async fn delete_channel(&mut self, channel_id: &ChannelId) -> Result<Vec<String>, RepositoryError>;

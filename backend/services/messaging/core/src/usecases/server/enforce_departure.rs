@@ -2,7 +2,10 @@ use std::{sync::Arc, time::Duration};
 
 use domain::user::id::UserId;
 use futures::{StreamExt, stream};
-use messaging_domain::{channel::moderation::Publication, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use ports::voice_service::ParticipantAccess;
+
+use crate::usecases::channel::voice_access::participant_access;
 use ports::repository::RepositoryError;
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
@@ -60,10 +63,7 @@ where
         if server.is_member(&user_id) {
             for channel_id in voice_channel_ids {
                 let action = match tx.load_channel(&channel_id).await {
-                    Ok(channel) => match channel.publication_for(&user_id) {
-                        Publication::Restricted => VoiceAction::Mute,
-                        Publication::Full => VoiceAction::Unmute,
-                    },
+                    Ok(channel) => VoiceAction::Access(participant_access(&channel, &user_id)),
                     Err(RepositoryError::NotFound) => continue,
                     Err(e) => return Err(e.into()),
                 };
@@ -78,8 +78,9 @@ where
                 let call = tokio::spawn(async move {
                     match action {
                         VoiceAction::Remove => voice_service.remove_participant(&channel_id, &user_id).await,
-                        VoiceAction::Mute => voice_service.mute_participant(&channel_id, &user_id).await,
-                        VoiceAction::Unmute => voice_service.unmute_participant(&channel_id, &user_id).await,
+                        VoiceAction::Access(access) => {
+                            voice_service.apply_participant_access(&channel_id, &user_id, access).await
+                        }
                     }
                 });
                 let abort = call.abort_handle();
@@ -118,6 +119,5 @@ where
 #[derive(Debug, Clone, Copy)]
 enum VoiceAction {
     Remove,
-    Mute,
-    Unmute,
+    Access(ParticipantAccess),
 }

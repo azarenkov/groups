@@ -10,7 +10,9 @@ pub enum HotkeyAction {
     OpenSettings,
     EditLastMessage,
     ToggleMute,
+    ToggleDeafen,
     LeaveVoice,
+    ToggleCallView,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,7 +22,7 @@ pub enum HotkeyScope {
 }
 
 impl HotkeyAction {
-    pub const ALL: [HotkeyAction; 9] = [
+    pub const ALL: [HotkeyAction; 11] = [
         Self::QuickSwitcher,
         Self::PrevChannel,
         Self::NextChannel,
@@ -29,7 +31,9 @@ impl HotkeyAction {
         Self::OpenSettings,
         Self::EditLastMessage,
         Self::ToggleMute,
+        Self::ToggleDeafen,
         Self::LeaveVoice,
+        Self::ToggleCallView,
     ];
 
     pub fn id(self) -> &'static str {
@@ -42,7 +46,9 @@ impl HotkeyAction {
             Self::OpenSettings => "openSettings",
             Self::EditLastMessage => "editLastMessage",
             Self::ToggleMute => "toggleMute",
+            Self::ToggleDeafen => "toggleDeafen",
             Self::LeaveVoice => "leaveVoice",
+            Self::ToggleCallView => "toggleCallView",
         }
     }
 
@@ -68,7 +74,9 @@ impl HotkeyAction {
                 Self::OpenSettings => "Mod+Comma",
                 Self::EditLastMessage => "ArrowUp",
                 Self::ToggleMute => "Mod+Shift+M",
+                Self::ToggleDeafen => "Mod+Shift+D",
                 Self::LeaveVoice => "Mod+Shift+L",
+                Self::ToggleCallView => "Mod+Shift+O",
             }
             .to_string(),
         )
@@ -231,7 +239,19 @@ impl HotkeyBindings {
         &self.overrides
     }
 
-    pub fn effective(&self, action: HotkeyAction) -> Binding {
+    pub fn effective(&self, action: HotkeyAction) -> Option<Binding> {
+        if let Some(binding) = self.overrides.get(&action) {
+            return Some(binding.clone());
+        }
+        let default = action.default_binding();
+        let claimed = self
+            .overrides
+            .iter()
+            .any(|(other, binding)| *other != action && *binding == default);
+        (!claimed).then_some(default)
+    }
+
+    fn requested(&self, action: HotkeyAction) -> Binding {
         self.overrides
             .get(&action)
             .cloned()
@@ -263,8 +283,13 @@ impl HotkeyBindings {
         }
         let mut seen: BTreeMap<Binding, HotkeyAction> = BTreeMap::new();
         for action in HotkeyAction::ALL {
-            if let Some(previous) = seen.insert(next.effective(action), action) {
-                let holder = if touched.contains(&previous) && !touched.contains(&action) {
+            if let Some(previous) = seen.insert(next.requested(action), action) {
+                let previous_touched = touched.contains(&previous);
+                let action_touched = touched.contains(&action);
+                if !previous_touched && !action_touched {
+                    continue;
+                }
+                let holder = if previous_touched && !action_touched {
                     action
                 } else {
                     previous

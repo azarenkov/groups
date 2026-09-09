@@ -47,5 +47,11 @@
   "splashInvite": "Пригласить людей",
   "muteMember": "Замьютить участника",
   "unmuteMember": "Размьютить участника",
-  "mutedByModerator": "Вас заглушил модератор"
+  "mutedByModerator": "Вас заглушил модератор",
+  "deafenSelf": "Отключить звук",
+  "undeafenSelf": "Включить звук",
+  "deafened": "Звук отключён",
+  "deafenMember": "Отключить звук участнику",
+  "undeafenMember": "Включить звук участнику",
+  "deafenedByModerator": "Модератор отключил вам звук"
 }

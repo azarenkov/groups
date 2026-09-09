@@ -120,6 +120,8 @@ use messaging::usecases::channel::leave_voice_connection::LeaveVoiceConnectionEr
 use messaging::usecases::channel::list_channel_messages::ListChannelMessagesError;
 use messaging::usecases::channel::list_channel_participants::ListChannelParticipantsError;
 use messaging::usecases::channel::mute_channel::MuteChannelError;
+use messaging::usecases::channel::deafen_channel::DeafenChannelError;
+use messaging::usecases::channel::undeafen_channel::UndeafenChannelError;
 use messaging::usecases::channel::search_channel_messages::SearchChannelMessagesError;
 use messaging::usecases::channel::send_channel_message::SendChannelMessageError;
 use messaging::usecases::channel::track_media_connection::TrackMediaConnectionError;
@@ -269,6 +271,76 @@ impl HttpMapping for MuteChannelError {
             MuteChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             MuteChannelError::Repository(e) => e.to_error_code(),
             MuteChannelError::Domain(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for DeafenChannelError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DeafenChannelError::ChannelNotFound | DeafenChannelError::TargetUserNotFound => {
+                StatusCode::NOT_FOUND
+            }
+            DeafenChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            DeafenChannelError::Repository(e) => e.to_http_status(),
+            DeafenChannelError::Domain(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            DeafenChannelError::ChannelNotFound => "Channel not found".to_string(),
+            DeafenChannelError::TargetUserNotFound => "Target user not found".to_string(),
+            DeafenChannelError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
+            DeafenChannelError::Repository(e) => e.to_user_message(),
+            DeafenChannelError::Domain(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DeafenChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            DeafenChannelError::TargetUserNotFound => "TARGET_USER_NOT_FOUND",
+            DeafenChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            DeafenChannelError::Repository(e) => e.to_error_code(),
+            DeafenChannelError::Domain(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for UndeafenChannelError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            UndeafenChannelError::ChannelNotFound | UndeafenChannelError::TargetUserNotFound => {
+                StatusCode::NOT_FOUND
+            }
+            UndeafenChannelError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            UndeafenChannelError::Repository(e) => e.to_http_status(),
+            UndeafenChannelError::Domain(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            UndeafenChannelError::ChannelNotFound => "Channel not found".to_string(),
+            UndeafenChannelError::TargetUserNotFound => "Target user not found".to_string(),
+            UndeafenChannelError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
+            UndeafenChannelError::Repository(e) => e.to_user_message(),
+            UndeafenChannelError::Domain(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            UndeafenChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            UndeafenChannelError::TargetUserNotFound => "TARGET_USER_NOT_FOUND",
+            UndeafenChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            UndeafenChannelError::Repository(e) => e.to_error_code(),
+            UndeafenChannelError::Domain(e) => e.to_error_code(),
         }
     }
 }
@@ -1834,6 +1906,7 @@ impl HttpMapping for ChannelError {
             | ChannelError::NameUnchanged => StatusCode::BAD_REQUEST,
             ChannelError::NotAllowed => StatusCode::FORBIDDEN,
             ChannelError::AlreadyMuted | ChannelError::NotMuted => StatusCode::CONFLICT,
+            ChannelError::AlreadyDeafened | ChannelError::NotDeafened => StatusCode::CONFLICT,
             ChannelError::VoiceNotSupported | ChannelError::TextNotSupported => {
                 StatusCode::BAD_REQUEST
             }
@@ -1853,6 +1926,8 @@ impl HttpMapping for ChannelError {
             ChannelError::NotAllowed => "You are not allowed to perform this channel action".to_string(),
             ChannelError::AlreadyMuted => "Participant is already muted".to_string(),
             ChannelError::NotMuted => "Participant is not muted".to_string(),
+            ChannelError::AlreadyDeafened => "Participant is already deafened".to_string(),
+            ChannelError::NotDeafened => "Participant is not deafened".to_string(),
             ChannelError::VoiceNotSupported => {
                 "Voice is not supported for this channel".to_string()
             }
@@ -1873,6 +1948,8 @@ impl HttpMapping for ChannelError {
             ChannelError::NotAllowed => "CHANNEL_NOT_ALLOWED",
             ChannelError::AlreadyMuted => "PARTICIPANT_ALREADY_MUTED",
             ChannelError::NotMuted => "PARTICIPANT_NOT_MUTED",
+            ChannelError::AlreadyDeafened => "PARTICIPANT_ALREADY_DEAFENED",
+            ChannelError::NotDeafened => "PARTICIPANT_NOT_DEAFENED",
             ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             ChannelError::TextNotSupported => "CHANNEL_NOT_TEXT",
             ChannelError::ParticipantNotJoined => "PARTICIPANT_NOT_JOINED",

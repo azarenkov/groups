@@ -71,6 +71,24 @@ pub struct ParticipantUnmutedV1 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParticipantDeafenedV1 {
+    pub channel_id: Uuid,
+    pub server_id: Uuid,
+    pub user_id: Uuid,
+    pub deafened_by: Uuid,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParticipantUndeafenedV1 {
+    pub channel_id: Uuid,
+    pub server_id: Uuid,
+    pub user_id: Uuid,
+    pub undeafened_by: Uuid,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParticipantMediaV1 {
     pub channel_id: Uuid,
     pub server_id: Uuid,

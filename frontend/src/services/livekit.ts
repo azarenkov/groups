@@ -27,6 +27,7 @@ export interface ParticipantInfo {
   name: string;
   isSpeaking: boolean;
   isMuted: boolean;
+  isDeafened: boolean;
   isSharingScreen: boolean;
   audioTrack: AudioTrack | null;
   cameraTrack: VideoTrack | null;
@@ -77,6 +78,7 @@ export class LiveKitService {
   private preferredMicId: string | null = null;
   private preferredSpeakerId: string | null = null;
   private masterVolume: number = 1.0;
+  private deafened: boolean = false;
   private micVolume: number = 1.0;
   private micGainCtx: AudioContext | null = null;
   private micGainNode: GainNode | null = null;
@@ -148,6 +150,25 @@ export class LiveKitService {
     return () => {
       this.localQualityListeners.delete(fn);
     };
+  }
+
+  private localDeafenListeners: Set<(deafened: boolean) => void> = new Set();
+
+  subscribeLocalDeafened(fn: (deafened: boolean) => void): () => void {
+    this.localDeafenListeners.add(fn);
+    return () => {
+      this.localDeafenListeners.delete(fn);
+    };
+  }
+
+  private emitLocalDeafened(): void {
+    this.localDeafenListeners.forEach((fn) => {
+      try {
+        fn(this.deafened);
+      } catch (e) {
+        console.warn("[LiveKitService] localDeafened listener error:", e);
+      }
+    });
   }
 
   subscribeLocalTrack(
@@ -254,6 +275,7 @@ export class LiveKitService {
       this.room.remoteParticipants.forEach((participant) => {
         this.addParticipant(participant);
       });
+      if (this.deafened) this.publishDeafenAttribute();
 
       const muteChanged = this.muteRequestSeq !== muteSeqAtConnect;
       if (!startMuted && !muteChanged) {
@@ -331,6 +353,10 @@ export class LiveKitService {
       this.remoteAudioElements.clear();
       this.remoteGainNodes.clear();
       this.remoteSourceNodes = new WeakMap();
+      if (this.deafened) {
+        this.deafened = false;
+        this.emitLocalDeafened();
+      }
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.emitLocalTrack();
       this.setLocalSpeaking(false);
@@ -1177,6 +1203,13 @@ export class LiveKitService {
       },
     );
 
+    this.room.on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => {
+      if (participant.isLocal) return;
+      this.updateParticipant(participant.identity, {
+        isDeafened: participant.attributes?.deafened === "1",
+      });
+    });
+
   }
 
   private addParticipant(participant: RemoteParticipant): void {
@@ -1185,6 +1218,7 @@ export class LiveKitService {
       name: participant.name || participant.identity,
       isSpeaking: false,
       isMuted: false,
+      isDeafened: participant.attributes?.deafened === "1",
       isSharingScreen: false,
       audioTrack: null,
       cameraTrack: null,
@@ -1260,6 +1294,8 @@ export class LiveKitService {
       name: name || identity,
       isSpeaking: false,
       isMuted: false,
+      isDeafened:
+        this.room?.remoteParticipants.get(identity)?.attributes?.deafened === "1",
       isSharingScreen: false,
       audioTrack: null,
       cameraTrack: null,
@@ -1331,10 +1367,10 @@ export class LiveKitService {
           "[LiveKitService] failed to wire remote gain node, falling back to element volume:",
           e,
         );
-        audioElement.volume = Math.min(1, desiredUiVolume * this.masterVolume);
+        audioElement.volume = this.elementVolume(desiredUiVolume);
       }
     } else {
-      audioElement.volume = Math.min(1, desiredUiVolume * this.masterVolume);
+      audioElement.volume = this.elementVolume(desiredUiVolume);
     }
 
     track.on(TrackEvent.Ended, () => {
@@ -1376,7 +1412,7 @@ export class LiveKitService {
       for (const g of gains) g.gain.value = gain;
     } else {
       const els = this.remoteAudioElements.get(identity);
-      if (els) for (const el of els) el.volume = Math.min(1, v * this.masterVolume);
+      if (els) for (const el of els) el.volume = this.elementVolume(v);
     }
   }
 
@@ -1779,7 +1815,7 @@ export class LiveKitService {
           element.remove();
         }
         const fresh = track.attach();
-        fresh.volume = Math.min(1, ui * this.masterVolume);
+        fresh.volume = this.elementVolume(ui);
         document.body.appendChild(fresh);
         rebuilt.push(fresh);
       });
@@ -1790,7 +1826,33 @@ export class LiveKitService {
   }
 
   private effectiveGain(uiVolume: number): number {
-    return this.uiVolumeToGain(uiVolume) * this.masterVolume;
+    return this.deafened ? 0 : this.uiVolumeToGain(uiVolume) * this.masterVolume;
+  }
+
+  private elementVolume(uiVolume: number): number {
+    return this.deafened ? 0 : Math.min(1, uiVolume * this.masterVolume);
+  }
+
+  setDeafened(deafened: boolean): void {
+    if (this.deafened === deafened) return;
+    this.deafened = deafened;
+    this.applyMasterVolume();
+    this.publishDeafenAttribute();
+    this.emitLocalDeafened();
+  }
+
+  isDeafened(): boolean {
+    return this.deafened;
+  }
+
+  private publishDeafenAttribute(): void {
+    const room = this.room;
+    if (!room || room.state !== "connected") return;
+    void room.localParticipant
+      .setAttributes({ deafened: this.deafened ? "1" : "" })
+      .catch((e) =>
+        console.warn("[LiveKitService] failed to publish deafen attribute:", e),
+      );
   }
 
   private applyMasterVolume(): void {
@@ -1803,7 +1865,7 @@ export class LiveKitService {
     )) {
       if (this.remoteGainNodes.has(identity)) continue;
       const ui = this.remoteVolumes.get(identity) ?? 1.0;
-      for (const el of els) el.volume = Math.min(1, ui * this.masterVolume);
+      for (const el of els) el.volume = this.elementVolume(ui);
     }
   }
 

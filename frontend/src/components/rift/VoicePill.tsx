@@ -18,12 +18,16 @@ interface VoicePillProps {
   isMuted: boolean;
   muteLocked?: boolean;
   onToggleMute: () => void;
+  isDeafened?: boolean;
+  deafenLocked?: boolean;
+  onToggleDeafen?: () => void;
   onLeave: () => void;
   className?: string;
   titleAttr?: string;
   invite?: VoicePillInvite;
   onOpen?: () => void;
   openTitle?: string;
+  badge?: boolean;
 }
 
 const BARS = 12;
@@ -34,12 +38,16 @@ const VoicePill: React.FC<VoicePillProps> = ({
   isMuted,
   muteLocked,
   onToggleMute,
+  isDeafened,
+  deafenLocked,
+  onToggleDeafen,
   onLeave,
   className,
   titleAttr,
   invite,
   onOpen,
   openTitle,
+  badge,
 }) => {
   const { t } = useTranslation("voice");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -100,10 +108,11 @@ const VoicePill: React.FC<VoicePillProps> = ({
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        setInviteOpen(false);
-      }
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      setInviteOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -254,7 +263,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
         title={onOpen ? openTitle : undefined}
         role={onOpen ? "button" : undefined}
       >
-        <div className="vp-title">{title}</div>
+        <div className="vp-title">
+          {title}
+          {badge && <span className="vp-badge" />}
+        </div>
         <div className="vp-meta">{meta}</div>
       </div>
       <div className="vp-actions">
@@ -297,6 +309,23 @@ const VoicePill: React.FC<VoicePillProps> = ({
         >
           <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
         </button>
+        {onToggleDeafen && (
+          <button
+            type="button"
+            className={"vp-btn" + (isDeafened ? " muted" : "")}
+            onClick={onToggleDeafen}
+            disabled={deafenLocked}
+            title={
+              deafenLocked
+                ? t("deafenedByModerator")
+                : isDeafened
+                  ? t("undeafenSelf")
+                  : t("deafenSelf")
+            }
+          >
+            <Icon name={isDeafened ? "headphones-off" : "headphones"} size={15} />
+          </button>
+        )}
       </div>
       <button
         type="button"

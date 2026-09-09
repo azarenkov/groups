@@ -17,6 +17,7 @@ import {
   PERM_MANAGE_ROLES,
   PERM_KICK_MEMBERS,
   PERM_MANAGE_SERVER,
+  PERM_DEAFEN_MEMBERS,
   PERM_MUTE_MEMBERS,
   topRoleFor,
   useRolesStore,
@@ -166,6 +167,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     { bit: PERM_MANAGE_INVITES, key: "permManageInvites" },
     { bit: PERM_MANAGE_MESSAGES, key: "permManageMessages" },
     { bit: PERM_MUTE_MEMBERS, key: "permMuteMembers" },
+    { bit: PERM_DEAFEN_MEMBERS, key: "permDeafenMembers" },
     { bit: PERM_MANAGE_ROLES, key: "permManageRoles" },
     { bit: PERM_MANAGE_SERVER, key: "permManageServer" },
     { bit: PERM_KICK_MEMBERS, key: "permKickMembers" },
@@ -645,6 +647,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
             <Icon name="chev-left" size={14} />
             {t("backToServer")}
           </button>
+          <div id="server-settings-voice-dock" className="settings-voice-dock" />
         </div>
       </nav>
 

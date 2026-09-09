@@ -8,6 +8,7 @@ import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
 import { channelAPI } from "../../api/channel";
 import { useServerStore } from "../../store/serverStore";
 import {
+  PERM_DEAFEN_MEMBERS,
   PERM_MUTE_MEMBERS,
   topRoleFor,
   useRolesStore,
@@ -54,6 +55,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     isConnected,
     isMuted,
     isModeratorMuted,
+    isDeafened,
+    isModeratorDeafened,
     isCameraEnabled,
     isScreenShareEnabled,
     error,
@@ -61,6 +64,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     joinChannel,
     leaveChannel,
     toggleMute,
+    toggleDeafen,
     toggleCamera,
     toggleScreenShare,
   } = useLiveKit({
@@ -143,13 +147,22 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   useEffect(() => {
     void fetchRoles(serverId).catch(() => {});
   }, [serverId, fetchRoles]);
-  const muteLocked = isModeratorMuted && serverOwnerId !== currentUserId;
+  const muteLocked =
+    (isModeratorMuted || isModeratorDeafened) && serverOwnerId !== currentUserId;
   useHotkey("toggleMute", () => {
     if (!muteLocked) toggleMute();
   });
   useHotkey("leaveVoice", () => {
     void handleLeave();
   });
+  const deafenLocked = isModeratorDeafened && serverOwnerId !== currentUserId;
+  useHotkey("toggleDeafen", () => {
+    if (!deafenLocked) toggleDeafen();
+  });
+  const canModerateDeafen =
+    !!currentUserId &&
+    (serverOwnerId === currentUserId ||
+      (userPermissions(rolesData, currentUserId) & PERM_DEAFEN_MEMBERS) !== 0);
   const canModerateMute =
     !!currentUserId &&
     (serverOwnerId === currentUserId ||
@@ -180,6 +193,21 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       : channelAPI.mute(serverId, channelId, id);
     call.catch((err) => console.warn("[voice] moderate mute failed:", err));
   };
+  const deafenExcluded = React.useMemo(() => {
+    if (!currentUserId || currentUserId === serverOwnerId) return undefined;
+    return (presenceMembers ?? [])
+      .filter(
+        (m) => !!m.deafenedBy && m.deafenedBy !== m.id && m.deafenedBy === serverOwnerId,
+      )
+      .map((m) => m.id);
+  }, [currentUserId, serverOwnerId, presenceMembers]);
+  const moderateDeafen = (id: string, currentlyDeafened: boolean) => {
+    if (id === serverOwnerId) return;
+    const call = currentlyDeafened
+      ? channelAPI.undeafen(serverId, channelId, id)
+      : channelAPI.deafen(serverId, channelId, id);
+    call.catch((err) => console.warn("[voice] moderate deafen failed:", err));
+  };
   const selfName = userName || "You";
 
   const cameraByIdentity = useMemo(() => {
@@ -201,6 +229,21 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     for (const mem of presenceForChannel ?? []) m.set(mem.id, mem.isMuted);
     return m;
   }, [participants, presenceForChannel]);
+  const deafenedIds = useMemo(() => {
+    const m = new Map<string, { deafened: boolean; moderator: boolean }>();
+    for (const p of participants) {
+      m.set(p.identity, { deafened: p.isDeafened, moderator: false });
+    }
+    for (const mem of presenceForChannel ?? []) {
+      const moderator = !!mem.deafenedBy && mem.deafenedBy !== mem.id;
+      const prev = m.get(mem.id);
+      m.set(mem.id, {
+        deafened: moderator || (prev?.deafened ?? false),
+        moderator,
+      });
+    }
+    return m;
+  }, [participants, presenceForChannel]);
   const roster = useMemo<TheaterEntry[]>(() => {
     const names = new Map<string, string>();
     names.set(selfId, selfName);
@@ -216,6 +259,14 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       initials: initialFor(name),
       speaking: id === selfId ? false : speakingIds.has(id),
       muted: id === selfId ? isMuted : (mutedIds.get(id) ?? false),
+      deafened:
+        id === selfId
+          ? isDeafened || isModeratorDeafened
+          : (deafenedIds.get(id)?.deafened ?? false),
+      moderatorDeafened:
+        id === selfId
+          ? isModeratorDeafened
+          : (deafenedIds.get(id)?.moderator ?? false),
       camera: cameraByIdentity.get(id) ?? null,
     }));
   }, [
@@ -226,6 +277,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     speakingIds,
     mutedIds,
     isMuted,
+    deafenedIds,
+    isDeafened,
+    isModeratorDeafened,
     cameraByIdentity,
   ]);
   const sharerName = screenTile
@@ -285,6 +339,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           isMuted={isMuted}
           muteLocked={muteLocked}
           onToggleMute={toggleMute}
+          isDeafened={isDeafened || isModeratorDeafened}
+          deafenLocked={deafenLocked}
+          onToggleDeafen={toggleDeafen}
           onLeave={handleLeave}
           className={qualityClass(localQuality)}
           titleAttr={`${t("connected")}: ${qualityLabel(localQuality)}`}
@@ -299,6 +356,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             liveName={sharerName}
             isMuted={isMuted}
             muteLocked={muteLocked}
+            isDeafened={isDeafened || isModeratorDeafened}
+            deafenLocked={deafenLocked}
+            onToggleDeafen={toggleDeafen}
             cameraOn={isCameraEnabled}
             screenOn={isScreenShareEnabled}
             onToggleMute={toggleMute}
@@ -308,7 +368,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             viewersFor={viewersFor}
             onWatchChange={onStreamWatch}
             onModerateMute={canModerateMute ? moderateMute : undefined}
+            onModerateDeafen={canModerateDeafen ? moderateDeafen : undefined}
             moderationExcluded={moderationExcluded}
+            deafenExcluded={deafenExcluded}
           />,
           stageMount,
         )}

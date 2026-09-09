@@ -84,6 +84,7 @@
   "permManageInvites": "Управление приглашениями",
   "permManageMessages": "Удаление чужих сообщений",
   "permMuteMembers": "Мьют участников",
+  "permDeafenMembers": "Отключение звука участникам",
   "permManageRoles": "Управление ролями",
   "permManageServer": "Управление сервером",
   "roleMembers": "Участники с ролью",
