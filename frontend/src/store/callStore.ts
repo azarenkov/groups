@@ -231,6 +231,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
   setFocused: (focused) => set((s) => ({ focused, attention: focused ? false : s.attention })),
   flagAttention: () => set((s) => (s.focused || !s.activeCallId || s.attention ? s : { attention: true })),
   setMicMuted: (muted) => {
+    if (!muted && get().deafened) {
+      set({ micMutedBeforeDeafen: false });
+      get().setDeafened(false);
+      if (!get().micMuted) return;
+    }
     getLiveKitService().setMicrophoneMuted(muted);
     set((s) => ({ micMuted: muted, micMuteSeq: s.micMuteSeq + 1 }));
   },

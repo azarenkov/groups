@@ -442,6 +442,18 @@ impl ServerTransaction for PostgresServerTransaction {
         .execute(&mut **tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query(
+            r#"
+                DELETE FROM channel_deafened_participants
+                WHERE user_id = $1
+                  AND channel_id IN (SELECT id FROM channels WHERE server_id = $2)
+            "#,
+        )
+        .bind(user_id.uuid())
+        .bind(server_id.uuid())
+        .execute(&mut **tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
     }
 

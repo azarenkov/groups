@@ -147,7 +147,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   useEffect(() => {
     void fetchRoles(serverId).catch(() => {});
   }, [serverId, fetchRoles]);
-  const muteLocked = isModeratorMuted && serverOwnerId !== currentUserId;
+  const muteLocked =
+    (isModeratorMuted || isModeratorDeafened) && serverOwnerId !== currentUserId;
   useHotkey("toggleMute", () => {
     if (!muteLocked) toggleMute();
   });
