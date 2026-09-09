@@ -113,7 +113,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tracing::info!("Shutdown requested, exiting");
             break;
         }
-        match run_batch(&dispatcher, batch_size, &heartbeat).await {
+        match run_batch(&dispatcher, batch_size, &heartbeat, &shutdown_rx).await {
             Ok(0) => {
                 tokio::select! {
                     _ = shutdown_rx.changed() => {
@@ -145,12 +145,16 @@ async fn run_batch<P>(
     dispatcher: &OutboxDispatcher<P>,
     batch_size: u32,
     heartbeat: &Heartbeat,
+    shutdown: &watch::Receiver<bool>,
 ) -> Result<usize, Box<dyn Error>>
 where
     P: OutboxPublisher,
 {
     let mut processed = 0usize;
     for _ in 0..batch_size {
+        if *shutdown.borrow() {
+            break;
+        }
         if !dispatcher.process_one().await? {
             break;
         }
