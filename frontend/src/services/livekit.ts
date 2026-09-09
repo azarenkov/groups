@@ -152,6 +152,25 @@ export class LiveKitService {
     };
   }
 
+  private localDeafenListeners: Set<(deafened: boolean) => void> = new Set();
+
+  subscribeLocalDeafened(fn: (deafened: boolean) => void): () => void {
+    this.localDeafenListeners.add(fn);
+    return () => {
+      this.localDeafenListeners.delete(fn);
+    };
+  }
+
+  private emitLocalDeafened(): void {
+    this.localDeafenListeners.forEach((fn) => {
+      try {
+        fn(this.deafened);
+      } catch (e) {
+        console.warn("[LiveKitService] localDeafened listener error:", e);
+      }
+    });
+  }
+
   subscribeLocalTrack(
     fn: (track: MediaStreamTrack | null) => void,
   ): () => void {
@@ -334,7 +353,10 @@ export class LiveKitService {
       this.remoteAudioElements.clear();
       this.remoteGainNodes.clear();
       this.remoteSourceNodes = new WeakMap();
-      this.deafened = false;
+      if (this.deafened) {
+        this.deafened = false;
+        this.emitLocalDeafened();
+      }
       this.emitLocalQuality(ConnectionQuality.Unknown);
       this.emitLocalTrack();
       this.setLocalSpeaking(false);
@@ -1816,6 +1838,7 @@ export class LiveKitService {
     this.deafened = deafened;
     this.applyMasterVolume();
     this.publishDeafenAttribute();
+    this.emitLocalDeafened();
   }
 
   isDeafened(): boolean {

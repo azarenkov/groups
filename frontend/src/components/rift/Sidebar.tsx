@@ -54,6 +54,7 @@ interface SidebarProps {
     isMuted?: boolean;
     mutedBy?: string;
     isDeafened?: boolean;
+    deafenedBy?: string;
     isSharingScreen?: boolean;
     isCameraOn?: boolean;
   }[];
@@ -67,6 +68,7 @@ interface SidebarProps {
       isMuted?: boolean;
       mutedBy?: string;
       isDeafened?: boolean;
+      deafenedBy?: string;
       isSharingScreen?: boolean;
       isCameraOn?: boolean;
     }[]
@@ -242,12 +244,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       (userPermissions(rolesByServer[server.id], currentUserId) &
         PERM_DEAFEN_MEMBERS) !==
         0);
+  const moderatorDeafened = (m: { id: string; deafenedBy?: string }) =>
+    !!m.deafenedBy && m.deafenedBy !== m.id;
   const moderateDeafen = (
     server: Server,
     channelId: string,
-    m: { id: string; isDeafened?: boolean },
+    m: { id: string; deafenedBy?: string },
   ) => {
-    const call = m.isDeafened
+    const call = moderatorDeafened(m)
       ? channelAPI.undeafen(server.id, channelId, m.id)
       : channelAPI.deafen(server.id, channelId, m.id);
     call.catch((err) => console.warn("[sidebar] deafen toggle failed:", err));
@@ -541,14 +545,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       type="button"
                       className="sb-voice-mute-btn"
-                      title={m.isDeafened ? t("undeafenMember") : t("deafenMember")}
+                      title={moderatorDeafened(m) ? t("undeafenMember") : t("deafenMember")}
                       onClick={(e) => {
                         e.stopPropagation();
                         moderateDeafen(server, channel.id, m);
                       }}
                     >
                       <Icon
-                        name={m.isDeafened ? "headphones" : "headphones-off"}
+                        name={moderatorDeafened(m) ? "headphones" : "headphones-off"}
                         size={12}
                       />
                     </button>
