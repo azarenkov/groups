@@ -588,10 +588,11 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       releaseSelfDeafen();
       return;
     }
-    micMutedBeforeDeafenRef.current = isMutedRef.current;
+    const fallbackMuted = fallbackMutedRef.current;
+    micMutedBeforeDeafenRef.current = isMutedRef.current && !fallbackMuted;
     applySelfDeafened(true);
     service.setDeafened(true);
-    if (!isMutedRef.current) setSelfMuted(true);
+    if (!isMutedRef.current || fallbackMuted) setSelfMuted(true);
   }, []);
 
   useEffect(() => {

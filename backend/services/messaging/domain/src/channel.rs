@@ -365,15 +365,6 @@ impl Channel {
                 reason,
                 now,
             )));
-            if self
-                .deafened_participants
-                .as_mut()
-                .is_some_and(|d| d.remove(&user_id).is_some())
-            {
-                self.record(ChannelEvent::ParticipantUndeafened(
-                    ParticipantUndeafened::record(self.id, self.server_id, user_id, user_id, now),
-                ));
-            }
         }
 
         Ok(())

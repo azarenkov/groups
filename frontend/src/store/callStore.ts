@@ -66,7 +66,7 @@ const armFallbackMuteRelease = (
       const s = useCallStore.getState();
       if (s.activeCallId !== callId) return;
       if (s.micMuteSeq !== muteSeqAtFallback) return;
-      if (!s.micMuted) return;
+      if (s.deafened || !s.micMuted) return;
       s.setMicMuted(false);
     }),
   );
@@ -244,7 +244,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (s.deafened === deafened) return;
     getLiveKitService().setDeafened(deafened);
     if (deafened) {
-      set({ deafened: true, micMutedBeforeDeafen: s.micMuted });
+      set((state) => ({
+        deafened: true,
+        micMutedBeforeDeafen: state.micMuted,
+        micMuteSeq: state.micMuteSeq + 1,
+      }));
       if (!s.micMuted) s.setMicMuted(true);
       return;
     }
@@ -409,7 +413,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         voiceSettingsReadyFor(userId).then(() => {
           if (get().activeCallId !== active.callId) return;
           if (get().micMuteSeq !== muteSeqAtFallback) return;
-          if (!get().micMuted) return;
+          if (get().deafened || !get().micMuted) return;
           get().setMicMuted(false);
         }),
       );

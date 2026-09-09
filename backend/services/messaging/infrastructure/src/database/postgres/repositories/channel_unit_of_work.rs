@@ -76,14 +76,6 @@ impl ChannelTransaction for PostgresChannelTransaction {
             .iter()
             .filter_map(|e| e.departed_user().map(|u| u.uuid()))
             .collect();
-        if !departed.is_empty() {
-            sqlx::query("DELETE FROM channel_deafened_participants WHERE channel_id = $1 AND user_id = ANY($2)")
-                .bind(channel.id().uuid())
-                .bind(&departed)
-                .execute(&mut *self.tx)
-                .await
-                .map_err(map_sqlx_error_to_domain_error)?;
-        }
         let screen_stopped: Vec<uuid::Uuid> = events
             .iter()
             .filter_map(|e| e.screen_stopped_user().map(|u| u.uuid()))
