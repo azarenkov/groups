@@ -134,6 +134,7 @@ interface CallState {
   start: (recipientIds: string[], options?: StartCallOptions) => Promise<void>;
   accept: (withVideo?: boolean) => Promise<void>;
   decline: () => Promise<void>;
+  dismissIncoming: () => void;
   leave: (keepRoom?: boolean) => Promise<void>;
   addParticipants: (recipientIds: string[]) => Promise<void>;
 }
@@ -677,6 +678,16 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     }
   },
+
+  dismissIncoming: () =>
+    set((s) =>
+      s.incoming
+        ? {
+            incoming: null,
+            joinableByPeer: { ...s.joinableByPeer, [s.incoming.callerId]: s.incoming.callId },
+          }
+        : s,
+    ),
 
   decline: async () => {
     const inc = get().incoming;

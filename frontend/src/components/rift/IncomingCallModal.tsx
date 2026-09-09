@@ -15,6 +15,7 @@ const IncomingCallModal: React.FC = () => {
   const incoming = useCallStore((s) => s.incoming);
   const accept = useCallStore((s) => s.accept);
   const decline = useCallStore((s) => s.decline);
+  const dismissIncoming = useCallStore((s) => s.dismissIncoming);
   const { t } = useTranslation("call");
   const callsEnabled = useNotificationSettingsStore((s) => s.callsEnabled);
   const quietHoursEnabled = useNotificationSettingsStore((s) => s.quietHoursEnabled);
@@ -93,6 +94,14 @@ const IncomingCallModal: React.FC = () => {
         </div>
       </div>
       <div className="ic-actions">
+        <button
+          type="button"
+          className="ic-btn dismiss"
+          onClick={() => dismissIncoming()}
+          title={t("dismiss")}
+        >
+          <Icon name="x" size={17} />
+        </button>
         <button
           type="button"
           className="ic-btn decline"
