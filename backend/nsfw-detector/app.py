@@ -277,7 +277,7 @@ def match_blocked_roots(text: str):
 
 
 def dictionary_match(text: str):
-    tokens = [token for token in re.split(r"\s+", text.strip()) if token]
+    tokens = [token for token in re.split(r"[^0-9A-Za-zА-Яа-яЁё]+", text) if token]
     kept = []
     for token in tokens:
         if is_allowlisted(token):
