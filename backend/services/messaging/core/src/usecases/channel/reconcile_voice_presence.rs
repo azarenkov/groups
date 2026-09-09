@@ -87,12 +87,12 @@ where
     }
 
     pub async fn execute(&self) -> Result<ReconcileSummary, RepositoryError> {
-        self.execute_with_progress(&|| {}).await
+        self.execute_with_checkpoint(&|| true).await
     }
 
-    pub async fn execute_with_progress(
+    pub async fn execute_with_checkpoint(
         &self,
-        progress: &(dyn Fn() + Sync),
+        checkpoint: &(dyn Fn() -> bool + Sync),
     ) -> Result<ReconcileSummary, RepositoryError> {
         let cutoff = Utc::now() - chrono::Duration::from_std(self.grace).unwrap_or_default();
         let rows = self
@@ -127,7 +127,9 @@ where
         let mut livekit_errors = 0usize;
 
         for (channel_id, db_entries) in by_channel {
-            progress();
+            if !checkpoint() {
+                break;
+            }
             rooms_checked += 1;
             let live_map: HashMap<(String, String), (bool, bool)> = if !live_rooms.contains(&channel_id) {
                 rooms_missing += 1;
@@ -188,7 +190,9 @@ where
         let mut abort_skipped = 0usize;
         let mut abort_failed = 0usize;
         for participant in &stale {
-            progress();
+            if !checkpoint() {
+                break;
+            }
             let external_id = format!(
                 "reconcile:{}:{}:{}",
                 participant.channel_id.uuid(),
@@ -232,7 +236,9 @@ where
 
         let mut tracks_reconciled = 0usize;
         for correction in &corrections {
-            progress();
+            if !checkpoint() {
+                break;
+            }
             let source_str = match correction.source {
                 MediaSource::Camera => "camera",
                 MediaSource::Screen => "screen",

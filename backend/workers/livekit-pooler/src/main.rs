@@ -99,7 +99,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tracing::info!("Shutdown requested, exiting");
             break;
         }
-        match reconcile.execute_with_progress(&|| heartbeat.beat()).await {
+        let checkpoint = || {
+            heartbeat.beat();
+            !*shutdown_rx.borrow()
+        };
+        match reconcile.execute_with_checkpoint(&checkpoint).await {
             Ok(summary) => {
                 if summary.db_entries_checked > 0
                     || summary.aborted > 0

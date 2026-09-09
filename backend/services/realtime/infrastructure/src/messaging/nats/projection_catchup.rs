@@ -92,7 +92,7 @@ pub async fn run_catchup<R: RealtimeProjection + 'static>(
         }
         tokio::select! {
             _ = shutdown.changed() => return,
-            _ = tokio::time::sleep(Duration::from_secs(5)) => {}
+            _ = heartbeat.keep_alive_for(Duration::from_secs(5)) => {}
         }
     }
 }
