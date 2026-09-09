@@ -102,6 +102,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let minio_config = MinioConfig::from_env()?;
     let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
+    let nsfw_config = infrastructure_common::config::nsfw::NsfwConfig::from_env()?;
+    let text_moderation = Arc::new(
+        infrastructure_common::moderation::text_detector::TextModerationClient::new(&nsfw_config),
+    );
 
     let postgres_pool = create_postgres_pool(postgres_config).await?;
     let nats_jetstream =
@@ -372,14 +376,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_repository.clone(),
             server_repository.clone(),
         ),
-        create_server_usecase: CreateServer::new(server_unit_of_work.clone()),
+        create_server_usecase: CreateServer::new(server_unit_of_work.clone(), text_moderation.clone()),
         delete_server_usecase: DeleteServer::new(
             server_repository.clone(),
             channel_repository.clone(),
             server_unit_of_work.clone(),
             livekit_service.clone(),
         ),
-        update_server_usecase: UpdateServer::new(server_unit_of_work.clone()),
+        update_server_usecase: UpdateServer::new(server_unit_of_work.clone(), text_moderation.clone()),
         create_invite_code_usecase: CreateInviteCode::new(server_unit_of_work.clone()),
         list_invite_codes_usecase: ListInviteCodes::new(
             server_repository.clone(),

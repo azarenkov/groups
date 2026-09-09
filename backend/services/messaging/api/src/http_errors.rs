@@ -405,6 +405,10 @@ impl HttpMapping for CreateServerError {
         match self {
             CreateServerError::Repository(e) => e.to_http_status(),
             CreateServerError::AccountInactive => StatusCode::FORBIDDEN,
+            CreateServerError::NameNotAllowed | CreateServerError::DescriptionNotAllowed => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            CreateServerError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -412,6 +416,13 @@ impl HttpMapping for CreateServerError {
         match self {
             CreateServerError::Repository(e) => e.to_user_message(),
             CreateServerError::AccountInactive => "Account is inactive".to_string(),
+            CreateServerError::NameNotAllowed => "Server name is not allowed".to_string(),
+            CreateServerError::DescriptionNotAllowed => {
+                "Server description is not allowed".to_string()
+            }
+            CreateServerError::ModerationUnavailable(_) => {
+                "Content moderation is temporarily unavailable".to_string()
+            }
         }
     }
 
@@ -419,6 +430,9 @@ impl HttpMapping for CreateServerError {
         match self {
             CreateServerError::Repository(e) => e.to_error_code(),
             CreateServerError::AccountInactive => "ACCOUNT_INACTIVE",
+            CreateServerError::NameNotAllowed => "SERVER_NAME_NOT_ALLOWED",
+            CreateServerError::DescriptionNotAllowed => "SERVER_DESCRIPTION_NOT_ALLOWED",
+            CreateServerError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
         }
     }
 }
@@ -460,6 +474,10 @@ impl HttpMapping for UpdateServerError {
             UpdateServerError::ServerNotFound => StatusCode::NOT_FOUND,
             UpdateServerError::NotOwner => StatusCode::FORBIDDEN,
             UpdateServerError::NameTaken => StatusCode::CONFLICT,
+            UpdateServerError::NameNotAllowed | UpdateServerError::DescriptionNotAllowed => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            UpdateServerError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             UpdateServerError::Repository(e) => e.to_http_status(),
         }
     }
@@ -469,6 +487,13 @@ impl HttpMapping for UpdateServerError {
             UpdateServerError::ServerNotFound => "Server not found".to_string(),
             UpdateServerError::NotOwner => "Only the server owner can edit it.".to_string(),
             UpdateServerError::NameTaken => "A server with this name already exists.".to_string(),
+            UpdateServerError::NameNotAllowed => "Server name is not allowed".to_string(),
+            UpdateServerError::DescriptionNotAllowed => {
+                "Server description is not allowed".to_string()
+            }
+            UpdateServerError::ModerationUnavailable(_) => {
+                "Content moderation is temporarily unavailable".to_string()
+            }
             UpdateServerError::Repository(e) => e.to_user_message(),
         }
     }
@@ -478,6 +503,9 @@ impl HttpMapping for UpdateServerError {
             UpdateServerError::ServerNotFound => "SERVER_NOT_FOUND",
             UpdateServerError::NotOwner => "SERVER_NOT_OWNER",
             UpdateServerError::NameTaken => "SERVER_NAME_TAKEN",
+            UpdateServerError::NameNotAllowed => "SERVER_NAME_NOT_ALLOWED",
+            UpdateServerError::DescriptionNotAllowed => "SERVER_DESCRIPTION_NOT_ALLOWED",
+            UpdateServerError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
             UpdateServerError::Repository(e) => e.to_error_code(),
         }
     }

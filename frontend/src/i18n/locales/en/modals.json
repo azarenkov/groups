@@ -5,7 +5,10 @@
     "nameLabel": "Server name",
     "namePlaceholder": "My server",
     "create": "Create server",
-    "creating": "Creating…"
+    "creating": "Creating…",
+    "nameNotAllowed": "This server name isn't allowed.",
+    "descriptionNotAllowed": "This description isn't allowed.",
+    "moderationUnavailable": "Text moderation is temporarily unavailable. Try again later."
   },
   "createChannel": {
     "title": "Create a channel",

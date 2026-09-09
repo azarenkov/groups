@@ -3,8 +3,10 @@ use std::sync::Arc;
 use messaging_domain::{events::MessagingEvent, server::Server, server::description::ServerDescription, server::name::ServerName, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
+use ports::text_moderation::{TextModeration, TextModerationError};
 
 use crate::dto::requests::server::create_server::CreateServerRequest;
+use crate::usecases::server::text_policy::{ServerTextField, ensure_server_text_allowed};
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateServerError {
@@ -12,21 +14,33 @@ pub enum CreateServerError {
     Repository(#[from] RepositoryError),
     #[error("Account is inactive")]
     AccountInactive,
+    #[error("Server name is not allowed")]
+    NameNotAllowed,
+    #[error("Server description is not allowed")]
+    DescriptionNotAllowed,
+    #[error("Text moderation unavailable: {0}")]
+    ModerationUnavailable(String),
 }
 
-pub struct CreateServer<W>
+pub struct CreateServer<W, TM>
 where
     W: ServerUnitOfWork,
+    TM: TextModeration,
 {
     unit_of_work: Arc<W>,
+    text_moderation: Arc<TM>,
 }
 
-impl<W> CreateServer<W>
+impl<W, TM> CreateServer<W, TM>
 where
     W: ServerUnitOfWork,
+    TM: TextModeration,
 {
-    pub fn new(unit_of_work: Arc<W>) -> Self {
-        Self { unit_of_work }
+    pub fn new(unit_of_work: Arc<W>, text_moderation: Arc<TM>) -> Self {
+        Self {
+            unit_of_work,
+            text_moderation,
+        }
     }
 
     pub async fn execute(
@@ -34,6 +48,24 @@ where
         request: CreateServerRequest,
         owner_id: UserId,
     ) -> Result<Server, CreateServerError> {
+        match ensure_server_text_allowed(
+            self.text_moderation.as_ref(),
+            &request.name,
+            request.description.as_deref(),
+        )
+        .await
+        {
+            Ok(()) => {}
+            Err((ServerTextField::Name, TextModerationError::Rejected)) => {
+                return Err(CreateServerError::NameNotAllowed);
+            }
+            Err((ServerTextField::Description, TextModerationError::Rejected)) => {
+                return Err(CreateServerError::DescriptionNotAllowed);
+            }
+            Err((_, TextModerationError::Unavailable(e))) => {
+                return Err(CreateServerError::ModerationUnavailable(e));
+            }
+        }
         let mut server = Server::create(
             ServerName::new(request.name),
             owner_id,

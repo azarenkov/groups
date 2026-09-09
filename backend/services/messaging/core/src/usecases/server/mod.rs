@@ -17,3 +17,4 @@ pub mod list_server_channels;
 pub mod list_servers_by_user;
 pub mod send_server_invite;
 pub mod update_server;
+pub mod text_policy;

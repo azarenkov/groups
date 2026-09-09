@@ -147,6 +147,10 @@ impl Server {
         )));
     }
 
+    pub fn ensure_can_manage(&self, actor: &UserId) -> Result<(), PolicyError> {
+        self.ensure_permission(actor, PERM_MANAGE_SERVER)
+    }
+
     pub fn update_details(
         &mut self,
         actor: &UserId,

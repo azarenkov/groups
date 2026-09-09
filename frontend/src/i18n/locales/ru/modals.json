@@ -5,7 +5,10 @@
     "nameLabel": "Название сервера",
     "namePlaceholder": "Мой сервер",
     "create": "Создать сервер",
-    "creating": "Создаём…"
+    "creating": "Создаём…",
+    "nameNotAllowed": "Такое название использовать нельзя.",
+    "descriptionNotAllowed": "Такое описание использовать нельзя.",
+    "moderationUnavailable": "Проверка текста временно недоступна. Попробуйте позже."
   },
   "createChannel": {
     "title": "Создание канала",

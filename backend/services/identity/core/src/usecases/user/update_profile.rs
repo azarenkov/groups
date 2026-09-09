@@ -9,6 +9,7 @@ use identity_domain::{
 use ports::repository::RepositoryError;
 
 use crate::ports::activity_store::{ActivityStore, ActivityStoreError};
+use crate::ports::text_moderation::{TextModeration, TextModerationError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateProfileError {
@@ -20,6 +21,10 @@ pub enum UpdateProfileError {
     UserNotFound,
     #[error("Activity store error: {0}")]
     ActivityStore(#[from] ActivityStoreError),
+    #[error("Bio is not allowed")]
+    BioNotAllowed,
+    #[error("Bio moderation unavailable: {0}")]
+    ModerationUnavailable(String),
 }
 
 pub struct ProfilePatch {
@@ -30,20 +35,31 @@ pub struct ProfilePatch {
     pub request_id: Option<String>,
 }
 
-pub struct UpdateProfile<W: IdentityUnitOfWork, S: ActivityStore> {
+pub struct UpdateProfile<W: IdentityUnitOfWork, S: ActivityStore, TM: TextModeration> {
     unit_of_work: Arc<W>,
     activity_store: Arc<S>,
+    text_moderation: Arc<TM>,
 }
 
-impl<W: IdentityUnitOfWork, S: ActivityStore> UpdateProfile<W, S> {
-    pub fn new(unit_of_work: Arc<W>, activity_store: Arc<S>) -> Self {
+impl<W: IdentityUnitOfWork, S: ActivityStore, TM: TextModeration> UpdateProfile<W, S, TM> {
+    pub fn new(unit_of_work: Arc<W>, activity_store: Arc<S>, text_moderation: Arc<TM>) -> Self {
         Self {
             unit_of_work,
             activity_store,
+            text_moderation,
         }
     }
 
     pub async fn execute(&self, user_id: UserId, patch: ProfilePatch) -> Result<(String, bool, bool, chrono::DateTime<Utc>), UpdateProfileError> {
+        if let Some(bio) = patch.bio.as_deref().map(str::trim).filter(|b| !b.is_empty()) {
+            match self.text_moderation.ensure_allowed(bio).await {
+                Ok(()) => {}
+                Err(TextModerationError::Rejected) => return Err(UpdateProfileError::BioNotAllowed),
+                Err(TextModerationError::Unavailable(e)) => {
+                    return Err(UpdateProfileError::ModerationUnavailable(e));
+                }
+            }
+        }
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)

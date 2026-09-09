@@ -50,6 +50,7 @@ use messaging::usecases::{
         update_server::UpdateServer,
     },
 };
+use infrastructure_common::moderation::text_detector::TextModerationClient;
 use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
     storage::minio_storage::MinioStorage,
@@ -214,14 +215,14 @@ pub struct AppState {
         DeclineServerInvite<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_sent_server_invites_usecase:
         ListSentServerInvites<PostgresDmMessageRepository, PostgresServerRepository>,
-    pub create_server_usecase: CreateServer<PostgresServerUnitOfWork>,
+    pub create_server_usecase: CreateServer<PostgresServerUnitOfWork, TextModerationClient>,
     pub delete_server_usecase: DeleteServer<
         PostgresServerRepository,
         PostgresChannelRepository,
         PostgresServerUnitOfWork,
         LiveKitService,
     >,
-    pub update_server_usecase: UpdateServer<PostgresServerUnitOfWork>,
+    pub update_server_usecase: UpdateServer<PostgresServerUnitOfWork, TextModerationClient>,
     pub create_invite_code_usecase: CreateInviteCode<PostgresServerUnitOfWork>,
     pub list_invite_codes_usecase:
         ListInviteCodes<PostgresServerRepository, PostgresServerUnitOfWork>,

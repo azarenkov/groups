@@ -2015,6 +2015,7 @@ dependencies = [
  "livekit-api",
  "livekit-protocol",
  "ports",
+ "reqwest",
  "rust-s3",
  "serde",
  "serde_json",

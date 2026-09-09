@@ -6,5 +6,6 @@ pub mod outbox;
 pub mod outbox_publisher;
 pub mod outbox_writer;
 pub mod repository;
+pub mod text_moderation;
 pub mod user_profile;
 pub mod voice_service;
