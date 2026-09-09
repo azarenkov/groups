@@ -104,6 +104,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.preventDefault();
+      e.stopPropagation();
       setOpen(false);
       setInviteOpen(false);
     };

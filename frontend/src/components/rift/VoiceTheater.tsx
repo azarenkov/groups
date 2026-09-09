@@ -34,6 +34,7 @@ const TileVolumeMenu: React.FC<{
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.preventDefault();
+      e.stopPropagation();
       setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
@@ -203,6 +204,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.preventDefault();
+      e.stopPropagation();
       setAddOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
