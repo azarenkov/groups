@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE call_participants\n            SET status = $4, updated_at = $3, joined_at = CASE WHEN $4::text = 'joined' THEN $3::timestamptz ELSE NULL END\n            WHERE call_id = $1 AND user_id = $2 AND status = 'invited'\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9521451ddf2b440dc90900be5e471b0e03be86e78eb1d5c71bc4194f459bd961"
+}

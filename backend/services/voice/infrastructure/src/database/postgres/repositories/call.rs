@@ -200,8 +200,8 @@ impl CallRepository for PostgresCallRepository {
 
         sqlx::query!(
             r#"
-            INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
-            VALUES ($1, $2, $2, 'joined', $3, $3)
+            INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at, joined_at)
+            VALUES ($1, $2, $2, 'joined', $3, $3, $3)
             ON CONFLICT (call_id, user_id) DO NOTHING
             "#,
             call_id,
@@ -263,7 +263,7 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = $4, updated_at = $3
+            SET status = $4, updated_at = $3, joined_at = CASE WHEN $4::text = 'joined' THEN $3::timestamptz ELSE NULL END
             WHERE call_id = $1 AND user_id = $2 AND status = 'invited'
             "#,
             call_id,
@@ -326,7 +326,7 @@ impl CallRepository for PostgresCallRepository {
                 INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
                 VALUES ($1, $2, $3, 'invited', $4, $4)
                 ON CONFLICT (call_id, user_id) DO UPDATE
-                    SET status = 'invited', session_id = NULL, answered_at = NULL, inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at
+                    SET status = 'invited', session_id = NULL, answered_at = NULL, joined_at = NULL, inviter_id = EXCLUDED.inviter_id, updated_at = EXCLUDED.updated_at
                     WHERE call_participants.status IN ('declined', 'left')
                 "#,
                 call_id,
@@ -490,7 +490,7 @@ impl CallRepository for PostgresCallRepository {
         user_id: &UserId,
     ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
         let row: Option<(Option<DateTime<Utc>>,)> = sqlx::query_as(
-            "SELECT COALESCE(answered_at, updated_at) FROM call_participants WHERE call_id = $1 AND user_id = $2 AND status = 'joined'",
+            "SELECT COALESCE(joined_at, answered_at, updated_at) FROM call_participants WHERE call_id = $1 AND user_id = $2 AND status = 'joined'",
         )
         .bind(call_id)
         .bind(user_id.uuid())
@@ -535,7 +535,8 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'joined', session_id = NULL, updated_at = $3
+            SET status = 'joined', session_id = NULL, updated_at = $3,
+                joined_at = CASE WHEN status = 'joined' THEN COALESCE(joined_at, $3) ELSE $3 END
             WHERE call_id = $1 AND user_id = $2
               AND status IN ('invited', 'declined', 'left', 'joined')
               AND (
@@ -679,7 +680,8 @@ impl CallRepository for PostgresCallRepository {
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
-            SET status = 'joined', session_id = $3, updated_at = $4, answered_at = COALESCE(answered_at, $4)
+            SET status = 'joined', session_id = $3, updated_at = $4, answered_at = COALESCE(answered_at, $4),
+                joined_at = CASE WHEN status = 'joined' THEN COALESCE(joined_at, $4) ELSE $4 END
             WHERE call_id = $1 AND user_id = $2
               AND (
                     (status = 'joined' AND session_id IS NULL)
