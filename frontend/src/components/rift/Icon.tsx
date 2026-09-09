@@ -44,6 +44,7 @@ export type IconName =
   | "more"
   | "phone"
   | "video"
+  | "bell-off"
   | "expand"
   | "grid"
   | "chev-left"
@@ -373,6 +374,14 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <rect x="2" y="6" width="14" height="12" rx="2" />
       <path d="m22 8-6 4 6 4V8z" />
+    </>
+  ),
+  "bell-off": (
+    <>
+      <path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5" />
+      <path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      <path d="m2 2 20 20" />
     </>
   ),
   grid: (
