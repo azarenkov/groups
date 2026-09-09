@@ -193,6 +193,14 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       : channelAPI.mute(serverId, channelId, id);
     call.catch((err) => console.warn("[voice] moderate mute failed:", err));
   };
+  const deafenExcluded = React.useMemo(() => {
+    if (!currentUserId || currentUserId === serverOwnerId) return undefined;
+    return (presenceMembers ?? [])
+      .filter(
+        (m) => !!m.deafenedBy && m.deafenedBy !== m.id && m.deafenedBy === serverOwnerId,
+      )
+      .map((m) => m.id);
+  }, [currentUserId, serverOwnerId, presenceMembers]);
   const moderateDeafen = (id: string, currentlyDeafened: boolean) => {
     if (id === serverOwnerId) return;
     const call = currentlyDeafened
@@ -362,6 +370,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             onModerateMute={canModerateMute ? moderateMute : undefined}
             onModerateDeafen={canModerateDeafen ? moderateDeafen : undefined}
             moderationExcluded={moderationExcluded}
+            deafenExcluded={deafenExcluded}
           />,
           stageMount,
         )}

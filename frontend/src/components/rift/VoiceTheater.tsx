@@ -189,6 +189,7 @@ interface VoiceTheaterProps {
   onModerateMute?: (id: string, currentlyMuted: boolean) => void;
   onModerateDeafen?: (id: string, currentlyDeafened: boolean) => void;
   moderationExcluded?: string[];
+  deafenExcluded?: string[];
 }
 
 const STRIP_MAX = 6;
@@ -216,6 +217,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   onModerateMute,
   onModerateDeafen,
   moderationExcluded,
+  deafenExcluded,
 }) => {
   const { t } = useTranslation(["call", "voice"]);
   const [addOpen, setAddOpen] = useState(false);
@@ -340,7 +342,9 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                             : undefined
                         }
                         deafen={
-                          onModerateDeafen && !moderationExcluded?.includes(r.id)
+                          onModerateDeafen &&
+                          !moderationExcluded?.includes(r.id) &&
+                          !deafenExcluded?.includes(r.id)
                             ? {
                                 deafened: r.moderatorDeafened,
                                 onToggle: () =>
@@ -518,7 +522,9 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                       : undefined
                   }
                   deafen={
-                    onModerateDeafen && !moderationExcluded?.includes(r.id)
+                    onModerateDeafen &&
+                    !moderationExcluded?.includes(r.id) &&
+                    !deafenExcluded?.includes(r.id)
                       ? {
                           deafened: r.moderatorDeafened,
                           onToggle: () =>

@@ -246,6 +246,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         0);
   const moderatorDeafened = (m: { id: string; deafenedBy?: string }) =>
     !!m.deafenedBy && m.deafenedBy !== m.id;
+  const canLiftDeafenIn = (server: Server, m: { id: string; deafenedBy?: string }) =>
+    !moderatorDeafened(m) ||
+    m.deafenedBy !== server.ownerId ||
+    currentUserId === server.ownerId;
   const moderateDeafen = (
     server: Server,
     channelId: string,
@@ -541,7 +545,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                   )}
                   {m.id !== currentUserId &&
                     canDeafenIn(server) &&
-                    outranksIn(server, m.id) && (
+                    outranksIn(server, m.id) &&
+                    canLiftDeafenIn(server, m) && (
                     <button
                       type="button"
                       className="sb-voice-mute-btn"
