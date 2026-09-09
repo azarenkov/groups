@@ -93,15 +93,16 @@ const IncomingCallModal: React.FC = () => {
           {incoming.video ? t("incomingVideo") : t("incoming")}
         </div>
       </div>
+      <button
+        type="button"
+        className="ic-dismiss"
+        onClick={() => dismissIncoming()}
+        title={t("dismiss")}
+        aria-label={t("dismiss")}
+      >
+        <Icon name="x" size={12} />
+      </button>
       <div className="ic-actions">
-        <button
-          type="button"
-          className="ic-btn dismiss"
-          onClick={() => dismissIncoming()}
-          title={t("dismiss")}
-        >
-          <Icon name="x" size={17} />
-        </button>
         <button
           type="button"
           className="ic-btn decline"
