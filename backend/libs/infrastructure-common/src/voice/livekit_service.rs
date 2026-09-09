@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, user::id::UserId, user::name::UserName};
-use ports::{voice_service::VoiceService, voice_service::VoiceServiceError};
+use ports::{voice_service::ParticipantAccess, voice_service::VoiceService, voice_service::VoiceServiceError};
 use async_trait::async_trait;
 
 use livekit_api::{
@@ -39,6 +39,7 @@ impl VoiceService for LiveKitService {
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: channel_id.uuid().to_string(),
+                can_update_own_metadata: true,
                 ..Default::default()
             })
             .with_ttl(Duration::from_secs(3600))
@@ -48,23 +49,31 @@ impl VoiceService for LiveKitService {
         Ok(ChannelToken::new(token))
     }
 
-    async fn create_token_without_microphone(
+    async fn create_token_with_access(
         &self,
         user_id: &UserId,
         username: &UserName,
         channel_id: &ChannelId,
+        access: ParticipantAccess,
     ) -> Result<ChannelToken, VoiceServiceError> {
+        let can_publish_sources = if access.can_publish_microphone {
+            Vec::new()
+        } else {
+            vec![
+                "camera".to_string(),
+                "screen_share".to_string(),
+                "screen_share_audio".to_string(),
+            ]
+        };
         let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
             .with_identity(&user_id.uuid().to_string())
             .with_name(username.as_str())
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: channel_id.uuid().to_string(),
-                can_publish_sources: vec![
-                    "camera".to_string(),
-                    "screen_share".to_string(),
-                    "screen_share_audio".to_string(),
-                ],
+                can_subscribe: access.can_subscribe,
+                can_publish_sources,
+                can_update_own_metadata: true,
                 ..Default::default()
             })
             .with_ttl(Duration::from_secs(3600))
@@ -139,24 +148,31 @@ impl VoiceService for LiveKitService {
         }
     }
 
-    async fn mute_participant(
+    async fn apply_participant_access(
         &self,
         channel_id: &ChannelId,
         user_id: &UserId,
+        access: ParticipantAccess,
     ) -> Result<(), VoiceServiceError> {
         let livekit_room = RoomClient::new(self.config.url())
             .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
         let room = channel_id.uuid().to_string();
         let identity = user_id.uuid().to_string();
-        let permission = livekit_protocol::ParticipantPermission {
-            can_subscribe: true,
-            can_publish: true,
-            can_publish_data: true,
-            can_publish_sources: vec![
+        let can_publish_sources = if access.can_publish_microphone {
+            Vec::new()
+        } else {
+            vec![
                 livekit_protocol::TrackSource::Camera as i32,
                 livekit_protocol::TrackSource::ScreenShare as i32,
                 livekit_protocol::TrackSource::ScreenShareAudio as i32,
-            ],
+            ]
+        };
+        let permission = livekit_protocol::ParticipantPermission {
+            can_subscribe: access.can_subscribe,
+            can_publish: true,
+            can_publish_data: true,
+            can_publish_sources,
+            can_update_metadata: true,
             ..Default::default()
         };
         let participant = match livekit_room
@@ -178,6 +194,9 @@ impl VoiceService for LiveKitService {
             }
             Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
         };
+        if access.can_publish_microphone {
+            return Ok(());
+        }
         for track in participant.tracks {
             let is_live_microphone =
                 track.source == livekit_protocol::TrackSource::Microphone as i32 && !track.muted;
@@ -195,43 +214,6 @@ impl VoiceService for LiveKitService {
             }
         }
         Ok(())
-    }
-
-    async fn unmute_participant(
-        &self,
-        channel_id: &ChannelId,
-        user_id: &UserId,
-    ) -> Result<(), VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
-        let room = channel_id.uuid().to_string();
-        let identity = user_id.uuid().to_string();
-        let permission = livekit_protocol::ParticipantPermission {
-            can_subscribe: true,
-            can_publish: true,
-            can_publish_data: true,
-            can_publish_sources: Vec::new(),
-            ..Default::default()
-        };
-        match livekit_room
-            .update_participant(
-                &room,
-                &identity,
-                livekit_api::services::room::UpdateParticipantOptions {
-                    permission: Some(permission),
-                    ..Default::default()
-                },
-            )
-            .await
-        {
-            Ok(_) => Ok(()),
-            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
-                if code.code == TwirpErrorCode::NOT_FOUND =>
-            {
-                Ok(())
-            }
-            Err(e) => Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
-        }
     }
 
     fn client_url(&self) -> String {

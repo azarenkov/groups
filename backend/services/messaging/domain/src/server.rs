@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{channel::moderation::ModerationGrant, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerOwnerChanged, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId, server::name::ServerName, server::policy::MAX_ROLES_PER_SERVER, server::policy::PolicyError, server::role::PERM_ALL, server::role::PERM_KICK_MEMBERS, server::role::PERM_MANAGE_CHANNELS, server::role::PERM_MANAGE_INVITES, server::role::PERM_MANAGE_MESSAGES, server::role::PERM_MANAGE_ROLES, server::role::PERM_MANAGE_SERVER, server::role::PERM_MUTE_MEMBERS, server::role::RolePatch, server::role::ServerRole, server::role::has_permission};
+use crate::{channel::moderation::ModerationGrant, server::description::ServerDescription, server::events::ServerEvent, server::events::lifecycle::ServerCreated, server::events::lifecycle::ServerDeleted, server::events::lifecycle::ServerOwnerChanged, server::events::lifecycle::ServerMemberLeft, server::events::lifecycle::ServerRolesChanged, server::events::lifecycle::ServerUpdated, server::id::ServerId, server::name::ServerName, server::policy::MAX_ROLES_PER_SERVER, server::policy::PolicyError, server::role::PERM_ALL, server::role::PERM_KICK_MEMBERS, server::role::PERM_MANAGE_CHANNELS, server::role::PERM_MANAGE_INVITES, server::role::PERM_MANAGE_MESSAGES, server::role::PERM_MANAGE_ROLES, server::role::PERM_MANAGE_SERVER, server::role::PERM_DEAFEN_MEMBERS, server::role::PERM_MUTE_MEMBERS, server::role::RolePatch, server::role::ServerRole, server::role::has_permission};
 use domain::user::id::UserId;
 
 #[derive(Debug)]
@@ -409,6 +409,44 @@ impl Server {
             return Err(PolicyError::NotAllowed);
         }
         self.ensure_permission(actor, PERM_MUTE_MEMBERS)?;
+        if !self.outranks_member(actor, target) {
+            return Err(PolicyError::HierarchyViolation);
+        }
+        Ok(ModerationGrant::Moderator)
+    }
+
+    pub fn ensure_can_deafen(&self, actor: &UserId, target: &UserId) -> Result<ModerationGrant, PolicyError> {
+        self.ensure_member(actor)?;
+        if !self.is_member(target) {
+            return Err(PolicyError::TargetNotMember);
+        }
+        if actor == target || self.is_owner(target) {
+            return Err(PolicyError::NotAllowed);
+        }
+        self.ensure_permission(actor, PERM_DEAFEN_MEMBERS)?;
+        if !self.outranks_member(actor, target) {
+            return Err(PolicyError::HierarchyViolation);
+        }
+        Ok(if self.is_owner(actor) { ModerationGrant::Owner } else { ModerationGrant::Moderator })
+    }
+
+    pub fn ensure_can_undeafen(
+        &self,
+        actor: &UserId,
+        target: &UserId,
+        deafened_by: Option<&UserId>,
+    ) -> Result<ModerationGrant, PolicyError> {
+        self.ensure_member(actor)?;
+        if self.is_owner(actor) {
+            return Ok(ModerationGrant::Owner);
+        }
+        if actor == target {
+            return Err(PolicyError::NotAllowed);
+        }
+        if deafened_by.is_some_and(|by| self.is_owner(by)) {
+            return Err(PolicyError::NotAllowed);
+        }
+        self.ensure_permission(actor, PERM_DEAFEN_MEMBERS)?;
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }

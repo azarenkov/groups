@@ -25,6 +25,9 @@ interface UseLiveKitResult {
   isMuted: boolean;
   isModeratorMuted: boolean;
   moderatorMutedBy: string | null;
+  isDeafened: boolean;
+  isModeratorDeafened: boolean;
+  moderatorDeafenedBy: string | null;
   isConnecting: boolean;
   error: string | null;
   localQuality: ConnectionQuality;
@@ -36,6 +39,7 @@ interface UseLiveKitResult {
   ) => Promise<void>;
   leaveChannel: () => Promise<void>;
   toggleMute: () => void;
+  toggleDeafen: () => void;
   getLocalAudioMediaStreamTrack: () => MediaStreamTrack | null;
   setNoiseSuppression: (mode: NoiseSuppressionMode) => Promise<void>;
   setNoiseStrength: (value: number) => void;
@@ -61,9 +65,26 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const fallbackReleasePendingRef = useRef(false);
   const isMutedRef = useRef(false);
   const isConnectedRef = useRef(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const isDeafenedRef = useRef(false);
+  const micMutedBeforeDeafenRef = useRef(false);
+  const deafenLockedRef = useRef(false);
+  const selfDeafenedBeforeLockRef = useRef(false);
+  const [isModeratorDeafened, setIsModeratorDeafened] = useState(false);
+  const [moderatorDeafenedBy, setModeratorDeafenedBy] = useState<string | null>(null);
 
   isMutedRef.current = isMuted;
   isConnectedRef.current = isConnected;
+
+  const setDeafenLock = (locked: boolean, by?: string | null) => {
+    deafenLockedRef.current = locked;
+    setIsModeratorDeafened(locked);
+    setModeratorDeafenedBy(locked ? (by ?? null) : null);
+  };
+  const applySelfDeafened = (value: boolean) => {
+    isDeafenedRef.current = value;
+    setIsDeafened(value);
+  };
 
   const onUnexpectedDisconnectRef = useRef(options?.onUnexpectedDisconnect);
   onUnexpectedDisconnectRef.current = options?.onUnexpectedDisconnect;
@@ -122,6 +143,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           null;
         setLock(false);
         selfMutedBeforeLockRef.current = false;
+        setDeafenLock(false);
+        selfDeafenedBeforeLockRef.current = false;
 
         console.log(
           `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
@@ -158,6 +181,17 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           setLock(locked, response.mutedBy ?? null);
           selfMutedBeforeLockRef.current = locked && !!response.selfMuted;
           setIsMuted(true);
+        }
+        if (
+          response.deafenedBy &&
+          joiningUserId &&
+          response.deafenedBy !== joiningUserId
+        ) {
+          selfDeafenedBeforeLockRef.current = false;
+          setDeafenLock(true, response.deafenedBy);
+          useVoicePresenceStore
+            .getState()
+            .setChannelDeafen(channelId, joiningUserId, response.deafenedBy, serverId);
         }
         const { awaitVoiceSettingsSyncedFor } = await import(
           "../store/voiceSettingsStore"
@@ -206,6 +240,9 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           }
           return;
         }
+        if (deafenLockedRef.current || isDeafenedRef.current) {
+          service.setDeafened(true);
+        }
         if (!response.muted && !settingsSynced && joiningUserId) {
           void import("../store/voiceSettingsStore").then(
             ({ voiceSettingsReadyFor }) =>
@@ -231,6 +268,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           activeChannelRef.current = null;
           setLock(false);
           selfMutedBeforeLockRef.current = false;
+          setDeafenLock(false);
+          selfDeafenedBeforeLockRef.current = false;
           setError(
             err instanceof Error ? err.message : "Failed to join channel",
           );
@@ -265,6 +304,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       setIsScreenShareEnabled(false);
       setIsConnected(false);
       setIsMuted(false);
+      applySelfDeafened(false);
+      setDeafenLock(false);
+      selfDeafenedBeforeLockRef.current = false;
+      micMutedBeforeDeafenRef.current = false;
       setError(null);
     } catch (err) {
       console.error("[useLiveKit] Failed to leave channel:", err);
@@ -328,6 +371,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     serviceRef.current?.setMicrophoneMuted(false);
     setIsMuted(false);
   };
+  const liftDeafenLock = () => {
+    setDeafenLock(false);
+    if (selfDeafenedBeforeLockRef.current) {
+      selfDeafenedBeforeLockRef.current = false;
+      return;
+    }
+    if (!isDeafenedRef.current) serviceRef.current?.setDeafened(false);
+  };
   useEffect(() => {
     const reconcile = () => {
       const active = activeChannelRef.current;
@@ -355,6 +406,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         } else {
           liftModeratorLock();
         }
+      }
+      const moderatorDeafened = !!me.deafenedBy && me.deafenedBy !== selfId;
+      if (moderatorDeafened && !deafenLockedRef.current) {
+        selfDeafenedBeforeLockRef.current = isDeafenedRef.current;
+        setDeafenLock(true, me.deafenedBy ?? null);
+        serviceRef.current?.setDeafened(true);
+      } else if (!moderatorDeafened && deafenLockedRef.current) {
+        liftDeafenLock();
       }
     };
     const unsub = useVoicePresenceStore.subscribe(reconcile);
@@ -387,20 +446,45 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         liftModeratorLock();
       }
     };
+    const onModeratorDeafen = (e: Event) => {
+      const detail = (
+        e as CustomEvent<{ channelId?: string; deafenedBy?: string }>
+      ).detail;
+      const active = activeChannelRef.current;
+      if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
+        return;
+      }
+      if (!deafenLockedRef.current) {
+        selfDeafenedBeforeLockRef.current = isDeafenedRef.current;
+      }
+      setDeafenLock(true, detail.deafenedBy ?? null);
+      serviceRef.current?.setDeafened(true);
+    };
+    const onModeratorUndeafen = (e: Event) => {
+      const detail = (e as CustomEvent<{ channelId?: string }>).detail;
+      const active = activeChannelRef.current;
+      if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
+        return;
+      }
+      if (deafenLockedRef.current) liftDeafenLock();
+    };
     window.addEventListener("rift:moderator-mute", onModeratorMute);
     window.addEventListener("rift:moderator-unmute", onModeratorUnmute);
+    window.addEventListener("rift:moderator-deafen", onModeratorDeafen);
+    window.addEventListener("rift:moderator-undeafen", onModeratorUndeafen);
     return () => {
       window.removeEventListener("rift:moderator-mute", onModeratorMute);
       window.removeEventListener("rift:moderator-unmute", onModeratorUnmute);
+      window.removeEventListener("rift:moderator-deafen", onModeratorDeafen);
+      window.removeEventListener("rift:moderator-undeafen", onModeratorUndeafen);
     };
   }, []);
 
-  const toggleMute = useCallback(() => {
+  const setSelfMuted = (next: boolean) => {
     const service = serviceRef.current;
     if (!service) return;
     fallbackMutedRef.current = false;
     fallbackReleasePendingRef.current = false;
-    const next = !isMutedRef.current;
     if (!next && moderatorLockedRef.current) {
       const active = activeChannelRef.current;
       const auth = useAuthStore.getState();
@@ -437,6 +521,52 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     } else {
       console.warn("[useLiveKit] Skipping mute API: missing active channel or user id");
     }
+  };
+
+  const toggleMute = useCallback(() => {
+    setSelfMuted(!isMutedRef.current);
+  }, []);
+
+  const releaseSelfDeafen = () => {
+    applySelfDeafened(false);
+    if (!deafenLockedRef.current) serviceRef.current?.setDeafened(false);
+    const restoreMic =
+      !micMutedBeforeDeafenRef.current &&
+      isMutedRef.current &&
+      !moderatorLockedRef.current;
+    micMutedBeforeDeafenRef.current = false;
+    if (restoreMic) setSelfMuted(false);
+  };
+
+  const toggleDeafen = useCallback(() => {
+    const service = serviceRef.current;
+    if (!service) return;
+    if (deafenLockedRef.current) {
+      const active = activeChannelRef.current;
+      const auth = useAuthStore.getState();
+      const userId =
+        auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
+      if (!active || !userId) return;
+      channelAPI
+        .undeafen(active.serverId, active.channelId, userId)
+        .then(() => {
+          setDeafenLock(false);
+          selfDeafenedBeforeLockRef.current = false;
+          releaseSelfDeafen();
+        })
+        .catch((err) => {
+          console.warn("[useLiveKit] moderator deafen is still active:", err);
+        });
+      return;
+    }
+    if (isDeafenedRef.current) {
+      releaseSelfDeafen();
+      return;
+    }
+    micMutedBeforeDeafenRef.current = isMutedRef.current;
+    applySelfDeafened(true);
+    service.setDeafened(true);
+    if (!isMutedRef.current) setSelfMuted(true);
   }, []);
 
   useEffect(() => {
@@ -491,12 +621,16 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     isMuted,
     isModeratorMuted,
     moderatorMutedBy,
+    isDeafened,
+    isModeratorDeafened,
+    moderatorDeafenedBy,
     isConnecting,
     error,
     localQuality,
     joinChannel,
     leaveChannel,
     toggleMute,
+    toggleDeafen,
     getLocalAudioMediaStreamTrack,
     setNoiseSuppression,
     setNoiseStrength,

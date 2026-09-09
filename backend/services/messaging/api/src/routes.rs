@@ -5,7 +5,7 @@ use crate::calls::call_log_routes;
 use crate::channel::{
     create_channel, delete_channel, delete_channel_message, edit_channel_message,
     join_text_channel, join_voice_channel, list_channel_messages, list_channel_participants,
-    mute_channel, search_channel_messages, send_channel_message, unmute_channel,
+    deafen_channel, mute_channel, search_channel_messages, send_channel_message, undeafen_channel, unmute_channel,
 };
 use crate::dm::{
     accept_server_invite, decline_server_invite, delete_dm_message, edit_dm_message,
@@ -65,6 +65,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(delete_channel_message)
                         .service(mute_channel)
                         .service(unmute_channel)
+                        .service(deafen_channel)
+                        .service(undeafen_channel)
                         .service(list_channel_participants)
                         .service(delete_channel),
                 )

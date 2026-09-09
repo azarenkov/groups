@@ -10,6 +10,7 @@ pub enum HotkeyAction {
     OpenSettings,
     EditLastMessage,
     ToggleMute,
+    ToggleDeafen,
     LeaveVoice,
     ToggleCallView,
 }
@@ -21,7 +22,7 @@ pub enum HotkeyScope {
 }
 
 impl HotkeyAction {
-    pub const ALL: [HotkeyAction; 10] = [
+    pub const ALL: [HotkeyAction; 11] = [
         Self::QuickSwitcher,
         Self::PrevChannel,
         Self::NextChannel,
@@ -30,6 +31,7 @@ impl HotkeyAction {
         Self::OpenSettings,
         Self::EditLastMessage,
         Self::ToggleMute,
+        Self::ToggleDeafen,
         Self::LeaveVoice,
         Self::ToggleCallView,
     ];
@@ -44,6 +46,7 @@ impl HotkeyAction {
             Self::OpenSettings => "openSettings",
             Self::EditLastMessage => "editLastMessage",
             Self::ToggleMute => "toggleMute",
+            Self::ToggleDeafen => "toggleDeafen",
             Self::LeaveVoice => "leaveVoice",
             Self::ToggleCallView => "toggleCallView",
         }
@@ -71,6 +74,7 @@ impl HotkeyAction {
                 Self::OpenSettings => "Mod+Comma",
                 Self::EditLastMessage => "ArrowUp",
                 Self::ToggleMute => "Mod+Shift+M",
+                Self::ToggleDeafen => "Mod+Shift+D",
                 Self::LeaveVoice => "Mod+Shift+L",
                 Self::ToggleCallView => "Mod+Shift+O",
             }

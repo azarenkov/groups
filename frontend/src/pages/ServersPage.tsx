@@ -290,6 +290,7 @@ const ServersPage: React.FC = () => {
               name: string;
               isMuted: boolean;
               mutedBy?: string;
+              deafenedBy?: string;
               cameraOn: boolean;
               screenOn: boolean;
             }[]
@@ -300,6 +301,7 @@ const ServersPage: React.FC = () => {
               name: item.userName,
               isMuted: item.isMuted,
               mutedBy: item.mutedBy ?? undefined,
+              deafenedBy: item.deafenedBy ?? undefined,
               cameraOn: item.cameraOn,
               screenOn: item.screenOn,
             });
@@ -969,6 +971,7 @@ const ServersPage: React.FC = () => {
       color: string;
       isMuted?: boolean;
       mutedBy?: string;
+      isDeafened?: boolean;
       isSharingScreen?: boolean;
       isCameraOn?: boolean;
     }[]
@@ -982,6 +985,7 @@ const ServersPage: React.FC = () => {
         color: string;
         isMuted?: boolean;
         mutedBy?: string;
+        isDeafened?: boolean;
         isSharingScreen?: boolean;
         isCameraOn?: boolean;
       }[]
@@ -994,6 +998,7 @@ const ServersPage: React.FC = () => {
         color: colorForId(m.id),
         isMuted: m.isMuted,
         mutedBy: m.mutedBy,
+        isDeafened: !!m.deafenedBy && m.deafenedBy !== m.id,
         isSharingScreen: m.screenOn,
         isCameraOn: m.cameraOn,
       }));

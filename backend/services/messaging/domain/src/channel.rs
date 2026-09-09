@@ -4,6 +4,7 @@ pub mod events;
 pub mod kind;
 pub mod moderation;
 pub mod name;
+pub mod participant_deafen;
 pub mod participant_mute;
 pub mod repository;
 pub mod unit_of_work;
@@ -16,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 
-use crate::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::moderation::ModerationGrant, channel::moderation::Publication, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, channel::visibility::ChannelVisibility, server::id::ServerId};
+use crate::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantDeafened, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUndeafened, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::moderation::ModerationGrant, channel::moderation::Publication, channel::moderation::Subscription, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, channel::visibility::ChannelVisibility, server::id::ServerId};
 use domain::{password_hash::PasswordHash, user::id::UserId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +40,10 @@ pub enum ChannelError {
     NotMuted,
     #[error("Participant already muted")]
     AlreadyMuted,
+    #[error("Participant not deafened")]
+    NotDeafened,
+    #[error("Participant already deafened")]
+    AlreadyDeafened,
     #[error("Voice is not supported for this channel")]
     VoiceNotSupported,
     #[error("Text is not supported for this channel")]
@@ -81,6 +86,7 @@ pub struct Channel {
     updated_at: DateTime<Utc>,
     last_join: DateTime<Utc>,
     muted_participants: Option<HashMap<UserId, ParticipantMute>>,
+    deafened_participants: Option<HashMap<UserId, ParticipantDeafen>>,
     voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
     camera_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
     screen_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
@@ -129,6 +135,7 @@ impl Channel {
             None
         };
 
+        let deafened_participants = if kind.supports_voice() { Some(HashMap::new()) } else { None };
         let mut channel = Self {
             id,
             server_id,
@@ -141,6 +148,7 @@ impl Channel {
             updated_at: now,
             last_join: now,
             muted_participants,
+            deafened_participants,
             voice_participants,
             camera_participants,
             screen_participants,
@@ -169,6 +177,7 @@ impl Channel {
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
         muted_participants: Option<HashMap<UserId, ParticipantMute>>,
+        deafened_participants: Option<HashMap<UserId, ParticipantDeafen>>,
         voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
         camera_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
         screen_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
@@ -187,6 +196,7 @@ impl Channel {
             updated_at,
             last_join,
             muted_participants,
+            deafened_participants,
             voice_participants,
             camera_participants,
             screen_participants,
@@ -301,6 +311,15 @@ impl Channel {
                 user_id,
                 now,
             )));
+            if let Some(deafened_by) = self.deafen_record(&user_id).map(|r| r.deafened_by) {
+                self.record(ChannelEvent::ParticipantDeafened(ParticipantDeafened::record(
+                    self.id,
+                    self.server_id,
+                    user_id,
+                    deafened_by,
+                    now,
+                )));
+            }
         }
 
         Ok(())
@@ -346,6 +365,15 @@ impl Channel {
                 reason,
                 now,
             )));
+            if self
+                .deafened_participants
+                .as_mut()
+                .is_some_and(|d| d.remove(&user_id).is_some())
+            {
+                self.record(ChannelEvent::ParticipantUndeafened(
+                    ParticipantUndeafened::record(self.id, self.server_id, user_id, user_id, now),
+                ));
+            }
         }
 
         Ok(())
@@ -626,6 +654,73 @@ impl Channel {
         match self.mute_record(user_id) {
             Some(record) if record.muted_by != *user_id => Publication::Restricted,
             _ => Publication::Full,
+        }
+    }
+
+    pub fn deafen(
+        &mut self,
+        target: UserId,
+        initiator: UserId,
+        grant: ModerationGrant,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        if !grant.overrides_others() {
+            return Err(ChannelError::NotAllowed);
+        }
+        let deafened = self
+            .deafened_participants
+            .as_mut()
+            .ok_or(ChannelError::VoiceNotSupported)?;
+        if deafened.contains_key(&target) {
+            return Err(ChannelError::AlreadyDeafened);
+        }
+        deafened.insert(target, ParticipantDeafen::new(target, initiator, now));
+        self.record(ChannelEvent::ParticipantDeafened(ParticipantDeafened::record(
+            self.id,
+            self.server_id,
+            target,
+            initiator,
+            now,
+        )));
+        Ok(())
+    }
+
+    pub fn undeafen(
+        &mut self,
+        target: UserId,
+        initiator: UserId,
+        grant: ModerationGrant,
+        now: DateTime<Utc>,
+    ) -> Result<(), ChannelError> {
+        if !grant.overrides_others() {
+            return Err(ChannelError::NotAllowed);
+        }
+        let deafened = self
+            .deafened_participants
+            .as_mut()
+            .ok_or(ChannelError::VoiceNotSupported)?;
+        if deafened.remove(&target).is_none() {
+            return Err(ChannelError::NotDeafened);
+        }
+        self.record(ChannelEvent::ParticipantUndeafened(
+            ParticipantUndeafened::record(self.id, self.server_id, target, initiator, now),
+        ));
+        Ok(())
+    }
+
+    pub fn deafened_participants_list(&self) -> impl Iterator<Item = &ParticipantDeafen> {
+        self.deafened_participants.iter().flat_map(|m| m.values())
+    }
+
+    pub fn deafen_record(&self, user_id: &UserId) -> Option<&ParticipantDeafen> {
+        self.deafened_participants.as_ref().and_then(|m| m.get(user_id))
+    }
+
+    pub fn subscription_for(&self, user_id: &UserId) -> Subscription {
+        if self.deafen_record(user_id).is_some() {
+            Subscription::Suspended
+        } else {
+            Subscription::Full
         }
     }
 

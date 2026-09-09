@@ -20,6 +20,7 @@ export type IconName =
   | "speaker-off"
   | "sparkles"
   | "headphones"
+  | "headphones-off"
   | "mail"
   | "user"
   | "eye"
@@ -216,6 +217,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
   ),
   headphones: (
     <>
+      <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+      <path d="M21 19a2 2 0 0 1-2 2h-1v-7h3v5zM3 19a2 2 0 0 0 2 2h1v-7H3v5z" />
+    </>
+  ),
+  "headphones-off": (
+    <>
+      <line x1="2" y1="2" x2="22" y2="22" />
       <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
       <path d="M21 19a2 2 0 0 1-2 2h-1v-7h3v5zM3 19a2 2 0 0 0 2 2h1v-7H3v5z" />
     </>

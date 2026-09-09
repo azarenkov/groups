@@ -14,7 +14,8 @@ use messaging::usecases::{
         delete_channel_message::DeleteChannelMessage,
         edit_channel_message::EditChannelMessage, join_text_channel::JoinTextChannel,
         join_voice_channel::JoinVoiceChannel, list_channel_messages::ListChannelMessages,
-        list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
+        deafen_channel::DeafenChannel, list_channel_participants::ListChannelParticipants, mute_channel::MuteChannel,
+        undeafen_channel::UndeafenChannel,
         search_channel_messages::SearchChannelMessages,
         send_channel_message::SendChannelMessage, unmute_channel::UnmuteChannel,
         update_stream_viewer::UpdateStreamViewer,
@@ -213,6 +214,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             server_unit_of_work.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
+            channel_repository.clone(),
+            user_repository.clone(),
+            server_unit_of_work.clone(),
+        ),
+        deafen_channel_usecase: DeafenChannel::new(
+            channel_repository.clone(),
+            user_repository.clone(),
+            server_unit_of_work.clone(),
+        ),
+        undeafen_channel_usecase: UndeafenChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
             server_unit_of_work.clone(),

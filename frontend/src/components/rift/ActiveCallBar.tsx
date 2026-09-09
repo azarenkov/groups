@@ -32,6 +32,8 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   const participants = useCallStore((s) => s.participants);
   const muted = useCallStore((s) => s.micMuted);
   const setMicMuted = useCallStore((s) => s.setMicMuted);
+  const deafened = useCallStore((s) => s.deafened);
+  const setDeafened = useCallStore((s) => s.setDeafened);
   const videoTiles = useVideoTiles();
   const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -43,6 +45,7 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   };
 
   useHotkey("toggleMute", () => setMicMuted(!muted), !!activeCallId);
+  useHotkey("toggleDeafen", () => setDeafened(!deafened), !!activeCallId);
   useHotkey("leaveVoice", () => {
     void leave();
   }, !!activeCallId);
@@ -79,6 +82,8 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
       meta={`${formatDuration(startedAt, now)} · ${count} ${t("voice:connected").toLowerCase()}`}
       isMuted={muted}
       onToggleMute={toggleMute}
+      isDeafened={deafened}
+      onToggleDeafen={() => setDeafened(!deafened)}
       onLeave={() => leave()}
       onOpen={open}
       openTitle={t("openCall")}

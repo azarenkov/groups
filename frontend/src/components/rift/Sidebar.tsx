@@ -12,6 +12,7 @@ import { channelAPI } from "../../api/channel";
 import {
   PERM_MANAGE_CHANNELS,
   PERM_MANAGE_INVITES,
+  PERM_DEAFEN_MEMBERS,
   PERM_MUTE_MEMBERS,
   topRoleFor,
   useRolesStore,
@@ -52,6 +53,7 @@ interface SidebarProps {
     color: string;
     isMuted?: boolean;
     mutedBy?: string;
+    isDeafened?: boolean;
     isSharingScreen?: boolean;
     isCameraOn?: boolean;
   }[];
@@ -64,6 +66,7 @@ interface SidebarProps {
       color: string;
       isMuted?: boolean;
       mutedBy?: string;
+      isDeafened?: boolean;
       isSharingScreen?: boolean;
       isCameraOn?: boolean;
     }[]
@@ -232,6 +235,22 @@ const Sidebar: React.FC<SidebarProps> = ({
       ? channelAPI.unmute(server.id, channelId, m.id)
       : channelAPI.mute(server.id, channelId, m.id);
     call.catch((err) => console.warn("[sidebar] mute toggle failed:", err));
+  };
+  const canDeafenIn = (server: Server) =>
+    !!currentUserId &&
+    (server.ownerId === currentUserId ||
+      (userPermissions(rolesByServer[server.id], currentUserId) &
+        PERM_DEAFEN_MEMBERS) !==
+        0);
+  const moderateDeafen = (
+    server: Server,
+    channelId: string,
+    m: { id: string; isDeafened?: boolean },
+  ) => {
+    const call = m.isDeafened
+      ? channelAPI.undeafen(server.id, channelId, m.id)
+      : channelAPI.deafen(server.id, channelId, m.id);
+    call.catch((err) => console.warn("[sidebar] deafen toggle failed:", err));
   };
 
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
@@ -485,6 +504,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <Icon name="mic-off" size={11} />
                     </span>
                   )}
+                  {m.isDeafened && (
+                    <span className="sb-voice-member-badge muted" title="Deafened">
+                      <Icon name="headphones-off" size={11} />
+                    </span>
+                  )}
                   {m.id !== currentUserId &&
                     canMuteIn(server) &&
                     outranksIn(server, m.id) && (
@@ -507,6 +531,24 @@ const Sidebar: React.FC<SidebarProps> = ({
                             ? "mic"
                             : "mic-off"
                         }
+                        size={12}
+                      />
+                    </button>
+                  )}
+                  {m.id !== currentUserId &&
+                    canDeafenIn(server) &&
+                    outranksIn(server, m.id) && (
+                    <button
+                      type="button"
+                      className="sb-voice-mute-btn"
+                      title={m.isDeafened ? t("undeafenMember") : t("deafenMember")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moderateDeafen(server, channel.id, m);
+                      }}
+                    >
+                      <Icon
+                        name={m.isDeafened ? "headphones" : "headphones-off"}
                         size={12}
                       />
                     </button>

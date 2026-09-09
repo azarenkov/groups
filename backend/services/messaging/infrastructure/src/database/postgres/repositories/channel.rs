@@ -3,10 +3,11 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VisibleVoiceRoom, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
+use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VisibleVoiceRoom, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
 use crate::database::postgres::{
     dto::{
@@ -240,6 +241,23 @@ impl ChannelRepository for PostgresChannelRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        let deafened: Vec<(Uuid, Uuid, Uuid)> = sqlx::query_as(
+            r#"
+            SELECT d.channel_id, d.user_id, d.deafened_by
+            FROM channel_deafened_participants d
+            INNER JOIN channels c ON c.id = d.channel_id
+            WHERE c.server_id = $1
+            "#,
+        )
+        .bind(server_id.uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let deafened_by: HashMap<(Uuid, Uuid), Uuid> = deafened
+            .into_iter()
+            .map(|(channel_id, user_id, by)| ((channel_id, user_id), by))
+            .collect();
+
         Ok(rows
             .into_iter()
             .map(|r| messaging_domain::channel::repository::VoicePresenceRow {
@@ -248,6 +266,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 user_name: r.user_name,
                 is_muted: r.is_muted,
                 muted_by: r.muted_by.map(UserId::new),
+                deafened_by: deafened_by.get(&(r.channel_id, r.user_id)).copied().map(UserId::new),
                 camera_on: r.camera_on,
                 screen_on: r.screen_on,
             })
@@ -609,6 +628,8 @@ impl ChannelRepository for PostgresChannelRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        let deafened_rows = load_deafened_rows(&self.pool, id.uuid()).await?;
+
         let kind: ChannelKind = dto.kind.into();
         let (muted_participants, voice_participants, camera_participants, screen_participants) =
             if kind.supports_voice() {
@@ -669,6 +690,7 @@ impl ChannelRepository for PostgresChannelRepository {
             dto.created_at,
             dto.updated_at,
             muted_participants,
+            if kind.supports_voice() { Some(deafened_rows) } else { None },
             voice_participants,
             camera_participants,
             screen_participants,
@@ -1013,6 +1035,8 @@ pub(crate) async fn load_channel_for_update(
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
+    let deafened_rows = load_deafened_rows(&mut **tx, channel_id.uuid()).await?;
+
     let (muted_participants, voice_participants, camera_participants, screen_participants) =
         if kind.supports_voice() {
         let map: HashMap<UserId, ParticipantMute> = muted_dtos
@@ -1072,10 +1096,34 @@ pub(crate) async fn load_channel_for_update(
         dto.created_at,
         dto.updated_at,
         muted_participants,
+        if kind.supports_voice() { Some(deafened_rows) } else { None },
         voice_participants,
         camera_participants,
         screen_participants,
         text_participants,
         dto.last_join,
     ))
+}
+
+pub(crate) async fn load_deafened_rows<'e, E>(
+    executor: E,
+    channel_id: Uuid,
+) -> Result<HashMap<UserId, ParticipantDeafen>, RepositoryError>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    let rows: Vec<(Uuid, Uuid, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT user_id, deafened_by, deafened_at FROM channel_deafened_participants WHERE channel_id = $1",
+    )
+    .bind(channel_id)
+    .fetch_all(executor)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(rows
+        .into_iter()
+        .map(|(user_id, deafened_by, deafened_at)| {
+            let user_id = UserId::new(user_id);
+            (user_id, ParticipantDeafen::new(user_id, UserId::new(deafened_by), deafened_at))
+        })
+        .collect())
 }

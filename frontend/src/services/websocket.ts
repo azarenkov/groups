@@ -37,6 +37,8 @@ export type WsEventType =
   | "channel.participant.left"
   | "channel.participant.muted"
   | "channel.participant.unmuted"
+  | "channel.participant.deafened"
+  | "channel.participant.undeafened"
   | "channel.participant.connectionAborted"
   | "channel.participant.camera.on"
   | "channel.participant.camera.off"

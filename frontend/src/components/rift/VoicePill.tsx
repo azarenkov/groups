@@ -18,6 +18,9 @@ interface VoicePillProps {
   isMuted: boolean;
   muteLocked?: boolean;
   onToggleMute: () => void;
+  isDeafened?: boolean;
+  deafenLocked?: boolean;
+  onToggleDeafen?: () => void;
   onLeave: () => void;
   className?: string;
   titleAttr?: string;
@@ -35,6 +38,9 @@ const VoicePill: React.FC<VoicePillProps> = ({
   isMuted,
   muteLocked,
   onToggleMute,
+  isDeafened,
+  deafenLocked,
+  onToggleDeafen,
   onLeave,
   className,
   titleAttr,
@@ -303,6 +309,23 @@ const VoicePill: React.FC<VoicePillProps> = ({
         >
           <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
         </button>
+        {onToggleDeafen && (
+          <button
+            type="button"
+            className={"vp-btn" + (isDeafened ? " muted" : "")}
+            onClick={onToggleDeafen}
+            disabled={deafenLocked}
+            title={
+              deafenLocked
+                ? t("deafenedByModerator")
+                : isDeafened
+                  ? t("undeafenSelf")
+                  : t("deafenSelf")
+            }
+          >
+            <Icon name={isDeafened ? "headphones-off" : "headphones"} size={15} />
+          </button>
+        )}
       </div>
       <button
         type="button"

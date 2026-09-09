@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use contracts::events::{channel::ParticipantMutedV1, channel::ParticipantUnmutedV1, server::ServerMemberV1, user::UserLifecycleV1};
+use contracts::events::{channel::ParticipantDeafenedV1, channel::ParticipantMutedV1, channel::ParticipantUndeafenedV1, channel::ParticipantUnmutedV1, server::ServerMemberV1, user::UserLifecycleV1};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
@@ -110,8 +110,12 @@ pub fn spawn<C, W, V, P>(
         let subject = format!("{prefix}.channel.*.participant.muted");
         let extra = vec![
             format!("{prefix}.channel.*.participant.unmuted"),
+            format!("{prefix}.channel.*.participant.deafened"),
+            format!("{prefix}.channel.*.participant.undeafened"),
             format!("{prefix}.channel.participant.muted"),
             format!("{prefix}.channel.participant.unmuted"),
+            format!("{prefix}.channel.participant.deafened"),
+            format!("{prefix}.channel.participant.undeafened"),
         ];
         let dlq = dlq.clone();
         tokio::spawn(async move {
@@ -130,6 +134,12 @@ pub fn spawn<C, W, V, P>(
                             (evt.channel_id, evt.user_id)
                         } else if subject.ends_with(".participant.unmuted") {
                             let evt: ParticipantUnmutedV1 = serde_json::from_slice(&payload)?;
+                            (evt.channel_id, evt.user_id)
+                        } else if subject.ends_with(".participant.deafened") {
+                            let evt: ParticipantDeafenedV1 = serde_json::from_slice(&payload)?;
+                            (evt.channel_id, evt.user_id)
+                        } else if subject.ends_with(".participant.undeafened") {
+                            let evt: ParticipantUndeafenedV1 = serde_json::from_slice(&payload)?;
                             (evt.channel_id, evt.user_id)
                         } else {
                             return Ok(());

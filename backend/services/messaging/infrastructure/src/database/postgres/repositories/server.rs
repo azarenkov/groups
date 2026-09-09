@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
+use chrono::{DateTime, Utc};
 
 use async_trait::async_trait;
 
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
-use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository, server::repository::MutualServer};
+use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::repository::ServerRepository, server::repository::MutualServer};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -252,6 +253,22 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
+        let deafened_rows: Vec<(Uuid, Uuid, Uuid, DateTime<Utc>)> = sqlx::query_as(
+            "SELECT channel_id, user_id, deafened_by, deafened_at FROM channel_deafened_participants WHERE channel_id = ANY($1)",
+        )
+        .bind(&channel_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let mut deafened_by_channel: HashMap<Uuid, HashMap<UserId, ParticipantDeafen>> = HashMap::new();
+        for (channel_id, user_id, deafened_by, deafened_at) in deafened_rows {
+            let user_id = UserId::new(user_id);
+            deafened_by_channel
+                .entry(channel_id)
+                .or_default()
+                .insert(user_id, ParticipantDeafen::new(user_id, UserId::new(deafened_by), deafened_at));
+        }
+
         let mut muted_by_channel: HashMap<Uuid, HashMap<UserId, ParticipantMute>> = HashMap::new();
         for dto in muted_dtos {
             let user_id = UserId::new(dto.user_id);
@@ -336,15 +353,16 @@ impl ServerRepository for PostgresServerRepository {
             .into_iter()
             .map(|dto| {
                 let kind: ChannelKind = dto.kind.into();
-                let (muted, voice, camera, screen) = if kind.supports_voice() {
+                let (muted, deafened, voice, camera, screen) = if kind.supports_voice() {
                     (
                         Some(muted_by_channel.remove(&dto.id).unwrap_or_default()),
+                        Some(deafened_by_channel.remove(&dto.id).unwrap_or_default()),
                         Some(voice_by_channel.remove(&dto.id).unwrap_or_default()),
                         Some(camera_by_channel.remove(&dto.id).unwrap_or_default()),
                         Some(screen_by_channel.remove(&dto.id).unwrap_or_default()),
                     )
                 } else {
-                    (None, None, None, None)
+                    (None, None, None, None, None)
                 };
                 let text = if kind.supports_text() {
                     Some(text_by_channel.remove(&dto.id).unwrap_or_default())
@@ -362,6 +380,7 @@ impl ServerRepository for PostgresServerRepository {
                     dto.created_at,
                     dto.updated_at,
                     muted,
+                    deafened,
                     voice,
                     camera,
                     screen,

@@ -695,6 +695,29 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "channel.participant.deafened":
+    case "channel.participant.undeafened": {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const isDeafened = env.type === "channel.participant.deafened";
+      const deafenedBy = isDeafened ? (asString(d.deafenedBy) ?? undefined) : undefined;
+      useVoicePresenceStore
+        .getState()
+        .setChannelDeafen(channelId, userId, deafenedBy, asString(d.serverId) ?? undefined);
+      const selfId = useAuthStore.getState().user?.id;
+      const actor = asString(d.deafenedBy) ?? asString(d.undeafenedBy);
+      if (userId === selfId && actor && actor !== selfId) {
+        window.dispatchEvent(
+          new CustomEvent(
+            isDeafened ? "rift:moderator-deafen" : "rift:moderator-undeafen",
+            { detail: { channelId, deafenedBy: actor } },
+          ),
+        );
+      }
+      return;
+    }
+
     case "channel.participant.camera.on":
     case "channel.participant.camera.off":
     case "channel.participant.screen.on":

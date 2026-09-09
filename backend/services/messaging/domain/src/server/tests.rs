@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use super::{Server, events::ServerEvent, id::ServerId, name::ServerName, policy::MAX_ROLES_PER_SERVER, policy::PolicyError, role::PERM_ALL, role::PERM_KICK_MEMBERS, role::PERM_MANAGE_ROLES, role::PERM_MUTE_MEMBERS, role::RolePatch, role::ServerRole};
 use domain::user::id::UserId;
+use crate::channel::moderation::ModerationGrant;
 
 struct Fixture {
     server: Server,
@@ -165,6 +166,25 @@ fn owner_cannot_leave_but_members_can() {
     assert_eq!(f.server.leave(&UserId::generate(), Utc::now()).unwrap_err(), PolicyError::NotMember);
     f.server.leave(&f.member, Utc::now()).unwrap();
     assert!(!f.server.is_member(&f.member));
+}
+
+#[test]
+fn deafen_requires_permission_rank_and_never_targets_self_or_owner() {
+    let f = fixture();
+    assert_eq!(f.server.ensure_can_deafen(&f.member, &f.member).unwrap_err(), PolicyError::NotAllowed);
+    assert_eq!(f.server.ensure_can_deafen(&f.moderator, &f.member).unwrap_err(), PolicyError::NotAllowed);
+    assert_eq!(f.server.ensure_can_deafen(&f.admin, &f.owner).unwrap_err(), PolicyError::NotAllowed);
+    assert_eq!(f.server.ensure_can_deafen(&f.owner, &f.owner).unwrap_err(), PolicyError::NotAllowed);
+    assert_eq!(f.server.ensure_can_deafen(&f.owner, &f.member).unwrap(), ModerationGrant::Owner);
+    assert_eq!(
+        f.server.ensure_can_undeafen(&f.member, &f.member, Some(&f.owner)).unwrap_err(),
+        PolicyError::NotAllowed
+    );
+    assert_eq!(
+        f.server.ensure_can_undeafen(&f.admin, &f.member, Some(&f.owner)).unwrap_err(),
+        PolicyError::NotAllowed
+    );
+    assert_eq!(f.server.ensure_can_undeafen(&f.owner, &f.member, Some(&f.admin)).unwrap(), ModerationGrant::Owner);
 }
 
 #[test]

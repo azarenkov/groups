@@ -112,6 +112,8 @@ interface CallState {
   peerId: string | null;
   micMuted: boolean;
   micMuteSeq: number;
+  deafened: boolean;
+  micMutedBeforeDeafen: boolean;
   joinableByPeer: Record<string, string>;
   callError: string | null;
 
@@ -120,6 +122,7 @@ interface CallState {
   setFocused: (focused: boolean) => void;
   flagAttention: () => void;
   setMicMuted: (muted: boolean) => void;
+  setDeafened: (deafened: boolean) => void;
   setCallError: (message: string | null) => void;
   callAvailable: (peerId: string, callId: string) => void;
   clearJoinable: (peerId: string) => void;
@@ -217,6 +220,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
   peerId: null,
   micMuted: false,
   micMuteSeq: 0,
+  deafened: false,
+  micMutedBeforeDeafen: false,
   joinableByPeer: {},
   callError: null,
 
@@ -228,6 +233,19 @@ export const useCallStore = create<CallState>()((set, get) => ({
   setMicMuted: (muted) => {
     getLiveKitService().setMicrophoneMuted(muted);
     set((s) => ({ micMuted: muted, micMuteSeq: s.micMuteSeq + 1 }));
+  },
+  setDeafened: (deafened) => {
+    const s = get();
+    if (s.deafened === deafened) return;
+    getLiveKitService().setDeafened(deafened);
+    if (deafened) {
+      set({ deafened: true, micMutedBeforeDeafen: s.micMuted });
+      if (!s.micMuted) s.setMicMuted(true);
+      return;
+    }
+    const restoreMic = !s.micMutedBeforeDeafen && s.micMuted;
+    set({ deafened: false, micMutedBeforeDeafen: false });
+    if (restoreMic) s.setMicMuted(false);
   },
   setCallError: (callError) => set({ callError }),
   callAvailable: (peerId, callId) =>
@@ -298,7 +316,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
       finalizeCallLog();
-      set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
+      set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
       getLiveKitService()
         .disconnect()
         .catch(() => {});
@@ -415,6 +433,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
         focused: true,
         peerId: peerId ?? null,
         micMuted: false,
+        deafened: false,
+        micMutedBeforeDeafen: false,
       });
       const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
@@ -528,6 +548,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
       focused: true,
       peerId: recipientIds[0] ?? null,
       micMuted: false,
+      deafened: false,
+      micMutedBeforeDeafen: false,
     });
     const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
@@ -615,6 +637,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
         focused: true,
         peerId: inc.callerId,
         micMuted: false,
+        deafened: false,
+        micMutedBeforeDeafen: false,
       });
       const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
@@ -711,7 +735,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
     const log = takeCallLog();
-    set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
+    set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
     if (!keepRoom) {
       await getLiveKitService()
         .disconnect()

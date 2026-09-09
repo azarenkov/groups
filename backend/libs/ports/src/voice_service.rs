@@ -23,23 +23,33 @@ pub trait VoiceService {
         channel_id: &ChannelId,
         user_id: &UserId,
     ) -> Result<(), VoiceServiceError>;
-    async fn create_token_without_microphone(
+    async fn create_token_with_access(
         &self,
         user_id: &UserId,
         username: &UserName,
         channel_id: &ChannelId,
+        access: ParticipantAccess,
     ) -> Result<ChannelToken, VoiceServiceError>;
-    async fn mute_participant(
+    async fn apply_participant_access(
         &self,
         channel_id: &ChannelId,
         user_id: &UserId,
-    ) -> Result<(), VoiceServiceError>;
-    async fn unmute_participant(
-        &self,
-        channel_id: &ChannelId,
-        user_id: &UserId,
+        access: ParticipantAccess,
     ) -> Result<(), VoiceServiceError>;
     fn client_url(&self) -> String;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParticipantAccess {
+    pub can_publish_microphone: bool,
+    pub can_subscribe: bool,
+}
+
+impl ParticipantAccess {
+    pub const FULL: Self = Self {
+        can_publish_microphone: true,
+        can_subscribe: true,
+    };
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -17,6 +17,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const addParticipants = useCallStore((s) => s.addParticipants);
   const muted = useCallStore((s) => s.micMuted);
   const setMicMuted = useCallStore((s) => s.setMicMuted);
+  const deafened = useCallStore((s) => s.deafened);
+  const setDeafened = useCallStore((s) => s.setDeafened);
   const user = useAuthStore((s) => s.user);
   const friends = useFriendshipStore((s) => s.friends);
   const voiceParticipants = useParticipants();
@@ -62,6 +64,13 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       new Set(voiceParticipants.filter((p) => p.isMuted).map((p) => p.identity)),
     [voiceParticipants],
   );
+  const deafenedIds = useMemo(
+    () =>
+      new Set(
+        voiceParticipants.filter((p) => p.isDeafened).map((p) => p.identity),
+      ),
+    [voiceParticipants],
+  );
   const cameraByIdentity = useMemo(() => {
     const m = new Map<string, (typeof videoTiles)[number]>();
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
@@ -87,6 +96,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       initials: initialFor(name),
       speaking: speakingIds.has(id),
       muted: id === selfId ? muted : mutedIds.has(id),
+      deafened: id === selfId ? deafened : deafenedIds.has(id),
+      moderatorDeafened: false,
       camera: cameraByIdentity.get(id) ?? null,
     }));
   }, [
@@ -97,6 +108,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     speakingIds,
     mutedIds,
     muted,
+    deafenedIds,
+    deafened,
     cameraByIdentity,
   ]);
 
@@ -124,6 +137,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       screenTile={screenTile}
       liveName={sharerName}
       isMuted={muted}
+      isDeafened={deafened}
+      onToggleDeafen={() => setDeafened(!deafened)}
       cameraOn={localCameraOn}
       screenOn={localScreenOn}
       onToggleMute={toggleMute}

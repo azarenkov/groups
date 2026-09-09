@@ -84,6 +84,7 @@
   "permManageInvites": "Manage invites",
   "permManageMessages": "Delete others' messages",
   "permMuteMembers": "Mute members",
+  "permDeafenMembers": "Deafen members",
   "permManageRoles": "Manage roles",
   "permManageServer": "Manage server",
   "roleMembers": "Members with this role",
