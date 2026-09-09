@@ -27,3 +27,4 @@ rust-s3 = { workspace = true }
 tokio = { workspace = true, features = ["net", "time"] }
 lettre = "0.11.21"
 urlencoding = "2.1.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

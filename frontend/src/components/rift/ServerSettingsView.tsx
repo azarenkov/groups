@@ -523,7 +523,15 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
       setTimeout(() => setSaved(false), 1600);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setSaveError(apiErr?.message || t("common:error"));
+      if (apiErr?.code === "SERVER_NAME_NOT_ALLOWED") {
+        setSaveError(t("nameNotAllowed"));
+      } else if (apiErr?.code === "SERVER_DESCRIPTION_NOT_ALLOWED") {
+        setSaveError(t("descriptionNotAllowed"));
+      } else if (apiErr?.code === "MODERATION_UNAVAILABLE") {
+        setSaveError(t("moderationUnavailable"));
+      } else {
+        setSaveError(apiErr?.message || t("common:error"));
+      }
     } finally {
       setSaving(false);
     }

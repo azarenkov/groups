@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
+import { ApiError } from "../utils/apiError";
 import "../styles/rift.css";
 
 export type ServerModalView = "choose" | "create" | "join";
@@ -122,11 +123,20 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
       resetAll();
       onClose();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : t("common:error", { defaultValue: "Error" }),
-      );
+      const apiErr = err instanceof ApiError ? err : null;
+      if (apiErr?.code === "SERVER_NAME_NOT_ALLOWED") {
+        setError(t("createServer.nameNotAllowed"));
+      } else if (apiErr?.code === "SERVER_DESCRIPTION_NOT_ALLOWED") {
+        setError(t("createServer.descriptionNotAllowed"));
+      } else if (apiErr?.code === "MODERATION_UNAVAILABLE") {
+        setError(t("createServer.moderationUnavailable"));
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("common:error", { defaultValue: "Error" }),
+        );
+      }
     } finally {
       setIsLoading(false);
     }

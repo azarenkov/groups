@@ -88,6 +88,8 @@
     "about": "About me",
     "aboutPlaceholder": "Tell others a bit about yourself…",
     "bioError": "Couldn't save your bio.",
+    "bioNotAllowed": "This bio isn't allowed.",
+    "moderationUnavailable": "Text moderation is temporarily unavailable. Try again later.",
     "showActivity": "Show activity",
     "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a server still see who is in its voice channels.",
     "showGameActivity": "Show game activity",

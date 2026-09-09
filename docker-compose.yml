@@ -252,6 +252,7 @@ services:
       SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
       SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NSFW_DETECTOR_URL: ${NSFW_DETECTOR_URL-http://nsfw-detector:8000}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_BUCKET: ${MINIO_BUCKET:-rift-attachments}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}

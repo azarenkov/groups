@@ -11,7 +11,7 @@ from PIL import Image
 from transformers import pipeline
 
 MAX_BODY_BYTES = 16 * 1024 * 1024
-TEXT_MAX_LEN = 100
+TEXT_MAX_LEN = 2000
 TEXT_TOXICITY_THRESHOLD = float(os.environ.get("TEXT_TOXICITY_THRESHOLD", "0.8"))
 
 BLOCKED_LABELS = [

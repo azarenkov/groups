@@ -168,7 +168,13 @@ function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
       return true;
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setBioError(apiErr?.message || t("account.bioError"));
+      if (apiErr?.code === "BIO_NOT_ALLOWED") {
+        setBioError(t("account.bioNotAllowed"));
+      } else if (apiErr?.code === "MODERATION_UNAVAILABLE") {
+        setBioError(t("account.moderationUnavailable"));
+      } else {
+        setBioError(apiErr?.message || t("account.bioError"));
+      }
       return false;
     } finally {
       setBioBusy(false);

@@ -835,6 +835,8 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::BioTooLong => StatusCode::BAD_REQUEST,
             UpdateProfileError::UserNotFound => StatusCode::NOT_FOUND,
             UpdateProfileError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
+            UpdateProfileError::BioNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
+            UpdateProfileError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -843,6 +845,10 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::BioTooLong => "Bio must be at most 190 characters".to_string(),
             UpdateProfileError::UserNotFound => "User not found".to_string(),
             UpdateProfileError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
+            UpdateProfileError::BioNotAllowed => "Bio is not allowed".to_string(),
+            UpdateProfileError::ModerationUnavailable(_) => {
+                "Content moderation is temporarily unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -851,6 +857,8 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::BioTooLong => "BIO_TOO_LONG",
             UpdateProfileError::UserNotFound => "USER_NOT_FOUND",
             UpdateProfileError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
+            UpdateProfileError::BioNotAllowed => "BIO_NOT_ALLOWED",
+            UpdateProfileError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
         }
     }
 }

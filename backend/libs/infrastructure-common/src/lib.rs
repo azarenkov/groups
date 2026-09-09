@@ -4,6 +4,7 @@ pub mod hasher;
 pub mod health;
 pub mod mailer;
 pub mod messaging;
+pub mod moderation;
 pub mod observability;
 pub mod outbox;
 pub use ports;
