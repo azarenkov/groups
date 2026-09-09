@@ -16,7 +16,7 @@ import { currentLocale } from "../../i18n";
 
 interface Props {
   onOpenDm: (userId: string, name?: string) => void;
-  onCall: (userId: string) => void;
+  onCall: (userId: string, video?: boolean) => void;
   onRemoveFriend: (userId: string, name: string) => void;
 }
 
@@ -263,6 +263,10 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
               <button type="button" className="profile-btn" disabled={!canCall} onClick={() => { close(); onCall(userId); }}>
                 <Icon name="phone" size={15} />
                 {t("call")}
+              </button>
+              <button type="button" className="profile-btn" disabled={!canCall} onClick={() => { close(); onCall(userId, true); }}>
+                <Icon name="video" size={15} />
+                {t("videoCall")}
               </button>
               <div className="profile-more" ref={menuRef}>
                 <button type="button" className="profile-btn icon" aria-label={t("more")} onClick={() => setMenuOpen((v) => !v)}>

@@ -4248,6 +4248,7 @@ textarea.s-input {
   70% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--success, #3ba55d) 0%, transparent); }
 }
 .ic-btn.decline { background: var(--danger, #e5484d); }
+.ic-btn.accept.secondary { background: var(--surface-panel); color: var(--fg-1); border: 1px solid var(--hairline-strong); }
 .ic-btn.decline svg { transform: rotate(135deg); }
 
 .acb-add {

@@ -1,5 +1,10 @@
 {
   "incoming": "Incoming call",
+  "incomingVideo": "Incoming video call",
+  "acceptWithVideo": "Accept with video",
+  "acceptAudioOnly": "Accept audio only",
+  "videoCall": "Video call",
+  "cameraUnavailable": "Camera unavailable, continuing with audio only",
   "accept": "Accept",
   "decline": "Decline",
   "mute": "Mute",

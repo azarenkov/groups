@@ -23,6 +23,7 @@
   "reply": "Reply",
   "copyText": "Copy text",
   "voiceCallInvite": "Voice call invite",
+  "videoCallInvite": "Video call",
   "joinCall": "Join call",
   "callEnded": "Call ended",
   "notFriends": "This user only accepts messages from friends. Add them as a friend first.",

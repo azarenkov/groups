@@ -1,5 +1,10 @@
 {
   "incoming": "Входящий звонок",
+  "incomingVideo": "Входящий видеозвонок",
+  "acceptWithVideo": "Принять с видео",
+  "acceptAudioOnly": "Принять только со звуком",
+  "videoCall": "Видеозвонок",
+  "cameraUnavailable": "Камера недоступна, звонок продолжится без видео",
   "accept": "Принять",
   "decline": "Отклонить",
   "mute": "Заглушить",

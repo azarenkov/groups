@@ -620,7 +620,9 @@ function dispatch(env: WsEnvelope) {
       const callerId = asString(d.callerId);
       if (!callId || !callerId) return;
       const callerName = asString(d.callerName) ?? callerId;
-      useCallStore.getState().setIncoming({ callId, callerId, callerName });
+      useCallStore
+        .getState()
+        .setIncoming({ callId, callerId, callerName, video: d.video === true });
       return;
     }
 

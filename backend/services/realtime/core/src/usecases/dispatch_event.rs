@@ -572,6 +572,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "callId": evt.call_id,
                 "callerId": evt.actor_id,
                 "callerName": caller_name,
+                "video": evt.video,
             }),
         );
         publisher

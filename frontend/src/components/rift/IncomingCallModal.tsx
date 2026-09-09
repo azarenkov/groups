@@ -89,7 +89,7 @@ const IncomingCallModal: React.FC = () => {
         <div className="ic-name">{incoming.callerName}</div>
         <div className="ic-sub">
           <span className="ic-sub-dot" />
-          {t("incoming")}
+          {incoming.video ? t("incomingVideo") : t("incoming")}
         </div>
       </div>
       <div className="ic-actions">
@@ -103,12 +103,22 @@ const IncomingCallModal: React.FC = () => {
         </button>
         <button
           type="button"
-          className="ic-btn accept"
-          onClick={() => accept()}
-          title={t("accept")}
+          className={"ic-btn accept" + (incoming.video ? " secondary" : "")}
+          onClick={() => accept(false)}
+          title={incoming.video ? t("acceptAudioOnly") : t("accept")}
         >
           <Icon name="phone" size={17} />
         </button>
+        {incoming.video && (
+          <button
+            type="button"
+            className="ic-btn accept"
+            onClick={() => accept(true)}
+            title={t("acceptWithVideo")}
+          >
+            <Icon name="video" size={17} />
+          </button>
+        )}
       </div>
     </div>
   );

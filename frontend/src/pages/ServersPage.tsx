@@ -933,7 +933,7 @@ const ServersPage: React.FC = () => {
     });
   };
 
-  const handleCallFromHome = (friendId: string) => {
+  const handleCallFromHome = (friendId: string, video = false) => {
     handleOpenDmFromHome(friendId);
     const cs = useCallStore.getState();
     const inCallWithFriend =
@@ -945,7 +945,7 @@ const ServersPage: React.FC = () => {
       cs.setFocused(true);
       return;
     }
-    cs.start([friendId]).catch((e) => {
+    cs.start([friendId], { video }).catch((e) => {
       const apiErr = e instanceof ApiError ? e : null;
       useCallStore.getState().setCallError(
         apiErr?.code === "CALL_NOT_ALLOWED"

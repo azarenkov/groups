@@ -37,6 +37,7 @@ pub struct StartCallResult {
     pub token: ChannelToken,
     pub url: String,
     pub participants: Vec<CallParticipantView>,
+    pub video: bool,
 }
 
 pub struct StartCall<C, V, F, U>
@@ -130,11 +131,13 @@ where
             user_name: caller_name.as_str().to_string(),
         }];
 
+        let video = request.video;
         self.call_repository
             .start_call(
                 call_id,
                 &caller_id,
                 &invitees,
+                video,
                 Utc::now(),
                 request.ctx.request_id.clone(),
             )
@@ -153,6 +156,7 @@ where
             token,
             url: self.voice_service.client_url(),
             participants,
+            video,
         })
     }
 }

@@ -76,7 +76,29 @@ export interface IncomingCall {
   callId: string;
   callerId: string;
   callerName: string;
+  video: boolean;
 }
+
+export interface StartCallOptions {
+  video?: boolean;
+}
+
+const enableCameraOrFallback = async (callId: string): Promise<void> => {
+  const service = getLiveKitService();
+  if (useCallStore.getState().activeCallId !== callId || service.getActiveRoomName() !== callId) {
+    return;
+  }
+  try {
+    await service.setCameraEnabled(true);
+  } catch (e) {
+    console.warn("[call] camera unavailable, continuing audio-only:", e);
+    if (useCallStore.getState().activeCallId === callId) {
+      useCallStore
+        .getState()
+        .setCallError(i18n.t("cameraUnavailable", { ns: "call" }));
+    }
+  }
+};
 
 interface CallState {
   incoming: IncomingCall | null;
@@ -106,8 +128,8 @@ interface CallState {
 
   rehydrate: () => Promise<void>;
   joinCall: (callId: string, peerId?: string) => Promise<void>;
-  start: (recipientIds: string[]) => Promise<void>;
-  accept: () => Promise<void>;
+  start: (recipientIds: string[], options?: StartCallOptions) => Promise<void>;
+  accept: (withVideo?: boolean) => Promise<void>;
   decline: () => Promise<void>;
   leave: (keepRoom?: boolean) => Promise<void>;
   addParticipants: (recipientIds: string[]) => Promise<void>;
@@ -442,7 +464,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
   },
 
-  start: async (recipientIds) => {
+  start: async (recipientIds, options) => {
     if (get().activeCallId) {
       if (recipientIds.length === 1) {
         try {
@@ -464,7 +486,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     });
     const initiatorId = initiator.userId;
-    const session = await callAPI.start(recipientIds).catch((e) => {
+    const session = await callAPI.start(recipientIds, options?.video === true).catch((e) => {
       set({ connecting: false });
       throw e;
     });
@@ -550,9 +572,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
     set({ connecting: false });
     if (!synced) armFallbackMuteRelease(initiatorId, callId, muteSeqBeforeWait);
+    if (options?.video) await enableCameraOrFallback(callId);
   },
 
-  accept: async () => {
+  accept: async (withVideo = false) => {
     const inc = get().incoming;
     if (!inc) return;
     if (get().activeCallId) await get().leave();
@@ -631,6 +654,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       }
       set({ connecting: false });
       if (!synced) armFallbackMuteRelease(initiatorId, inc.callId, muteSeqBeforeWait);
+      if (withVideo) await enableCameraOrFallback(inc.callId);
     } catch (e) {
       set({ connecting: false });
       throw e;
