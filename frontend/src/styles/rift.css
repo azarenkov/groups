@@ -4176,7 +4176,8 @@ textarea.s-input {
   position: fixed;
   top: 52px; right: 16px;
   z-index: 1200;
-  width: 340px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
   display: flex; align-items: center;
   gap: 14px;
   padding: 14px;
@@ -4220,6 +4221,7 @@ textarea.s-input {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ic-sub {
+  white-space: nowrap;
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--fg-3); line-height: 1.3;
 }
