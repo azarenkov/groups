@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use infrastructure_common::health::Liveness;
 use std::time::Duration;
 
 use async_nats::jetstream::{Context, kv};
@@ -45,8 +46,12 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
     replicas: usize,
     dispatch: Arc<DispatchEvent<D, P>>,
     mut shutdown: watch::Receiver<bool>,
+    liveness: Liveness,
+    stale_after: Duration,
 ) {
     let instance = uuid::Uuid::new_v4().to_string();
+    let heartbeat = liveness.register(stale_after);
+    let beat = || heartbeat.beat();
     let store = loop {
         match ensure_bucket(&jetstream, replicas).await {
             Ok(store) => break store,
@@ -54,11 +59,16 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
                 tracing::warn!(error = %e, "Failed to open partition lease bucket; retrying");
             }
         }
+        beat();
         tokio::select! {
-            _ = shutdown.changed() => return,
-            _ = tokio::time::sleep(TICK) => {}
+            _ = shutdown.changed() => {
+                liveness.release(&heartbeat);
+                return;
+            }
+            _ = heartbeat.keep_alive_for(TICK) => {}
         }
         if *shutdown.borrow() {
+            liveness.release(&heartbeat);
             return;
         }
     };
@@ -66,6 +76,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
 
     let mut owned: HashMap<u32, OwnedPartition> = HashMap::new();
     loop {
+        beat();
         tick(
             &jetstream,
             &store,
@@ -75,12 +86,14 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
             &instance,
             &dispatch,
             &mut owned,
+            &liveness,
+            stale_after,
         )
         .await;
 
         tokio::select! {
             _ = shutdown.changed() => break,
-            _ = tokio::time::sleep(TICK) => {}
+            _ = heartbeat.keep_alive_for(TICK) => {}
         }
         if *shutdown.borrow() {
             break;
@@ -98,6 +111,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
     )
     .await;
     let _ = store.purge(format!("{MEMBER_PREFIX}{instance}")).await;
+    liveness.release(&heartbeat);
     tracing::info!(%instance, "Partition manager stopped");
 }
 
@@ -128,6 +142,8 @@ async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimeP
     instance: &str,
     dispatch: &Arc<DispatchEvent<D, P>>,
     owned: &mut HashMap<u32, OwnedPartition>,
+    liveness: &Liveness,
+    stale_after: Duration,
 ) {
     if let Err(e) = store
         .put(format!("{MEMBER_PREFIX}{instance}"), instance.to_string().into_bytes().into())
@@ -182,6 +198,8 @@ async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimeP
             tracing::info!(partition, "Partition acquired");
             let state = start_partition(
                 jetstream, cfg, subject_prefix, partition, revision, dispatch,
+                liveness,
+                stale_after,
             );
             owned.insert(partition, state);
         }
@@ -212,6 +230,7 @@ async fn list_members(store: &kv::Store) -> Result<Vec<String>, async_nats::Erro
     Ok(members)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static>(
     jetstream: &Context,
     cfg: &DispatcherSettings,
@@ -219,6 +238,8 @@ fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: Real
     partition: u32,
     revision: u64,
     dispatch: &Arc<DispatchEvent<D, P>>,
+    liveness: &Liveness,
+    stale_after: Duration,
 ) -> OwnedPartition {
     let (tx, rx) = watch::channel(false);
     let mut handles = Vec::new();
@@ -226,8 +247,11 @@ fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: Real
         let jetstream = jetstream.clone();
         let dispatch = dispatch.clone();
         let rx = rx.clone();
+        let heartbeat = liveness.register(stale_after);
+        let liveness = liveness.clone();
         handles.push(actix_web::rt::spawn(async move {
-            run_consumer(jetstream, spec, dispatch, rx).await;
+            run_consumer(jetstream, spec, dispatch, rx, heartbeat.clone()).await;
+            liveness.release(&heartbeat);
         }));
     }
     OwnedPartition {

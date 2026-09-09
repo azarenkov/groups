@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use infrastructure_common::health::Heartbeat;
 use ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use futures::StreamExt;
 use tracing::Instrument;
@@ -19,9 +22,13 @@ pub async fn run_catchup<R: RealtimeProjection + 'static>(
     spec: CatchupSpec,
     apply: Arc<ApplyProjection<R>>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
+    heartbeat: Heartbeat,
 ) {
     let consumer = NatsEventConsumer::new(jetstream, spec.stream.clone());
+    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
+    pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
+        heartbeat.beat();
         if *shutdown.borrow() {
             return;
         }
@@ -42,8 +49,10 @@ pub async fn run_catchup<R: RealtimeProjection + 'static>(
                     "Projection catch-up consumer subscribed",
                 );
                 loop {
+                    heartbeat.beat();
                     tokio::select! {
                         _ = shutdown.changed() => return,
+                        _ = pulse.tick() => {}
                         msg = messages.next() => {
                             match msg {
                                 Some(Ok(m)) => {
@@ -81,6 +90,9 @@ pub async fn run_catchup<R: RealtimeProjection + 'static>(
                 tracing::warn!(error = %e, "Projection catch-up subscribe failed; retrying");
             }
         }
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        tokio::select! {
+            _ = shutdown.changed() => return,
+            _ = heartbeat.keep_alive_for(Duration::from_secs(5)) => {}
+        }
     }
 }

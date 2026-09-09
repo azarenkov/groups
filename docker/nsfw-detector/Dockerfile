@@ -14,9 +14,14 @@ RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(
 RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('cointegrated/rubert-tiny-toxicity', local_dir='/ru-toxicity')"
 
 ENV HF_HUB_OFFLINE=1 \
-    TRANSFORMERS_OFFLINE=1
+    TRANSFORMERS_OFFLINE=1 \
+    HF_HOME=/tmp/hf
+
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin rift
 
 COPY backend/nsfw-detector/app.py /app/app.py
+
+USER 10001:10001
 
 EXPOSE 8000
 

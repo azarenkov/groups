@@ -10,8 +10,9 @@ use infrastructure_common::{
     },
     outbox::dispatcher::OutboxDispatcher,
 };
-use api_common::health::{self, Readiness};
-use tokio::signal;
+use api_common::health::{self, Heartbeat, Liveness, Readiness};
+use api_common::shutdown::wait_for_signal;
+use tokio::sync::watch;
 
 use crate::config::WorkerConfig;
 
@@ -19,6 +20,9 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    if let Some(code) = api_common::health::run_probe_from_args() {
+        std::process::exit(code);
+    }
     infrastructure_common::observability::init("outbox-worker");
 
     let worker_config = WorkerConfig::from_env()?;
@@ -44,7 +48,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let health_server = health::bind(worker_config.health_port, readiness.clone())?;
+    let heartbeat = Heartbeat::new(Duration::from_secs(worker_config.outbox_liveness_stale_secs));
+    let health_server = health::bind(
+        worker_config.health_port,
+        readiness.clone(),
+        Liveness::default().watch(heartbeat.clone()),
+    )?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -90,41 +100,46 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cleanup_batch_size,
     ));
 
-    let shutdown = signal::ctrl_c();
-    tokio::pin!(shutdown);
+    let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+    actix_web::rt::spawn({
+        let readiness = readiness.clone();
+        async move {
+            wait_for_signal().await;
+            readiness.mark_not_ready();
+            let _ = shutdown_tx.send(true);
+        }
+    });
 
     loop {
-        tokio::select! {
-            _ = &mut shutdown => {
-                tracing::info!("Shutdown signal received, exiting");
-                break;
+        heartbeat.beat();
+        if *shutdown_rx.borrow() {
+            tracing::info!("Shutdown requested, exiting");
+            break;
+        }
+        match run_batch(&dispatcher, batch_size, &heartbeat, &shutdown_rx).await {
+            Ok(0) => {
+                tokio::select! {
+                    _ = shutdown_rx.changed() => {
+                        tracing::info!("Shutdown requested during idle, exiting");
+                        break;
+                    }
+                    _ = heartbeat.keep_alive_for(idle_interval) => {}
+                }
             }
-            result = run_batch(&dispatcher, batch_size) => {
-                match result {
-                    Ok(0) => {
-                        tokio::select! {
-                            _ = &mut shutdown => {
-                                tracing::info!("Shutdown signal received during idle, exiting");
-                                break;
-                            }
-                            _ = tokio::time::sleep(idle_interval) => {}
-                        }
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        tracing::error!(error = %e, "Outbox batch failed, backing off");
-                        tokio::select! {
-                            _ = &mut shutdown => break,
-                            _ = tokio::time::sleep(idle_interval) => {}
-                        }
-                    }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::error!(error = %e, "Outbox batch failed, backing off");
+                tokio::select! {
+                    _ = shutdown_rx.changed() => break,
+                    _ = heartbeat.keep_alive_for(idle_interval) => {}
                 }
             }
         }
     }
 
     cleanup_handle.abort();
-    health_handle.abort();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
 
     Ok(())
 }
@@ -132,16 +147,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn run_batch<P>(
     dispatcher: &OutboxDispatcher<P>,
     batch_size: u32,
+    heartbeat: &Heartbeat,
+    shutdown: &watch::Receiver<bool>,
 ) -> Result<usize, Box<dyn Error>>
 where
     P: OutboxPublisher,
 {
     let mut processed = 0usize;
     for _ in 0..batch_size {
+        if *shutdown.borrow() {
+            break;
+        }
         if !dispatcher.process_one().await? {
             break;
         }
         processed += 1;
+        heartbeat.beat();
     }
     Ok(processed)
 }

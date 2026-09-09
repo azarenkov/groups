@@ -1,0 +1,74 @@
+{{- if .Values.nsfwDetector.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nsfw-detector
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nsfw-detector
+spec:
+  replicas: {{ .Values.nsfwDetector.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" . "component" "nsfw-detector") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rift.selectorLabels" (dict "root" . "component" "nsfw-detector") | nindent 8 }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.shutdown.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "rift.podSecurityContext" . | nindent 8 }}
+      {{- include "rift.podScheduling" . | nindent 6 }}
+      containers:
+        - name: nsfw-detector
+          image: {{ include "rift.image" (dict "root" . "service" "nsfw-detector") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: TEXT_TOXICITY_THRESHOLD
+              value: {{ .Values.config.TEXT_TOXICITY_THRESHOLD | toString | quote }}
+            {{- range $key, $value := .Values.nsfwDetector.env }}
+            - name: {{ $key }}
+              value: {{ $value | toString | quote }}
+            {{- end }}
+          {{- include "rift.probes" (dict "root" . "readyPort" "http" "startupFailureThreshold" .Values.nsfwDetector.startupFailureThreshold) | nindent 10 }}
+          {{- include "rift.preStop" . | nindent 10 }}
+          securityContext:
+            {{- include "rift.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.nsfwDetector.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsfw-detector
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nsfw-detector
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rift.selectorLabels" (dict "root" . "component" "nsfw-detector") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+{{- end }}

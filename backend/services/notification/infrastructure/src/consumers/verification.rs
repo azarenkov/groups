@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use api_common::health::Heartbeat;
 use api_common::middleware::request_id::REQUEST_ID;
 use contracts::events::user::VerificationIssuedV1;
 use domain::user::{email::Email, locale::Locale};
@@ -22,6 +23,7 @@ pub async fn run<M: Mailer>(
     spec: VerificationConsumerSpec,
     usecase: Arc<SendVerificationEmail<M>>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
+    heartbeat: Heartbeat,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let filter_subject = format!("{}.user.verification.issued", spec.subject_prefix);
     let partitioned_filter_subject = format!("{}.user.*.verification.issued", spec.subject_prefix);
@@ -49,9 +51,13 @@ pub async fn run<M: Mailer>(
         "Verification consumer subscribed",
     );
 
+    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
+    pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
+        heartbeat.beat();
         tokio::select! {
             _ = shutdown.changed() => return Ok(()),
+            _ = pulse.tick() => {}
             msg = messages.next() => {
                 match msg {
                     Some(Ok(msg)) => {

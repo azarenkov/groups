@@ -1,4 +1,5 @@
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use api_common::shutdown::{self, ShutdownConfig};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use std::{error::Error, sync::Arc};
@@ -228,9 +229,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         })
         .build();
     readiness.mark_ready();
-    let readiness_data = web::Data::new(readiness);
+    let readiness_data = web::Data::new(readiness.clone());
+    let shutdown_config = ShutdownConfig::from_env();
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
             .allow_any_method()
@@ -248,9 +250,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .wrap(cors)
             .configure(routes::configure)
     })
+    .disable_signals()
+    .shutdown_timeout(shutdown_config.shutdown_timeout.as_secs())
     .bind((server_config.host, server_config.port))?
-    .run()
-    .await?;
+    .run();
+    shutdown::serve(server, readiness, shutdown_config).await?;
 
     Ok(())
 }

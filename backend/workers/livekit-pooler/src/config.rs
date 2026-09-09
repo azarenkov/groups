@@ -12,6 +12,8 @@ pub struct PoolerConfig {
     pub livekit_pooler_max_aborts_per_pass: usize,
     #[serde(default = "default_health_port")]
     pub livekit_pooler_health_port: u16,
+    #[serde(default = "default_liveness_stale_secs")]
+    pub livekit_pooler_liveness_stale_secs: u64,
 }
 
 impl PoolerConfig {
@@ -39,4 +41,8 @@ fn default_max_aborts_per_pass() -> usize {
 
 fn default_health_port() -> u16 {
     8086
+}
+
+fn default_liveness_stale_secs() -> u64 {
+    120
 }

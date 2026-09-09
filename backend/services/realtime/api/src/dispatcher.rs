@@ -5,10 +5,11 @@ use infrastructure_common::{
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
-use api_common::health::{self, Readiness};
-use tokio::{signal, sync::watch};
+use api_common::health::{self, Liveness, Readiness};
+use api_common::shutdown::{ShutdownConfig, ShutdownSignal};
+use tokio::sync::watch;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use realtime_core::usecases::{apply_projection::ApplyProjection, dispatch_event::DispatchEvent};
 use realtime_infrastructure::{
@@ -22,7 +23,7 @@ use realtime_infrastructure::{
 
 use crate::config::DispatcherConfig;
 
-pub async fn run() -> Result<(), Box<dyn Error>> {
+pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let cfg = DispatcherConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
     let pg_cfg = PostgresConfig::from_env()?;
@@ -64,7 +65,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .build()
     };
 
-    let health_server = health::bind(cfg.dispatcher_health_port, readiness.clone())?;
+    let stale_after = Duration::from_secs(cfg.dispatcher_liveness_stale_secs);
+    let liveness = Liveness::default();
+    let health_server = health::bind(cfg.dispatcher_health_port, readiness.clone(), liveness.clone())?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -84,8 +88,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let replicas = nats_cfg.replicas;
         let dispatch = dispatch.clone();
         let rx = shutdown_rx.clone();
+        let liveness = liveness.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
-            run_partitioned(jetstream, settings, prefix, partitions, replicas, dispatch, rx).await;
+            run_partitioned(
+                jetstream, settings, prefix, partitions, replicas, dispatch, rx, liveness, stale_after,
+            )
+            .await;
         }));
     }
 
@@ -108,22 +116,30 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let jetstream = jetstream.clone();
         let apply = apply.clone();
         let rx = shutdown_rx.clone();
+        let heartbeat = liveness.register(stale_after);
+        let liveness = liveness.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
-            run_catchup(jetstream, spec, apply, rx).await;
+            run_catchup(jetstream, spec, apply, rx, heartbeat.clone()).await;
+            liveness.release(&heartbeat);
         }));
     }
 
     tracing::info!("Event dispatcher started");
     readiness.mark_ready();
 
-    signal::ctrl_c().await?;
-    tracing::info!("Shutdown signal received, stopping consumers");
-
+    shutdown.wait().await;
+    readiness.mark_not_ready();
     let _ = shutdown_tx.send(true);
-    for h in consumer_handles {
-        let _ = h.await;
-    }
-    health_handle.abort();
+    tracing::info!("Stopping consumers");
+    let drain_delay = tokio::time::sleep(ShutdownConfig::from_env().drain_delay);
+    let consumers_done = async {
+        for h in consumer_handles {
+            let _ = h.await;
+        }
+    };
+    tokio::join!(consumers_done, drain_delay);
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
 
     Ok(())
 }

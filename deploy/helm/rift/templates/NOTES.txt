@@ -1,0 +1,12 @@
+Rift {{ .Chart.Version }} deployed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Gateway service: {{ .Release.Name }}-gateway (port {{ .Values.gateway.service.port }})
+{{- if .Values.gateway.ingress.enabled }}
+Ingress host: {{ .Values.gateway.ingress.host }}
+{{- end }}
+
+Probes: every pod exposes /readyz and /livez; startup probes allow up to
+{{ mul .Values.probes.startup.periodSeconds .Values.probes.startup.failureThreshold }}s for migrations
+(nsfw-detector: {{ mul .Values.probes.startup.periodSeconds .Values.nsfwDetector.startupFailureThreshold }}s for model loading).
+
+Secrets are read from {{ include "rift.secretName" . }}; set secrets.existingSecret to manage them outside Helm.

@@ -48,9 +48,10 @@ RUN apt-get update && apt-get install -y \
     libva2 \
     libdrm2 \
     libgcc-s1 \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin rift
 
 COPY --from=builder /rift/target/release/realtime /usr/local/bin/realtime
+USER 10001:10001
 ENTRYPOINT ["realtime"]
 EXPOSE 8083

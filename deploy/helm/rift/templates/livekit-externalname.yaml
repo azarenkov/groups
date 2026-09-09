@@ -1,0 +1,12 @@
+{{- if .Values.livekit.externalName }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: livekit
+spec:
+  type: ExternalName
+  externalName: {{ .Values.livekit.externalName }}
+{{- end }}

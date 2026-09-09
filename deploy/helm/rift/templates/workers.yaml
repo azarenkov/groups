@@ -1,0 +1,52 @@
+{{- range $name, $worker := .Values.workers }}
+{{- if $worker.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "rift.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  replicas: {{ $worker.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" $ "component" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rift.selectorLabels" (dict "root" $ "component" $name) | nindent 8 }}
+      annotations:
+        {{- include "rift.checksums" $ | nindent 8 }}
+        {{- with $.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ $.Values.shutdown.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "rift.podSecurityContext" $ | nindent 8 }}
+      {{- include "rift.podScheduling" $ | nindent 6 }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "rift.image" (dict "root" $ "service" $name) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - name: health
+              containerPort: {{ $worker.healthPort }}
+          env:
+            {{- range $key, $value := $worker.env }}
+            - name: {{ $key }}
+              value: {{ $value | toString | quote }}
+            {{- end }}
+          {{- include "rift.envFrom" $ | nindent 10 }}
+          {{- include "rift.probes" (dict "root" $ "readyPort" "health") | nindent 10 }}
+          {{- include "rift.preStop" $ | nindent 10 }}
+          securityContext:
+            {{- include "rift.containerSecurityContext" $ | nindent 12 }}
+          resources:
+            {{- toYaml $worker.resources | nindent 12 }}
+{{- end }}
+{{- end }}

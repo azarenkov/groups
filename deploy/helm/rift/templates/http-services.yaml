@@ -1,0 +1,75 @@
+{{- range $name, $svc := .Values.httpServices }}
+{{- if $svc.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "rift.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  replicas: {{ $svc.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" $ "component" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rift.selectorLabels" (dict "root" $ "component" $name) | nindent 8 }}
+      annotations:
+        {{- include "rift.checksums" $ | nindent 8 }}
+        {{- with $.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ $.Values.shutdown.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "rift.podSecurityContext" $ | nindent 8 }}
+      {{- include "rift.podScheduling" $ | nindent 6 }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "rift.image" (dict "root" $ "service" $name) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8080"
+            {{- range $key, $value := $svc.env }}
+            - name: {{ $key }}
+              value: {{ $value | toString | quote }}
+            {{- end }}
+          {{- include "rift.envFrom" $ | nindent 10 }}
+          {{- include "rift.probes" (dict "root" $ "readyPort" "http") | nindent 10 }}
+          {{- include "rift.preStop" $ | nindent 10 }}
+          securityContext:
+            {{- include "rift.containerSecurityContext" $ | nindent 12 }}
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "rift.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rift.selectorLabels" (dict "root" $ "component" $name) | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- end }}
+{{- end }}

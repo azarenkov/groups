@@ -1,6 +1,8 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
-use api_common::health::{self, Readiness};
+use api_common::health::{self, Heartbeat, Liveness, Readiness};
+use api_common::shutdown::wait_for_signal;
+use tokio::sync::watch;
 use infrastructure_common::config::{livekit::LiveKitConfig, postgres::PostgresConfig};
 use messaging::usecases::channel::{
     abort_voice_connection::AbortVoiceConnection, reconcile_voice_presence::ReconcileVoicePresence,
@@ -13,14 +15,15 @@ use messaging_infrastructure::{
     },
     voice::livekit_room_inspector::LiveKitRoomInspector,
 };
-use tokio::signal;
-
 use crate::config::PoolerConfig;
 
 mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    if let Some(code) = api_common::health::run_probe_from_args() {
+        std::process::exit(code);
+    }
     infrastructure_common::observability::init("livekit-pooler");
 
     let pooler_config = PoolerConfig::from_env()?;
@@ -38,8 +41,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let health_server =
-        health::bind(pooler_config.livekit_pooler_health_port, readiness.clone())?;
+    let heartbeat = Heartbeat::new(Duration::from_secs(
+        pooler_config.livekit_pooler_liveness_stale_secs,
+    ));
+    let health_server = health::bind(
+        pooler_config.livekit_pooler_health_port,
+        readiness.clone(),
+        Liveness::default().watch(heartbeat.clone()),
+    )?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -73,11 +83,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     readiness.mark_ready();
 
-    let shutdown = signal::ctrl_c();
-    tokio::pin!(shutdown);
+    let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+    actix_web::rt::spawn({
+        let readiness = readiness.clone();
+        async move {
+            wait_for_signal().await;
+            readiness.mark_not_ready();
+            let _ = shutdown_tx.send(true);
+        }
+    });
 
     loop {
-        match reconcile.execute().await {
+        heartbeat.beat();
+        if *shutdown_rx.borrow() {
+            tracing::info!("Shutdown requested, exiting");
+            break;
+        }
+        let checkpoint = || {
+            heartbeat.beat();
+            !*shutdown_rx.borrow()
+        };
+        match reconcile.execute_with_checkpoint(&checkpoint).await {
             Ok(summary) => {
                 if summary.db_entries_checked > 0
                     || summary.aborted > 0
@@ -103,14 +129,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
 
         tokio::select! {
-            _ = &mut shutdown => {
-                tracing::info!("Shutdown signal received, exiting");
+            _ = shutdown_rx.changed() => {
+                tracing::info!("Shutdown requested, exiting");
                 break;
             }
-            _ = tokio::time::sleep(interval) => {}
+            _ = heartbeat.keep_alive_for(interval) => {}
         }
     }
 
-    health_handle.abort();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
     Ok(())
 }

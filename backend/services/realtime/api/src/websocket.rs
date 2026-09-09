@@ -7,8 +7,8 @@ use infrastructure_common::{
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
-use api_common::health::{self, Readiness};
-use tokio::signal;
+use api_common::health::{self, Liveness, Readiness};
+use api_common::shutdown::{ShutdownConfig, ShutdownSignal, drain};
 
 use std::sync::Arc;
 
@@ -19,7 +19,7 @@ use crate::{
     ws::{WsState, presence_preference, ws_handler},
 };
 
-pub async fn run() -> Result<(), Box<dyn Error>> {
+pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let cfg = WebsocketConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
     let pg_cfg = PostgresConfig::from_env()?;
@@ -68,7 +68,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .build()
     };
 
-    let health_server = health::bind(cfg.websocket_health_port, readiness.clone())?;
+    let health_server =
+        health::bind(cfg.websocket_health_port, readiness.clone(), Liveness::default())?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -83,6 +85,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     });
 
     let bind_address = cfg.bind_address.clone();
+    let shutdown_config = ShutdownConfig::from_env();
     let server = HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
@@ -95,20 +98,35 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             .service(presence_preference)
             .service(ws_handler)
     })
+    .disable_signals()
+    .shutdown_timeout(shutdown_config.shutdown_timeout.as_secs())
     .bind(&bind_address)?
     .run();
     let server_handle = server.handle();
     let server_task = actix_web::rt::spawn(server);
+    tokio::pin!(server_task);
 
     tracing::info!(%bind_address, "Websocket service started");
     readiness.mark_ready();
 
-    signal::ctrl_c().await?;
-    tracing::info!("Shutdown signal received, stopping HTTP server");
+    tokio::select! {
+        finished = &mut server_task => {
+            readiness.mark_not_ready();
+            health_server_handle.stop(false).await;
+            let _ = health_handle.await;
+            return finished
+                .map_err(Box::<dyn Error>::from)?
+                .map_err(Box::<dyn Error>::from);
+        }
+        _ = shutdown.wait() => {}
+    }
+    drain(&readiness, &shutdown_config).await;
+    tracing::info!("Stopping websocket server");
 
     server_handle.stop(true).await;
     let _ = server_task.await;
-    health_handle.abort();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
 
     Ok(())
 }

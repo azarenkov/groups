@@ -1,6 +1,7 @@
-use std::{error::Error, sync::Arc};
+use std::{error::Error, sync::Arc, time::Duration};
 
-use api_common::health::{self, Readiness};
+use api_common::health::{self, Heartbeat, Liveness, Readiness};
+use api_common::shutdown::{ShutdownConfig, wait_for_signal};
 use infrastructure_common::{
     config::{mailer::MailerConfig, nats::NatsConfig},
     mailer::smtp_mailer::SmtpMailer,
@@ -8,7 +9,7 @@ use infrastructure_common::{
 };
 use notification_core::usecases::send_verification_email::SendVerificationEmail;
 use notification_infrastructure::consumers::verification::{self, VerificationConsumerSpec};
-use tokio::{signal, sync::watch};
+use tokio::sync::watch;
 
 use crate::config::NotificationConfig;
 
@@ -16,6 +17,9 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    if let Some(code) = api_common::health::run_probe_from_args() {
+        std::process::exit(code);
+    }
     infrastructure_common::observability::init("notification-service");
 
     let notification_config = NotificationConfig::from_env()?;
@@ -33,7 +37,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let health_server = health::bind(notification_config.health_port, readiness.clone())?;
+    let heartbeat = Heartbeat::new(Duration::from_secs(
+        notification_config.notification_liveness_stale_secs,
+    ));
+    let health_server = health::bind(
+        notification_config.health_port,
+        readiness.clone(),
+        Liveness::default().watch(heartbeat.clone()),
+    )?;
+    let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
@@ -55,18 +67,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
         spec,
         send_verification_email,
         shutdown_rx,
+        heartbeat,
     ));
     tokio::pin!(consumer);
 
     tracing::info!("Notification service started");
     readiness.mark_ready();
 
+    let shutdown_config = ShutdownConfig::from_env();
     let outcome = tokio::select! {
-        signal = signal::ctrl_c() => {
-            signal?;
-            tracing::info!("Shutdown signal received, exiting");
+        _ = wait_for_signal() => {
+            readiness.mark_not_ready();
             let _ = shutdown_tx.send(true);
-            match consumer.await {
+            let (finished, _) = tokio::join!(
+                &mut consumer,
+                tokio::time::sleep(shutdown_config.drain_delay),
+            );
+            match finished {
                 Ok(result) => result,
                 Err(e) => Err(Box::<dyn Error>::from(e)),
             }
@@ -78,6 +95,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         },
     };
 
-    health_handle.abort();
+    readiness.mark_not_ready();
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
     outcome
 }

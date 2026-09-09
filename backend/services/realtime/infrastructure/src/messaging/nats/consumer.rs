@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use infrastructure_common::health::Heartbeat;
 use ports::event_consumer::{
     EventConsumer, StartPosition, SubscribeOptions,
 };
@@ -26,11 +27,15 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
     spec: ConsumerSpec,
     dispatch: Arc<DispatchEvent<D, P>>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
+    heartbeat: Heartbeat,
 ) {
     let event_consumer =
         NatsEventConsumer::new(jetstream.clone(), spec.stream.clone());
+    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
+    pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
     loop {
+        heartbeat.beat();
         if *shutdown.borrow() {
             return;
         }
@@ -56,8 +61,10 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                     "Consumer subscribed",
                 );
                 loop {
+                    heartbeat.beat();
                     tokio::select! {
                         _ = shutdown.changed() => return,
+                        _ = pulse.tick() => {}
                         msg = messages.next() => {
                             match msg {
                                 Some(Ok(m)) => {
@@ -102,7 +109,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
 
         tokio::select! {
             _ = shutdown.changed() => return,
-            _ = tokio::time::sleep(Duration::from_secs(3)) => {}
+            _ = heartbeat.keep_alive_for(Duration::from_secs(3)) => {}
         }
     }
 }

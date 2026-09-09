@@ -18,6 +18,8 @@ pub struct DispatcherConfig {
     pub dispatcher_consumer_prefix: String,
     #[serde(default = "default_max_deliver")]
     pub dispatcher_max_deliver: u32,
+    #[serde(default = "default_liveness_stale_secs")]
+    pub dispatcher_liveness_stale_secs: u64,
 }
 
 impl DispatcherConfig {
@@ -57,6 +59,10 @@ fn default_consumer_prefix() -> String {
 
 fn default_max_deliver() -> u32 {
     10
+}
+
+fn default_liveness_stale_secs() -> u64 {
+    30
 }
 
 #[derive(Debug, Deserialize)]
