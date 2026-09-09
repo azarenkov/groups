@@ -65,7 +65,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
                 liveness.release(&heartbeat);
                 return;
             }
-            _ = tokio::time::sleep(TICK) => {}
+            _ = heartbeat.keep_alive_for(TICK) => {}
         }
         if *shutdown.borrow() {
             liveness.release(&heartbeat);
@@ -93,7 +93,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
 
         tokio::select! {
             _ = shutdown.changed() => break,
-            _ = tokio::time::sleep(TICK) => {}
+            _ = heartbeat.keep_alive_for(TICK) => {}
         }
         if *shutdown.borrow() {
             break;
