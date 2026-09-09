@@ -745,6 +745,7 @@ const ServersPage: React.FC = () => {
   const activeCallId = useCallStore((s) => s.activeCallId);
   const callFocused = useCallStore((s) => s.focused);
   const callPeerId = useCallStore((s) => s.peerId);
+  const callParticipants = useCallStore((s) => s.participants);
   const prevActiveCallRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevActiveCallRef.current;
@@ -757,7 +758,7 @@ const ServersPage: React.FC = () => {
 
   useEffect(() => {
     if (!callFocused || !activeCallId || !callPeerId) return;
-    if (selectedDm?.id === callPeerId) return;
+    if (selectedDm && (selectedDm.id === callPeerId || selectedDm.id in callParticipants)) return;
     const peer = acceptedFriends.find((d) => d.id === callPeerId);
     if (!peer) return;
     setSelectedDm(peer);
@@ -767,6 +768,7 @@ const ServersPage: React.FC = () => {
     callFocused,
     activeCallId,
     callPeerId,
+    callParticipants,
     selectedDm,
     acceptedFriends,
     setSelectedChannel,
@@ -1406,7 +1408,13 @@ const ServersPage: React.FC = () => {
 
       <IncomingCallModal />
       <ActiveCallBar
-        dockId={settingsOpen ? "settings-voice-dock" : "voice-dock-slot"}
+        dockId={
+          settingsOpen
+            ? "settings-voice-dock"
+            : serverSettings
+              ? "server-settings-voice-dock"
+              : "voice-dock-slot"
+        }
         onOpen={() => {
           setSettingsOpen(false);
           setServerSettings(null);

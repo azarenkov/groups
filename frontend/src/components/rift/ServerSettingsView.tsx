@@ -645,6 +645,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
             <Icon name="chev-left" size={14} />
             {t("backToServer")}
           </button>
+          <div id="server-settings-voice-dock" className="settings-voice-dock" />
         </div>
       </nav>
 
