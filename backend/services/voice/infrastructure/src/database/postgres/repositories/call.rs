@@ -146,6 +146,31 @@ async fn end_call_if_empty(
     Ok(())
 }
 
+fn call_ring_event(
+    call_id: Uuid,
+    actor_id: Uuid,
+    recipients: &[Uuid],
+    video: bool,
+    request_id: Option<String>,
+    occurred_at: DateTime<Utc>,
+) -> OutboxRecord {
+    let mut record = call_event(call_id, "call.ring", actor_id, recipients, request_id, occurred_at);
+    record.payload["video"] = serde_json::Value::Bool(video);
+    record
+}
+
+async fn stored_call_video<'e, E>(executor: E, call_id: Uuid) -> Result<bool, RepositoryError>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    let video: Option<bool> = sqlx::query_scalar("SELECT video FROM calls WHERE call_id = $1")
+        .bind(call_id)
+        .fetch_optional(executor)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(video.unwrap_or(false))
+}
+
 #[async_trait]
 impl CallRepository for PostgresCallRepository {
     async fn start_call(
@@ -153,6 +178,7 @@ impl CallRepository for PostgresCallRepository {
         call_id: Uuid,
         caller: &UserId,
         invitees: &[UserId],
+        video: bool,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<(), RepositoryError> {
@@ -161,6 +187,16 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query(
+            "INSERT INTO calls (call_id, video, created_at) VALUES ($1, $2, $3) ON CONFLICT (call_id) DO NOTHING",
+        )
+        .bind(call_id)
+        .bind(video)
+        .bind(now)
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
 
         sqlx::query!(
             r#"
@@ -194,11 +230,15 @@ impl CallRepository for PostgresCallRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
 
-        let record = call_event(call_id, "call.ring", caller.uuid(), &invitee_ids, request_id, now);
+        let record = call_ring_event(call_id, caller.uuid(), &invitee_ids, video, request_id, now);
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
+    }
+
+    async fn call_video(&self, call_id: Uuid) -> Result<bool, RepositoryError> {
+        stored_call_video(&self.pool, call_id).await
     }
 
     async fn respond(
@@ -303,7 +343,8 @@ impl CallRepository for PostgresCallRepository {
         }
 
         if !ringed.is_empty() {
-            let record = call_event(call_id, "call.ring", inviter.uuid(), &ringed, request_id, now);
+            let video = stored_call_video(&mut *tx, call_id).await?;
+            let record = call_ring_event(call_id, inviter.uuid(), &ringed, video, request_id, now);
             save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
         }
 

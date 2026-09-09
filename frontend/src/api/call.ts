@@ -14,6 +14,7 @@ export interface CallToken {
   token: string;
   url: string;
   participants: CallParticipant[];
+  video?: boolean;
 }
 
 class CallAPI {
@@ -63,8 +64,9 @@ class CallAPI {
 
   async start(
     recipientIds: string[],
+    video = false,
   ): Promise<{ callId: string } & CallToken> {
-    const response = await this.client.post("/v1/calls", { recipientIds });
+    const response = await this.client.post("/v1/calls", { recipientIds, video });
     return response.data.data;
   }
 

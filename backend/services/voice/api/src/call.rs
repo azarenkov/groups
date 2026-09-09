@@ -16,6 +16,8 @@ use crate::http_errors::HttpError;
 #[serde(rename_all = "camelCase")]
 struct StartCallBody {
     recipient_ids: Vec<Uuid>,
+    #[serde(default)]
+    video: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +40,7 @@ struct StartCallResponse {
     token: String,
     url: String,
     participants: Vec<CallParticipantDto>,
+    video: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -46,6 +49,7 @@ struct CallTokenResponse {
     token: String,
     url: String,
     participants: Vec<CallParticipantDto>,
+    video: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -63,12 +67,14 @@ async fn start_call(
 ) -> Result<impl Responder, HttpError> {
     let caller_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
+    let body = body.into_inner();
     let result = app_state
         .start_call_usecase
         .execute(
             caller_id,
             StartCallRequest {
-                invitee_ids: body.into_inner().recipient_ids,
+                invitee_ids: body.recipient_ids,
+                video: body.video,
                 ctx,
             },
         )
@@ -76,6 +82,7 @@ async fn start_call(
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(StartCallResponse {
         call_id: result.call_id,
+        video: result.video,
         token: result.token.as_str().to_string(),
         url: result.url,
         participants: result
@@ -102,6 +109,7 @@ async fn get_active_call(
         .await?
         .map(|r| StartCallResponse {
             call_id: r.call_id,
+            video: r.video,
             token: r.token.as_str().to_string(),
             url: r.url,
             participants: r
@@ -133,6 +141,7 @@ async fn accept_call(
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(CallTokenResponse {
         token: result.token.as_str().to_string(),
+        video: result.video,
         url: result.url,
         participants: result
             .participants
@@ -175,6 +184,7 @@ async fn join_call(
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(CallTokenResponse {
         token: result.token.as_str().to_string(),
+        video: result.video,
         url: result.url,
         participants: result
             .participants

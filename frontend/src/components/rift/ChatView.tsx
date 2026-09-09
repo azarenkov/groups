@@ -1929,6 +1929,27 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onToggleMembers,
   onRemoveFriend,
 }) => {
+  const startDmCall = (video: boolean) => {
+    if (!dm?.friendId) return;
+    const cs = useCallStore.getState();
+    const inCallWithFriend =
+      !!cs.activeCallId &&
+      (cs.peerId === dm.friendId ||
+        dm.friendId in cs.participants ||
+        cs.ringing.includes(dm.friendId));
+    if (inCallWithFriend) {
+      cs.setFocused(true);
+      return;
+    }
+    cs.start([dm.friendId], { video }).catch((e) => {
+      const apiErr = e instanceof ApiError ? e : null;
+      cs.setCallError(
+        apiErr?.code === "CALL_NOT_ALLOWED"
+          ? i18n.t("callNotAllowed", { ns: "call" })
+          : i18n.t("callFailed", { ns: "call" }),
+      );
+    });
+  };
   const [bellOpen, setBellOpen] = React.useState(false);
   const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.friendId] : undefined));
   const globalMentions = useNotificationSettingsStore((s) => s.mentions);
@@ -2085,29 +2106,17 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             type="button"
             className="icon-btn"
             title={i18n.t("voiceCallInvite", { ns: "chat" })}
-            onClick={() => {
-              if (!dm?.friendId) return;
-              const cs = useCallStore.getState();
-              const inCallWithFriend =
-                !!cs.activeCallId &&
-                (cs.peerId === dm.friendId ||
-                  dm.friendId in cs.participants ||
-                  cs.ringing.includes(dm.friendId));
-              if (inCallWithFriend) {
-                cs.setFocused(true);
-                return;
-              }
-              cs.start([dm.friendId]).catch((e) => {
-                const apiErr = e instanceof ApiError ? e : null;
-                cs.setCallError(
-                  apiErr?.code === "CALL_NOT_ALLOWED"
-                    ? i18n.t("callNotAllowed", { ns: "call" })
-                    : i18n.t("callFailed", { ns: "call" }),
-                );
-              });
-            }}
+            onClick={() => startDmCall(false)}
           >
             <Icon name="phone" size={16} />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title={i18n.t("videoCallInvite", { ns: "chat" })}
+            onClick={() => startDmCall(true)}
+          >
+            <Icon name="video" size={16} />
           </button>
           {dm.isFriend !== false && bellPopover(
             i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),

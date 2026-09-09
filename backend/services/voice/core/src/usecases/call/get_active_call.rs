@@ -22,6 +22,7 @@ pub struct ActiveCallResult {
     pub token: ChannelToken,
     pub url: String,
     pub participants: Vec<CallParticipantView>,
+    pub video: bool,
 }
 
 pub struct GetActiveCall<C, V, U>
@@ -71,13 +72,15 @@ where
             .create_token(&user_id, &user_name, &room)
             .await?;
 
-        let participants = self.call_repository.list_active(call_id).await?;
+        let participants = self.call_repository.list_active(call_id).await?;        let video = self.call_repository.call_video(call_id).await?;
+
 
         Ok(Some(ActiveCallResult {
             call_id,
             token,
             url: self.voice_service.client_url(),
             participants,
+        video,
         }))
     }
 }

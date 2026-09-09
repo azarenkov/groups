@@ -12,9 +12,12 @@ pub trait CallRepository {
         call_id: Uuid,
         caller: &UserId,
         invitees: &[UserId],
+        video: bool,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<(), RepositoryError>;
+
+    async fn call_video(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
 
     async fn respond(
         &self,

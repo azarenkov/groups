@@ -26,6 +26,7 @@ pub struct JoinCallResult {
     pub token: ChannelToken,
     pub url: String,
     pub participants: Vec<CallParticipantView>,
+    pub video: bool,
 }
 
 pub struct JoinCall<C, V, U>
@@ -100,12 +101,14 @@ where
         participants.push(CallParticipantView {
             user_id: UserId::new(user_id.uuid()),
             user_name: user_name.as_str().to_string(),
-        });
+        });        let video = self.call_repository.call_video(call_id).await?;
+
 
         Ok(JoinCallResult {
             token,
             url: self.voice_service.client_url(),
             participants,
+        video,
         })
     }
 }
