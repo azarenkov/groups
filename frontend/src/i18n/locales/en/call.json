@@ -13,6 +13,7 @@
   "you": "You",
   "sharingScreen": "{{name}} is sharing the screen",
   "minimize": "Minimize",
+  "minimizeCall": "Minimize call",
   "openCall": "Open call",
   "returnToCall": "Return",
   "ongoingCall": "Call in progress",

@@ -153,6 +153,7 @@ interface VoiceTheaterProps {
   onToggleScreen: () => void;
   onLeave: () => void;
   onMinimize?: () => void;
+  minimizeTitle?: string;
   invite?: {
     candidates: { id: string; name: string }[];
     onAdd: (ids: string[]) => void;
@@ -178,6 +179,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   onToggleScreen,
   onLeave,
   onMinimize,
+  minimizeTitle,
   invite,
   viewersFor,
   onWatchChange,
@@ -232,7 +234,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           <button
             type="button"
             className="call-min"
-            title={t("minimize")}
+            title={minimizeTitle ?? t("minimize")}
             onClick={onMinimize}
           >
             <Icon name="chevron" size={16} />

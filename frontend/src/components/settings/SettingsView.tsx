@@ -1603,6 +1603,7 @@ function SettingsView({ open, onClose, onSignOut }: SettingsViewProps) {
           <span className="ic"><Icon name="logout" size={15} /></span>
           {t("logOut")}
         </button>
+        <div id="settings-voice-dock" className="settings-voice-dock" />
       </nav>
 
       <div className="settings-pane">

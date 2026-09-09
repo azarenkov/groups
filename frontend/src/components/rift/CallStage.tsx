@@ -1,4 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { isTextEntryTarget } from "../../utils/hotkeys";
 import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
 import { useCallStore } from "../../store/callStore";
 import { useAuthStore } from "../../store/authStore";
@@ -19,6 +21,18 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const friends = useFriendshipStore((s) => s.friends);
   const voiceParticipants = useParticipants();
   const videoTiles = useVideoTiles();
+  const { t } = useTranslation("call");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || isTextEntryTarget(e.target)) return;
+      if (document.querySelector(".settings-overlay, .modal-overlay")) return;
+      e.preventDefault();
+      onMinimize();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onMinimize]);
 
   const selfId = user?.id || "you";
   const selfName = user?.name || "You";
@@ -119,6 +133,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       }
       onLeave={() => leave()}
       onMinimize={onMinimize}
+      minimizeTitle={t("minimizeCall")}
       invite={{
         candidates,
         onAdd: (ids) =>

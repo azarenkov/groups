@@ -107,6 +107,8 @@ interface CallState {
   participants: Record<string, string>;
   ringing: string[];
   focused: boolean;
+  startedAt: number | null;
+  attention: boolean;
   peerId: string | null;
   micMuted: boolean;
   micMuteSeq: number;
@@ -116,6 +118,7 @@ interface CallState {
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
   setFocused: (focused: boolean) => void;
+  flagAttention: () => void;
   setMicMuted: (muted: boolean) => void;
   setCallError: (message: string | null) => void;
   callAvailable: (peerId: string, callId: string) => void;
@@ -205,7 +208,7 @@ function sendCallLog(
 
 export const useCallStore = create<CallState>()((set, get) => ({
   incoming: null,
-  activeCallId: null,
+  activeCallId: null, startedAt: null, attention: false,
   connecting: false,
   participants: {},
   ringing: [],
@@ -219,7 +222,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
   clearIncoming: () => set({ incoming: null }),
-  setFocused: (focused) => set({ focused }),
+  setFocused: (focused) => set((s) => ({ focused, attention: focused ? false : s.attention })),
+  flagAttention: () => set((s) => (s.focused || !s.activeCallId || s.attention ? s : { attention: true })),
   setMicMuted: (muted) => {
     getLiveKitService().setMicrophoneMuted(muted);
     set((s) => ({ micMuted: muted, micMuteSeq: s.micMuteSeq + 1 }));
@@ -248,6 +252,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       return {
         participants: { ...s.participants, [userId]: userName },
         ringing: without(s.ringing, userId),
+        attention: s.focused ? s.attention : true,
       };
     }),
   participantRenamed: (userId, userName) =>
@@ -268,7 +273,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
       if (s.activeCallId !== callId) return s;
       const next = { ...s.participants };
       delete next[userId];
-      return { participants: next, ringing: without(s.ringing, userId) };
+      return {
+        participants: next,
+        ringing: without(s.ringing, userId),
+        attention: s.focused ? s.attention : true,
+      };
     }),
   participantDeclined: (callId, userId) =>
     set((s) => {
@@ -288,7 +297,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
       finalizeCallLog();
-      set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
+      set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
       getLiveKitService()
         .disconnect()
         .catch(() => {});
@@ -320,7 +329,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         !service.isConnected() &&
         !service.isConnectingNow()
       ) {
-        set({ activeCallId: null, participants: {}, ringing: [] });
+        set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [] });
       }
       return;
     }
@@ -329,6 +338,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
     );
     set((s) => ({
       activeCallId: active.callId,
+      startedAt: s.activeCallId === active.callId ? s.startedAt : Date.now(),
+      attention: s.activeCallId === active.callId ? s.attention : false,
       participants:
         s.activeCallId === active.callId
           ? { ...participants, ...s.participants }
@@ -349,7 +360,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         );
       } catch {
         if (get().activeCallId === active.callId) {
-          set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
+          set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null });
         }
         return;
       }
@@ -360,7 +371,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         await svc.disconnect().catch(() => {});
       }
       if (get().activeCallId === active.callId) {
-        set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null });
+        set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null });
       }
       return;
     }
@@ -390,6 +401,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
       const { token, url, participants } = await callAPI.join(callId);
       set({
         activeCallId: callId,
+        startedAt: Date.now(),
+        attention: false,
         participants: Object.fromEntries(
           participants.map((p) => [p.userId, p.userName]),
         ),
@@ -407,7 +420,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       }
       if ((await getAuthedUserId()) !== initiatorId) {
         set({
-          activeCallId: null,
+          activeCallId: null, startedAt: null, attention: false,
           connecting: false,
           participants: {},
           ringing: [],
@@ -423,7 +436,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       } catch (e) {
         if (get().activeCallId === callId) {
           set({
-            activeCallId: null,
+            activeCallId: null, startedAt: null, attention: false,
             participants: {},
             ringing: [],
             focused: false,
@@ -444,7 +457,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         await leaveAsInitiator(callId, initiator.accessToken);
         if (get().activeCallId === callId) {
           set({
-            activeCallId: null,
+            activeCallId: null, startedAt: null, attention: false,
             connecting: false,
             participants: {},
             ringing: [],
@@ -501,6 +514,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
     };
     set({
       activeCallId: callId,
+      startedAt: Date.now(),
+      attention: false,
       participants: Object.fromEntries(
         participants.map((p) => [p.userId, p.userName]),
       ),
@@ -520,7 +535,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if ((await getAuthedUserId()) !== initiatorId) {
       pendingLog = null;
       set({
-        activeCallId: null,
+        activeCallId: null, startedAt: null, attention: false,
         connecting: false,
         participants: {},
         ringing: [],
@@ -536,7 +551,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     } catch (e) {
       pendingLog = null;
       set({
-        activeCallId: null,
+        activeCallId: null, startedAt: null, attention: false,
         connecting: false,
         participants: {},
         ringing: [],
@@ -558,7 +573,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       await leaveAsInitiator(callId, initiator.accessToken);
       if (get().activeCallId === callId) {
         set({
-          activeCallId: null,
+          activeCallId: null, startedAt: null, attention: false,
           connecting: false,
           participants: {},
           ringing: [],
@@ -586,6 +601,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
       const { token, url, participants } = await callAPI.accept(inc.callId);
       set({
         activeCallId: inc.callId,
+        startedAt: Date.now(),
+        attention: false,
         participants: Object.fromEntries(
           participants.map((p) => [p.userId, p.userName]),
         ),
@@ -603,7 +620,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       }
       if ((await getAuthedUserId()) !== initiatorId) {
         set({
-          activeCallId: null,
+          activeCallId: null, startedAt: null, attention: false,
           connecting: false,
           participants: {},
           ringing: [],
@@ -619,7 +636,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       } catch (e) {
         if (get().activeCallId === inc.callId) {
           set({
-            activeCallId: null,
+            activeCallId: null, startedAt: null, attention: false,
             participants: {},
             ringing: [],
             focused: false,
@@ -640,7 +657,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
         await leaveAsInitiator(inc.callId, initiator.accessToken);
         if (get().activeCallId === inc.callId) {
           set({
-            activeCallId: null,
+            activeCallId: null, startedAt: null, attention: false,
             connecting: false,
             participants: {},
             ringing: [],
@@ -679,7 +696,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
     const log = takeCallLog();
-    set({ activeCallId: null, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
+    set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false });
     if (!keepRoom) {
       await getLiveKitService()
         .disconnect()

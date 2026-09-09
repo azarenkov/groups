@@ -1593,6 +1593,9 @@ body.electron .body-area::before {
 .empty-state p { margin: 0; font-size: 13px; max-width: 320px; }
 
 .sb-voice-dock:empty { display: none; }
+.settings-voice-dock:empty { display: none; }
+.settings-voice-dock { margin-top: auto; padding-top: 12px; }
+.vp-badge { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: 6px; vertical-align: middle; }
 .sb-voice-dock {
   padding: 6px 10px 4px;
 }

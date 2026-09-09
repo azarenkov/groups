@@ -11,6 +11,7 @@ pub enum HotkeyAction {
     EditLastMessage,
     ToggleMute,
     LeaveVoice,
+    ToggleCallView,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,7 +21,7 @@ pub enum HotkeyScope {
 }
 
 impl HotkeyAction {
-    pub const ALL: [HotkeyAction; 9] = [
+    pub const ALL: [HotkeyAction; 10] = [
         Self::QuickSwitcher,
         Self::PrevChannel,
         Self::NextChannel,
@@ -30,6 +31,7 @@ impl HotkeyAction {
         Self::EditLastMessage,
         Self::ToggleMute,
         Self::LeaveVoice,
+        Self::ToggleCallView,
     ];
 
     pub fn id(self) -> &'static str {
@@ -43,6 +45,7 @@ impl HotkeyAction {
             Self::EditLastMessage => "editLastMessage",
             Self::ToggleMute => "toggleMute",
             Self::LeaveVoice => "leaveVoice",
+            Self::ToggleCallView => "toggleCallView",
         }
     }
 
@@ -69,6 +72,7 @@ impl HotkeyAction {
                 Self::EditLastMessage => "ArrowUp",
                 Self::ToggleMute => "Mod+Shift+M",
                 Self::LeaveVoice => "Mod+Shift+L",
+                Self::ToggleCallView => "Mod+Shift+O",
             }
             .to_string(),
         )

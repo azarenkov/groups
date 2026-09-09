@@ -222,6 +222,7 @@
       "editLastMessage": "Edit last message",
       "toggleMute": "Toggle microphone",
       "leaveVoice": "Leave voice channel",
+      "toggleCallView": "Minimize / restore the call",
       "pushToTalk": "Push-to-talk",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",

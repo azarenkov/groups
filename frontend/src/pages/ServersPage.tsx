@@ -524,7 +524,10 @@ const ServersPage: React.FC = () => {
   };
 
   const handleSelectDm = (dm: MockDirect) => {
-    useCallStore.getState().setFocused(false);
+    const cs = useCallStore.getState();
+    const inCallWithDm =
+      !!cs.activeCallId && (cs.peerId === dm.id || dm.id in cs.participants);
+    cs.setFocused(inCallWithDm);
     setSelectedDm(dm);
     setSelectedChannel(null);
     useUnreadStore.getState().resetDm(dm.id);
@@ -1402,7 +1405,13 @@ const ServersPage: React.FC = () => {
       />
 
       <IncomingCallModal />
-      <ActiveCallBar />
+      <ActiveCallBar
+        dockId={settingsOpen ? "settings-voice-dock" : "voice-dock-slot"}
+        onOpen={() => {
+          setSettingsOpen(false);
+          setServerSettings(null);
+        }}
+      />
 
       <UserProfileModal
         onOpenDm={handleOpenDmFromHome}

@@ -24,6 +24,7 @@ interface VoicePillProps {
   invite?: VoicePillInvite;
   onOpen?: () => void;
   openTitle?: string;
+  badge?: boolean;
 }
 
 const BARS = 12;
@@ -40,6 +41,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
   invite,
   onOpen,
   openTitle,
+  badge,
 }) => {
   const { t } = useTranslation("voice");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -254,7 +256,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
         title={onOpen ? openTitle : undefined}
         role={onOpen ? "button" : undefined}
       >
-        <div className="vp-title">{title}</div>
+        <div className="vp-title">
+          {title}
+          {badge && <span className="vp-badge" />}
+        </div>
         <div className="vp-meta">{meta}</div>
       </div>
       <div className="vp-actions">

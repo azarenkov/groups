@@ -9,7 +9,8 @@ export type HotkeyActionId =
   | "openSettings"
   | "editLastMessage"
   | "toggleMute"
-  | "leaveVoice";
+  | "leaveVoice"
+  | "toggleCallView";
 
 export interface HotkeyAction {
   id: HotkeyActionId;
@@ -36,6 +37,7 @@ export const HOTKEY_ACTIONS: HotkeyAction[] = [
   { id: "editLastMessage", group: "messaging", scope: "composer", defaultBinding: "ArrowUp" },
   { id: "toggleMute", group: "voice", scope: "global", defaultBinding: "Mod+Shift+M" },
   { id: "leaveVoice", group: "voice", scope: "global", defaultBinding: "Mod+Shift+L" },
+  { id: "toggleCallView", group: "voice", scope: "global", defaultBinding: "Mod+Shift+O" },
 ];
 
 export const HOTKEY_ACTION_IDS: HotkeyActionId[] = HOTKEY_ACTIONS.map((a) => a.id);

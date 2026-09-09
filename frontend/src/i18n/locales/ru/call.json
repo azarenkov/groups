@@ -13,6 +13,7 @@
   "you": "Вы",
   "sharingScreen": "{{name}} демонстрирует экран",
   "minimize": "Свернуть",
+  "minimizeCall": "Свернуть звонок",
   "openCall": "Открыть звонок",
   "returnToCall": "Вернуться",
   "ongoingCall": "Идёт звонок",
