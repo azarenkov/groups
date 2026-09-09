@@ -136,7 +136,7 @@ services:
       dockerfile: docker/identity-service/Dockerfile
     container_name: rift-identity-service
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     expose:
       - "8080"
     networks:
@@ -184,7 +184,7 @@ services:
       dockerfile: docker/media-service/Dockerfile
     container_name: rift-media-service
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     expose:
       - "8080"
     networks:
@@ -234,7 +234,7 @@ services:
       dockerfile: docker/messaging-service/Dockerfile
     container_name: rift-messaging-service
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     expose:
       - "8080"
     networks:
@@ -285,7 +285,7 @@ services:
       dockerfile: docker/voice-service/Dockerfile
     container_name: rift-voice-service
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     expose:
       - "8080"
     networks:
@@ -329,7 +329,7 @@ services:
       dockerfile: docker/outbox-worker/Dockerfile
     container_name: rift-outbox-worker
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     networks:
       - rift-network
     environment:
@@ -364,7 +364,7 @@ services:
       dockerfile: docker/notification-service/Dockerfile
     container_name: rift-notification-service
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     networks:
       - rift-network
     environment:
@@ -395,7 +395,7 @@ services:
       dockerfile: docker/realtime/Dockerfile
     container_name: rift-realtime
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     expose:
       - "8083"
     networks:
@@ -441,7 +441,7 @@ services:
       dockerfile: docker/livekit-pooler/Dockerfile
     container_name: rift-livekit-pooler
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: ${STOP_GRACE_PERIOD:-35s}
     networks:
       - rift-network
     environment:
