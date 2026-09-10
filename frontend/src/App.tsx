@@ -40,7 +40,15 @@ const DeepLinkListener: React.FC = () => {
     if (!bridge?.onDeepLink) return;
     const open = (url: string | null) => {
       const token = url ? extractInviteToken(url) : null;
-      if (token) navigate(`/join/${token}`);
+      if (!token) return;
+      const { isAuthenticated: signedIn, tokens: current } = useAuthStore.getState();
+      const verified =
+        !!current?.accessToken && isAccessTokenVerified(current.accessToken);
+      navigate(
+        signedIn && verified
+          ? `/app?join=${encodeURIComponent(token)}`
+          : `/join/${token}`,
+      );
     };
     void bridge.getPendingDeepLink?.().then(open).catch(() => {});
     return bridge.onDeepLink(open);
