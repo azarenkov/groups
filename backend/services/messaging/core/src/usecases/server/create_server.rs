@@ -102,7 +102,13 @@ where
         )?
         .with_default(true);
         let mut events = events;
-        events.extend(general.pull_events().into_iter().map(MessagingEvent::from));
+        let owner_recipients = [owner_id];
+        events.extend(
+            general
+                .pull_events()
+                .into_iter()
+                .map(|event| MessagingEvent::from(event.with_recipients(&owner_recipients))),
+        );
         tx.insert_channel(&general).await?;
         create_with_fresh_token(&mut *tx, || InviteLink::primary(*server.id(), owner_id, chrono::Utc::now())).await?;
         tx.save_events(&events, request_id.as_deref()).await?;
