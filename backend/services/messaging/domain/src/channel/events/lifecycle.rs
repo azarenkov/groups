@@ -14,6 +14,7 @@ pub struct ChannelCreated {
     pub visibility: ChannelVisibility,
     pub occurred_at: DateTime<Utc>,
     pub recipient_ids: Vec<UserId>,
+    pub is_default: bool,
 }
 
 impl ChannelCreated {
@@ -36,6 +37,7 @@ impl ChannelCreated {
             visibility,
             occurred_at: now,
             recipient_ids: Vec::new(),
+            is_default: false,
         }
     }
 }

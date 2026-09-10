@@ -785,6 +785,11 @@ impl Channel {
 
     pub fn with_default(mut self, is_default: bool) -> Self {
         self.is_default = is_default;
+        for event in &mut self.events {
+            if let ChannelEvent::Created(created) = event {
+                created.is_default = is_default;
+            }
+        }
         self
     }
 

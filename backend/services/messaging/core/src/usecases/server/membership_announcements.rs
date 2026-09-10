@@ -12,11 +12,7 @@ pub async fn announce_membership(
     let Some(channel_id) = tx.find_default_channel_id().await? else {
         return Ok(Vec::new());
     };
-    let channel = tx.load_channel(&channel_id).await?;
-    let recipients: Vec<UserId> = channel
-        .text_participants()
-        .map(|members| members.iter().copied().collect())
-        .unwrap_or_default();
+    let recipients = tx.list_text_channel_member_ids(&channel_id).await?;
     let mut message = Message::system_notice(channel_id, subject, kind, now);
     let events = message
         .pull_events()

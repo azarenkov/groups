@@ -43,6 +43,7 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
             visibility: value(&e.visibility)?,
             occurred_at: e.occurred_at,
             recipient_ids: uuids(&e.recipient_ids),
+            is_default: e.is_default,
         })?,
         ChannelEvent::Renamed(e) => encode(&ChannelRenamedV1 {
             channel_id: e.channel_id.uuid(),

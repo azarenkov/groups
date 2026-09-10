@@ -14,6 +14,8 @@ pub struct ChannelCreatedV1 {
     pub occurred_at: DateTime<Utc>,
     #[serde(default)]
     pub recipient_ids: Vec<Uuid>,
+    #[serde(default)]
+    pub is_default: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

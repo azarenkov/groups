@@ -34,6 +34,10 @@ fn default_channel_cannot_be_deleted_but_others_can() {
     .unwrap()
     .with_default(true);
     assert!(general.is_default());
+    assert!(matches!(
+        general.pull_events().as_slice(),
+        [ChannelEvent::Created(created)] if created.is_default
+    ));
     assert_eq!(
         general.delete(owner, ModerationGrant::Owner, Utc::now()).unwrap_err(),
         ChannelError::DefaultChannel

@@ -265,6 +265,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "id": evt.channel_id,
                 "serverId": evt.server_id,
                 "ownerId": evt.owner_id,
+                "isDefault": evt.is_default,
                 "name": evt.name,
                 "kind": evt.kind,
                 "visibility": evt.visibility,

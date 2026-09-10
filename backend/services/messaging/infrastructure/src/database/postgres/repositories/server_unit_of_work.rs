@@ -778,6 +778,17 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(id.map(ChannelId::new))
     }
 
+    async fn list_text_channel_member_ids(&mut self, channel_id: &ChannelId) -> Result<Vec<UserId>, RepositoryError> {
+        let ids: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT user_id FROM channel_text_participants WHERE channel_id = $1",
+        )
+        .bind(channel_id.uuid())
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(ids.into_iter().map(UserId::new).collect())
+    }
+
     async fn insert_system_message(&mut self, message: &Message) -> Result<(), RepositoryError> {
         let payload = message.system().map(|s| s.to_json().to_string());
         sqlx::query(

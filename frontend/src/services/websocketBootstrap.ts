@@ -207,6 +207,7 @@ function dispatch(env: WsEnvelope) {
         visibility,
         maxParticipants: 0,
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
+        isDefault: d.isDefault === true,
       };
       useChannelStore.getState().addChannel(serverId, channel);
       return;

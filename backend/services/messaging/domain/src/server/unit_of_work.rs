@@ -58,6 +58,7 @@ pub trait ServerTransaction: Send {
     async fn update_server_owner(&mut self, owner_id: &UserId) -> Result<bool, RepositoryError>;
     async fn find_longest_member_excluding(&mut self, exclude: &UserId) -> Result<Option<UserId>, RepositoryError>;
     async fn find_default_channel_id(&mut self) -> Result<Option<ChannelId>, RepositoryError>;
+    async fn list_text_channel_member_ids(&mut self, channel_id: &ChannelId) -> Result<Vec<UserId>, RepositoryError>;
     async fn insert_system_message(&mut self, message: &Message) -> Result<(), RepositoryError>;
     async fn redeem_invite_link(
         &mut self,
