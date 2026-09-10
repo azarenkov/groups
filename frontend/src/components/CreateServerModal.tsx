@@ -54,6 +54,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   const [linkInput, setLinkInput] = useState("");
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [previewToken, setPreviewToken] = useState<string | null>(null);
+  const previewSeq = React.useRef(0);
   const [isLoading, setIsLoading] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +71,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   }, [isOpen, initialView]);
 
   const loadPreview = React.useCallback(async (raw: string) => {
+    const seq = ++previewSeq.current;
     const token = extractInviteToken(raw);
     if (!token) {
       setError(t("serverModal.linkInvalid"));
@@ -81,10 +83,12 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setPreviewToken(null);
     try {
       const res = await serverAPI.previewInvite(token);
+      if (seq !== previewSeq.current) return;
       setPreview(res);
       setPreviewToken(token);
       if (res.status !== "active") setError(inviteStatusMessage(res.status, t));
     } catch (err) {
+      if (seq !== previewSeq.current) return;
       const apiErr = err instanceof ApiError ? err : null;
       setError(
         apiErr?.code === "INVITE_NOT_FOUND"
@@ -94,7 +98,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
             : t("common:error", { defaultValue: "Error" }),
       );
     } finally {
-      setJoining(false);
+      if (seq === previewSeq.current) setJoining(false);
     }
   }, [t]);
 
@@ -122,6 +126,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setName("");
     setDescription("");
     setAccentIdx(0);
+    previewSeq.current += 1;
     setLinkInput("");
     setPreview(null);
     setPreviewToken(null);
@@ -449,9 +454,11 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
                 placeholder="https://rift.app/join/…"
                 disabled={joining}
                 onChange={(e) => {
+                  previewSeq.current += 1;
                   setLinkInput(e.target.value);
                   setPreview(null);
                   setPreviewToken(null);
+                  setJoining(false);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {

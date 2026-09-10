@@ -551,6 +551,17 @@ impl ServerRepository for PostgresServerRepository {
         let Some(link) = row.map(InviteLink::from) else {
             return Ok(InviteJoinOutcome::NotFound);
         };
+        let already_member: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2)",
+        )
+        .bind(server_id.uuid())
+        .bind(user_id.uuid())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if already_member {
+            return Ok(InviteJoinOutcome::AlreadyMember(server_id));
+        }
         let status = link.status(chrono::Utc::now());
         if status != InviteLinkStatus::Active {
             return Ok(InviteJoinOutcome::Unavailable(status));
