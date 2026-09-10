@@ -13,12 +13,21 @@ WHERE c.id = (
 );
 
 INSERT INTO messaging.channels (id, server_id, owner_id, name, kind, visibility, password_hash, created_at, updated_at, last_join, is_default)
-SELECT gen_random_uuid(), s.id, s.owner_id,
-       CASE WHEN EXISTS (SELECT 1 FROM messaging.channels n WHERE n.server_id = s.id AND n.name = 'general')
-            THEN 'general-' || left(replace(s.id::text, '-', ''), 8)
-            ELSE 'general' END,
-       'text', 'public', NULL, now(), now(), now(), true
+SELECT gen_random_uuid(), s.id, s.owner_id, free_name.name, 'text', 'public', NULL, now(), now(), now(), true
 FROM messaging.servers s
+CROSS JOIN LATERAL (
+    SELECT candidate.name
+    FROM (
+        SELECT 'general' AS name, 0 AS ord
+        UNION ALL
+        SELECT 'general-' || g::text, g FROM generate_series(2, 10000) AS g
+    ) AS candidate
+    WHERE NOT EXISTS (
+        SELECT 1 FROM messaging.channels x WHERE x.server_id = s.id AND x.name = candidate.name
+    )
+    ORDER BY candidate.ord
+    LIMIT 1
+) AS free_name
 WHERE NOT EXISTS (SELECT 1 FROM messaging.channels c WHERE c.server_id = s.id AND c.kind = 'text');
 
 INSERT INTO messaging.channel_text_participants (channel_id, user_id, joined_at)
