@@ -67,6 +67,8 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     if (isOpen) {
       setView(initialView);
       setError(null);
+      setJoining(false);
+      setIsLoading(false);
     }
   }, [isOpen, initialView]);
 
