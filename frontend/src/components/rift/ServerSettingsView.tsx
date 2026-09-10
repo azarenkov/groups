@@ -461,11 +461,8 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     setLinkBusy(true);
     try {
       await serverAPI.revokeInviteLink(server.id, link.token);
-      if (link.isPrimary) {
-        await loadLinks();
-      } else {
-        setLinks((prev) => prev.filter((l) => l.token !== link.token));
-      }
+      setLinks((prev) => prev.filter((l) => l.token !== link.token));
+      if (link.isPrimary) await loadLinks();
     } catch {
       return;
     } finally {
