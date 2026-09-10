@@ -1,3 +1,6 @@
+use messaging_domain::message::system::SystemMessageKind;
+
+use crate::usecases::server::membership_announcements::announce_membership;
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -72,6 +75,10 @@ where
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         tx.accept_invite(&message_id, &requester_id).await?;
+        events.extend(
+            announce_membership(&mut *tx, requester_id, SystemMessageKind::MemberJoined, Utc::now())
+                .await?,
+        );
         tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 

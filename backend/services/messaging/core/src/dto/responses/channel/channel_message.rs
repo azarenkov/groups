@@ -1,6 +1,21 @@
 use chrono::{DateTime, Utc};
-use messaging_domain::message::{Message, view::MessageView};
+use messaging_domain::message::{Message, system::SystemMessage, view::MessageView};
 use uuid::Uuid;
+
+#[derive(Debug)]
+pub struct SystemMessageDto {
+    pub kind: String,
+    pub user_id: Uuid,
+}
+
+impl From<&SystemMessage> for SystemMessageDto {
+    fn from(value: &SystemMessage) -> Self {
+        Self {
+            kind: value.kind.as_str().to_string(),
+            user_id: value.user_id.uuid(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct ChannelMessageDto {
@@ -11,6 +26,8 @@ pub struct ChannelMessageDto {
     pub content: String,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
+    pub kind: String,
+    pub system: Option<SystemMessageDto>,
 }
 
 impl From<Message> for ChannelMessageDto {
@@ -23,6 +40,8 @@ impl From<Message> for ChannelMessageDto {
             content: value.content().as_str().to_string(),
             created_at: value.created_at(),
             edited_at: value.edited_at(),
+            kind: value.kind().as_str().to_string(),
+            system: value.system().map(SystemMessageDto::from),
         }
     }
 }
@@ -37,6 +56,8 @@ impl From<MessageView> for ChannelMessageDto {
             content: value.content,
             created_at: value.created_at,
             edited_at: value.edited_at,
+            kind: if value.system.is_some() { "system" } else { "user" }.to_string(),
+            system: value.system.as_ref().map(SystemMessageDto::from),
         }
     }
 }

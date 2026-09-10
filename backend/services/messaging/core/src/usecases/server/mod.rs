@@ -12,6 +12,7 @@ pub mod invite_links;
 pub mod kick_member;
 pub mod leave_server;
 pub mod list_sent_server_invites;
+pub mod membership_announcements;
 pub mod list_server_members;
 pub mod list_server_channels;
 pub mod list_servers_by_user;

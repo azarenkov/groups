@@ -9,6 +9,8 @@ pub struct MessageDto {
     pub content: String,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
+    pub kind: String,
+    pub system_payload: Option<String>,
 }
 
 #[derive(Debug, FromRow)]
@@ -20,4 +22,6 @@ pub struct MessageViewDto {
     pub content: String,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
+    pub kind: String,
+    pub system_payload: Option<String>,
 }

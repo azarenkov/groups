@@ -12,6 +12,7 @@ pub struct CreateChannelResponse {
     pub kind: ChannelKindResponse,
     pub visibility: ChannelVisibilityResponse,
     pub created_at: DateTime<Utc>,
+    pub is_default: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -37,6 +38,7 @@ impl From<Channel> for CreateChannelResponse {
             kind: value.kind().into(),
             visibility: (&value.visibility()).into(),
             created_at: value.created_at(),
+            is_default: value.is_default(),
         }
     }
 }

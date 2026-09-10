@@ -1,3 +1,6 @@
+use messaging_domain::message::system::SystemMessageKind;
+
+use crate::usecases::server::membership_announcements::announce_membership;
 use std::sync::Arc;
 
 use domain::user::id::UserId;
@@ -45,7 +48,9 @@ impl<W: ServerUnitOfWork> KickMember<W> {
         if !tx.remove_member(&target).await? {
             return Err(KickMemberError::NotMember);
         }
-        let events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
+        let now = chrono::Utc::now();
+        let mut events: Vec<MessagingEvent> = server.pull_events().into_iter().map(MessagingEvent::from).collect();
+        events.extend(announce_membership(&mut *tx, target, SystemMessageKind::MemberLeft, now).await?);
         tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(())

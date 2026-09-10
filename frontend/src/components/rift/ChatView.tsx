@@ -16,7 +16,7 @@ import {
 } from "../../api/attachment";
 import { userAPI } from "../../api/user";
 import { useReadReceiptStore } from "../../store/readReceiptStore";
-import { Attachment, ChannelMessage } from "../../types/channel";
+import { Attachment, ChannelMessage, SystemMessageInfo } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
 import { colorForId } from "../../utils/avatar";
@@ -418,6 +418,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         content: string;
         occurredAt: string;
         attachments?: Attachment[];
+        kind?: "user" | "system";
+        system?: SystemMessageInfo;
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -431,6 +433,8 @@ const ChatView: React.FC<ChatViewProps> = ({
                   authorName: m.authorName,
                   content: m.content,
                   attachments: m.attachments,
+                  kind: m.kind,
+                  system: m.system,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },
@@ -1660,11 +1664,10 @@ const ChatView: React.FC<ChatViewProps> = ({
               const newDay = !prevDate || !sameDay(curDate, prevDate);
               const sameAuthor = !!prev && prev.authorId === m.authorId;
               const within = !!prev && curDate.getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
-              const cont = sameAuthor && within && !newDay;
+              const cont = sameAuthor && within && !newDay && !m.system && !prev?.system;
               const isMine = !!currentUserId && m.authorId === currentUserId;
-              const displayName = isMine
-                ? "You"
-                : (nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
+              const subjectName = nameOverrides[m.authorId] ?? m.authorName ?? m.authorId;
+              const displayName = m.system ? subjectName : isMine ? "You" : subjectName;
               return (
                 <React.Fragment key={m.id}>
                   {newDay && (
@@ -1833,7 +1836,8 @@ const ChatView: React.FC<ChatViewProps> = ({
                     (m) =>
                       m.authorId === currentUserId &&
                       !m.callStatus &&
-                      !m.inviteServerId,
+                      !m.inviteServerId &&
+                      !m.system,
                   );
                 if (last) {
                   e.preventDefault();
@@ -2722,6 +2726,23 @@ const Message: React.FC<MessageProps> = ({
     hour: "2-digit",
     minute: "2-digit",
   });
+  if (msg.system) {
+    const joined = msg.system.type === "member_joined";
+    return (
+      <div data-msg-id={msg.id} className={"msg system" + (highlighted ? " highlight" : "")}>
+        <span className="msg-system-ico">
+          <Icon name={joined ? "user-plus" : "logout"} size={13} />
+        </span>
+        <span className="msg-system-text">
+          {i18n.t(joined ? "system.memberJoined" : "system.memberLeft", {
+            ns: "chat",
+            name: displayName,
+          })}
+        </span>
+        <time>{time}</time>
+      </div>
+    );
+  }
   return (
     <div
       data-msg-id={msg.id}

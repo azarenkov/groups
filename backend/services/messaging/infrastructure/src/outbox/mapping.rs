@@ -197,6 +197,7 @@ fn message_record(event: &MessageDomainEvent) -> Result<OutboxRecord, Repository
             recipient_ids: uuids(&e.recipient_ids),
             attachments: Some(value(&e.attachments)?),
             mentions: Some(uuids(&e.mentions)),
+            system: e.system.as_ref().map(|s| s.to_json()),
         })?,
         MessageDomainEvent::Edited(e) => encode(&ChannelMessageEditedV1 {
             message_id: e.message_id.uuid(),

@@ -589,11 +589,6 @@ const ServersPage: React.FC = () => {
       }
     }
     try {
-      await createChannel(server.id, "general", "text", "public");
-    } catch (err) {
-      console.error("[ServersPage] failed to create default text channel:", err);
-    }
-    try {
       await createChannel(server.id, "voice", "voice", "public");
     } catch (err) {
       console.error("[ServersPage] failed to create default voice channel:", err);
@@ -674,6 +669,10 @@ const ServersPage: React.FC = () => {
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to delete channel:", err);
+      if (err instanceof ApiError && err.code === "CHANNEL_IS_DEFAULT") {
+        useChannelStore.getState().setError(tSidebar("channelIsDefault"));
+        setDeleteConfirm(null);
+      }
     }
   };
 

@@ -71,6 +71,8 @@
   "kindVoice": "Voice",
   "privateChannel": "Private",
   "deleteChannel": "Delete channel",
+  "defaultChannelBadge": "Default",
+  "defaultChannelNote": "Default channel: system notifications about members joining and leaving are posted here. Members can still write in it as usual.",
   "channelList": "Channels ({{count}})",
   "channelKind": "Type",
   "channelVisibility": "Access",

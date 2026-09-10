@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 use domain::user::id::UserId;
-use messaging_domain::{server::Server, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteLinkStatus, server::invite_link::InviteToken, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, message::system::SystemMessageKind, server::Server, server::events::ServerEvent, server::events::lifecycle::ServerMemberJoined, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteLinkStatus, server::invite_link::InviteToken, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork};
+
+use crate::usecases::server::membership_announcements::announce_membership;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -227,13 +229,17 @@ pub enum JoinByInviteLinkError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct JoinByInviteLink<S: ServerRepository> {
+pub struct JoinByInviteLink<S: ServerRepository, W: ServerUnitOfWork> {
     server_repository: Arc<S>,
+    unit_of_work: Arc<W>,
 }
 
-impl<S: ServerRepository> JoinByInviteLink<S> {
-    pub fn new(server_repository: Arc<S>) -> Self {
-        Self { server_repository }
+impl<S: ServerRepository, W: ServerUnitOfWork> JoinByInviteLink<S, W> {
+    pub fn new(server_repository: Arc<S>, unit_of_work: Arc<W>) -> Self {
+        Self {
+            server_repository,
+            unit_of_work,
+        }
     }
 
     pub async fn execute(
@@ -241,18 +247,30 @@ impl<S: ServerRepository> JoinByInviteLink<S> {
         token: InviteToken,
         user_id: UserId,
     ) -> Result<InviteJoin, JoinByInviteLinkError> {
-        let (server_id, already_member) = match self
+        let link = self
             .server_repository
-            .join_by_invite_link(&token, &user_id)
+            .find_invite_link(&token)
             .await?
-        {
-            InviteJoinOutcome::Joined(server_id) => (server_id, false),
-            InviteJoinOutcome::AlreadyMember(server_id) => (server_id, true),
+            .ok_or(JoinByInviteLinkError::NotFound)?;
+        let server_id = link.server_id;
+        let mut tx = self.unit_of_work.begin(&server_id).await?;
+        let already_member = match tx.redeem_invite_link(&token, &user_id).await? {
+            InviteJoinOutcome::Joined(_) => false,
+            InviteJoinOutcome::AlreadyMember(_) => true,
             InviteJoinOutcome::Unavailable(status) => {
                 return Err(JoinByInviteLinkError::Unavailable(status));
             }
             InviteJoinOutcome::NotFound => return Err(JoinByInviteLinkError::NotFound),
         };
+        if !already_member {
+            let now = Utc::now();
+            let mut events = vec![MessagingEvent::from(ServerEvent::MemberJoined(
+                ServerMemberJoined::record(server_id, user_id, now),
+            ))];
+            events.extend(announce_membership(&mut *tx, user_id, SystemMessageKind::MemberJoined, now).await?);
+            tx.save_events(&events, None).await?;
+        }
+        tx.commit().await?;
         let server = self
             .server_repository
             .find_server_by_id(&server_id)

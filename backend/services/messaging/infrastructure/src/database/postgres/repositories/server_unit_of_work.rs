@@ -3,7 +3,7 @@ use crate::database::postgres::repositories::invite_link::{INVITE_LINK_COLUMNS, 
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_link::InviteLink, server::invite_link::InviteToken, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteLinkStatus, server::invite_link::InviteToken, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -548,9 +548,9 @@ impl ServerTransaction for PostgresServerTransaction {
             r#"
             INSERT INTO channels (
                 id, server_id, owner_id, name,
-                kind, visibility, password_hash, created_at, updated_at, last_join
+                kind, visibility, password_hash, created_at, updated_at, last_join, is_default
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             "#,
             channel.id().uuid(),
             channel.server_id().uuid(),
@@ -562,6 +562,7 @@ impl ServerTransaction for PostgresServerTransaction {
             channel.created_at(),
             channel.updated_at(),
             channel.last_join(),
+            channel.is_default(),
         )
         .execute(&mut *self.tx)
         .await
@@ -764,6 +765,81 @@ impl ServerTransaction for PostgresServerTransaction {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.map(|r| UserId::new(r.user_id)))
+    }
+
+    async fn find_default_channel_id(&mut self) -> Result<Option<ChannelId>, RepositoryError> {
+        let id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM channels WHERE server_id = $1 AND is_default",
+        )
+        .bind(self.server_id.uuid())
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(id.map(ChannelId::new))
+    }
+
+    async fn insert_system_message(&mut self, message: &Message) -> Result<(), RepositoryError> {
+        let payload = message.system().map(|s| s.to_json().to_string());
+        sqlx::query(
+            "INSERT INTO messages (id, channel_id, author_id, content, created_at, edited_at, mentions, kind, system_payload) VALUES ($1, $2, $3, $4, $5, NULL, '{}', 'system', ($6::text)::jsonb)",
+        )
+        .bind(message.id().uuid())
+        .bind(message.channel_id().uuid())
+        .bind(message.author_id().uuid())
+        .bind(message.content().as_str())
+        .bind(message.created_at())
+        .bind(payload)
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn redeem_invite_link(
+        &mut self,
+        token: &InviteToken,
+        user_id: &UserId,
+    ) -> Result<InviteJoinOutcome, RepositoryError> {
+        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
+            "SELECT {INVITE_LINK_COLUMNS} FROM server_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.token = $1 AND l.server_id = $2 FOR UPDATE OF l"
+        ))
+        .bind(token.as_str())
+        .bind(self.server_id.uuid())
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(link) = row.map(InviteLink::from) else {
+            return Ok(InviteJoinOutcome::NotFound);
+        };
+        let already_member: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2)",
+        )
+        .bind(self.server_id.uuid())
+        .bind(user_id.uuid())
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if already_member {
+            return Ok(InviteJoinOutcome::AlreadyMember(self.server_id));
+        }
+        let status = link.status(chrono::Utc::now());
+        if status != InviteLinkStatus::Active {
+            return Ok(InviteJoinOutcome::Unavailable(status));
+        }
+        sqlx::query(
+            "INSERT INTO server_members (server_id, user_id, joined_at) VALUES ($1, $2, NOW()) ON CONFLICT (server_id, user_id) DO NOTHING",
+        )
+        .bind(self.server_id.uuid())
+        .bind(user_id.uuid())
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query("UPDATE server_invite_links SET uses = uses + 1 WHERE token = $1")
+            .bind(token.as_str())
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(InviteJoinOutcome::Joined(self.server_id))
     }
 
     async fn create_invite_link(&mut self, link: &InviteLink) -> Result<(), RepositoryError> {

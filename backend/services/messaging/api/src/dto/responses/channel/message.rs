@@ -1,5 +1,6 @@
 use messaging::dto::responses::channel::{
-    channel_message::ChannelMessageDto, send_channel_message::SendChannelMessageResponse,
+    channel_message::ChannelMessageDto, channel_message::SystemMessageDto,
+    send_channel_message::SendChannelMessageResponse,
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -18,6 +19,26 @@ pub struct MessageResponse {
     pub edited_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attachments: Vec<api_common::dto::responses::attachment::AttachmentResponse>,
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system: Option<SystemMessageResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemMessageResponse {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub user_id: Uuid,
+}
+
+impl From<SystemMessageDto> for SystemMessageResponse {
+    fn from(value: SystemMessageDto) -> Self {
+        Self {
+            kind: value.kind,
+            user_id: value.user_id,
+        }
+    }
 }
 
 impl From<SendChannelMessageResponse> for MessageResponse {
@@ -35,6 +56,8 @@ impl From<SendChannelMessageResponse> for MessageResponse {
                 .into_iter()
                 .map(api_common::dto::responses::attachment::AttachmentResponse::from)
                 .collect(),
+            kind: "user".to_string(),
+            system: None,
         }
     }
 }
@@ -50,6 +73,8 @@ impl From<ChannelMessageDto> for MessageResponse {
             created_at: value.created_at,
             edited_at: value.edited_at,
             attachments: Vec::new(),
+            kind: value.kind,
+            system: value.system.map(SystemMessageResponse::from),
         }
     }
 }

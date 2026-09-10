@@ -482,6 +482,7 @@ impl HttpMapping for CreateServerError {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
             CreateServerError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            CreateServerError::Channel(e) => e.to_http_status(),
         }
     }
 
@@ -496,6 +497,7 @@ impl HttpMapping for CreateServerError {
             CreateServerError::ModerationUnavailable(_) => {
                 "Content moderation is temporarily unavailable".to_string()
             }
+            CreateServerError::Channel(e) => e.to_user_message(),
         }
     }
 
@@ -506,6 +508,7 @@ impl HttpMapping for CreateServerError {
             CreateServerError::NameNotAllowed => "SERVER_NAME_NOT_ALLOWED",
             CreateServerError::DescriptionNotAllowed => "SERVER_DESCRIPTION_NOT_ALLOWED",
             CreateServerError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
+            CreateServerError::Channel(e) => e.to_error_code(),
         }
     }
 }
@@ -1917,6 +1920,7 @@ impl HttpMapping for ChannelError {
                 StatusCode::BAD_REQUEST
             }
             ChannelError::ParticipantNotJoined => StatusCode::CONFLICT,
+            ChannelError::DefaultChannel => StatusCode::CONFLICT,
         }
     }
 
@@ -1943,6 +1947,7 @@ impl HttpMapping for ChannelError {
             ChannelError::ParticipantNotJoined => {
                 "Participant has not joined the voice session yet".to_string()
             }
+            ChannelError::DefaultChannel => "The default channel cannot be deleted".to_string(),
         }
     }
 
@@ -1959,6 +1964,7 @@ impl HttpMapping for ChannelError {
             ChannelError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             ChannelError::TextNotSupported => "CHANNEL_NOT_TEXT",
             ChannelError::ParticipantNotJoined => "PARTICIPANT_NOT_JOINED",
+            ChannelError::DefaultChannel => "CHANNEL_IS_DEFAULT",
         }
     }
 }
@@ -1970,6 +1976,7 @@ impl HttpMapping for MessageError {
             | MessageError::ContentTooLong
             | MessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
             MessageError::NotAuthor => StatusCode::FORBIDDEN,
+            MessageError::SystemMessage => StatusCode::CONFLICT,
         }
     }
 
@@ -1983,6 +1990,7 @@ impl HttpMapping for MessageError {
             MessageError::NotAuthor => {
                 "Only the message author can perform this action".to_string()
             }
+            MessageError::SystemMessage => "System messages cannot be edited or deleted".to_string(),
         }
     }
 
@@ -1992,6 +2000,7 @@ impl HttpMapping for MessageError {
             MessageError::ContentTooLong => "MESSAGE_CONTENT_TOO_LONG",
             MessageError::ContentUnchanged => "MESSAGE_CONTENT_UNCHANGED",
             MessageError::NotAuthor => "MESSAGE_NOT_AUTHOR",
+            MessageError::SystemMessage => "MESSAGE_IS_SYSTEM",
         }
     }
 }

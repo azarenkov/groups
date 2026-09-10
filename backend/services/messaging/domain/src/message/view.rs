@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{channel::id::ChannelId, message::id::MessageId};
+use crate::{channel::id::ChannelId, message::id::MessageId, message::system::SystemMessage};
 use domain::user::id::UserId;
 
 #[derive(Debug, Clone)]
@@ -12,4 +12,5 @@ pub struct MessageView {
     pub content: String,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
+    pub system: Option<SystemMessage>,
 }

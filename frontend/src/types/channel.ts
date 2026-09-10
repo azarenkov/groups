@@ -9,6 +9,7 @@ export interface Channel {
   visibility: ChannelVisibility;
   maxParticipants: number;
   createdAt: string;
+  isDefault?: boolean;
 }
 
 export interface PaginationMeta {
@@ -50,6 +51,14 @@ export interface CreateChannelResponse {
   visibility: ChannelVisibility;
   maxParticipants: number;
   createdAt: string;
+  isDefault?: boolean;
+}
+
+export type SystemMessageType = "member_joined" | "member_left";
+
+export interface SystemMessageInfo {
+  type: SystemMessageType;
+  userId: string;
 }
 
 export interface JoinVoiceChannelRequest {
@@ -83,6 +92,8 @@ export interface ChannelMessage {
   callStatus?: string;
   callDurationSeconds?: number;
   attachments?: Attachment[];
+  kind?: "user" | "system";
+  system?: SystemMessageInfo;
   createdAt: string;
   editedAt: string | null;
 }

@@ -397,6 +397,7 @@ function dispatch(env: WsEnvelope) {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpChannel(channelId, serverId);
+      if (asString(d.kind) === "system") return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         showDesktopNotification(
