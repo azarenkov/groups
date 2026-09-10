@@ -6,7 +6,10 @@ use ports::repository::RepositoryError;
 use uuid::Uuid;
 use voice_domain::call::repository::CallRepository;
 
-use crate::ports::voice_service::{VoiceService, VoiceServiceError};
+use crate::ports::{
+    friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+    voice_service::{VoiceService, VoiceServiceError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum EnforceBlockError {
@@ -14,26 +17,32 @@ pub enum EnforceBlockError {
     Repository(#[from] RepositoryError),
     #[error("Voice service error: {0}")]
     Voice(#[from] VoiceServiceError),
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
-pub struct EnforceBlock<C, V>
+pub struct EnforceBlock<C, V, F>
 where
     C: CallRepository,
     V: VoiceService,
+    F: FriendshipLookup,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
+    friendship_repository: Arc<F>,
 }
 
-impl<C, V> EnforceBlock<C, V>
+impl<C, V, F> EnforceBlock<C, V, F>
 where
     C: CallRepository,
     V: VoiceService,
+    F: FriendshipLookup,
 {
-    pub fn new(call_repository: Arc<C>, voice_service: Arc<V>) -> Self {
+    pub fn new(call_repository: Arc<C>, voice_service: Arc<V>, friendship_repository: Arc<F>) -> Self {
         Self {
             call_repository,
             voice_service,
+            friendship_repository,
         }
     }
 
@@ -43,6 +52,9 @@ where
         blocked: UserId,
         request_id: Option<String>,
     ) -> Result<(), EnforceBlockError> {
+        if !self.friendship_repository.is_blocked(&blocker, &blocked).await? {
+            return Ok(());
+        }
         let Some(call_id) = self.shared_call(&blocker, &blocked).await? else {
             return Ok(());
         };
@@ -59,7 +71,7 @@ where
         }
         let room = ChannelId::new(call_id);
         for user in leaving {
-            let _ = self.voice_service.remove_participant(&room, &user).await;
+            self.voice_service.remove_participant(&room, &user).await?;
             self.call_repository
                 .leave(call_id, &user, Utc::now(), request_id.clone())
                 .await?;

@@ -90,7 +90,7 @@ where
                 .is_blocked(&user_id, &participant.user_id)
                 .await?
             {
-                let _ = self.voice_service.remove_participant(&room, &user_id).await;
+                self.voice_service.remove_participant(&room, &user_id).await?;
                 self.call_repository
                     .leave(call_id, &user_id, Utc::now(), None)
                     .await?;

@@ -11,19 +11,21 @@ use contracts::events::user::{UserLifecycleV1, UserNameV1 as UserNameDto};
 use voice::usecases::call::enforce_block::EnforceBlock;
 use voice::usecases::call::enforce_user_deactivation::EnforceUserDeactivation;
 use voice_domain::call::repository::CallRepository;
+use voice::ports::friendship_lookup::FriendshipLookup;
 use voice::ports::voice_service::VoiceService;
 
-pub fn spawn<P, C, V>(
+pub fn spawn<P, C, V, F>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
     profiles: Arc<P>,
     deactivation: Arc<EnforceUserDeactivation<C, V>>,
-    block: Arc<EnforceBlock<C, V>>,
+    block: Arc<EnforceBlock<C, V, F>>,
 ) where
     P: UserProfileRepository + Send + Sync + 'static,
     C: CallRepository + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
+    F: FriendshipLookup + Send + Sync + 'static,
 {
     actix_web::rt::spawn(async move {
         let prefix = subject_prefix.trim_end_matches('.').to_string();
@@ -80,18 +82,19 @@ pub fn spawn<P, C, V>(
     });
 }
 
-async fn handle<P, C, V>(
+async fn handle<P, C, V, F>(
     subject: &str,
     payload: &[u8],
     profiles: &P,
     deactivation: &EnforceUserDeactivation<C, V>,
-    block: &EnforceBlock<C, V>,
+    block: &EnforceBlock<C, V, F>,
     request_id: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     P: UserProfileRepository + Send + Sync,
     C: CallRepository + Send + Sync,
     V: VoiceService + Send + Sync,
+    F: FriendshipLookup + Send + Sync,
 {
     if subject.ends_with(".user.blocked") {
         match serde_json::from_slice::<UserBlockedV1>(payload) {

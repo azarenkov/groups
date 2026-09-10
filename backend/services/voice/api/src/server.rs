@@ -81,6 +81,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(voice::usecases::call::enforce_block::EnforceBlock::new(
             call_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
         )),
     );
 
