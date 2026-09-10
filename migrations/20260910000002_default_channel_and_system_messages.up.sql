@@ -21,6 +21,8 @@ CROSS JOIN LATERAL (
         SELECT 'general' AS name, 0 AS ord
         UNION ALL
         SELECT 'general-' || g::text, g FROM generate_series(2, 10000) AS g
+        UNION ALL
+        SELECT 'general-' || replace(gen_random_uuid()::text, '-', ''), 10001
     ) AS candidate
     WHERE NOT EXISTS (
         SELECT 1 FROM messaging.channels x WHERE x.server_id = s.id AND x.name = candidate.name
