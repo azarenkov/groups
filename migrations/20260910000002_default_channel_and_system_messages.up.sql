@@ -24,6 +24,7 @@ WHERE NOT EXISTS (SELECT 1 FROM messaging.channels c WHERE c.server_id = s.id AN
 INSERT INTO messaging.channel_text_participants (channel_id, user_id, joined_at)
 SELECT c.id, c.owner_id, c.created_at
 FROM messaging.channels c
+INNER JOIN messaging.server_members m ON m.server_id = c.server_id AND m.user_id = c.owner_id
 WHERE c.is_default
 ON CONFLICT (channel_id, user_id) DO NOTHING;
 
