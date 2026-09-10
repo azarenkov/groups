@@ -106,6 +106,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
 
   useEffect(() => {
     if (!isOpen || !initialToken) return;
+    setWarning(null);
     setView("join");
     setLinkInput(initialToken);
     void loadPreview(initialToken);
