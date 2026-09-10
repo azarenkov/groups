@@ -6,7 +6,3 @@ CREATE TABLE realtime.realtime_user_blocks (
     PRIMARY KEY (blocker_id, blocked_id)
 );
 CREATE INDEX realtime_user_blocks_blocked_idx ON realtime.realtime_user_blocks (blocked_id);
-
-INSERT INTO realtime.realtime_user_blocks (blocker_id, blocked_id, active, updated_at)
-SELECT blocker_id, blocked_id, TRUE, created_at FROM messaging.user_blocks
-ON CONFLICT DO NOTHING;
