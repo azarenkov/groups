@@ -225,7 +225,7 @@ pub struct AppState {
         PostgresUserProfileRepository,
     >,
     pub accept_server_invite_usecase:
-        AcceptServerInvite<PostgresDmMessageRepository, PostgresServerUnitOfWork>,
+        AcceptServerInvite<PostgresDmMessageRepository, PostgresServerUnitOfWork, PostgresFriendshipRepository>,
     pub decline_server_invite_usecase:
         DeclineServerInvite<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
     pub list_sent_server_invites_usecase:

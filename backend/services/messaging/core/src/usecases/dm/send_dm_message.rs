@@ -97,14 +97,6 @@ where
             .friendship_repository
             .find_pair(&sender_id, &recipient_id)
             .await?;
-        if self
-            .friendship_repository
-            .block_relation(&sender_id, &recipient_id)
-            .await?
-            .any()
-        {
-            return Err(SendDmMessageError::Blocked);
-        }
         let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
         let recipient_privacy = self.privacy_repository.get(&recipient_id).await?;
         match recipient_privacy.dm_policy {
@@ -152,9 +144,14 @@ where
             let snapshots: Vec<AttachmentSnapshot> = attachments.iter().map(AttachmentSnapshot::from).collect();
         let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();
         let mut tx = self.unit_of_work.begin().await?;
+            tx.lock_pair(&sender_id, &recipient_id).await?;
+            if tx.block_relation(&sender_id, &recipient_id).await?.any() {
+                return Err(SendDmMessageError::Blocked);
+            }
             tx.insert_message(&message, &attachments).await?;
             tx.save_events(&events, request_id.as_deref()).await?;
-            tx.commit().await
+            tx.commit().await?;
+            Ok::<(), SendDmMessageError>(())
         }
         .await;
         if let Err(e) = persisted {
@@ -177,7 +174,7 @@ where
                     }
                 }
             }
-            return Err(e.into());
+            return Err(e);
         }
 
         let mut response = SendDmMessageResponse::from(&message);

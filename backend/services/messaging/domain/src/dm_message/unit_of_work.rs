@@ -3,7 +3,10 @@ use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, dm_message::DmMessage, dm_message::id::DmMessageId};
+use crate::{
+    dm_message::DmMessage, dm_message::id::DmMessageId, events::MessagingEvent,
+    friendship::block::BlockRelation,
+};
 
 #[async_trait::async_trait]
 pub trait DmUnitOfWork: Send + Sync {
@@ -12,6 +15,12 @@ pub trait DmUnitOfWork: Send + Sync {
 
 #[async_trait::async_trait]
 pub trait DmTransaction: Send {
+    async fn lock_pair(&mut self, a: &UserId, b: &UserId) -> Result<(), RepositoryError>;
+    async fn block_relation(
+        &mut self,
+        viewer: &UserId,
+        other: &UserId,
+    ) -> Result<BlockRelation, RepositoryError>;
     async fn insert_message(
         &mut self,
         message: &DmMessage,

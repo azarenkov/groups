@@ -38,7 +38,7 @@ impl FriendshipUnitOfWork for PostgresFriendshipUnitOfWork {
     }
 }
 
-fn pair_key(a: &UserId, b: &UserId) -> String {
+pub(crate) fn pair_key(a: &UserId, b: &UserId) -> String {
     let (lo, hi) = if a.uuid() <= b.uuid() { (a, b) } else { (b, a) };
     format!("{}:{}", lo.uuid(), hi.uuid())
 }

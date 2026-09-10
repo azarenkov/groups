@@ -257,6 +257,10 @@ function dispatch(env: WsEnvelope) {
         const calls = useCallStore.getState();
         if (calls.incoming?.callerId === peer) calls.clearIncoming();
         calls.clearJoinable(peer);
+        const sharesCall =
+          !!calls.activeCallId &&
+          (!!calls.participants[peer] || calls.ringing.includes(peer) || calls.peerId === peer);
+        if (blockerId === selfId && sharesCall) void calls.leave().catch(() => {});
       }
       useActivityStore.getState().apply(peer, null);
       void useFriendshipStore

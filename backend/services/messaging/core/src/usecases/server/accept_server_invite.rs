@@ -4,7 +4,7 @@ use crate::usecases::server::membership_announcements::announce_membership;
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, server::unit_of_work::ServerUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
@@ -19,26 +19,32 @@ pub enum AcceptServerInviteError {
     NotAnInvite,
     #[error("This invite was not addressed to you")]
     NotRecipient,
+    #[error("This user is blocked")]
+    Blocked,
 }
 
-pub struct AcceptServerInvite<M, W>
+pub struct AcceptServerInvite<M, W, F>
 where
     M: DmMessageRepository,
     W: ServerUnitOfWork,
+    F: FriendshipRepository,
 {
     dm_repository: Arc<M>,
     unit_of_work: Arc<W>,
+    friendship_repository: Arc<F>,
 }
 
-impl<M, W> AcceptServerInvite<M, W>
+impl<M, W, F> AcceptServerInvite<M, W, F>
 where
     M: DmMessageRepository,
     W: ServerUnitOfWork,
+    F: FriendshipRepository,
 {
-    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>) -> Self {
+    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>, friendship_repository: Arc<F>) -> Self {
         Self {
             dm_repository,
             unit_of_work,
+            friendship_repository,
         }
     }
 
@@ -57,6 +63,14 @@ where
 
         if message.recipient_id() != &requester_id {
             return Err(AcceptServerInviteError::NotRecipient);
+        }
+        if self
+            .friendship_repository
+            .block_relation(message.sender_id(), &requester_id)
+            .await?
+            .any()
+        {
+            return Err(AcceptServerInviteError::Blocked);
         }
 
         message.record_invite_deleted(Utc::now());

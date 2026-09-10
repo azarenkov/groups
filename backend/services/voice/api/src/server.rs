@@ -78,6 +78,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 livekit_service.clone(),
             ),
         ),
+        Arc::new(voice::usecases::call::enforce_block::EnforceBlock::new(
+            call_repository.clone(),
+            livekit_service.clone(),
+        )),
     );
 
     let app_state = web::Data::new(AppState {
@@ -103,6 +107,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         get_active_call_usecase: GetActiveCall::new(
             call_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
             user_repository.clone(),
         ),
         get_active_call_with_usecase: GetActiveCallWith::new(

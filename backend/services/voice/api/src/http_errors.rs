@@ -311,6 +311,7 @@ impl HttpMapping for GetActiveCallError {
             GetActiveCallError::Repository(e) => e.to_http_status(),
             GetActiveCallError::Voice(e) => e.to_http_status(),
             GetActiveCallError::UserNotFound => StatusCode::NOT_FOUND,
+            GetActiveCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -318,6 +319,9 @@ impl HttpMapping for GetActiveCallError {
             GetActiveCallError::Repository(e) => e.to_user_message(),
             GetActiveCallError::Voice(e) => e.to_user_message(),
             GetActiveCallError::UserNotFound => "User not found".to_string(),
+            GetActiveCallError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -325,6 +329,7 @@ impl HttpMapping for GetActiveCallError {
             GetActiveCallError::Repository(e) => e.to_error_code(),
             GetActiveCallError::Voice(e) => e.to_error_code(),
             GetActiveCallError::UserNotFound => "USER_NOT_FOUND",
+            GetActiveCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }

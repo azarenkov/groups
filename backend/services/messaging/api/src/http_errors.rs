@@ -1481,6 +1481,7 @@ impl HttpMapping for AcceptServerInviteError {
             AcceptServerInviteError::Repository(e) => e.to_http_status(),
             AcceptServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
             AcceptServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
+            AcceptServerInviteError::Blocked => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1492,6 +1493,7 @@ impl HttpMapping for AcceptServerInviteError {
             AcceptServerInviteError::NotRecipient => {
                 "This invite was not addressed to you".to_string()
             }
+            AcceptServerInviteError::Blocked => "You cannot interact with this user.".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1499,6 +1501,7 @@ impl HttpMapping for AcceptServerInviteError {
             AcceptServerInviteError::Repository(e) => e.to_error_code(),
             AcceptServerInviteError::NotAnInvite => "INVITE_INVALID",
             AcceptServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
+            AcceptServerInviteError::Blocked => "USER_BLOCKED",
         }
     }
 }

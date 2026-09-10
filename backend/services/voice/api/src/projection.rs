@@ -6,7 +6,9 @@ use ports::user_profile::UserProfileRepository;
 use futures::StreamExt;
 use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
+use contracts::events::friendship::UserBlockedV1;
 use contracts::events::user::{UserLifecycleV1, UserNameV1 as UserNameDto};
+use voice::usecases::call::enforce_block::EnforceBlock;
 use voice::usecases::call::enforce_user_deactivation::EnforceUserDeactivation;
 use voice_domain::call::repository::CallRepository;
 use voice::ports::voice_service::VoiceService;
@@ -17,6 +19,7 @@ pub fn spawn<P, C, V>(
     stream: String,
     profiles: Arc<P>,
     deactivation: Arc<EnforceUserDeactivation<C, V>>,
+    block: Arc<EnforceBlock<C, V>>,
 ) where
     P: UserProfileRepository + Send + Sync + 'static,
     C: CallRepository + Send + Sync + 'static,
@@ -47,7 +50,7 @@ pub fn spawn<P, C, V>(
                                     subject = %m.subject,
                                 );
                                 async {
-                                    match handle(&m.subject, &m.payload, &*profiles, &deactivation, m.request_id.clone()).await {
+                                    match handle(&m.subject, &m.payload, &*profiles, &deactivation, &block, m.request_id.clone()).await {
                                         Ok(()) => {
                                             if let Err(e) = m.ack().await {
                                                 tracing::warn!(error = %e, "Voice projection ack failed");
@@ -82,6 +85,7 @@ async fn handle<P, C, V>(
     payload: &[u8],
     profiles: &P,
     deactivation: &EnforceUserDeactivation<C, V>,
+    block: &EnforceBlock<C, V>,
     request_id: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
@@ -89,6 +93,19 @@ where
     C: CallRepository + Send + Sync,
     V: VoiceService + Send + Sync,
 {
+    if subject.ends_with(".user.blocked") {
+        match serde_json::from_slice::<UserBlockedV1>(payload) {
+            Ok(evt) => {
+                block
+                    .execute(UserId::new(evt.blocker_id), UserId::new(evt.blocked_id), request_id)
+                    .await?;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, %subject, "Malformed user block event; dropping");
+            }
+        }
+        return Ok(());
+    }
     if subject.ends_with(".user.registered") || subject.ends_with(".user.renamed") {
         match serde_json::from_slice::<UserNameDto>(payload) {
             Ok(evt) => {

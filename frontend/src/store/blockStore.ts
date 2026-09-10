@@ -21,7 +21,8 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
   return rest;
 };
 
-let requestGen = 0;
+let mutationGen = 0;
+let fetchSeq = 0;
 
 export const useBlockStore = create<BlockState>()((set, get) => ({
   blocked: {},
@@ -29,10 +30,11 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   loaded: false,
 
   fetch: async () => {
-    const gen = ++requestGen;
+    const gen = mutationGen;
+    const seq = ++fetchSeq;
     try {
       const res = await friendshipAPI.listBlocks();
-      if (gen !== requestGen) return;
+      if (gen !== mutationGen || seq !== fetchSeq) return;
       const blocked: Record<string, BlockedUser> = {};
       for (const b of res.blocks) blocked[b.userId] = b;
       set({ blocked, loaded: true });
@@ -43,7 +45,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   block: async (userId) => {
     await friendshipAPI.block(userId);
-    requestGen += 1;
+    mutationGen += 1;
     set((state) => ({
       blocked: {
         ...state.blocked,
@@ -59,13 +61,13 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   unblock: async (userId) => {
     await friendshipAPI.unblock(userId);
-    requestGen += 1;
+    mutationGen += 1;
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
   },
 
   applyEvent: (selfId, blockerId, blockedId, active) => {
+    mutationGen += 1;
     if (blockerId === selfId) {
-      requestGen += 1;
       if (active) {
         set((state) => ({
           blocked: {
@@ -86,8 +88,8 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   applyRelation: (userId, relation, gen) => {
+    if (gen !== undefined && gen !== mutationGen) return;
     get().markBlockedBy(userId, relation.blockedBy);
-    if (gen !== undefined && gen !== requestGen) return;
     const known = !!get().blocked[userId];
     if (relation.blocked && !known) {
       set((state) => ({
@@ -113,12 +115,12 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     }),
 
   clearAll: () => {
-    requestGen += 1;
+    mutationGen += 1;
     set({ blocked: {}, blockedBy: {}, loaded: false });
   },
 }));
 
-export const blockGeneration = (): number => requestGen;
+export const blockGeneration = (): number => mutationGen;
 
 export const isBlockedEitherWay = (userId: string): boolean => {
   const s = useBlockStore.getState();
