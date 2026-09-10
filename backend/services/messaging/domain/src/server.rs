@@ -2,7 +2,7 @@ pub use domain::server::id;
 
 pub mod description;
 pub mod events;
-pub mod invite_code;
+pub mod invite_link;
 pub mod name;
 pub mod policy;
 pub mod repository;
@@ -487,6 +487,10 @@ impl Server {
 
     pub fn is_owner(&self, user: &UserId) -> bool {
         &self.owner_id == user
+    }
+
+    pub fn member_count(&self) -> usize {
+        self.members.len()
     }
 
     pub fn is_member(&self, user: &UserId) -> bool {

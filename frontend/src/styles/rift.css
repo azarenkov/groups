@@ -4530,6 +4530,16 @@ button.ssv-row-delete:focus-visible {
   overflow: hidden; white-space: nowrap;
 }
 .ssv-invite-code .dim { color: var(--fg-3); }
+.ssv-invite-note { margin: -6px 0 14px; font-size: 13px; line-height: 1.4; color: var(--fg-3); }
+.ssv-invite-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ssv-invite-opt.grow { flex: 2; min-width: 0; }
+.ssv-invite-opt input {
+  border: 0; background: transparent; outline: none;
+  font: inherit; font-size: 15px; font-weight: 600;
+  color: var(--fg-1);
+  padding: 0; min-width: 0;
+}
+.ssv-invite-opt input::placeholder { color: var(--fg-3); font-weight: 500; }
 .ssv-invite-opts { display: flex; gap: 14px; margin-top: 18px; }
 .ssv-invite-opt {
   flex: 1;
@@ -4813,6 +4823,30 @@ button.ssv-row-delete:focus-visible {
   font-size: 12px; color: var(--fg-3);
 }
 .srvm-hint-mono { font-family: var(--font-mono); color: var(--fg-2); }
+.srvm-preview {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  margin-top: 6px;
+}
+.srvm-preview-ava {
+  width: 48px; height: 48px; flex: none;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 20px;
+}
+.srvm-preview-main { min-width: 0; }
+.srvm-preview-name { font-size: 15px; font-weight: 600; color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srvm-preview-meta { margin-top: 2px; font-size: 12px; color: var(--fg-3); }
+.srvm-preview-desc { margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--fg-2); }
+.join-card .srvm-preview { margin: 18px 0 0; }
+.join-status { margin-top: 16px; }
+.join-loading { display: flex; justify-content: center; padding: 18px 0; }
+.join-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.join-actions .srvm-btn { width: 100%; justify-content: center; }
+.join-open-app { text-decoration: none; }
 .srvm-error {
   margin-top: 16px;
   font-size: 12px; color: var(--danger);

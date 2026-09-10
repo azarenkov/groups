@@ -150,10 +150,11 @@ use messaging::usecases::server::create_server::CreateServerError;
 use messaging::usecases::server::decline_server_invite::DeclineServerInviteError;
 use messaging::usecases::server::delete_server::DeleteServerError;
 use messaging::usecases::server::get_voice_presence::GetVoicePresenceError;
-use messaging::usecases::server::invite_codes::CreateInviteCodeError;
-use messaging::usecases::server::invite_codes::ListInviteCodesError;
-use messaging::usecases::server::invite_codes::RedeemInviteCodeError;
-use messaging::usecases::server::invite_codes::RevokeInviteCodeError;
+use messaging::usecases::server::invite_links::JoinByInviteLinkError;
+use messaging::usecases::server::invite_links::ManageInviteLinksError;
+use messaging::usecases::server::invite_links::PreviewInviteLinkError;
+use messaging::usecases::server::invite_links::RevokeInviteLinkError;
+use messaging_domain::server::invite_link::InviteLinkStatus;
 use messaging::usecases::server::get_home_overview::GetHomeOverviewError;
 use messaging::usecases::privacy::get_privacy::GetPrivacyError;
 use messaging::usecases::privacy::update_privacy::UpdatePrivacyError;
@@ -583,105 +584,110 @@ impl HttpMapping for UpdateServerError {
     }
 }
 
-impl HttpMapping for CreateInviteCodeError {
+impl HttpMapping for ManageInviteLinksError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            CreateInviteCodeError::NotMember => StatusCode::FORBIDDEN,
-            CreateInviteCodeError::NotAllowed => StatusCode::FORBIDDEN,
-            CreateInviteCodeError::Repository(e) => e.to_http_status(),
+            ManageInviteLinksError::NotMember => StatusCode::FORBIDDEN,
+            ManageInviteLinksError::NotAllowed => StatusCode::FORBIDDEN,
+            ManageInviteLinksError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            CreateInviteCodeError::NotAllowed => {
+            ManageInviteLinksError::NotAllowed => {
                 "You don't have permission to manage invites".to_string()
             }
-            CreateInviteCodeError::NotMember => {
+            ManageInviteLinksError::NotMember => {
                 "You are not a member of this server.".to_string()
             }
-            CreateInviteCodeError::Repository(e) => e.to_user_message(),
+            ManageInviteLinksError::Repository(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            CreateInviteCodeError::NotMember => "SERVER_NOT_MEMBER",
-            CreateInviteCodeError::NotAllowed => "INVITE_NOT_ALLOWED",
-            CreateInviteCodeError::Repository(e) => e.to_error_code(),
+            ManageInviteLinksError::NotMember => "SERVER_NOT_MEMBER",
+            ManageInviteLinksError::NotAllowed => "INVITE_NOT_ALLOWED",
+            ManageInviteLinksError::Repository(e) => e.to_error_code(),
         }
     }
 }
 
-impl HttpMapping for ListInviteCodesError {
+impl HttpMapping for RevokeInviteLinkError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            ListInviteCodesError::NotMember => StatusCode::FORBIDDEN,
-            ListInviteCodesError::NotAllowed => StatusCode::FORBIDDEN,
-            ListInviteCodesError::Repository(e) => e.to_http_status(),
+            RevokeInviteLinkError::NotFound => StatusCode::NOT_FOUND,
+            RevokeInviteLinkError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            ListInviteCodesError::NotAllowed => {
-                "You don't have permission to manage invites".to_string()
-            }
-            ListInviteCodesError::NotMember => {
-                "You are not a member of this server.".to_string()
-            }
-            ListInviteCodesError::Repository(e) => e.to_user_message(),
+            RevokeInviteLinkError::NotFound => "Invite link not found.".to_string(),
+            RevokeInviteLinkError::Repository(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            ListInviteCodesError::NotMember => "SERVER_NOT_MEMBER",
-            ListInviteCodesError::NotAllowed => "INVITE_NOT_ALLOWED",
-            ListInviteCodesError::Repository(e) => e.to_error_code(),
+            RevokeInviteLinkError::NotFound => "INVITE_NOT_FOUND",
+            RevokeInviteLinkError::Repository(e) => e.to_error_code(),
         }
     }
 }
 
-impl HttpMapping for RevokeInviteCodeError {
+impl HttpMapping for PreviewInviteLinkError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            RevokeInviteCodeError::NotFound => StatusCode::NOT_FOUND,
-            RevokeInviteCodeError::Repository(e) => e.to_http_status(),
+            PreviewInviteLinkError::NotFound => StatusCode::NOT_FOUND,
+            PreviewInviteLinkError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            RevokeInviteCodeError::NotFound => "Invite not found.".to_string(),
-            RevokeInviteCodeError::Repository(e) => e.to_user_message(),
+            PreviewInviteLinkError::NotFound => "This invite link is invalid.".to_string(),
+            PreviewInviteLinkError::Repository(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            RevokeInviteCodeError::NotFound => "INVITE_NOT_FOUND",
-            RevokeInviteCodeError::Repository(e) => e.to_error_code(),
+            PreviewInviteLinkError::NotFound => "INVITE_NOT_FOUND",
+            PreviewInviteLinkError::Repository(e) => e.to_error_code(),
         }
     }
 }
 
-impl HttpMapping for RedeemInviteCodeError {
+impl HttpMapping for JoinByInviteLinkError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            RedeemInviteCodeError::InvalidCode => StatusCode::NOT_FOUND,
-            RedeemInviteCodeError::ServerNotFound => StatusCode::NOT_FOUND,
-            RedeemInviteCodeError::Repository(e) => e.to_http_status(),
+            JoinByInviteLinkError::NotFound | JoinByInviteLinkError::ServerNotFound => {
+                StatusCode::NOT_FOUND
+            }
+            JoinByInviteLinkError::Unavailable(_) => StatusCode::GONE,
+            JoinByInviteLinkError::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            RedeemInviteCodeError::InvalidCode => {
-                "This invite code is invalid or has expired.".to_string()
+            JoinByInviteLinkError::NotFound => "This invite link is invalid.".to_string(),
+            JoinByInviteLinkError::Unavailable(InviteLinkStatus::Expired) => {
+                "This invite link has expired.".to_string()
             }
-            RedeemInviteCodeError::ServerNotFound => "Server not found".to_string(),
-            RedeemInviteCodeError::Repository(e) => e.to_user_message(),
+            JoinByInviteLinkError::Unavailable(InviteLinkStatus::Exhausted) => {
+                "This invite link has reached its usage limit.".to_string()
+            }
+            JoinByInviteLinkError::Unavailable(_) => {
+                "This invite link has been revoked.".to_string()
+            }
+            JoinByInviteLinkError::ServerNotFound => "Server not found".to_string(),
+            JoinByInviteLinkError::Repository(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            RedeemInviteCodeError::InvalidCode => "INVITE_CODE_INVALID",
-            RedeemInviteCodeError::ServerNotFound => "SERVER_NOT_FOUND",
-            RedeemInviteCodeError::Repository(e) => e.to_error_code(),
+            JoinByInviteLinkError::NotFound => "INVITE_NOT_FOUND",
+            JoinByInviteLinkError::Unavailable(InviteLinkStatus::Expired) => "INVITE_EXPIRED",
+            JoinByInviteLinkError::Unavailable(InviteLinkStatus::Exhausted) => "INVITE_EXHAUSTED",
+            JoinByInviteLinkError::Unavailable(_) => "INVITE_REVOKED",
+            JoinByInviteLinkError::ServerNotFound => "SERVER_NOT_FOUND",
+            JoinByInviteLinkError::Repository(e) => e.to_error_code(),
         }
     }
 }

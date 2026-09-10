@@ -48,7 +48,7 @@ use messaging::usecases::{
         create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_home_overview::GetHomeOverview, get_user_profile::GetUserProfile, get_voice_presence::GetVoicePresence,
-        invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
+        invite_links::{CreateInviteLink, JoinByInviteLink, ListInviteLinks, PreviewInviteLink, RevokeInviteLink},
         kick_member::KickMember, leave_server::LeaveServer,
         list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
@@ -395,13 +395,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             livekit_service.clone(),
         ),
         update_server_usecase: UpdateServer::new(server_unit_of_work.clone(), text_moderation.clone()),
-        create_invite_code_usecase: CreateInviteCode::new(server_unit_of_work.clone()),
-        list_invite_codes_usecase: ListInviteCodes::new(
+        create_invite_link_usecase: CreateInviteLink::new(server_unit_of_work.clone()),
+        list_invite_links_usecase: ListInviteLinks::new(
             server_repository.clone(),
             server_unit_of_work.clone(),
         ),
-        revoke_invite_code_usecase: RevokeInviteCode::new(server_unit_of_work.clone()),
-        redeem_invite_code_usecase: RedeemInviteCode::new(server_repository.clone()),
+        revoke_invite_link_usecase: RevokeInviteLink::new(server_unit_of_work.clone()),
+        preview_invite_link_usecase: PreviewInviteLink::new(server_repository.clone()),
+        join_by_invite_link_usecase: JoinByInviteLink::new(server_repository.clone()),
+        public_app_url: std::env::var("PUBLIC_APP_URL")
+            .ok()
+            .filter(|url| !url.trim().is_empty())
+            .unwrap_or_else(|| "http://localhost:3000".to_string()),
         leave_server_usecase: LeaveServer::new(server_unit_of_work.clone()),
         kick_member_usecase: KickMember::new(server_unit_of_work.clone()),
         list_servers_by_user_usecase: ListServersByUser::new(server_repository.clone()),

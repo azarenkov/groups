@@ -8,6 +8,7 @@ mod dm;
 mod friendship;
 mod home;
 mod internal;
+mod invites;
 mod notifications;
 mod presence;
 mod privacy;

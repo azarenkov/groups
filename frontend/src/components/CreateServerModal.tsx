@@ -2,6 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "./rift/Icon";
 import { ApiError } from "../utils/apiError";
+import { serverAPI } from "../api/server";
+import type { InvitePreview } from "../types/server";
+import { extractInviteToken } from "../utils/inviteLinks";
+import InvitePreviewCard, { inviteStatusMessage } from "./InvitePreviewCard";
 import "../styles/rift.css";
 
 export type ServerModalView = "choose" | "create" | "join";
@@ -27,7 +31,8 @@ interface CreateServerModalProps {
     accentColor?: string,
     logoFile?: File,
   ) => Promise<void | { logoError?: string }>;
-  onJoinByCode?: (code: string) => Promise<void>;
+  onJoinByLink?: (token: string) => Promise<void>;
+  initialToken?: string | null;
 }
 
 const MAX_SERVER_NAME_LENGTH = 100;
@@ -38,14 +43,17 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   initialView = "choose",
   onClose,
   onCreate,
-  onJoinByCode,
+  onJoinByLink,
+  initialToken = null,
 }) => {
   const { t } = useTranslation(["modals", "common"]);
   const [view, setView] = useState<ServerModalView>(initialView);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [accentIdx, setAccentIdx] = useState(0);
-  const [code, setCode] = useState("");
+  const [linkInput, setLinkInput] = useState("");
+  const [preview, setPreview] = useState<InvitePreview | null>(null);
+  const [previewToken, setPreviewToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +68,42 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
       setError(null);
     }
   }, [isOpen, initialView]);
+
+  const loadPreview = React.useCallback(async (raw: string) => {
+    const token = extractInviteToken(raw);
+    if (!token) {
+      setError(t("serverModal.linkInvalid"));
+      return;
+    }
+    setJoining(true);
+    setError(null);
+    setPreview(null);
+    setPreviewToken(null);
+    try {
+      const res = await serverAPI.previewInvite(token);
+      setPreview(res);
+      setPreviewToken(token);
+      if (res.status !== "active") setError(inviteStatusMessage(res.status, t));
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setError(
+        apiErr?.code === "INVITE_NOT_FOUND"
+          ? t("serverModal.inviteNotFound")
+          : err instanceof Error
+            ? err.message
+            : t("common:error", { defaultValue: "Error" }),
+      );
+    } finally {
+      setJoining(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (!isOpen || !initialToken) return;
+    setView("join");
+    setLinkInput(initialToken);
+    void loadPreview(initialToken);
+  }, [isOpen, initialToken, loadPreview]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,7 +122,9 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setName("");
     setDescription("");
     setAccentIdx(0);
-    setCode("");
+    setLinkInput("");
+    setPreview(null);
+    setPreviewToken(null);
     setError(null);
     setWarning(null);
     setLogoFile(null);
@@ -143,19 +189,26 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   };
 
   const handleJoin = async () => {
-    const c = code.trim().split(/[\s/]+/).filter(Boolean).pop() ?? "";
-    if (!c || !onJoinByCode) return;
+    if (!previewToken || !onJoinByLink) return;
     setJoining(true);
     setError(null);
     try {
-      await onJoinByCode(c);
+      await onJoinByLink(previewToken);
       resetAll();
       onClose();
     } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      const known: Record<string, string> = {
+        INVITE_NOT_FOUND: t("serverModal.inviteNotFound"),
+        INVITE_EXPIRED: t("serverModal.inviteExpired"),
+        INVITE_EXHAUSTED: t("serverModal.inviteExhausted"),
+        INVITE_REVOKED: t("serverModal.inviteRevoked"),
+      };
       setError(
-        err instanceof Error
-          ? err.message
-          : t("common:error", { defaultValue: "Error" }),
+        (apiErr?.code ? known[apiErr.code] : undefined) ??
+          (err instanceof Error
+            ? err.message
+            : t("common:error", { defaultValue: "Error" })),
       );
     } finally {
       setJoining(false);
@@ -388,44 +441,68 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           <div className="srvm-body">
             <p className="srvm-sub">{t("serverModal.joinBlurb")}</p>
             <div className="srvm-field">
-              <label>{t("serverModal.codeLabel")}</label>
+              <label>{t("serverModal.linkLabel")}</label>
               <input
                 autoFocus
                 className="srvm-code-input"
-                value={code}
-                placeholder="rift.server/x7Kd9m"
+                value={linkInput}
+                placeholder="https://rift.app/join/…"
                 disabled={joining}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => {
+                  setLinkInput(e.target.value);
+                  setPreview(null);
+                  setPreviewToken(null);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    void handleJoin();
+                    if (preview?.status === "active") void handleJoin();
+                    else void loadPreview(linkInput);
                   }
                 }}
               />
             </div>
-            <div className="srvm-hint">
-              <Icon name="info" size={15} />
-              <span>
-                {t("serverModal.codeHint")}{" "}
-                <span className="srvm-hint-mono">rift.server/x7Kd9m</span>
-              </span>
-            </div>
+            {preview?.server ? (
+              <InvitePreviewCard server={preview.server} />
+            ) : (
+              <div className="srvm-hint">
+                <Icon name="info" size={15} />
+                <span>
+                  {t("serverModal.linkHint")}{" "}
+                  <span className="srvm-hint-mono">https://rift.app/join/x7Kd9m…</span>
+                </span>
+              </div>
+            )}
             {errorBox}
           </div>
           <div className="srvm-foot">
-            <button
-              type="button"
-              className="srvm-btn primary"
-              disabled={joining || !code.trim()}
-              onClick={handleJoin}
-            >
-              {joining ? (
-                <span className="loading-spinner" />
-              ) : (
-                t("serverModal.joinCta")
-              )}
-            </button>
+            {preview?.status === "active" ? (
+              <button
+                type="button"
+                className="srvm-btn primary"
+                disabled={joining}
+                onClick={handleJoin}
+              >
+                {joining ? (
+                  <span className="loading-spinner" />
+                ) : (
+                  t("serverModal.joinCta")
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="srvm-btn primary"
+                disabled={joining || !linkInput.trim()}
+                onClick={() => void loadPreview(linkInput)}
+              >
+                {joining ? (
+                  <span className="loading-spinner" />
+                ) : (
+                  t("serverModal.continue")
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}

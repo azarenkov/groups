@@ -43,7 +43,7 @@ use messaging::usecases::{
         create_server::CreateServer,
         decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
         get_home_overview::GetHomeOverview, get_user_profile::GetUserProfile, get_voice_presence::GetVoicePresence,
-        invite_codes::{CreateInviteCode, ListInviteCodes, RedeemInviteCode, RevokeInviteCode},
+        invite_links::{CreateInviteLink, JoinByInviteLink, ListInviteLinks, PreviewInviteLink, RevokeInviteLink},
         kick_member::KickMember, leave_server::LeaveServer,
         list_sent_server_invites::ListSentServerInvites,
         list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
@@ -234,11 +234,13 @@ pub struct AppState {
         LiveKitService,
     >,
     pub update_server_usecase: UpdateServer<PostgresServerUnitOfWork, TextModerationClient>,
-    pub create_invite_code_usecase: CreateInviteCode<PostgresServerUnitOfWork>,
-    pub list_invite_codes_usecase:
-        ListInviteCodes<PostgresServerRepository, PostgresServerUnitOfWork>,
-    pub revoke_invite_code_usecase: RevokeInviteCode<PostgresServerUnitOfWork>,
-    pub redeem_invite_code_usecase: RedeemInviteCode<PostgresServerRepository>,
+    pub create_invite_link_usecase: CreateInviteLink<PostgresServerUnitOfWork>,
+    pub list_invite_links_usecase:
+        ListInviteLinks<PostgresServerRepository, PostgresServerUnitOfWork>,
+    pub revoke_invite_link_usecase: RevokeInviteLink<PostgresServerUnitOfWork>,
+    pub preview_invite_link_usecase: PreviewInviteLink<PostgresServerRepository>,
+    pub join_by_invite_link_usecase: JoinByInviteLink<PostgresServerRepository>,
+    pub public_app_url: String,
     pub leave_server_usecase:
         LeaveServer<PostgresServerUnitOfWork>,
     pub kick_member_usecase:

@@ -116,6 +116,58 @@ if (process.platform === 'darwin' && app.dock && !appIcon.isEmpty()) {
 
 let mainWindow;
 let splashWindow;
+let pendingDeepLink = null;
+
+const DEEP_LINK_PROTOCOL = 'rift';
+
+function isInviteDeepLink(value) {
+  return typeof value === 'string' && /^rift:\/\/join\/[A-Za-z0-9_-]{22,64}\/?$/.test(value.trim());
+}
+
+function deepLinkFromArgv(argv) {
+  return (argv || []).find((arg) => isInviteDeepLink(arg)) || null;
+}
+
+function deliverDeepLink(url) {
+  if (!isInviteDeepLink(url)) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    if (!mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.send('deep-link', url.trim());
+      return;
+    }
+  }
+  pendingDeepLink = url.trim();
+}
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const url = deepLinkFromArgv(argv);
+    if (url) deliverDeepLink(url);
+    else if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  deliverDeepLink(url);
+});
+
+pendingDeepLink = deepLinkFromArgv(process.argv);
+
+ipcMain.handle('deep-link:pending', () => {
+  const url = pendingDeepLink;
+  pendingDeepLink = null;
+  return url;
+});
 
 const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 1.5;
@@ -482,6 +534,11 @@ function runBootUpdateThenLaunch() {
 
 app.on('ready', () => {
   Menu.setApplicationMenu(null);
+  if (process.defaultApp && process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+  } else {
+    app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL);
+  }
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders };

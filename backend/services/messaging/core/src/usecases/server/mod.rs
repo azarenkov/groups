@@ -8,7 +8,7 @@ pub mod enforce_departure;
 pub mod get_home_overview;
 pub mod get_user_profile;
 pub mod get_voice_presence;
-pub mod invite_codes;
+pub mod invite_links;
 pub mod kick_member;
 pub mod leave_server;
 pub mod list_sent_server_invites;

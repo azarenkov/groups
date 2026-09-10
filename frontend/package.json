@@ -53,6 +53,14 @@
   },
   "build": {
     "appId": "com.rift.desktop",
+    "protocols": [
+      {
+        "name": "Rift",
+        "schemes": [
+          "rift"
+        ]
+      }
+    ],
     "productName": "Rift",
     "files": [
       "build/**/*",

@@ -1,6 +1,8 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, put, web};
 use messaging::dto::requests::server::delete_server::DeleteServerRequest;
 use messaging_domain::server::id::ServerId;
+use messaging_domain::server::invite_link::InviteToken;
+use api_common::api_error::StatusCode;
 use domain::user::id::UserId;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
@@ -9,7 +11,7 @@ use validator::Validate;
 use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
-use crate::dto::{requests::server::{ create_server::CreateServerRequestBody, update_server::UpdateServerRequestBody, }, responses::server::{ create_server::CreateServerResponse, invite_codes::{InviteCodeResponse, ListInviteCodesResponse}, list_sent_server_invites::ListSentServerInvitesResponse, list_server_channels::ListServerChannelsResponse, list_server_members::ListServerMembersResponse, list_servers_by_user::ListServersByUserResponse, }};
+use crate::dto::{requests::server::{ create_server::CreateServerRequestBody, update_server::UpdateServerRequestBody, }, responses::server::{ create_server::CreateServerResponse, invite_links::{InviteLinkResponse, ListInviteLinksResponse}, list_sent_server_invites::ListSentServerInvitesResponse, list_server_channels::ListServerChannelsResponse, list_server_members::ListServerMembersResponse, list_servers_by_user::ListServersByUserResponse, }};
 use crate::http_errors::HttpError;
 
 #[post("")]
@@ -265,36 +267,52 @@ async fn leave_server(
 
 #[derive(Debug, serde::Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
-struct CreateInviteCodeBody {
+struct CreateInviteLinkBody {
+    #[validate(length(min = 1, max = 60))]
+    name: Option<String>,
     #[validate(range(min = 1, max = 365))]
     expires_days: Option<i64>,
     #[validate(range(min = 1, max = 10000))]
     max_uses: Option<i32>,
 }
 
-#[post("/{server_id}/invite-codes")]
-async fn create_invite_code(
+fn parse_invite_token(raw: &str) -> Result<InviteToken, HttpError> {
+    InviteToken::parse(raw).ok_or_else(|| {
+        HttpError::new(
+            "Invite link not found.".to_string(),
+            StatusCode::NOT_FOUND,
+            "INVITE_NOT_FOUND",
+        )
+    })
+}
+
+#[post("/{server_id}/invite-links")]
+async fn create_invite_link(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-    body: web::Json<CreateInviteCodeBody>,
+    body: web::Json<CreateInviteLinkBody>,
 ) -> Result<impl Responder, HttpError> {
     let body = body.into_inner();
     body.validate()?;
 
     let server_id = ServerId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
+    let name = body.name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
 
-    let invite = app_state
-        .create_invite_code_usecase
-        .execute(server_id, user_id, body.expires_days, body.max_uses)
+    let link = app_state
+        .create_invite_link_usecase
+        .execute(server_id, user_id, name, body.expires_days, body.max_uses)
         .await?;
 
-    Ok(HttpResponse::Created().json(ApiResponse::success(InviteCodeResponse::from(invite))))
+    Ok(HttpResponse::Created().json(ApiResponse::success(InviteLinkResponse::from_link(
+        link,
+        &app_state.public_app_url,
+    ))))
 }
 
-#[get("/{server_id}/invite-codes")]
-async fn list_invite_codes(
+#[get("/{server_id}/invite-links")]
+async fn list_invite_links(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -302,50 +320,37 @@ async fn list_invite_codes(
     let server_id = ServerId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
 
-    let invites = app_state
-        .list_invite_codes_usecase
+    let links = app_state
+        .list_invite_links_usecase
         .execute(server_id, user_id)
         .await?;
 
-    let response = ListInviteCodesResponse {
-        invites: invites.into_iter().map(InviteCodeResponse::from).collect(),
+    let response = ListInviteLinksResponse {
+        links: links
+            .into_iter()
+            .map(|link| InviteLinkResponse::from_link(link, &app_state.public_app_url))
+            .collect(),
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[delete("/{server_id}/invite-codes/{code}")]
-async fn revoke_invite_code(
+#[delete("/{server_id}/invite-links/{token}")]
+async fn revoke_invite_link(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, String)>,
 ) -> Result<impl Responder, HttpError> {
-    let (server_id, code) = path.into_inner();
+    let (server_id, token) = path.into_inner();
+    let token = parse_invite_token(&token)?;
     let server_id = ServerId::new(server_id);
     let user_id = UserId::new(auth_token.id);
 
     app_state
-        .revoke_invite_code_usecase
-        .execute(server_id, code, user_id)
+        .revoke_invite_link_usecase
+        .execute(server_id, token, user_id)
         .await?;
 
     Ok(HttpResponse::NoContent().finish())
-}
-
-#[post("/invite-codes/{code}/redeem")]
-async fn redeem_invite_code(
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<String>,
-) -> Result<impl Responder, HttpError> {
-    let code = path.into_inner();
-    let user_id = UserId::new(auth_token.id);
-
-    let server = app_state
-        .redeem_invite_code_usecase
-        .execute(code, user_id)
-        .await?;
-
-    Ok(HttpResponse::Ok().json(ApiResponse::success(CreateServerResponse::from(server))))
 }
 
 #[patch("/{server_id}")]

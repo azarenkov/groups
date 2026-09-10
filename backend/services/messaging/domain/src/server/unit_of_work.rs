@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole};
+use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_link::InviteLink, server::invite_link::InviteToken, server::role::ServerRole};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -57,19 +57,14 @@ pub trait ServerTransaction: Send {
     ) -> Result<bool, RepositoryError>;
     async fn update_server_owner(&mut self, owner_id: &UserId) -> Result<bool, RepositoryError>;
     async fn find_longest_member_excluding(&mut self, exclude: &UserId) -> Result<Option<UserId>, RepositoryError>;
-    async fn create_invite_code(
+    async fn create_invite_link(&mut self, link: &InviteLink) -> Result<(), RepositoryError>;
+    async fn find_primary_invite_link(&mut self) -> Result<Option<InviteLink>, RepositoryError>;
+    async fn revoke_invite_link(
         &mut self,
-        created_by: &UserId,
-        code: &str,
-        max_uses: Option<i32>,
-        expires_at: Option<DateTime<Utc>>,
-    ) -> Result<InviteCode, RepositoryError>;
-    async fn revoke_invite_code(
-        &mut self,
-        code: &str,
+        token: &InviteToken,
         requester: &UserId,
         any_creator: bool,
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<Option<InviteLink>, RepositoryError>;
     async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError>;
     async fn insert_server(&mut self, server: &Server) -> Result<(), RepositoryError>;
     async fn is_user_deleted(&mut self, user_id: &UserId) -> Result<bool, RepositoryError>;

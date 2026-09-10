@@ -33,6 +33,13 @@ contextBridge.exposeInMainWorld('electron', {
     return () => ipcRenderer.removeListener('activity:changed', handler);
   },
 
+  onDeepLink: (callback) => {
+    const handler = (_event, url) => callback(typeof url === 'string' ? url : null);
+    ipcRenderer.on('deep-link', handler);
+    return () => ipcRenderer.removeListener('deep-link', handler);
+  },
+  getPendingDeepLink: () => ipcRenderer.invoke('deep-link:pending'),
+
   isFullscreen: () => ipcRenderer.invoke('window:is-fullscreen'),
   onFullscreenChange: (callback) => {
     const handler = (_event, value) => callback(!!value);

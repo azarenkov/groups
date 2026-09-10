@@ -24,12 +24,12 @@ import {
   userPermissions,
 } from "../../store/rolesStore";
 import type { Friendship } from "../../types/friendship";
-import type { InviteCode, Server } from "../../types/server";
+import type { InviteLink, Server } from "../../types/server";
 import type { Channel, ChannelKind, ChannelVisibility } from "../../types/channel";
 
 type SectionId = "overview" | "channels" | "roles" | "invites" | "members" | "danger";
 
-const EXPIRY_OPTIONS = [1, 7, 30, 0] as const;
+const EXPIRY_OPTIONS = [0, 1, 7, 30] as const;
 const MAX_USES_OPTIONS = [0, 10, 25, 50, 100] as const;
 
 const daysLeft = (expiresAt: string | null): number | null => {
@@ -154,8 +154,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   );
   React.useEffect(() => {
     if (canManageInvites) return;
-    setInvites([]);
-    setPrimaryCode(null);
+    setLinks([]);
     setSection((cur) => (cur === "invites" ? "overview" : cur));
   }, [canManageInvites]);
 
@@ -408,66 +407,69 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const online = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
 
-  const [invites, setInvites] = React.useState<InviteCode[]>([]);
-  const [primaryCode, setPrimaryCode] = React.useState<string | null>(null);
-  const [expiryDays, setExpiryDays] = React.useState<number>(7);
+  const [links, setLinks] = React.useState<InviteLink[]>([]);
+  const [linkName, setLinkName] = React.useState("");
+  const [expiryDays, setExpiryDays] = React.useState<number>(0);
   const [maxUses, setMaxUses] = React.useState<number>(0);
   const [copied, setCopied] = React.useState<string | null>(null);
-  const [codeBusy, setCodeBusy] = React.useState(false);
+  const [linkBusy, setLinkBusy] = React.useState(false);
   const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const primaryLink = links.find((l) => l.isPrimary) ?? null;
+  const extraLinks = links.filter((l) => !l.isPrimary);
+
+  const loadLinks = React.useCallback(async () => {
+    try {
+      const res = await serverAPI.listInviteLinks(server.id);
+      setLinks(res.links);
+    } catch {
+      return;
+    }
+  }, [server.id]);
 
   React.useEffect(() => {
     if (!canManageInvites) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await serverAPI.listInviteCodes(server.id);
-        if (cancelled) return;
-        setInvites(res.invites);
-        const mine = res.invites.find((i) => i.createdBy === currentUserId);
-        setPrimaryCode((mine ?? res.invites[0])?.code ?? null);
-      } catch {
-        return;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [server.id, currentUserId, canManageInvites]);
+    void loadLinks();
+  }, [canManageInvites, loadLinks]);
 
-  const copyCode = (code: string) => {
-    void copyText(`rift.server/${code}`).then((ok) => {
+  const copyLink = (link: InviteLink) => {
+    void copyText(link.url).then((ok) => {
       if (!ok) return;
-      setCopied(code);
+      setCopied(link.token);
       if (copyTimer.current) clearTimeout(copyTimer.current);
       copyTimer.current = setTimeout(() => setCopied(null), 1600);
     });
   };
 
-  const regenerateCode = async () => {
-    setCodeBusy(true);
+  const createLink = async () => {
+    setLinkBusy(true);
     try {
-      const created = await serverAPI.createInviteCode(server.id, {
+      const created = await serverAPI.createInviteLink(server.id, {
+        name: linkName.trim() || undefined,
         expiresDays: expiryDays || undefined,
         maxUses: maxUses || undefined,
       });
-      setInvites((prev) => [created, ...prev]);
-      setPrimaryCode(created.code);
+      setLinks((prev) => [...prev, created]);
+      setLinkName("");
     } catch {
       return;
     } finally {
-      setCodeBusy(false);
+      setLinkBusy(false);
     }
   };
 
-  const revokeCode = async (code: string) => {
+  const revokeLink = async (link: InviteLink) => {
+    setLinkBusy(true);
     try {
-      await serverAPI.revokeInviteCode(server.id, code);
-      const next = invites.filter((i) => i.code !== code);
-      setInvites(next);
-      if (primaryCode === code) setPrimaryCode(next[0]?.code ?? null);
+      await serverAPI.revokeInviteLink(server.id, link.token);
+      if (link.isPrimary) {
+        await loadLinks();
+      } else {
+        setLinks((prev) => prev.filter((l) => l.token !== link.token));
+      }
     } catch {
       return;
+    } finally {
+      setLinkBusy(false);
     }
   };
 
@@ -1148,39 +1150,51 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                   <Icon name="link" size={16} />
                   <span>{t("inviteLink")}</span>
                 </div>
+                <p className="ssv-invite-note">{t("primaryLinkHint")}</p>
                 <div className="ssv-invite-row">
-                  <div className="ssv-invite-code">
-                    <span className="dim">rift.server/</span>
-                    <span>{primaryCode ?? "—"}</span>
+                  <div className="ssv-invite-code" title={primaryLink?.url ?? undefined}>
+                    <span className="ssv-invite-url">{primaryLink?.url ?? "—"}</span>
                   </div>
-                  {primaryCode ? (
-                    <button
-                      type="button"
-                      className={
-                        "ssv-btn primary" +
-                        (copied === primaryCode ? " saved" : "")
-                      }
-                      onClick={() => copyCode(primaryCode)}
-                    >
-                      <Icon
-                        name={copied === primaryCode ? "check" : "link"}
-                        size={14}
-                      />
-                      {copied === primaryCode ? t("copied") : t("copy")}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="ssv-btn primary"
-                      disabled={codeBusy}
-                      onClick={regenerateCode}
-                    >
-                      <Icon name="plus" size={14} />
-                      {t("generate")}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className={
+                      "ssv-btn primary" +
+                      (primaryLink && copied === primaryLink.token ? " saved" : "")
+                    }
+                    disabled={!primaryLink}
+                    onClick={() => primaryLink && copyLink(primaryLink)}
+                  >
+                    <Icon
+                      name={primaryLink && copied === primaryLink.token ? "check" : "link"}
+                      size={14}
+                    />
+                    {primaryLink && copied === primaryLink.token ? t("copied") : t("copy")}
+                  </button>
+                  <button
+                    type="button"
+                    className="ssv-btn"
+                    disabled={!primaryLink || linkBusy}
+                    title={t("regenerateHint")}
+                    onClick={() => primaryLink && revokeLink(primaryLink)}
+                  >
+                    <Icon name="refresh" size={14} />
+                    {t("regenerate")}
+                  </button>
                 </div>
+              </div>
+
+              <div className="ssv-section-label">{t("newLink")}</div>
+              <div className="ssv-invite-card">
                 <div className="ssv-invite-opts">
+                  <label className="ssv-invite-opt grow">
+                    <span className="ssv-invite-opt-label">{t("linkName")}</span>
+                    <input
+                      value={linkName}
+                      maxLength={60}
+                      placeholder={t("linkNamePlaceholder")}
+                      onChange={(e) => setLinkName(e.target.value)}
+                    />
+                  </label>
                   <label className="ssv-invite-opt">
                     <span className="ssv-invite-opt-label">{t("expires")}</span>
                     <select
@@ -1210,23 +1224,23 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                   <button
                     type="button"
                     className="ssv-invite-refresh"
-                    disabled={codeBusy}
-                    onClick={regenerateCode}
+                    disabled={linkBusy}
+                    onClick={createLink}
                   >
-                    <Icon name="expand" size={16} />
-                    <span>{t("regenerate")}</span>
+                    <Icon name="plus" size={16} />
+                    <span>{t("createLink")}</span>
                   </button>
                 </div>
               </div>
 
-              {invites.length > 0 && (
+              {extraLinks.length > 0 && (
                 <>
                   <div className="ssv-section-label">
-                    {t("activeInvites", { count: invites.length })}
+                    {t("activeInvites", { count: extraLinks.length })}
                   </div>
                   <div className="ssv-card">
-                    {invites.map((inv, i) => (
-                      <React.Fragment key={inv.code}>
+                    {extraLinks.map((inv, i) => (
+                      <React.Fragment key={inv.token}>
                         {i > 0 && <div className="ssv-divider" />}
                         <div className="ssv-row">
                           <UserAvatar
@@ -1236,7 +1250,9 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                           />
                           <div className="ssv-row-main">
                             <div className="ssv-invite-code-line">
-                              <span className="ssv-invite-mono">{inv.code}</span>
+                              <span className="ssv-invite-mono ssv-invite-url" title={inv.url}>
+                                {inv.name ?? inv.url.replace(/^https?:\/\//, "")}
+                              </span>
                               {inv.creatorName && (
                                 <span className="ssv-invite-by">
                                   · {inv.creatorName}
@@ -1257,10 +1273,10 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                             type="button"
                             className="ssv-icon-btn"
                             title={t("copy")}
-                            onClick={() => copyCode(inv.code)}
+                            onClick={() => copyLink(inv)}
                           >
                             <Icon
-                              name={copied === inv.code ? "check" : "link"}
+                              name={copied === inv.token ? "check" : "link"}
                               size={15}
                             />
                           </button>
@@ -1268,7 +1284,8 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                             type="button"
                             className="ssv-icon-btn danger"
                             title={t("revoke")}
-                            onClick={() => revokeCode(inv.code)}
+                            disabled={linkBusy}
+                            onClick={() => revokeLink(inv)}
                           >
                             <Icon name="x" size={15} />
                           </button>

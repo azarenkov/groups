@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { serverAPI } from "../api/server";
 import { callAPI } from "../api/call";
 import { attachmentAPI } from "../api/attachment";
+import { extractInviteToken } from "../utils/inviteLinks";
 import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
@@ -109,6 +111,18 @@ const ServersPage: React.FC = () => {
   const [serverModalView, setServerModalView] = useState<
     "choose" | "create" | "join"
   >("choose");
+  const [joinToken, setJoinToken] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const raw = searchParams.get("join");
+    if (!raw) return;
+    setSearchParams({}, { replace: true });
+    const token = extractInviteToken(raw);
+    if (!token) return;
+    setJoinToken(token);
+    setServerModalView("join");
+    setIsServerModalOpen(true);
+  }, [searchParams, setSearchParams]);
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
@@ -1380,11 +1394,15 @@ const ServersPage: React.FC = () => {
 
       <CreateServerModal
         isOpen={isServerModalOpen}
-        onClose={() => setIsServerModalOpen(false)}
+        onClose={() => {
+          setIsServerModalOpen(false);
+          setJoinToken(null);
+        }}
         onCreate={handleCreateServer}
         initialView={serverModalView}
-        onJoinByCode={async (code) => {
-          const server = await serverAPI.redeemInviteCode(code);
+        initialToken={joinToken}
+        onJoinByLink={async (token) => {
+          const { server } = await serverAPI.joinByInvite(token);
           useServerStore.getState().addServer(server);
           setExpandedServerIds((prev) => {
             const next = new Set(prev);
