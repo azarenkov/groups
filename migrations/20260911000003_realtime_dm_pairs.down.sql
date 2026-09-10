@@ -1,1 +1,1 @@
-DROP TABLE realtime_dm_pairs;
+DROP TABLE realtime.realtime_dm_pairs;

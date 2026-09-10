@@ -1,1 +1,1 @@
-DROP TABLE realtime_user_blocks;
+DROP TABLE realtime.realtime_user_blocks;
