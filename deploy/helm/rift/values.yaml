@@ -32,7 +32,7 @@ config:
   NSFW_THRESHOLD: "0.8"
   TEXT_TOXICITY_THRESHOLD: "0.8"
   PUBLIC_API_URL: https://rift.example.com
-  PUBLIC_APP_URL: ""
+  PUBLIC_APP_URL: https://app.rift.example.com
   MESSAGING_INTERNAL_URL: http://messaging-service:8080
   MEDIA_INTERNAL_URL: http://media-service:8080
   VOICE_INTERNAL_URL: http://voice-service:8080

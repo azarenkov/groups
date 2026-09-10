@@ -6,6 +6,10 @@ Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: po
 
 Voice clients connect to `config.LIVEKIT_CLIENT_URL`. The gateway proxies LiveKit on its `livekit` port (7880), and with `gateway.ingress.enabled` a second rule for `gateway.ingress.livekitHost` routes that host to it, so `LIVEKIT_CLIENT_URL` should be `wss://<livekitHost>` (or a separately published LiveKit endpoint). WebSocket upgrades on `/ws` and the LiveKit host need an ingress controller that supports them; for ingress-nginx set the read/send timeout annotations accordingly.
 
+## Public URLs
+
+`config.PUBLIC_API_URL` is the origin of the gateway as clients reach it, and `config.PUBLIC_APP_URL` is the origin of the web app. Invite links are built as `<PUBLIC_APP_URL>/join/<token>` and `messaging-service` refuses to start without an `http(s)://` value, so replace the example domain with the host that serves the web app.
+
 ## Probes and shutdown
 
 | Workload | Ready/startup | Live | Notes |
@@ -39,5 +43,6 @@ helm upgrade --install rift deploy/helm/rift \
   --set image.tag=v1.2.3 \
   --set secrets.existingSecret=rift-secrets \
   --set config.POSTGRES_HOST=postgres.db.svc \
+  --set config.PUBLIC_APP_URL=https://app.rift.example.com \
   --set gateway.ingress.enabled=true --set gateway.ingress.host=rift.example.com
 ```

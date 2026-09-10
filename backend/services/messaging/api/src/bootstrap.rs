@@ -195,6 +195,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.trim_end_matches('.'),
     );
 
+    let public_app_url = std::env::var("PUBLIC_APP_URL")
+        .ok()
+        .map(|url| url.trim().trim_end_matches('/').to_string())
+        .filter(|url| url.starts_with("https://") || url.starts_with("http://"))
+        .ok_or("PUBLIC_APP_URL must be set to the public web app origin (http(s)://host), invite links are built from it")?;
+
     let app_state = web::Data::new(AppState {
         create_channel_usecase: CreateChannel::new(
             hasher.clone(),
@@ -403,10 +409,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         revoke_invite_link_usecase: RevokeInviteLink::new(server_unit_of_work.clone()),
         preview_invite_link_usecase: PreviewInviteLink::new(server_repository.clone()),
         join_by_invite_link_usecase: JoinByInviteLink::new(server_repository.clone()),
-        public_app_url: std::env::var("PUBLIC_APP_URL")
-            .ok()
-            .filter(|url| !url.trim().is_empty())
-            .unwrap_or_else(|| "http://localhost:3000".to_string()),
+        public_app_url: public_app_url.clone(),
         leave_server_usecase: LeaveServer::new(server_unit_of_work.clone()),
         kick_member_usecase: KickMember::new(server_unit_of_work.clone()),
         list_servers_by_user_usecase: ListServersByUser::new(server_repository.clone()),
