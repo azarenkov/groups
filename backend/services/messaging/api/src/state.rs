@@ -239,7 +239,8 @@ pub struct AppState {
         ListInviteLinks<PostgresServerRepository, PostgresServerUnitOfWork>,
     pub revoke_invite_link_usecase: RevokeInviteLink<PostgresServerUnitOfWork>,
     pub preview_invite_link_usecase: PreviewInviteLink<PostgresServerRepository>,
-    pub join_by_invite_link_usecase: JoinByInviteLink<PostgresServerRepository>,
+    pub join_by_invite_link_usecase:
+        JoinByInviteLink<PostgresServerRepository, PostgresServerUnitOfWork>,
     pub public_app_url: String,
     pub leave_server_usecase:
         LeaveServer<PostgresServerUnitOfWork>,

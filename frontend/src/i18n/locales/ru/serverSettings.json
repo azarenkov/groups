@@ -71,6 +71,8 @@
   "kindVoice": "Голосовой",
   "privateChannel": "Приватный",
   "deleteChannel": "Удалить канал",
+  "defaultChannelBadge": "Основной",
+  "defaultChannelNote": "Основной канал: сюда приходят системные уведомления о входе и выходе участников. Писать в него можно как обычно.",
   "channelList": "Каналы ({{count}})",
   "channelKind": "Тип",
   "channelVisibility": "Доступ",

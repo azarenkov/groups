@@ -450,6 +450,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         }}
         onContextMenu={(e) => {
           e.preventDefault();
+          if (channel.isDefault) return;
           if (canManageChannelsIn(server)) onDeleteChannel(server, channel);
         }}
       >
@@ -457,6 +458,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Icon name={channel.kind === "voice" ? "volume" : "hash"} size={14} />
         </span>
         <span className="sb-label">{channel.name}</span>
+        {channel.isDefault && (
+          <span className="sb-default-badge" title={t("defaultChannel")}>
+            <Icon name="pin" size={10} />
+          </span>
+        )}
         {channel.kind === "text" && (unreadByChannel[channel.id] ?? 0) > 0 && (
           <span className="meta">{unreadByChannel[channel.id]}</span>
         )}
@@ -590,7 +596,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const renderServerPage = (server: Server) => {
     const channels = visibleChannelsFor(server.id);
-    const textChannels = channels.filter((c) => c.kind === "text");
+    const textChannels = [...channels.filter((c) => c.kind === "text")].sort(
+      (a, b) => Number(!!b.isDefault) - Number(!!a.isDefault),
+    );
     const voiceChannels = channels.filter((c) => c.kind === "voice");
     const accent = server.accentColor ?? colorForId(server.id);
     return (

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{channel::Channel, server::Server, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteToken};
+use crate::{channel::Channel, server::Server, server::id::ServerId, server::invite_link::InviteLink, server::invite_link::InviteToken};
 use domain::{pagination::PaginatedResult, pagination::Pagination, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 
@@ -61,10 +61,5 @@ pub trait ServerRepository {
         token: &InviteToken,
     ) -> Result<Option<InviteLink>, RepositoryError>;
     async fn count_members(&self, server_id: &ServerId) -> Result<i64, RepositoryError>;
-    async fn join_by_invite_link(
-        &self,
-        token: &InviteToken,
-        user_id: &UserId,
-    ) -> Result<InviteJoinOutcome, RepositoryError>;
 
 }

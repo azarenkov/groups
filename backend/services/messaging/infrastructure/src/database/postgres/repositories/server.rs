@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
-use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteLinkStatus, server::invite_link::InviteToken, server::repository::ServerRepository, server::repository::MutualServer};
+use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, server::Server, server::id::ServerId, server::invite_link::InviteLink, server::invite_link::InviteToken, server::repository::ServerRepository, server::repository::MutualServer};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -15,7 +15,7 @@ use crate::database::postgres::{
         server::ServerDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
-    repositories::{invite_link::INVITE_LINK_COLUMNS, invite_link::InviteLinkRow, outbox_record::save_outbox_records, server_unit_of_work::lock_server},
+    repositories::{invite_link::INVITE_LINK_COLUMNS, invite_link::InviteLinkRow},
 };
 
 pub struct PostgresServerRepository {
@@ -224,7 +224,7 @@ impl ServerRepository for PostgresServerRepository {
                 id, server_id, owner_id, name,
                 kind as "kind: ChannelKindDto",
                 visibility as "visibility: ChannelVisibilityDto",
-                password_hash, created_at, updated_at, last_join
+                password_hash, created_at, updated_at, last_join, is_default
             FROM channels
             WHERE server_id = $1
             ORDER BY created_at DESC
@@ -387,6 +387,7 @@ impl ServerRepository for PostgresServerRepository {
                     text,
                     dto.last_join,
                 )
+                .with_default(dto.is_default)
             })
             .collect();
 
@@ -517,90 +518,5 @@ impl ServerRepository for PostgresServerRepository {
         Ok(count)
     }
 
-    async fn join_by_invite_link(
-        &self,
-        token: &InviteToken,
-        user_id: &UserId,
-    ) -> Result<InviteJoinOutcome, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let target_server: Option<Uuid> =
-            sqlx::query_scalar("SELECT server_id FROM server_invite_links WHERE token = $1")
-                .bind(token.as_str())
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(map_sqlx_error_to_domain_error)?;
-        let Some(target_server) = target_server else {
-            return Ok(InviteJoinOutcome::NotFound);
-        };
-        let server_id = ServerId::new(target_server);
-
-        lock_server(&mut tx, &server_id).await?;
-
-        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
-            "SELECT {INVITE_LINK_COLUMNS} FROM server_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.token = $1 FOR UPDATE OF l"
-        ))
-        .bind(token.as_str())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        let Some(link) = row.map(InviteLink::from) else {
-            return Ok(InviteJoinOutcome::NotFound);
-        };
-        let already_member: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM server_members WHERE server_id = $1 AND user_id = $2)",
-        )
-        .bind(server_id.uuid())
-        .bind(user_id.uuid())
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if already_member {
-            return Ok(InviteJoinOutcome::AlreadyMember(server_id));
-        }
-        let status = link.status(chrono::Utc::now());
-        if status != InviteLinkStatus::Active {
-            return Ok(InviteJoinOutcome::Unavailable(status));
-        }
-
-        let inserted = sqlx::query(
-            "INSERT INTO server_members (server_id, user_id, joined_at) VALUES ($1, $2, NOW()) ON CONFLICT (server_id, user_id) DO NOTHING",
-        )
-        .bind(server_id.uuid())
-        .bind(user_id.uuid())
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if inserted.rows_affected() == 0 {
-            return Ok(InviteJoinOutcome::AlreadyMember(server_id));
-        }
-
-        sqlx::query("UPDATE server_invite_links SET uses = uses + 1 WHERE token = $1")
-            .bind(token.as_str())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let member_event = messaging_domain::server::events::ServerEvent::MemberJoined(
-            messaging_domain::server::events::lifecycle::ServerMemberJoined::record(
-                server_id,
-                *user_id,
-                chrono::Utc::now(),
-            ),
-        );
-        let record = crate::outbox::mapping::to_record(
-            &messaging_domain::events::MessagingEvent::from(member_event),
-            None,
-        )?;
-        save_outbox_records(&mut tx, &[record]).await?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(InviteJoinOutcome::Joined(server_id))
-    }
 
 }

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use messaging_domain::message::system::SystemMessage;
 use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
 use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView};
@@ -171,7 +172,7 @@ impl MessageRepository for PostgresMessageRepository {
         let dto = sqlx::query_as!(
             MessageDto,
             r#"
-            SELECT id, channel_id, author_id, content, created_at, edited_at
+            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS "system_payload"
             FROM messages
             WHERE id = $1
             "#,
@@ -199,7 +200,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -222,7 +223,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -245,7 +246,7 @@ impl MessageRepository for PostgresMessageRepository {
                 MessageViewDto,
                 r#"
                 SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                       m.content, m.created_at, m.edited_at
+                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
                 FROM messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
@@ -288,7 +289,7 @@ impl MessageRepository for PostgresMessageRepository {
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
@@ -321,7 +322,16 @@ fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
         content,
         dto.created_at,
         dto.edited_at,
+        system_from_row(&dto.kind, dto.system_payload.as_deref()),
     ))
+}
+
+fn system_from_row(kind: &str, payload: Option<&str>) -> Option<SystemMessage> {
+    if kind != "system" {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(payload?).ok()?;
+    SystemMessage::from_json(&value)
 }
 
 fn view_dto_to_view(dto: MessageViewDto) -> MessageView {
@@ -333,6 +343,7 @@ fn view_dto_to_view(dto: MessageViewDto) -> MessageView {
         content: dto.content,
         created_at: dto.created_at,
         edited_at: dto.edited_at,
+        system: system_from_row(&dto.kind, dto.system_payload.as_deref()),
     }
 }
 

@@ -20,6 +20,34 @@ fn voice_channel(owner: UserId) -> Channel {
 }
 
 #[test]
+fn default_channel_cannot_be_deleted_but_others_can() {
+    let owner = UserId::generate();
+    let mut general = Channel::create(
+        ServerId::generate(),
+        owner,
+        ChannelName::new("general".to_string()),
+        ChannelKind::Text,
+        ChannelVisibility::Public,
+        None,
+        Utc::now(),
+    )
+    .unwrap()
+    .with_default(true);
+    assert!(general.is_default());
+    assert!(matches!(
+        general.pull_events().as_slice(),
+        [ChannelEvent::Created(created)] if created.is_default
+    ));
+    assert_eq!(
+        general.delete(owner, ModerationGrant::Owner, Utc::now()).unwrap_err(),
+        ChannelError::DefaultChannel
+    );
+    let mut other = voice_channel(owner);
+    assert!(!other.is_default());
+    assert!(other.delete(owner, ModerationGrant::Owner, Utc::now()).is_ok());
+}
+
+#[test]
 fn creator_has_no_authority_without_a_grant() {
     let creator = UserId::generate();
     let other = UserId::generate();

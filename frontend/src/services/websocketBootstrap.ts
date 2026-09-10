@@ -207,6 +207,7 @@ function dispatch(env: WsEnvelope) {
         visibility,
         maxParticipants: 0,
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
+        isDefault: d.isDefault === true,
       };
       useChannelStore.getState().addChannel(serverId, channel);
       return;
@@ -397,6 +398,7 @@ function dispatch(env: WsEnvelope) {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpChannel(channelId, serverId);
+      if (asString(d.kind) === "system") return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         showDesktopNotification(

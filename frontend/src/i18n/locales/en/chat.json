@@ -69,6 +69,10 @@
     "join": "Join",
     "decline": "Decline"
   },
+  "system": {
+    "memberJoined": "{{name}} joined the server",
+    "memberLeft": "{{name}} left the server"
+  },
   "attachFile": "Attach a file",
   "attachmentsUploading": "Files are still uploading…",
   "attachmentFailed": "Upload failed",

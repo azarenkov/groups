@@ -1,3 +1,6 @@
+use messaging_domain::message::system::SystemMessageKind;
+
+use crate::usecases::server::membership_announcements::announce_membership;
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -59,19 +62,27 @@ where
         message.record_invite_deleted(Utc::now());
 
         let request_id = ctx.request_id.clone();
-        let events = message.pull_events();
-        let member_event = messaging_domain::server::events::ServerEvent::MemberJoined(
-            messaging_domain::server::events::lifecycle::ServerMemberJoined::record(
-                server_id,
-                requester_id,
-                Utc::now(),
-            ),
-        );
-        let mut events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
-        events.push(MessagingEvent::from(member_event));
+        let mut events: Vec<MessagingEvent> =
+            message.pull_events().into_iter().map(MessagingEvent::from).collect();
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
-        tx.accept_invite(&message_id, &requester_id).await?;
+        let joined = tx.accept_invite(&message_id, &requester_id).await?;
+        if joined {
+            let now = Utc::now();
+            events.push(MessagingEvent::from(
+                messaging_domain::server::events::ServerEvent::MemberJoined(
+                    messaging_domain::server::events::lifecycle::ServerMemberJoined::record(
+                        server_id,
+                        requester_id,
+                        now,
+                    ),
+                ),
+            ));
+            events.extend(
+                announce_membership(&mut *tx, requester_id, SystemMessageKind::MemberJoined, now)
+                    .await?,
+            );
+        }
         tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 

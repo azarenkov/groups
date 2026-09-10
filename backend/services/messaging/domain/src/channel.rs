@@ -51,6 +51,8 @@ pub enum ChannelError {
     TextNotSupported,
     #[error("Participant has not joined the voice session yet")]
     ParticipantNotJoined,
+    #[error("The default channel cannot be deleted")]
+    DefaultChannel,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +88,7 @@ pub struct Channel {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     last_join: DateTime<Utc>,
+    is_default: bool,
     muted_participants: Option<HashMap<UserId, ParticipantMute>>,
     deafened_participants: Option<HashMap<UserId, ParticipantDeafen>>,
     voice_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
@@ -148,6 +151,7 @@ impl Channel {
             created_at: now,
             updated_at: now,
             last_join: now,
+            is_default: false,
             muted_participants,
             deafened_participants,
             voice_participants,
@@ -196,6 +200,7 @@ impl Channel {
             created_at,
             updated_at,
             last_join,
+            is_default: false,
             muted_participants,
             deafened_participants,
             voice_participants,
@@ -239,6 +244,9 @@ impl Channel {
     ) -> Result<(), ChannelError> {
         if !grant.overrides_others() {
             return Err(ChannelError::NotAllowed);
+        }
+        if self.is_default {
+            return Err(ChannelError::DefaultChannel);
         }
 
         self.record(ChannelEvent::Deleted(ChannelDeleted::record(
@@ -773,6 +781,20 @@ impl Channel {
 
     pub fn visibility(&self) -> ChannelVisibility {
         self.visibility
+    }
+
+    pub fn with_default(mut self, is_default: bool) -> Self {
+        self.is_default = is_default;
+        for event in &mut self.events {
+            if let ChannelEvent::Created(created) = event {
+                created.is_default = is_default;
+            }
+        }
+        self
+    }
+
+    pub fn is_default(&self) -> bool {
+        self.is_default
     }
 
     pub fn kind(&self) -> &ChannelKind {

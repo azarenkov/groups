@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id, server_id, owner_id, name,\n                kind as \"kind: ChannelKindDto\",\n                visibility as \"visibility: ChannelVisibilityDto\",\n                password_hash, created_at, updated_at, last_join\n            FROM channels\n            WHERE server_id = $1\n            ORDER BY created_at DESC\n            LIMIT $2 OFFSET $3\n            ",
+  "query": "\n            SELECT\n                id, server_id, owner_id, name,\n                kind as \"kind: ChannelKindDto\",\n                visibility as \"visibility: ChannelVisibilityDto\",\n                password_hash, created_at, updated_at, last_join, is_default\n            FROM channels\n            WHERE server_id = $1\n            ORDER BY created_at DESC\n            LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -72,6 +72,11 @@
         "ordinal": 9,
         "name": "last_join",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "is_default",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -91,8 +96,9 @@
       true,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "d821782baa085a50a6984f11774e0f8a1cb539fd0340956ce4ff043494c7fbbb"
+  "hash": "fbf99503d281227ac48fd0b215bd36aeb37b6d3828f682c0913332b90bff0067"
 }

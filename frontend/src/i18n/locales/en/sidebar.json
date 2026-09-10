@@ -22,6 +22,8 @@
   "deleteServer": "Delete server",
   "leaveServer": "Leave server",
   "deleteChannel": "Delete channel",
+  "defaultChannel": "Default channel of the server",
+  "channelIsDefault": "The default channel cannot be deleted, only renamed.",
   "welcomeTitle": "Welcome to Rift",
   "welcomeSubtitle": "Pick a server on the left or create one to start talking.",
   "createServerCta": "Create a server",

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::id::ServerId, server::invite_link::InviteLink, server::invite_link::InviteToken, server::role::ServerRole};
+use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, server::Server, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteToken, server::role::ServerRole};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -57,6 +57,14 @@ pub trait ServerTransaction: Send {
     ) -> Result<bool, RepositoryError>;
     async fn update_server_owner(&mut self, owner_id: &UserId) -> Result<bool, RepositoryError>;
     async fn find_longest_member_excluding(&mut self, exclude: &UserId) -> Result<Option<UserId>, RepositoryError>;
+    async fn find_default_channel_id(&mut self) -> Result<Option<ChannelId>, RepositoryError>;
+    async fn list_text_channel_member_ids(&mut self, channel_id: &ChannelId) -> Result<Vec<UserId>, RepositoryError>;
+    async fn insert_system_message(&mut self, message: &Message) -> Result<(), RepositoryError>;
+    async fn redeem_invite_link(
+        &mut self,
+        token: &InviteToken,
+        user_id: &UserId,
+    ) -> Result<InviteJoinOutcome, RepositoryError>;
     async fn create_invite_link(&mut self, link: &InviteLink) -> Result<(), RepositoryError>;
     async fn find_primary_invite_link(&mut self) -> Result<Option<InviteLink>, RepositoryError>;
     async fn revoke_invite_link(
@@ -73,7 +81,7 @@ pub trait ServerTransaction: Send {
         &mut self,
         invite_message_id: &DmMessageId,
         user_id: &UserId,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
     async fn delete_server_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError>;
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;

@@ -408,7 +408,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         revoke_invite_link_usecase: RevokeInviteLink::new(server_unit_of_work.clone()),
         preview_invite_link_usecase: PreviewInviteLink::new(server_repository.clone()),
-        join_by_invite_link_usecase: JoinByInviteLink::new(server_repository.clone()),
+        join_by_invite_link_usecase: JoinByInviteLink::new(
+            server_repository.clone(),
+            server_unit_of_work.clone(),
+        ),
         public_app_url: public_app_url.clone(),
         leave_server_usecase: LeaveServer::new(server_unit_of_work.clone()),
         kick_member_usecase: KickMember::new(server_unit_of_work.clone()),

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO channels (\n                id, server_id, owner_id, name,\n                kind, visibility, password_hash, created_at, updated_at, last_join\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n            ",
+  "query": "\n            INSERT INTO channels (\n                id, server_id, owner_id, name,\n                kind, visibility, password_hash, created_at, updated_at, last_join, is_default\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n            ",
   "describe": {
     "columns": [],
     "parameters": {
@@ -34,10 +34,11 @@
         "Varchar",
         "Timestamptz",
         "Timestamptz",
-        "Timestamptz"
+        "Timestamptz",
+        "Bool"
       ]
     },
     "nullable": []
   },
-  "hash": "aa5f756779fe0c95f515548ea0fbd3f83e35b01e4d8667e42fa7ad20c0fd94eb"
+  "hash": "203adf299e047a5ae05d4aad581702a74740b23e3a5023afe529ce33ac307a64"
 }

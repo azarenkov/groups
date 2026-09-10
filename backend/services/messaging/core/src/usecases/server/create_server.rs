@@ -1,4 +1,6 @@
-use messaging_domain::server::invite_link::InviteLink;
+use messaging_domain::{channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::invite_link::InviteLink};
+
+const DEFAULT_CHANNEL_NAME: &str = "general";
 
 use crate::usecases::server::invite_links::create_with_fresh_token;
 use std::sync::Arc;
@@ -23,6 +25,8 @@ pub enum CreateServerError {
     DescriptionNotAllowed,
     #[error("Text moderation unavailable: {0}")]
     ModerationUnavailable(String),
+    #[error("Channel error: {0}")]
+    Channel(#[from] ChannelError),
 }
 
 pub struct CreateServer<W, TM>
@@ -86,6 +90,26 @@ where
             return Err(CreateServerError::AccountInactive);
         }
         tx.insert_server(&server).await?;
+        let now = chrono::Utc::now();
+        let mut general = Channel::create(
+            *server.id(),
+            owner_id,
+            ChannelName::new(DEFAULT_CHANNEL_NAME.to_string()),
+            ChannelKind::Text,
+            ChannelVisibility::Public,
+            None,
+            now,
+        )?
+        .with_default(true);
+        let mut events = events;
+        let owner_recipients = [owner_id];
+        events.extend(
+            general
+                .pull_events()
+                .into_iter()
+                .map(|event| MessagingEvent::from(event.with_recipients(&owner_recipients))),
+        );
+        tx.insert_channel(&general).await?;
         create_with_fresh_token(&mut *tx, || InviteLink::primary(*server.id(), owner_id, chrono::Utc::now())).await?;
         tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;

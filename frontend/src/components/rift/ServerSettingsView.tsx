@@ -866,18 +866,26 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                         <Icon name={c.kind === "voice" ? "volume" : "hash"} size={15} />
                       </span>
                       <div className="ssv-row-main">
-                        <div className="ssv-row-name">{c.name}</div>
+                        <div className="ssv-row-name">
+                          {c.name}
+                          {c.isDefault && (
+                            <span className="ssv-default-badge">{t("defaultChannelBadge")}</span>
+                          )}
+                        </div>
                         <div className="ssv-row-sub">
                           {c.kind === "voice" ? t("kindVoice") : t("kindText")}
                           {c.visibility === "private" && ` · ${t("privateChannel")}`}
                         </div>
+                        {c.isDefault && (
+                          <div className="ssv-row-note">{t("defaultChannelNote")}</div>
+                        )}
                       </div>
                       {c.visibility === "private" && (
                         <span className="ssv-tag">
                           <Icon name="lock" size={11} />
                         </span>
                       )}
-                      {canManageChannels && (
+                      {canManageChannels && !c.isDefault && (
                         <button
                           type="button"
                           className="ssv-row-delete"

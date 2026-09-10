@@ -27,6 +27,10 @@ impl MessageContent {
         Ok(Self(trimmed))
     }
 
+    pub fn empty() -> Self {
+        Self(String::new())
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

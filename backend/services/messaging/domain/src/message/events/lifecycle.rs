@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{channel::id::ChannelId, message::content::MessageContent, message::id::MessageId};
+use crate::{channel::id::ChannelId, message::content::MessageContent, message::id::MessageId, message::system::SystemMessage};
 use domain::{attachment::AttachmentSnapshot, event::EventId, user::id::UserId};
 
 #[derive(Debug)]
@@ -14,6 +14,7 @@ pub struct MessageSent {
     pub recipient_ids: Vec<UserId>,
     pub attachments: Vec<AttachmentSnapshot>,
     pub mentions: Vec<UserId>,
+    pub system: Option<SystemMessage>,
 }
 
 impl MessageSent {
@@ -34,6 +35,7 @@ impl MessageSent {
             recipient_ids: Vec::new(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            system: None,
         }
     }
 }

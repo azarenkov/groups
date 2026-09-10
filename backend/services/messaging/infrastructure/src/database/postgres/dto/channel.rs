@@ -15,4 +15,5 @@ pub struct ChannelDto {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_join: DateTime<Utc>,
+    pub is_default: bool,
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, channel_id, author_id, content, created_at, edited_at\n            FROM messages\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS \"system_payload\"\n            FROM messages\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,16 @@
         "ordinal": 5,
         "name": "edited_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "system_payload",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -45,8 +55,10 @@
       false,
       false,
       false,
-      true
+      true,
+      false,
+      null
     ]
   },
-  "hash": "84b8f2f8742539180d3365397391d7fe6c8abc68386d6b4ec98d7aaa83ed37fc"
+  "hash": "d8dc1d3322c5afd4ece45b8c0193ca9cd4aee0fc42d107f9913d701abfc0f330"
 }

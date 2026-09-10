@@ -209,6 +209,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
         if let Some(mentions) = &evt.mentions {
             data["mentions"] = json!(mentions);
         }
+        data["kind"] = json!(if evt.system.is_some() { "system" } else { "user" });
+        if let Some(system) = &evt.system {
+            data["system"] = system.clone();
+        }
         let envelope = Envelope::new("message.sent", data);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -261,6 +265,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "id": evt.channel_id,
                 "serverId": evt.server_id,
                 "ownerId": evt.owner_id,
+                "isDefault": evt.is_default,
                 "name": evt.name,
                 "kind": evt.kind,
                 "visibility": evt.visibility,

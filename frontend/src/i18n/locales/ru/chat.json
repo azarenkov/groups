@@ -69,6 +69,10 @@
     "join": "Присоединиться",
     "decline": "Отклонить"
   },
+  "system": {
+    "memberJoined": "{{name}} присоединился к серверу",
+    "memberLeft": "{{name}} покинул сервер"
+  },
   "attachFile": "Прикрепить файл",
   "attachmentsUploading": "Файлы ещё загружаются…",
   "attachmentFailed": "Ошибка загрузки",
