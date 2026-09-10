@@ -83,10 +83,11 @@ where
 
         let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
+        let existing = tx.load_pair(&sender_id, &target_id).await?;
         if tx.block_relation(&sender_id, &target_id).await?.any() {
             return Err(SendFriendRequestError::Blocked);
         }
-        let mut pair = match tx.load_pair(&sender_id, &target_id).await? {
+        let mut pair = match existing {
             Some(mut pair) => {
                 pair.resend(sender_id, now).map_err(|e| match e {
                     FriendshipError::AlreadyFriends => SendFriendRequestError::AlreadyFriends,

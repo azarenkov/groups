@@ -478,6 +478,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 WHERE sender_id = $1 OR recipient_id = $1
             ) m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.peer
+            WHERE NOT EXISTS (
+                SELECT 1 FROM user_blocks b
+                WHERE (b.blocker_id = $1 AND b.blocked_id = m.peer)
+                   OR (b.blocker_id = m.peer AND b.blocked_id = $1)
+            )
             ORDER BY m.peer, m.created_at DESC
             "#,
             user_id.uuid(),

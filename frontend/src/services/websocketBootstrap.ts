@@ -252,6 +252,7 @@ function dispatch(env: WsEnvelope) {
         .getState()
         .applyEvent(selfId, blockerId, blockedId, env.type === "user.blocked");
       const peer = blockerId === selfId ? blockedId : blockerId;
+      if (env.type === "user.blocked") useUnreadStore.getState().resetDm(peer);
       useActivityStore.getState().apply(peer, null);
       void useFriendshipStore
         .getState()

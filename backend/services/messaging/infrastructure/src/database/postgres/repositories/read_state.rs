@@ -205,6 +205,11 @@ impl ReadStateRepository for PostgresReadStateRepository {
             WHERE m.recipient_id = $1
               AND m.created_at > COALESCE(r.last_read_at, '1970-01-01T00:00:00Z'::timestamptz)
               AND COALESCE(np.level, $2) <> 'none'
+              AND NOT EXISTS (
+                SELECT 1 FROM user_blocks b
+                WHERE (b.blocker_id = $1 AND b.blocked_id = m.sender_id)
+                   OR (b.blocker_id = m.sender_id AND b.blocked_id = $1)
+              )
             GROUP BY m.sender_id
             "#,
             user_id.uuid(),
