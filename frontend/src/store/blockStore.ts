@@ -20,7 +20,7 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
   return rest;
 };
 
-let sessionGen = 0;
+let requestGen = 0;
 
 export const useBlockStore = create<BlockState>()((set, get) => ({
   blocked: {},
@@ -28,10 +28,10 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   loaded: false,
 
   fetch: async () => {
-    const gen = sessionGen;
+    const gen = ++requestGen;
     try {
       const res = await friendshipAPI.listBlocks();
-      if (gen !== sessionGen) return;
+      if (gen !== requestGen) return;
       const blocked: Record<string, BlockedUser> = {};
       for (const b of res.blocks) blocked[b.userId] = b;
       set({ blocked, loaded: true });
@@ -42,6 +42,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   block: async (userId) => {
     await friendshipAPI.block(userId);
+    requestGen += 1;
     set((state) => ({
       blocked: {
         ...state.blocked,
@@ -57,11 +58,13 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   unblock: async (userId) => {
     await friendshipAPI.unblock(userId);
+    requestGen += 1;
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
   },
 
   applyEvent: (selfId, blockerId, blockedId, active) => {
     if (blockerId === selfId) {
+      requestGen += 1;
       if (active) {
         set((state) => ({
           blocked: {
@@ -92,7 +95,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     }),
 
   clearAll: () => {
-    sessionGen += 1;
+    requestGen += 1;
     set({ blocked: {}, blockedBy: {}, loaded: false });
   },
 }));
