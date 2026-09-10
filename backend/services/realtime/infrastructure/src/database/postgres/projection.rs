@@ -270,6 +270,11 @@ impl PostgresRealtimeProjection {
                     ON sm2.server_id = sm1.server_id AND NOT sm2.removed
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) AS interested
+            WHERE NOT EXISTS (
+                SELECT 1 FROM messaging.user_blocks b
+                WHERE (b.blocker_id = $1 AND b.blocked_id = interested.user_id)
+                   OR (b.blocker_id = interested.user_id AND b.blocked_id = $1)
+            )
             "#,
         )
         .bind(user_id)

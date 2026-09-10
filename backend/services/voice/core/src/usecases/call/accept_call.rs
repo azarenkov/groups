@@ -95,20 +95,17 @@ where
             return Err(AcceptCallError::AccountInactive);
         }
 
-        let mut participants: Vec<CallParticipantView> = self
+        let checked: Vec<UserId> = self
             .call_repository
             .list_active(call_id)
             .await?
             .into_iter()
-            .filter(|p| p.user_id != user_id)
+            .map(|p| p.user_id)
+            .filter(|id| *id != user_id)
             .collect();
 
-        for participant in &participants {
-            if self
-                .friendship_repository
-                .is_blocked(&user_id, &participant.user_id)
-                .await?
-            {
+        for other in &checked {
+            if self.friendship_repository.is_blocked(&user_id, other).await? {
                 self.call_repository
                     .respond(call_id, &user_id, false, Utc::now(), request_id)
                     .await?;
@@ -141,6 +138,27 @@ where
                 .await?
         {
             return Err(AcceptCallError::NotParticipant);
+        }
+
+        let mut participants: Vec<CallParticipantView> = self
+            .call_repository
+            .list_active(call_id)
+            .await?
+            .into_iter()
+            .filter(|p| p.user_id != user_id)
+            .collect();
+        for participant in participants.iter().filter(|p| !checked.contains(&p.user_id)) {
+            if self
+                .friendship_repository
+                .is_blocked(&user_id, &participant.user_id)
+                .await?
+            {
+                self.voice_service.remove_participant(&room, &user_id).await?;
+                self.call_repository
+                    .leave(call_id, &user_id, Utc::now(), request_id)
+                    .await?;
+                return Err(AcceptCallError::CallNotAllowed);
+            }
         }
 
         participants.push(CallParticipantView {
