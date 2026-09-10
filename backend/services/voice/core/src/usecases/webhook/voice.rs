@@ -7,6 +7,7 @@ use voice_domain::{call::repository::CallRepository, webhook::WebhookEvent, webh
 use crate::{
     dto::context::RequestContext,
     ports::{
+        friendship_lookup::{FriendshipLookup, FriendshipLookupError},
         voice_service::{VoiceService, VoiceServiceError},
         voice_webhook_verifier::{VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError},
         webhook_outbox::WebhookOutbox,
@@ -21,30 +22,35 @@ pub enum HandleVoiceWebhookError {
     Call(#[from] RepositoryError),
     #[error("Voice service error: {0}")]
     Voice(#[from] VoiceServiceError),
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
-pub struct HandleVoiceWebhook<V, C, O, P, S>
+pub struct HandleVoiceWebhook<V, C, O, P, S, F>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
     O: WebhookOutbox,
     P: UserProfileRepository,
     S: VoiceService,
+    F: FriendshipLookup,
 {
     verifier: Arc<V>,
     call_repository: Arc<C>,
     outbox: Arc<O>,
     profiles: Arc<P>,
     voice_service: Arc<S>,
+    friendship_repository: Arc<F>,
 }
 
-impl<V, C, O, P, S> HandleVoiceWebhook<V, C, O, P, S>
+impl<V, C, O, P, S, F> HandleVoiceWebhook<V, C, O, P, S, F>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
     O: WebhookOutbox,
     P: UserProfileRepository,
     S: VoiceService,
+    F: FriendshipLookup,
 {
     pub fn new(
         verifier: Arc<V>,
@@ -52,6 +58,7 @@ where
         outbox: Arc<O>,
         profiles: Arc<P>,
         voice_service: Arc<S>,
+        friendship_repository: Arc<F>,
     ) -> Self {
         Self {
             verifier,
@@ -59,7 +66,35 @@ where
             outbox,
             profiles,
             voice_service,
+            friendship_repository,
         }
+    }
+
+    async fn evict_if_blocked(
+        &self,
+        call_id: uuid::Uuid,
+        user_id: &UserId,
+        request_id: Option<String>,
+    ) -> Result<(), HandleVoiceWebhookError> {
+        let room = ChannelId::new(call_id);
+        for participant in self.call_repository.list_active(call_id).await? {
+            if participant.user_id == *user_id {
+                continue;
+            }
+            if self
+                .friendship_repository
+                .is_blocked(user_id, &participant.user_id)
+                .await?
+            {
+                tracing::warn!(%call_id, user_id = %user_id.uuid(), "Blocked participant joined a call room; removing");
+                self.voice_service.remove_participant(&room, user_id).await?;
+                self.call_repository
+                    .leave(call_id, user_id, chrono::Utc::now(), request_id)
+                    .await?;
+                return Ok(());
+            }
+        }
+        Ok(())
     }
 
     pub async fn execute(
@@ -97,6 +132,8 @@ where
                     )
                     .await?
                 {
+                    self.evict_if_blocked(channel_id, &UserId::new(user_id), ctx.request_id.clone())
+                        .await?;
                     return Ok(());
                 }
                 (channel_id, user_id, session_id, WebhookKind::Joined)

@@ -10,7 +10,13 @@ interface BlockState {
   fetch: () => Promise<void>;
   block: (userId: string) => Promise<void>;
   unblock: (userId: string) => Promise<void>;
-  applyEvent: (selfId: string, blockerId: string, blockedId: string, active: boolean) => void;
+  applyEvent: (
+    selfId: string,
+    blockerId: string,
+    blockedId: string,
+    active: boolean,
+    occurredAt?: string,
+  ) => boolean;
   applyRelation: (userId: string, relation: BlockRelation, gen?: number) => void;
   markBlockedBy: (userId: string, active: boolean) => void;
   clearAll: () => void;
@@ -23,6 +29,7 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
 
 let mutationGen = 0;
 let fetchSeq = 0;
+let eventVersions: Record<string, number> = {};
 
 export const useBlockStore = create<BlockState>()((set, get) => ({
   blocked: {},
@@ -65,7 +72,13 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
   },
 
-  applyEvent: (selfId, blockerId, blockedId, active) => {
+  applyEvent: (selfId, blockerId, blockedId, active, occurredAt) => {
+    const ts = occurredAt ? Date.parse(occurredAt) : NaN;
+    if (Number.isFinite(ts)) {
+      const key = `${blockerId}>${blockedId}`;
+      if (ts < (eventVersions[key] ?? 0)) return false;
+      eventVersions[key] = ts;
+    }
     mutationGen += 1;
     if (blockerId === selfId) {
       if (active) {
@@ -85,6 +98,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       }
     }
     if (blockedId === selfId) get().markBlockedBy(blockerId, active);
+    return true;
   },
 
   applyRelation: (userId, relation, gen) => {
@@ -116,6 +130,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   clearAll: () => {
     mutationGen += 1;
+    eventVersions = {};
     set({ blocked: {}, blockedBy: {}, loaded: false });
   },
 }));

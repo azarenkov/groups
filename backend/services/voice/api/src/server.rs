@@ -127,6 +127,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             webhook_outbox.clone(),
             user_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
         ),
         call_repository: call_repository.clone(),
     });

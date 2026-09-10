@@ -248,9 +248,16 @@ function dispatch(env: WsEnvelope) {
       const blockedId = asString(d.blockedId);
       const selfId = useAuthStore.getState().user?.id;
       if (!blockerId || !blockedId || !selfId) return;
-      useBlockStore
+      const applied = useBlockStore
         .getState()
-        .applyEvent(selfId, blockerId, blockedId, env.type === "user.blocked");
+        .applyEvent(
+          selfId,
+          blockerId,
+          blockedId,
+          env.type === "user.blocked",
+          asString(d.occurredAt),
+        );
+      if (!applied) return;
       const peer = blockerId === selfId ? blockedId : blockerId;
       if (env.type === "user.blocked") {
         useUnreadStore.getState().resetDm(peer);

@@ -130,6 +130,7 @@ impl HttpMapping for HandleVoiceWebhookError {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
             HandleVoiceWebhookError::Call(e) => e.to_http_status(),
             HandleVoiceWebhookError::Voice(e) => e.to_http_status(),
+            HandleVoiceWebhookError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -138,6 +139,9 @@ impl HttpMapping for HandleVoiceWebhookError {
             HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
             HandleVoiceWebhookError::Call(e) => e.to_user_message(),
             HandleVoiceWebhookError::Voice(e) => e.to_user_message(),
+            HandleVoiceWebhookError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
 
@@ -146,6 +150,7 @@ impl HttpMapping for HandleVoiceWebhookError {
             HandleVoiceWebhookError::Verifier(e) => e.to_error_code(),
             HandleVoiceWebhookError::Call(e) => e.to_error_code(),
             HandleVoiceWebhookError::Voice(e) => e.to_error_code(),
+            HandleVoiceWebhookError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }

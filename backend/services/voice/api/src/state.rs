@@ -56,6 +56,7 @@ pub struct AppState {
         PostgresWebhookOutbox,
         PostgresUserProfileRepository,
         LiveKitService,
+        MessagingFriendshipClient,
     >,
     pub call_repository: std::sync::Arc<PostgresCallRepository>,
 }
