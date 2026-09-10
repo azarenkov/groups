@@ -7,7 +7,7 @@ SET is_default = true
 WHERE c.id = (
     SELECT x.id
     FROM messaging.channels x
-    WHERE x.server_id = c.server_id AND x.kind = 'text'
+    WHERE x.server_id = c.server_id AND x.kind = 'text' AND x.visibility = 'public'
     ORDER BY (x.name = 'general') DESC, x.created_at ASC, x.id ASC
     LIMIT 1
 );
@@ -30,7 +30,7 @@ CROSS JOIN LATERAL (
     ORDER BY candidate.ord
     LIMIT 1
 ) AS free_name
-WHERE NOT EXISTS (SELECT 1 FROM messaging.channels c WHERE c.server_id = s.id AND c.kind = 'text');
+WHERE NOT EXISTS (SELECT 1 FROM messaging.channels c WHERE c.server_id = s.id AND c.kind = 'text' AND c.visibility = 'public');
 
 INSERT INTO messaging.channel_text_participants (channel_id, user_id, joined_at)
 SELECT c.id, c.owner_id, c.created_at
