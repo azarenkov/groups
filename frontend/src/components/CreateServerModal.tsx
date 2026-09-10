@@ -130,6 +130,8 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setLinkInput("");
     setPreview(null);
     setPreviewToken(null);
+    setJoining(false);
+    setIsLoading(false);
     setError(null);
     setWarning(null);
     setLogoFile(null);
