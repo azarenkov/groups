@@ -258,15 +258,15 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
               )}
               <button type="button" className={"profile-btn" + (isFriend ? " primary" : "")} disabled={!canMessage} onClick={() => { close(); onOpenDm(userId, name || undefined); }}>
                 <Icon name="message" size={15} />
-                {t("message")}
+                <span className="profile-btn-label">{t("message")}</span>
               </button>
               <button type="button" className="profile-btn" disabled={!canCall} onClick={() => { close(); onCall(userId); }}>
                 <Icon name="phone" size={15} />
-                {t("call")}
+                <span className="profile-btn-label">{t("call")}</span>
               </button>
               <button type="button" className="profile-btn" disabled={!canCall} onClick={() => { close(); onCall(userId, true); }}>
                 <Icon name="video" size={15} />
-                {t("videoCall")}
+                <span className="profile-btn-label">{t("videoCall")}</span>
               </button>
               <div className="profile-more" ref={menuRef}>
                 <button type="button" className="profile-btn icon" aria-label={t("more")} onClick={() => setMenuOpen((v) => !v)}>
