@@ -22,6 +22,8 @@ const JoinPage: React.FC = () => {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    setPreview(null);
+    setFailed(false);
     if (!token) return;
     let cancelled = false;
     serverAPI

@@ -34,7 +34,11 @@ contextBridge.exposeInMainWorld('electron', {
   },
 
   onDeepLink: (callback) => {
-    const handler = (_event, url) => callback(typeof url === 'string' ? url : null);
+    const handler = (_event, url) => {
+      if (typeof url !== 'string') return;
+      ipcRenderer.send('deep-link:consumed', url);
+      callback(url);
+    };
     ipcRenderer.on('deep-link', handler);
     return () => ipcRenderer.removeListener('deep-link', handler);
   },

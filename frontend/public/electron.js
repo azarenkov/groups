@@ -130,16 +130,15 @@ function deepLinkFromArgv(argv) {
 
 function deliverDeepLink(url) {
   if (!isInviteDeepLink(url)) return;
+  pendingDeepLink = url.trim();
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
     if (!mainWindow.webContents.isLoading()) {
-      mainWindow.webContents.send('deep-link', url.trim());
-      return;
+      mainWindow.webContents.send('deep-link', pendingDeepLink);
     }
   }
-  pendingDeepLink = url.trim();
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -167,6 +166,10 @@ ipcMain.handle('deep-link:pending', () => {
   const url = pendingDeepLink;
   pendingDeepLink = null;
   return url;
+});
+
+ipcMain.on('deep-link:consumed', (_event, url) => {
+  if (pendingDeepLink === url) pendingDeepLink = null;
 });
 
 const ZOOM_MIN = 0.7;
