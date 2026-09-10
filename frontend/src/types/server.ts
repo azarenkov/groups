@@ -13,14 +13,35 @@ export interface Member {
   name: string;
 }
 
-export interface InviteCode {
-  code: string;
+export interface InviteLink {
+  token: string;
+  url: string;
+  name: string | null;
+  isPrimary: boolean;
   createdBy: string;
   creatorName: string | null;
   uses: number;
   maxUses: number | null;
   expiresAt: string | null;
   createdAt: string;
+}
+
+export type InviteStatus = "active" | "expired" | "exhausted" | "revoked";
+
+export interface InvitePreview {
+  status: InviteStatus;
+  server: {
+    id: string;
+    name: string;
+    description: string | null;
+    accentColor: string | null;
+    memberCount: number;
+  } | null;
+}
+
+export interface JoinInviteResponse {
+  server: Server;
+  alreadyMember: boolean;
 }
 
 export interface PaginationMeta {

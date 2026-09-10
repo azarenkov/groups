@@ -4,8 +4,9 @@ import {
   ListServerMembersResponse,
   CreateServerRequest,
   CreateServerResponse,
-  InviteCode,
-  Server,
+  InviteLink,
+  InvitePreview,
+  JoinInviteResponse,
 } from "../types/server";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
@@ -109,19 +110,6 @@ class ServerAPI {
     return response.data;
   }
 
-  async createInviteCode(
-    serverId: string,
-    opts: { expiresDays?: number | null; maxUses?: number | null } = {},
-  ): Promise<InviteCode> {
-    const response = await this.client.post(
-      `/v1/servers/${serverId}/invite-codes`,
-      {
-        expiresDays: opts.expiresDays ?? undefined,
-        maxUses: opts.maxUses ?? undefined,
-      },
-    );
-    return response.data.data;
-  }
 
   async listRoles(serverId: string): Promise<{
     roles: { id: string; name: string; color: string; permissions: number; position: number }[];
@@ -182,25 +170,8 @@ class ServerAPI {
     );
   }
 
-  async listInviteCodes(serverId: string): Promise<{ invites: InviteCode[] }> {
-    const response = await this.client.get(
-      `/v1/servers/${serverId}/invite-codes`,
-    );
-    return response.data.data;
-  }
 
-  async revokeInviteCode(serverId: string, code: string): Promise<void> {
-    await this.client.delete(
-      `/v1/servers/${serverId}/invite-codes/${encodeURIComponent(code)}`,
-    );
-  }
 
-  async redeemInviteCode(code: string): Promise<Server> {
-    const response = await this.client.post(
-      `/v1/servers/invite-codes/${encodeURIComponent(code)}/redeem`,
-    );
-    return response.data.data;
-  }
 
   async deleteServer(serverId: string): Promise<void> {
     await this.client.delete(`/v1/servers/${serverId}`);
@@ -237,6 +208,48 @@ class ServerAPI {
       page++;
     }
     return all;
+  }
+
+  async createInviteLink(
+    serverId: string,
+    opts: { name?: string; expiresDays?: number; maxUses?: number } = {},
+  ): Promise<InviteLink> {
+    const response = await this.client.post(
+      `/v1/servers/${serverId}/invite-links`,
+      {
+        name: opts.name,
+        expiresDays: opts.expiresDays,
+        maxUses: opts.maxUses,
+      },
+    );
+    return response.data.data;
+  }
+
+  async listInviteLinks(serverId: string): Promise<{ links: InviteLink[] }> {
+    const response = await this.client.get(
+      `/v1/servers/${serverId}/invite-links`,
+    );
+    return response.data.data;
+  }
+
+  async revokeInviteLink(serverId: string, token: string): Promise<void> {
+    await this.client.delete(
+      `/v1/servers/${serverId}/invite-links/${encodeURIComponent(token)}`,
+    );
+  }
+
+  async previewInvite(token: string): Promise<InvitePreview> {
+    const response = await this.client.get(
+      `/v1/invites/${encodeURIComponent(token)}`,
+    );
+    return response.data.data;
+  }
+
+  async joinByInvite(token: string): Promise<JoinInviteResponse> {
+    const response = await this.client.post(
+      `/v1/invites/${encodeURIComponent(token)}/join`,
+    );
+    return response.data.data;
   }
 
   async listVoicePresence(serverId: string): Promise<{

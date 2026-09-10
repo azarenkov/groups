@@ -4,11 +4,14 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ServersPage from "./pages/ServersPage";
+import JoinPage from "./pages/JoinPage";
 import ScreenSharePicker from "./components/rift/ScreenSharePicker";
 import { useAuthStore } from "./store/authStore";
 import { applyAppearance, useAppearanceStore } from "./store/appearanceStore";
@@ -22,7 +25,36 @@ import { ws } from "./services/websocket";
 import { installWsBootstrap } from "./services/websocketBootstrap";
 import { initGameActivity } from "./services/gameActivity";
 import { initHotkeys } from "./services/hotkeys";
+import { authRedirectTarget, extractInviteToken } from "./utils/inviteLinks";
 import "./styles/App.css";
+
+const AuthRedirect: React.FC = () => {
+  const { search } = useLocation();
+  return <Navigate to={authRedirectTarget(search)} replace />;
+};
+
+const DeepLinkListener: React.FC = () => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const bridge = window.electron;
+    if (!bridge?.onDeepLink) return;
+    const open = (url: string | null) => {
+      const token = url ? extractInviteToken(url) : null;
+      if (!token) return;
+      const { isAuthenticated: signedIn, tokens: current } = useAuthStore.getState();
+      const verified =
+        !!current?.accessToken && isAccessTokenVerified(current.accessToken);
+      navigate(
+        signedIn && verified
+          ? `/app?join=${encodeURIComponent(token)}`
+          : `/join/${token}`,
+      );
+    };
+    void bridge.getPendingDeepLink?.().then(open).catch(() => {});
+    return bridge.onDeepLink(open);
+  }, [navigate]);
+  return null;
+};
 
 const App: React.FC = () => {
   const { isAuthenticated, tokens, isHydrating } = useAuthStore();
@@ -215,6 +247,7 @@ const App: React.FC = () => {
       }}
     >
       <div className="app">
+        <DeepLinkListener />
         <AnimatePresence mode="wait">
           <Routes>
             <Route
@@ -223,7 +256,7 @@ const App: React.FC = () => {
                 !isAuthenticated || hasUnverifiedSession ? (
                   <LoginPage />
                 ) : (
-                  <Navigate to="/app" />
+                  <AuthRedirect />
                 )
               }
             />
@@ -233,10 +266,11 @@ const App: React.FC = () => {
                 !isAuthenticated || hasUnverifiedSession ? (
                   <RegisterPage />
                 ) : (
-                  <Navigate to="/app" />
+                  <AuthRedirect />
                 )
               }
             />
+            <Route path="/join/:token" element={<JoinPage />} />
             <Route
               path="/app"
               element={

@@ -258,6 +258,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rift}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rift-minio-secret}
       MEDIA_INTERNAL_URL: ${MEDIA_INTERNAL_URL:-http://media-service:8080}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
       VOICE_INTERNAL_URL: ${VOICE_INTERNAL_URL:-http://voice-service:8080}
     depends_on:
       postgres:

@@ -1,8 +1,9 @@
 use std::collections::HashSet;
+use crate::database::postgres::repositories::invite_link::{INVITE_LINK_COLUMNS, InviteLinkRow};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_code::InviteCode, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_link::InviteLink, server::invite_link::InviteToken, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -765,62 +766,53 @@ impl ServerTransaction for PostgresServerTransaction {
         Ok(row.map(|r| UserId::new(r.user_id)))
     }
 
-    async fn create_invite_code(
-        &mut self,
-        created_by: &UserId,
-        code: &str,
-        max_uses: Option<i32>,
-        expires_at: Option<DateTime<Utc>>,
-    ) -> Result<InviteCode, RepositoryError> {
-        let row = sqlx::query!(
-            r#"
-            INSERT INTO server_invite_codes (code, server_id, created_by, max_uses, expires_at)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING code, server_id, created_by, max_uses, uses, expires_at, created_at
-            "#,
-            code,
-            self.server_id.uuid(),
-            created_by.uuid(),
-            max_uses,
-            expires_at,
+    async fn create_invite_link(&mut self, link: &InviteLink) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO server_invite_links (token, server_id, created_by, name, is_primary, max_uses, uses, expires_at, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
-        .fetch_one(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(InviteCode {
-            code: row.code,
-            server_id: row.server_id,
-            created_by: row.created_by,
-            creator_name: None,
-            max_uses: row.max_uses,
-            uses: row.uses,
-            expires_at: row.expires_at,
-            created_at: row.created_at,
-        })
-    }
-
-    async fn revoke_invite_code(
-        &mut self,
-        code: &str,
-        requester: &UserId,
-        any_creator: bool,
-    ) -> Result<bool, RepositoryError> {
-        let updated = sqlx::query!(
-            r#"
-            UPDATE server_invite_codes
-            SET revoked_at = now()
-            WHERE code = $1 AND server_id = $2 AND revoked_at IS NULL
-              AND (created_by = $3 OR $4)
-            "#,
-            code,
-            self.server_id.uuid(),
-            requester.uuid(),
-            any_creator,
-        )
+        .bind(link.token.as_str())
+        .bind(self.server_id.uuid())
+        .bind(link.created_by.uuid())
+        .bind(link.name.as_deref())
+        .bind(link.is_primary)
+        .bind(link.max_uses)
+        .bind(link.uses)
+        .bind(link.expires_at)
+        .bind(link.created_at)
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(updated.rows_affected() > 0)
+        Ok(())
+    }
+
+    async fn find_primary_invite_link(&mut self) -> Result<Option<InviteLink>, RepositoryError> {
+        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
+            "SELECT {INVITE_LINK_COLUMNS} FROM server_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.server_id = $1 AND l.is_primary AND l.revoked_at IS NULL"
+        ))
+        .bind(self.server_id.uuid())
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(InviteLink::from))
+    }
+
+    async fn revoke_invite_link(
+        &mut self,
+        token: &InviteToken,
+        requester: &UserId,
+        any_creator: bool,
+    ) -> Result<Option<InviteLink>, RepositoryError> {
+        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
+            "WITH revoked AS (UPDATE server_invite_links SET revoked_at = now() WHERE token = $1 AND server_id = $2 AND revoked_at IS NULL AND (created_by = $3 OR $4) RETURNING *) SELECT {INVITE_LINK_COLUMNS} FROM revoked l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by"
+        ))
+        .bind(token.as_str())
+        .bind(self.server_id.uuid())
+        .bind(requester.uuid())
+        .bind(any_creator)
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(InviteLink::from))
     }
 
     async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError> {

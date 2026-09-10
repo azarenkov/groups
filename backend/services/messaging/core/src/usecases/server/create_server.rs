@@ -1,3 +1,6 @@
+use messaging_domain::server::invite_link::InviteLink;
+
+use crate::usecases::server::invite_links::create_with_fresh_token;
 use std::sync::Arc;
 
 use messaging_domain::{events::MessagingEvent, server::Server, server::description::ServerDescription, server::name::ServerName, server::unit_of_work::ServerUnitOfWork};
@@ -83,6 +86,7 @@ where
             return Err(CreateServerError::AccountInactive);
         }
         tx.insert_server(&server).await?;
+        create_with_fresh_token(&mut *tx, || InviteLink::primary(*server.id(), owner_id, chrono::Utc::now())).await?;
         tx.save_events(&events, request_id.as_deref()).await?;
         tx.commit().await?;
 

@@ -1,5 +1,6 @@
+import { authRedirectTarget } from "../../utils/inviteLinks";
 import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
@@ -36,6 +37,7 @@ interface AuthPageProps {
 
 const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
   const navigate = useNavigate();
+  const { search } = useLocation();
   const tokens = useAuthStore((s) => s.tokens);
   const storedUser = useAuthStore((s) => s.user);
   const hasUnverifiedSession =
@@ -53,12 +55,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
     }
   }, [hasUnverifiedSession, storedUser?.email]);
 
-  const onSignedIn = () => navigate("/app");
+  const onSignedIn = () => navigate(authRedirectTarget(search));
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
 
   const switchTab = (m: "signin" | "signup") => {
     setMode(m);
-    navigate(m === "signin" ? "/login" : "/register", { replace: true });
+    navigate(`${m === "signin" ? "/login" : "/register"}${search}`, { replace: true });
   };
 
   const showTabs = mode === "signin" || mode === "signup";
