@@ -793,7 +793,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "occurredAt": evt.occurred_at,
             }),
         );
-        let mut recipients = resolver.rename_recipients(evt.user_id).await?;
+        let mut recipients = resolver.profile_recipients(evt.user_id).await?;
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());

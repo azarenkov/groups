@@ -101,14 +101,6 @@ where
         if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
             return Err(SendServerInviteError::NotFriends);
         }
-        if self
-            .friendship_repository
-            .block_relation(&sender_id, &friend_id)
-            .await?
-            .any()
-        {
-            return Err(SendServerInviteError::Blocked);
-        }
 
         if !self.user_profile_repository.is_active(&friend_id).await? {
             return Err(SendServerInviteError::RecipientInactive);
@@ -152,17 +144,22 @@ where
         let events = message.pull_events();
         let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let persisted = async {
+            tx.lock_pair(&sender_id, &friend_id).await?;
+            if tx.block_relation(&sender_id, &friend_id).await?.any() {
+                return Err(SendServerInviteError::Blocked);
+            }
             tx.insert_dm_message(&message).await?;
             tx.save_events(&events, request_id.as_deref()).await?;
-            tx.commit().await
+            tx.commit().await?;
+            Ok::<(), SendServerInviteError>(())
         }
         .await;
         match persisted {
             Ok(()) => {}
-            Err(RepositoryError::AlreadyExists) => {
+            Err(SendServerInviteError::Repository(RepositoryError::AlreadyExists)) => {
                 return Err(SendServerInviteError::InviteAlreadyPending);
             }
-            Err(e) => return Err(SendServerInviteError::Repository(e)),
+            Err(e) => return Err(e),
         }
 
         Ok(SendDmMessageResponse::from_invite(&message, server_name))

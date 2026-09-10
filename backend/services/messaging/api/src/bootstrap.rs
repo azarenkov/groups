@@ -388,7 +388,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         accept_server_invite_usecase: AcceptServerInvite::new(
             dm_repository.clone(),
             server_unit_of_work.clone(),
-            friendship_repository.clone(),
         ),
         decline_server_invite_usecase: DeclineServerInvite::new(
             dm_repository.clone(),

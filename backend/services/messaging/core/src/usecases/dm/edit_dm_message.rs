@@ -114,14 +114,6 @@ where
             .find_pair(message.sender_id(), message.recipient_id())
             .await?;
         let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
-        if self
-            .friendship_repository
-            .block_relation(message.sender_id(), message.recipient_id())
-            .await?
-            .any()
-        {
-            return Err(EditDmMessageError::Blocked);
-        }
         match self
             .privacy_repository
             .get(message.recipient_id())
@@ -200,10 +192,19 @@ where
             let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
         let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();
         let mut tx = self.unit_of_work.begin().await?;
+            tx.lock_pair(message.sender_id(), message.recipient_id()).await?;
+            if tx
+                .block_relation(message.sender_id(), message.recipient_id())
+                .await?
+                .any()
+            {
+                return Err(EditDmMessageError::Blocked);
+            }
             tx.update_message(&message, &added_attachments, &request.remove_attachment_ids)
                 .await?;
             tx.save_events(&events, request_id.as_deref()).await?;
-            tx.commit().await
+            tx.commit().await?;
+            Ok::<(), EditDmMessageError>(())
         }
         .await;
         if let Err(e) = persisted {
@@ -227,8 +228,10 @@ where
                 }
             }
             return Err(match e {
-                RepositoryError::InvalidData(_) => EditDmMessageError::InvalidAttachments,
-                other => EditDmMessageError::Repository(other),
+                EditDmMessageError::Repository(RepositoryError::InvalidData(_)) => {
+                    EditDmMessageError::InvalidAttachments
+                }
+                other => other,
             });
         }
         Ok(())
