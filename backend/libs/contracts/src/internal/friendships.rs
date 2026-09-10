@@ -8,6 +8,7 @@ pub struct FriendsResponseV1 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BlockedResponseV1 {
-    pub blocked: bool,
+pub struct BlockRelationResponseV1 {
+    pub blocking: bool,
+    pub blocked_by: bool,
 }

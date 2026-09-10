@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, post, web};
 use contracts::internal::{
     attachments::{LinkedRequestV1, LinkedResponseV1},
     calls::CallPermitResponseV1,
-    friendships::{BlockedResponseV1, FriendsResponseV1},
+    friendships::{BlockRelationResponseV1, FriendsResponseV1},
     servers::{CanManageResponseV1, OwnerResponseV1},
     users::{ActivityAudienceRequestV1, ActivityAudienceResponseV1, StateResponseV1},
 };
@@ -80,13 +80,15 @@ async fn block_pair(
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
     let (a, b) = path.into_inner();
-    let blocked = app_state
+    let relation = app_state
         .friendship_repository
         .block_relation(&UserId::new(a), &UserId::new(b))
         .await
-        .map_err(HttpError::from)?
-        .any();
-    Ok(HttpResponse::Ok().json(BlockedResponseV1 { blocked }))
+        .map_err(HttpError::from)?;
+    Ok(HttpResponse::Ok().json(BlockRelationResponseV1 {
+        blocking: relation.blocking,
+        blocked_by: relation.blocked_by,
+    }))
 }
 
 #[get("/calls/permit/{caller}/{callee}")]

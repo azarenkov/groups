@@ -105,7 +105,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             livekit_service.clone(),
             user_repository.clone(),
         ),
-        get_active_call_with_usecase: GetActiveCallWith::new(call_repository.clone()),
+        get_active_call_with_usecase: GetActiveCallWith::new(
+            call_repository.clone(),
+            friendship_lookup.clone(),
+        ),
         join_call_usecase: JoinCall::new(
             call_repository.clone(),
             livekit_service.clone(),

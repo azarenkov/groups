@@ -686,7 +686,7 @@ function dispatch(env: WsEnvelope) {
     case "call.available": {
       const callId = asString(d.callId);
       const userId = asString(d.userId);
-      if (callId && userId) {
+      if (callId && userId && !isBlockedEitherWay(userId)) {
         useCallStore.getState().callAvailable(userId, callId);
       }
       return;

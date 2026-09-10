@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { friendshipAPI } from "../api/friendship";
-import type { BlockedUser } from "../types/friendship";
+import type { BlockedUser, BlockRelation } from "../types/friendship";
 
 interface BlockState {
   blocked: Record<string, BlockedUser>;
@@ -11,6 +11,7 @@ interface BlockState {
   block: (userId: string) => Promise<void>;
   unblock: (userId: string) => Promise<void>;
   applyEvent: (selfId: string, blockerId: string, blockedId: string, active: boolean) => void;
+  applyRelation: (userId: string, relation: BlockRelation, gen?: number) => void;
   markBlockedBy: (userId: string, active: boolean) => void;
   clearAll: () => void;
 }
@@ -84,6 +85,23 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     if (blockedId === selfId) get().markBlockedBy(blockerId, active);
   },
 
+  applyRelation: (userId, relation, gen) => {
+    get().markBlockedBy(userId, relation.blockedBy);
+    if (gen !== undefined && gen !== requestGen) return;
+    const known = !!get().blocked[userId];
+    if (relation.blocked && !known) {
+      set((state) => ({
+        blocked: {
+          ...state.blocked,
+          [userId]: { userId, name: "", createdAt: new Date().toISOString() },
+        },
+      }));
+      void get().fetch();
+    } else if (!relation.blocked && known) {
+      set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+    }
+  },
+
   markBlockedBy: (userId, active) =>
     set((state) => {
       if (active) {
@@ -99,6 +117,8 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     set({ blocked: {}, blockedBy: {}, loaded: false });
   },
 }));
+
+export const blockGeneration = (): number => requestGen;
 
 export const isBlockedEitherWay = (userId: string): boolean => {
   const s = useBlockStore.getState();

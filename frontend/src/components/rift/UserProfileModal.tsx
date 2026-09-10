@@ -5,7 +5,7 @@ import { ServerLogo, UserAvatar } from "./Avatar";
 import { homeAPI, type PublicProfile } from "../../api/home";
 import { useAuthStore } from "../../store/authStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
-import { useBlockStore } from "../../store/blockStore";
+import { blockGeneration, useBlockStore } from "../../store/blockStore";
 import { usePresenceStore } from "../../store/presenceStore";
 import { loadActivitiesFor, useActivityStore } from "../../store/activityStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
@@ -95,7 +95,10 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   }, [userId]);
 
   React.useEffect(() => {
-    if (!userId) return;
+    if (!userId || blockedMe) {
+      setConnections([]);
+      return;
+    }
     let cancelled = false;
     userAPI
       .userConnections(userId)
@@ -106,17 +109,20 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, blockedMe]);
 
   React.useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    const gen = blockGeneration();
     homeAPI
       .profile(userId)
       .then((p) => {
         if (cancelled) return;
         useUserProfileStore.getState().apply(userId, p.bio, profileVersion(p.profileUpdatedAt));
-        useBlockStore.getState().markBlockedBy(userId, p.blockedBy);
+        useBlockStore
+          .getState()
+          .applyRelation(userId, { blocked: p.blocked, blockedBy: p.blockedBy }, gen);
         setProfile(p);
         setFailed(false);
       })

@@ -38,7 +38,8 @@ pub struct AppState {
     >,
     pub get_active_call_usecase:
         GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
-    pub get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,
+    pub get_active_call_with_usecase:
+        GetActiveCallWith<PostgresCallRepository, MessagingFriendshipClient>,
     pub join_call_usecase: JoinCall<
         PostgresCallRepository,
         LiveKitService,

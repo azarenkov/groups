@@ -1,4 +1,4 @@
-import { useBlockStore } from "../../store/blockStore";
+import { blockGeneration, useBlockStore } from "../../store/blockStore";
 import { friendshipAPI } from "../../api/friendship";
 import React from "react";
 import { bindingFor } from "../../services/hotkeys";
@@ -179,10 +179,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     if (!blockPeerId) return;
     let cancelled = false;
+    const gen = blockGeneration();
     friendshipAPI
       .blockRelation(blockPeerId)
       .then((relation) => {
-        if (!cancelled) useBlockStore.getState().markBlockedBy(blockPeerId, relation.blockedBy);
+        if (!cancelled) useBlockStore.getState().applyRelation(blockPeerId, relation, gen);
       })
       .catch(() => {});
     return () => {

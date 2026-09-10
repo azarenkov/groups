@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use voice::ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError};
 use domain::user::id::UserId;
-use contracts::internal::{calls::CallPermitResponseV1, friendships::BlockedResponseV1};
+use contracts::internal::{calls::CallPermitResponseV1, friendships::BlockRelationResponseV1};
 
 pub struct MessagingFriendshipClient {
     client: reqwest::Client,
@@ -65,10 +65,10 @@ impl FriendshipLookup for MessagingFriendshipClient {
                 response.status()
             )));
         }
-        let body: BlockedResponseV1 = response
+        let body: BlockRelationResponseV1 = response
             .json()
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
-        Ok(body.blocked)
+        Ok(body.blocking || body.blocked_by)
     }
 }

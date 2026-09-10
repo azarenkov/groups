@@ -286,16 +286,21 @@ impl HttpMapping for GetActiveCallWithError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetActiveCallWithError::Repository(e) => e.to_http_status(),
+            GetActiveCallWithError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             GetActiveCallWithError::Repository(e) => e.to_user_message(),
+            GetActiveCallWithError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             GetActiveCallWithError::Repository(e) => e.to_error_code(),
+            GetActiveCallWithError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
