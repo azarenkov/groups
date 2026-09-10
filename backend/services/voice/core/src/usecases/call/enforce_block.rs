@@ -55,19 +55,34 @@ where
         if !self.friendship_repository.is_blocked(&blocker, &blocked).await? {
             return Ok(());
         }
-        let Some(call_id) = self.shared_call(&blocker, &blocked).await? else {
-            return Ok(());
-        };
+        for call_id in self
+            .call_repository
+            .shared_active_calls(&blocker, &blocked)
+            .await?
+        {
+            self.evict(call_id, &blocker, &blocked, request_id.clone())
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn evict(
+        &self,
+        call_id: Uuid,
+        blocker: &UserId,
+        blocked: &UserId,
+        request_id: Option<String>,
+    ) -> Result<(), EnforceBlockError> {
         let others = self
             .call_repository
             .list_active(call_id)
             .await?
             .into_iter()
-            .filter(|p| p.user_id != blocker && p.user_id != blocked)
+            .filter(|p| p.user_id != *blocker && p.user_id != *blocked)
             .count();
-        let mut leaving = vec![blocker];
+        let mut leaving = vec![*blocker];
         if others == 0 {
-            leaving.push(blocked);
+            leaving.push(*blocked);
         }
         let room = ChannelId::new(call_id);
         for user in leaving {
@@ -77,16 +92,5 @@ where
                 .await?;
         }
         Ok(())
-    }
-
-    async fn shared_call(&self, a: &UserId, b: &UserId) -> Result<Option<Uuid>, RepositoryError> {
-        for (joined, other) in [(a, b), (b, a)] {
-            if let Some(call_id) = self.call_repository.active_call_for(joined).await?
-                && self.call_repository.is_active_participant(call_id, other).await?
-            {
-                return Ok(Some(call_id));
-            }
-        }
-        Ok(None)
     }
 }

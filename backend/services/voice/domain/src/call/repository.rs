@@ -76,6 +76,12 @@ pub trait CallRepository {
         user_b: &UserId,
     ) -> Result<Option<Uuid>, RepositoryError>;
 
+    async fn shared_active_calls(
+        &self,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<Vec<Uuid>, RepositoryError>;
+
     async fn join(
         &self,
         call_id: Uuid,

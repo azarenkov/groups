@@ -64,6 +64,9 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       },
     }));
     void get().fetch();
+    void import("./friendshipStore").then((m) =>
+      m.useFriendshipStore.getState().fetchFriends(),
+    );
   },
 
   unblock: async (userId) => {

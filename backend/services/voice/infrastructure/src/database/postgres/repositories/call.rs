@@ -500,6 +500,29 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.and_then(|(at,)| at))
     }
 
+    async fn shared_active_calls(
+        &self,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<Vec<Uuid>, RepositoryError> {
+        sqlx::query_scalar(
+            r#"
+            SELECT p1.call_id
+            FROM call_participants p1
+            INNER JOIN call_participants p2
+                ON p2.call_id = p1.call_id
+                AND p2.user_id = $2
+                AND p2.status IN ('invited', 'joined')
+            WHERE p1.user_id = $1 AND p1.status IN ('invited', 'joined')
+            "#,
+        )
+        .bind(user_a.uuid())
+        .bind(user_b.uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)
+    }
+
     async fn active_call_between(
         &self,
         user_a: &UserId,
