@@ -734,6 +734,9 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
 
     if ends_with(subject, ".user.blocked") {
         let evt: UserBlockedDto = serde_json::from_slice(payload)?;
+        resolver
+            .apply_block(evt.blocker_id, evt.blocked_id, true, evt.occurred_at)
+            .await?;
         let envelope = Envelope::new(
             "user.blocked",
             json!({
@@ -750,6 +753,9 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
 
     if ends_with(subject, ".user.unblocked") {
         let evt: UserUnblockedDto = serde_json::from_slice(payload)?;
+        resolver
+            .apply_block(evt.blocker_id, evt.blocked_id, false, evt.occurred_at)
+            .await?;
         let envelope = Envelope::new(
             "user.unblocked",
             json!({
