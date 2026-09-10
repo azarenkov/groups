@@ -6,7 +6,10 @@ use domain::{channel::id::ChannelId, channel::token::ChannelToken, user::id::Use
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
-use crate::ports::voice_service::{VoiceService, VoiceServiceError};
+use crate::ports::{
+    friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+    voice_service::{VoiceService, VoiceServiceError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum JoinCallError {
@@ -20,6 +23,10 @@ pub enum JoinCallError {
     UserNotFound,
     #[error("Account is inactive")]
     AccountInactive,
+    #[error("This user does not accept this call")]
+    CallNotAllowed,
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
 pub struct JoinCallResult {
@@ -29,27 +36,36 @@ pub struct JoinCallResult {
     pub video: bool,
 }
 
-pub struct JoinCall<C, V, U>
+pub struct JoinCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
+    F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
+    friendship_repository: Arc<F>,
     user_repository: Arc<U>,
 }
 
-impl<C, V, U> JoinCall<C, V, U>
+impl<C, V, F, U> JoinCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
+    F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
 {
-    pub fn new(call_repository: Arc<C>, voice_service: Arc<V>, user_repository: Arc<U>) -> Self {
+    pub fn new(
+        call_repository: Arc<C>,
+        voice_service: Arc<V>,
+        friendship_repository: Arc<F>,
+        user_repository: Arc<U>,
+    ) -> Self {
         Self {
             call_repository,
             voice_service,
+            friendship_repository,
             user_repository,
         }
     }
@@ -69,11 +85,6 @@ where
         if !self.user_repository.is_active(&user_id).await? {
             return Err(JoinCallError::AccountInactive);
         }
-        let room = ChannelId::new(call_id);
-        let token = self
-            .voice_service
-            .create_token(&user_id, &user_name, &room)
-            .await?;
 
         let mut participants: Vec<CallParticipantView> = self
             .call_repository
@@ -82,6 +93,22 @@ where
             .into_iter()
             .filter(|p| p.user_id != user_id)
             .collect();
+
+        for participant in &participants {
+            if self
+                .friendship_repository
+                .is_blocked(&user_id, &participant.user_id)
+                .await?
+            {
+                return Err(JoinCallError::CallNotAllowed);
+            }
+        }
+
+        let room = ChannelId::new(call_id);
+        let token = self
+            .voice_service
+            .create_token(&user_id, &user_name, &room)
+            .await?;
 
         let joined = self
             .call_repository

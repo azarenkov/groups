@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, post, web};
 use contracts::internal::{
     attachments::{LinkedRequestV1, LinkedResponseV1},
     calls::CallPermitResponseV1,
-    friendships::FriendsResponseV1,
+    friendships::{BlockedResponseV1, FriendsResponseV1},
     servers::{CanManageResponseV1, OwnerResponseV1},
     users::{ActivityAudienceRequestV1, ActivityAudienceResponseV1, StateResponseV1},
 };
@@ -72,6 +72,21 @@ async fn friendship_pair(
         .map_err(HttpError::from)?;
     let friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
     Ok(HttpResponse::Ok().json(FriendsResponseV1 { friends }))
+}
+
+#[get("/blocks/{a}/{b}")]
+async fn block_pair(
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (a, b) = path.into_inner();
+    let blocked = app_state
+        .friendship_repository
+        .block_relation(&UserId::new(a), &UserId::new(b))
+        .await
+        .map_err(HttpError::from)?
+        .any();
+    Ok(HttpResponse::Ok().json(BlockedResponseV1 { blocked }))
 }
 
 #[get("/calls/permit/{caller}/{callee}")]
@@ -154,6 +169,7 @@ pub fn internal_routes(cfg: &mut web::ServiceConfig) {
             .service(server_owner)
             .service(user_has_state)
             .service(friendship_pair)
+            .service(block_pair)
             .service(call_permit)
             .service(linked_attachments),
     );

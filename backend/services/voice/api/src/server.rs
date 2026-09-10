@@ -90,6 +90,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         accept_call_usecase: AcceptCall::new(
             call_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
             user_repository.clone(),
         ),
         decline_call_usecase: DeclineCall::new(call_repository.clone()),
@@ -108,6 +109,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         join_call_usecase: JoinCall::new(
             call_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
             user_repository.clone(),
         ),
         handle_livekit_webhook_usecase: HandleVoiceWebhook::new(

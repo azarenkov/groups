@@ -196,6 +196,8 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::NotParticipant => StatusCode::FORBIDDEN,
             AcceptCallError::UserNotFound => StatusCode::NOT_FOUND,
             AcceptCallError::AccountInactive => StatusCode::FORBIDDEN,
+            AcceptCallError::CallNotAllowed => StatusCode::FORBIDDEN,
+            AcceptCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -205,6 +207,10 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::NotParticipant => "You are not invited to this call".to_string(),
             AcceptCallError::UserNotFound => "User not found".to_string(),
             AcceptCallError::AccountInactive => "Account is inactive".to_string(),
+            AcceptCallError::CallNotAllowed => "This user does not accept this call".to_string(),
+            AcceptCallError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -214,6 +220,8 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
             AcceptCallError::UserNotFound => "USER_NOT_FOUND",
             AcceptCallError::AccountInactive => "ACCOUNT_INACTIVE",
+            AcceptCallError::CallNotAllowed => "CALL_NOT_ALLOWED",
+            AcceptCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -244,6 +252,8 @@ impl HttpMapping for JoinCallError {
             JoinCallError::NotParticipant => StatusCode::FORBIDDEN,
             JoinCallError::UserNotFound => StatusCode::NOT_FOUND,
             JoinCallError::AccountInactive => StatusCode::FORBIDDEN,
+            JoinCallError::CallNotAllowed => StatusCode::FORBIDDEN,
+            JoinCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -253,6 +263,10 @@ impl HttpMapping for JoinCallError {
             JoinCallError::NotParticipant => "You are not part of this call".to_string(),
             JoinCallError::UserNotFound => "User not found".to_string(),
             JoinCallError::AccountInactive => "Account is inactive".to_string(),
+            JoinCallError::CallNotAllowed => "This user does not accept this call".to_string(),
+            JoinCallError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -262,6 +276,8 @@ impl HttpMapping for JoinCallError {
             JoinCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
             JoinCallError::UserNotFound => "USER_NOT_FOUND",
             JoinCallError::AccountInactive => "ACCOUNT_INACTIVE",
+            JoinCallError::CallNotAllowed => "CALL_NOT_ALLOWED",
+            JoinCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }

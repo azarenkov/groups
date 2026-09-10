@@ -6,7 +6,10 @@ use domain::{channel::id::ChannelId, channel::token::ChannelToken, user::id::Use
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
-use crate::ports::voice_service::{VoiceService, VoiceServiceError};
+use crate::ports::{
+    friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+    voice_service::{VoiceService, VoiceServiceError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AcceptCallError {
@@ -20,6 +23,10 @@ pub enum AcceptCallError {
     UserNotFound,
     #[error("Account is inactive")]
     AccountInactive,
+    #[error("This user does not accept this call")]
+    CallNotAllowed,
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
 pub struct AcceptCallResult {
@@ -29,31 +36,36 @@ pub struct AcceptCallResult {
     pub video: bool,
 }
 
-pub struct AcceptCall<C, V, U>
+pub struct AcceptCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
+    F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
+    friendship_repository: Arc<F>,
     user_repository: Arc<U>,
 }
 
-impl<C, V, U> AcceptCall<C, V, U>
+impl<C, V, F, U> AcceptCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
+    F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
 {
     pub fn new(
         call_repository: Arc<C>,
         voice_service: Arc<V>,
+        friendship_repository: Arc<F>,
         user_repository: Arc<U>,
     ) -> Self {
         Self {
             call_repository,
             voice_service,
+            friendship_repository,
             user_repository,
         }
     }
@@ -82,11 +94,6 @@ where
         if !self.user_repository.is_active(&user_id).await? {
             return Err(AcceptCallError::AccountInactive);
         }
-        let room = ChannelId::new(call_id);
-        let token = self
-            .voice_service
-            .create_token(&user_id, &user_name, &room)
-            .await?;
 
         let mut participants: Vec<CallParticipantView> = self
             .call_repository
@@ -95,6 +102,25 @@ where
             .into_iter()
             .filter(|p| p.user_id != user_id)
             .collect();
+
+        for participant in &participants {
+            if self
+                .friendship_repository
+                .is_blocked(&user_id, &participant.user_id)
+                .await?
+            {
+                self.call_repository
+                    .respond(call_id, &user_id, false, Utc::now(), request_id)
+                    .await?;
+                return Err(AcceptCallError::CallNotAllowed);
+            }
+        }
+
+        let room = ChannelId::new(call_id);
+        let token = self
+            .voice_service
+            .create_token(&user_id, &user_name, &room)
+            .await?;
 
         let accepted = self
             .call_repository

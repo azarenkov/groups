@@ -161,6 +161,8 @@ const ServersPage: React.FC = () => {
   const onlineUsers = usePresenceStore((s) => s.online);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const dmPreviews = useDmPreviewStore((s) => s.byFriend);
+  const blockedPeers = useBlockStore((s) => s.blocked);
+  const blockedByPeers = useBlockStore((s) => s.blockedBy);
   const previewText = React.useCallback(
     (p: DmPreview | undefined) => {
       if (!p) return undefined;
@@ -194,6 +196,11 @@ const ServersPage: React.FC = () => {
     );
     for (const [peerId, p] of Object.entries(dmPreviews)) {
       if (known.has(peerId)) continue;
+      if (
+        (blockedPeers[peerId] || blockedByPeers[peerId]) &&
+        selectedDm?.id !== peerId
+      )
+        continue;
       const pending = pendingById.get(peerId);
       const name =
         nameOverrides[peerId] ??
@@ -217,7 +224,16 @@ const ServersPage: React.FC = () => {
       });
     }
     return items;
-  }, [friends, onlineUsers, dmPreviews, previewText, nameOverrides, selectedDm]);
+  }, [
+    friends,
+    onlineUsers,
+    dmPreviews,
+    previewText,
+    nameOverrides,
+    selectedDm,
+    blockedPeers,
+    blockedByPeers,
+  ]);
 
   useEffect(() => {
     if (!selectedDm) return;

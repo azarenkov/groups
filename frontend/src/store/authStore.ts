@@ -72,6 +72,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set({ user: null, tokens: null, isAuthenticated: false, error: null });
     useReadReceiptStore.getState().clear();
     useDmPreviewStore.getState().clear();
+    void import("./blockStore").then((m) => m.useBlockStore.getState().clearAll());
     void import("../utils/avatarCache").then((m) => m.clearAvatarCache());
     void import("./userNamesStore").then((m) =>
       m.useUserNamesStore.getState().clear(),

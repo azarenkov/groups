@@ -126,7 +126,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
     return () => {
       cancelled = true;
     };
-  }, [userId, friendshipStatus]);
+  }, [userId, friendshipStatus, blockedByMe, blockedMe]);
 
   React.useEffect(() => {
     if (!userId) return;

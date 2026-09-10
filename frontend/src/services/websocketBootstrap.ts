@@ -387,6 +387,7 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
+      if (isBlockedEitherWay(authorId)) return;
       if (!notificationPrefsLoaded()) {
         scheduleUnreadRefetch();
         return;
