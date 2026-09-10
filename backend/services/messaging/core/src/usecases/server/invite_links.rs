@@ -134,12 +134,13 @@ impl<W: ServerUnitOfWork> RevokeInviteLink<W> {
             return Err(RevokeInviteLinkError::NotFound);
         }
         let any_creator = server.can_revoke_any_invite(&user_id);
+        let owner = *server.owner_id();
         let revoked = tx
             .revoke_invite_link(&token, &user_id, any_creator)
             .await?
             .ok_or(RevokeInviteLinkError::NotFound)?;
         if revoked.is_primary {
-            create_with_fresh_token(&mut *tx, || InviteLink::primary(server_id, user_id, Utc::now()))
+            create_with_fresh_token(&mut *tx, || InviteLink::primary(server_id, owner, Utc::now()))
                 .await?;
         }
         tx.commit().await?;
