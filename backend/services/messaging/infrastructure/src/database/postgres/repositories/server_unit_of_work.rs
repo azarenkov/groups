@@ -956,7 +956,7 @@ impl ServerTransaction for PostgresServerTransaction {
         &mut self,
         invite_message_id: &DmMessageId,
         user_id: &UserId,
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let deleted = sqlx::query!(
             r#"
                 DELETE FROM dm_messages
@@ -972,7 +972,7 @@ impl ServerTransaction for PostgresServerTransaction {
         if deleted.rows_affected() == 0 {
             return Err(RepositoryError::NotFound);
         }
-        sqlx::query!(
+        let inserted = sqlx::query!(
             r#"
                 INSERT INTO server_members (server_id, user_id, joined_at)
                 VALUES ($1, $2, NOW())
@@ -984,7 +984,7 @@ impl ServerTransaction for PostgresServerTransaction {
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(inserted.rows_affected() > 0)
     }
 
     async fn delete_server_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError> {

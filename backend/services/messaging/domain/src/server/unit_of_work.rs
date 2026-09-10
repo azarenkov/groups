@@ -81,7 +81,7 @@ pub trait ServerTransaction: Send {
         &mut self,
         invite_message_id: &DmMessageId,
         user_id: &UserId,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
     async fn delete_server_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError>;
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
