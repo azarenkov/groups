@@ -195,13 +195,16 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
 
   const handleJoin = async () => {
     if (!previewToken || !onJoinByLink) return;
+    const seq = previewSeq.current;
     setJoining(true);
     setError(null);
     try {
       await onJoinByLink(previewToken);
+      if (seq !== previewSeq.current) return;
       resetAll();
       onClose();
     } catch (err) {
+      if (seq !== previewSeq.current) return;
       const apiErr = err instanceof ApiError ? err : null;
       const known: Record<string, string> = {
         INVITE_NOT_FOUND: t("serverModal.inviteNotFound"),
@@ -216,7 +219,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
             : t("common:error", { defaultValue: "Error" })),
       );
     } finally {
-      setJoining(false);
+      if (seq === previewSeq.current) setJoining(false);
     }
   };
 
