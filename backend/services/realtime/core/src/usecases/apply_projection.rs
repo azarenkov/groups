@@ -1,7 +1,9 @@
 use contracts::events::{
+    dm_message::DmMessageSentV1 as DmSentDto,
     friendship::{
         FriendRequestAcceptedV1 as FriendAcceptedDto, FriendRequestSentV1 as FriendRequestSentDto,
-        FriendshipRemovedV1 as FriendRemovedDto,
+        FriendshipRemovedV1 as FriendRemovedDto, UserBlockedV1 as UserBlockedDto,
+        UserUnblockedV1 as UserUnblockedDto,
     },
     server::{ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerIdDto,
         ServerMemberV1 as ServerMemberDto},
@@ -53,6 +55,28 @@ impl<R: RealtimeProjection> ApplyProjection<R> {
             resolver
                 .remove_friend_edge(evt.user_id, evt.other_id, evt.occurred_at)
                 .await?;
+        }
+        return Ok(());
+    }
+    if subject.ends_with(".user.blocked") {
+        if let Ok(evt) = serde_json::from_slice::<UserBlockedDto>(payload) {
+            resolver
+                .apply_block(evt.blocker_id, evt.blocked_id, true, evt.occurred_at)
+                .await?;
+        }
+        return Ok(());
+    }
+    if subject.ends_with(".user.unblocked") {
+        if let Ok(evt) = serde_json::from_slice::<UserUnblockedDto>(payload) {
+            resolver
+                .apply_block(evt.blocker_id, evt.blocked_id, false, evt.occurred_at)
+                .await?;
+        }
+        return Ok(());
+    }
+    if subject.ends_with(".dm_message.sent") {
+        if let Ok(evt) = serde_json::from_slice::<DmSentDto>(payload) {
+            resolver.record_dm_pair(evt.sender_id, evt.recipient_id).await?;
         }
         return Ok(());
     }

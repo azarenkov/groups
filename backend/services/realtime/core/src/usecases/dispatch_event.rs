@@ -68,6 +68,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
     let publisher = self.publisher.as_ref();
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
+        resolver.record_dm_pair(evt.sender_id, evt.recipient_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
         let envelope = Envelope::new(
             "dm_message.sent",

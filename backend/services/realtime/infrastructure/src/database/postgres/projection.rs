@@ -122,6 +122,21 @@ impl PostgresRealtimeProjection {
         Ok(())
     }
 
+    async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_dm_pairs (user_a, user_b)
+            VALUES (LEAST($1, $2), GREATEST($1, $2))
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(a)
+        .bind(b)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn upsert_friend_edge(
         &self,
         a: Uuid,
@@ -174,9 +189,9 @@ impl PostgresRealtimeProjection {
                   AND (
                     NOT e.removed
                     OR EXISTS (
-                        SELECT 1 FROM messaging.dm_messages m
-                        WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1, e.friend_id)
-                          AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1, e.friend_id)
+                        SELECT 1 FROM realtime_dm_pairs p
+                        WHERE p.user_a = LEAST($1, e.friend_id)
+                          AND p.user_b = GREATEST($1, e.friend_id)
                     )
                   )
                 UNION
@@ -329,6 +344,9 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     }
     async fn apply_block(&self, blocker_id: Uuid, blocked_id: Uuid, active: bool, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::apply_block(self, blocker_id, blocked_id, active, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::record_dm_pair(self, a, b).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn add_server_member(&self, server_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::add_server_member(self, server_id, user_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)

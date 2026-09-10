@@ -111,6 +111,12 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
             filter_subject: format!("{prefix}.server.>"),
             dlq_subject: format!("{prefix}.dlq.realtime.projection_server"),
         },
+        CatchupSpec {
+            stream: cfg.dispatcher_dm_message_stream.clone(),
+            consumer_name: format!("{}-projection-dm", cfg.dispatcher_consumer_prefix),
+            filter_subject: format!("{prefix}.dm_message.>"),
+            dlq_subject: format!("{prefix}.dlq.realtime.projection_dm"),
+        },
     ];
     for spec in catchup_specs {
         let jetstream = jetstream.clone();
