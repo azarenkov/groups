@@ -5610,7 +5610,7 @@ button.ssv-row-delete:focus-visible {
 .profile-voice-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--success-tint); color: var(--voice-live); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
 .profile-name { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: var(--fg-1); }
 .profile-handle { font-size: 13px; color: var(--fg-3); margin-top: 2px; }
-.profile-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
+.profile-actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
 .profile-btn { flex: 1 1 120px; min-width: 0; overflow: hidden; height: 32px; border: 1px solid var(--hairline-strong); border-radius: 10px; background: var(--surface-raised); color: var(--fg-1); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: background var(--dur-fast); }
 
 .profile-btn:hover:not(:disabled) { background: var(--surface-hover); }
@@ -5621,8 +5621,8 @@ button.ssv-row-delete:focus-visible {
 .profile-btn.icon { flex: 0 0 32px; width: 32px; height: 32px; padding: 0; color: var(--fg-2); }
 .profile-btn.icon svg { width: 16px; height: 16px; }
 .profile-btn.icon.primary { color: #fff; }
-.profile-more { position: relative; flex: 0 0 auto; }
-.profile-menu { position: absolute; right: 0; top: 38px; min-width: 200px; padding: 6px; border-radius: 12px; background: var(--surface-raised); box-shadow: var(--shadow-md); border: 1px solid var(--hairline); display: flex; flex-direction: column; z-index: 2; }
+.profile-more { position: static; flex: 0 0 auto; }
+.profile-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; max-width: 100%; padding: 6px; border-radius: 12px; background: var(--surface-raised); box-shadow: var(--shadow-md); border: 1px solid var(--hairline); display: flex; flex-direction: column; z-index: 2; }
 .profile-menu button { border: 0; background: transparent; text-align: left; padding: 8px 10px; border-radius: 8px; font: inherit; font-size: 13px; color: var(--fg-1); cursor: pointer; }
 .profile-menu button:hover:not(:disabled) { background: var(--surface-hover); }
 .profile-menu button:disabled { color: var(--fg-3); cursor: default; }
