@@ -108,24 +108,25 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             return Err(ActivityError::Hidden);
         }
         let previous = self.store.get(&user_id).await?;
-        if let Some(prev) = previous.as_ref() {
-            if !prev.source.is_empty() && prev.source != input.source {
-                let owner_abandoned = Utc::now() - prev.refreshed_at
-                    > chrono::Duration::seconds(OWNER_ABANDONED_AFTER_SECS);
-                if !owner_abandoned {
-                    tx.commit().await?;
-                    return Err(ActivityError::Leased);
-                }
-                if prev.game_id == input.game_id {
-                    let adopted = StoredActivity {
-                        source: input.source.clone(),
-                        refreshed_at: Utc::now(),
-                        ..prev.clone()
-                    };
-                    self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
-                    tx.commit().await?;
-                    return Ok(adopted);
-                }
+        if let Some(prev) = previous.as_ref()
+            && !prev.source.is_empty()
+            && prev.source != input.source
+        {
+            let owner_abandoned = Utc::now() - prev.refreshed_at
+                > chrono::Duration::seconds(OWNER_ABANDONED_AFTER_SECS);
+            if !owner_abandoned {
+                tx.commit().await?;
+                return Err(ActivityError::Leased);
+            }
+            if prev.game_id == input.game_id {
+                let adopted = StoredActivity {
+                    source: input.source.clone(),
+                    refreshed_at: Utc::now(),
+                    ..prev.clone()
+                };
+                self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
+                tx.commit().await?;
+                return Ok(adopted);
             }
         }
         let needs_publish = previous
@@ -199,14 +200,16 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         if tx.load_user_for_update(&user_id).await?.is_none() {
             return Err(ActivityError::UserNotFound);
         }
-        if let Some(prev) = self.store.get(&user_id).await? {
-            if !source.is_empty() && !prev.source.is_empty() && prev.source != source {
-                let owner_abandoned = Utc::now() - prev.refreshed_at
-                    > chrono::Duration::seconds(OWNER_ABANDONED_AFTER_SECS);
-                if !owner_abandoned {
-                    tx.commit().await?;
-                    return Err(ActivityError::Leased);
-                }
+        if let Some(prev) = self.store.get(&user_id).await?
+            && !source.is_empty()
+            && !prev.source.is_empty()
+            && prev.source != source
+        {
+            let owner_abandoned = Utc::now() - prev.refreshed_at
+                > chrono::Duration::seconds(OWNER_ABANDONED_AFTER_SECS);
+            if !owner_abandoned {
+                tx.commit().await?;
+                return Err(ActivityError::Leased);
             }
         }
         self.store.clear(&user_id).await?;

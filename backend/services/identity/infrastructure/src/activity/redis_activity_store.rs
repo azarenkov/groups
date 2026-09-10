@@ -197,7 +197,7 @@ impl ActivityStore for RedisActivityStore {
         Ok(user_ids
             .iter()
             .zip(values)
-            .filter_map(|(id, raw)| Self::decode(raw).map(|a| (id.clone(), a)))
+            .filter_map(|(id, raw)| Self::decode(raw).map(|a| (*id, a)))
             .collect())
     }
 }
