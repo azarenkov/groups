@@ -20,14 +20,18 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
   return rest;
 };
 
+let sessionGen = 0;
+
 export const useBlockStore = create<BlockState>()((set, get) => ({
   blocked: {},
   blockedBy: {},
   loaded: false,
 
   fetch: async () => {
+    const gen = sessionGen;
     try {
       const res = await friendshipAPI.listBlocks();
+      if (gen !== sessionGen) return;
       const blocked: Record<string, BlockedUser> = {};
       for (const b of res.blocks) blocked[b.userId] = b;
       set({ blocked, loaded: true });
@@ -87,7 +91,10 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       return { blockedBy: withoutKey(state.blockedBy, userId) };
     }),
 
-  clearAll: () => set({ blocked: {}, blockedBy: {}, loaded: false }),
+  clearAll: () => {
+    sessionGen += 1;
+    set({ blocked: {}, blockedBy: {}, loaded: false });
+  },
 }));
 
 export const isBlockedEitherWay = (userId: string): boolean => {

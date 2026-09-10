@@ -161,6 +161,10 @@ impl ReadStateRepository for PostgresReadStateRepository {
                AND np.scope_id = m.channel_id
             WHERE m.created_at > COALESCE(r.last_read_at, p.joined_at)
               AND m.author_id <> $1
+              AND NOT EXISTS (
+                SELECT 1 FROM user_blocks b
+                WHERE b.blocker_id = $1 AND b.blocked_id = m.author_id
+              )
               AND COALESCE(np.level, $2) <> 'none'
               AND (
                   COALESCE(np.level, $2) <> 'mentions'
