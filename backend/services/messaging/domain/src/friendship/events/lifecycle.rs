@@ -59,3 +59,41 @@ impl FriendshipRemoved {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct UserBlocked {
+    pub id: Uuid,
+    pub blocker_id: UserId,
+    pub blocked_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserBlocked {
+    pub fn record(blocker_id: UserId, blocked_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            blocker_id,
+            blocked_id,
+            occurred_at: now,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UserUnblocked {
+    pub id: Uuid,
+    pub blocker_id: UserId,
+    pub blocked_id: UserId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserUnblocked {
+    pub fn record(blocker_id: UserId, blocked_id: UserId, now: DateTime<Utc>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            blocker_id,
+            blocked_id,
+            occurred_at: now,
+        }
+    }
+}

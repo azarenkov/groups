@@ -91,6 +91,15 @@ pub(crate) async fn call_allowed(
     caller: &UserId,
     callee: &UserId,
 ) -> Result<bool, HttpError> {
+    if app_state
+        .friendship_repository
+        .block_relation(caller, callee)
+        .await
+        .map_err(HttpError::from)?
+        .any()
+    {
+        return Ok(false);
+    }
     let settings = app_state
         .privacy_repository
         .get(callee)

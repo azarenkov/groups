@@ -22,6 +22,8 @@ pub enum SendDmMessageError {
     Domain(#[from] MessageError),
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("This user is blocked")]
+    Blocked,
     #[error("This user does not accept direct messages")]
     DmsClosed,
     #[error("Cannot send a direct message to yourself")]
@@ -95,6 +97,14 @@ where
             .friendship_repository
             .find_pair(&sender_id, &recipient_id)
             .await?;
+        if self
+            .friendship_repository
+            .block_relation(&sender_id, &recipient_id)
+            .await?
+            .any()
+        {
+            return Err(SendDmMessageError::Blocked);
+        }
         let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
         let recipient_privacy = self.privacy_repository.get(&recipient_id).await?;
         match recipient_privacy.dm_policy {

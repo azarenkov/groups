@@ -18,6 +18,7 @@ import UserProfileModal from "../components/rift/UserProfileModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
 import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { useBlockStore } from "../store/blockStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import {
   useStreamViewersStore,
@@ -133,7 +134,7 @@ const ServersPage: React.FC = () => {
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: "server" | "leave-server" | "channel" | "friend";
+    type: "server" | "leave-server" | "channel" | "friend" | "block";
     id: string;
     serverId?: string;
     name: string;
@@ -268,6 +269,7 @@ const ServersPage: React.FC = () => {
       attachmentAPI.setAuthToken(tokens.accessToken);
       fetchServers();
       fetchFriends();
+      void useBlockStore.getState().fetch();
     }
   }, [tokens, fetchServers, fetchFriends]);
 
@@ -673,6 +675,16 @@ const ServersPage: React.FC = () => {
         useChannelStore.getState().setError(tSidebar("channelIsDefault"));
         setDeleteConfirm(null);
       }
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (deleteConfirm?.type !== "block") return;
+    try {
+      await useBlockStore.getState().block(deleteConfirm.id);
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error("Failed to block user:", err);
     }
   };
 
@@ -1162,6 +1174,13 @@ const ServersPage: React.FC = () => {
                     name: selectedDm.name,
                   })
                 }
+                onBlockUser={() =>
+                  setDeleteConfirm({
+                    type: "block",
+                    id: selectedDm.id,
+                    name: selectedDm.name,
+                  })
+                }
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
               <div className="voice-stage-wrap">
@@ -1462,6 +1481,7 @@ const ServersPage: React.FC = () => {
         onOpenDm={handleOpenDmFromHome}
         onCall={handleCallFromHome}
         onRemoveFriend={(id, name) => setDeleteConfirm({ type: "friend", id, name })}
+        onBlockUser={(id, name) => setDeleteConfirm({ type: "block", id, name })}
       />
 
       <AddFriendModal
@@ -1490,14 +1510,18 @@ const ServersPage: React.FC = () => {
                 ? tModals("confirm.leaveServerTitle")
                 : deleteConfirm.type === "channel"
                   ? tModals("confirm.deleteChannelTitle")
-                  : tModals("confirm.removeFriendTitle")
+                  : deleteConfirm.type === "block"
+                    ? tModals("confirm.blockUserTitle")
+                    : tModals("confirm.removeFriendTitle")
           }
           subtitle={
             deleteConfirm.type === "leave-server"
               ? tModals("confirm.leaveServerSubtitle")
               : deleteConfirm.type === "friend"
                 ? tModals("confirm.removeFriendSubtitle")
-                : tModals("confirm.thisCantBeUndone")
+                : deleteConfirm.type === "block"
+                  ? tModals("confirm.blockUserSubtitle")
+                  : tModals("confirm.thisCantBeUndone")
           }
           targetName={deleteConfirm.name}
           confirmLabel={
@@ -1505,7 +1529,9 @@ const ServersPage: React.FC = () => {
               ? tModals("confirm.leave")
               : deleteConfirm.type === "friend"
                 ? tModals("confirm.remove")
-                : tModals("confirm.delete")
+                : deleteConfirm.type === "block"
+                  ? tModals("confirm.block")
+                  : tModals("confirm.delete")
           }
           danger={deleteConfirm.type !== "leave-server"}
           onCancel={() => setDeleteConfirm(null)}
@@ -1516,7 +1542,9 @@ const ServersPage: React.FC = () => {
                 ? handleLeaveServer
                 : deleteConfirm.type === "channel"
                   ? handleDeleteChannel
-                  : handleRemoveFriend
+                  : deleteConfirm.type === "block"
+                    ? handleBlockUser
+                    : handleRemoveFriend
           }
         />
       )}

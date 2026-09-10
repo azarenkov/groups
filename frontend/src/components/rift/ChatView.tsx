@@ -1,3 +1,5 @@
+import { useBlockStore } from "../../store/blockStore";
+import { friendshipAPI } from "../../api/friendship";
 import React from "react";
 import { bindingFor } from "../../services/hotkeys";
 import { eventMatches } from "../../utils/hotkeys";
@@ -148,6 +150,7 @@ interface ChatViewProps {
   servers?: Server[];
   onToggleMembers?: () => void;
   onRemoveFriend?: () => void;
+  onBlockUser?: () => void;
   onGoToServer?: (serverId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
   callMode?: boolean;
@@ -162,12 +165,30 @@ const ChatView: React.FC<ChatViewProps> = ({
   servers,
   onToggleMembers,
   onRemoveFriend,
+  onBlockUser,
   onGoToServer,
   topSlot,
   callMode,
 }) => {
   const { t } = useTranslation("chat");
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
+  const dmBlocked = useBlockStore((s) => (dm ? !!s.blocked[dm.friendId] : false));
+  const dmBlockedBy = useBlockStore((s) => (dm ? !!s.blockedBy[dm.friendId] : false));
+  const blockedIds = useBlockStore((s) => s.blocked);
+  const blockPeerId = dm?.friendId;
+  React.useEffect(() => {
+    if (!blockPeerId) return;
+    let cancelled = false;
+    friendshipAPI
+      .blockRelation(blockPeerId)
+      .then((relation) => {
+        if (!cancelled) useBlockStore.getState().markBlockedBy(blockPeerId, relation.blockedBy);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [blockPeerId]);
   const messagesRef = React.useRef<ChannelMessage[]>([]);
   messagesRef.current = messages;
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
@@ -1308,6 +1329,9 @@ const ChatView: React.FC<ChatViewProps> = ({
         reportComposerError(i18n.t("chunkTooLong", { ns: "chat" }));
       } else if (code === "NOT_FRIENDS") {
         reportComposerError(i18n.t("notFriends", { ns: "chat" }));
+      } else if (code === "USER_BLOCKED") {
+        reportComposerError(i18n.t("userBlocked", { ns: "chat" }));
+        if (dm && !dmBlocked) useBlockStore.getState().markBlockedBy(dm.friendId, true);
       } else if (code === "DMS_CLOSED") {
         reportComposerError(i18n.t("dmsClosed", { ns: "chat" }));
       } else if (code === "RECIPIENT_INACTIVE") {
@@ -1466,11 +1490,17 @@ const ChatView: React.FC<ChatViewProps> = ({
       <ChannelHeader
         channel={channel}
         dm={dm}
+        blocked={dmBlocked}
+        blockedBy={dmBlockedBy}
         membersOpen={membersOpen}
         searchActive={searchOpen}
         onToggleSearch={toggleSearch}
         onToggleMembers={onToggleMembers}
         onRemoveFriend={onRemoveFriend}
+        onBlockUser={onBlockUser}
+        onUnblockUser={() => {
+          if (dm) void useBlockStore.getState().unblock(dm.friendId).catch(() => {});
+        }}
       />
       {topSlot}
       {dm && !callMode && <CallJoinBanner friendId={dm.friendId} />}
@@ -1676,6 +1706,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                     </div>
                   )}
                 <Message
+                  blockedAuthor={!dm && !m.system && !!blockedIds[m.authorId]}
                   msg={m}
                   displayName={displayName}
                   continued={cont}
@@ -1721,7 +1752,21 @@ const ChatView: React.FC<ChatViewProps> = ({
         )}
       </div>
       </div>
-      {!callMode && (
+      {!callMode && dm && (dmBlocked || dmBlockedBy) ? (
+        <div className="composer composer-blocked">
+          <Icon name="info" size={15} />
+          <span>{dmBlocked ? t("blockedComposer") : t("blockedByComposer")}</span>
+          {dmBlocked && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => void useBlockStore.getState().unblock(dm.friendId).catch(() => {})}
+            >
+              {t("unblockUser")}
+            </button>
+          )}
+        </div>
+      ) : !callMode && (
       <form className="composer" onSubmit={handleSend}>
         {pendingFiles.length > 0 && (
           <div className="attach-chips">
@@ -1917,21 +1962,29 @@ const ChatView: React.FC<ChatViewProps> = ({
 interface ChannelHeaderProps {
   channel?: ChannelMeta;
   dm?: DmMeta;
+  blocked?: boolean;
+  blockedBy?: boolean;
+  onUnblockUser?: () => void;
   membersOpen?: boolean;
   searchActive?: boolean;
   onToggleSearch?: () => void;
   onToggleMembers?: () => void;
   onRemoveFriend?: () => void;
+  onBlockUser?: () => void;
 }
 
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   channel,
   dm,
+  blocked,
+  blockedBy,
+  onUnblockUser,
   membersOpen,
   searchActive,
   onToggleSearch,
   onToggleMembers,
   onRemoveFriend,
+  onBlockUser,
 }) => {
   const startDmCall = (video: boolean) => {
     if (!dm?.friendId) return;
@@ -2110,6 +2163,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             type="button"
             className="icon-btn"
             title={i18n.t("voiceCallInvite", { ns: "chat" })}
+            disabled={blocked || blockedBy}
             onClick={() => startDmCall(false)}
           >
             <Icon name="phone" size={16} />
@@ -2118,6 +2172,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             type="button"
             className="icon-btn"
             title={i18n.t("videoCallInvite", { ns: "chat" })}
+            disabled={blocked || blockedBy}
             onClick={() => startDmCall(true)}
           >
             <Icon name="video" size={16} />
@@ -2139,7 +2194,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               <Icon name="search" size={15} />
             </button>
           )}
-          {onRemoveFriend && dm.isFriend !== false && (
+          {onRemoveFriend && dm.isFriend !== false && !blocked && (
             <button
               type="button"
               className="icon-btn"
@@ -2147,6 +2202,16 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               onClick={onRemoveFriend}
             >
               <Icon name="user-check" size={16} />
+            </button>
+          )}
+          {(blocked ? onUnblockUser : onBlockUser) && (
+            <button
+              type="button"
+              className={"icon-btn" + (blocked ? " on" : "")}
+              title={i18n.t(blocked ? "unblockUser" : "blockUser", { ns: "chat" })}
+              onClick={blocked ? onUnblockUser : onBlockUser}
+            >
+              <Icon name="shield" size={16} />
             </button>
           )}
         </div>
@@ -2648,6 +2713,7 @@ const ReadTicks: React.FC<{ read: boolean }> = ({ read }) => (
 
 interface MessageProps {
   canModerate?: boolean;
+  blockedAuthor?: boolean;
   msg: ChannelMessage;
   displayName: string;
   continued: boolean;
@@ -2676,6 +2742,7 @@ interface MessageProps {
 
 const Message: React.FC<MessageProps> = ({
   canModerate,
+  blockedAuthor,
   msg,
   displayName,
   continued,
@@ -2703,6 +2770,7 @@ const Message: React.FC<MessageProps> = ({
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   const [copied, setCopied] = React.useState(false);
+  const [revealed, setRevealed] = React.useState(false);
   const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -2726,6 +2794,19 @@ const Message: React.FC<MessageProps> = ({
     hour: "2-digit",
     minute: "2-digit",
   });
+  if (blockedAuthor && !revealed) {
+    return (
+      <div data-msg-id={msg.id} className="msg blocked-collapsed">
+        <span className="msg-system-ico">
+          <Icon name="shield" size={13} />
+        </span>
+        <span className="msg-system-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
+        <button type="button" className="link-btn" onClick={() => setRevealed(true)}>
+          {i18n.t("showBlockedMessage", { ns: "chat" })}
+        </button>
+      </div>
+    );
+  }
   if (msg.system) {
     const joined = msg.system.type === "member_joined";
     return (

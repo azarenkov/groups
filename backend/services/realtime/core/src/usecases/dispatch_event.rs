@@ -15,7 +15,7 @@ use contracts::events::{
     },
     friendship::{
         FriendRequestAcceptedV1 as FriendRequestAcceptedDto,
-        FriendRequestSentV1 as FriendRequestSentDto, FriendshipRemovedV1 as FriendshipRemovedDto,
+        FriendRequestSentV1 as FriendRequestSentDto, FriendshipRemovedV1 as FriendshipRemovedDto, UserBlockedV1 as UserBlockedDto, UserUnblockedV1 as UserUnblockedDto,
     },
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
@@ -728,6 +728,38 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
         );
         publisher
             .publish_to_users(unique([evt.accepter_id, evt.sender_id]), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".user.blocked") {
+        let evt: UserBlockedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "user.blocked",
+            json!({
+                "blockerId": evt.blocker_id,
+                "blockedId": evt.blocked_id,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique([evt.blocker_id, evt.blocked_id]), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".user.unblocked") {
+        let evt: UserUnblockedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "user.unblocked",
+            json!({
+                "blockerId": evt.blocker_id,
+                "blockedId": evt.blocked_id,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique([evt.blocker_id, evt.blocked_id]), &envelope)
             .await?;
         return Ok(());
     }

@@ -15,3 +15,14 @@ export interface Friendship {
 export interface ListFriendshipsResponse {
   friends: Friendship[];
 }
+
+export interface BlockedUser {
+  userId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface BlockRelation {
+  blocked: boolean;
+  blockedBy: boolean;
+}

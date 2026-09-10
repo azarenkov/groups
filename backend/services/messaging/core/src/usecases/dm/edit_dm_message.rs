@@ -25,6 +25,8 @@ pub enum EditDmMessageError {
     NotFound,
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("This user is blocked")]
+    Blocked,
     #[error("This user does not accept direct messages")]
     DmsClosed,
     #[error("This user is unavailable")]
@@ -112,6 +114,14 @@ where
             .find_pair(message.sender_id(), message.recipient_id())
             .await?;
         let are_friends = matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted);
+        if self
+            .friendship_repository
+            .block_relation(message.sender_id(), message.recipient_id())
+            .await?
+            .any()
+        {
+            return Err(EditDmMessageError::Blocked);
+        }
         match self
             .privacy_repository
             .get(message.recipient_id())

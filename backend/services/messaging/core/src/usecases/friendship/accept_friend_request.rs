@@ -15,6 +15,8 @@ pub enum AcceptFriendRequestError {
     Domain(#[from] FriendshipError),
     #[error("No pending request from this user")]
     NoPendingRequest,
+    #[error("This user is blocked")]
+    Blocked,
 }
 
 pub struct AcceptFriendRequest<W>
@@ -43,6 +45,9 @@ where
 
         let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
+        if tx.block_relation(&accepter_id, &sender_id).await?.any() {
+            return Err(AcceptFriendRequestError::Blocked);
+        }
         let mut pair = tx
             .load_pair(&accepter_id, &sender_id)
             .await?

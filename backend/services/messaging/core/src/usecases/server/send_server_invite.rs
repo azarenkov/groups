@@ -16,6 +16,8 @@ pub enum SendServerInviteError {
     Domain(#[from] MessageError),
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("This user is blocked")]
+    Blocked,
     #[error("This user does not accept direct messages")]
     DmsClosed,
     #[error("This user is unavailable")]
@@ -98,6 +100,14 @@ where
             .await?;
         if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
             return Err(SendServerInviteError::NotFriends);
+        }
+        if self
+            .friendship_repository
+            .block_relation(&sender_id, &friend_id)
+            .await?
+            .any()
+        {
+            return Err(SendServerInviteError::Blocked);
         }
 
         if !self.user_profile_repository.is_active(&friend_id).await? {

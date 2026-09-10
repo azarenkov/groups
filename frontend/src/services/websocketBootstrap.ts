@@ -2,6 +2,7 @@ import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { useFriendshipStore } from "../store/friendshipStore";
+import { isBlockedEitherWay, useBlockStore } from "../store/blockStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
@@ -241,6 +242,25 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "user.blocked":
+    case "user.unblocked": {
+      const blockerId = asString(d.blockerId);
+      const blockedId = asString(d.blockedId);
+      const selfId = useAuthStore.getState().user?.id;
+      if (!blockerId || !blockedId || !selfId) return;
+      useBlockStore
+        .getState()
+        .applyEvent(selfId, blockerId, blockedId, env.type === "user.blocked");
+      const peer = blockerId === selfId ? blockedId : blockerId;
+      useActivityStore.getState().apply(peer, null);
+      void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
+      refetchDmPreviews();
+      return;
+    }
+
     case "friendship.removed": {
       const removedSelf = useAuthStore.getState().user?.id;
       const removedA = asString(d.userId);
@@ -427,6 +447,7 @@ function dispatch(env: WsEnvelope) {
       const selfId = useAuthStore.getState().user?.id;
       if (!senderId || !recipientId || !selfId) return;
       const peerId = senderId === selfId ? recipientId : senderId;
+      if (isBlockedEitherWay(peerId)) return;
       const peerName =
         (senderId !== selfId ? asString(d.senderName) : undefined) ??
         useFriendshipStore.getState().friends.find((f) => f.friendId === peerId)?.friendName;
@@ -621,6 +642,7 @@ function dispatch(env: WsEnvelope) {
       const callId = asString(d.callId);
       const callerId = asString(d.callerId);
       if (!callId || !callerId) return;
+      if (isBlockedEitherWay(callerId)) return;
       const callerName = asString(d.callerName) ?? callerId;
       useCallStore
         .getState()

@@ -37,6 +37,8 @@ export interface PublicProfile {
   acceptsCalls: boolean;
   acceptsMessages: boolean;
   acceptsFriendRequests: boolean;
+  blocked: boolean;
+  blockedBy: boolean;
   mutualServers: { id: string; name: string; accentColor: string | null }[];
   voiceRoom: { channelId: string; channelName: string; serverId: string; serverName: string } | null;
 }

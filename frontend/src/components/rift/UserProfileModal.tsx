@@ -5,6 +5,7 @@ import { ServerLogo, UserAvatar } from "./Avatar";
 import { homeAPI, type PublicProfile } from "../../api/home";
 import { useAuthStore } from "../../store/authStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
+import { useBlockStore } from "../../store/blockStore";
 import { usePresenceStore } from "../../store/presenceStore";
 import { loadActivitiesFor, useActivityStore } from "../../store/activityStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
@@ -18,6 +19,7 @@ interface Props {
   onOpenDm: (userId: string, name?: string) => void;
   onCall: (userId: string, video?: boolean) => void;
   onRemoveFriend: (userId: string, name: string) => void;
+  onBlockUser: (userId: string, name: string) => void;
 }
 
 const useMinuteTick = () => {
@@ -56,12 +58,14 @@ const formatMemberSince = (iso: string | null, locale: string): string | null =>
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(d);
 };
 
-const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend }) => {
+const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, onBlockUser }) => {
   const { t } = useTranslation("profile");
   const userId = useProfileModalStore((s) => s.userId);
   const close = useProfileModalStore((s) => s.close);
   const selfId = useAuthStore((s) => s.user?.id);
   const friends = useFriendshipStore((s) => s.friends);
+  const blockedByMe = useBlockStore((s) => (userId ? !!s.blocked[userId] : false));
+  const blockedMe = useBlockStore((s) => (userId ? !!s.blockedBy[userId] : false));
   const onlineUsers = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const gameActivity = useActivityStore((s) => (userId ? s.byUser[userId] : undefined));
@@ -112,6 +116,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
       .then((p) => {
         if (cancelled) return;
         useUserProfileStore.getState().apply(userId, p.bio, profileVersion(p.profileUpdatedAt));
+        useBlockStore.getState().markBlockedBy(userId, p.blockedBy);
         setProfile(p);
         setFailed(false);
       })
@@ -156,8 +161,9 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const localTime = profile ? formatLocalTime(profile.timezone, locale) : null;
   const memberSince = profile ? formatMemberSince(profile.memberSince, locale) : null;
   const inactive = !!profile && !profile.active;
-  const canMessage = !isSelf && !inactive && (profile ? profile.acceptsMessages : isFriend);
-  const canCall = !isSelf && !inactive && (profile ? profile.acceptsCalls : isFriend);
+  const blockedEitherWay = blockedByMe || blockedMe;
+  const canMessage = !isSelf && !inactive && !blockedEitherWay && (profile ? profile.acceptsMessages : isFriend);
+  const canCall = !isSelf && !inactive && !blockedEitherWay && (profile ? profile.acceptsCalls : isFriend);
 
   const copyLogin = async () => {
     if (!name) return;
@@ -228,7 +234,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
 
           {!isSelf && !inactive && !failed && (
             <div className="profile-actions">
-              {!isFriend && (
+              {!isFriend && !blockedEitherWay && (
                 friendship?.status === "pending_outgoing" ? (
                   <button type="button" className="profile-btn icon" title={t("requestSent")} disabled>
                     <Icon name="check" size={22} />
@@ -280,9 +286,25 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                       </button>
                     )}
                     <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
+                    {blockedByMe ? (
+                      <button type="button" onClick={() => { setMenuOpen(false); void useBlockStore.getState().unblock(userId).catch(() => {}); }}>
+                        {t("unblock")}
+                      </button>
+                    ) : (
+                      <button type="button" className="danger" onClick={() => { setMenuOpen(false); close(); onBlockUser(userId, name); }}>
+                        {t("block")}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {!isSelf && !failed && blockedEitherWay && (
+            <div className="profile-block-note">
+              <Icon name="info" size={14} />
+              <span>{blockedByMe ? t("blockedNotice") : t("blockedByNotice")}</span>
             </div>
           )}
 

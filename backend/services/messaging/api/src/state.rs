@@ -1,3 +1,4 @@
+use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     attachment::{
@@ -160,6 +161,9 @@ pub struct AppState {
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipUnitOfWork>,
     pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipUnitOfWork>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
+    pub block_user_usecase: BlockUser<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository>,
+    pub unblock_user_usecase: UnblockUser<PostgresFriendshipUnitOfWork>,
+    pub list_blocked_users_usecase: ListBlockedUsers<PostgresFriendshipRepository>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:

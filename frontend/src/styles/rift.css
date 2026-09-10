@@ -4130,6 +4130,28 @@ textarea.s-input {
 .dm-call-card.missed .dm-call-sub,
 .dm-call-card.declined .dm-call-sub { color: var(--danger, #e5484d); }
 
+.composer.composer-blocked {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--fg-2); font-size: 13px;
+}
+.composer.composer-blocked svg { color: var(--fg-3); flex: none; }
+.composer.composer-blocked span { flex: 1; }
+.msg.blocked-collapsed {
+  align-items: center; gap: 8px;
+  padding: 6px 8px;
+  color: var(--fg-3); font-size: 12.5px;
+}
+.msg.blocked-collapsed .msg-system-ico { display: inline-flex; color: var(--fg-4); }
+.link-btn {
+  border: 0; background: transparent; padding: 0;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--accent); cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+.s-blocked-row { display: flex; align-items: center; gap: 12px; }
+.s-blocked-ava { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; flex: none; }
+.s-blocked-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--fg-1); }
+.s-muted { color: var(--fg-3); font-size: 13px; }
 .dm-invite-card {
   margin-top: 3px;
   max-width: 380px;
@@ -5653,6 +5675,15 @@ button.ssv-row-delete:focus-visible {
 .profile-menu button:hover:not(:disabled) { background: var(--surface-hover); }
 .profile-menu button:disabled { color: var(--fg-3); cursor: default; }
 .profile-menu button.danger { color: var(--danger); }
+.profile-block-note {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 14px; padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 13px; color: var(--fg-2);
+}
+.profile-block-note svg { color: var(--fg-3); flex: none; }
 .profile-divider { height: 1px; background: var(--hairline); margin: 20px 0; }
 .profile-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 6px; }
 .profile-about { font-size: 14px; color: var(--fg-2); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }

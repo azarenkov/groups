@@ -22,3 +22,17 @@ pub struct FriendshipRemovedV1 {
     pub other_id: Uuid,
     pub occurred_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserBlockedV1 {
+    pub blocker_id: Uuid,
+    pub blocked_id: Uuid,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserUnblockedV1 {
+    pub blocker_id: Uuid,
+    pub blocked_id: Uuid,
+    pub occurred_at: DateTime<Utc>,
+}

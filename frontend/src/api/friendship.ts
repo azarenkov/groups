@@ -4,8 +4,7 @@ import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
 import {
   FriendshipStatus,
-  ListFriendshipsResponse,
-} from "../types/friendship";
+  ListFriendshipsResponse, BlockRelation, BlockedUser } from "../types/friendship";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -74,6 +73,24 @@ class FriendshipAPI {
     const response = await this.client.get("/v1/users/me/friends", {
       params: status ? { status } : undefined,
     });
+    return response.data.data;
+  }
+
+  async block(userId: string): Promise<void> {
+    await this.client.post(`/v1/users/${userId}/block`);
+  }
+
+  async unblock(userId: string): Promise<void> {
+    await this.client.delete(`/v1/users/${userId}/block`);
+  }
+
+  async blockRelation(userId: string): Promise<BlockRelation> {
+    const response = await this.client.get(`/v1/users/${userId}/block`);
+    return response.data.data;
+  }
+
+  async listBlocks(): Promise<{ blocks: BlockedUser[] }> {
+    const response = await this.client.get("/v1/users/me/blocks");
     return response.data.data;
   }
 
