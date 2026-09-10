@@ -153,6 +153,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trimmed) return;
+    const seq = previewSeq.current;
     setIsLoading(true);
     setError(null);
     try {
@@ -162,6 +163,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
         accent,
         logoFile ?? undefined,
       );
+      if (seq !== previewSeq.current) return;
       if (result && result.logoError) {
         setLogoFile(null);
         setLogoPreview((prev) => {
@@ -174,6 +176,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
       resetAll();
       onClose();
     } catch (err) {
+      if (seq !== previewSeq.current) return;
       const apiErr = err instanceof ApiError ? err : null;
       if (apiErr?.code === "SERVER_NAME_NOT_ALLOWED") {
         setError(t("createServer.nameNotAllowed"));
