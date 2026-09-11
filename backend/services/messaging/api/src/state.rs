@@ -112,7 +112,11 @@ pub struct AppState {
     pub delete_channel_usecase:
         DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerUnitOfWork>,
     pub list_channel_participants_usecase:
-        ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
+        ListChannelParticipants<
+            PostgresChannelRepository,
+            PostgresServerRepository,
+            PostgresFriendshipRepository,
+        >,
     pub join_text_channel_usecase: JoinTextChannel<
         PostgresChannelRepository,
         PostgresServerRepository,

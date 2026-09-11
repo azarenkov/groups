@@ -243,6 +243,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),
             server_repository.clone(),
+            friendship_repository.clone(),
         ),
         join_text_channel_usecase: JoinTextChannel::new(
             channel_repository.clone(),

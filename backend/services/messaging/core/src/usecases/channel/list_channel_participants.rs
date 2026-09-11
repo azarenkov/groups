@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, friendship::repository::FriendshipRepository, server::id::ServerId, server::repository::ServerRepository};
 use domain::{pagination::PaginatedResult, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -21,24 +21,32 @@ pub enum ListChannelParticipantsError {
     NotChannelMember,
 }
 
-pub struct ListChannelParticipants<C, S>
+pub struct ListChannelParticipants<C, S, F>
 where
     C: ChannelRepository,
     S: ServerRepository,
+    F: FriendshipRepository,
 {
     channel_repository: Arc<C>,
     server_repository: Arc<S>,
+    friendship_repository: Arc<F>,
 }
 
-impl<C, S> ListChannelParticipants<C, S>
+impl<C, S, F> ListChannelParticipants<C, S, F>
 where
     C: ChannelRepository,
     S: ServerRepository,
+    F: FriendshipRepository,
 {
-    pub fn new(channel_repository: Arc<C>, server_repository: Arc<S>) -> Self {
+    pub fn new(
+        channel_repository: Arc<C>,
+        server_repository: Arc<S>,
+        friendship_repository: Arc<F>,
+    ) -> Self {
         Self {
             channel_repository,
             server_repository,
+            friendship_repository,
         }
     }
 
@@ -85,11 +93,21 @@ where
             .list_channel_participants(&server_id, &channel_id, request.pagination)
             .await?;
 
-        let items = result
+        let mut items: Vec<ChannelParticipantDto> = result
             .items
             .into_iter()
             .map(ChannelParticipantDto::from)
             .collect();
+        let ids: Vec<UserId> = items.iter().map(|i| UserId::new(i.id)).collect();
+        let hidden = self
+            .friendship_repository
+            .blockers_among(&requester_id, &ids)
+            .await?;
+        for item in &mut items {
+            if hidden.contains(&UserId::new(item.id)) {
+                item.bio.clear();
+            }
+        }
 
         Ok(PaginatedResult::new(items, result.total, result.pagination))
     }

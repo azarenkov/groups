@@ -284,14 +284,18 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                     let subject_for_task = subject.clone();
                     let appear_offline = self.appear_offline.clone();
                     let presence_subject = self.presence_subject.clone();
+                    let online_snapshot = self.online_snapshot.clone();
                     let handle = tokio::spawn(fanout_loop(
                         user_id,
-                        by_user,
-                        core,
                         subject_for_task,
                         subscription,
-                        appear_offline,
-                        presence_subject,
+                        FanoutContext {
+                            by_user,
+                            core,
+                            appear_offline,
+                            presence_subject,
+                            online_snapshot,
+                        },
                     ));
                     v.insert(UserSlot {
                         conns: vec![conn],
@@ -371,15 +375,53 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn fanout_loop(
+fn block_presence_update(
     user_id: Uuid,
+    payload: &str,
+    online: &DashMap<Uuid, ()>,
+) -> Option<PresenceUpdate> {
+    if !payload.contains("\"user.blocked\"") && !payload.contains("\"user.unblocked\"") {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(payload).ok()?;
+    let kind = value.get("type")?.as_str()?;
+    let data = value.get("data")?;
+    let id_of = |key: &str| {
+        data.get(key)
+            .and_then(|v| v.as_str())
+            .and_then(|s| Uuid::parse_str(s).ok())
+    };
+    let blocker = id_of("blockerId")?;
+    let blocked = id_of("blockedId")?;
+    let peer = if blocker == user_id { blocked } else { blocker };
+    match kind {
+        "user.blocked" => Some(PresenceUpdate::offline(peer)),
+        "user.unblocked" if online.contains_key(&peer) => Some(PresenceUpdate::online(peer)),
+        _ => None,
+    }
+}
+
+struct FanoutContext {
     by_user: Arc<DashMap<Uuid, UserSlot>>,
     core: async_nats::Client,
-    subject: String,
-    initial_sub: async_nats::Subscriber,
     appear_offline: Arc<DashMap<Uuid, ()>>,
     presence_subject: String,
+    online_snapshot: Arc<DashMap<Uuid, ()>>,
+}
+
+async fn fanout_loop(
+    user_id: Uuid,
+    subject: String,
+    initial_sub: async_nats::Subscriber,
+    ctx: FanoutContext,
 ) {
+    let FanoutContext {
+        by_user,
+        core,
+        appear_offline,
+        presence_subject,
+        online_snapshot,
+    } = ctx;
     let mut sub = initial_sub;
     loop {
         while let Some(msg) = sub.next().await {
@@ -426,6 +468,16 @@ async fn fanout_loop(
                             }
                         }
                         return;
+                    }
+                }
+            }
+            if let Some(update) = block_presence_update(user_id, &payload, &online_snapshot) {
+                let text = serde_json::to_string(&update.envelope()).unwrap_or_default();
+                if let Some(slot) = by_user.get(&user_id) {
+                    let conns: Vec<Connection> = slot.conns.clone();
+                    drop(slot);
+                    for c in &conns {
+                        let _ = c.try_send(&text).await;
                     }
                 }
             }

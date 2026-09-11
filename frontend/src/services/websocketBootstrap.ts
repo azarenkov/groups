@@ -261,6 +261,7 @@ function dispatch(env: WsEnvelope) {
       const peer = blockerId === selfId ? blockedId : blockerId;
       if (env.type === "user.blocked") {
         useUnreadStore.getState().resetDm(peer);
+        usePresenceStore.getState().setOffline(peer);
         const calls = useCallStore.getState();
         if (calls.incoming?.callerId === peer) calls.clearIncoming();
         calls.clearJoinable(peer);
