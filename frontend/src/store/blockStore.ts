@@ -159,8 +159,11 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   applyRelation: (userId, relation, gen) => {
     if (gen !== undefined && gen !== mutationGen) return;
-    get().markBlockedBy(userId, relation.blockedBy);
+    const wasBlockedBy = !!get().blockedBy[userId];
     const known = !!get().blocked[userId];
+    const changed = wasBlockedBy !== relation.blockedBy || known !== relation.blocked;
+    if (changed) mutationGen += 1;
+    get().markBlockedBy(userId, relation.blockedBy);
     if (relation.blocked && !known) {
       forgetStatus(userId);
       set((state) => ({

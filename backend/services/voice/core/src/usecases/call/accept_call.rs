@@ -155,15 +155,14 @@ where
         let blocked = match self.blocked_with_any(&user_id, &newcomers).await {
             Ok(blocked) => blocked,
             Err(e) => {
-                self.roll_back(call_id, &room, &user_id, request_id).await;
+                if let Err(rollback) = self.roll_back(call_id, &room, &user_id, request_id).await {
+                    tracing::error!(error = %rollback, %call_id, "Failed to roll back a join after a block lookup error");
+                }
                 return Err(e.into());
             }
         };
         if blocked {
-            self.voice_service.remove_participant(&room, &user_id).await?;
-            self.call_repository
-                .leave(call_id, &user_id, Utc::now(), request_id)
-                .await?;
+            self.roll_back(call_id, &room, &user_id, request_id).await?;
             return Err(AcceptCallError::CallNotAllowed);
         }
 
@@ -200,16 +199,12 @@ where
         room: &ChannelId,
         user_id: &UserId,
         request_id: Option<String>,
-    ) {
+    ) -> Result<(), RepositoryError> {
         if let Err(e) = self.voice_service.remove_participant(room, user_id).await {
             tracing::warn!(error = %e, %call_id, "Failed to remove a participant while rolling back a join");
         }
-        if let Err(e) = self
-            .call_repository
+        self.call_repository
             .leave(call_id, user_id, Utc::now(), request_id)
             .await
-        {
-            tracing::error!(error = %e, %call_id, "Failed to roll back a join after a block lookup error");
-        }
     }
 }
