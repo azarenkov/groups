@@ -51,21 +51,25 @@ pub enum DispatchError {
     Recipients(#[from] RepositoryError),
     #[error("Publish error: {0}")]
     Publish(#[from] PublishError),
+    #[error("Block lookup error: {0}")]
+    Blocks(#[from] crate::ports::blocks::BlockLookupError),
 }
 
-pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> {
+pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::BlockDirectory> {
     directory: std::sync::Arc<D>,
     publisher: std::sync::Arc<P>,
+    blocks: std::sync::Arc<B>,
 }
 
-impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchEvent<D, P> {
-    pub fn new(directory: std::sync::Arc<D>, publisher: std::sync::Arc<P>) -> Self {
-        Self { directory, publisher }
+impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::BlockDirectory> DispatchEvent<D, P, B> {
+    pub fn new(directory: std::sync::Arc<D>, publisher: std::sync::Arc<P>, blocks: std::sync::Arc<B>) -> Self {
+        Self { directory, publisher, blocks }
     }
 
     pub async fn execute(&self, subject: &str, payload: &[u8]) -> Result<(), DispatchError> {
     let resolver = self.directory.as_ref();
     let publisher = self.publisher.as_ref();
+    let blocks = self.blocks.as_ref();
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
         resolver.record_dm_pair(evt.sender_id, evt.recipient_id).await?;
@@ -801,6 +805,8 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
             }),
         );
         let mut recipients = resolver.profile_recipients(evt.user_id).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -819,6 +825,8 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
             }),
         );
         let mut recipients = resolver.interested_in(evt.user_id).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r) && !relations.blocked_by.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());

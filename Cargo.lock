@@ -3430,6 +3430,7 @@ dependencies = [
  "ports",
  "realtime-core",
  "realtime-domain",
+ "reqwest",
  "serde",
  "serde_json",
  "sqlx",

@@ -31,4 +31,9 @@ pub trait FriendshipRepository {
         viewer: &UserId,
         candidates: &[UserId],
     ) -> Result<Vec<UserId>, RepositoryError>;
+    async fn blocked_among(
+        &self,
+        blocker: &UserId,
+        candidates: &[UserId],
+    ) -> Result<Vec<UserId>, RepositoryError>;
 }

@@ -285,6 +285,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                     let appear_offline = self.appear_offline.clone();
                     let presence_subject = self.presence_subject.clone();
                     let online_snapshot = self.online_snapshot.clone();
+                    let resolver = self.presence_resolver.clone();
                     let handle = tokio::spawn(fanout_loop(
                         user_id,
                         subject_for_task,
@@ -295,6 +296,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                             appear_offline,
                             presence_subject,
                             online_snapshot,
+                            resolver,
                         },
                     ));
                     v.insert(UserSlot {
@@ -375,10 +377,11 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn block_presence_update(
+async fn block_presence_update<D: RecipientDirectory>(
     user_id: Uuid,
     payload: &str,
     online: &DashMap<Uuid, ()>,
+    resolver: &D,
 ) -> Option<PresenceUpdate> {
     if !payload.contains("\"user.blocked\"") && !payload.contains("\"user.unblocked\"") {
         return None;
@@ -396,24 +399,32 @@ fn block_presence_update(
     let peer = if blocker == user_id { blocked } else { blocker };
     match kind {
         "user.blocked" => Some(PresenceUpdate::offline(peer)),
-        "user.unblocked" if online.contains_key(&peer) => Some(PresenceUpdate::online(peer)),
+        "user.unblocked" if online.contains_key(&peer) => {
+            let visible = resolver
+                .interested_in(peer)
+                .await
+                .map(|audience| audience.contains(&user_id))
+                .unwrap_or(false);
+            visible.then(|| PresenceUpdate::online(peer))
+        }
         _ => None,
     }
 }
 
-struct FanoutContext {
+struct FanoutContext<D: RecipientDirectory> {
     by_user: Arc<DashMap<Uuid, UserSlot>>,
     core: async_nats::Client,
     appear_offline: Arc<DashMap<Uuid, ()>>,
     presence_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
+    resolver: Arc<D>,
 }
 
-async fn fanout_loop(
+async fn fanout_loop<D: RecipientDirectory + 'static>(
     user_id: Uuid,
     subject: String,
     initial_sub: async_nats::Subscriber,
-    ctx: FanoutContext,
+    ctx: FanoutContext<D>,
 ) {
     let FanoutContext {
         by_user,
@@ -421,6 +432,7 @@ async fn fanout_loop(
         appear_offline,
         presence_subject,
         online_snapshot,
+        resolver,
     } = ctx;
     let mut sub = initial_sub;
     loop {
@@ -471,7 +483,9 @@ async fn fanout_loop(
                     }
                 }
             }
-            if let Some(update) = block_presence_update(user_id, &payload, &online_snapshot) {
+            if let Some(update) =
+                block_presence_update(user_id, &payload, &online_snapshot, resolver.as_ref()).await
+            {
                 let text = serde_json::to_string(&update.envelope()).unwrap_or_default();
                 if let Some(slot) = by_user.get(&user_id) {
                     let conns: Vec<Connection> = slot.conns.clone();

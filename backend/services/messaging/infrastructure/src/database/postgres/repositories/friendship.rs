@@ -146,6 +146,26 @@ impl FriendshipRepository for PostgresFriendshipRepository {
         Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
     }
 
+    async fn blocked_among(
+        &self,
+        blocker: &UserId,
+        candidates: &[UserId],
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        if candidates.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<uuid::Uuid> = candidates.iter().map(|c| c.uuid()).collect();
+        let rows: Vec<(uuid::Uuid,)> = sqlx::query_as(
+            "SELECT blocked_id FROM user_blocks WHERE blocker_id = $1 AND blocked_id = ANY($2)",
+        )
+        .bind(blocker.uuid())
+        .bind(&ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
+    }
+
     async fn list_blocked(&self, blocker: &UserId) -> Result<Vec<BlockedUserView>, RepositoryError> {
         let rows: Vec<(uuid::Uuid, String, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
             "SELECT b.blocked_id, COALESCE(u.name, '') AS name, b.created_at FROM user_blocks b LEFT JOIN messaging_user_profiles u ON u.user_id = b.blocked_id WHERE b.blocker_id = $1 ORDER BY b.created_at DESC",

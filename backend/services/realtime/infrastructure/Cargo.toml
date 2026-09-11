@@ -21,4 +21,5 @@ tokio = { workspace = true, features = ["macros", "time", "rt-multi-thread", "sy
 actix-web = { workspace = true }
 async-nats = { workspace = true }
 dashmap = "6.1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }

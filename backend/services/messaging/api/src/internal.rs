@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, post, web};
 use contracts::internal::{
     attachments::{LinkedRequestV1, LinkedResponseV1},
     calls::CallPermitResponseV1,
-    friendships::{BlockRelationResponseV1, FriendsResponseV1},
+    friendships::{BlockRelationResponseV1, BlockRelationsRequestV1, BlockRelationsResponseV1, FriendsResponseV1},
     servers::{CanManageResponseV1, OwnerResponseV1},
     users::{ActivityAudienceRequestV1, ActivityAudienceResponseV1, StateResponseV1},
 };
@@ -91,6 +91,30 @@ async fn block_pair(
     }))
 }
 
+#[post("/users/{user_id}/block-relations")]
+async fn block_relations(
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    body: web::Json<BlockRelationsRequestV1>,
+) -> Result<impl Responder, HttpError> {
+    let user = UserId::new(path.into_inner());
+    let candidates: Vec<UserId> = body.ids.iter().copied().map(UserId::new).collect();
+    let blocking = app_state
+        .friendship_repository
+        .blocked_among(&user, &candidates)
+        .await
+        .map_err(HttpError::from)?;
+    let blocked_by = app_state
+        .friendship_repository
+        .blockers_among(&user, &candidates)
+        .await
+        .map_err(HttpError::from)?;
+    Ok(HttpResponse::Ok().json(BlockRelationsResponseV1 {
+        blocking: blocking.into_iter().map(|u| u.uuid()).collect(),
+        blocked_by: blocked_by.into_iter().map(|u| u.uuid()).collect(),
+    }))
+}
+
 #[get("/calls/permit/{caller}/{callee}")]
 async fn call_permit(
     app_state: web::Data<AppState>,
@@ -172,6 +196,7 @@ pub fn internal_routes(cfg: &mut web::ServiceConfig) {
             .service(user_has_state)
             .service(friendship_pair)
             .service(block_pair)
+            .service(block_relations)
             .service(call_permit)
             .service(linked_attachments),
     );

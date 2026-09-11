@@ -81,6 +81,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     void import("./friendshipStore").then((m) =>
       m.useFriendshipStore.getState().fetchFriends(),
     );
+    void import("./unreadStore").then((m) => m.useUnreadStore.getState().resetDm(userId));
   },
 
   unblock: async (userId) => {
