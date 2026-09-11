@@ -72,7 +72,11 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         if (gen !== mutationGen || seq !== fetchSeq) return;
         const blocked: Record<string, BlockedUser> = {};
         for (const b of res.blocks) blocked[b.userId] = b;
+        const previous = get().blocked;
         set({ blocked, loaded: true });
+        for (const id of Object.keys(blocked)) {
+          if (!previous[id]) forgetStatus(id);
+        }
         return;
       } catch (err) {
         console.warn("[blocks] failed to load blocked users:", err);

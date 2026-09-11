@@ -147,18 +147,24 @@ where
             .into_iter()
             .filter(|p| p.user_id != user_id)
             .collect();
-        for participant in participants.iter().filter(|p| !checked.contains(&p.user_id)) {
-            if self
-                .friendship_repository
-                .is_blocked(&user_id, &participant.user_id)
-                .await?
-            {
-                self.voice_service.remove_participant(&room, &user_id).await?;
-                self.call_repository
-                    .leave(call_id, &user_id, Utc::now(), request_id)
-                    .await?;
-                return Err(AcceptCallError::CallNotAllowed);
+        let newcomers: Vec<UserId> = participants
+            .iter()
+            .filter(|p| !checked.contains(&p.user_id))
+            .map(|p| p.user_id)
+            .collect();
+        let blocked = match self.blocked_with_any(&user_id, &newcomers).await {
+            Ok(blocked) => blocked,
+            Err(e) => {
+                self.roll_back(call_id, &room, &user_id, request_id).await;
+                return Err(e.into());
             }
+        };
+        if blocked {
+            self.voice_service.remove_participant(&room, &user_id).await?;
+            self.call_repository
+                .leave(call_id, &user_id, Utc::now(), request_id)
+                .await?;
+            return Err(AcceptCallError::CallNotAllowed);
         }
 
         participants.push(CallParticipantView {
@@ -173,5 +179,37 @@ where
             participants,
         video,
         })
+    }
+
+    async fn blocked_with_any(
+        &self,
+        user_id: &UserId,
+        others: &[UserId],
+    ) -> Result<bool, FriendshipLookupError> {
+        for other in others {
+            if self.friendship_repository.is_blocked(user_id, other).await? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    async fn roll_back(
+        &self,
+        call_id: Uuid,
+        room: &ChannelId,
+        user_id: &UserId,
+        request_id: Option<String>,
+    ) {
+        if let Err(e) = self.voice_service.remove_participant(room, user_id).await {
+            tracing::warn!(error = %e, %call_id, "Failed to remove a participant while rolling back a join");
+        }
+        if let Err(e) = self
+            .call_repository
+            .leave(call_id, user_id, Utc::now(), request_id)
+            .await
+        {
+            tracing::error!(error = %e, %call_id, "Failed to roll back a join after a block lookup error");
+        }
     }
 }
