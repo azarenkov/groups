@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use messaging_domain::{events::MessagingEvent, friendship::events::FriendshipDomainEvent, friendship::events::lifecycle::UserUnblocked, friendship::unit_of_work::FriendshipUnitOfWork};
 use ports::repository::RepositoryError;
@@ -22,7 +22,11 @@ impl<W: FriendshipUnitOfWork> UnblockUser<W> {
         Self { unit_of_work }
     }
 
-    pub async fn execute(&self, blocker_id: UserId, blocked_id: UserId) -> Result<(), UnblockUserError> {
+    pub async fn execute(
+        &self,
+        blocker_id: UserId,
+        blocked_id: UserId,
+    ) -> Result<DateTime<Utc>, UnblockUserError> {
         let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
         if !tx.delete_block(&blocker_id, &blocked_id).await? {
@@ -33,6 +37,6 @@ impl<W: FriendshipUnitOfWork> UnblockUser<W> {
         ))];
         tx.save_events(&events, None).await?;
         tx.commit().await?;
-        Ok(())
+        Ok(now)
     }
 }

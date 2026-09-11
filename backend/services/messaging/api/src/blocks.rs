@@ -71,11 +71,11 @@ async fn block_user(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    app_state
+    let occurred_at = app_state
         .block_user_usecase
         .execute(UserId::new(auth_token.id), UserId::new(path.into_inner()))
         .await?;
-    Ok(HttpResponse::NoContent().finish())
+    Ok(HttpResponse::Ok().json(ApiResponse::success(BlockChangeResponse { occurred_at })))
 }
 
 #[delete("/{user_id}/block")]
@@ -84,11 +84,17 @@ async fn unblock_user(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    app_state
+    let occurred_at = app_state
         .unblock_user_usecase
         .execute(UserId::new(auth_token.id), UserId::new(path.into_inner()))
         .await?;
-    Ok(HttpResponse::NoContent().finish())
+    Ok(HttpResponse::Ok().json(ApiResponse::success(BlockChangeResponse { occurred_at })))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BlockChangeResponse {
+    occurred_at: DateTime<Utc>,
 }
 
 pub fn block_routes(cfg: &mut web::ServiceConfig) {

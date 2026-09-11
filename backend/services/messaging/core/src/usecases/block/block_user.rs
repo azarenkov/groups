@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use messaging_domain::{events::MessagingEvent, friendship::FriendshipError, friendship::events::FriendshipDomainEvent, friendship::events::lifecycle::UserBlocked, friendship::unit_of_work::FriendshipUnitOfWork};
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
@@ -30,7 +30,11 @@ impl<W: FriendshipUnitOfWork, U: UserProfileRepository> BlockUser<W, U> {
         }
     }
 
-    pub async fn execute(&self, blocker_id: UserId, blocked_id: UserId) -> Result<(), BlockUserError> {
+    pub async fn execute(
+        &self,
+        blocker_id: UserId,
+        blocked_id: UserId,
+    ) -> Result<DateTime<Utc>, BlockUserError> {
         if blocker_id == blocked_id {
             return Err(BlockUserError::SelfBlock);
         }
@@ -56,6 +60,6 @@ impl<W: FriendshipUnitOfWork, U: UserProfileRepository> BlockUser<W, U> {
         }
         tx.save_events(&events, None).await?;
         tx.commit().await?;
-        Ok(())
+        Ok(now)
     }
 }

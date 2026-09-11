@@ -162,10 +162,10 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const isFriend = friendship?.status === "accepted";
   const online = isSelf ? selfOnline : !!onlineUsers[userId];
   const name = nameOverrides[userId] ?? profile?.name ?? "";
-  const bio = cachedBio ?? profile?.bio ?? "";
+  const bio = blockedMe ? "" : (cachedBio ?? profile?.bio ?? "");
   const locale = currentLocale();
-  const localTime = profile ? formatLocalTime(profile.timezone, locale) : null;
-  const memberSince = profile ? formatMemberSince(profile.memberSince, locale) : null;
+  const localTime = profile && !blockedMe ? formatLocalTime(profile.timezone, locale) : null;
+  const memberSince = profile && !blockedMe ? formatMemberSince(profile.memberSince, locale) : null;
   const inactive = !!profile && !profile.active;
   const blockedEitherWay = blockedByMe || blockedMe;
   const canMessage = !isSelf && !inactive && !blockedEitherWay && (profile ? profile.acceptsMessages : isFriend);
@@ -212,7 +212,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
               <UserAvatar userId={userId} name={name || "?"} className="profile-avatar" style={{ background: colorForId(userId) }} />
               <span className={"profile-presence " + (online ? "online" : "offline")} />
             </span>
-            {profile?.voiceRoom && (
+            {profile?.voiceRoom && !blockedMe && (
               <span className="profile-voice-pill" title={profile.voiceRoom.serverName}>
                 <Icon name="volume" size={13} />
                 {t("inVoice", { room: profile.voiceRoom.channelName })}
@@ -363,7 +363,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                   </div>
                 </div>
               )}
-              {profile && profile.mutualServers.length > 0 && (
+              {profile && !blockedMe && profile.mutualServers.length > 0 && (
                 <div className="profile-mutual">
                   <div className="profile-label">{t("mutualServers", { count: profile.mutualServers.length })}</div>
                   <div className="profile-chips">

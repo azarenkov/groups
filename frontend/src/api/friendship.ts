@@ -76,12 +76,14 @@ class FriendshipAPI {
     return response.data.data;
   }
 
-  async block(userId: string): Promise<void> {
-    await this.client.post(`/v1/users/${userId}/block`);
+  async block(userId: string): Promise<{ occurredAt: string }> {
+    const response = await this.client.post(`/v1/users/${userId}/block`);
+    return response.data.data;
   }
 
-  async unblock(userId: string): Promise<void> {
-    await this.client.delete(`/v1/users/${userId}/block`);
+  async unblock(userId: string): Promise<{ occurredAt: string }> {
+    const response = await this.client.delete(`/v1/users/${userId}/block`);
+    return response.data.data;
   }
 
   async blockRelation(userId: string): Promise<BlockRelation> {

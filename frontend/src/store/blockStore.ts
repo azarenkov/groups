@@ -29,7 +29,20 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
 
 let mutationGen = 0;
 let fetchSeq = 0;
-let eventVersions: Record<string, number> = {};
+let outgoingVersions: Record<string, number> = {};
+let incomingVersions: Record<string, number> = {};
+
+const recordVersion = (
+  versions: Record<string, number>,
+  peerId: string,
+  occurredAt?: string,
+): boolean => {
+  const ts = occurredAt ? Date.parse(occurredAt) : NaN;
+  if (!Number.isFinite(ts)) return true;
+  if (ts < (versions[peerId] ?? 0)) return false;
+  versions[peerId] = ts;
+  return true;
+};
 
 export const useBlockStore = create<BlockState>()((set, get) => ({
   blocked: {},
@@ -51,7 +64,8 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   block: async (userId) => {
-    await friendshipAPI.block(userId);
+    const { occurredAt } = await friendshipAPI.block(userId);
+    recordVersion(outgoingVersions, userId, occurredAt);
     mutationGen += 1;
     set((state) => ({
       blocked: {
@@ -70,17 +84,19 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   unblock: async (userId) => {
-    await friendshipAPI.unblock(userId);
+    const { occurredAt } = await friendshipAPI.unblock(userId);
+    recordVersion(outgoingVersions, userId, occurredAt);
     mutationGen += 1;
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
   },
 
   applyEvent: (selfId, blockerId, blockedId, active, occurredAt) => {
-    const ts = occurredAt ? Date.parse(occurredAt) : NaN;
-    if (Number.isFinite(ts)) {
-      const key = `${blockerId}>${blockedId}`;
-      if (ts < (eventVersions[key] ?? 0)) return false;
-      eventVersions[key] = ts;
+    if (blockerId === selfId) {
+      if (!recordVersion(outgoingVersions, blockedId, occurredAt)) return false;
+    } else if (blockedId === selfId) {
+      if (!recordVersion(incomingVersions, blockerId, occurredAt)) return false;
+    } else {
+      return false;
     }
     mutationGen += 1;
     if (blockerId === selfId) {
@@ -133,7 +149,8 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   clearAll: () => {
     mutationGen += 1;
-    eventVersions = {};
+    outgoingVersions = {};
+    incomingVersions = {};
     set({ blocked: {}, blockedBy: {}, loaded: false });
   },
 }));
