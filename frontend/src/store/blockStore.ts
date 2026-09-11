@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { friendshipAPI } from "../api/friendship";
 import { usePresenceStore } from "./presenceStore";
 import { profileVersion } from "./userProfileStore";
+import { ApiError } from "../utils/apiError";
 import type { BlockedUser, BlockRelation } from "../types/friendship";
 
 interface BlockState {
@@ -103,10 +104,17 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   unblock: async (userId) => {
-    const { occurredAt } = await friendshipAPI.unblock(userId);
-    if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
+    let occurredAt: string | undefined;
+    try {
+      ({ occurredAt } = await friendshipAPI.unblock(userId));
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.code !== "USER_NOT_BLOCKED") throw err;
+    }
+    if (occurredAt !== undefined && !recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+    void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+    void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
   },
 
   applyEvent: (selfId, blockerId, blockedId, active, occurredAt) => {
