@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use voice::ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError};
+use voice::ports::friendship_lookup::{BlockRelation, FriendshipLookup, FriendshipLookupError};
 use domain::user::id::UserId;
 use contracts::internal::{calls::CallPermitResponseV1, friendships::BlockRelationResponseV1};
 
@@ -47,7 +47,7 @@ impl FriendshipLookup for MessagingFriendshipClient {
         Ok(body.allowed)
     }
 
-    async fn is_blocked(&self, a: &UserId, b: &UserId) -> Result<bool, FriendshipLookupError> {
+    async fn block_relation(&self, a: &UserId, b: &UserId) -> Result<BlockRelation, FriendshipLookupError> {
         let response = super::with_request_id(
             self.client
             .get(format!(
@@ -69,6 +69,9 @@ impl FriendshipLookup for MessagingFriendshipClient {
             .json()
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
-        Ok(body.blocking || body.blocked_by)
+        Ok(BlockRelation {
+            blocking: body.blocking,
+            blocked_by: body.blocked_by,
+        })
     }
 }

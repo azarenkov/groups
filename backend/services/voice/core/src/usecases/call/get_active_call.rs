@@ -83,19 +83,40 @@ where
         );
 
         let room = ChannelId::new(call_id);
-        let participants = self.call_repository.list_active(call_id).await?;
-        for participant in participants.iter().filter(|p| p.user_id != user_id) {
-            if self
-                .friendship_repository
-                .is_blocked(&user_id, &participant.user_id)
-                .await?
-            {
-                self.voice_service.remove_participant(&room, &user_id).await?;
-                self.call_repository
-                    .leave(call_id, &user_id, Utc::now(), None)
-                    .await?;
+        let mut participants = self.call_repository.list_active(call_id).await?;
+        let mut others: Vec<UserId> = participants
+            .iter()
+            .map(|p| p.user_id)
+            .filter(|id| *id != user_id)
+            .collect();
+        let mut index = 0;
+        while index < others.len() {
+            let other = others[index];
+            let relation = self.friendship_repository.block_relation(&user_id, &other).await?;
+            if !relation.any() {
+                index += 1;
+                continue;
+            }
+            let (blocker, blocked) = if relation.blocking { (user_id, other) } else { (other, user_id) };
+            let mut leaving = vec![blocker];
+            if others.len() == 1 {
+                leaving.push(blocked);
+            }
+            for user in &leaving {
+                if let Err(e) = self.voice_service.remove_participant(&room, user).await {
+                    tracing::warn!(error = %e, %call_id, "Failed to remove a blocked participant during rehydration");
+                }
+            }
+            self.call_repository
+                .leave_many(call_id, &leaving, Utc::now(), None)
+                .await?;
+            if leaving.contains(&user_id) {
                 return Ok(None);
             }
+            others.remove(index);
+        }
+        if others.len() + 1 != participants.len() {
+            participants = self.call_repository.list_active(call_id).await?;
         }
         let token = self
             .voice_service
