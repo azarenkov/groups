@@ -94,9 +94,26 @@ where
                 &caller_id,
                 &invitees,
                 Utc::now(),
-                request.ctx.request_id,
+                request.ctx.request_id.clone(),
             )
             .await?;
+
+        let mut remaining = invitees.len();
+        for invitee in &invitees {
+            if self
+                .friendship_repository
+                .is_blocked(&caller_id, invitee)
+                .await?
+            {
+                self.call_repository
+                    .leave(request.call_id, invitee, Utc::now(), request.ctx.request_id.clone())
+                    .await?;
+                remaining -= 1;
+            }
+        }
+        if remaining == 0 {
+            return Err(AddCallParticipantsError::CallNotAllowed);
+        }
         Ok(())
     }
 }

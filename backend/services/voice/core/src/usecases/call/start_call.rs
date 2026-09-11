@@ -151,6 +151,28 @@ where
             return Err(StartCallError::AccountInactive);
         }
 
+        let mut remaining = invitees.len();
+        for invitee in &invitees {
+            if self
+                .friendship_repository
+                .is_blocked(&caller_id, invitee)
+                .await?
+            {
+                self.call_repository
+                    .leave(call_id, invitee, Utc::now(), request.ctx.request_id.clone())
+                    .await?;
+                remaining -= 1;
+            }
+        }
+        if remaining == 0 {
+            self.voice_service.remove_participant(&room, &caller_id).await?;
+            self.call_repository
+                .leave(call_id, &caller_id, Utc::now(), request.ctx.request_id)
+                .await?;
+            let _ = self.voice_service.delete_voice_channel(&room).await;
+            return Err(StartCallError::CallNotAllowed);
+        }
+
         Ok(StartCallResult {
             call_id,
             token,
