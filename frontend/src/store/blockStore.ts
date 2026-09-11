@@ -49,6 +49,12 @@ const recordVersion = (
 const forgetStatus = (userId: string) => {
   usePresenceStore.getState().setOffline(userId);
   void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
+  void import("./unreadStore").then((m) => m.useUnreadStore.getState().resetDm(userId));
+  void import("./callStore").then((m) => {
+    const calls = m.useCallStore.getState();
+    if (calls.incoming?.callerId === userId) calls.clearIncoming();
+    calls.clearJoinable(userId);
+  });
 };
 
 export const useBlockStore = create<BlockState>()((set, get) => ({
@@ -94,7 +100,6 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     void import("./friendshipStore").then((m) =>
       m.useFriendshipStore.getState().fetchFriends(),
     );
-    void import("./unreadStore").then((m) => m.useUnreadStore.getState().resetDm(userId));
   },
 
   unblock: async (userId) => {
@@ -139,6 +144,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     get().markBlockedBy(userId, relation.blockedBy);
     const known = !!get().blocked[userId];
     if (relation.blocked && !known) {
+      forgetStatus(userId);
       set((state) => ({
         blocked: {
           ...state.blocked,
