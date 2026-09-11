@@ -52,14 +52,19 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   fetch: async () => {
     const gen = mutationGen;
     const seq = ++fetchSeq;
-    try {
-      const res = await friendshipAPI.listBlocks();
-      if (gen !== mutationGen || seq !== fetchSeq) return;
-      const blocked: Record<string, BlockedUser> = {};
-      for (const b of res.blocks) blocked[b.userId] = b;
-      set({ blocked, loaded: true });
-    } catch (err) {
-      console.warn("[blocks] failed to load blocked users:", err);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const res = await friendshipAPI.listBlocks();
+        if (gen !== mutationGen || seq !== fetchSeq) return;
+        const blocked: Record<string, BlockedUser> = {};
+        for (const b of res.blocks) blocked[b.userId] = b;
+        set({ blocked, loaded: true });
+        return;
+      } catch (err) {
+        console.warn("[blocks] failed to load blocked users:", err);
+        if (gen !== mutationGen || seq !== fetchSeq) return;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
     }
   },
 

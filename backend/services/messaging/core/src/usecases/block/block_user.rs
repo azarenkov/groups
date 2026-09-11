@@ -43,10 +43,11 @@ impl<W: FriendshipUnitOfWork, U: UserProfileRepository> BlockUser<W, U> {
             .await?
             .ok_or(BlockUserError::UserNotFound)?;
 
-        let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
+        let existing = tx.load_pair(&blocker_id, &blocked_id).await?;
+        let now = Utc::now();
         let mut events: Vec<MessagingEvent> = Vec::new();
-        if let Some(mut pair) = tx.load_pair(&blocker_id, &blocked_id).await? {
+        if let Some(mut pair) = existing {
             let removed = pair.remove(blocker_id, now).is_ok();
             if removed {
                 events.extend(pair.pull_events().into_iter().map(MessagingEvent::from));

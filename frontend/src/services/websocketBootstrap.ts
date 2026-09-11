@@ -405,6 +405,10 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
+      if (!useBlockStore.getState().loaded) {
+        scheduleUnreadRefetch();
+        return;
+      }
       if (useBlockStore.getState().blocked[authorId]) return;
       if (!notificationPrefsLoaded()) {
         scheduleUnreadRefetch();

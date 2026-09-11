@@ -175,6 +175,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const dmBlocked = useBlockStore((s) => (dm ? !!s.blocked[dm.friendId] : false));
   const dmBlockedBy = useBlockStore((s) => (dm ? !!s.blockedBy[dm.friendId] : false));
   const blockedIds = useBlockStore((s) => s.blocked);
+  const blocksLoaded = useBlockStore((s) => s.loaded);
   const blockPeerId = dm?.friendId;
   React.useEffect(() => {
     if (!blockPeerId) return;
@@ -1679,6 +1680,10 @@ const ChatView: React.FC<ChatViewProps> = ({
                 Join channel
               </button>
             )}
+          </div>
+        ) : !dm && !blocksLoaded ? (
+          <div className="msg-loader">
+            <span className="loading-spinner" />
           </div>
         ) : messages.length === 0 ? (
           <div className="empty-state">

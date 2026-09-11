@@ -12,6 +12,7 @@ pub trait FriendshipUnitOfWork: Send + Sync {
 
 #[async_trait::async_trait]
 pub trait FriendshipTransaction: Send {
+    async fn lock_pair(&mut self, a: &UserId, b: &UserId) -> Result<(), RepositoryError>;
     async fn load_pair(&mut self, a: &UserId, b: &UserId) -> Result<Option<FriendshipPair>, RepositoryError>;
     async fn save_pair(&mut self, pair: &FriendshipPair) -> Result<(), RepositoryError>;
     async fn block_relation(&mut self, viewer: &UserId, other: &UserId) -> Result<BlockRelation, RepositoryError>;

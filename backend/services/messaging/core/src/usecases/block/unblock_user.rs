@@ -27,8 +27,9 @@ impl<W: FriendshipUnitOfWork> UnblockUser<W> {
         blocker_id: UserId,
         blocked_id: UserId,
     ) -> Result<DateTime<Utc>, UnblockUserError> {
-        let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
+        tx.lock_pair(&blocker_id, &blocked_id).await?;
+        let now = Utc::now();
         if !tx.delete_block(&blocker_id, &blocked_id).await? {
             return Err(UnblockUserError::NotBlocked);
         }

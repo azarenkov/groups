@@ -45,7 +45,7 @@ pub(crate) fn pair_key(a: &UserId, b: &UserId) -> String {
 
 #[async_trait]
 impl FriendshipTransaction for PostgresFriendshipTransaction {
-    async fn load_pair(&mut self, a: &UserId, b: &UserId) -> Result<Option<FriendshipPair>, RepositoryError> {
+    async fn lock_pair(&mut self, a: &UserId, b: &UserId) -> Result<(), RepositoryError> {
         sqlx::query!(
             "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))",
             pair_key(a, b),
@@ -53,6 +53,11 @@ impl FriendshipTransaction for PostgresFriendshipTransaction {
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn load_pair(&mut self, a: &UserId, b: &UserId) -> Result<Option<FriendshipPair>, RepositoryError> {
+        self.lock_pair(a, b).await?;
         let rows = sqlx::query!(
             r#"
             SELECT
