@@ -65,7 +65,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   block: async (userId) => {
     const { occurredAt } = await friendshipAPI.block(userId);
-    recordVersion(outgoingVersions, userId, occurredAt);
+    if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
     set((state) => ({
       blocked: {
@@ -86,7 +86,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   unblock: async (userId) => {
     const { occurredAt } = await friendshipAPI.unblock(userId);
-    recordVersion(outgoingVersions, userId, occurredAt);
+    if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
   },

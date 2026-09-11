@@ -1332,7 +1332,14 @@ const ChatView: React.FC<ChatViewProps> = ({
         reportComposerError(i18n.t("notFriends", { ns: "chat" }));
       } else if (code === "USER_BLOCKED") {
         reportComposerError(i18n.t("userBlocked", { ns: "chat" }));
-        if (dm && !dmBlocked) useBlockStore.getState().markBlockedBy(dm.friendId, true);
+        if (dm) {
+          const peerId = dm.friendId;
+          const gen = blockGeneration();
+          void friendshipAPI
+            .blockRelation(peerId)
+            .then((relation) => useBlockStore.getState().applyRelation(peerId, relation, gen))
+            .catch(() => {});
+        }
       } else if (code === "DMS_CLOSED") {
         reportComposerError(i18n.t("dmsClosed", { ns: "chat" }));
       } else if (code === "RECIPIENT_INACTIVE") {
