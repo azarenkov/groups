@@ -9,7 +9,10 @@ use api_common::middleware::jwt::claims::{AccessTokenClaims, TokenType};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use realtime_infrastructure::{connections::{Connection, ConnectionManager}, database::postgres::projection::PostgresRealtimeProjection};
+use realtime_core::usecases::block_aware_directory::BlockAwareDirectory;
+use realtime_infrastructure::{connections::{Connection, ConnectionManager}, database::postgres::projection::PostgresRealtimeProjection, media_client::blocks::MessagingBlockClient};
+
+pub type PresenceDirectory = BlockAwareDirectory<PostgresRealtimeProjection, MessagingBlockClient>;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(20);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(60);
@@ -18,7 +21,7 @@ const AUTH_PROTOCOL_PREFIX: &str = "bearer.";
 
 #[derive(Clone)]
 pub struct WsState {
-    pub manager: ConnectionManager<PostgresRealtimeProjection>,
+    pub manager: ConnectionManager<PresenceDirectory>,
     pub jwt_secret: String,
     pub outbound_buffer: usize,
     pub access_revocations: api_common::middleware::revocation::AccessRevocations,
@@ -176,7 +179,7 @@ struct ConnectionAuth {
 }
 
 async fn connection_task(
-    manager: ConnectionManager<PostgresRealtimeProjection>,
+    manager: ConnectionManager<PresenceDirectory>,
     user_id: Uuid,
     mut session: actix_ws::Session,
     msg_stream: actix_ws::MessageStream,

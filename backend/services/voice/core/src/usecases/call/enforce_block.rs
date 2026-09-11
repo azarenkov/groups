@@ -85,12 +85,12 @@ where
             leaving.push(*blocked);
         }
         let room = ChannelId::new(call_id);
-        for user in leaving {
-            self.voice_service.remove_participant(&room, &user).await?;
-            self.call_repository
-                .leave(call_id, &user, Utc::now(), request_id.clone())
-                .await?;
+        for user in &leaving {
+            self.voice_service.remove_participant(&room, user).await?;
         }
+        self.call_repository
+            .leave_many(call_id, &leaving, Utc::now(), request_id)
+            .await?;
         Ok(())
     }
 }

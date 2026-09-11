@@ -45,6 +45,14 @@ pub trait CallRepository {
         request_id: Option<String>,
     ) -> Result<(), RepositoryError>;
 
+    async fn leave_many(
+        &self,
+        call_id: Uuid,
+        user_ids: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError>;
+
     async fn is_active_participant(
         &self,
         call_id: Uuid,

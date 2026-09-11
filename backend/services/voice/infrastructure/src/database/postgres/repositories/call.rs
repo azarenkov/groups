@@ -400,6 +400,57 @@ impl CallRepository for PostgresCallRepository {
         Ok(())
     }
 
+    async fn leave_many(
+        &self,
+        call_id: Uuid,
+        user_ids: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError> {
+        let Some(actor) = user_ids.last() else {
+            return Ok(());
+        };
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        for user_id in user_ids {
+            let updated = sqlx::query!(
+                r#"
+            UPDATE call_participants
+            SET status = 'left', updated_at = $3
+            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined')
+            "#,
+                call_id,
+                user_id.uuid(),
+                now,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if updated.rows_affected() == 0 {
+                continue;
+            }
+            let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
+            let record = call_event(
+                call_id,
+                "call.participant.left",
+                user_id.uuid(),
+                &recipients,
+                request_id.clone(),
+                now,
+            );
+            save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+        }
+
+        end_call_if_empty(&mut tx, call_id, actor.uuid(), request_id, now).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn is_active_participant(
         &self,
         call_id: Uuid,
