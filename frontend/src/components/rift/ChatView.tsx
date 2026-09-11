@@ -176,6 +176,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const dmBlockedBy = useBlockStore((s) => (dm ? !!s.blockedBy[dm.friendId] : false));
   const blockedIds = useBlockStore((s) => s.blocked);
   const blocksLoaded = useBlockStore((s) => s.loaded);
+  const [revealedResults, setRevealedResults] = React.useState<Set<string>>(() => new Set());
   const blockPeerId = dm?.friendId;
   React.useEffect(() => {
     if (!blockPeerId) return;
@@ -1624,6 +1625,8 @@ const ChatView: React.FC<ChatViewProps> = ({
                 </div>
                 {searchResults.map((m) => {
                   const isMine = !!currentUserId && m.authorId === currentUserId;
+                  const hiddenAuthor =
+                    !dm && !!blockedIds[m.authorId] && !revealedResults.has(m.id);
                   const displayName = isMine
                     ? i18n.t("you", { ns: "chat" })
                     : (nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
@@ -1650,7 +1653,31 @@ const ChatView: React.FC<ChatViewProps> = ({
                           <b>{displayName}</b>
                           <time>{time}</time>
                         </div>
-                        <div className="content">{m.content}</div>
+                        {hiddenAuthor ? (
+                          <div className="content msg-system-text">
+                            {i18n.t("blockedMessage", { ns: "chat" })}{" "}
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="link-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRevealedResults((prev) => new Set(prev).add(m.id));
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setRevealedResults((prev) => new Set(prev).add(m.id));
+                                }
+                              }}
+                            >
+                              {i18n.t("showBlockedMessage", { ns: "chat" })}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="content">{m.content}</div>
+                        )}
                       </div>
                     </button>
                   );

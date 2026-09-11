@@ -66,7 +66,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   fetch: async () => {
     const gen = mutationGen;
     const seq = ++fetchSeq;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; ; attempt += 1) {
       try {
         const res = await friendshipAPI.listBlocks();
         if (gen !== mutationGen || seq !== fetchSeq) return;
@@ -77,7 +77,9 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       } catch (err) {
         console.warn("[blocks] failed to load blocked users:", err);
         if (gen !== mutationGen || seq !== fetchSeq) return;
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+        const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt, 5));
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        if (gen !== mutationGen || seq !== fetchSeq) return;
       }
     }
   },
