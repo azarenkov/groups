@@ -158,6 +158,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       }
     }
     if (blockedId === selfId) get().markBlockedBy(blockerId, active);
+    if (!get().loaded) void get().fetch();
     return true;
   },
 

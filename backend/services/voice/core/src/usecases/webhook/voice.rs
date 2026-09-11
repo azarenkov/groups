@@ -77,22 +77,38 @@ where
         request_id: Option<String>,
     ) -> Result<(), HandleVoiceWebhookError> {
         let room = ChannelId::new(call_id);
-        for participant in self.call_repository.list_active(call_id).await? {
-            if participant.user_id == *user_id {
+        let mut others: Vec<UserId> = self
+            .call_repository
+            .list_active(call_id)
+            .await?
+            .into_iter()
+            .map(|p| p.user_id)
+            .filter(|id| id != user_id)
+            .collect();
+        let mut index = 0;
+        while index < others.len() {
+            let other = others[index];
+            let relation = self.friendship_repository.block_relation(user_id, &other).await?;
+            if !relation.any() {
+                index += 1;
                 continue;
             }
-            if self
-                .friendship_repository
-                .is_blocked(user_id, &participant.user_id)
-                .await?
-            {
-                tracing::warn!(%call_id, user_id = %user_id.uuid(), "Blocked participant joined a call room; removing");
-                self.voice_service.remove_participant(&room, user_id).await?;
-                self.call_repository
-                    .leave(call_id, user_id, chrono::Utc::now(), request_id)
-                    .await?;
+            let (blocker, blocked) = if relation.blocking { (*user_id, other) } else { (other, *user_id) };
+            let mut leaving = vec![blocker];
+            if others.len() == 1 {
+                leaving.push(blocked);
+            }
+            tracing::warn!(%call_id, blocker = %blocker.uuid(), blocked = %blocked.uuid(), "Blocked pair met in a call room; evicting");
+            for user in &leaving {
+                self.voice_service.remove_participant(&room, user).await?;
+            }
+            self.call_repository
+                .leave_many(call_id, &leaving, chrono::Utc::now(), request_id.clone())
+                .await?;
+            if leaving.contains(user_id) {
                 return Ok(());
             }
+            others.remove(index);
         }
         Ok(())
     }

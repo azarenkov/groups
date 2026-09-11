@@ -104,6 +104,13 @@ where
         if invitees.is_empty() {
             return Err(StartCallError::NoRecipients);
         }
+        for (index, a) in invitees.iter().enumerate() {
+            for b in &invitees[index + 1..] {
+                if self.friendship_repository.is_blocked(a, b).await? {
+                    return Err(StartCallError::CallNotAllowed);
+                }
+            }
+        }
 
         let caller_name = domain::user::name::UserName::new(
             self.user_repository
