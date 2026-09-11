@@ -102,8 +102,8 @@ impl PostgresRealtimeProjection {
         blocked_id: Uuid,
         active: bool,
         occurred_at: DateTime<Utc>,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
             r#"
             INSERT INTO realtime_user_blocks (blocker_id, blocked_id, active, updated_at)
             VALUES ($1, $2, $3, $4)
@@ -119,7 +119,7 @@ impl PostgresRealtimeProjection {
         .bind(occurred_at)
         .execute(&self.pool)
         .await?;
-        Ok(())
+        Ok(result.rows_affected() > 0)
     }
 
     async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
@@ -342,7 +342,7 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     async fn remove_friend_edge(&self, a: Uuid, b: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::remove_friend_edge(self, a, b, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
-    async fn apply_block(&self, blocker_id: Uuid, blocked_id: Uuid, active: bool, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
+    async fn apply_block(&self, blocker_id: Uuid, blocked_id: Uuid, active: bool, occurred_at: DateTime<Utc>) -> Result<bool, RepositoryError> {
         PostgresRealtimeProjection::apply_block(self, blocker_id, blocked_id, active, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
