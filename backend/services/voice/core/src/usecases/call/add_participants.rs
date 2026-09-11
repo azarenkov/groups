@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use uuid::Uuid;
 use voice_domain::call::repository::CallRepository;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
@@ -66,6 +67,7 @@ where
             return Err(AddCallParticipantsError::NotParticipant);
         }
 
+        let roster = self.roster(request.call_id).await?;
         let mut invitees: Vec<UserId> = Vec::new();
         for id in &request.invitee_ids {
             let invitee = UserId::new(*id);
@@ -77,6 +79,9 @@ where
                 .can_call(&caller_id, &invitee)
                 .await?
             {
+                return Err(AddCallParticipantsError::CallNotAllowed);
+            }
+            if self.blocked_with_roster(&invitee, &roster).await? {
                 return Err(AddCallParticipantsError::CallNotAllowed);
             }
             if !self.user_repository.is_active(&invitee).await? {
@@ -99,18 +104,19 @@ where
             )
             .await?;
 
+        let roster = match self.roster(request.call_id).await {
+            Ok(roster) => roster,
+            Err(e) => {
+                self.withdraw(request.call_id, &added, request.ctx.request_id).await;
+                return Err(e.into());
+            }
+        };
         let mut remaining = added.len();
         for invitee in &added {
-            let blocked = match self.friendship_repository.is_blocked(&caller_id, invitee).await {
+            let blocked = match self.blocked_with_roster(invitee, &roster).await {
                 Ok(blocked) => blocked,
                 Err(e) => {
-                    if let Err(cleanup) = self
-                        .call_repository
-                        .leave_many(request.call_id, &added, Utc::now(), request.ctx.request_id)
-                        .await
-                    {
-                        tracing::error!(error = %cleanup, call_id = %request.call_id, "Failed to withdraw invitations after a block lookup error");
-                    }
+                    self.withdraw(request.call_id, &added, request.ctx.request_id).await;
                     return Err(e.into());
                 }
             };
@@ -125,5 +131,38 @@ where
             return Err(AddCallParticipantsError::CallNotAllowed);
         }
         Ok(())
+    }
+
+    async fn roster(&self, call_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
+        Ok(self
+            .call_repository
+            .list_active(call_id)
+            .await?
+            .into_iter()
+            .map(|p| p.user_id)
+            .collect())
+    }
+
+    async fn blocked_with_roster(
+        &self,
+        invitee: &UserId,
+        roster: &[UserId],
+    ) -> Result<bool, FriendshipLookupError> {
+        for other in roster.iter().filter(|other| *other != invitee) {
+            if self.friendship_repository.is_blocked(invitee, other).await? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    async fn withdraw(&self, call_id: Uuid, invitees: &[UserId], request_id: Option<String>) {
+        if let Err(cleanup) = self
+            .call_repository
+            .leave_many(call_id, invitees, Utc::now(), request_id)
+            .await
+        {
+            tracing::error!(error = %cleanup, %call_id, "Failed to withdraw invitations after a block lookup error");
+        }
     }
 }

@@ -103,6 +103,36 @@ async fn all_participants(
     Ok(rows.into_iter().map(|r| r.user_id).collect())
 }
 
+async fn participant_status(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<String>, RepositoryError> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT status FROM call_participants WHERE call_id = $1 AND user_id = $2 FOR UPDATE",
+    )
+    .bind(call_id)
+    .bind(user_id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)
+}
+
+async fn notify_withdrawn_invitation(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+    previous_status: Option<&str>,
+    request_id: Option<String>,
+    now: DateTime<Utc>,
+) -> Result<(), RepositoryError> {
+    if previous_status != Some("invited") {
+        return Ok(());
+    }
+    let record = call_event(call_id, "call.ended", user_id, &[user_id], request_id, now);
+    save_outbox_records(tx, std::slice::from_ref(&record)).await
+}
+
 async fn end_call_if_empty(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     call_id: Uuid,
@@ -365,6 +395,7 @@ impl CallRepository for PostgresCallRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        let previous = participant_status(&mut tx, call_id, user_id.uuid()).await?;
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
@@ -393,6 +424,7 @@ impl CallRepository for PostgresCallRepository {
             now,
         );
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+        notify_withdrawn_invitation(&mut tx, call_id, user_id.uuid(), previous.as_deref(), request_id.clone(), now).await?;
 
         end_call_if_empty(&mut tx, call_id, user_id.uuid(), request_id, now).await?;
 
@@ -417,6 +449,7 @@ impl CallRepository for PostgresCallRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
         for user_id in user_ids {
+            let previous = participant_status(&mut tx, call_id, user_id.uuid()).await?;
             let updated = sqlx::query!(
                 r#"
             UPDATE call_participants
@@ -443,6 +476,7 @@ impl CallRepository for PostgresCallRepository {
                 now,
             );
             save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+            notify_withdrawn_invitation(&mut tx, call_id, user_id.uuid(), previous.as_deref(), request_id.clone(), now).await?;
         }
 
         end_call_if_empty(&mut tx, call_id, actor.uuid(), request_id, now).await?;
