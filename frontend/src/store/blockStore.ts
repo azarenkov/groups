@@ -78,6 +78,10 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         if (added.length > 0 || removed.length > 0) mutationGen += 1;
         set({ blocked, loaded: true });
         for (const id of added) forgetStatus(id);
+        if (removed.length > 0) {
+          void import("./activityStore").then((m) => m.loadActivitiesFor(removed));
+          void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+        }
         return;
       } catch (err) {
         console.warn("[blocks] failed to load blocked users:", err);
