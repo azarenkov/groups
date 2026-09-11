@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { friendshipAPI } from "../api/friendship";
+import { usePresenceStore } from "./presenceStore";
 import type { BlockedUser, BlockRelation } from "../types/friendship";
 
 interface BlockState {
@@ -143,7 +144,11 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     }
   },
 
-  markBlockedBy: (userId, active) =>
+  markBlockedBy: (userId, active) => {
+    if (active) {
+      usePresenceStore.getState().setOffline(userId);
+      void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
+    }
     set((state) => {
       if (active) {
         if (state.blockedBy[userId]) return state;
@@ -151,7 +156,8 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       }
       if (!state.blockedBy[userId]) return state;
       return { blockedBy: withoutKey(state.blockedBy, userId) };
-    }),
+    });
+  },
 
   clearAll: () => {
     mutationGen += 1;
