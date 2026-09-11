@@ -271,6 +271,7 @@ function dispatch(env: WsEnvelope) {
         if (blockerId === selfId && sharesCall) void calls.leave().catch(() => {});
       }
       useActivityStore.getState().apply(peer, null);
+      if (env.type === "user.unblocked") void loadActivitiesFor([peer]);
       void useFriendshipStore
         .getState()
         .fetchFriends()

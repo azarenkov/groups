@@ -104,11 +104,14 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   unblock: async (userId) => {
+    const gen = mutationGen;
     let occurredAt: string | undefined;
     try {
       ({ occurredAt } = await friendshipAPI.unblock(userId));
     } catch (err) {
       if (!(err instanceof ApiError) || err.code !== "USER_NOT_BLOCKED") throw err;
+      if (gen !== mutationGen) return;
+      void get().fetch();
     }
     if (occurredAt !== undefined && !recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
