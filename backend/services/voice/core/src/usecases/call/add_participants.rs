@@ -92,6 +92,9 @@ where
         if invitees.is_empty() {
             return Err(AddCallParticipantsError::NoRecipients);
         }
+        if self.blocked_among(&invitees).await? {
+            return Err(AddCallParticipantsError::CallNotAllowed);
+        }
 
         let added = self
             .call_repository
@@ -111,6 +114,17 @@ where
                 return Err(e.into());
             }
         };
+        match self.blocked_among(&added).await {
+            Ok(false) => {}
+            Ok(true) => {
+                self.withdraw(request.call_id, &added, request.ctx.request_id).await;
+                return Err(AddCallParticipantsError::CallNotAllowed);
+            }
+            Err(e) => {
+                self.withdraw(request.call_id, &added, request.ctx.request_id).await;
+                return Err(e.into());
+            }
+        }
         let mut remaining = added.len();
         for invitee in &added {
             let blocked = match self.blocked_with_roster(invitee, &roster).await {
@@ -151,6 +165,17 @@ where
         for other in roster.iter().filter(|other| *other != invitee) {
             if self.friendship_repository.is_blocked(invitee, other).await? {
                 return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    async fn blocked_among(&self, users: &[UserId]) -> Result<bool, FriendshipLookupError> {
+        for (index, a) in users.iter().enumerate() {
+            for b in &users[index + 1..] {
+                if self.friendship_repository.is_blocked(a, b).await? {
+                    return Ok(true);
+                }
             }
         }
         Ok(false)
