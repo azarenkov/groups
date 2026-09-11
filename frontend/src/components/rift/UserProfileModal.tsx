@@ -160,7 +160,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const friendship = friends.find((f) => f.friendId === userId);
   const isSelf = userId === selfId;
   const isFriend = friendship?.status === "accepted";
-  const online = isSelf ? selfOnline : !blockedMe && !!onlineUsers[userId];
+  const online = isSelf ? selfOnline : !blockedByMe && !blockedMe && !!onlineUsers[userId];
   const name = nameOverrides[userId] ?? profile?.name ?? "";
   const bio = blockedMe ? "" : (cachedBio ?? profile?.bio ?? "");
   const locale = currentLocale();

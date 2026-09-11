@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { friendshipAPI } from "../api/friendship";
 import { usePresenceStore } from "./presenceStore";
+import { profileVersion } from "./userProfileStore";
 import type { BlockedUser, BlockRelation } from "../types/friendship";
 
 interface BlockState {
@@ -30,19 +31,24 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
 
 let mutationGen = 0;
 let fetchSeq = 0;
-let outgoingVersions: Record<string, number> = {};
-let incomingVersions: Record<string, number> = {};
+let outgoingVersions: Record<string, string> = {};
+let incomingVersions: Record<string, string> = {};
 
 const recordVersion = (
-  versions: Record<string, number>,
+  versions: Record<string, string>,
   peerId: string,
   occurredAt?: string,
 ): boolean => {
-  const ts = occurredAt ? Date.parse(occurredAt) : NaN;
-  if (!Number.isFinite(ts)) return true;
-  if (ts < (versions[peerId] ?? 0)) return false;
-  versions[peerId] = ts;
+  const version = profileVersion(occurredAt);
+  if (!version) return true;
+  if (version < (versions[peerId] ?? "")) return false;
+  versions[peerId] = version;
   return true;
+};
+
+const forgetStatus = (userId: string) => {
+  usePresenceStore.getState().setOffline(userId);
+  void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
 };
 
 export const useBlockStore = create<BlockState>()((set, get) => ({
@@ -73,6 +79,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     const { occurredAt } = await friendshipAPI.block(userId);
     if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
+    forgetStatus(userId);
     set((state) => ({
       blocked: {
         ...state.blocked,
@@ -145,10 +152,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   markBlockedBy: (userId, active) => {
-    if (active) {
-      usePresenceStore.getState().setOffline(userId);
-      void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
-    }
+    if (active) forgetStatus(userId);
     set((state) => {
       if (active) {
         if (state.blockedBy[userId]) return state;
