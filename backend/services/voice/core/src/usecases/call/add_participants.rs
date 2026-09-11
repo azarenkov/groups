@@ -100,11 +100,20 @@ where
 
         let mut remaining = invitees.len();
         for invitee in &invitees {
-            if self
-                .friendship_repository
-                .is_blocked(&caller_id, invitee)
-                .await?
-            {
+            let blocked = match self.friendship_repository.is_blocked(&caller_id, invitee).await {
+                Ok(blocked) => blocked,
+                Err(e) => {
+                    if let Err(cleanup) = self
+                        .call_repository
+                        .leave_many(request.call_id, &invitees, Utc::now(), request.ctx.request_id)
+                        .await
+                    {
+                        tracing::error!(error = %cleanup, call_id = %request.call_id, "Failed to withdraw invitations after a block lookup error");
+                    }
+                    return Err(e.into());
+                }
+            };
+            if blocked {
                 self.call_repository
                     .leave(request.call_id, invitee, Utc::now(), request.ctx.request_id.clone())
                     .await?;

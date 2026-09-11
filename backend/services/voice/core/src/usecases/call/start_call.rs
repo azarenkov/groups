@@ -151,19 +151,25 @@ where
             return Err(StartCallError::AccountInactive);
         }
 
-        let mut remaining = invitees.len();
-        for invitee in &invitees {
-            if self
-                .friendship_repository
-                .is_blocked(&caller_id, invitee)
-                .await?
-            {
-                self.call_repository
-                    .leave(call_id, invitee, Utc::now(), request.ctx.request_id.clone())
-                    .await?;
-                remaining -= 1;
+        let remaining = match self
+            .evict_blocked_invitees(call_id, &caller_id, &invitees, request.ctx.request_id.clone())
+            .await
+        {
+            Ok(remaining) => remaining,
+            Err(e) => {
+                let mut everyone = invitees.clone();
+                everyone.push(caller_id);
+                if let Err(cleanup) = self
+                    .call_repository
+                    .leave_many(call_id, &everyone, Utc::now(), request.ctx.request_id)
+                    .await
+                {
+                    tracing::error!(error = %cleanup, %call_id, "Failed to abort a call after a block lookup error");
+                }
+                let _ = self.voice_service.delete_voice_channel(&room).await;
+                return Err(e);
             }
-        }
+        };
         if remaining == 0 {
             self.voice_service.remove_participant(&room, &caller_id).await?;
             self.call_repository
@@ -180,5 +186,24 @@ where
             participants,
             video,
         })
+    }
+
+    async fn evict_blocked_invitees(
+        &self,
+        call_id: Uuid,
+        caller_id: &UserId,
+        invitees: &[UserId],
+        request_id: Option<String>,
+    ) -> Result<usize, StartCallError> {
+        let mut remaining = invitees.len();
+        for invitee in invitees {
+            if self.friendship_repository.is_blocked(caller_id, invitee).await? {
+                self.call_repository
+                    .leave(call_id, invitee, Utc::now(), request_id.clone())
+                    .await?;
+                remaining -= 1;
+            }
+        }
+        Ok(remaining)
     }
 }
