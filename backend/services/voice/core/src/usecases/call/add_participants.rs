@@ -88,7 +88,8 @@ where
             return Err(AddCallParticipantsError::NoRecipients);
         }
 
-        self.call_repository
+        let added = self
+            .call_repository
             .add_participants(
                 request.call_id,
                 &caller_id,
@@ -98,14 +99,14 @@ where
             )
             .await?;
 
-        let mut remaining = invitees.len();
-        for invitee in &invitees {
+        let mut remaining = added.len();
+        for invitee in &added {
             let blocked = match self.friendship_repository.is_blocked(&caller_id, invitee).await {
                 Ok(blocked) => blocked,
                 Err(e) => {
                     if let Err(cleanup) = self
                         .call_repository
-                        .leave_many(request.call_id, &invitees, Utc::now(), request.ctx.request_id)
+                        .leave_many(request.call_id, &added, Utc::now(), request.ctx.request_id)
                         .await
                     {
                         tracing::error!(error = %cleanup, call_id = %request.call_id, "Failed to withdraw invitations after a block lookup error");
@@ -120,7 +121,7 @@ where
                 remaining -= 1;
             }
         }
-        if remaining == 0 {
+        if remaining == 0 && !added.is_empty() {
             return Err(AddCallParticipantsError::CallNotAllowed);
         }
         Ok(())

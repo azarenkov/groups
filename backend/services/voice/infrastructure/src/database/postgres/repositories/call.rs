@@ -297,7 +297,7 @@ impl CallRepository for PostgresCallRepository {
         invitees: &[UserId],
         now: DateTime<Utc>,
         request_id: Option<String>,
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<Vec<UserId>, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
@@ -349,7 +349,7 @@ impl CallRepository for PostgresCallRepository {
         }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(ringed.into_iter().map(UserId::new).collect())
     }
 
     async fn leave(

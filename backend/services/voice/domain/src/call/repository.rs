@@ -35,7 +35,7 @@ pub trait CallRepository {
         invitees: &[UserId],
         now: DateTime<Utc>,
         request_id: Option<String>,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<Vec<UserId>, RepositoryError>;
 
     async fn leave(
         &self,
