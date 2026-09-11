@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+use domain::pagination::KeysetCursor;
 use async_trait::async_trait;
 use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
@@ -450,55 +452,74 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     async fn list_conversation_previews(
         &self,
         user_id: &UserId,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
     ) -> Result<Vec<DmConversationPreview>, RepositoryError> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT DISTINCT ON (m.peer)
-                m.id AS "message_id!",
-                m.peer AS "peer!",
-                u.name AS "peer_name!",
-                m.sender_id AS "sender_id!",
-                m.content AS "content!",
-                m.call_status,
-                m.invite_server_id,
-                EXISTS(
-                    SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id
-                ) AS "has_attachments!",
-                m.created_at AS "created_at!"
-            FROM (
-                SELECT
-                    id,
-                    CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer,
-                    sender_id,
-                    content,
-                    call_status,
-                    invite_server_id,
-                    created_at
-                FROM dm_messages
-                WHERE sender_id = $1 OR recipient_id = $1
-            ) m
-            INNER JOIN messaging_user_profiles u ON u.user_id = m.peer
-            ORDER BY m.peer, m.created_at DESC
-            "#,
-            user_id.uuid(),
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        let cursor_at = cursor.map(|c| c.at);
+        let cursor_id = cursor.and_then(|c| Uuid::parse_str(&c.key).ok());
+        let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, DateTime<Utc>)> =
+            sqlx::query_as(
+                r#"
+                SELECT p.message_id, p.peer, p.peer_name, p.sender_id, p.content, p.call_status,
+                       p.invite_server_id, p.has_attachments, p.created_at
+                FROM (
+                    SELECT DISTINCT ON (m.peer)
+                        m.id AS message_id,
+                        m.peer,
+                        u.name AS peer_name,
+                        m.sender_id,
+                        m.content,
+                        m.call_status,
+                        m.invite_server_id,
+                        EXISTS(
+                            SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id
+                        ) AS has_attachments,
+                        m.created_at
+                    FROM (
+                        SELECT
+                            id,
+                            CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer,
+                            sender_id,
+                            content,
+                            call_status,
+                            invite_server_id,
+                            created_at
+                        FROM dm_messages
+                        WHERE sender_id = $1 OR recipient_id = $1
+                    ) m
+                    INNER JOIN messaging_user_profiles u ON u.user_id = m.peer
+                    ORDER BY m.peer, m.created_at DESC
+                ) p
+                WHERE ($2::timestamptz IS NULL OR (p.created_at, p.message_id) < ($2, $3::uuid))
+                ORDER BY p.created_at DESC, p.message_id DESC
+                LIMIT $4
+                "#,
+            )
+            .bind(user_id.uuid())
+            .bind(cursor_at)
+            .bind(cursor_id)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(rows
             .into_iter()
-            .map(|r| DmConversationPreview {
-                message_id: r.message_id,
-                peer_id: r.peer,
-                peer_name: r.peer_name,
-                sender_id: r.sender_id,
-                content: r.content,
-                call_status: r.call_status,
-                invite_server_id: r.invite_server_id,
-                has_attachments: r.has_attachments,
-                created_at: r.created_at,
-            })
+            .map(
+                |(message_id, peer_id, peer_name, sender_id, content, call_status, invite_server_id, has_attachments, created_at)| {
+                    DmConversationPreview {
+                        message_id,
+                        peer_id,
+                        peer_name,
+                        sender_id,
+                        content,
+                        call_status,
+                        invite_server_id,
+                        has_attachments,
+                        created_at,
+                    }
+                },
+            )
             .collect())
     }
 }

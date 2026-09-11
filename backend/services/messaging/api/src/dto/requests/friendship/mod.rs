@@ -10,4 +10,6 @@ pub struct SendFriendRequestBody {
 #[derive(Debug, Deserialize)]
 pub struct ListFriendsQuery {
     pub status: Option<String>,
+    pub cursor: Option<String>,
+    pub limit: Option<u32>,
 }

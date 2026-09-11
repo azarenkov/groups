@@ -4,6 +4,7 @@ import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
 import {
   FriendshipStatus,
+  FriendIdsResponse,
   ListFriendshipsResponse,
 } from "../types/friendship";
 
@@ -70,10 +71,21 @@ class FriendshipAPI {
     await this.client.delete(`/v1/users/me/friends/${friendId}`);
   }
 
-  async list(status?: FriendshipStatus): Promise<ListFriendshipsResponse> {
+  async list(
+    opts: { status?: FriendshipStatus; cursor?: string | null; limit?: number } = {},
+  ): Promise<ListFriendshipsResponse> {
     const response = await this.client.get("/v1/users/me/friends", {
-      params: status ? { status } : undefined,
+      params: {
+        status: opts.status,
+        cursor: opts.cursor ?? undefined,
+        limit: opts.limit,
+      },
     });
+    return response.data.data;
+  }
+
+  async listIds(): Promise<FriendIdsResponse> {
+    const response = await this.client.get("/v1/users/me/friends/ids");
     return response.data.data;
   }
 

@@ -1,7 +1,7 @@
 import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
-import { useFriendshipStore } from "../store/friendshipStore";
+import { acceptedFriendIds, useFriendshipStore } from "../store/friendshipStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
@@ -834,22 +834,14 @@ export function installWsBootstrap() {
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void loadActivitiesFor(trackedActivityIds());
-    const friendsBefore = useFriendshipStore
-      .getState()
-      .friends.filter((f) => f.status === "accepted")
-      .map((f) => f.friendId);
+    const friendsBefore = acceptedFriendIds();
     void useFriendshipStore
       .getState()
       .fetchFriends()
       .then(() => {
         if (useFriendshipStore.getState().error === null) {
           useUserNamesStore.getState().clear();
-          const after = new Set(
-            useFriendshipStore
-              .getState()
-              .friends.filter((f) => f.status === "accepted")
-              .map((f) => f.friendId),
-          );
+          const after = new Set(acceptedFriendIds());
           const gone = friendsBefore.filter((id) => !after.has(id));
           for (const id of gone) useActivityStore.getState().apply(id, null);
           if (gone.length > 0) void loadActivitiesFor(gone);

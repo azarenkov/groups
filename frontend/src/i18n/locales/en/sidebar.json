@@ -47,5 +47,6 @@
   "unmuteMember": "Unmute",
   "deafenMember": "Deafen",
   "undeafenMember": "Undeafen",
-  "backToServers": "Back to servers"
+  "backToServers": "Back to servers",
+  "loadMore": "Show more"
 }

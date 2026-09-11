@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::view::DmMessageView, server::id::ServerId};
-use domain::{pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
+use domain::{pagination::KeysetCursor, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
 
 #[derive(Debug, Clone)]
@@ -67,6 +67,8 @@ pub trait DmMessageRepository {
     async fn list_conversation_previews(
         &self,
         user_id: &UserId,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
     ) -> Result<Vec<DmConversationPreview>, RepositoryError>;
 
     async fn has_conversation(

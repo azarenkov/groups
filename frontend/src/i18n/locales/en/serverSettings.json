@@ -97,5 +97,6 @@
   "roleNameRequired": "Enter a role name",
   "roleList": "Roles ({{count}})",
   "permKickMembers": "Kick members",
-  "kickMember": "Kick from server"
+  "kickMember": "Kick from server",
+  "loadMoreLinks": "Show more links"
 }

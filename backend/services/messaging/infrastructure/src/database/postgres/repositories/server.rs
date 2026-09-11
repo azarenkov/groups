@@ -1,3 +1,4 @@
+use domain::pagination::KeysetCursor;
 use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 
@@ -484,11 +485,16 @@ impl ServerRepository for PostgresServerRepository {
     async fn list_invite_links(
         &self,
         server_id: &ServerId,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
     ) -> Result<Vec<InviteLink>, RepositoryError> {
         let rows: Vec<InviteLinkRow> = sqlx::query_as(&format!(
-            "SELECT {INVITE_LINK_COLUMNS} FROM server_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.server_id = $1 AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > now()) AND (l.max_uses IS NULL OR l.uses < l.max_uses) ORDER BY l.is_primary DESC, l.created_at DESC"
+            "SELECT {INVITE_LINK_COLUMNS} FROM server_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.server_id = $1 AND NOT l.is_primary AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > now()) AND (l.max_uses IS NULL OR l.uses < l.max_uses) AND ($2::timestamptz IS NULL OR (l.created_at, l.token) < ($2, $3::text)) ORDER BY l.created_at DESC, l.token DESC LIMIT $4"
         ))
         .bind(server_id.uuid())
+        .bind(cursor.map(|c| c.at))
+        .bind(cursor.map(|c| c.key.clone()))
+        .bind(limit)
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;

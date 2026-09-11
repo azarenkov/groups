@@ -1,3 +1,4 @@
+use domain::pagination::{KeysetCursor, Page};
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
@@ -76,6 +77,11 @@ impl<W: ServerUnitOfWork> CreateInviteLink<W> {
     }
 }
 
+pub struct InviteLinksPage {
+    pub primary: InviteLink,
+    pub page: Page<InviteLink>,
+}
+
 pub struct ListInviteLinks<S: ServerRepository, W: ServerUnitOfWork> {
     server_repository: Arc<S>,
     unit_of_work: Arc<W>,
@@ -93,17 +99,29 @@ impl<S: ServerRepository, W: ServerUnitOfWork> ListInviteLinks<S, W> {
         &self,
         server_id: ServerId,
         user_id: UserId,
-    ) -> Result<Vec<InviteLink>, ManageInviteLinksError> {
+        cursor: Option<KeysetCursor>,
+        limit: i64,
+    ) -> Result<InviteLinksPage, ManageInviteLinksError> {
         let mut tx = self.unit_of_work.begin(&server_id).await?;
         let server = tx.load_server().await?;
         server.ensure_can_manage_invites(&user_id)?;
-        if tx.find_primary_invite_link().await?.is_none() {
-            let owner = *server.owner_id();
-            create_with_fresh_token(&mut *tx, || InviteLink::primary(server_id, owner, Utc::now()))
-                .await?;
-        }
+        let primary = match tx.find_primary_invite_link().await? {
+            Some(link) => link,
+            None => {
+                let owner = *server.owner_id();
+                create_with_fresh_token(&mut *tx, || InviteLink::primary(server_id, owner, Utc::now()))
+                    .await?
+            }
+        };
         tx.commit().await?;
-        Ok(self.server_repository.list_invite_links(&server_id).await?)
+        let links = self
+            .server_repository
+            .list_invite_links(&server_id, cursor.as_ref(), limit)
+            .await?;
+        let page = Page::from_overfetch(links, limit, |link| {
+            KeysetCursor::new(link.created_at, link.token.as_str().to_string())
+        });
+        Ok(InviteLinksPage { primary, page })
     }
 }
 

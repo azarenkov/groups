@@ -44,7 +44,9 @@ impl InviteLinkResponse {
 
 #[derive(Debug, Serialize)]
 pub struct ListInviteLinksResponse {
+    pub primary: InviteLinkResponse,
     pub links: Vec<InviteLinkResponse>,
+    pub next_cursor: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

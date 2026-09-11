@@ -130,6 +130,11 @@ const ServersPage: React.FC = () => {
   const [serverSettings, setServerSettings] = useState<Server | null>(null);
   const [channelModal, setChannelModal] = useState<{ serverId: string; kind: ChannelKind } | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
+  const friendStatuses = useFriendshipStore((s) => s.statusById);
+  const friendsNextCursor = useFriendshipStore((s) => s.nextCursor);
+  const loadMoreFriends = useFriendshipStore((s) => s.loadMore);
+  const previewsNextCursor = useDmPreviewStore((s) => s.nextCursor);
+  const loadMorePreviews = useDmPreviewStore((s) => s.loadMore);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -250,9 +255,8 @@ const ServersPage: React.FC = () => {
   }, [acceptedFriends, selectedDm, friends]);
 
   const pendingCount = React.useMemo(
-    () =>
-      friends.filter((f) => f.status === "pending_incoming").length,
-    [friends],
+    () => Object.values(friendStatuses).filter((s) => s === "pending_incoming").length,
+    [friendStatuses],
   );
 
   const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
@@ -1069,6 +1073,11 @@ const ServersPage: React.FC = () => {
           voiceMembersByChannel={voiceMembersByChannel}
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
+          hasMoreDirects={!!friendsNextCursor || !!previewsNextCursor}
+          onLoadMoreDirects={() => {
+            void loadMoreFriends();
+            void loadMorePreviews();
+          }}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}

@@ -14,4 +14,9 @@ export interface Friendship {
 
 export interface ListFriendshipsResponse {
   friends: Friendship[];
+  nextCursor: string | null;
+}
+
+export interface FriendIdsResponse {
+  friends: { friendId: string; status: FriendshipStatus }[];
 }

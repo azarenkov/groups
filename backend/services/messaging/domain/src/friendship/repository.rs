@@ -1,3 +1,4 @@
+use domain::pagination::KeysetCursor;
 use async_trait::async_trait;
 
 use crate::{friendship::status::FriendshipStatus, friendship::view::FriendshipView, friendship::Friendship};
@@ -16,5 +17,12 @@ pub trait FriendshipRepository {
         &self,
         user_id: &UserId,
         status: Option<FriendshipStatus>,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
     ) -> Result<Vec<FriendshipView>, RepositoryError>;
+
+    async fn list_statuses_for_user(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<(UserId, FriendshipStatus)>, RepositoryError>;
 }

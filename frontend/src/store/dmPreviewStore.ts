@@ -13,10 +13,14 @@ export interface DmPreview {
 
 interface DmPreviewState {
   byFriend: Record<string, DmPreview>;
+  nextCursor: string | null;
+  isLoadingMore: boolean;
   setAll: (
     items: (DmPreview & { peerId: string })[],
     replace?: boolean,
   ) => void;
+  setNextCursor: (cursor: string | null) => void;
+  loadMore: () => Promise<void>;
   push: (friendId: string, preview: DmPreview) => void;
   editMessage: (
     messageId: string,
@@ -29,6 +33,24 @@ interface DmPreviewState {
 
 export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
+  nextCursor: null,
+  isLoadingMore: false,
+
+  setNextCursor: (cursor) => set({ nextCursor: cursor }),
+
+  loadMore: async () => {
+    const { nextCursor, isLoadingMore } = get();
+    if (!nextCursor || isLoadingMore) return;
+    set({ isLoadingMore: true });
+    try {
+      const { dmAPI } = await import("../api/dm");
+      const res = await dmAPI.listPreviews({ cursor: nextCursor });
+      get().setAll(res.previews);
+      set({ nextCursor: res.nextCursor, isLoadingMore: false });
+    } catch {
+      set({ isLoadingMore: false });
+    }
+  },
 
   setAll: (items, replace = false) =>
     set((s) => {
@@ -90,14 +112,18 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   hasMessage: (messageId) =>
     Object.values(get().byFriend).some((p) => p.messageId === messageId),
 
-  clear: () => set({ byFriend: {} }),
+  clear: () => set({ byFriend: {}, nextCursor: null, isLoadingMore: false }),
 }));
 
 export function refetchDmPreviews(replace = false): void {
   void import("../api/dm").then(({ dmAPI }) =>
     dmAPI
       .listPreviews()
-      .then((res) => useDmPreviewStore.getState().setAll(res.previews, replace))
+      .then((res) => {
+        const store = useDmPreviewStore.getState();
+        store.setAll(res.previews, replace);
+        if (replace || store.nextCursor === null) store.setNextCursor(res.nextCursor);
+      })
       .catch(() => {}),
   );
 }

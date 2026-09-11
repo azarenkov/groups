@@ -155,6 +155,8 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   React.useEffect(() => {
     if (canManageInvites) return;
     setLinks([]);
+    setPrimaryLink(null);
+    setLinksCursor(null);
     setSection((cur) => (cur === "invites" ? "overview" : cur));
   }, [canManageInvites]);
 
@@ -408,23 +410,44 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const selfOnline = usePresenceStore((s) => s.selfOnline);
 
   const [links, setLinks] = React.useState<InviteLink[]>([]);
+  const [primaryLink, setPrimaryLink] = React.useState<InviteLink | null>(null);
+  const [linksCursor, setLinksCursor] = React.useState<string | null>(null);
+  const [linksLoadingMore, setLinksLoadingMore] = React.useState(false);
   const [linkName, setLinkName] = React.useState("");
   const [expiryDays, setExpiryDays] = React.useState<number>(0);
   const [maxUses, setMaxUses] = React.useState<number>(0);
   const [copied, setCopied] = React.useState<string | null>(null);
   const [linkBusy, setLinkBusy] = React.useState(false);
   const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const primaryLink = links.find((l) => l.isPrimary) ?? null;
-  const extraLinks = links.filter((l) => !l.isPrimary);
+  const extraLinks = links;
 
   const loadLinks = React.useCallback(async () => {
     try {
       const res = await serverAPI.listInviteLinks(server.id);
+      setPrimaryLink(res.primary);
       setLinks(res.links);
+      setLinksCursor(res.nextCursor);
     } catch {
       return;
     }
   }, [server.id]);
+
+  const loadMoreLinks = async () => {
+    if (!linksCursor || linksLoadingMore) return;
+    setLinksLoadingMore(true);
+    try {
+      const res = await serverAPI.listInviteLinks(server.id, { cursor: linksCursor });
+      setLinks((prev) => {
+        const known = new Set(prev.map((l) => l.token));
+        return [...prev, ...res.links.filter((l) => !known.has(l.token))];
+      });
+      setLinksCursor(res.nextCursor);
+    } catch {
+      return;
+    } finally {
+      setLinksLoadingMore(false);
+    }
+  };
 
   React.useEffect(() => {
     if (!canManageInvites) return;
@@ -448,7 +471,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
         expiresDays: expiryDays || undefined,
         maxUses: maxUses || undefined,
       });
-      setLinks((prev) => [...prev, created]);
+      setLinks((prev) => [created, ...prev]);
       setLinkName("");
     } catch {
       return;
@@ -1298,6 +1321,16 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                       </React.Fragment>
                     ))}
                   </div>
+                  {linksCursor && (
+                    <button
+                      type="button"
+                      className="ssv-link-btn"
+                      disabled={linksLoadingMore}
+                      onClick={() => void loadMoreLinks()}
+                    >
+                      {t("loadMoreLinks")}
+                    </button>
+                  )}
                 </>
               )}
 

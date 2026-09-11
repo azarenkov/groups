@@ -306,6 +306,15 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
   text-transform: uppercase; color: var(--fg-3);
 }
 .sb-empty { padding: 12px 12px; font-size: 12px; color: var(--fg-3); }
+.sb-load-more {
+  display: block; width: 100%;
+  margin: 4px 0 8px; padding: 8px 12px;
+  border: 0; border-radius: 10px;
+  background: transparent; color: var(--fg-3);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background 140ms var(--ease-spring), color 140ms;
+}
+.sb-load-more:hover { background: var(--bg-3); color: var(--fg-1); }
 
 /* ---- DM rows ---- */
 .sb-dm {
@@ -4598,6 +4607,16 @@ button.ssv-row-delete:focus-visible {
 .ssv-invite-code-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ssv-invite-mono { font: 600 14px/1 var(--font-mono); color: var(--fg-1); }
 .ssv-invite-by { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+.ssv-link-btn {
+  margin-top: 8px; padding: 8px 12px;
+  border: 0; border-radius: 9px;
+  background: transparent; color: var(--fg-3);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background 140ms var(--ease-spring), color 140ms;
+}
+.ssv-link-btn:hover:not(:disabled) { background: var(--bg-3); color: var(--fg-1); }
+.ssv-link-btn:disabled { opacity: 0.6; cursor: default; }
+
 .ssv-icon-btn {
   width: 34px; height: 34px;
   border: 0; border-radius: 9px;

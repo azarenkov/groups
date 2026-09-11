@@ -140,6 +140,7 @@ const App: React.FC = () => {
           const res = await dmAPI.listPreviews();
           if (cancelled) return;
           useDmPreviewStore.getState().setAll(res.previews);
+          useDmPreviewStore.getState().setNextCursor(res.nextCursor);
         } catch (err) {
           if (!cancelled) console.warn("[App] failed to load dm previews:", err);
         }

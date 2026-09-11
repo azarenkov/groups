@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use messaging_domain::{friendship::Friendship, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::view::FriendshipView};
+use chrono::{DateTime, Utc};
+use domain::pagination::KeysetCursor;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
@@ -54,67 +56,58 @@ impl FriendshipRepository for PostgresFriendshipRepository {
         &self,
         user_id: &UserId,
         status: Option<FriendshipStatus>,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
     ) -> Result<Vec<FriendshipView>, RepositoryError> {
-        let rows = match status {
-            Some(s) => {
-                let status_dto = FriendshipStatusDto::from(s);
-                sqlx::query!(
-                    r#"
-                    SELECT
-                        f.user_id, f.friend_id,
-                        f.status AS "status: FriendshipStatusDto",
-                        u.name AS friend_name,
-                        f.created_at, f.updated_at
-                    FROM friendships f
-                    INNER JOIN messaging_user_profiles u ON u.user_id = f.friend_id
-                    WHERE f.user_id = $1 AND f.status = $2
-                    ORDER BY f.updated_at DESC
-                    "#,
-                    user_id.uuid(),
-                    status_dto as FriendshipStatusDto,
-                )
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_sqlx_error_to_domain_error)?
-                .into_iter()
-                .map(|r| FriendshipView {
-                    user_id: UserId::new(r.user_id),
-                    friend_id: UserId::new(r.friend_id),
-                    friend_name: r.friend_name,
-                    status: FriendshipStatus::from(r.status),
-                    created_at: r.created_at,
-                    updated_at: r.updated_at,
-                })
-                .collect()
-            }
-            None => sqlx::query!(
+        let cursor_at = cursor.map(|c| c.at);
+        let cursor_id = cursor.and_then(|c| uuid::Uuid::parse_str(&c.key).ok());
+        let rows: Vec<(uuid::Uuid, uuid::Uuid, FriendshipStatusDto, String, DateTime<Utc>, DateTime<Utc>)> =
+            sqlx::query_as(
                 r#"
-                SELECT
-                    f.user_id, f.friend_id,
-                    f.status AS "status: FriendshipStatusDto",
-                    u.name AS friend_name,
-                    f.created_at, f.updated_at
+                SELECT f.user_id, f.friend_id, f.status, u.name, f.created_at, f.updated_at
                 FROM friendships f
                 INNER JOIN messaging_user_profiles u ON u.user_id = f.friend_id
                 WHERE f.user_id = $1
-                ORDER BY f.updated_at DESC
+                  AND ($2::friendship_status IS NULL OR f.status = $2)
+                  AND ($3::timestamptz IS NULL OR (f.updated_at, f.friend_id) < ($3, $4::uuid))
+                ORDER BY f.updated_at DESC, f.friend_id DESC
+                LIMIT $5
                 "#,
-                user_id.uuid(),
             )
+            .bind(user_id.uuid())
+            .bind(status.map(FriendshipStatusDto::from))
+            .bind(cursor_at)
+            .bind(cursor_id)
+            .bind(limit)
             .fetch_all(&self.pool)
             .await
-            .map_err(map_sqlx_error_to_domain_error)?
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
             .into_iter()
-            .map(|r| FriendshipView {
-                user_id: UserId::new(r.user_id),
-                friend_id: UserId::new(r.friend_id),
-                friend_name: r.friend_name,
-                status: FriendshipStatus::from(r.status),
-                created_at: r.created_at,
-                updated_at: r.updated_at,
+            .map(|(user_id, friend_id, status, friend_name, created_at, updated_at)| FriendshipView {
+                user_id: UserId::new(user_id),
+                friend_id: UserId::new(friend_id),
+                friend_name,
+                status: FriendshipStatus::from(status),
+                created_at,
+                updated_at,
             })
-            .collect(),
-        };
-        Ok(rows)
+            .collect())
+    }
+
+    async fn list_statuses_for_user(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Vec<(UserId, FriendshipStatus)>, RepositoryError> {
+        let rows: Vec<(uuid::Uuid, FriendshipStatusDto)> =
+            sqlx::query_as("SELECT friend_id, status FROM friendships WHERE user_id = $1")
+                .bind(user_id.uuid())
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|(id, status)| (UserId::new(id), FriendshipStatus::from(status)))
+            .collect())
     }
 }

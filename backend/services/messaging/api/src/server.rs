@@ -10,7 +10,7 @@ use validator::Validate;
 
 use crate::state::AppState;
 use api_common::{context::request_context};
-use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
+use api_common::dto::{cursor::CursorQuery, pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
 use crate::dto::{requests::server::{ create_server::CreateServerRequestBody, update_server::UpdateServerRequestBody, }, responses::server::{ create_server::CreateServerResponse, invite_links::{InviteLinkResponse, ListInviteLinksResponse}, list_sent_server_invites::ListSentServerInvitesResponse, list_server_channels::ListServerChannelsResponse, list_server_members::ListServerMembersResponse, list_servers_by_user::ListServersByUserResponse, }};
 use crate::http_errors::HttpError;
 
@@ -316,17 +316,25 @@ async fn list_invite_links(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
+    query: web::Query<CursorQuery>,
 ) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
+    let (cursor, limit) = query.keyset().map_err(|_| {
+        HttpError::new("Invalid cursor".to_string(), StatusCode::BAD_REQUEST, "INVALID_CURSOR")
+    })?;
 
-    let links = app_state
+    let result = app_state
         .list_invite_links_usecase
-        .execute(server_id, user_id)
+        .execute(server_id, user_id, cursor, limit)
         .await?;
 
     let response = ListInviteLinksResponse {
-        links: links
+        primary: InviteLinkResponse::from_link(result.primary, &app_state.public_app_url),
+        next_cursor: result.page.next_cursor.as_ref().map(|c| c.encode()),
+        links: result
+            .page
+            .items
             .into_iter()
             .map(|link| InviteLinkResponse::from_link(link, &app_state.public_app_url))
             .collect(),

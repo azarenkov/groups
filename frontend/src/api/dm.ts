@@ -99,7 +99,7 @@ class DmAPI {
     };
   }
 
-  async listPreviews(): Promise<{
+  async listPreviews(opts: { cursor?: string | null; limit?: number } = {}): Promise<{
     previews: {
       messageId: string;
       peerId: string;
@@ -111,8 +111,11 @@ class DmAPI {
       hasAttachments: boolean;
       createdAt: string;
     }[];
+    nextCursor: string | null;
   }> {
-    const response = await this.client.get(`/v1/users/me/dms/previews`);
+    const response = await this.client.get(`/v1/users/me/dms/previews`, {
+      params: { cursor: opts.cursor ?? undefined, limit: opts.limit },
+    });
     return response.data.data;
   }
 

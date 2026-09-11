@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use messaging_domain::{dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository};
-use domain::user::id::UserId;
+use domain::{pagination::{KeysetCursor, Page}, user::id::UserId};
 use ports::repository::RepositoryError;
 
 #[derive(Debug, thiserror::Error)]
@@ -22,11 +22,15 @@ impl<M: DmMessageRepository> ListDmPreviews<M> {
     pub async fn execute(
         &self,
         user_id: UserId,
-    ) -> Result<Vec<DmConversationPreview>, ListDmPreviewsError> {
+        cursor: Option<KeysetCursor>,
+        limit: i64,
+    ) -> Result<Page<DmConversationPreview>, ListDmPreviewsError> {
         let previews = self
             .dm_repository
-            .list_conversation_previews(&user_id)
+            .list_conversation_previews(&user_id, cursor.as_ref(), limit)
             .await?;
-        Ok(previews)
+        Ok(Page::from_overfetch(previews, limit, |p| {
+            KeysetCursor::new(p.created_at, p.message_id.to_string())
+        }))
     }
 }
