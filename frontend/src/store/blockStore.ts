@@ -32,6 +32,11 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
 
 let mutationGen = 0;
 let fetchSeq = 0;
+let peerGens: Record<string, number> = {};
+
+const bumpPeer = (userId: string) => {
+  peerGens[userId] = (peerGens[userId] ?? 0) + 1;
+};
 let outgoingVersions: Record<string, string> = {};
 let incomingVersions: Record<string, string> = {};
 
@@ -76,6 +81,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         const added = Object.keys(blocked).filter((id) => !previous[id]);
         const removed = Object.keys(previous).filter((id) => !blocked[id]);
         if (added.length > 0 || removed.length > 0) mutationGen += 1;
+        for (const id of [...added, ...removed]) bumpPeer(id);
         set({ blocked, loaded: true });
         for (const id of added) forgetStatus(id);
         if (removed.length > 0) {
@@ -97,6 +103,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     const { occurredAt } = await friendshipAPI.block(userId);
     if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
+    bumpPeer(userId);
     forgetStatus(userId);
     set((state) => ({
       blocked: {
@@ -115,17 +122,18 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   unblock: async (userId) => {
-    const gen = mutationGen;
+    const gen = blockGeneration(userId);
     let occurredAt: string | undefined;
     try {
       ({ occurredAt } = await friendshipAPI.unblock(userId));
     } catch (err) {
       if (!(err instanceof ApiError) || err.code !== "USER_NOT_BLOCKED") throw err;
-      if (gen !== mutationGen) return;
+      if (gen !== blockGeneration(userId)) return;
       void get().fetch();
     }
     if (occurredAt !== undefined && !recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
+    bumpPeer(userId);
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
     void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
     void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
@@ -140,6 +148,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       return false;
     }
     mutationGen += 1;
+    bumpPeer(blockerId === selfId ? blockedId : blockerId);
     if (blockerId === selfId) {
       if (active) {
         set((state) => ({
@@ -163,11 +172,14 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   applyRelation: (userId, relation, gen) => {
-    if (gen !== undefined && gen !== mutationGen) return;
+    if (gen !== undefined && gen !== blockGeneration(userId)) return;
     const wasBlockedBy = !!get().blockedBy[userId];
     const known = !!get().blocked[userId];
     const changed = wasBlockedBy !== relation.blockedBy || known !== relation.blocked;
-    if (changed) mutationGen += 1;
+    if (changed) {
+      mutationGen += 1;
+      bumpPeer(userId);
+    }
     get().markBlockedBy(userId, relation.blockedBy);
     if (relation.blocked && !known) {
       forgetStatus(userId);
@@ -197,13 +209,14 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   clearAll: () => {
     mutationGen += 1;
+    peerGens = {};
     outgoingVersions = {};
     incomingVersions = {};
     set({ blocked: {}, blockedBy: {}, loaded: false });
   },
 }));
 
-export const blockGeneration = (): number => mutationGen;
+export const blockGeneration = (userId: string): number => peerGens[userId] ?? 0;
 
 export const isBlockedEitherWay = (userId: string): boolean => {
   const s = useBlockStore.getState();

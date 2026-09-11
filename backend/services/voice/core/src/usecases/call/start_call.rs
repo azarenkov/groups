@@ -202,15 +202,43 @@ where
         invitees: &[UserId],
         request_id: Option<String>,
     ) -> Result<usize, StartCallError> {
-        let mut remaining = invitees.len();
+        let mut kept: Vec<UserId> = Vec::new();
         for invitee in invitees {
             if self.friendship_repository.is_blocked(caller_id, invitee).await? {
                 self.call_repository
                     .leave(call_id, invitee, Utc::now(), request_id.clone())
                     .await?;
-                remaining -= 1;
+            } else {
+                kept.push(*invitee);
             }
         }
-        Ok(remaining)
+        let mut index = 0;
+        while index < kept.len() {
+            let mut evicted_current = false;
+            let mut other = index + 1;
+            while other < kept.len() {
+                let relation = self
+                    .friendship_repository
+                    .block_relation(&kept[index], &kept[other])
+                    .await?;
+                if !relation.any() {
+                    other += 1;
+                    continue;
+                }
+                let blocker_position = if relation.blocking { index } else { other };
+                let blocker = kept.remove(blocker_position);
+                self.call_repository
+                    .leave(call_id, &blocker, Utc::now(), request_id.clone())
+                    .await?;
+                if blocker_position == index {
+                    evicted_current = true;
+                    break;
+                }
+            }
+            if !evicted_current {
+                index += 1;
+            }
+        }
+        Ok(kept.len())
     }
 }

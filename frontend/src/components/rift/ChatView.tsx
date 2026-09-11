@@ -181,7 +181,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     if (!blockPeerId) return;
     let cancelled = false;
-    const gen = blockGeneration();
+    const gen = blockGeneration(blockPeerId);
     friendshipAPI
       .blockRelation(blockPeerId)
       .then((relation) => {
@@ -1336,7 +1336,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         reportComposerError(i18n.t("userBlocked", { ns: "chat" }));
         if (dm) {
           const peerId = dm.friendId;
-          const gen = blockGeneration();
+          const gen = blockGeneration(peerId);
           void friendshipAPI
             .blockRelation(peerId)
             .then((relation) => useBlockStore.getState().applyRelation(peerId, relation, gen))

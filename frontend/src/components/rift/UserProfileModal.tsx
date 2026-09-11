@@ -114,7 +114,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   React.useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    const gen = blockGeneration();
+    const gen = blockGeneration(userId);
     homeAPI
       .profile(userId)
       .then((p) => {
