@@ -274,7 +274,12 @@ function dispatch(env: WsEnvelope) {
         if (blockerId === selfId && sharesCall) void calls.leave().catch(() => {});
       }
       useActivityStore.getState().apply(peer, null);
-      if (env.type === "user.unblocked") void loadActivitiesFor([peer]);
+      if (env.type === "user.unblocked") {
+        void loadActivitiesFor([peer]);
+        void import("../store/unreadStore").then(({ refetchUnread }) =>
+          refetchUnread().catch(() => {}),
+        );
+      }
       scheduleHomeRefresh();
       void useFriendshipStore
         .getState()
