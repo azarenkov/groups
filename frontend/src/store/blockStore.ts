@@ -65,6 +65,28 @@ const resyncPresence = (ids: string[]) => {
   );
 };
 
+const leaveSharedCall = (userId: string) => {
+  void import("./callStore").then((m) => {
+    const calls = m.useCallStore.getState();
+    const shares =
+      !!calls.activeCallId &&
+      (!!calls.participants[userId] || calls.ringing.includes(userId) || calls.peerId === userId);
+    if (shares) void calls.leave().catch(() => {});
+  });
+};
+
+const reconcileAfterHydration = (blockedIds: string[], blockedByIds: string[]) => {
+  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+  void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
+  void import("./callStore").then((m) => {
+    const calls = m.useCallStore.getState();
+    for (const id of [...blockedIds, ...blockedByIds]) {
+      if (calls.incoming?.callerId === id) calls.clearIncoming();
+      calls.clearJoinable(id);
+    }
+  });
+};
+
 const recoverStatus = (userId: string) => {
   void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
   void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
@@ -98,12 +120,17 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         const blocked: Record<string, BlockedUser> = {};
         for (const b of res.blocks) blocked[b.userId] = b;
         const previous = get().blocked;
+        const firstLoad = !get().loaded;
         const added = Object.keys(blocked).filter((id) => !previous[id]);
         const removed = Object.keys(previous).filter((id) => !blocked[id]);
         if (added.length > 0 || removed.length > 0) mutationGen += 1;
         for (const id of [...added, ...removed]) bumpPeer(id);
         set({ blocked, loaded: true });
-        for (const id of added) forgetStatus(id);
+        for (const id of added) {
+          forgetStatus(id);
+          leaveSharedCall(id);
+        }
+        if (firstLoad) reconcileAfterHydration(Object.keys(blocked), Object.keys(get().blockedBy));
         if (removed.length > 0) {
           void import("./activityStore").then((m) => m.loadActivitiesFor(removed));
           void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
@@ -126,6 +153,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     mutationGen += 1;
     bumpPeer(userId);
     forgetStatus(userId);
+    leaveSharedCall(userId);
     set((state) => ({
       blocked: {
         ...state.blocked,
@@ -206,6 +234,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     get().markBlockedBy(userId, relation.blockedBy);
     if (relation.blocked && !known) {
       forgetStatus(userId);
+      leaveSharedCall(userId);
       set((state) => ({
         blocked: {
           ...state.blocked,
