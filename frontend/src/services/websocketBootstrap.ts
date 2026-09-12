@@ -261,6 +261,9 @@ function dispatch(env: WsEnvelope) {
       const peer = blockerId === selfId ? blockedId : blockerId;
       if (env.type === "user.blocked") {
         useUnreadStore.getState().resetDm(peer);
+        void import("../store/unreadStore").then(({ refetchUnread }) =>
+          refetchUnread().catch(() => {}),
+        );
         usePresenceStore.getState().setOffline(peer);
         const calls = useCallStore.getState();
         if (calls.incoming?.callerId === peer) calls.clearIncoming();
@@ -272,6 +275,7 @@ function dispatch(env: WsEnvelope) {
       }
       useActivityStore.getState().apply(peer, null);
       if (env.type === "user.unblocked") void loadActivitiesFor([peer]);
+      scheduleHomeRefresh();
       void useFriendshipStore
         .getState()
         .fetchFriends()

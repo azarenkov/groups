@@ -85,12 +85,19 @@ where
             leaving.push(*blocked);
         }
         let room = ChannelId::new(call_id);
-        for user in &leaving {
-            self.voice_service.remove_participant(&room, user).await?;
-        }
         self.call_repository
             .leave_many(call_id, &leaving, Utc::now(), request_id)
             .await?;
-        Ok(())
+        let mut removal_error = None;
+        for user in &leaving {
+            if let Err(e) = self.voice_service.remove_participant(&room, user).await {
+                tracing::warn!(error = %e, %call_id, user_id = %user.uuid(), "Failed to remove an evicted participant from the room");
+                removal_error.get_or_insert(e);
+            }
+        }
+        match removal_error {
+            Some(e) => Err(e.into()),
+            None => Ok(()),
+        }
     }
 }
