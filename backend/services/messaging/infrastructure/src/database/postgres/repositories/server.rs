@@ -40,6 +40,7 @@ impl PostgresServerRepository {
                 OR EXISTS(SELECT 1 FROM messages WHERE author_id = $1)
                 OR EXISTS(SELECT 1 FROM dm_messages WHERE sender_id = $1)
                 OR EXISTS(SELECT 1 FROM dm_messages WHERE recipient_id = $1)
+                OR EXISTS(SELECT 1 FROM user_blocks WHERE blocker_id = $1 OR blocked_id = $1)
             "#,
         )
         .bind(user_id)

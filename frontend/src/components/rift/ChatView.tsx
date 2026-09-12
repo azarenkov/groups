@@ -1606,6 +1606,10 @@ const ChatView: React.FC<ChatViewProps> = ({
               <div className="empty-state">
                 <p>{searchError}</p>
               </div>
+            ) : !dm && !blocksLoaded ? (
+              <div className="msg-loader">
+                <span className="loading-spinner" />
+              </div>
             ) : searchResults.length === 0 ? (
               <div className="empty-state">
                 <div className="icon-wrap">
