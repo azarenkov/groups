@@ -102,6 +102,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         leave_call_usecase: LeaveCall::new(call_repository.clone()),
         add_call_participants_usecase: AddCallParticipants::new(
             call_repository.clone(),
+            livekit_service.clone(),
             friendship_lookup.clone(),
             user_repository.clone(),
         ),

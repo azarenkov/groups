@@ -33,6 +33,7 @@ pub struct AppState {
     pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
     pub add_call_participants_usecase: AddCallParticipants<
         PostgresCallRepository,
+        LiveKitService,
         MessagingFriendshipClient,
         PostgresUserProfileRepository,
     >,

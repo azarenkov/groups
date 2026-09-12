@@ -162,7 +162,8 @@ where
             .evict_blocked_invitees(call_id, &caller_id, &invitees, request.ctx.request_id.clone())
             .await
         {
-            Ok(remaining) => remaining,
+            Ok(Some(remaining)) => remaining,
+            Ok(None) => 0,
             Err(e) => {
                 let mut everyone = invitees.clone();
                 everyone.push(caller_id);
@@ -203,10 +204,14 @@ where
         caller_id: &UserId,
         invitees: &[UserId],
         request_id: Option<String>,
-    ) -> Result<usize, StartCallError> {
+    ) -> Result<Option<usize>, StartCallError> {
         let mut kept: Vec<UserId> = Vec::new();
         for invitee in invitees {
-            if self.friendship_repository.is_blocked(caller_id, invitee).await? {
+            let relation = self.friendship_repository.block_relation(caller_id, invitee).await?;
+            if relation.blocking {
+                return Ok(None);
+            }
+            if relation.blocked_by {
                 self.call_repository
                     .leave(call_id, invitee, Utc::now(), request_id.clone())
                     .await?;
@@ -241,6 +246,6 @@ where
                 index += 1;
             }
         }
-        Ok(kept.len())
+        Ok(Some(kept.len()))
     }
 }

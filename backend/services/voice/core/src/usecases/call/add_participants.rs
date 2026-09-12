@@ -8,8 +8,12 @@ use ports::repository::RepositoryError;
 
 use crate::{
     dto::requests::call::add_participants::AddCallParticipantsRequest,
-    ports::friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+    ports::{
+        friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+        voice_service::VoiceService,
+    },
 };
+use domain::channel::id::ChannelId;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AddCallParticipantsError {
@@ -25,30 +29,35 @@ pub enum AddCallParticipantsError {
     FriendshipLookup(#[from] FriendshipLookupError),
 }
 
-pub struct AddCallParticipants<C, F, U>
+pub struct AddCallParticipants<C, V, F, U>
 where
     C: CallRepository,
+    V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
 {
     call_repository: Arc<C>,
+    voice_service: Arc<V>,
     friendship_repository: Arc<F>,
     user_repository: Arc<U>,
 }
 
-impl<C, F, U> AddCallParticipants<C, F, U>
+impl<C, V, F, U> AddCallParticipants<C, V, F, U>
 where
     C: CallRepository,
+    V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
 {
     pub fn new(
         call_repository: Arc<C>,
+        voice_service: Arc<V>,
         friendship_repository: Arc<F>,
         user_repository: Arc<U>,
     ) -> Self {
         Self {
             call_repository,
+            voice_service,
             friendship_repository,
             user_repository,
         }
@@ -114,37 +123,84 @@ where
                 return Err(e.into());
             }
         };
-        match self.blocked_among(&added).await {
-            Ok(false) => {}
-            Ok(true) => {
-                self.withdraw(request.call_id, &added, request.ctx.request_id).await;
-                return Err(AddCallParticipantsError::CallNotAllowed);
-            }
+        let room = ChannelId::new(request.call_id);
+        let mut withdrawn: Vec<UserId> = match self.blockers_among(&added).await {
+            Ok(list) => list,
             Err(e) => {
                 self.withdraw(request.call_id, &added, request.ctx.request_id).await;
                 return Err(e.into());
             }
-        }
-        let mut remaining = added.len();
-        for invitee in &added {
-            let blocked = match self.blocked_with_roster(invitee, &roster).await {
-                Ok(blocked) => blocked,
+        };
+        let candidates: Vec<UserId> = added.iter().copied().filter(|i| !withdrawn.contains(i)).collect();
+        for invitee in &candidates {
+            match self
+                .reconcile_with_roster(request.call_id, &room, invitee, &roster, request.ctx.request_id.clone())
+                .await
+            {
+                Ok(true) => withdrawn.push(*invitee),
+                Ok(false) => {}
                 Err(e) => {
-                    self.withdraw(request.call_id, &added, request.ctx.request_id).await;
+                    let pending: Vec<UserId> = added.iter().copied().filter(|i| !withdrawn.contains(i)).collect();
+                    self.withdraw(request.call_id, &pending, request.ctx.request_id).await;
                     return Err(e.into());
                 }
-            };
-            if blocked {
-                self.call_repository
-                    .leave(request.call_id, invitee, Utc::now(), request.ctx.request_id.clone())
-                    .await?;
-                remaining -= 1;
             }
         }
-        if remaining == 0 && !added.is_empty() {
+        if !withdrawn.is_empty() {
+            self.call_repository
+                .leave_many(request.call_id, &withdrawn, Utc::now(), request.ctx.request_id)
+                .await?;
+        }
+        if !added.is_empty() && withdrawn.len() == added.len() {
             return Err(AddCallParticipantsError::CallNotAllowed);
         }
         Ok(())
+    }
+
+    async fn blockers_among(&self, users: &[UserId]) -> Result<Vec<UserId>, FriendshipLookupError> {
+        let mut blockers: Vec<UserId> = Vec::new();
+        for (index, a) in users.iter().enumerate() {
+            for b in &users[index + 1..] {
+                let relation = self.friendship_repository.block_relation(a, b).await?;
+                if relation.blocking && !blockers.contains(a) {
+                    blockers.push(*a);
+                }
+                if relation.blocked_by && !blockers.contains(b) {
+                    blockers.push(*b);
+                }
+            }
+        }
+        Ok(blockers)
+    }
+
+    async fn reconcile_with_roster(
+        &self,
+        call_id: Uuid,
+        room: &ChannelId,
+        invitee: &UserId,
+        roster: &[UserId],
+        request_id: Option<String>,
+    ) -> Result<bool, FriendshipLookupError> {
+        for other in roster.iter().filter(|other| *other != invitee) {
+            let relation = self.friendship_repository.block_relation(invitee, other).await?;
+            if relation.blocking {
+                return Ok(true);
+            }
+            if relation.blocked_by {
+                if let Err(e) = self
+                    .call_repository
+                    .leave_many(call_id, &[*other], Utc::now(), request_id.clone())
+                    .await
+                {
+                    tracing::error!(error = %e, %call_id, user_id = %other.uuid(), "Failed to evict a blocking participant");
+                    continue;
+                }
+                if let Err(e) = self.voice_service.remove_participant(room, other).await {
+                    tracing::warn!(error = %e, %call_id, user_id = %other.uuid(), "Failed to remove a blocking participant from the room");
+                }
+            }
+        }
+        Ok(false)
     }
 
     async fn roster(&self, call_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
