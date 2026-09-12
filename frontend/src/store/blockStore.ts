@@ -114,7 +114,10 @@ const forgetStatus = (userId: string) => {
   usePresenceStore.getState().setOffline(userId);
   void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
   void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
-  void import("./unreadStore").then((m) => m.useUnreadStore.getState().resetDm(userId));
+  void import("./unreadStore").then((m) => {
+    m.useUnreadStore.getState().resetDm(userId);
+    void m.refetchUnread().catch(() => {});
+  });
   void import("./callStore").then((m) => {
     const calls = m.useCallStore.getState();
     if (calls.incoming?.callerId === userId) calls.clearIncoming();
