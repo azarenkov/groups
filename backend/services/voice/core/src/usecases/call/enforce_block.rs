@@ -52,7 +52,12 @@ where
         blocked: UserId,
         request_id: Option<String>,
     ) -> Result<(), EnforceBlockError> {
-        if !self.friendship_repository.is_blocked(&blocker, &blocked).await? {
+        if !self
+            .friendship_repository
+            .block_relation(&blocker, &blocked)
+            .await?
+            .blocking
+        {
             return Ok(());
         }
         for call_id in self

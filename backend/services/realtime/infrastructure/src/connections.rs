@@ -232,20 +232,20 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                         tracing::warn!(
                             error = %e,
                             user_id = %payload.user_id,
-                            "Failed to resolve presence recipients; skipping fanout",
+                            "Failed to resolve presence recipients; retrying in the background",
                         );
+                        tokio::spawn(retry_presence_fanout(
+                            resolver.clone(),
+                            by_user.clone(),
+                            online.clone(),
+                            payload.user_id,
+                            payload.online,
+                            text,
+                        ));
                         continue;
                     }
                 };
-                for recipient in interested {
-                    if let Some(slot) = by_user.get(&recipient) {
-                        let snapshot: Vec<Connection> = slot.conns.clone();
-                        drop(slot);
-                        for c in &snapshot {
-                            let _ = c.try_send(&text).await;
-                        }
-                    }
-                }
+                deliver_to(&by_user, &interested, &text).await;
             }
         });
         Ok(())
@@ -312,18 +312,18 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             }
         };
 
-        let interested = match self.presence_resolver.interested_in(user_id).await {
-            Ok(v) => v,
-            Err(e) => {
-                tracing::warn!(error = %e, %user_id, "Failed to resolve presence snapshot recipients");
-                Vec::new()
+        match self.presence_resolver.interested_in(user_id).await {
+            Ok(interested) => {
+                send_online_snapshot(&self.online_snapshot, &interested, &snapshot_conn).await;
             }
-        };
-        for other_id in interested {
-            if self.online_snapshot.contains_key(&other_id) {
-                let env = serde_json::to_string(&PresenceUpdate::online(other_id).envelope())
-                    .unwrap_or_default();
-                let _ = snapshot_conn.try_send(&env).await;
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, "Failed to resolve presence snapshot recipients; retrying in the background");
+                tokio::spawn(retry_presence_snapshot(
+                    self.presence_resolver.clone(),
+                    self.by_user.clone(),
+                    self.online_snapshot.clone(),
+                    snapshot_conn,
+                ));
             }
         }
 
@@ -377,6 +377,88 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
 }
 
 #[allow(clippy::too_many_arguments)]
+const PRESENCE_RETRY_ATTEMPTS: u32 = 8;
+
+fn presence_retry_delay(attempt: u32) -> std::time::Duration {
+    std::time::Duration::from_secs((1u64 << attempt.min(5)).min(30))
+}
+
+async fn deliver_to(by_user: &DashMap<Uuid, UserSlot>, recipients: &[Uuid], text: &str) {
+    for recipient in recipients {
+        if let Some(slot) = by_user.get(recipient) {
+            let snapshot: Vec<Connection> = slot.conns.clone();
+            drop(slot);
+            for c in &snapshot {
+                let _ = c.try_send(text).await;
+            }
+        }
+    }
+}
+
+async fn send_online_snapshot(online: &DashMap<Uuid, ()>, interested: &[Uuid], conn: &Connection) {
+    for other_id in interested {
+        if online.contains_key(other_id) {
+            let env = serde_json::to_string(&PresenceUpdate::online(*other_id).envelope())
+                .unwrap_or_default();
+            let _ = conn.try_send(&env).await;
+        }
+    }
+}
+
+async fn retry_presence_fanout<D: RecipientDirectory>(
+    resolver: Arc<D>,
+    by_user: Arc<DashMap<Uuid, UserSlot>>,
+    online: Arc<DashMap<Uuid, ()>>,
+    user_id: Uuid,
+    was_online: bool,
+    text: String,
+) {
+    for attempt in 0..PRESENCE_RETRY_ATTEMPTS {
+        tokio::time::sleep(presence_retry_delay(attempt)).await;
+        if online.contains_key(&user_id) != was_online {
+            return;
+        }
+        match resolver.interested_in(user_id).await {
+            Ok(interested) => {
+                deliver_to(&by_user, &interested, &text).await;
+                return;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, attempt, "Presence fanout retry failed");
+            }
+        }
+    }
+    tracing::error!(%user_id, "Gave up delivering a presence update after repeated lookup failures");
+}
+
+async fn retry_presence_snapshot<D: RecipientDirectory>(
+    resolver: Arc<D>,
+    by_user: Arc<DashMap<Uuid, UserSlot>>,
+    online: Arc<DashMap<Uuid, ()>>,
+    conn: Connection,
+) {
+    for attempt in 0..PRESENCE_RETRY_ATTEMPTS {
+        tokio::time::sleep(presence_retry_delay(attempt)).await;
+        let still_registered = by_user
+            .get(&conn.user_id)
+            .map(|slot| slot.conns.iter().any(|c| c.id == conn.id))
+            .unwrap_or(false);
+        if !still_registered {
+            return;
+        }
+        match resolver.interested_in(conn.user_id).await {
+            Ok(interested) => {
+                send_online_snapshot(&online, &interested, &conn).await;
+                return;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, user_id = %conn.user_id, attempt, "Presence snapshot retry failed");
+            }
+        }
+    }
+    tracing::error!(user_id = %conn.user_id, "Gave up sending a presence snapshot after repeated lookup failures");
+}
+
 async fn block_presence_update<D: RecipientDirectory>(
     user_id: Uuid,
     payload: &str,

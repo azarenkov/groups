@@ -193,6 +193,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     } else if (!relation.blocked && known) {
       set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
     }
+    if (!get().loaded) void get().fetch();
   },
 
   markBlockedBy: (userId, active) => {
