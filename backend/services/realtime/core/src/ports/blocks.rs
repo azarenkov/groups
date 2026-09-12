@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
-pub enum BlockLookupError {
+pub enum RelationLookupError {
     #[error("Block lookup unavailable: {0}")]
     Unavailable(String),
 }
@@ -14,6 +14,7 @@ pub struct BlockSets {
 }
 
 #[async_trait]
-pub trait BlockDirectory: Send + Sync {
-    async fn block_relations(&self, user_id: Uuid, candidates: &[Uuid]) -> Result<BlockSets, BlockLookupError>;
+pub trait RelationDirectory: Send + Sync {
+    async fn block_relations(&self, user_id: Uuid, candidates: &[Uuid]) -> Result<BlockSets, RelationLookupError>;
+    async fn dm_peers(&self, user_id: Uuid, candidates: &[Uuid]) -> Result<Vec<Uuid>, RelationLookupError>;
 }

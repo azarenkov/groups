@@ -52,16 +52,34 @@ pub enum DispatchError {
     #[error("Publish error: {0}")]
     Publish(#[from] PublishError),
     #[error("Block lookup error: {0}")]
-    Blocks(#[from] crate::ports::blocks::BlockLookupError),
+    Blocks(#[from] crate::ports::blocks::RelationLookupError),
 }
 
-pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::BlockDirectory> {
+async fn confirm_pending_dm_peers<D: RecipientDirectory + RealtimeProjection, B: crate::ports::blocks::RelationDirectory>(
+    resolver: &D,
+    relations: &B,
+    user_id: Uuid,
+    recipients: &mut Vec<Uuid>,
+) -> Result<(), DispatchError> {
+    let pending = resolver.pending_dm_peers(user_id).await?;
+    if pending.is_empty() {
+        return Ok(());
+    }
+    let confirmed = relations.dm_peers(user_id, &pending).await?;
+    for peer in &confirmed {
+        resolver.record_dm_pair(user_id, *peer).await?;
+    }
+    recipients.extend(confirmed);
+    Ok(())
+}
+
+pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> {
     directory: std::sync::Arc<D>,
     publisher: std::sync::Arc<P>,
     blocks: std::sync::Arc<B>,
 }
 
-impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::BlockDirectory> DispatchEvent<D, P, B> {
+impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> DispatchEvent<D, P, B> {
     pub fn new(directory: std::sync::Arc<D>, publisher: std::sync::Arc<P>, blocks: std::sync::Arc<B>) -> Self {
         Self { directory, publisher, blocks }
     }
@@ -811,6 +829,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             }),
         );
         let mut recipients = resolver.profile_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
         let relations = blocks.block_relations(evt.user_id, &recipients).await?;
         recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);
@@ -850,6 +869,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             }),
         );
         let mut recipients = resolver.rename_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());

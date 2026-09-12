@@ -6,27 +6,27 @@ use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 use crate::ports::{
-    blocks::{BlockDirectory, BlockLookupError},
+    blocks::{RelationDirectory, RelationLookupError},
     directory::RecipientDirectory,
 };
 
-pub struct BlockAwareDirectory<D: RecipientDirectory, B: BlockDirectory> {
+pub struct BlockAwareDirectory<D: RecipientDirectory, B: RelationDirectory> {
     inner: Arc<D>,
     blocks: Arc<B>,
 }
 
-impl<D: RecipientDirectory, B: BlockDirectory> BlockAwareDirectory<D, B> {
+impl<D: RecipientDirectory, B: RelationDirectory> BlockAwareDirectory<D, B> {
     pub fn new(inner: Arc<D>, blocks: Arc<B>) -> Self {
         Self { inner, blocks }
     }
 }
 
-fn lookup_failed(e: BlockLookupError) -> RepositoryError {
+fn lookup_failed(e: RelationLookupError) -> RepositoryError {
     RepositoryError::ConnectionError(e.to_string())
 }
 
 #[async_trait]
-impl<D: RecipientDirectory, B: BlockDirectory> RecipientDirectory for BlockAwareDirectory<D, B> {
+impl<D: RecipientDirectory, B: RelationDirectory> RecipientDirectory for BlockAwareDirectory<D, B> {
     async fn server_members(&self, server_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         self.inner.server_members(server_id).await
     }
@@ -52,6 +52,10 @@ impl<D: RecipientDirectory, B: BlockDirectory> RecipientDirectory for BlockAware
             .map_err(lookup_failed)?;
         recipients.retain(|r| !relations.blocking.contains(r));
         Ok(recipients)
+    }
+
+    async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
+        self.inner.pending_dm_peers(user_id).await
     }
 
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {

@@ -13,7 +13,7 @@ use api_common::shutdown::{ShutdownConfig, ShutdownSignal, drain};
 use std::sync::Arc;
 
 use realtime_core::usecases::block_aware_directory::BlockAwareDirectory;
-use realtime_infrastructure::{connections::ConnectionManager, database::postgres::projection::PostgresRealtimeProjection, media_client::blocks::MessagingBlockClient};
+use realtime_infrastructure::{connections::ConnectionManager, database::postgres::projection::PostgresRealtimeProjection, media_client::relations::MessagingRelationsClient};
 
 use crate::{
     config::WebsocketConfig,
@@ -31,7 +31,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let presence_resolver = Arc::new(BlockAwareDirectory::new(
         Arc::new(PostgresRealtimeProjection::new(pg_pool.clone())),
-        Arc::new(MessagingBlockClient::new(&messaging_internal_url)),
+        Arc::new(MessagingRelationsClient::new(&messaging_internal_url)),
     ));
 
     let core = jetstream.client().clone();

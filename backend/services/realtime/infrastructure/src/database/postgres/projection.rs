@@ -122,6 +122,26 @@ impl PostgresRealtimeProjection {
         Ok(result.rows_affected() > 0)
     }
 
+    async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT e.friend_id
+            FROM realtime_friend_edges e
+            WHERE e.user_id = $1
+              AND e.removed
+              AND NOT EXISTS (
+                  SELECT 1 FROM realtime_dm_pairs p
+                  WHERE p.user_a = LEAST($1, e.friend_id)
+                    AND p.user_b = GREATEST($1, e.friend_id)
+              )
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+    }
+
     async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
@@ -378,5 +398,8 @@ impl RecipientDirectory for PostgresRealtimeProjection {
     }
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         self.interested_in_query(user_id).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
+        PostgresRealtimeProjection::pending_dm_peers(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
 }

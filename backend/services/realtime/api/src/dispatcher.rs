@@ -14,7 +14,7 @@ use std::{sync::Arc, time::Duration};
 use realtime_core::usecases::{apply_projection::ApplyProjection, dispatch_event::DispatchEvent};
 use realtime_infrastructure::{
     database::postgres::projection::PostgresRealtimeProjection,
-    media_client::blocks::MessagingBlockClient,
+    media_client::relations::MessagingRelationsClient,
     messaging::nats::{
         partitions::{DispatcherSettings, run_partitioned},
         projection_catchup::{CatchupSpec, run_catchup},
@@ -41,7 +41,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let projection = Arc::new(PostgresRealtimeProjection::new(pool.clone()));
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
-    let blocks = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
+    let blocks = Arc::new(MessagingRelationsClient::new(&messaging_internal_url));
     let dispatch = Arc::new(DispatchEvent::new(projection.clone(), publisher, blocks));
     let apply = Arc::new(ApplyProjection::new(projection));
     let settings = DispatcherSettings {

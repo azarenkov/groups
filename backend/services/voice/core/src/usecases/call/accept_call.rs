@@ -147,12 +147,8 @@ where
             .into_iter()
             .filter(|p| p.user_id != user_id)
             .collect();
-        let newcomers: Vec<UserId> = participants
-            .iter()
-            .filter(|p| !checked.contains(&p.user_id))
-            .map(|p| p.user_id)
-            .collect();
-        let blocked = match self.blocked_with_any(&user_id, &newcomers).await {
+        let roster: Vec<UserId> = participants.iter().map(|p| p.user_id).collect();
+        let blocked = match self.blocked_with_any(&user_id, &roster).await {
             Ok(blocked) => blocked,
             Err(e) => {
                 if let Err(rollback) = self.roll_back(call_id, &room, &user_id, request_id).await {

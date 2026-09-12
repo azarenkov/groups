@@ -351,6 +351,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         server_repository: server_repository.clone(),
         message_repository: message_repository.clone(),
+        dm_repository: dm_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         privacy_repository: privacy_repository.clone(),
         nats_core,

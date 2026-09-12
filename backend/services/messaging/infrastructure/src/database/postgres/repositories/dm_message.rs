@@ -447,6 +447,31 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .collect())
     }
 
+    async fn peers_with_history(
+        &self,
+        user_id: &UserId,
+        candidates: &[UserId],
+    ) -> Result<Vec<UserId>, RepositoryError> {
+        if candidates.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<Uuid> = candidates.iter().map(|c| c.uuid()).collect();
+        let rows: Vec<(Uuid,)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer
+            FROM dm_messages
+            WHERE (sender_id = $1 AND recipient_id = ANY($2))
+               OR (recipient_id = $1 AND sender_id = ANY($2))
+            "#,
+        )
+        .bind(user_id.uuid())
+        .bind(&ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
+    }
+
     async fn list_conversation_previews(
         &self,
         user_id: &UserId,

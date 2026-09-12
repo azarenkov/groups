@@ -1,4 +1,4 @@
-use realtime_core::ports::blocks::BlockDirectory;
+use realtime_core::ports::blocks::RelationDirectory;
 use std::time::Duration;
 
 use infrastructure_common::health::Heartbeat;
@@ -23,7 +23,7 @@ pub struct ConsumerSpec {
     pub start_position: StartPosition,
 }
 
-pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: BlockDirectory + 'static>(
+pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
     jetstream: async_nats::jetstream::Context,
     spec: ConsumerSpec,
     dispatch: Arc<DispatchEvent<D, P, B>>,
