@@ -59,6 +59,7 @@ const recoverStatus = (userId: string) => {
 
 const forgetStatus = (userId: string) => {
   usePresenceStore.getState().setOffline(userId);
+  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
   void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
   void import("./unreadStore").then((m) => m.useUnreadStore.getState().resetDm(userId));
   void import("./callStore").then((m) => {
@@ -129,17 +130,19 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   unblock: async (userId) => {
     const gen = blockGeneration(userId);
     let occurredAt: string | undefined;
+    let reconcile = false;
     try {
       ({ occurredAt } = await friendshipAPI.unblock(userId));
     } catch (err) {
       if (!(err instanceof ApiError) || err.code !== "USER_NOT_BLOCKED") throw err;
       if (gen !== blockGeneration(userId)) return;
-      void get().fetch();
+      reconcile = true;
     }
     if (occurredAt !== undefined && !recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
     bumpPeer(userId);
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+    if (reconcile) void get().fetch();
     void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
     void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
   },
