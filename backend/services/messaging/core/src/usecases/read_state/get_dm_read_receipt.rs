@@ -11,6 +11,8 @@ pub enum GetDmReadReceiptError {
     Repository(#[from] RepositoryError),
     #[error("No conversation with this user")]
     NoConversation,
+    #[error("This user is blocked")]
+    Blocked,
 }
 
 pub struct GetDmReadReceipt<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> {
@@ -33,6 +35,9 @@ impl<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> Ge
         user_id: &UserId,
         friend_id: &UserId,
     ) -> Result<(), GetDmReadReceiptError> {
+        if self.friendship_repo.block_relation(user_id, friend_id).await?.any() {
+            return Err(GetDmReadReceiptError::Blocked);
+        }
         let pair = self.friendship_repo.find_pair(user_id, friend_id).await?;
         if matches!(pair.as_ref().map(|f| &f.status), Some(&FriendshipStatus::Accepted)) {
             return Ok(());

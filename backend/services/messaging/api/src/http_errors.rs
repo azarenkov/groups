@@ -1723,18 +1723,21 @@ impl HttpMapping for MarkDmReadError {
         match self {
             MarkDmReadError::Repository(e) => e.to_http_status(),
             MarkDmReadError::NoConversation => StatusCode::FORBIDDEN,
+            MarkDmReadError::Blocked => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             MarkDmReadError::Repository(e) => e.to_user_message(),
             MarkDmReadError::NoConversation => "No conversation with this user".to_string(),
+            MarkDmReadError::Blocked => "You cannot interact with this user.".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             MarkDmReadError::Repository(e) => e.to_error_code(),
             MarkDmReadError::NoConversation => "NO_CONVERSATION",
+            MarkDmReadError::Blocked => "USER_BLOCKED",
         }
     }
 }
@@ -1762,18 +1765,21 @@ impl HttpMapping for GetDmReadReceiptError {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_http_status(),
             GetDmReadReceiptError::NoConversation => StatusCode::FORBIDDEN,
+            GetDmReadReceiptError::Blocked => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_user_message(),
             GetDmReadReceiptError::NoConversation => "No conversation with this user".to_string(),
+            GetDmReadReceiptError::Blocked => "You cannot interact with this user.".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             GetDmReadReceiptError::Repository(e) => e.to_error_code(),
             GetDmReadReceiptError::NoConversation => "NO_CONVERSATION",
+            GetDmReadReceiptError::Blocked => "USER_BLOCKED",
         }
     }
 }

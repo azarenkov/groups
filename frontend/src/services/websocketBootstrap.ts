@@ -71,6 +71,7 @@ function throttleMarkChannelRead(channelId: string) {
 }
 
 function throttleMarkDmRead(friendId: string) {
+  if (isBlockedEitherWay(friendId)) return;
   const now = Date.now();
   if (now - (lastDmReadAt[friendId] ?? 0) < READ_MARK_THROTTLE_MS) return;
   lastDmReadAt[friendId] = now;
