@@ -29,6 +29,11 @@ pub enum AcceptCallError {
     FriendshipLookup(#[from] FriendshipLookupError),
 }
 
+struct BlockOutcome {
+    user_out: bool,
+    evicted: bool,
+}
+
 pub struct AcceptCallResult {
     pub token: ChannelToken,
     pub url: String,
@@ -104,16 +109,18 @@ where
             .filter(|id| *id != user_id)
             .collect();
 
-        for other in &checked {
-            if self.friendship_repository.is_blocked(&user_id, other).await? {
-                self.call_repository
-                    .respond(call_id, &user_id, false, Utc::now(), request_id)
-                    .await?;
-                return Err(AcceptCallError::CallNotAllowed);
-            }
+        let room = ChannelId::new(call_id);
+        if self
+            .resolve_blocks(call_id, &room, &user_id, &checked, request_id.clone())
+            .await?
+            .user_out
+        {
+            self.call_repository
+                .respond(call_id, &user_id, false, Utc::now(), request_id)
+                .await?;
+            return Err(AcceptCallError::CallNotAllowed);
         }
 
-        let room = ChannelId::new(call_id);
         let token = self
             .voice_service
             .create_token(&user_id, &user_name, &room)
@@ -148,18 +155,30 @@ where
             .filter(|p| p.user_id != user_id)
             .collect();
         let roster: Vec<UserId> = participants.iter().map(|p| p.user_id).collect();
-        let blocked = match self.blocked_with_any(&user_id, &roster).await {
-            Ok(blocked) => blocked,
+        let outcome = match self
+            .resolve_blocks(call_id, &room, &user_id, &roster, request_id.clone())
+            .await
+        {
+            Ok(outcome) => outcome,
             Err(e) => {
                 if let Err(rollback) = self.roll_back(call_id, &room, &user_id, request_id).await {
                     tracing::error!(error = %rollback, %call_id, "Failed to roll back a join after a block lookup error");
                 }
-                return Err(e.into());
+                return Err(e);
             }
         };
-        if blocked {
+        if outcome.user_out {
             self.roll_back(call_id, &room, &user_id, request_id).await?;
             return Err(AcceptCallError::CallNotAllowed);
+        }
+        if outcome.evicted {
+            participants = self
+                .call_repository
+                .list_active(call_id)
+                .await?
+                .into_iter()
+                .filter(|p| p.user_id != user_id)
+                .collect();
         }
 
         participants.push(CallParticipantView {
@@ -176,17 +195,40 @@ where
         })
     }
 
-    async fn blocked_with_any(
+    async fn resolve_blocks(
         &self,
+        call_id: Uuid,
+        room: &ChannelId,
         user_id: &UserId,
-        others: &[UserId],
-    ) -> Result<bool, FriendshipLookupError> {
-        for other in others {
-            if self.friendship_repository.is_blocked(user_id, other).await? {
-                return Ok(true);
+        roster: &[UserId],
+        request_id: Option<String>,
+    ) -> Result<BlockOutcome, AcceptCallError> {
+        let mut remaining: Vec<UserId> = roster.to_vec();
+        let mut evicted = false;
+        let mut index = 0;
+        while index < remaining.len() {
+            let other = remaining[index];
+            let relation = self.friendship_repository.block_relation(user_id, &other).await?;
+            if !relation.any() {
+                index += 1;
+                continue;
             }
+            if relation.blocking {
+                return Ok(BlockOutcome { user_out: true, evicted });
+            }
+            self.call_repository
+                .leave_many(call_id, &[other], Utc::now(), request_id.clone())
+                .await?;
+            if let Err(e) = self.voice_service.remove_participant(room, &other).await {
+                tracing::warn!(error = %e, %call_id, user_id = %other.uuid(), "Failed to remove a blocking participant from the room");
+            }
+            remaining.remove(index);
+            evicted = true;
         }
-        Ok(false)
+        Ok(BlockOutcome {
+            user_out: evicted && remaining.is_empty(),
+            evicted,
+        })
     }
 
     async fn roll_back(
