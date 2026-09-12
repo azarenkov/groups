@@ -60,12 +60,17 @@ const resyncPresence = (ids: string[]) => {
   void import("../api/user").then(({ userAPI }) => {
     for (let start = 0; start < ids.length; start += PRESENCE_SNAPSHOT_BATCH) {
       const batch = ids.slice(start, start + PRESENCE_SNAPSHOT_BATCH);
+      const gens = new Map(batch.map((id) => [id, blockGeneration(id)] as const));
       void (async () => {
         for (let attempt = 0; attempt < PRESENCE_SNAPSHOT_ATTEMPTS; attempt += 1) {
           try {
             const res = await userAPI.presenceSnapshot(batch);
             const presence = usePresenceStore.getState();
-            for (const id of res.online) presence.setOnline(id);
+            for (const id of res.online) {
+              if (gens.get(id) !== blockGeneration(id)) continue;
+              if (isBlockedEitherWay(id)) continue;
+              presence.setOnline(id);
+            }
             return;
           } catch {
             await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));

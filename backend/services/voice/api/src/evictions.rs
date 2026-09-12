@@ -26,6 +26,19 @@ where
                 }
             };
             for pending in due {
+                match call_repository.is_active_participant(pending.call_id, &pending.user_id).await {
+                    Ok(true) => {
+                        if let Err(e) = call_repository.eviction_done(pending.call_id, &pending.user_id).await {
+                            tracing::warn!(error = %e, call_id = %pending.call_id, "Failed to drop a cancelled eviction");
+                        }
+                        continue;
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        tracing::warn!(error = %e, call_id = %pending.call_id, "Failed to revalidate a claimed eviction");
+                        continue;
+                    }
+                }
                 let room = ChannelId::new(pending.call_id);
                 match voice_service.remove_participant(&room, &pending.user_id).await {
                     Ok(()) => {
