@@ -178,10 +178,12 @@ where
             }
         };
         if remaining == 0 {
-            self.voice_service.remove_participant(&room, &caller_id).await?;
             self.call_repository
                 .leave(call_id, &caller_id, Utc::now(), request.ctx.request_id)
                 .await?;
+            if let Err(e) = self.voice_service.remove_participant(&room, &caller_id).await {
+                tracing::warn!(error = %e, %call_id, "Failed to remove the caller from an aborted call room");
+            }
             let _ = self.voice_service.delete_voice_channel(&room).await;
             return Err(StartCallError::CallNotAllowed);
         }

@@ -99,12 +99,19 @@ where
                 leaving.push(blocked);
             }
             tracing::warn!(%call_id, blocker = %blocker.uuid(), blocked = %blocked.uuid(), "Blocked pair met in a call room; evicting");
-            for user in &leaving {
-                self.voice_service.remove_participant(&room, user).await?;
-            }
             self.call_repository
                 .leave_many(call_id, &leaving, chrono::Utc::now(), request_id.clone())
                 .await?;
+            let mut removal_error = None;
+            for user in &leaving {
+                if let Err(e) = self.voice_service.remove_participant(&room, user).await {
+                    tracing::warn!(error = %e, %call_id, user_id = %user.uuid(), "Failed to remove an evicted participant from the room");
+                    removal_error.get_or_insert(e);
+                }
+            }
+            if let Some(e) = removal_error {
+                return Err(e.into());
+            }
             if leaving.contains(user_id) {
                 return Ok(());
             }
