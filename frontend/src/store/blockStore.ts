@@ -142,7 +142,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     mutationGen += 1;
     bumpPeer(userId);
     set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
-    if (reconcile) void get().fetch();
+    if (reconcile || !get().loaded) void get().fetch();
     void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
     void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
   },
