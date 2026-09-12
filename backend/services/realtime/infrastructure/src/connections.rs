@@ -473,11 +473,41 @@ async fn retry_presence_snapshot<D: RecipientDirectory>(
     tracing::error!(user_id = %conn.user_id, "Gave up sending a presence snapshot after repeated lookup failures");
 }
 
-async fn block_presence_update<D: RecipientDirectory>(
+async fn retry_unblock_presence<D: RecipientDirectory>(
+    resolver: Arc<D>,
+    by_user: Arc<DashMap<Uuid, UserSlot>>,
+    online: Arc<DashMap<Uuid, ()>>,
+    user_id: Uuid,
+    peer: Uuid,
+) {
+    for attempt in 0..PRESENCE_RETRY_ATTEMPTS {
+        tokio::time::sleep(presence_retry_delay(attempt)).await;
+        if !online.contains_key(&peer) {
+            return;
+        }
+        match resolver.interested_in(peer).await {
+            Ok(audience) => {
+                if audience.contains(&user_id) {
+                    let text = serde_json::to_string(&PresenceUpdate::online(peer).envelope())
+                        .unwrap_or_default();
+                    deliver_to(&by_user, &[user_id], &text).await;
+                }
+                return;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, %peer, attempt, "Presence restore after unblock failed");
+            }
+        }
+    }
+    tracing::error!(%user_id, %peer, "Gave up restoring presence after an unblock");
+}
+
+async fn block_presence_update<D: RecipientDirectory + 'static>(
     user_id: Uuid,
     payload: &str,
-    online: &DashMap<Uuid, ()>,
-    resolver: &D,
+    online: &Arc<DashMap<Uuid, ()>>,
+    by_user: &Arc<DashMap<Uuid, UserSlot>>,
+    resolver: &Arc<D>,
 ) -> Option<PresenceUpdate> {
     if !payload.contains("\"user.blocked\"") && !payload.contains("\"user.unblocked\"") {
         return None;
@@ -495,14 +525,20 @@ async fn block_presence_update<D: RecipientDirectory>(
     let peer = if blocker == user_id { blocked } else { blocker };
     match kind {
         "user.blocked" => Some(PresenceUpdate::offline(peer)),
-        "user.unblocked" if online.contains_key(&peer) => {
-            let visible = resolver
-                .interested_in(peer)
-                .await
-                .map(|audience| audience.contains(&user_id))
-                .unwrap_or(false);
-            visible.then(|| PresenceUpdate::online(peer))
-        }
+        "user.unblocked" if online.contains_key(&peer) => match resolver.interested_in(peer).await {
+            Ok(audience) => audience.contains(&user_id).then(|| PresenceUpdate::online(peer)),
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, %peer, "Presence visibility lookup failed after unblock; retrying in the background");
+                tokio::spawn(retry_unblock_presence(
+                    resolver.clone(),
+                    by_user.clone(),
+                    online.clone(),
+                    user_id,
+                    peer,
+                ));
+                None
+            }
+        },
         _ => None,
     }
 }
@@ -580,7 +616,7 @@ async fn fanout_loop<D: RecipientDirectory + 'static>(
                 }
             }
             if let Some(update) =
-                block_presence_update(user_id, &payload, &online_snapshot, resolver.as_ref()).await
+                block_presence_update(user_id, &payload, &online_snapshot, &by_user, &resolver).await
             {
                 let text = serde_json::to_string(&update.envelope()).unwrap_or_default();
                 if let Some(slot) = by_user.get(&user_id) {
