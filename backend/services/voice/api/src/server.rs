@@ -67,6 +67,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
+    crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
     crate::projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),

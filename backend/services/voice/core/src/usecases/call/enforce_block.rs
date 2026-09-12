@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use chrono::Utc;
-use domain::{channel::id::ChannelId, user::id::UserId};
+use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 use voice_domain::call::repository::CallRepository;
 
+use super::eviction::evict;
 use crate::ports::{
     friendship_lookup::{FriendshipLookup, FriendshipLookupError},
     voice_service::{VoiceService, VoiceServiceError},
@@ -89,20 +89,14 @@ where
         if others == 0 {
             leaving.push(*blocked);
         }
-        let room = ChannelId::new(call_id);
-        self.call_repository
-            .leave_many(call_id, &leaving, Utc::now(), request_id)
-            .await?;
-        let mut removal_error = None;
-        for user in &leaving {
-            if let Err(e) = self.voice_service.remove_participant(&room, user).await {
-                tracing::warn!(error = %e, %call_id, user_id = %user.uuid(), "Failed to remove an evicted participant from the room");
-                removal_error.get_or_insert(e);
-            }
-        }
-        match removal_error {
-            Some(e) => Err(e.into()),
-            None => Ok(()),
-        }
+        evict(
+            self.call_repository.as_ref(),
+            self.voice_service.as_ref(),
+            call_id,
+            &leaving,
+            request_id,
+        )
+        .await?;
+        Ok(())
     }
 }

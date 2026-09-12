@@ -76,7 +76,6 @@ where
         user_id: &UserId,
         request_id: Option<String>,
     ) -> Result<(), HandleVoiceWebhookError> {
-        let room = ChannelId::new(call_id);
         let mut others: Vec<UserId> = self
             .call_repository
             .list_active(call_id)
@@ -99,19 +98,14 @@ where
                 leaving.push(blocked);
             }
             tracing::warn!(%call_id, blocker = %blocker.uuid(), blocked = %blocked.uuid(), "Blocked pair met in a call room; evicting");
-            self.call_repository
-                .leave_many(call_id, &leaving, chrono::Utc::now(), request_id.clone())
-                .await?;
-            let mut removal_error = None;
-            for user in &leaving {
-                if let Err(e) = self.voice_service.remove_participant(&room, user).await {
-                    tracing::warn!(error = %e, %call_id, user_id = %user.uuid(), "Failed to remove an evicted participant from the room");
-                    removal_error.get_or_insert(e);
-                }
-            }
-            if let Some(e) = removal_error {
-                return Err(e.into());
-            }
+            crate::usecases::call::eviction::evict(
+                self.call_repository.as_ref(),
+                self.voice_service.as_ref(),
+                call_id,
+                &leaving,
+                request_id.clone(),
+            )
+            .await?;
             if leaving.contains(user_id) {
                 return Ok(());
             }

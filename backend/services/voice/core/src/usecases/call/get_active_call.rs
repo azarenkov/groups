@@ -102,14 +102,14 @@ where
             if others.len() == 1 {
                 leaving.push(blocked);
             }
-            for user in &leaving {
-                if let Err(e) = self.voice_service.remove_participant(&room, user).await {
-                    tracing::warn!(error = %e, %call_id, "Failed to remove a blocked participant during rehydration");
-                }
-            }
-            self.call_repository
-                .leave_many(call_id, &leaving, Utc::now(), None)
-                .await?;
+            super::eviction::evict(
+                self.call_repository.as_ref(),
+                self.voice_service.as_ref(),
+                call_id,
+                &leaving,
+                None,
+            )
+            .await?;
             if leaving.contains(&user_id) {
                 return Ok(None);
             }

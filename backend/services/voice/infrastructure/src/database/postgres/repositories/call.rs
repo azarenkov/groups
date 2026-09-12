@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::CallPairOutcome, call::repository::CallRepository, call::CallParticipantStatus};
+use voice_domain::{call::repository::CallPairOutcome, call::repository::CallRepository, call::repository::PendingEviction, call::CallParticipantStatus};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -101,6 +101,44 @@ async fn all_participants(
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
     Ok(rows.into_iter().map(|r| r.user_id).collect())
+}
+
+async fn mark_left(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+    now: DateTime<Utc>,
+    request_id: Option<String>,
+) -> Result<bool, RepositoryError> {
+    let previous = participant_status(tx, call_id, user_id).await?;
+    let updated = sqlx::query!(
+        r#"
+            UPDATE call_participants
+            SET status = 'left', updated_at = $3
+            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined')
+            "#,
+        call_id,
+        user_id,
+        now,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    if updated.rows_affected() == 0 {
+        return Ok(false);
+    }
+    let recipients = active_others(tx, call_id, user_id).await?;
+    let record = call_event(
+        call_id,
+        "call.participant.left",
+        user_id,
+        &recipients,
+        request_id.clone(),
+        now,
+    );
+    save_outbox_records(tx, std::slice::from_ref(&record)).await?;
+    notify_withdrawn_invitation(tx, call_id, user_id, previous.as_deref(), request_id, now).await?;
+    Ok(true)
 }
 
 async fn participant_status(
@@ -449,39 +487,107 @@ impl CallRepository for PostgresCallRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
         for user_id in user_ids {
-            let previous = participant_status(&mut tx, call_id, user_id.uuid()).await?;
-            let updated = sqlx::query!(
-                r#"
-            UPDATE call_participants
-            SET status = 'left', updated_at = $3
-            WHERE call_id = $1 AND user_id = $2 AND status IN ('invited', 'joined')
-            "#,
-                call_id,
-                user_id.uuid(),
-                now,
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-            if updated.rows_affected() == 0 {
-                continue;
-            }
-            let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
-            let record = call_event(
-                call_id,
-                "call.participant.left",
-                user_id.uuid(),
-                &recipients,
-                request_id.clone(),
-                now,
-            );
-            save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
-            notify_withdrawn_invitation(&mut tx, call_id, user_id.uuid(), previous.as_deref(), request_id.clone(), now).await?;
+            mark_left(&mut tx, call_id, user_id.uuid(), now, request_id.clone()).await?;
         }
 
         end_call_if_empty(&mut tx, call_id, actor.uuid(), request_id, now).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn evict_many(
+        &self,
+        call_id: Uuid,
+        user_ids: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError> {
+        let Some(actor) = user_ids.last() else {
+            return Ok(());
+        };
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+        for user_id in user_ids {
+            mark_left(&mut tx, call_id, user_id.uuid(), now, request_id.clone()).await?;
+            sqlx::query(
+                "INSERT INTO call_evictions (call_id, user_id, next_attempt_at) VALUES ($1, $2, $3) ON CONFLICT (call_id, user_id) DO UPDATE SET next_attempt_at = EXCLUDED.next_attempt_at",
+            )
+            .bind(call_id)
+            .bind(user_id.uuid())
+            .bind(now)
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
+
+        end_call_if_empty(&mut tx, call_id, actor.uuid(), request_id, now).await?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn claim_due_evictions(
+        &self,
+        now: DateTime<Utc>,
+        limit: i64,
+    ) -> Result<Vec<PendingEviction>, RepositoryError> {
+        let rows: Vec<(Uuid, Uuid, i32)> = sqlx::query_as(
+            r#"
+            UPDATE call_evictions e
+            SET attempts = e.attempts + 1, next_attempt_at = $1 + interval '30 seconds'
+            WHERE (e.call_id, e.user_id) IN (
+                SELECT call_id, user_id FROM call_evictions
+                WHERE next_attempt_at <= $1
+                ORDER BY next_attempt_at
+                LIMIT $2
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING e.call_id, e.user_id, e.attempts
+            "#,
+        )
+        .bind(now)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|(call_id, user_id, attempts)| PendingEviction {
+                call_id,
+                user_id: UserId::new(user_id),
+                attempts,
+            })
+            .collect())
+    }
+
+    async fn eviction_done(&self, call_id: Uuid, user_id: &UserId) -> Result<(), RepositoryError> {
+        sqlx::query("DELETE FROM call_evictions WHERE call_id = $1 AND user_id = $2")
+            .bind(call_id)
+            .bind(user_id.uuid())
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn eviction_failed(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        next_attempt_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query("UPDATE call_evictions SET next_attempt_at = $3 WHERE call_id = $1 AND user_id = $2")
+            .bind(call_id)
+            .bind(user_id.uuid())
+            .bind(next_attempt_at)
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 

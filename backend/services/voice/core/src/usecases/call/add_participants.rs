@@ -13,7 +13,6 @@ use crate::{
         voice_service::VoiceService,
     },
 };
-use domain::channel::id::ChannelId;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AddCallParticipantsError {
@@ -123,7 +122,6 @@ where
                 return Err(e.into());
             }
         };
-        let room = ChannelId::new(request.call_id);
         let mut withdrawn: Vec<UserId> = match self.blockers_among(&added).await {
             Ok(list) => list,
             Err(e) => {
@@ -134,7 +132,7 @@ where
         let candidates: Vec<UserId> = added.iter().copied().filter(|i| !withdrawn.contains(i)).collect();
         for invitee in &candidates {
             match self
-                .reconcile_with_roster(request.call_id, &room, invitee, &roster, request.ctx.request_id.clone())
+                .reconcile_with_roster(request.call_id, invitee, &roster, request.ctx.request_id.clone())
                 .await
             {
                 Ok(true) => withdrawn.push(*invitee),
@@ -142,7 +140,7 @@ where
                 Err(e) => {
                     let pending: Vec<UserId> = added.iter().copied().filter(|i| !withdrawn.contains(i)).collect();
                     self.withdraw(request.call_id, &pending, request.ctx.request_id).await;
-                    return Err(e.into());
+                    return Err(e);
                 }
             }
         }
@@ -176,28 +174,24 @@ where
     async fn reconcile_with_roster(
         &self,
         call_id: Uuid,
-        room: &ChannelId,
         invitee: &UserId,
         roster: &[UserId],
         request_id: Option<String>,
-    ) -> Result<bool, FriendshipLookupError> {
+    ) -> Result<bool, AddCallParticipantsError> {
         for other in roster.iter().filter(|other| *other != invitee) {
             let relation = self.friendship_repository.block_relation(invitee, other).await?;
             if relation.blocking {
                 return Ok(true);
             }
             if relation.blocked_by {
-                if let Err(e) = self
-                    .call_repository
-                    .leave_many(call_id, &[*other], Utc::now(), request_id.clone())
-                    .await
-                {
-                    tracing::error!(error = %e, %call_id, user_id = %other.uuid(), "Failed to evict a blocking participant");
-                    continue;
-                }
-                if let Err(e) = self.voice_service.remove_participant(room, other).await {
-                    tracing::warn!(error = %e, %call_id, user_id = %other.uuid(), "Failed to remove a blocking participant from the room");
-                }
+                super::eviction::evict(
+                    self.call_repository.as_ref(),
+                    self.voice_service.as_ref(),
+                    call_id,
+                    &[*other],
+                    request_id.clone(),
+                )
+                .await?;
             }
         }
         Ok(false)

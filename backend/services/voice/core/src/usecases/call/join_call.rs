@@ -197,7 +197,7 @@ where
     async fn resolve_blocks(
         &self,
         call_id: Uuid,
-        room: &ChannelId,
+        _room: &ChannelId,
         user_id: &UserId,
         roster: &[UserId],
         request_id: Option<String>,
@@ -209,29 +209,31 @@ where
         if plan.blockers.is_empty() {
             return Ok(BlockOutcome { user_out: false, evicted: false });
         }
-        self.call_repository
-            .leave_many(call_id, &plan.blockers, Utc::now(), request_id)
-            .await?;
-        for other in &plan.blockers {
-            if let Err(e) = self.voice_service.remove_participant(room, other).await {
-                tracing::warn!(error = %e, %call_id, user_id = %other.uuid(), "Failed to remove a blocking participant from the room");
-            }
-        }
+        super::eviction::evict(
+            self.call_repository.as_ref(),
+            self.voice_service.as_ref(),
+            call_id,
+            &plan.blockers,
+            request_id,
+        )
+        .await?;
         Ok(BlockOutcome { user_out: false, evicted: true })
     }
 
     async fn roll_back(
         &self,
         call_id: Uuid,
-        room: &ChannelId,
+        _room: &ChannelId,
         user_id: &UserId,
         request_id: Option<String>,
     ) -> Result<(), RepositoryError> {
-        if let Err(e) = self.voice_service.remove_participant(room, user_id).await {
-            tracing::warn!(error = %e, %call_id, "Failed to remove a participant while rolling back a join");
-        }
-        self.call_repository
-            .leave(call_id, user_id, Utc::now(), request_id)
-            .await
+        super::eviction::evict(
+            self.call_repository.as_ref(),
+            self.voice_service.as_ref(),
+            call_id,
+            &[*user_id],
+            request_id,
+        )
+        .await
     }
 }

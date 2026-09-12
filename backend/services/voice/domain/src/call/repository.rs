@@ -5,6 +5,13 @@ use uuid::Uuid;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
+#[derive(Debug, Clone)]
+pub struct PendingEviction {
+    pub call_id: Uuid,
+    pub user_id: UserId,
+    pub attempts: i32,
+}
+
 #[async_trait]
 pub trait CallRepository {
     async fn start_call(
@@ -51,6 +58,29 @@ pub trait CallRepository {
         user_ids: &[UserId],
         now: DateTime<Utc>,
         request_id: Option<String>,
+    ) -> Result<(), RepositoryError>;
+
+    async fn evict_many(
+        &self,
+        call_id: Uuid,
+        user_ids: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError>;
+
+    async fn claim_due_evictions(
+        &self,
+        now: DateTime<Utc>,
+        limit: i64,
+    ) -> Result<Vec<PendingEviction>, RepositoryError>;
+
+    async fn eviction_done(&self, call_id: Uuid, user_id: &UserId) -> Result<(), RepositoryError>;
+
+    async fn eviction_failed(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        next_attempt_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
 
     async fn is_active_participant(
