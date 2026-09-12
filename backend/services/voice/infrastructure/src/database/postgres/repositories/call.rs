@@ -141,6 +141,20 @@ async fn mark_left(
     Ok(true)
 }
 
+async fn cancel_eviction(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), RepositoryError> {
+    sqlx::query("DELETE FROM call_evictions WHERE call_id = $1 AND user_id = $2")
+        .bind(call_id)
+        .bind(user_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
 async fn participant_status(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     call_id: Uuid,
@@ -406,6 +420,7 @@ impl CallRepository for PostgresCallRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
             if inserted.rows_affected() > 0 {
+                cancel_eviction(&mut tx, call_id, invitee.uuid()).await?;
                 ringed.push(invitee.uuid());
             }
         }
@@ -536,14 +551,30 @@ impl CallRepository for PostgresCallRepository {
         now: DateTime<Utc>,
         limit: i64,
     ) -> Result<Vec<PendingEviction>, RepositoryError> {
+        sqlx::query(
+            r#"
+            DELETE FROM call_evictions e
+            WHERE EXISTS (
+                SELECT 1 FROM call_participants p
+                WHERE p.call_id = e.call_id AND p.user_id = e.user_id AND p.status IN ('invited', 'joined')
+            )
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         let rows: Vec<(Uuid, Uuid, i32)> = sqlx::query_as(
             r#"
             UPDATE call_evictions e
             SET attempts = e.attempts + 1, next_attempt_at = $1 + interval '30 seconds'
             WHERE (e.call_id, e.user_id) IN (
-                SELECT call_id, user_id FROM call_evictions
-                WHERE next_attempt_at <= $1
-                ORDER BY next_attempt_at
+                SELECT c.call_id, c.user_id FROM call_evictions c
+                WHERE c.next_attempt_at <= $1
+                  AND NOT EXISTS (
+                      SELECT 1 FROM call_participants p
+                      WHERE p.call_id = c.call_id AND p.user_id = c.user_id AND p.status IN ('invited', 'joined')
+                  )
+                ORDER BY c.next_attempt_at
                 LIMIT $2
                 FOR UPDATE SKIP LOCKED
             )
@@ -781,6 +812,14 @@ impl CallRepository for PostgresCallRepository {
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        if updated.rows_affected() > 0 {
+            sqlx::query("DELETE FROM call_evictions WHERE call_id = $1 AND user_id = $2")
+                .bind(call_id)
+                .bind(user_id.uuid())
+                .execute(&self.pool)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+        }
         Ok(updated.rows_affected() > 0)
     }
 
@@ -938,6 +977,7 @@ impl CallRepository for PostgresCallRepository {
             return Ok(is_call.exists);
         }
 
+        cancel_eviction(&mut tx, call_id, user_id.uuid()).await?;
         let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
         let record = call_event(
             call_id,
