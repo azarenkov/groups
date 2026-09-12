@@ -85,6 +85,35 @@ async fn authenticate_request(req: &HttpRequest, state: &WsState) -> Option<Uuid
     }
 }
 
+#[derive(Deserialize)]
+pub struct PresenceSnapshotQuery {
+    pub ids: String,
+}
+
+#[derive(serde::Serialize)]
+struct PresenceSnapshotResponse {
+    online: Vec<Uuid>,
+}
+
+#[get("/presence")]
+pub async fn presence_snapshot(
+    req: HttpRequest,
+    state: web::Data<WsState>,
+    query: web::Query<PresenceSnapshotQuery>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let Some(user_id) = authenticate_request(&req, &state).await else {
+        return Ok(HttpResponse::Unauthorized().body("invalid token"));
+    };
+    let ids: Vec<Uuid> = query
+        .ids
+        .split(',')
+        .filter_map(|raw| Uuid::parse_str(raw.trim()).ok())
+        .take(100)
+        .collect();
+    let online = state.manager.visible_online(user_id, &ids).await;
+    Ok(HttpResponse::Ok().json(PresenceSnapshotResponse { online }))
+}
+
 #[post("/presence")]
 pub async fn presence_preference(
     req: HttpRequest,

@@ -52,9 +52,23 @@ const recordVersion = (
   return true;
 };
 
+const resyncPresence = (ids: string[]) => {
+  if (ids.length === 0) return;
+  void import("../api/user").then(({ userAPI }) =>
+    userAPI
+      .presenceSnapshot(ids)
+      .then((res) => {
+        const presence = usePresenceStore.getState();
+        for (const id of res.online) presence.setOnline(id);
+      })
+      .catch(() => {}),
+  );
+};
+
 const recoverStatus = (userId: string) => {
   void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
   void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+  resyncPresence([userId]);
 };
 
 const forgetStatus = (userId: string) => {
@@ -93,6 +107,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         if (removed.length > 0) {
           void import("./activityStore").then((m) => m.loadActivitiesFor(removed));
           void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+          resyncPresence(removed);
         }
         return;
       } catch (err) {

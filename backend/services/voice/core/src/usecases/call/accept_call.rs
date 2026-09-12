@@ -29,6 +29,11 @@ pub enum AcceptCallError {
     FriendshipLookup(#[from] FriendshipLookupError),
 }
 
+struct BlockPlan {
+    user_out: bool,
+    blockers: Vec<UserId>,
+}
+
 struct BlockOutcome {
     user_out: bool,
     evicted: bool,
@@ -110,11 +115,7 @@ where
             .collect();
 
         let room = ChannelId::new(call_id);
-        if self
-            .resolve_blocks(call_id, &room, &user_id, &checked, request_id.clone())
-            .await?
-            .user_out
-        {
+        if self.plan_blocks(&user_id, &checked).await?.user_out {
             self.call_repository
                 .respond(call_id, &user_id, false, Utc::now(), request_id)
                 .await?;
@@ -195,6 +196,25 @@ where
         })
     }
 
+    async fn plan_blocks(
+        &self,
+        user_id: &UserId,
+        roster: &[UserId],
+    ) -> Result<BlockPlan, FriendshipLookupError> {
+        let mut blockers: Vec<UserId> = Vec::new();
+        for other in roster {
+            let relation = self.friendship_repository.block_relation(user_id, other).await?;
+            if relation.blocking {
+                return Ok(BlockPlan { user_out: true, blockers });
+            }
+            if relation.blocked_by {
+                blockers.push(*other);
+            }
+        }
+        let user_out = !blockers.is_empty() && blockers.len() == roster.len();
+        Ok(BlockPlan { user_out, blockers })
+    }
+
     async fn resolve_blocks(
         &self,
         call_id: Uuid,
@@ -203,32 +223,22 @@ where
         roster: &[UserId],
         request_id: Option<String>,
     ) -> Result<BlockOutcome, AcceptCallError> {
-        let mut remaining: Vec<UserId> = roster.to_vec();
-        let mut evicted = false;
-        let mut index = 0;
-        while index < remaining.len() {
-            let other = remaining[index];
-            let relation = self.friendship_repository.block_relation(user_id, &other).await?;
-            if !relation.any() {
-                index += 1;
-                continue;
-            }
-            if relation.blocking {
-                return Ok(BlockOutcome { user_out: true, evicted });
-            }
-            self.call_repository
-                .leave_many(call_id, &[other], Utc::now(), request_id.clone())
-                .await?;
-            if let Err(e) = self.voice_service.remove_participant(room, &other).await {
+        let plan = self.plan_blocks(user_id, roster).await?;
+        if plan.user_out {
+            return Ok(BlockOutcome { user_out: true, evicted: false });
+        }
+        if plan.blockers.is_empty() {
+            return Ok(BlockOutcome { user_out: false, evicted: false });
+        }
+        self.call_repository
+            .leave_many(call_id, &plan.blockers, Utc::now(), request_id)
+            .await?;
+        for other in &plan.blockers {
+            if let Err(e) = self.voice_service.remove_participant(room, other).await {
                 tracing::warn!(error = %e, %call_id, user_id = %other.uuid(), "Failed to remove a blocking participant from the room");
             }
-            remaining.remove(index);
-            evicted = true;
         }
-        Ok(BlockOutcome {
-            user_out: evicted && remaining.is_empty(),
-            evicted,
-        })
+        Ok(BlockOutcome { user_out: false, evicted: true })
     }
 
     async fn roll_back(

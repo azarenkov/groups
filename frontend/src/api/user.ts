@@ -372,6 +372,14 @@ class UserAPI {
     await this.client.post("/v1/me/presence", { appearOffline });
   }
 
+  async presenceSnapshot(ids: string[]): Promise<{ online: string[] }> {
+    if (ids.length === 0) return { online: [] };
+    const response = await this.client.get("/v1/presence", {
+      params: { ids: ids.join(",") },
+    });
+    return response.data;
+  }
+
   async getNotificationPreferences(): Promise<{
     preferences: {
       scopeType: string;

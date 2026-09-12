@@ -138,6 +138,23 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
         Ok(())
     }
 
+    pub async fn visible_online(&self, viewer: Uuid, ids: &[Uuid]) -> Vec<Uuid> {
+        let mut online = Vec::new();
+        for id in ids {
+            if !self.online_snapshot.contains_key(id) {
+                continue;
+            }
+            match self.presence_resolver.interested_in(*id).await {
+                Ok(audience) if audience.contains(&viewer) => online.push(*id),
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, user_id = %id, "Failed to resolve presence visibility");
+                }
+            }
+        }
+        online
+    }
+
     pub fn has_active_conns(&self, user_id: Uuid) -> bool {
         self.by_user
             .get(&user_id)
