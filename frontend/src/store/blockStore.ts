@@ -52,6 +52,11 @@ const recordVersion = (
   return true;
 };
 
+const recoverStatus = (userId: string) => {
+  void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
+  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+};
+
 const forgetStatus = (userId: string) => {
   usePresenceStore.getState().setOffline(userId);
   void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
@@ -197,7 +202,9 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   markBlockedBy: (userId, active) => {
-    if (active) forgetStatus(userId);
+    const wasBlockedBy = !!get().blockedBy[userId];
+    if (active && !wasBlockedBy) forgetStatus(userId);
+    if (!active && wasBlockedBy) recoverStatus(userId);
     set((state) => {
       if (active) {
         if (state.blockedBy[userId]) return state;
