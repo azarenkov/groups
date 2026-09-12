@@ -148,13 +148,7 @@ where
     }
 
     async fn roster(&self, call_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
-        Ok(self
-            .call_repository
-            .list_active(call_id)
-            .await?
-            .into_iter()
-            .map(|p| p.user_id)
-            .collect())
+        self.call_repository.active_participant_ids(call_id).await
     }
 
     async fn blocked_with_roster(

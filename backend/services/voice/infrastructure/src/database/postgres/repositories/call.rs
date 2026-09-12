@@ -552,6 +552,17 @@ impl CallRepository for PostgresCallRepository {
             .collect())
     }
 
+    async fn active_participant_ids(&self, call_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
+        let rows: Vec<(Uuid,)> = sqlx::query_as(
+            "SELECT user_id FROM call_participants WHERE call_id = $1 AND status IN ('invited', 'joined')",
+        )
+        .bind(call_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
+    }
+
     async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError> {
         let row = sqlx::query!(
             r#"

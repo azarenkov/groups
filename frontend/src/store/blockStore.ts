@@ -200,6 +200,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       void get().fetch();
     } else if (!relation.blocked && known) {
       set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+      recoverStatus(userId);
     }
     if (!get().loaded) void get().fetch();
   },

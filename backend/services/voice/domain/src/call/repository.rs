@@ -70,6 +70,8 @@ pub trait CallRepository {
         call_id: Uuid,
     ) -> Result<Vec<CallParticipantView>, RepositoryError>;
 
+    async fn active_participant_ids(&self, call_id: Uuid) -> Result<Vec<UserId>, RepositoryError>;
+
     async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError>;
 
     async fn joined_at(
