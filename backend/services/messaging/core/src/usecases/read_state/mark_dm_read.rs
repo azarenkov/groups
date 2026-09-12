@@ -34,9 +34,6 @@ impl<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> Ma
         user_id: &UserId,
         friend_id: &UserId,
     ) -> Result<(), MarkDmReadError> {
-        if self.friendship_repo.block_relation(user_id, friend_id).await?.any() {
-            return Err(MarkDmReadError::Blocked);
-        }
         let pair = self.friendship_repo.find_pair(user_id, friend_id).await?;
         if matches!(pair.as_ref().map(|f| &f.status), Some(&FriendshipStatus::Accepted)) {
             return Ok(());
@@ -53,7 +50,9 @@ impl<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> Ma
         friend_id: UserId,
     ) -> Result<(), MarkDmReadError> {
         self.ensure_conversation(&user_id, &friend_id).await?;
-        self.repo.mark_dm_read(&user_id, &friend_id).await?;
+        if !self.repo.mark_dm_read(&user_id, &friend_id).await? {
+            return Err(MarkDmReadError::Blocked);
+        }
         Ok(())
     }
 }

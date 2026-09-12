@@ -110,8 +110,13 @@ pub async fn presence_snapshot(
         .filter_map(|raw| Uuid::parse_str(raw.trim()).ok())
         .take(100)
         .collect();
-    let online = state.manager.visible_online(user_id, &ids).await;
-    Ok(HttpResponse::Ok().json(PresenceSnapshotResponse { online }))
+    match state.manager.visible_online(user_id, &ids).await {
+        Ok(online) => Ok(HttpResponse::Ok().json(PresenceSnapshotResponse { online })),
+        Err(e) => {
+            tracing::warn!(error = %e, %user_id, "Presence snapshot lookup failed");
+            Ok(HttpResponse::ServiceUnavailable().body("presence lookup unavailable"))
+        }
+    }
 }
 
 #[post("/presence")]

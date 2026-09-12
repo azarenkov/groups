@@ -6,6 +6,8 @@ use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, reposit
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
+use crate::database::postgres::repositories::{friendship::block_relation_for, friendship_unit_of_work::pair_key};
+
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
 };
@@ -102,12 +104,21 @@ impl ReadStateRepository for PostgresReadStateRepository {
         &self,
         user_id: &UserId,
         friend_id: &UserId,
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))")
+            .bind(pair_key(user_id, friend_id))
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        if block_relation_for(&mut *tx, user_id, friend_id).await?.any() {
+            return Ok(false);
+        }
 
         let read_at = sqlx::query_scalar!(
             r#"
@@ -138,7 +149,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(true)
     }
 
     async fn channel_unread_counts(

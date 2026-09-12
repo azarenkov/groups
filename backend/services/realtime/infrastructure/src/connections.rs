@@ -6,6 +6,7 @@ use dashmap::mapref::entry::Entry;
 use futures::StreamExt;
 use tokio::{sync::mpsc, task::JoinHandle};
 use uuid::Uuid;
+use ports::repository::RepositoryError;
 
 use realtime_core::ports::directory::RecipientDirectory;
 use realtime_domain::presence::PresenceUpdate;
@@ -138,21 +139,17 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
         Ok(())
     }
 
-    pub async fn visible_online(&self, viewer: Uuid, ids: &[Uuid]) -> Vec<Uuid> {
+    pub async fn visible_online(&self, viewer: Uuid, ids: &[Uuid]) -> Result<Vec<Uuid>, RepositoryError> {
         let mut online = Vec::new();
         for id in ids {
             if !self.online_snapshot.contains_key(id) {
                 continue;
             }
-            match self.presence_resolver.interested_in(*id).await {
-                Ok(audience) if audience.contains(&viewer) => online.push(*id),
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::warn!(error = %e, user_id = %id, "Failed to resolve presence visibility");
-                }
+            if self.presence_resolver.interested_in(*id).await?.contains(&viewer) {
+                online.push(*id);
             }
         }
-        online
+        Ok(online)
     }
 
     pub fn has_active_conns(&self, user_id: Uuid) -> bool {

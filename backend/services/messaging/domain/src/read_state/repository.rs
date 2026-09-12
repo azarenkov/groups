@@ -37,7 +37,7 @@ pub trait ReadStateRepository {
         &self,
         user_id: &UserId,
         friend_id: &UserId,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn channel_unread_counts(
         &self,

@@ -53,19 +53,25 @@ const recordVersion = (
 };
 
 const PRESENCE_SNAPSHOT_BATCH = 100;
+const PRESENCE_SNAPSHOT_ATTEMPTS = 5;
 
 const resyncPresence = (ids: string[]) => {
   if (ids.length === 0) return;
   void import("../api/user").then(({ userAPI }) => {
     for (let start = 0; start < ids.length; start += PRESENCE_SNAPSHOT_BATCH) {
       const batch = ids.slice(start, start + PRESENCE_SNAPSHOT_BATCH);
-      void userAPI
-        .presenceSnapshot(batch)
-        .then((res) => {
-          const presence = usePresenceStore.getState();
-          for (const id of res.online) presence.setOnline(id);
-        })
-        .catch(() => {});
+      void (async () => {
+        for (let attempt = 0; attempt < PRESENCE_SNAPSHOT_ATTEMPTS; attempt += 1) {
+          try {
+            const res = await userAPI.presenceSnapshot(batch);
+            const presence = usePresenceStore.getState();
+            for (const id of res.online) presence.setOnline(id);
+            return;
+          } catch {
+            await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+          }
+        }
+      })();
     }
   });
 };
