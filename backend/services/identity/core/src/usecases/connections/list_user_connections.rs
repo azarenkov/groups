@@ -33,9 +33,16 @@ impl<U: UserRepository, B: BlockLookup> ListUserConnections<U, B> {
         viewer_id: UserId,
         target_id: UserId,
     ) -> Result<Vec<ConnectionView>, ListUserConnectionsError> {
-        if viewer_id != target_id && self.block_lookup.blocked_by(&viewer_id, &target_id).await? {
+        if viewer_id == target_id {
+            return Ok(self.connections.execute(target_id).await?);
+        }
+        if self.block_lookup.blocked_by(&viewer_id, &target_id).await? {
             return Ok(Vec::new());
         }
-        Ok(self.connections.execute(target_id).await?)
+        let connections = self.connections.execute(target_id).await?;
+        if self.block_lookup.blocked_by(&viewer_id, &target_id).await? {
+            return Ok(Vec::new());
+        }
+        Ok(connections)
     }
 }
