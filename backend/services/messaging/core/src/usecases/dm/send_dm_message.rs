@@ -93,6 +93,14 @@ where
         if !self.user_profile_repository.is_active(&recipient_id).await? {
             return Err(SendDmMessageError::RecipientInactive);
         }
+        if self
+            .friendship_repository
+            .block_relation(&sender_id, &recipient_id)
+            .await?
+            .any()
+        {
+            return Err(SendDmMessageError::Blocked);
+        }
         let pair = self
             .friendship_repository
             .find_pair(&sender_id, &recipient_id)

@@ -104,12 +104,17 @@ pub async fn presence_snapshot(
     let Some(user_id) = authenticate_request(&req, &state).await else {
         return Ok(HttpResponse::Unauthorized().body("invalid token"));
     };
-    let ids: Vec<Uuid> = query
-        .ids
-        .split(',')
-        .filter_map(|raw| Uuid::parse_str(raw.trim()).ok())
-        .take(100)
-        .collect();
+    let mut ids: Vec<Uuid> = Vec::new();
+    for raw in query.ids.split(',') {
+        if let Ok(id) = Uuid::parse_str(raw.trim())
+            && !ids.contains(&id)
+        {
+            ids.push(id);
+        }
+        if ids.len() >= 100 {
+            break;
+        }
+    }
     match state.manager.visible_online(user_id, &ids).await {
         Ok(online) => Ok(HttpResponse::Ok().json(PresenceSnapshotResponse { online })),
         Err(e) => {
