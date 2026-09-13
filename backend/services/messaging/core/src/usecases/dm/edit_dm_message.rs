@@ -109,6 +109,14 @@ where
             return Err(EditDmMessageError::RecipientInactive);
         }
 
+        if self
+            .friendship_repository
+            .block_relation(message.sender_id(), message.recipient_id())
+            .await?
+            .any()
+        {
+            return Err(EditDmMessageError::Blocked);
+        }
         let pair = self
             .friendship_repository
             .find_pair(message.sender_id(), message.recipient_id())

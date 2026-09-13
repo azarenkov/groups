@@ -140,16 +140,19 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
     }
 
     pub async fn visible_online(&self, viewer: Uuid, ids: &[Uuid]) -> Result<Vec<Uuid>, RepositoryError> {
-        let mut online = Vec::new();
-        for id in ids {
-            if !self.online_snapshot.contains_key(id) {
-                continue;
-            }
-            if self.presence_resolver.interested_in(*id).await?.contains(&viewer) {
-                online.push(*id);
-            }
+        let candidates: Vec<Uuid> = ids
+            .iter()
+            .copied()
+            .filter(|id| self.online_snapshot.contains_key(id))
+            .collect();
+        if candidates.is_empty() {
+            return Ok(Vec::new());
         }
-        Ok(online)
+        let audience = self.presence_resolver.interested_in(viewer).await?;
+        Ok(candidates
+            .into_iter()
+            .filter(|id| audience.contains(id))
+            .collect())
     }
 
     pub fn has_active_conns(&self, user_id: Uuid) -> bool {
