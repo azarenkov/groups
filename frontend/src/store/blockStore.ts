@@ -112,6 +112,10 @@ const recoverStatus = (userId: string) => {
 
 const forgetStatus = (userId: string) => {
   usePresenceStore.getState().setOffline(userId);
+  void import("./friendshipStore").then((m) => {
+    const store = m.useFriendshipStore.getState();
+    if (store.friends.some((f) => f.friendId === userId)) void store.fetchFriends();
+  });
   void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
   void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
   void import("./unreadStore").then((m) => {
@@ -186,9 +190,6 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       },
     }));
     void get().fetch();
-    void import("./friendshipStore").then((m) =>
-      m.useFriendshipStore.getState().fetchFriends(),
-    );
   },
 
   unblock: async (userId) => {
