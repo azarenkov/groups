@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::CallPairOutcome, call::repository::CallRepository, call::repository::PendingEviction, call::CallParticipantStatus};
+use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::CallRepository, call::repository::PendingEviction, call::CallParticipantStatus};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -377,14 +377,45 @@ impl CallRepository for PostgresCallRepository {
         call_id: Uuid,
         inviter: &UserId,
         invitees: &[UserId],
+        max_participants: usize,
         now: DateTime<Utc>,
         request_id: Option<String>,
-    ) -> Result<Vec<UserId>, RepositoryError> {
+    ) -> Result<AddParticipantsOutcome, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
+            .bind(call_id.to_string())
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        let existing: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM call_participants WHERE call_id = $1 AND user_id <> $2 AND status IN ('invited', 'joined')",
+        )
+        .bind(call_id)
+        .bind(inviter.uuid())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let requested: Vec<Uuid> = invitees.iter().map(|u| u.uuid()).collect();
+        let already_active: Vec<(Uuid,)> = sqlx::query_as(
+            "SELECT user_id FROM call_participants WHERE call_id = $1 AND user_id = ANY($2) AND status IN ('invited', 'joined')",
+        )
+        .bind(call_id)
+        .bind(&requested)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let fresh = requested
+            .iter()
+            .filter(|id| !already_active.iter().any(|(active,)| active == *id))
+            .count();
+        if usize::try_from(existing).unwrap_or(usize::MAX).saturating_add(fresh) > max_participants {
+            return Ok(AddParticipantsOutcome::CapExceeded);
+        }
 
         let mut ringed: Vec<Uuid> = Vec::new();
         for invitee in invitees {
@@ -432,7 +463,7 @@ impl CallRepository for PostgresCallRepository {
         }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(ringed.into_iter().map(UserId::new).collect())
+        Ok(AddParticipantsOutcome::Added(ringed.into_iter().map(UserId::new).collect()))
     }
 
     async fn leave(

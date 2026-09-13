@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use uuid::Uuid;
-use voice_domain::call::repository::CallRepository;
+use voice_domain::call::repository::{AddParticipantsOutcome, CallRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -120,16 +120,23 @@ where
             return Err(AddCallParticipantsError::CallNotAllowed);
         }
 
-        let added = self
+        let added = match self
             .call_repository
             .add_participants(
                 request.call_id,
                 &caller_id,
                 &invitees,
+                MAX_CALL_INVITEES,
                 Utc::now(),
                 request.ctx.request_id.clone(),
             )
-            .await?;
+            .await?
+        {
+            AddParticipantsOutcome::Added(added) => added,
+            AddParticipantsOutcome::CapExceeded => {
+                return Err(AddCallParticipantsError::TooManyRecipients);
+            }
+        };
 
         let roster = match self.roster(request.call_id).await {
             Ok(roster) => roster,

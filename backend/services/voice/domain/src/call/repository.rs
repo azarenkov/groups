@@ -6,6 +6,12 @@ use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
 #[derive(Debug, Clone)]
+pub enum AddParticipantsOutcome {
+    Added(Vec<UserId>),
+    CapExceeded,
+}
+
+#[derive(Debug, Clone)]
 pub struct PendingEviction {
     pub call_id: Uuid,
     pub user_id: UserId,
@@ -40,9 +46,10 @@ pub trait CallRepository {
         call_id: Uuid,
         inviter: &UserId,
         invitees: &[UserId],
+        max_participants: usize,
         now: DateTime<Utc>,
         request_id: Option<String>,
-    ) -> Result<Vec<UserId>, RepositoryError>;
+    ) -> Result<AddParticipantsOutcome, RepositoryError>;
 
     async fn leave(
         &self,
