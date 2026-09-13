@@ -90,12 +90,13 @@ where
         let mut requested: Vec<UserId> = Vec::new();
         for id in &request.invitee_ids {
             let invitee = UserId::new(*id);
-            if invitee != caller_id && !requested.contains(&invitee) {
-                requested.push(invitee);
+            if invitee == caller_id || requested.contains(&invitee) {
+                continue;
             }
-        }
-        if requested.len() > MAX_CALL_INVITEES {
-            return Err(StartCallError::TooManyRecipients);
+            if requested.len() == MAX_CALL_INVITEES {
+                return Err(StartCallError::TooManyRecipients);
+            }
+            requested.push(invitee);
         }
         let mut invitees: Vec<UserId> = Vec::new();
         for invitee in requested {
