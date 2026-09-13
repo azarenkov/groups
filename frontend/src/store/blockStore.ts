@@ -254,7 +254,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     }
     get().markBlockedBy(userId, relation.blockedBy);
     if (relation.blocked && !known) {
-      forgetStatus(userId);
+      if (!(relation.blockedBy && !wasBlockedBy)) forgetStatus(userId);
       leaveSharedCall(userId);
       set((state) => ({
         blocked: {

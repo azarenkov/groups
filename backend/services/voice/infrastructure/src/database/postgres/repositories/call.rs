@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::CallRepository, call::repository::PendingEviction, call::CallParticipantStatus};
+use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::CallParticipantStatus};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -817,8 +817,34 @@ impl CallRepository for PostgresCallRepository {
         &self,
         call_id: Uuid,
         user_id: &UserId,
+        max_participants: usize,
         now: DateTime<Utc>,
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<JoinOutcome, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
+            .bind(call_id.to_string())
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        let current = participant_status(&mut tx, call_id, user_id.uuid()).await?;
+        let reactivating = !matches!(current.as_deref(), Some("invited") | Some("joined"));
+        if reactivating {
+            let active: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM call_participants WHERE call_id = $1 AND user_id <> $2 AND status IN ('invited', 'joined')",
+            )
+            .bind(call_id)
+            .bind(user_id.uuid())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if usize::try_from(active).unwrap_or(usize::MAX) > max_participants {
+                return Ok(JoinOutcome::CapExceeded);
+            }
+        }
         let updated = sqlx::query!(
             r#"
             UPDATE call_participants
@@ -840,18 +866,15 @@ impl CallRepository for PostgresCallRepository {
             user_id.uuid(),
             now,
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if updated.rows_affected() > 0 {
-            sqlx::query("DELETE FROM call_evictions WHERE call_id = $1 AND user_id = $2")
-                .bind(call_id)
-                .bind(user_id.uuid())
-                .execute(&self.pool)
-                .await
-                .map_err(map_sqlx_error_to_domain_error)?;
+        if updated.rows_affected() == 0 {
+            return Ok(JoinOutcome::NotParticipant);
         }
-        Ok(updated.rows_affected() > 0)
+        cancel_eviction(&mut tx, call_id, user_id.uuid()).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(JoinOutcome::Joined)
     }
 
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError> {

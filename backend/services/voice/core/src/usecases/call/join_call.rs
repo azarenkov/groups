@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use voice_domain::{call::repository::CallParticipantView, call::repository::CallRepository};
+use voice_domain::{call::repository::CallParticipantView, call::repository::CallRepository, call::repository::JoinOutcome};
 use domain::{channel::id::ChannelId, channel::token::ChannelToken, user::id::UserId};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
@@ -19,6 +19,8 @@ pub enum JoinCallError {
     Voice(#[from] VoiceServiceError),
     #[error("You are not part of this call")]
     NotParticipant,
+    #[error("This call is full")]
+    CallFull,
     #[error("User not found")]
     UserNotFound,
     #[error("Account is inactive")]
@@ -115,12 +117,14 @@ where
             .create_token(&user_id, &user_name, &room)
             .await?;
 
-        let joined = self
+        match self
             .call_repository
-            .join(call_id, &user_id, Utc::now())
-            .await?;
-        if !joined {
-            return Err(JoinCallError::NotParticipant);
+            .join(call_id, &user_id, super::add_participants::MAX_CALL_INVITEES, Utc::now())
+            .await?
+        {
+            JoinOutcome::Joined => {}
+            JoinOutcome::NotParticipant => return Err(JoinCallError::NotParticipant),
+            JoinOutcome::CapExceeded => return Err(JoinCallError::CallFull),
         }
         if !self.user_repository.is_active(&user_id).await? {
             self.call_repository

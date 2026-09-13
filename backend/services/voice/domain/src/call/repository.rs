@@ -5,6 +5,13 @@ use uuid::Uuid;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JoinOutcome {
+    Joined,
+    NotParticipant,
+    CapExceeded,
+}
+
 #[derive(Debug, Clone)]
 pub enum AddParticipantsOutcome {
     Added(Vec<UserId>),
@@ -133,8 +140,9 @@ pub trait CallRepository {
         &self,
         call_id: Uuid,
         user_id: &UserId,
+        max_participants: usize,
         now: DateTime<Utc>,
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<JoinOutcome, RepositoryError>;
 
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
 
