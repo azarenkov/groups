@@ -225,9 +225,14 @@ where
                 return Ok(None);
             }
             if relation.blocked_by {
-                self.call_repository
-                    .leave(call_id, invitee, Utc::now(), request_id.clone())
-                    .await?;
+                super::eviction::evict(
+                    self.call_repository.as_ref(),
+                    self.voice_service.as_ref(),
+                    call_id,
+                    &[*invitee],
+                    request_id.clone(),
+                )
+                .await?;
             } else {
                 kept.push(*invitee);
             }
@@ -247,9 +252,14 @@ where
                 }
                 let blocker_position = if relation.blocking { index } else { other };
                 let blocker = kept.remove(blocker_position);
-                self.call_repository
-                    .leave(call_id, &blocker, Utc::now(), request_id.clone())
-                    .await?;
+                super::eviction::evict(
+                    self.call_repository.as_ref(),
+                    self.voice_service.as_ref(),
+                    call_id,
+                    &[blocker],
+                    request_id.clone(),
+                )
+                .await?;
                 if blocker_position == index {
                     evicted_current = true;
                     break;
