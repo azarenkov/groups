@@ -169,9 +169,14 @@ where
             }
         }
         if !withdrawn.is_empty() {
-            self.call_repository
-                .leave_many(request.call_id, &withdrawn, Utc::now(), request.ctx.request_id)
-                .await?;
+            super::eviction::evict(
+                self.call_repository.as_ref(),
+                self.voice_service.as_ref(),
+                request.call_id,
+                &withdrawn,
+                request.ctx.request_id,
+            )
+            .await?;
         }
         if !added.is_empty() && withdrawn.len() == added.len() {
             return Err(AddCallParticipantsError::CallNotAllowed);
@@ -259,10 +264,14 @@ where
     }
 
     async fn withdraw(&self, call_id: Uuid, invitees: &[UserId], request_id: Option<String>) {
-        if let Err(cleanup) = self
-            .call_repository
-            .leave_many(call_id, invitees, Utc::now(), request_id)
-            .await
+        if let Err(cleanup) = super::eviction::evict(
+            self.call_repository.as_ref(),
+            self.voice_service.as_ref(),
+            call_id,
+            invitees,
+            request_id,
+        )
+        .await
         {
             tracing::error!(error = %cleanup, %call_id, "Failed to withdraw invitations after a block lookup error");
         }
