@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
+use messaging_domain::{channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmReadReceipt, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -247,7 +247,20 @@ impl ReadStateRepository for PostgresReadStateRepository {
         &self,
         user_id: &UserId,
         friend_id: &UserId,
-    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+    ) -> Result<DmReadReceipt, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))")
+            .bind(pair_key(user_id, friend_id))
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        if block_relation_for(&mut *tx, user_id, friend_id).await?.any() {
+            return Ok(DmReadReceipt::Blocked);
+        }
         let read_at = sqlx::query_scalar!(
             r#"
             SELECT last_read_at
@@ -257,10 +270,11 @@ impl ReadStateRepository for PostgresReadStateRepository {
             friend_id.uuid(),
             user_id.uuid(),
         )
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(read_at)
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(DmReadReceipt::ReadAt(read_at))
     }
 
     async fn channel_member_read_ats(
