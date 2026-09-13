@@ -161,6 +161,7 @@ impl HttpMapping for StartCallError {
             StartCallError::Repository(e) => e.to_http_status(),
             StartCallError::Voice(e) => e.to_http_status(),
             StartCallError::NoRecipients => StatusCode::BAD_REQUEST,
+            StartCallError::TooManyRecipients => StatusCode::BAD_REQUEST,
             StartCallError::CallNotAllowed => StatusCode::FORBIDDEN,
             StartCallError::UserNotFound => StatusCode::NOT_FOUND,
             StartCallError::AccountInactive => StatusCode::FORBIDDEN,
@@ -172,6 +173,7 @@ impl HttpMapping for StartCallError {
             StartCallError::Repository(e) => e.to_user_message(),
             StartCallError::Voice(e) => e.to_user_message(),
             StartCallError::NoRecipients => "No recipients specified".to_string(),
+            StartCallError::TooManyRecipients => "Too many recipients".to_string(),
             StartCallError::CallNotAllowed => "This user does not accept this call".to_string(),
             StartCallError::UserNotFound => "User not found".to_string(),
             StartCallError::AccountInactive => "Account is inactive".to_string(),
@@ -185,6 +187,7 @@ impl HttpMapping for StartCallError {
             StartCallError::Repository(e) => e.to_error_code(),
             StartCallError::Voice(e) => e.to_error_code(),
             StartCallError::NoRecipients => "CALL_NO_RECIPIENTS",
+            StartCallError::TooManyRecipients => "CALL_TOO_MANY_RECIPIENTS",
             StartCallError::CallNotAllowed => "CALL_NOT_ALLOWED",
             StartCallError::UserNotFound => "USER_NOT_FOUND",
             StartCallError::AccountInactive => "ACCOUNT_INACTIVE",
@@ -364,6 +367,7 @@ impl HttpMapping for AddCallParticipantsError {
             AddCallParticipantsError::NotParticipant => StatusCode::FORBIDDEN,
             AddCallParticipantsError::CallNotAllowed => StatusCode::FORBIDDEN,
             AddCallParticipantsError::NoRecipients => StatusCode::BAD_REQUEST,
+            AddCallParticipantsError::TooManyRecipients => StatusCode::BAD_REQUEST,
             AddCallParticipantsError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
@@ -377,6 +381,7 @@ impl HttpMapping for AddCallParticipantsError {
                 "This user cannot be added to this call".to_string()
             }
             AddCallParticipantsError::NoRecipients => "No recipients specified".to_string(),
+            AddCallParticipantsError::TooManyRecipients => "Too many recipients".to_string(),
             AddCallParticipantsError::FriendshipLookup(_) => {
                 "Friendship lookup unavailable".to_string()
             }
@@ -388,6 +393,7 @@ impl HttpMapping for AddCallParticipantsError {
             AddCallParticipantsError::NotParticipant => "CALL_NOT_PARTICIPANT",
             AddCallParticipantsError::CallNotAllowed => "CALL_NOT_ALLOWED",
             AddCallParticipantsError::NoRecipients => "CALL_NO_RECIPIENTS",
+            AddCallParticipantsError::TooManyRecipients => "CALL_TOO_MANY_RECIPIENTS",
             AddCallParticipantsError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }

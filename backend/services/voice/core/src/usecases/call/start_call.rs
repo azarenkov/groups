@@ -14,6 +14,8 @@ use crate::{
     },
 };
 
+pub const MAX_CALL_INVITEES: usize = 24;
+
 #[derive(Debug, thiserror::Error)]
 pub enum StartCallError {
     #[error("Repository error: {0}")]
@@ -22,6 +24,8 @@ pub enum StartCallError {
     Voice(#[from] VoiceServiceError),
     #[error("No recipients specified")]
     NoRecipients,
+    #[error("Too many recipients")]
+    TooManyRecipients,
     #[error("This user does not accept this call")]
     CallNotAllowed,
     #[error("User not found")]
@@ -83,12 +87,18 @@ where
             return Err(StartCallError::NoRecipients);
         }
 
-        let mut invitees: Vec<UserId> = Vec::new();
+        let mut requested: Vec<UserId> = Vec::new();
         for id in &request.invitee_ids {
             let invitee = UserId::new(*id);
-            if invitee == caller_id {
-                continue;
+            if invitee != caller_id && !requested.contains(&invitee) {
+                requested.push(invitee);
             }
+        }
+        if requested.len() > MAX_CALL_INVITEES {
+            return Err(StartCallError::TooManyRecipients);
+        }
+        let mut invitees: Vec<UserId> = Vec::new();
+        for invitee in requested {
             if !self
                 .friendship_repository
                 .can_call(&caller_id, &invitee)
