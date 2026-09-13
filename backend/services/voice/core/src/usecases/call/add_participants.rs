@@ -153,9 +153,10 @@ where
             }
         };
         let candidates: Vec<UserId> = added.iter().copied().filter(|i| !withdrawn.contains(i)).collect();
+        let mut roster = roster;
         for invitee in &candidates {
             match self
-                .reconcile_with_roster(request.call_id, invitee, &roster, request.ctx.request_id.clone())
+                .reconcile_with_roster(request.call_id, invitee, &mut roster, request.ctx.request_id.clone())
                 .await
             {
                 Ok(true) => withdrawn.push(*invitee),
@@ -198,11 +199,17 @@ where
         &self,
         call_id: Uuid,
         invitee: &UserId,
-        roster: &[UserId],
+        roster: &mut Vec<UserId>,
         request_id: Option<String>,
     ) -> Result<bool, AddCallParticipantsError> {
-        for other in roster.iter().filter(|other| *other != invitee) {
-            let relation = self.friendship_repository.block_relation(invitee, other).await?;
+        let mut index = 0;
+        while index < roster.len() {
+            let other = roster[index];
+            if other == *invitee {
+                index += 1;
+                continue;
+            }
+            let relation = self.friendship_repository.block_relation(invitee, &other).await?;
             if relation.blocking {
                 return Ok(true);
             }
@@ -211,11 +218,14 @@ where
                     self.call_repository.as_ref(),
                     self.voice_service.as_ref(),
                     call_id,
-                    &[*other],
+                    &[other],
                     request_id.clone(),
                 )
                 .await?;
+                roster.remove(index);
+                continue;
             }
+            index += 1;
         }
         Ok(false)
     }

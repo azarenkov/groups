@@ -639,7 +639,7 @@ function dispatch(env: WsEnvelope) {
 
     case "user.online": {
       const userId = asString(d.userId);
-      if (userId) {
+      if (userId && !isBlockedEitherWay(userId)) {
         usePresenceStore.getState().setOnline(userId);
         void loadActivitiesFor([userId]);
       }
