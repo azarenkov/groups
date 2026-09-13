@@ -91,6 +91,11 @@ where
             }
             requested.push(invitee);
         }
+        let existing = roster.iter().filter(|id| **id != caller_id).count();
+        let fresh = requested.iter().filter(|id| !roster.contains(id)).count();
+        if existing + fresh > MAX_CALL_INVITEES {
+            return Err(AddCallParticipantsError::TooManyRecipients);
+        }
         let mut invitees: Vec<UserId> = Vec::new();
         for invitee in requested {
             if !self

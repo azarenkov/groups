@@ -94,6 +94,14 @@ where
         sender_id: UserId,
         ctx: RequestContext,
     ) -> Result<SendDmMessageResponse, SendServerInviteError> {
+        if self
+            .friendship_repository
+            .block_relation(&sender_id, &friend_id)
+            .await?
+            .any()
+        {
+            return Err(SendServerInviteError::Blocked);
+        }
         let pair = self
             .friendship_repository
             .find_pair(&sender_id, &friend_id)
