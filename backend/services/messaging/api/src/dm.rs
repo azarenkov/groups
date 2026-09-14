@@ -121,6 +121,14 @@ struct ListDmPreviewsResponse {
     next_cursor: Option<String>,
 }
 
+fn invalid_cursor() -> HttpError {
+    HttpError::new(
+        "Invalid cursor".to_string(),
+        actix_web::http::StatusCode::BAD_REQUEST,
+        "INVALID_CURSOR",
+    )
+}
+
 #[get("/me/dms/previews")]
 async fn list_dm_previews(
     auth_token: RateLimitedAuthToken,
@@ -128,13 +136,12 @@ async fn list_dm_previews(
     query: web::Query<api_common::dto::cursor::CursorQuery>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let (cursor, limit) = query.keyset().map_err(|_| {
-        HttpError::new(
-            "Invalid cursor".to_string(),
-            actix_web::http::StatusCode::BAD_REQUEST,
-            "INVALID_CURSOR",
-        )
-    })?;
+    let (cursor, limit) = query.keyset().map_err(|_| invalid_cursor())?;
+    if let Some(c) = &cursor
+        && Uuid::parse_str(&c.key).is_err()
+    {
+        return Err(invalid_cursor());
+    }
     let page = app_state
         .list_dm_previews_usecase
         .execute(user_id, cursor, limit)

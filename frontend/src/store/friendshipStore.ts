@@ -36,17 +36,25 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
       if (seq !== fetchSeq) return;
       const statusById: Record<string, FriendshipStatus> = {};
       for (const f of ids.friends) statusById[f.friendId] = f.status;
-      set({
-        friends: page.friends,
-        statusById,
-        nextCursor: page.nextCursor,
-        isLoading: false,
+      set((state) => {
+        const fresh = new Set(page.friends.map((f) => f.friendId));
+        const tail = state.friends
+          .filter((f) => !fresh.has(f.friendId) && statusById[f.friendId] !== undefined)
+          .map((f) => ({ ...f, status: statusById[f.friendId] }));
+        return {
+          friends: [...page.friends, ...tail],
+          statusById,
+          nextCursor: tail.length > 0 ? state.nextCursor : page.nextCursor,
+          isLoading: false,
+          isLoadingMore: false,
+        };
       });
     } catch (e) {
       if (seq !== fetchSeq) return;
       set({
         error: e instanceof Error ? e.message : "Failed to load friends",
         isLoading: false,
+        isLoadingMore: false,
       });
     }
   });
@@ -67,7 +75,10 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
       set({ isLoadingMore: true });
       try {
         const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
-        if (seq !== fetchSeq) return;
+        if (seq !== fetchSeq) {
+          set({ isLoadingMore: false });
+          return;
+        }
         set((state) => {
           const known = new Set(state.friends.map((f) => f.friendId));
           const fresh = page.friends.filter((f) => !known.has(f.friendId));
@@ -78,7 +89,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
           };
         });
       } catch {
-        if (seq === fetchSeq) set({ isLoadingMore: false });
+        set({ isLoadingMore: false });
       }
     },
 
