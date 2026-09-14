@@ -460,10 +460,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let ids: Vec<Uuid> = candidates.iter().map(|c| c.uuid()).collect();
         let rows: Vec<(Uuid,)> = sqlx::query_as(
             r#"
-            SELECT DISTINCT CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer
-            FROM dm_messages
-            WHERE (sender_id = $1 AND recipient_id = ANY($2))
-               OR (recipient_id = $1 AND sender_id = ANY($2))
+            SELECT peer_id FROM dm_conversations WHERE user_id = $1 AND peer_id = ANY($2)
             "#,
         )
         .bind(user_id.uuid())
@@ -485,43 +482,23 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, DateTime<Utc>)> =
             sqlx::query_as(
                 r#"
-                SELECT p.message_id, p.peer, p.peer_name, p.sender_id, p.content, p.call_status,
-                       p.invite_server_id, p.has_attachments, p.created_at
-                FROM (
-                    SELECT DISTINCT ON (m.peer)
-                        m.id AS message_id,
-                        m.peer,
-                        u.name AS peer_name,
-                        m.sender_id,
-                        m.content,
-                        m.call_status,
-                        m.invite_server_id,
-                        EXISTS(
-                            SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id
-                        ) AS has_attachments,
-                        m.created_at
-                    FROM (
-                        SELECT
-                            id,
-                            CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS peer,
-                            sender_id,
-                            content,
-                            call_status,
-                            invite_server_id,
-                            created_at
-                        FROM dm_messages
-                        WHERE sender_id = $1 OR recipient_id = $1
-                    ) m
-                    INNER JOIN messaging_user_profiles u ON u.user_id = m.peer
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM user_blocks b
-                        WHERE (b.blocker_id = $1 AND b.blocked_id = m.peer)
-                           OR (b.blocker_id = m.peer AND b.blocked_id = $1)
-                    )
-                    ORDER BY m.peer, m.created_at DESC, m.id DESC
-                ) p
-                WHERE ($2::timestamptz IS NULL OR (p.created_at, p.message_id) < ($2, $3::uuid))
-                ORDER BY p.created_at DESC, p.message_id DESC
+                SELECT c.last_message_id, c.peer_id, u.name AS peer_name, m.sender_id, m.content, m.call_status,
+                       m.invite_server_id,
+                       EXISTS(
+                           SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id
+                       ) AS has_attachments,
+                       c.last_created_at
+                FROM dm_conversations c
+                INNER JOIN dm_messages m ON m.id = c.last_message_id
+                INNER JOIN messaging_user_profiles u ON u.user_id = c.peer_id
+                WHERE c.user_id = $1
+                  AND NOT EXISTS (
+                      SELECT 1 FROM user_blocks b
+                      WHERE (b.blocker_id = $1 AND b.blocked_id = c.peer_id)
+                         OR (b.blocker_id = c.peer_id AND b.blocked_id = $1)
+                  )
+                  AND ($2::timestamptz IS NULL OR (c.last_created_at, c.last_message_id) < ($2, $3::uuid))
+                ORDER BY c.last_created_at DESC, c.last_message_id DESC
                 LIMIT $4
                 "#,
             )
