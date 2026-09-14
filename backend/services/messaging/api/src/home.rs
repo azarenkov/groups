@@ -114,6 +114,8 @@ struct PublicProfileResponse {
     accepts_calls: bool,
     accepts_messages: bool,
     accepts_friend_requests: bool,
+    blocked: bool,
+    blocked_by: bool,
     mutual_servers: Vec<MutualServerItem>,
     voice_room: Option<VoiceRoomItem>,
 }
@@ -145,22 +147,29 @@ async fn get_user_profile(
         ContactPolicy::NoOne => false,
         ContactPolicy::Friends => are_friends,
     };
-    let accepts_calls = permits(settings.call_policy);
-    let accepts_messages = permits(settings.dm_policy);
-    let accepts_friend_requests = settings.accept_friend_requests;
+    let relation = app_state
+        .friendship_repository
+        .block_relation(&UserId::new(auth_token.id), &UserId::new(target_id))
+        .await
+        .map_err(HttpError::from)?;
+    let hidden = relation.blocked_by;
+    let accepts_calls = permits(settings.call_policy) && !relation.any();
+    let accepts_messages = permits(settings.dm_policy) && !relation.any();
+    let accepts_friend_requests = settings.accept_friend_requests && !relation.any();
     Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
         id: view.profile.user_id.uuid(),
         name: view.profile.name,
-        bio: view.profile.bio,
+        bio: if hidden { String::new() } else { view.profile.bio },
         profile_updated_at: view.profile.profile_updated_at,
         active: view.profile.active,
-        timezone: view.profile.timezone,
-        member_since: view.profile.registered_at,
+        timezone: if hidden { String::new() } else { view.profile.timezone },
+        member_since: if hidden { None } else { view.profile.registered_at },
         accepts_calls,
         accepts_messages,
         accepts_friend_requests,
-        mutual_servers: view
-            .mutual_servers
+        blocked: relation.blocking,
+        blocked_by: relation.blocked_by,
+        mutual_servers: if hidden { Vec::new() } else { view.mutual_servers }
             .into_iter()
             .map(|m| MutualServerItem {
                 id: m.server_id.uuid(),
@@ -168,7 +177,7 @@ async fn get_user_profile(
                 accent_color: m.accent_color,
             })
             .collect(),
-        voice_room: view.voice_room.map(|v| VoiceRoomItem {
+        voice_room: if hidden { None } else { view.voice_room }.map(|v| VoiceRoomItem {
             channel_id: v.channel_id.uuid(),
             channel_name: v.channel_name,
             server_id: v.server_id.uuid(),

@@ -96,6 +96,78 @@ impl PostgresRealtimeProjection {
         self.upsert_friend_edge(a, b, true, false, occurred_at).await
     }
 
+    async fn apply_block(
+        &self,
+        blocker_id: Uuid,
+        blocked_id: Uuid,
+        active: bool,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO realtime_user_blocks (blocker_id, blocked_id, active, updated_at)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (blocker_id, blocked_id) DO UPDATE
+                SET active = EXCLUDED.active,
+                    updated_at = EXCLUDED.updated_at
+                WHERE realtime_user_blocks.updated_at <= EXCLUDED.updated_at
+            "#,
+        )
+        .bind(blocker_id)
+        .bind(blocked_id)
+        .bind(active)
+        .bind(occurred_at)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT e.friend_id
+            FROM realtime_friend_edges e
+            WHERE e.user_id = $1
+              AND e.removed
+              AND NOT EXISTS (
+                  SELECT 1 FROM realtime_dm_pairs p
+                  WHERE p.user_a = LEAST($1, e.friend_id)
+                    AND p.user_b = GREATEST($1, e.friend_id)
+              )
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+    }
+
+    async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_dm_pairs (user_a, user_b)
+            VALUES (LEAST($1, $2), GREATEST($1, $2))
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(a)
+        .bind(b)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "DELETE FROM realtime_dm_pairs WHERE user_a = LEAST($1, $2) AND user_b = GREATEST($1, $2)",
+        )
+        .bind(a)
+        .bind(b)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn upsert_friend_edge(
         &self,
         a: Uuid,
@@ -126,28 +198,50 @@ impl PostgresRealtimeProjection {
     }
 
     async fn rename_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        self.related_recipients(user_id, false).await
+    }
+
+    async fn profile_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        self.related_recipients(user_id, true).await
+    }
+
+    async fn related_recipients(
+        &self,
+        user_id: Uuid,
+        hide_from_blocked: bool,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
-            SELECT e.friend_id AS user_id
-            FROM realtime_friend_edges e
-            WHERE e.user_id = $1
-              AND (
-                NOT e.removed
-                OR EXISTS (
-                    SELECT 1 FROM messaging.dm_messages m
-                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1, e.friend_id)
-                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1, e.friend_id)
+            SELECT r.user_id
+            FROM (
+                SELECT e.friend_id AS user_id
+                FROM realtime_friend_edges e
+                WHERE e.user_id = $1
+                  AND (
+                    NOT e.removed
+                    OR EXISTS (
+                        SELECT 1 FROM realtime_dm_pairs p
+                        WHERE p.user_a = LEAST($1, e.friend_id)
+                          AND p.user_b = GREATEST($1, e.friend_id)
+                    )
+                  )
+                UNION
+                SELECT DISTINCT sm2.user_id
+                FROM realtime_server_members sm1
+                INNER JOIN realtime_server_members sm2
+                    ON sm2.server_id = sm1.server_id AND NOT sm2.removed
+                WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
+            ) r
+            WHERE NOT (
+                $2 AND EXISTS (
+                    SELECT 1 FROM realtime_user_blocks b
+                    WHERE b.active AND b.blocker_id = $1 AND b.blocked_id = r.user_id
                 )
-              )
-            UNION
-            SELECT DISTINCT sm2.user_id
-            FROM realtime_server_members sm1
-            INNER JOIN realtime_server_members sm2
-                ON sm2.server_id = sm1.server_id AND NOT sm2.removed
-            WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
+            )
             "#,
         )
         .bind(user_id)
+        .bind(hide_from_blocked)
         .fetch_all(&self.pool)
         .await?;
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
@@ -248,6 +342,14 @@ impl PostgresRealtimeProjection {
                     ON sm2.server_id = sm1.server_id AND NOT sm2.removed
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) AS interested
+            WHERE NOT EXISTS (
+                SELECT 1 FROM realtime_user_blocks b
+                WHERE b.active
+                  AND (
+                    (b.blocker_id = $1 AND b.blocked_id = interested.user_id)
+                    OR (b.blocker_id = interested.user_id AND b.blocked_id = $1)
+                  )
+            )
             "#,
         )
         .bind(user_id)
@@ -270,6 +372,15 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     }
     async fn remove_friend_edge(&self, a: Uuid, b: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::remove_friend_edge(self, a, b, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn apply_block(&self, blocker_id: Uuid, blocked_id: Uuid, active: bool, occurred_at: DateTime<Utc>) -> Result<bool, RepositoryError> {
+        PostgresRealtimeProjection::apply_block(self, blocker_id, blocked_id, active, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::record_dm_pair(self, a, b).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::remove_dm_pair(self, a, b).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn add_server_member(&self, server_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::add_server_member(self, server_id, user_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
@@ -296,7 +407,13 @@ impl RecipientDirectory for PostgresRealtimeProjection {
     async fn rename_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         PostgresRealtimeProjection::rename_recipients(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
+    async fn profile_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
+        PostgresRealtimeProjection::profile_recipients(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
+    }
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         self.interested_in_query(user_id).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
+        PostgresRealtimeProjection::pending_dm_peers(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
 }

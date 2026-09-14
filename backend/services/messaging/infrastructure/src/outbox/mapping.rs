@@ -5,7 +5,7 @@ use contracts::events::{
         ParticipantMutedV1, ParticipantUndeafenedV1, ParticipantUnmutedV1, TextChannelJoinedV1,
     },
     dm_message::{DmMessageDeletedV1, DmMessageEditedV1, DmMessageSentV1},
-    friendship::{FriendRequestAcceptedV1, FriendRequestSentV1, FriendshipRemovedV1},
+    friendship::{FriendRequestAcceptedV1, FriendRequestSentV1, FriendshipRemovedV1, UserBlockedV1, UserUnblockedV1},
     message::{ChannelMessageDeletedV1, ChannelMessageEditedV1, ChannelMessageSentV1},
     server::{ServerCreatedV1, ServerDeletedV1, ServerOwnerChangedV1, ServerMemberV1, ServerRolesChangedV1, ServerUpdatedV1},
 };
@@ -280,6 +280,16 @@ fn friendship_record(event: &FriendshipDomainEvent) -> Result<OutboxRecord, Repo
         FriendshipDomainEvent::Removed(e) => encode(&FriendshipRemovedV1 {
             user_id: e.user_id.uuid(),
             other_id: e.other_id.uuid(),
+            occurred_at: e.occurred_at,
+        })?,
+        FriendshipDomainEvent::Blocked(e) => encode(&UserBlockedV1 {
+            blocker_id: e.blocker_id.uuid(),
+            blocked_id: e.blocked_id.uuid(),
+            occurred_at: e.occurred_at,
+        })?,
+        FriendshipDomainEvent::Unblocked(e) => encode(&UserUnblockedV1 {
+            blocker_id: e.blocker_id.uuid(),
+            blocked_id: e.blocked_id.uuid(),
             occurred_at: e.occurred_at,
         })?,
     };

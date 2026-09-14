@@ -130,6 +130,7 @@ impl HttpMapping for HandleVoiceWebhookError {
             HandleVoiceWebhookError::Verifier(e) => e.to_http_status(),
             HandleVoiceWebhookError::Call(e) => e.to_http_status(),
             HandleVoiceWebhookError::Voice(e) => e.to_http_status(),
+            HandleVoiceWebhookError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -138,6 +139,9 @@ impl HttpMapping for HandleVoiceWebhookError {
             HandleVoiceWebhookError::Verifier(e) => e.to_user_message(),
             HandleVoiceWebhookError::Call(e) => e.to_user_message(),
             HandleVoiceWebhookError::Voice(e) => e.to_user_message(),
+            HandleVoiceWebhookError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
 
@@ -146,6 +150,7 @@ impl HttpMapping for HandleVoiceWebhookError {
             HandleVoiceWebhookError::Verifier(e) => e.to_error_code(),
             HandleVoiceWebhookError::Call(e) => e.to_error_code(),
             HandleVoiceWebhookError::Voice(e) => e.to_error_code(),
+            HandleVoiceWebhookError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -156,6 +161,7 @@ impl HttpMapping for StartCallError {
             StartCallError::Repository(e) => e.to_http_status(),
             StartCallError::Voice(e) => e.to_http_status(),
             StartCallError::NoRecipients => StatusCode::BAD_REQUEST,
+            StartCallError::TooManyRecipients => StatusCode::BAD_REQUEST,
             StartCallError::CallNotAllowed => StatusCode::FORBIDDEN,
             StartCallError::UserNotFound => StatusCode::NOT_FOUND,
             StartCallError::AccountInactive => StatusCode::FORBIDDEN,
@@ -167,6 +173,7 @@ impl HttpMapping for StartCallError {
             StartCallError::Repository(e) => e.to_user_message(),
             StartCallError::Voice(e) => e.to_user_message(),
             StartCallError::NoRecipients => "No recipients specified".to_string(),
+            StartCallError::TooManyRecipients => "Too many recipients".to_string(),
             StartCallError::CallNotAllowed => "This user does not accept this call".to_string(),
             StartCallError::UserNotFound => "User not found".to_string(),
             StartCallError::AccountInactive => "Account is inactive".to_string(),
@@ -180,6 +187,7 @@ impl HttpMapping for StartCallError {
             StartCallError::Repository(e) => e.to_error_code(),
             StartCallError::Voice(e) => e.to_error_code(),
             StartCallError::NoRecipients => "CALL_NO_RECIPIENTS",
+            StartCallError::TooManyRecipients => "CALL_TOO_MANY_RECIPIENTS",
             StartCallError::CallNotAllowed => "CALL_NOT_ALLOWED",
             StartCallError::UserNotFound => "USER_NOT_FOUND",
             StartCallError::AccountInactive => "ACCOUNT_INACTIVE",
@@ -196,6 +204,8 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::NotParticipant => StatusCode::FORBIDDEN,
             AcceptCallError::UserNotFound => StatusCode::NOT_FOUND,
             AcceptCallError::AccountInactive => StatusCode::FORBIDDEN,
+            AcceptCallError::CallNotAllowed => StatusCode::FORBIDDEN,
+            AcceptCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -205,6 +215,10 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::NotParticipant => "You are not invited to this call".to_string(),
             AcceptCallError::UserNotFound => "User not found".to_string(),
             AcceptCallError::AccountInactive => "Account is inactive".to_string(),
+            AcceptCallError::CallNotAllowed => "This user does not accept this call".to_string(),
+            AcceptCallError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -214,6 +228,8 @@ impl HttpMapping for AcceptCallError {
             AcceptCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
             AcceptCallError::UserNotFound => "USER_NOT_FOUND",
             AcceptCallError::AccountInactive => "ACCOUNT_INACTIVE",
+            AcceptCallError::CallNotAllowed => "CALL_NOT_ALLOWED",
+            AcceptCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -242,8 +258,11 @@ impl HttpMapping for JoinCallError {
             JoinCallError::Repository(e) => e.to_http_status(),
             JoinCallError::Voice(e) => e.to_http_status(),
             JoinCallError::NotParticipant => StatusCode::FORBIDDEN,
+            JoinCallError::CallFull => StatusCode::CONFLICT,
             JoinCallError::UserNotFound => StatusCode::NOT_FOUND,
             JoinCallError::AccountInactive => StatusCode::FORBIDDEN,
+            JoinCallError::CallNotAllowed => StatusCode::FORBIDDEN,
+            JoinCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -251,8 +270,13 @@ impl HttpMapping for JoinCallError {
             JoinCallError::Repository(e) => e.to_user_message(),
             JoinCallError::Voice(e) => e.to_user_message(),
             JoinCallError::NotParticipant => "You are not part of this call".to_string(),
+            JoinCallError::CallFull => "This call is full".to_string(),
             JoinCallError::UserNotFound => "User not found".to_string(),
             JoinCallError::AccountInactive => "Account is inactive".to_string(),
+            JoinCallError::CallNotAllowed => "This user does not accept this call".to_string(),
+            JoinCallError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -260,8 +284,11 @@ impl HttpMapping for JoinCallError {
             JoinCallError::Repository(e) => e.to_error_code(),
             JoinCallError::Voice(e) => e.to_error_code(),
             JoinCallError::NotParticipant => "CALL_NOT_PARTICIPANT",
+            JoinCallError::CallFull => "CALL_FULL",
             JoinCallError::UserNotFound => "USER_NOT_FOUND",
             JoinCallError::AccountInactive => "ACCOUNT_INACTIVE",
+            JoinCallError::CallNotAllowed => "CALL_NOT_ALLOWED",
+            JoinCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -270,16 +297,21 @@ impl HttpMapping for GetActiveCallWithError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             GetActiveCallWithError::Repository(e) => e.to_http_status(),
+            GetActiveCallWithError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             GetActiveCallWithError::Repository(e) => e.to_user_message(),
+            GetActiveCallWithError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             GetActiveCallWithError::Repository(e) => e.to_error_code(),
+            GetActiveCallWithError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -290,6 +322,7 @@ impl HttpMapping for GetActiveCallError {
             GetActiveCallError::Repository(e) => e.to_http_status(),
             GetActiveCallError::Voice(e) => e.to_http_status(),
             GetActiveCallError::UserNotFound => StatusCode::NOT_FOUND,
+            GetActiveCallError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -297,6 +330,9 @@ impl HttpMapping for GetActiveCallError {
             GetActiveCallError::Repository(e) => e.to_user_message(),
             GetActiveCallError::Voice(e) => e.to_user_message(),
             GetActiveCallError::UserNotFound => "User not found".to_string(),
+            GetActiveCallError::FriendshipLookup(_) => {
+                "Friendship lookup unavailable".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -304,6 +340,7 @@ impl HttpMapping for GetActiveCallError {
             GetActiveCallError::Repository(e) => e.to_error_code(),
             GetActiveCallError::Voice(e) => e.to_error_code(),
             GetActiveCallError::UserNotFound => "USER_NOT_FOUND",
+            GetActiveCallError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -333,6 +370,7 @@ impl HttpMapping for AddCallParticipantsError {
             AddCallParticipantsError::NotParticipant => StatusCode::FORBIDDEN,
             AddCallParticipantsError::CallNotAllowed => StatusCode::FORBIDDEN,
             AddCallParticipantsError::NoRecipients => StatusCode::BAD_REQUEST,
+            AddCallParticipantsError::TooManyRecipients => StatusCode::BAD_REQUEST,
             AddCallParticipantsError::FriendshipLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
@@ -346,6 +384,7 @@ impl HttpMapping for AddCallParticipantsError {
                 "This user cannot be added to this call".to_string()
             }
             AddCallParticipantsError::NoRecipients => "No recipients specified".to_string(),
+            AddCallParticipantsError::TooManyRecipients => "Too many recipients".to_string(),
             AddCallParticipantsError::FriendshipLookup(_) => {
                 "Friendship lookup unavailable".to_string()
             }
@@ -357,6 +396,7 @@ impl HttpMapping for AddCallParticipantsError {
             AddCallParticipantsError::NotParticipant => "CALL_NOT_PARTICIPANT",
             AddCallParticipantsError::CallNotAllowed => "CALL_NOT_ALLOWED",
             AddCallParticipantsError::NoRecipients => "CALL_NO_RECIPIENTS",
+            AddCallParticipantsError::TooManyRecipients => "CALL_TOO_MANY_RECIPIENTS",
             AddCallParticipantsError::FriendshipLookup(_) => "FRIENDSHIP_LOOKUP_UNAVAILABLE",
         }
     }

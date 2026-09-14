@@ -61,13 +61,13 @@ pub async fn list_connections(
 
 #[get("/{user_id}/connections")]
 pub async fn user_connections(
-    _auth_token: RateLimitedAuthToken,
+    auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
     let items = app_state
-        .list_connections_usecase
-        .execute(UserId::new(path.into_inner()))
+        .list_user_connections_usecase
+        .execute(UserId::new(auth_token.id), UserId::new(path.into_inner()))
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(ConnectionsResponse {
         connections: items

@@ -12,11 +12,12 @@ use api_common::shutdown::{ShutdownConfig, ShutdownSignal, drain};
 
 use std::sync::Arc;
 
-use realtime_infrastructure::{connections::ConnectionManager, database::postgres::projection::PostgresRealtimeProjection};
+use realtime_core::usecases::block_aware_directory::BlockAwareDirectory;
+use realtime_infrastructure::{connections::ConnectionManager, database::postgres::projection::PostgresRealtimeProjection, media_client::relations::MessagingRelationsClient};
 
 use crate::{
     config::WebsocketConfig,
-    ws::{WsState, presence_preference, ws_handler},
+    ws::{WsState, presence_preference, presence_snapshot, ws_handler},
 };
 
 pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
@@ -26,7 +27,12 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
 
     let jetstream = create_jetstream(&nats_cfg).await?;
     let pg_pool = create_postgres_pool(pg_cfg).await?;
-    let presence_resolver = Arc::new(PostgresRealtimeProjection::new(pg_pool.clone()));
+    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let presence_resolver = Arc::new(BlockAwareDirectory::new(
+        Arc::new(PostgresRealtimeProjection::new(pg_pool.clone())),
+        Arc::new(MessagingRelationsClient::new(&messaging_internal_url)),
+    ));
 
     let core = jetstream.client().clone();
     let prefix = nats_cfg.subject_prefix.trim_end_matches('.');
@@ -96,6 +102,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
             .wrap(cors)
             .app_data(ws_state.clone())
             .service(presence_preference)
+            .service(presence_snapshot)
             .service(ws_handler)
     })
     .disable_signals()

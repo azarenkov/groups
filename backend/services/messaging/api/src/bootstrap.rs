@@ -1,3 +1,4 @@
+use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use std::{error::Error, sync::Arc};
 use api_common::shutdown::{self, ShutdownConfig};
 
@@ -242,6 +243,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),
             server_repository.clone(),
+            friendship_repository.clone(),
         ),
         join_text_channel_usecase: JoinTextChannel::new(
             channel_repository.clone(),
@@ -299,6 +301,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         accept_friend_request_usecase: AcceptFriendRequest::new(friendship_unit_of_work.clone()),
         remove_friendship_usecase: RemoveFriendship::new(friendship_unit_of_work.clone()),
         list_friends_usecase: ListFriends::new(friendship_repository.clone()),
+        block_user_usecase: BlockUser::new(friendship_unit_of_work.clone(), user_repository.clone()),
+        unblock_user_usecase: UnblockUser::new(friendship_unit_of_work.clone()),
+        list_blocked_users_usecase: ListBlockedUsers::new(friendship_repository.clone()),
         mark_channel_read_usecase: MarkChannelRead::new(
             read_state_repository.clone(),
             channel_repository.clone(),
@@ -346,6 +351,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         server_repository: server_repository.clone(),
         message_repository: message_repository.clone(),
+        dm_repository: dm_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         privacy_repository: privacy_repository.clone(),
         nats_core,

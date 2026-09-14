@@ -1,9 +1,11 @@
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
+use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
 use identity::usecases::{
     connections::{
         complete_connection::CompleteConnection, list_connections::ListConnections,
+        list_user_connections::ListUserConnections,
         remove_connection::RemoveConnection, start_connection::StartConnection,
     },
     auth::{
@@ -119,6 +121,8 @@ pub struct AppState {
     pub complete_connection_usecase:
         CompleteConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
     pub list_connections_usecase: ListConnections<PostgresUserRepository>,
+    pub list_user_connections_usecase:
+        ListUserConnections<PostgresUserRepository, MessagingBlockClient>,
     pub remove_connection_usecase: RemoveConnection<PostgresUserRepository>,
     pub public_app_url: String,
     pub user_repository: std::sync::Arc<PostgresUserRepository>,

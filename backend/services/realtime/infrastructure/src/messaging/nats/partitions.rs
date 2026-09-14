@@ -1,3 +1,4 @@
+use realtime_core::ports::blocks::RelationDirectory;
 use std::collections::HashMap;
 use infrastructure_common::health::Liveness;
 use std::time::Duration;
@@ -38,13 +39,13 @@ struct OwnedPartition {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static>(
+pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
     jetstream: Context,
     cfg: DispatcherSettings,
     subject_prefix: String,
     partitions: u32,
     replicas: usize,
-    dispatch: Arc<DispatchEvent<D, P>>,
+    dispatch: Arc<DispatchEvent<D, P, B>>,
     mut shutdown: watch::Receiver<bool>,
     liveness: Liveness,
     stale_after: Duration,
@@ -133,14 +134,14 @@ async fn ensure_bucket(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static>(
+async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
     jetstream: &Context,
     store: &kv::Store,
     cfg: &DispatcherSettings,
     subject_prefix: &str,
     partitions: u32,
     instance: &str,
-    dispatch: &Arc<DispatchEvent<D, P>>,
+    dispatch: &Arc<DispatchEvent<D, P, B>>,
     owned: &mut HashMap<u32, OwnedPartition>,
     liveness: &Liveness,
     stale_after: Duration,
@@ -231,13 +232,13 @@ async fn list_members(store: &kv::Store) -> Result<Vec<String>, async_nats::Erro
 }
 
 #[allow(clippy::too_many_arguments)]
-fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static>(
+fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
     jetstream: &Context,
     cfg: &DispatcherSettings,
     subject_prefix: &str,
     partition: u32,
     revision: u64,
-    dispatch: &Arc<DispatchEvent<D, P>>,
+    dispatch: &Arc<DispatchEvent<D, P, B>>,
     liveness: &Liveness,
     stale_after: Duration,
 ) -> OwnedPartition {

@@ -94,6 +94,9 @@
     "deleteChannelTitle": "Delete channel?",
     "removeFriendTitle": "Remove friend?",
     "removeFriendSubtitle": "You can send a new request later.",
+    "blockUserTitle": "Block this user?",
+    "blockUserSubtitle": "They will not be able to message you, call you, send friend requests or invites. The friendship and pending requests are removed. You can unblock them in privacy settings.",
+    "block": "Block",
     "leave": "Leave",
     "remove": "Remove",
     "delete": "Delete"

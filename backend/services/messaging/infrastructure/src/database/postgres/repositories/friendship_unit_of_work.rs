@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use domain::user::id::UserId;
-use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::pair::FriendshipPair, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipTransaction, friendship::unit_of_work::FriendshipUnitOfWork};
+use chrono::{DateTime, Utc};
+use messaging_domain::{events::MessagingEvent, friendship::Friendship, friendship::block::BlockRelation, friendship::pair::FriendshipPair, friendship::status::FriendshipStatus, friendship::unit_of_work::FriendshipTransaction, friendship::unit_of_work::FriendshipUnitOfWork};
+
+use crate::database::postgres::repositories::friendship::block_relation_for;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
 
@@ -35,14 +38,14 @@ impl FriendshipUnitOfWork for PostgresFriendshipUnitOfWork {
     }
 }
 
-fn pair_key(a: &UserId, b: &UserId) -> String {
+pub(crate) fn pair_key(a: &UserId, b: &UserId) -> String {
     let (lo, hi) = if a.uuid() <= b.uuid() { (a, b) } else { (b, a) };
     format!("{}:{}", lo.uuid(), hi.uuid())
 }
 
 #[async_trait]
 impl FriendshipTransaction for PostgresFriendshipTransaction {
-    async fn load_pair(&mut self, a: &UserId, b: &UserId) -> Result<Option<FriendshipPair>, RepositoryError> {
+    async fn lock_pair(&mut self, a: &UserId, b: &UserId) -> Result<(), RepositoryError> {
         sqlx::query!(
             "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))",
             pair_key(a, b),
@@ -50,6 +53,11 @@ impl FriendshipTransaction for PostgresFriendshipTransaction {
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn load_pair(&mut self, a: &UserId, b: &UserId) -> Result<Option<FriendshipPair>, RepositoryError> {
+        self.lock_pair(a, b).await?;
         let rows = sqlx::query!(
             r#"
             SELECT
@@ -118,6 +126,33 @@ impl FriendshipTransaction for PostgresFriendshipTransaction {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
         Ok(())
+    }
+
+    async fn block_relation(&mut self, viewer: &UserId, other: &UserId) -> Result<BlockRelation, RepositoryError> {
+        block_relation_for(&mut *self.tx, viewer, other).await
+    }
+
+    async fn insert_block(&mut self, blocker: &UserId, blocked: &UserId, now: DateTime<Utc>) -> Result<bool, RepositoryError> {
+        let inserted = sqlx::query(
+            "INSERT INTO user_blocks (blocker_id, blocked_id, created_at) VALUES ($1, $2, $3) ON CONFLICT (blocker_id, blocked_id) DO NOTHING",
+        )
+        .bind(blocker.uuid())
+        .bind(blocked.uuid())
+        .bind(now)
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(inserted.rows_affected() > 0)
+    }
+
+    async fn delete_block(&mut self, blocker: &UserId, blocked: &UserId) -> Result<bool, RepositoryError> {
+        let deleted = sqlx::query("DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2")
+            .bind(blocker.uuid())
+            .bind(blocked.uuid())
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(deleted.rows_affected() > 0)
     }
 
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {

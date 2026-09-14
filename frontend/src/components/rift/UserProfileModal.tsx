@@ -5,6 +5,7 @@ import { ServerLogo, UserAvatar } from "./Avatar";
 import { homeAPI, type PublicProfile } from "../../api/home";
 import { useAuthStore } from "../../store/authStore";
 import { useFriendshipStore } from "../../store/friendshipStore";
+import { blockGeneration, useBlockStore } from "../../store/blockStore";
 import { usePresenceStore } from "../../store/presenceStore";
 import { loadActivitiesFor, useActivityStore } from "../../store/activityStore";
 import { useProfileModalStore } from "../../store/profileModalStore";
@@ -18,6 +19,7 @@ interface Props {
   onOpenDm: (userId: string, name?: string) => void;
   onCall: (userId: string, video?: boolean) => void;
   onRemoveFriend: (userId: string, name: string) => void;
+  onBlockUser: (userId: string, name: string) => void;
 }
 
 const useMinuteTick = () => {
@@ -56,12 +58,14 @@ const formatMemberSince = (iso: string | null, locale: string): string | null =>
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(d);
 };
 
-const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend }) => {
+const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, onBlockUser }) => {
   const { t } = useTranslation("profile");
   const userId = useProfileModalStore((s) => s.userId);
   const close = useProfileModalStore((s) => s.close);
   const selfId = useAuthStore((s) => s.user?.id);
   const friends = useFriendshipStore((s) => s.friends);
+  const blockedByMe = useBlockStore((s) => (userId ? !!s.blocked[userId] : false));
+  const blockedMe = useBlockStore((s) => (userId ? !!s.blockedBy[userId] : false));
   const onlineUsers = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const gameActivity = useActivityStore((s) => (userId ? s.byUser[userId] : undefined));
@@ -91,7 +95,10 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   }, [userId]);
 
   React.useEffect(() => {
-    if (!userId) return;
+    if (!userId || blockedMe) {
+      setConnections([]);
+      return;
+    }
     let cancelled = false;
     userAPI
       .userConnections(userId)
@@ -102,16 +109,20 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, blockedMe]);
 
   React.useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    const gen = blockGeneration(userId);
     homeAPI
       .profile(userId)
       .then((p) => {
         if (cancelled) return;
         useUserProfileStore.getState().apply(userId, p.bio, profileVersion(p.profileUpdatedAt));
+        useBlockStore
+          .getState()
+          .applyRelation(userId, { blocked: p.blocked, blockedBy: p.blockedBy }, gen);
         setProfile(p);
         setFailed(false);
       })
@@ -121,7 +132,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
     return () => {
       cancelled = true;
     };
-  }, [userId, friendshipStatus]);
+  }, [userId, friendshipStatus, blockedByMe, blockedMe]);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -149,15 +160,16 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
   const friendship = friends.find((f) => f.friendId === userId);
   const isSelf = userId === selfId;
   const isFriend = friendship?.status === "accepted";
-  const online = isSelf ? selfOnline : !!onlineUsers[userId];
+  const online = isSelf ? selfOnline : !blockedByMe && !blockedMe && !!onlineUsers[userId];
   const name = nameOverrides[userId] ?? profile?.name ?? "";
-  const bio = cachedBio ?? profile?.bio ?? "";
+  const bio = blockedMe ? "" : (cachedBio ?? profile?.bio ?? "");
   const locale = currentLocale();
-  const localTime = profile ? formatLocalTime(profile.timezone, locale) : null;
-  const memberSince = profile ? formatMemberSince(profile.memberSince, locale) : null;
+  const localTime = profile && !blockedMe ? formatLocalTime(profile.timezone, locale) : null;
+  const memberSince = profile && !blockedMe ? formatMemberSince(profile.memberSince, locale) : null;
   const inactive = !!profile && !profile.active;
-  const canMessage = !isSelf && !inactive && (profile ? profile.acceptsMessages : isFriend);
-  const canCall = !isSelf && !inactive && (profile ? profile.acceptsCalls : isFriend);
+  const blockedEitherWay = blockedByMe || blockedMe;
+  const canMessage = !isSelf && !inactive && !blockedEitherWay && (profile ? profile.acceptsMessages : isFriend);
+  const canCall = !isSelf && !inactive && !blockedEitherWay && (profile ? profile.acceptsCalls : isFriend);
 
   const copyLogin = async () => {
     if (!name) return;
@@ -200,7 +212,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
               <UserAvatar userId={userId} name={name || "?"} className="profile-avatar" style={{ background: colorForId(userId) }} />
               <span className={"profile-presence " + (online ? "online" : "offline")} />
             </span>
-            {profile?.voiceRoom && (
+            {profile?.voiceRoom && !blockedMe && (
               <span className="profile-voice-pill" title={profile.voiceRoom.serverName}>
                 <Icon name="volume" size={13} />
                 {t("inVoice", { room: profile.voiceRoom.channelName })}
@@ -228,7 +240,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
 
           {!isSelf && !inactive && !failed && (
             <div className="profile-actions">
-              {!isFriend && (
+              {!isFriend && !blockedEitherWay && (
                 friendship?.status === "pending_outgoing" ? (
                   <button type="button" className="profile-btn icon" title={t("requestSent")} disabled>
                     <Icon name="check" size={22} />
@@ -280,9 +292,25 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                       </button>
                     )}
                     <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
+                    {blockedByMe ? (
+                      <button type="button" onClick={() => { setMenuOpen(false); void useBlockStore.getState().unblock(userId).catch(() => {}); }}>
+                        {t("unblock")}
+                      </button>
+                    ) : (
+                      <button type="button" className="danger" onClick={() => { setMenuOpen(false); close(); onBlockUser(userId, name); }}>
+                        {t("block")}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {!isSelf && !failed && blockedEitherWay && (
+            <div className="profile-block-note">
+              <Icon name="info" size={14} />
+              <span>{blockedByMe ? t("blockedNotice") : t("blockedByNotice")}</span>
             </div>
           )}
 
@@ -335,7 +363,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend })
                   </div>
                 </div>
               )}
-              {profile && profile.mutualServers.length > 0 && (
+              {profile && !blockedMe && profile.mutualServers.length > 0 && (
                 <div className="profile-mutual">
                   <div className="profile-label">{t("mutualServers", { count: profile.mutualServers.length })}</div>
                   <div className="profile-chips">

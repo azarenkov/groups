@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { friendshipAPI } from "../api/friendship";
 import { Friendship } from "../types/friendship";
+import { coalesce } from "../utils/coalesce";
 
 interface FriendshipState {
   friends: Friendship[];
@@ -15,12 +16,8 @@ interface FriendshipState {
   clearError: () => void;
 }
 
-export const useFriendshipStore = create<FriendshipState>((set, get) => ({
-  friends: [],
-  isLoading: false,
-  error: null,
-
-  fetchFriends: async () => {
+export const useFriendshipStore = create<FriendshipState>((set, get) => {
+  const fetchFriends = coalesce(async () => {
     set({ isLoading: true, error: null });
     try {
       const res = await friendshipAPI.list();
@@ -31,28 +28,35 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => ({
         isLoading: false,
       });
     }
-  },
+  });
+  return {
+    friends: [],
+    isLoading: false,
+    error: null,
 
-  sendRequest: async (username) => {
-    try {
-      await friendshipAPI.sendRequest(username);
+    fetchFriends,
+
+    sendRequest: async (username) => {
+      try {
+        await friendshipAPI.sendRequest(username);
+        await get().fetchFriends();
+      } catch (e) {
+        throw e;
+      }
+    },
+
+    accept: async (friendId) => {
+      await friendshipAPI.accept(friendId);
       await get().fetchFriends();
-    } catch (e) {
-      throw e;
-    }
-  },
+    },
 
-  accept: async (friendId) => {
-    await friendshipAPI.accept(friendId);
-    await get().fetchFriends();
-  },
+    remove: async (friendId) => {
+      await friendshipAPI.remove(friendId);
+      set((state) => ({
+        friends: state.friends.filter((f) => f.friendId !== friendId),
+      }));
+    },
 
-  remove: async (friendId) => {
-    await friendshipAPI.remove(friendId);
-    set((state) => ({
-      friends: state.friends.filter((f) => f.friendId !== friendId),
-    }));
-  },
-
-  clearError: () => set({ error: null }),
-}));
+    clearError: () => set({ error: null }),
+  };
+});

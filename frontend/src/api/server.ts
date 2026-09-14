@@ -10,6 +10,7 @@ import {
 } from "../types/server";
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
+import { rateLimitRetry } from "../utils/rateLimitRetry";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -51,6 +52,8 @@ class ServerAPI {
           }
         }
 
+        const retried = rateLimitRetry(this.client, error);
+        if (retried) return retried;
         throw toApiError(error);
       },
     );

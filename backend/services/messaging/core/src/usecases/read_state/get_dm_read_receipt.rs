@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, read_state::repository::ReadStateRepository};
+use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, read_state::repository::DmReadReceipt, read_state::repository::ReadStateRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -11,6 +11,8 @@ pub enum GetDmReadReceiptError {
     Repository(#[from] RepositoryError),
     #[error("No conversation with this user")]
     NoConversation,
+    #[error("This user is blocked")]
+    Blocked,
 }
 
 pub struct GetDmReadReceipt<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> {
@@ -49,7 +51,9 @@ impl<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> Ge
         friend_id: UserId,
     ) -> Result<Option<DateTime<Utc>>, GetDmReadReceiptError> {
         self.ensure_conversation(&user_id, &friend_id).await?;
-        let read_at = self.repo.dm_peer_read_at(&user_id, &friend_id).await?;
-        Ok(read_at)
+        match self.repo.dm_peer_read_at(&user_id, &friend_id).await? {
+            DmReadReceipt::Blocked => Err(GetDmReadReceiptError::Blocked),
+            DmReadReceipt::ReadAt(read_at) => Ok(read_at),
+        }
     }
 }

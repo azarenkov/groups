@@ -2,6 +2,7 @@ use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivi
 use api_common::shutdown::{self, ShutdownConfig};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
+use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
 use std::{error::Error, sync::Arc};
 
 use actix_cors::Cors;
@@ -9,6 +10,7 @@ use actix_web::{App, HttpServer, middleware::Logger, web};
 use identity::usecases::{
     connections::{
         complete_connection::CompleteConnection, list_connections::ListConnections,
+        list_user_connections::ListUserConnections,
         remove_connection::RemoveConnection, start_connection::StartConnection,
     },
     auth::{
@@ -105,6 +107,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
     let activity_store = Arc::new(RedisActivityStore::from_env());
     let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
+    let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
     let reauthenticator = Arc::new(Reauthenticator::new(
         user_repository.clone(),
         hasher.clone(),
@@ -211,6 +214,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             public_api_url.clone(),
         ),
         list_connections_usecase: ListConnections::new(user_repository.clone()),
+        list_user_connections_usecase: ListUserConnections::new(
+            user_repository.clone(),
+            block_lookup.clone(),
+        ),
         remove_connection_usecase: RemoveConnection::new(user_repository.clone()),
         public_app_url: public_app_url.clone(),
         user_repository: user_repository.clone(),

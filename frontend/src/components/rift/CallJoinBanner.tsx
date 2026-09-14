@@ -3,15 +3,21 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import { callAPI } from "../../api/call";
 import { useCallStore } from "../../store/callStore";
+import { useBlockStore } from "../../store/blockStore";
 
 const CallJoinBanner: React.FC<{ friendId: string }> = ({ friendId }) => {
   const activeCallId = useCallStore((s) => s.activeCallId);
   const joinCall = useCallStore((s) => s.joinCall);
   const callId = useCallStore((s) => s.joinableByPeer[friendId]);
+  const blocked = useBlockStore((s) => !!s.blocked[friendId] || !!s.blockedBy[friendId]);
 
   const { t } = useTranslation("call");
 
   useEffect(() => {
+    if (blocked) {
+      useCallStore.getState().clearJoinable(friendId);
+      return;
+    }
     let cancelled = false;
     callAPI
       .activeCallWith(friendId)
@@ -27,9 +33,9 @@ const CallJoinBanner: React.FC<{ friendId: string }> = ({ friendId }) => {
     return () => {
       cancelled = true;
     };
-  }, [friendId]);
+  }, [friendId, blocked]);
 
-  if (!callId || activeCallId === callId) return null;
+  if (blocked || !callId || activeCallId === callId) return null;
 
   return (
     <button

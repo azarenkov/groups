@@ -15,7 +15,7 @@ use contracts::events::{
     },
     friendship::{
         FriendRequestAcceptedV1 as FriendRequestAcceptedDto,
-        FriendRequestSentV1 as FriendRequestSentDto, FriendshipRemovedV1 as FriendshipRemovedDto,
+        FriendRequestSentV1 as FriendRequestSentDto, FriendshipRemovedV1 as FriendshipRemovedDto, UserBlockedV1 as UserBlockedDto, UserUnblockedV1 as UserUnblockedDto,
     },
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
@@ -51,23 +51,46 @@ pub enum DispatchError {
     Recipients(#[from] RepositoryError),
     #[error("Publish error: {0}")]
     Publish(#[from] PublishError),
+    #[error("Block lookup error: {0}")]
+    Blocks(#[from] crate::ports::blocks::RelationLookupError),
 }
 
-pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> {
+async fn confirm_pending_dm_peers<D: RecipientDirectory + RealtimeProjection, B: crate::ports::blocks::RelationDirectory>(
+    resolver: &D,
+    relations: &B,
+    user_id: Uuid,
+    recipients: &mut Vec<Uuid>,
+) -> Result<(), DispatchError> {
+    let pending = resolver.pending_dm_peers(user_id).await?;
+    if pending.is_empty() {
+        return Ok(());
+    }
+    let confirmed = relations.dm_peers(user_id, &pending).await?;
+    for peer in &confirmed {
+        resolver.record_dm_pair(user_id, *peer).await?;
+    }
+    recipients.extend(confirmed);
+    Ok(())
+}
+
+pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> {
     directory: std::sync::Arc<D>,
     publisher: std::sync::Arc<P>,
+    blocks: std::sync::Arc<B>,
 }
 
-impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchEvent<D, P> {
-    pub fn new(directory: std::sync::Arc<D>, publisher: std::sync::Arc<P>) -> Self {
-        Self { directory, publisher }
+impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> DispatchEvent<D, P, B> {
+    pub fn new(directory: std::sync::Arc<D>, publisher: std::sync::Arc<P>, blocks: std::sync::Arc<B>) -> Self {
+        Self { directory, publisher, blocks }
     }
 
     pub async fn execute(&self, subject: &str, payload: &[u8]) -> Result<(), DispatchError> {
     let resolver = self.directory.as_ref();
     let publisher = self.publisher.as_ref();
+    let blocks = self.blocks.as_ref();
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
+        resolver.record_dm_pair(evt.sender_id, evt.recipient_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
@@ -732,6 +755,50 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
         return Ok(());
     }
 
+    if ends_with(subject, ".user.blocked") {
+        let evt: UserBlockedDto = serde_json::from_slice(payload)?;
+        if !resolver
+            .apply_block(evt.blocker_id, evt.blocked_id, true, evt.occurred_at)
+            .await?
+        {
+            return Ok(());
+        }
+        let envelope = Envelope::new(
+            "user.blocked",
+            json!({
+                "blockerId": evt.blocker_id,
+                "blockedId": evt.blocked_id,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique([evt.blocker_id, evt.blocked_id]), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".user.unblocked") {
+        let evt: UserUnblockedDto = serde_json::from_slice(payload)?;
+        if !resolver
+            .apply_block(evt.blocker_id, evt.blocked_id, false, evt.occurred_at)
+            .await?
+        {
+            return Ok(());
+        }
+        let envelope = Envelope::new(
+            "user.unblocked",
+            json!({
+                "blockerId": evt.blocker_id,
+                "blockedId": evt.blocked_id,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique([evt.blocker_id, evt.blocked_id]), &envelope)
+            .await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".user.removed") {
         let evt: FriendshipRemovedDto = serde_json::from_slice(payload)?;
         resolver.remove_friend_edge(evt.user_id, evt.other_id, evt.occurred_at).await?;
@@ -761,7 +828,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
                 "occurredAt": evt.occurred_at,
             }),
         );
-        let mut recipients = resolver.rename_recipients(evt.user_id).await?;
+        let mut recipients = resolver.profile_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -780,6 +850,8 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
             }),
         );
         let mut recipients = resolver.interested_in(evt.user_id).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r) && !relations.blocked_by.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -797,6 +869,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher> DispatchE
             }),
         );
         let mut recipients = resolver.rename_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());

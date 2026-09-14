@@ -69,6 +69,12 @@ pub trait DmMessageRepository {
         user_id: &UserId,
     ) -> Result<Vec<DmConversationPreview>, RepositoryError>;
 
+    async fn peers_with_history(
+        &self,
+        user_id: &UserId,
+        candidates: &[UserId],
+    ) -> Result<Vec<UserId>, RepositoryError>;
+
     async fn has_conversation(
         &self,
         user_id: &UserId,

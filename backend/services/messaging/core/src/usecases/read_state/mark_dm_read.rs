@@ -10,6 +10,8 @@ pub enum MarkDmReadError {
     Repository(#[from] RepositoryError),
     #[error("No conversation with this user")]
     NoConversation,
+    #[error("This user is blocked")]
+    Blocked,
 }
 
 pub struct MarkDmRead<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> {
@@ -48,7 +50,9 @@ impl<R: ReadStateRepository, F: FriendshipRepository, M: DmMessageRepository> Ma
         friend_id: UserId,
     ) -> Result<(), MarkDmReadError> {
         self.ensure_conversation(&user_id, &friend_id).await?;
-        self.repo.mark_dm_read(&user_id, &friend_id).await?;
+        if !self.repo.mark_dm_read(&user_id, &friend_id).await? {
+            return Err(MarkDmReadError::Blocked);
+        }
         Ok(())
     }
 }

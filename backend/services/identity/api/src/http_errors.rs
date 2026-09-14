@@ -865,8 +865,8 @@ impl HttpMapping for UpdateProfileError {
 
 use identity::ports::connections::ConnectionProviderError;
 use identity::usecases::connections::{
-    list_connections::ListConnectionsError, remove_connection::RemoveConnectionError,
-    start_connection::StartConnectionError,
+    list_connections::ListConnectionsError, list_user_connections::ListUserConnectionsError,
+    remove_connection::RemoveConnectionError, start_connection::StartConnectionError,
 };
 
 impl HttpMapping for StartConnectionError {
@@ -917,6 +917,29 @@ impl HttpMapping for ListConnectionsError {
     fn to_error_code(&self) -> &'static str {
         match self {
             ListConnectionsError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for ListUserConnectionsError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListUserConnectionsError::Connections(e) => e.to_http_status(),
+            ListUserConnectionsError::BlockLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListUserConnectionsError::Connections(e) => e.to_user_message(),
+            ListUserConnectionsError::BlockLookup(_) => "Block lookup unavailable".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListUserConnectionsError::Connections(e) => e.to_error_code(),
+            ListUserConnectionsError::BlockLookup(_) => "BLOCK_LOOKUP_UNAVAILABLE",
         }
     }
 }

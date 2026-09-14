@@ -23,26 +23,41 @@ pub struct AppState {
         MessagingFriendshipClient,
         PostgresUserProfileRepository,
     >,
-    pub accept_call_usecase:
-        AcceptCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
+    pub accept_call_usecase: AcceptCall<
+        PostgresCallRepository,
+        LiveKitService,
+        MessagingFriendshipClient,
+        PostgresUserProfileRepository,
+    >,
     pub decline_call_usecase: DeclineCall<PostgresCallRepository>,
     pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
     pub add_call_participants_usecase: AddCallParticipants<
         PostgresCallRepository,
+        LiveKitService,
         MessagingFriendshipClient,
         PostgresUserProfileRepository,
     >,
-    pub get_active_call_usecase:
-        GetActiveCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
-    pub get_active_call_with_usecase: GetActiveCallWith<PostgresCallRepository>,
-    pub join_call_usecase:
-        JoinCall<PostgresCallRepository, LiveKitService, PostgresUserProfileRepository>,
+    pub get_active_call_usecase: GetActiveCall<
+        PostgresCallRepository,
+        LiveKitService,
+        MessagingFriendshipClient,
+        PostgresUserProfileRepository,
+    >,
+    pub get_active_call_with_usecase:
+        GetActiveCallWith<PostgresCallRepository, MessagingFriendshipClient>,
+    pub join_call_usecase: JoinCall<
+        PostgresCallRepository,
+        LiveKitService,
+        MessagingFriendshipClient,
+        PostgresUserProfileRepository,
+    >,
     pub handle_livekit_webhook_usecase: HandleVoiceWebhook<
         LiveKitWebhookReceiver,
         PostgresCallRepository,
         PostgresWebhookOutbox,
         PostgresUserProfileRepository,
         LiveKitService,
+        MessagingFriendshipClient,
     >,
     pub call_repository: std::sync::Arc<PostgresCallRepository>,
 }

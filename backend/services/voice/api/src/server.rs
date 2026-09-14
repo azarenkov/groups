@@ -67,6 +67,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
+    crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
     crate::projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),
@@ -78,6 +79,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 livekit_service.clone(),
             ),
         ),
+        Arc::new(voice::usecases::call::enforce_block::EnforceBlock::new(
+            call_repository.clone(),
+            livekit_service.clone(),
+            friendship_lookup.clone(),
+        )),
     );
 
     let app_state = web::Data::new(AppState {
@@ -90,24 +96,31 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         accept_call_usecase: AcceptCall::new(
             call_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
             user_repository.clone(),
         ),
         decline_call_usecase: DeclineCall::new(call_repository.clone()),
         leave_call_usecase: LeaveCall::new(call_repository.clone()),
         add_call_participants_usecase: AddCallParticipants::new(
             call_repository.clone(),
+            livekit_service.clone(),
             friendship_lookup.clone(),
             user_repository.clone(),
         ),
         get_active_call_usecase: GetActiveCall::new(
             call_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
             user_repository.clone(),
         ),
-        get_active_call_with_usecase: GetActiveCallWith::new(call_repository.clone()),
+        get_active_call_with_usecase: GetActiveCallWith::new(
+            call_repository.clone(),
+            friendship_lookup.clone(),
+        ),
         join_call_usecase: JoinCall::new(
             call_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
             user_repository.clone(),
         ),
         handle_livekit_webhook_usecase: HandleVoiceWebhook::new(
@@ -116,6 +129,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             webhook_outbox.clone(),
             user_repository.clone(),
             livekit_service.clone(),
+            friendship_lookup.clone(),
         ),
         call_repository: call_repository.clone(),
     });
