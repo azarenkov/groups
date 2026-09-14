@@ -21,6 +21,9 @@ pub async fn evict<C: CallRepository, V: VoiceService>(
         .await?;
     let room = ChannelId::new(call_id);
     for user in users {
+        if call_repository.is_active_participant(call_id, user).await? {
+            continue;
+        }
         match voice_service.remove_participant(&room, user).await {
             Ok(()) => {
                 if let Err(e) = call_repository.eviction_done(call_id, user).await {
