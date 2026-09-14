@@ -18,6 +18,7 @@ interface FriendshipState {
   fetchFriends: () => Promise<void>;
   loadMore: () => Promise<void>;
   loadAll: () => Promise<void>;
+  applyName: (userId: string, name: string) => void;
   sendRequest: (username: string) => Promise<void>;
   accept: (friendId: string) => Promise<void>;
   remove: (friendId: string) => Promise<void>;
@@ -123,6 +124,13 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
         if (get().nextCursor === before) return;
       }
     },
+
+    applyName: (userId, name) =>
+      set((state) =>
+        state.friends.some((f) => f.friendId === userId && f.friendName !== name)
+          ? { friends: state.friends.map((f) => (f.friendId === userId ? { ...f, friendName: name } : f)) }
+          : state,
+      ),
 
     sendRequest: async (username) => {
       await friendshipAPI.sendRequest(username);

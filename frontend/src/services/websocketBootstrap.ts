@@ -370,6 +370,7 @@ function dispatch(env: WsEnvelope) {
         if (!applied) return;
         useVoicePresenceStore.getState().renameMember(userId, newName);
         useCallStore.getState().participantRenamed(userId, newName);
+        useFriendshipStore.getState().applyName(userId, newName);
       }
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
