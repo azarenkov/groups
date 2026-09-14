@@ -6,6 +6,13 @@ use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WebhookJoinOutcome {
+    Joined,
+    NotCallRoom,
+    EvictionPending,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JoinOutcome {
     Joined,
     NotParticipant,
@@ -160,7 +167,7 @@ pub trait CallRepository {
         session_id: &str,
         now: DateTime<Utc>,
         request_id: Option<String>,
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<WebhookJoinOutcome, RepositoryError>;
 
     async fn webhook_left(
         &self,

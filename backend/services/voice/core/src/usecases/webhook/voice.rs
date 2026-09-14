@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use domain::{channel::id::ChannelId, user::id::UserId};
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
-use voice_domain::{call::repository::CallRepository, webhook::WebhookEvent, webhook::WebhookKind};
+use voice_domain::{call::repository::CallRepository, call::repository::WebhookJoinOutcome, webhook::WebhookEvent, webhook::WebhookKind};
 
 use crate::{
     dto::context::RequestContext,
@@ -138,7 +138,7 @@ where
                         .await?;
                     return Ok(());
                 }
-                if self
+                match self
                     .call_repository
                     .webhook_joined(
                         channel_id,
@@ -149,9 +149,23 @@ where
                     )
                     .await?
                 {
-                    self.evict_if_blocked(channel_id, &UserId::new(user_id), ctx.request_id.clone())
-                        .await?;
-                    return Ok(());
+                    WebhookJoinOutcome::Joined => {
+                        self.evict_if_blocked(channel_id, &UserId::new(user_id), ctx.request_id.clone())
+                            .await?;
+                        return Ok(());
+                    }
+                    WebhookJoinOutcome::EvictionPending => {
+                        tracing::warn!(%channel_id, %user_id, "Evicted participant reconnected to a call room; removing");
+                        if let Err(e) = self
+                            .voice_service
+                            .remove_participant(&ChannelId::new(channel_id), &UserId::new(user_id))
+                            .await
+                        {
+                            tracing::warn!(error = %e, %channel_id, %user_id, "Room removal failed; eviction stays queued");
+                        }
+                        return Ok(());
+                    }
+                    WebhookJoinOutcome::NotCallRoom => {}
                 }
                 (channel_id, user_id, session_id, WebhookKind::Joined)
             }
