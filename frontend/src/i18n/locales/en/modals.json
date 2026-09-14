@@ -68,7 +68,8 @@
     "emptyHint": "Incoming and outgoing friend requests will show up here.",
     "emptyCta": "Add friend",
     "loadMore": "Show more",
-    "actionFailed": "That did not go through. Try again."
+    "actionFailed": "That did not go through. Try again.",
+    "loadFailed": "Couldn't load requests."
   },
   "newDm": {
     "title": "Start a direct message",

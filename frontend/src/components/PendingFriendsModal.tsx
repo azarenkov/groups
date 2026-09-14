@@ -19,15 +19,18 @@ interface Section {
   rows: Friendship[];
   cursor: string | null;
   loading: boolean;
+  error: boolean;
 }
 
 const PENDING_STATUSES: PendingStatus[] = ["pending_incoming", "pending_outgoing", "declined"];
 const PAGE_SIZE = 50;
 
+const emptySection = (): Section => ({ rows: [], cursor: null, loading: false, error: false });
+
 const emptySections = (): Record<PendingStatus, Section> => ({
-  pending_incoming: { rows: [], cursor: null, loading: false },
-  pending_outgoing: { rows: [], cursor: null, loading: false },
-  declined: { rows: [], cursor: null, loading: false },
+  pending_incoming: emptySection(),
+  pending_outgoing: emptySection(),
+  declined: emptySection(),
 });
 
 const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
@@ -44,36 +47,32 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const loadSeq = useRef(0);
 
+  const loadFirst = useCallback(async (status: PendingStatus, seq: number) => {
+    setSections((prev) => ({ ...prev, [status]: { ...prev[status], loading: true, error: false } }));
+    try {
+      const page = await friendshipAPI.list({ status, limit: PAGE_SIZE });
+      if (seq !== loadSeq.current) return;
+      setSections((prev) => ({
+        ...prev,
+        [status]: { rows: page.friends, cursor: page.nextCursor, loading: false, error: false },
+      }));
+    } catch {
+      if (seq !== loadSeq.current) return;
+      setSections((prev) => ({ ...prev, [status]: { ...prev[status], loading: false, error: true } }));
+    }
+  }, []);
+
   const loadFirstPages = useCallback(async () => {
     const seq = ++loadSeq.current;
-    setSections((prev) => {
-      const next = { ...prev };
-      for (const status of PENDING_STATUSES) next[status] = { ...prev[status], loading: true };
-      return next;
-    });
-    await Promise.all(
-      PENDING_STATUSES.map(async (status) => {
-        try {
-          const page = await friendshipAPI.list({ status, limit: PAGE_SIZE });
-          if (seq !== loadSeq.current) return;
-          setSections((prev) => ({
-            ...prev,
-            [status]: { rows: page.friends, cursor: page.nextCursor, loading: false },
-          }));
-        } catch {
-          if (seq !== loadSeq.current) return;
-          setSections((prev) => ({ ...prev, [status]: { ...prev[status], loading: false } }));
-        }
-      }),
-    );
-  }, []);
+    await Promise.all(PENDING_STATUSES.map((status) => loadFirst(status, seq)));
+  }, [loadFirst]);
 
   const loadMore = useCallback(
     async (status: PendingStatus) => {
       const section = sections[status];
       if (!section.cursor || section.loading) return;
       const seq = loadSeq.current;
-      setSections((prev) => ({ ...prev, [status]: { ...prev[status], loading: true } }));
+      setSections((prev) => ({ ...prev, [status]: { ...prev[status], loading: true, error: false } }));
       try {
         const page = await friendshipAPI.list({ status, cursor: section.cursor, limit: PAGE_SIZE });
         if (seq !== loadSeq.current) return;
@@ -85,15 +84,20 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
               rows: [...prev[status].rows, ...page.friends.filter((f) => !known.has(f.friendId))],
               cursor: page.nextCursor,
               loading: false,
+              error: false,
             },
           };
         });
       } catch {
-        setSections((prev) => ({ ...prev, [status]: { ...prev[status], loading: false } }));
+        if (seq !== loadSeq.current) return;
+        setSections((prev) => ({ ...prev, [status]: { ...prev[status], loading: false, error: true } }));
       }
     },
     [sections],
   );
+
+  const retry = (status: PendingStatus) =>
+    sections[status].rows.length === 0 ? loadFirst(status, loadSeq.current) : loadMore(status);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -154,17 +158,33 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
   const anyLoading = PENDING_STATUSES.some((status) => sections[status].loading);
   const nothingPending = !anyVisible && !anyLoading;
 
-  const renderLoadMore = (status: PendingStatus) =>
-    sections[status].cursor ? (
-      <button
-        type="button"
-        className="sb-load-more"
-        disabled={sections[status].loading}
-        onClick={() => void loadMore(status)}
-      >
-        {t("pendingFriends.loadMore")}
-      </button>
-    ) : null;
+  const renderLoadMore = (status: PendingStatus) => (
+    <>
+      {sections[status].error && (
+        <div className="m-error">
+          {t("pendingFriends.loadFailed")}
+          <button
+            type="button"
+            className="sb-load-more"
+            disabled={sections[status].loading}
+            onClick={() => void retry(status)}
+          >
+            {t("common:retry")}
+          </button>
+        </div>
+      )}
+      {sections[status].cursor && !sections[status].error && (
+        <button
+          type="button"
+          className="sb-load-more"
+          disabled={sections[status].loading}
+          onClick={() => void loadMore(status)}
+        >
+          {t("pendingFriends.loadMore")}
+        </button>
+      )}
+    </>
+  );
 
   const renderPeer = (f: Friendship) => (
     <button
