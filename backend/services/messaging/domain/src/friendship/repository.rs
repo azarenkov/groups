@@ -1,3 +1,4 @@
+use crate::friendship::block::BlockRelations;
 use crate::friendship::block::{BlockRelation, BlockedUserView};
 use async_trait::async_trait;
 
@@ -36,4 +37,9 @@ pub trait FriendshipRepository {
         blocker: &UserId,
         candidates: &[UserId],
     ) -> Result<Vec<UserId>, RepositoryError>;
+    async fn block_relations_among(
+        &self,
+        user: &UserId,
+        candidates: &[UserId],
+    ) -> Result<BlockRelations, RepositoryError>;
 }

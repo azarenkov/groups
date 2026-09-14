@@ -19,3 +19,9 @@ pub struct BlockedUserView {
     pub name: String,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Default, Clone)]
+pub struct BlockRelations {
+    pub blocking: Vec<UserId>,
+    pub blocked_by: Vec<UserId>,
+}

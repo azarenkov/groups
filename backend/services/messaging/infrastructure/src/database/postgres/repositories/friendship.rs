@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use messaging_domain::{friendship::Friendship, friendship::block::BlockRelation, friendship::block::BlockedUserView, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::view::FriendshipView};
+use messaging_domain::{friendship::block::BlockRelations, friendship::Friendship, friendship::block::BlockRelation, friendship::block::BlockedUserView, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, friendship::view::FriendshipView};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
@@ -164,6 +164,34 @@ impl FriendshipRepository for PostgresFriendshipRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
+    }
+
+    async fn block_relations_among(
+        &self,
+        user: &UserId,
+        candidates: &[UserId],
+    ) -> Result<BlockRelations, RepositoryError> {
+        if candidates.is_empty() {
+            return Ok(BlockRelations::default());
+        }
+        let ids: Vec<uuid::Uuid> = candidates.iter().map(|c| c.uuid()).collect();
+        let rows: Vec<(uuid::Uuid, uuid::Uuid)> = sqlx::query_as(
+            "SELECT blocker_id, blocked_id FROM user_blocks WHERE (blocker_id = $1 AND blocked_id = ANY($2)) OR (blocked_id = $1 AND blocker_id = ANY($2))",
+        )
+        .bind(user.uuid())
+        .bind(&ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let mut relations = BlockRelations::default();
+        for (blocker, blocked) in rows {
+            if blocker == user.uuid() {
+                relations.blocking.push(UserId::new(blocked));
+            } else {
+                relations.blocked_by.push(UserId::new(blocker));
+            }
+        }
+        Ok(relations)
     }
 
     async fn list_blocked(&self, blocker: &UserId) -> Result<Vec<BlockedUserView>, RepositoryError> {

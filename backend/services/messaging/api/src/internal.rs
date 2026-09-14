@@ -99,19 +99,14 @@ async fn block_relations(
 ) -> Result<impl Responder, HttpError> {
     let user = UserId::new(path.into_inner());
     let candidates: Vec<UserId> = body.ids.iter().copied().map(UserId::new).collect();
-    let blocking = app_state
+    let relations = app_state
         .friendship_repository
-        .blocked_among(&user, &candidates)
-        .await
-        .map_err(HttpError::from)?;
-    let blocked_by = app_state
-        .friendship_repository
-        .blockers_among(&user, &candidates)
+        .block_relations_among(&user, &candidates)
         .await
         .map_err(HttpError::from)?;
     Ok(HttpResponse::Ok().json(BlockRelationsResponseV1 {
-        blocking: blocking.into_iter().map(|u| u.uuid()).collect(),
-        blocked_by: blocked_by.into_iter().map(|u| u.uuid()).collect(),
+        blocking: relations.blocking.into_iter().map(|u| u.uuid()).collect(),
+        blocked_by: relations.blocked_by.into_iter().map(|u| u.uuid()).collect(),
     }))
 }
 
