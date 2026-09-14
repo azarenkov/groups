@@ -176,6 +176,9 @@ const App: React.FC = () => {
     void import("./store/blockStore").then(({ useBlockStore }) =>
       useBlockStore.getState().clearAll(),
     );
+    void import("./store/friendshipStore").then(({ useFriendshipStore }) =>
+      useFriendshipStore.getState().clearAll(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { friendshipAPI } from "../api/friendship";
+import { useAuthStore } from "./authStore";
 import { Friendship, FriendshipStatus } from "../types/friendship";
 import { coalesce } from "../utils/coalesce";
 
@@ -20,6 +21,7 @@ interface FriendshipState {
   loadAll: () => Promise<void>;
   applyName: (userId: string, name: string) => void;
   forgetFriend: (userId: string) => void;
+  clearAll: () => void;
   sendRequest: (username: string) => Promise<void>;
   accept: (friendId: string) => Promise<void>;
   remove: (friendId: string) => Promise<void>;
@@ -33,6 +35,7 @@ let loadMoreInflight: Promise<void> | null = null;
 export const useFriendshipStore = create<FriendshipState>((set, get) => {
   const runFetchFriends = coalesce(async () => {
     const seq = ++fetchSeq;
+    const sessionUserId = useAuthStore.getState().user?.id;
     set({ isLoading: true, error: null });
     try {
       const [ids, page] = await Promise.all([
@@ -40,6 +43,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
         friendshipAPI.list({ limit: PAGE_SIZE }),
       ]);
       if (seq !== fetchSeq) return;
+      if (useAuthStore.getState().user?.id !== sessionUserId) return;
       const statusById: Record<string, FriendshipStatus> = {};
       for (const f of ids.friends) statusById[f.friendId] = f.status;
       set((state) => {
@@ -89,11 +93,12 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
       const { nextCursor } = get();
       if (!nextCursor) return Promise.resolve();
       const seq = fetchSeq;
+      const sessionUserId = useAuthStore.getState().user?.id;
       set({ isLoadingMore: true });
       loadMoreInflight = (async () => {
         try {
           const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
-          if (seq !== fetchSeq) {
+          if (seq !== fetchSeq || useAuthStore.getState().user?.id !== sessionUserId) {
             set({ isLoadingMore: false });
             return;
           }
@@ -169,6 +174,19 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
     },
 
     clearError: () => set({ error: null }),
+
+    clearAll: () => {
+      fetchSeq += 1;
+      set({
+        friends: [],
+        statusById: {},
+        nextCursor: null,
+        loaded: false,
+        isLoading: false,
+        isLoadingMore: false,
+        error: null,
+      });
+    },
   };
 });
 
