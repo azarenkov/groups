@@ -10,6 +10,7 @@ interface FriendshipState {
   friends: Friendship[];
   statusById: Record<string, FriendshipStatus>;
   nextCursor: string | null;
+  loaded: boolean;
   isLoading: boolean;
   isLoadingMore: boolean;
   error: string | null;
@@ -24,10 +25,11 @@ interface FriendshipState {
 }
 
 let fetchSeq = 0;
+let fetchInflight: Promise<void> | null = null;
 let loadMoreInflight: Promise<void> | null = null;
 
 export const useFriendshipStore = create<FriendshipState>((set, get) => {
-  const fetchFriends = coalesce(async () => {
+  const runFetchFriends = coalesce(async () => {
     const seq = ++fetchSeq;
     set({ isLoading: true, error: null });
     try {
@@ -47,6 +49,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
           friends: [...page.friends, ...tail],
           statusById,
           nextCursor: tail.length > 0 ? state.nextCursor : page.nextCursor,
+          loaded: true,
           isLoading: false,
           isLoadingMore: false,
         };
@@ -60,10 +63,19 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
       });
     }
   });
+  const fetchFriends = () => {
+    const request = runFetchFriends();
+    fetchInflight = request;
+    void request.finally(() => {
+      if (fetchInflight === request) fetchInflight = null;
+    });
+    return request;
+  };
   return {
     friends: [],
     statusById: {},
     nextCursor: null,
+    loaded: false,
     isLoading: false,
     isLoadingMore: false,
     error: null,
@@ -102,6 +114,8 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
     },
 
     loadAll: async () => {
+      if (fetchInflight) await fetchInflight;
+      else if (!get().loaded) await fetchFriends();
       for (let guard = 0; guard < 200; guard += 1) {
         const before = get().nextCursor;
         if (!before) return;

@@ -324,7 +324,7 @@ async fn list_invite_links(
         HttpError::new("Invalid cursor".to_string(), StatusCode::BAD_REQUEST, "INVALID_CURSOR")
     })?;
     if let Some(c) = &cursor
-        && InviteToken::parse(&c.key).is_none()
+        && InviteToken::parse(&c.key).is_none_or(|token| token.as_str() != c.key)
     {
         return Err(HttpError::new("Invalid cursor".to_string(), StatusCode::BAD_REQUEST, "INVALID_CURSOR"));
     }
