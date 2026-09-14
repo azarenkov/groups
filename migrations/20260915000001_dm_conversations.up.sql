@@ -13,11 +13,13 @@ CREATE OR REPLACE FUNCTION messaging.dm_conversations_sync() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
     latest RECORD;
+    current_last UUID;
 BEGIN
     IF TG_OP = 'INSERT' THEN
         INSERT INTO messaging.dm_conversations (user_id, peer_id, last_message_id, last_created_at)
-        VALUES (NEW.sender_id, NEW.recipient_id, NEW.id, NEW.created_at),
-               (NEW.recipient_id, NEW.sender_id, NEW.id, NEW.created_at)
+        SELECT v.user_id, v.peer_id, NEW.id, NEW.created_at
+        FROM (VALUES (NEW.sender_id, NEW.recipient_id), (NEW.recipient_id, NEW.sender_id)) AS v(user_id, peer_id)
+        ORDER BY v.user_id, v.peer_id
         ON CONFLICT (user_id, peer_id) DO UPDATE
             SET last_message_id = EXCLUDED.last_message_id,
                 last_created_at = EXCLUDED.last_created_at
@@ -26,10 +28,21 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM messaging.dm_conversations
-        WHERE user_id = OLD.sender_id AND peer_id = OLD.recipient_id AND last_message_id = OLD.id
-    ) THEN
+    PERFORM 1 FROM messaging.dm_conversations
+    WHERE (user_id = OLD.sender_id AND peer_id = OLD.recipient_id)
+       OR (user_id = OLD.recipient_id AND peer_id = OLD.sender_id)
+    ORDER BY user_id, peer_id
+    FOR UPDATE;
+
+    SELECT last_message_id INTO current_last
+    FROM messaging.dm_conversations
+    WHERE user_id = OLD.sender_id AND peer_id = OLD.recipient_id;
+
+    IF current_last IS NULL THEN
+        RETURN OLD;
+    END IF;
+    IF current_last <> OLD.id
+       AND EXISTS (SELECT 1 FROM messaging.dm_messages WHERE id = current_last) THEN
         RETURN OLD;
     END IF;
 
