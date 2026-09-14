@@ -597,9 +597,10 @@ function PrivacySection() {
 }
 
 function BlockedUsersSection() {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation(["settings", "common"]);
   const items = useBlockStore((s) => s.page);
   const loaded = useBlockStore((s) => s.pageLoaded);
+  const pageError = useBlockStore((s) => s.pageError);
   const hasMore = useBlockStore((s) => !!s.pageCursor);
   const loadingMore = useBlockStore((s) => s.pageLoading);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -619,7 +620,20 @@ function BlockedUsersSection() {
       <h2>{t("privacy.blockedUsers")}</h2>
       <p className="s-hint">{t("privacy.blockedUsersHint")}</p>
       {!loaded && items.length === 0 ? (
-        <div className="s-row"><span className="loading-spinner" /></div>
+        pageError ? (
+          <div className="s-row">
+            <span className="s-muted">{t("privacy.blockedLoadFailed")}</span>
+            <button
+              type="button"
+              className="s-btn secondary"
+              onClick={() => void useBlockStore.getState().fetchPage()}
+            >
+              {t("common:retry")}
+            </button>
+          </div>
+        ) : (
+          <div className="s-row"><span className="loading-spinner" /></div>
+        )
       ) : items.length === 0 ? (
         <div className="s-row s-muted">{t("privacy.noBlockedUsers")}</div>
       ) : (

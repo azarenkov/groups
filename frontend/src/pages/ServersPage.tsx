@@ -389,6 +389,13 @@ const ServersPage: React.FC = () => {
     return () => window.clearTimeout(handle);
   }, [sidebarQuery, tokens, servers, channelsByServer, fetchChannels]);
 
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    if (!sidebarQuery.trim()) return;
+    if (friendsNextCursor) void loadMoreFriends();
+    if (previewsNextCursor) void loadMorePreviews();
+  }, [sidebarQuery, tokens, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews]);
+
   const didInitialExpandRef = useRef(false);
   useEffect(() => {
     if (didInitialExpandRef.current) return;

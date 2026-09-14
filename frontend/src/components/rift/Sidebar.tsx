@@ -429,7 +429,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         );
       })}
-      {!isFiltering && hasMoreDirects && onLoadMoreDirects && (
+      {hasMoreDirects && onLoadMoreDirects && (
         <button type="button" className="sb-load-more" onClick={onLoadMoreDirects}>
           {t("loadMore")}
         </button>

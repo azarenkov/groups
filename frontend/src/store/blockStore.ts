@@ -14,6 +14,7 @@ interface BlockState {
   pageCursor: string | null;
   pageLoaded: boolean;
   pageLoading: boolean;
+  pageError: boolean;
   fetch: () => Promise<void>;
   fetchPage: () => Promise<void>;
   loadMorePage: () => Promise<void>;
@@ -159,6 +160,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   pageCursor: null,
   pageLoaded: false,
   pageLoading: false,
+  pageError: false,
 
   fetch: async () => {
     const gen = mutationGen;
@@ -203,14 +205,14 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
 
   fetchPage: async () => {
     const seq = ++pageSeq;
-    set({ pageLoading: true });
+    set({ pageLoading: true, pageError: false });
     try {
       const res = await friendshipAPI.listBlocks({ limit: PAGE_SIZE });
       if (seq !== pageSeq) return;
       set({ page: res.blocks, pageCursor: res.nextCursor, pageLoaded: true, pageLoading: false });
     } catch (err) {
       console.warn("[blocks] failed to load blocked users:", err);
-      if (seq === pageSeq) set({ pageLoading: false });
+      if (seq === pageSeq) set({ pageLoading: false, pageError: true });
     }
   },
 
@@ -352,6 +354,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       pageCursor: null,
       pageLoaded: false,
       pageLoading: false,
+      pageError: false,
     });
   },
 }));
