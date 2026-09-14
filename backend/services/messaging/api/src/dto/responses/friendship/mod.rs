@@ -27,6 +27,7 @@ impl From<FriendshipDto> for FriendshipResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListFriendshipsResponse {
     pub friends: Vec<FriendshipResponse>,
     pub next_cursor: Option<String>,

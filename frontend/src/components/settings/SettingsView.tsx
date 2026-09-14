@@ -598,13 +598,14 @@ function PrivacySection() {
 
 function BlockedUsersSection() {
   const { t } = useTranslation("settings");
-  const blocked = useBlockStore((s) => s.blocked);
-  const loaded = useBlockStore((s) => s.loaded);
+  const items = useBlockStore((s) => s.page);
+  const loaded = useBlockStore((s) => s.pageLoaded);
+  const hasMore = useBlockStore((s) => !!s.pageCursor);
+  const loadingMore = useBlockStore((s) => s.pageLoading);
   const [busy, setBusy] = React.useState<string | null>(null);
   React.useEffect(() => {
-    void useBlockStore.getState().fetch();
+    void useBlockStore.getState().fetchPage();
   }, []);
-  const items = Object.values(blocked).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const unblock = (userId: string) => {
     setBusy(userId);
     useBlockStore
@@ -636,6 +637,18 @@ function BlockedUsersSection() {
             </button>
           </div>
         ))
+      )}
+      {hasMore && (
+        <div className="s-row">
+          <button
+            type="button"
+            className="s-btn secondary"
+            disabled={loadingMore}
+            onClick={() => void useBlockStore.getState().loadMorePage()}
+          >
+            {t("privacy.loadMore")}
+          </button>
+        </div>
       )}
     </div>
   );

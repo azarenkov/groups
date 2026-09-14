@@ -7,10 +7,16 @@ import { ApiError } from "../utils/apiError";
 import type { BlockedUser, BlockRelation } from "../types/friendship";
 
 interface BlockState {
-  blocked: Record<string, BlockedUser>;
+  blocked: Record<string, true>;
   blockedBy: Record<string, true>;
   loaded: boolean;
+  page: BlockedUser[];
+  pageCursor: string | null;
+  pageLoaded: boolean;
+  pageLoading: boolean;
   fetch: () => Promise<void>;
+  fetchPage: () => Promise<void>;
+  loadMorePage: () => Promise<void>;
   block: (userId: string) => Promise<void>;
   unblock: (userId: string) => Promise<void>;
   applyEvent: (
@@ -30,9 +36,20 @@ const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> =
   return rest;
 };
 
+const PAGE_SIZE = 50;
+
 let mutationGen = 0;
 let fetchSeq = 0;
+let pageSeq = 0;
 let peerGens: Record<string, number> = {};
+
+const refreshPage = () => {
+  const store = useBlockStore.getState();
+  if (store.pageLoaded) void store.fetchPage();
+};
+
+const dropFromPage = (page: BlockedUser[], userId: string): BlockedUser[] =>
+  page.some((b) => b.userId === userId) ? page.filter((b) => b.userId !== userId) : page;
 
 const bumpPeer = (userId: string) => {
   peerGens[userId] = (peerGens[userId] ?? 0) + 1;
@@ -133,21 +150,28 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   blocked: {},
   blockedBy: {},
   loaded: false,
+  page: [],
+  pageCursor: null,
+  pageLoaded: false,
+  pageLoading: false,
 
   fetch: async () => {
     const gen = mutationGen;
     const seq = ++fetchSeq;
     for (let attempt = 0; ; attempt += 1) {
       try {
-        const res = await friendshipAPI.listBlocks();
+        const res = await friendshipAPI.listBlockIds();
         if (gen !== mutationGen || seq !== fetchSeq) return;
-        const blocked: Record<string, BlockedUser> = {};
-        for (const b of res.blocks) blocked[b.userId] = b;
+        const blocked: Record<string, true> = {};
+        for (const id of res.ids) blocked[id] = true;
         const previous = get().blocked;
         const firstLoad = !get().loaded;
         const added = Object.keys(blocked).filter((id) => !previous[id]);
         const removed = Object.keys(previous).filter((id) => !blocked[id]);
-        if (added.length > 0 || removed.length > 0) mutationGen += 1;
+        if (added.length > 0 || removed.length > 0) {
+          mutationGen += 1;
+          refreshPage();
+        }
         for (const id of [...added, ...removed]) bumpPeer(id);
         set({ blocked, loaded: true });
         for (const id of added) {
@@ -172,6 +196,40 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     }
   },
 
+  fetchPage: async () => {
+    const seq = ++pageSeq;
+    set({ pageLoading: true });
+    try {
+      const res = await friendshipAPI.listBlocks({ limit: PAGE_SIZE });
+      if (seq !== pageSeq) return;
+      set({ page: res.blocks, pageCursor: res.nextCursor, pageLoaded: true, pageLoading: false });
+    } catch (err) {
+      console.warn("[blocks] failed to load blocked users:", err);
+      if (seq === pageSeq) set({ pageLoading: false });
+    }
+  },
+
+  loadMorePage: async () => {
+    const { pageCursor, pageLoading } = get();
+    if (!pageCursor || pageLoading) return;
+    const seq = pageSeq;
+    set({ pageLoading: true });
+    try {
+      const res = await friendshipAPI.listBlocks({ cursor: pageCursor, limit: PAGE_SIZE });
+      if (seq !== pageSeq) return;
+      set((state) => {
+        const known = new Set(state.page.map((b) => b.userId));
+        return {
+          page: [...state.page, ...res.blocks.filter((b) => !known.has(b.userId))],
+          pageCursor: res.nextCursor,
+          pageLoading: false,
+        };
+      });
+    } catch {
+      if (seq === pageSeq) set({ pageLoading: false });
+    }
+  },
+
   block: async (userId) => {
     const { occurredAt } = await friendshipAPI.block(userId);
     if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
@@ -179,16 +237,8 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     bumpPeer(userId);
     forgetStatus(userId);
     leaveSharedCall(userId);
-    set((state) => ({
-      blocked: {
-        ...state.blocked,
-        [userId]: state.blocked[userId] ?? {
-          userId,
-          name: "",
-          createdAt: new Date().toISOString(),
-        },
-      },
-    }));
+    set((state) => ({ blocked: { ...state.blocked, [userId]: true } }));
+    refreshPage();
     void get().fetch();
   },
 
@@ -206,7 +256,10 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     if (occurredAt !== undefined && !recordVersion(outgoingVersions, userId, occurredAt)) return;
     mutationGen += 1;
     bumpPeer(userId);
-    set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+    set((state) => ({
+      blocked: withoutKey(state.blocked, userId),
+      page: dropFromPage(state.page, userId),
+    }));
     if (reconcile || !get().loaded) void get().fetch();
     recoverStatus(userId);
   },
@@ -223,19 +276,14 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     bumpPeer(blockerId === selfId ? blockedId : blockerId);
     if (blockerId === selfId) {
       if (active) {
-        set((state) => ({
-          blocked: {
-            ...state.blocked,
-            [blockedId]: state.blocked[blockedId] ?? {
-              userId: blockedId,
-              name: "",
-              createdAt: new Date().toISOString(),
-            },
-          },
-        }));
+        set((state) => ({ blocked: { ...state.blocked, [blockedId]: true } }));
+        refreshPage();
         void get().fetch();
       } else {
-        set((state) => ({ blocked: withoutKey(state.blocked, blockedId) }));
+        set((state) => ({
+          blocked: withoutKey(state.blocked, blockedId),
+          page: dropFromPage(state.page, blockedId),
+        }));
       }
     }
     if (blockedId === selfId) get().markBlockedBy(blockerId, active);
@@ -256,15 +304,14 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     if (relation.blocked && !known) {
       if (!(relation.blockedBy && !wasBlockedBy)) forgetStatus(userId);
       leaveSharedCall(userId);
-      set((state) => ({
-        blocked: {
-          ...state.blocked,
-          [userId]: { userId, name: "", createdAt: new Date().toISOString() },
-        },
-      }));
+      set((state) => ({ blocked: { ...state.blocked, [userId]: true } }));
+      refreshPage();
       void get().fetch();
     } else if (!relation.blocked && known) {
-      set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+      set((state) => ({
+        blocked: withoutKey(state.blocked, userId),
+        page: dropFromPage(state.page, userId),
+      }));
       recoverStatus(userId);
     }
     if (!get().loaded) void get().fetch();
@@ -289,7 +336,16 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     peerGens = {};
     outgoingVersions = {};
     incomingVersions = {};
-    set({ blocked: {}, blockedBy: {}, loaded: false });
+    pageSeq += 1;
+    set({
+      blocked: {},
+      blockedBy: {},
+      loaded: false,
+      page: [],
+      pageCursor: null,
+      pageLoaded: false,
+      pageLoading: false,
+    });
   },
 }));
 

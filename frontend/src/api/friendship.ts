@@ -7,8 +7,9 @@ import {
   FriendshipStatus,
   FriendIdsResponse,
   ListFriendshipsResponse,
+  ListBlocksResponse,
+  BlockIdsResponse,
   BlockRelation,
-  BlockedUser,
 } from "../types/friendship";
 
 const API_BASE_URL =
@@ -109,8 +110,17 @@ class FriendshipAPI {
     return response.data.data;
   }
 
-  async listBlocks(): Promise<{ blocks: BlockedUser[] }> {
-    const response = await this.client.get("/v1/users/me/blocks");
+  async listBlocks(
+    opts: { cursor?: string | null; limit?: number } = {},
+  ): Promise<ListBlocksResponse> {
+    const response = await this.client.get("/v1/users/me/blocks", {
+      params: { cursor: opts.cursor ?? undefined, limit: opts.limit },
+    });
+    return response.data.data;
+  }
+
+  async listBlockIds(): Promise<BlockIdsResponse> {
+    const response = await this.client.get("/v1/users/me/blocks/ids");
     return response.data.data;
   }
 

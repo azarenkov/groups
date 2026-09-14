@@ -43,6 +43,7 @@ impl InviteLinkResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListInviteLinksResponse {
     pub primary: InviteLinkResponse,
     pub links: Vec<InviteLinkResponse>,

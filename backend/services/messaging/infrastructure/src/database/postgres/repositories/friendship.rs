@@ -78,7 +78,7 @@ impl FriendshipRepository for PostgresFriendshipRepository {
             .bind(status.map(FriendshipStatusDto::from))
             .bind(cursor_at)
             .bind(cursor_id)
-            .bind(limit)
+            .bind(limit + 1)
             .fetch_all(&self.pool)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
@@ -187,11 +187,21 @@ impl FriendshipRepository for PostgresFriendshipRepository {
         Ok(relations)
     }
 
-    async fn list_blocked(&self, blocker: &UserId) -> Result<Vec<BlockedUserView>, RepositoryError> {
-        let rows: Vec<(uuid::Uuid, String, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
-            "SELECT b.blocked_id, COALESCE(u.name, '') AS name, b.created_at FROM user_blocks b LEFT JOIN messaging_user_profiles u ON u.user_id = b.blocked_id WHERE b.blocker_id = $1 ORDER BY b.created_at DESC",
+    async fn list_blocked(
+        &self,
+        blocker: &UserId,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
+    ) -> Result<Vec<BlockedUserView>, RepositoryError> {
+        let cursor_at = cursor.map(|c| c.at);
+        let cursor_id = cursor.and_then(|c| uuid::Uuid::parse_str(&c.key).ok());
+        let rows: Vec<(uuid::Uuid, String, DateTime<Utc>)> = sqlx::query_as(
+            "SELECT b.blocked_id, COALESCE(u.name, '') AS name, b.created_at FROM user_blocks b LEFT JOIN messaging_user_profiles u ON u.user_id = b.blocked_id WHERE b.blocker_id = $1 AND ($2::timestamptz IS NULL OR (b.created_at, b.blocked_id) < ($2, $3::uuid)) ORDER BY b.created_at DESC, b.blocked_id DESC LIMIT $4",
         )
         .bind(blocker.uuid())
+        .bind(cursor_at)
+        .bind(cursor_id)
+        .bind(limit + 1)
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -205,6 +215,15 @@ impl FriendshipRepository for PostgresFriendshipRepository {
             .collect())
     }
 
+    async fn list_blocked_ids(&self, blocker: &UserId) -> Result<Vec<UserId>, RepositoryError> {
+        let rows: Vec<(uuid::Uuid,)> =
+            sqlx::query_as("SELECT blocked_id FROM user_blocks WHERE blocker_id = $1")
+                .bind(blocker.uuid())
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
+    }
 }
 
 pub(crate) async fn block_relation_for<'e, E>(

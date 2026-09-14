@@ -528,7 +528,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             .bind(user_id.uuid())
             .bind(cursor_at)
             .bind(cursor_id)
-            .bind(limit)
+            .bind(limit + 1)
             .fetch_all(&self.pool)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;

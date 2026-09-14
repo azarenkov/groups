@@ -501,7 +501,7 @@ impl ServerRepository for PostgresServerRepository {
         .bind(server_id.uuid())
         .bind(cursor.map(|c| c.at))
         .bind(cursor.map(|c| c.key.clone()))
-        .bind(limit)
+        .bind(limit + 1)
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;

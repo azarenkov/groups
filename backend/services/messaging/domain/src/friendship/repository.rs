@@ -34,7 +34,13 @@ pub trait FriendshipRepository {
         other: &UserId,
     ) -> Result<BlockRelation, RepositoryError>;
 
-    async fn list_blocked(&self, blocker: &UserId) -> Result<Vec<BlockedUserView>, RepositoryError>;
+    async fn list_blocked(
+        &self,
+        blocker: &UserId,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
+    ) -> Result<Vec<BlockedUserView>, RepositoryError>;
+    async fn list_blocked_ids(&self, blocker: &UserId) -> Result<Vec<UserId>, RepositoryError>;
     async fn blockers_among(
         &self,
         viewer: &UserId,

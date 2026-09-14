@@ -108,6 +108,7 @@
   "blockedUsers": "Blocked users",
   "blockedUsersHint": "They cannot message you, call you or send friend requests.",
   "noBlockedUsers": "No one is blocked.",
+  "loadMore": "Show more",
   "unblock": "Unblock",
     "everyone": "Everyone",
     "friends": "Friends",
