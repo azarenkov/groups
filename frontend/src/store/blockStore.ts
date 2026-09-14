@@ -1,0 +1,301 @@
+import { create } from "zustand";
+
+import { friendshipAPI } from "../api/friendship";
+import { usePresenceStore } from "./presenceStore";
+import { profileVersion } from "./userProfileStore";
+import { ApiError } from "../utils/apiError";
+import type { BlockedUser, BlockRelation } from "../types/friendship";
+
+interface BlockState {
+  blocked: Record<string, BlockedUser>;
+  blockedBy: Record<string, true>;
+  loaded: boolean;
+  fetch: () => Promise<void>;
+  block: (userId: string) => Promise<void>;
+  unblock: (userId: string) => Promise<void>;
+  applyEvent: (
+    selfId: string,
+    blockerId: string,
+    blockedId: string,
+    active: boolean,
+    occurredAt?: string,
+  ) => boolean;
+  applyRelation: (userId: string, relation: BlockRelation, gen?: number) => void;
+  markBlockedBy: (userId: string, active: boolean) => void;
+  clearAll: () => void;
+}
+
+const withoutKey = <T>(map: Record<string, T>, key: string): Record<string, T> => {
+  const { [key]: _gone, ...rest } = map;
+  return rest;
+};
+
+let mutationGen = 0;
+let fetchSeq = 0;
+let peerGens: Record<string, number> = {};
+
+const bumpPeer = (userId: string) => {
+  peerGens[userId] = (peerGens[userId] ?? 0) + 1;
+};
+let outgoingVersions: Record<string, string> = {};
+let incomingVersions: Record<string, string> = {};
+
+const recordVersion = (
+  versions: Record<string, string>,
+  peerId: string,
+  occurredAt?: string,
+): boolean => {
+  const version = profileVersion(occurredAt);
+  if (!version) return true;
+  if (version < (versions[peerId] ?? "")) return false;
+  versions[peerId] = version;
+  return true;
+};
+
+const PRESENCE_SNAPSHOT_BATCH = 100;
+const PRESENCE_SNAPSHOT_ATTEMPTS = 5;
+
+const resyncPresence = (ids: string[]) => {
+  if (ids.length === 0) return;
+  void import("../api/user").then(({ userAPI }) => {
+    for (let start = 0; start < ids.length; start += PRESENCE_SNAPSHOT_BATCH) {
+      const batch = ids.slice(start, start + PRESENCE_SNAPSHOT_BATCH);
+      const gens = new Map(batch.map((id) => [id, blockGeneration(id)] as const));
+      void (async () => {
+        for (let attempt = 0; attempt < PRESENCE_SNAPSHOT_ATTEMPTS; attempt += 1) {
+          try {
+            const res = await userAPI.presenceSnapshot(batch);
+            const presence = usePresenceStore.getState();
+            for (const id of res.online) {
+              if (gens.get(id) !== blockGeneration(id)) continue;
+              if (isBlockedEitherWay(id)) continue;
+              presence.setOnline(id);
+            }
+            return;
+          } catch {
+            await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+          }
+        }
+      })();
+    }
+  });
+};
+
+const leaveSharedCall = (userId: string) => {
+  void import("./callStore").then((m) => {
+    const calls = m.useCallStore.getState();
+    const shares =
+      !!calls.activeCallId &&
+      (!!calls.participants[userId] || calls.ringing.includes(userId) || calls.peerId === userId);
+    if (shares) void calls.leave().catch(() => {});
+  });
+};
+
+const reconcileAfterHydration = (blockedIds: string[], blockedByIds: string[]) => {
+  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+  void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
+  void import("./callStore").then((m) => {
+    const calls = m.useCallStore.getState();
+    for (const id of [...blockedIds, ...blockedByIds]) {
+      if (calls.incoming?.callerId === id) calls.clearIncoming();
+      calls.clearJoinable(id);
+    }
+  });
+};
+
+const recoverStatus = (userId: string) => {
+  void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
+  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+  void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
+  resyncPresence([userId]);
+};
+
+const forgetStatus = (userId: string) => {
+  usePresenceStore.getState().setOffline(userId);
+  void import("./friendshipStore").then((m) => {
+    const store = m.useFriendshipStore.getState();
+    if (store.friends.some((f) => f.friendId === userId)) void store.fetchFriends();
+  });
+  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+  void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
+  void import("./unreadStore").then((m) => {
+    m.useUnreadStore.getState().resetDm(userId);
+    void m.refetchUnread().catch(() => {});
+  });
+  void import("./callStore").then((m) => {
+    const calls = m.useCallStore.getState();
+    if (calls.incoming?.callerId === userId) calls.clearIncoming();
+    calls.clearJoinable(userId);
+  });
+};
+
+export const useBlockStore = create<BlockState>()((set, get) => ({
+  blocked: {},
+  blockedBy: {},
+  loaded: false,
+
+  fetch: async () => {
+    const gen = mutationGen;
+    const seq = ++fetchSeq;
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const res = await friendshipAPI.listBlocks();
+        if (gen !== mutationGen || seq !== fetchSeq) return;
+        const blocked: Record<string, BlockedUser> = {};
+        for (const b of res.blocks) blocked[b.userId] = b;
+        const previous = get().blocked;
+        const firstLoad = !get().loaded;
+        const added = Object.keys(blocked).filter((id) => !previous[id]);
+        const removed = Object.keys(previous).filter((id) => !blocked[id]);
+        if (added.length > 0 || removed.length > 0) mutationGen += 1;
+        for (const id of [...added, ...removed]) bumpPeer(id);
+        set({ blocked, loaded: true });
+        for (const id of added) {
+          forgetStatus(id);
+          leaveSharedCall(id);
+        }
+        if (firstLoad) reconcileAfterHydration(Object.keys(blocked), Object.keys(get().blockedBy));
+        if (removed.length > 0) {
+          void import("./activityStore").then((m) => m.loadActivitiesFor(removed));
+          void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+          void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
+          resyncPresence(removed);
+        }
+        return;
+      } catch (err) {
+        console.warn("[blocks] failed to load blocked users:", err);
+        if (gen !== mutationGen || seq !== fetchSeq) return;
+        const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt, 5));
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        if (gen !== mutationGen || seq !== fetchSeq) return;
+      }
+    }
+  },
+
+  block: async (userId) => {
+    const { occurredAt } = await friendshipAPI.block(userId);
+    if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
+    mutationGen += 1;
+    bumpPeer(userId);
+    forgetStatus(userId);
+    leaveSharedCall(userId);
+    set((state) => ({
+      blocked: {
+        ...state.blocked,
+        [userId]: state.blocked[userId] ?? {
+          userId,
+          name: "",
+          createdAt: new Date().toISOString(),
+        },
+      },
+    }));
+    void get().fetch();
+  },
+
+  unblock: async (userId) => {
+    const gen = blockGeneration(userId);
+    let occurredAt: string | undefined;
+    let reconcile = false;
+    try {
+      ({ occurredAt } = await friendshipAPI.unblock(userId));
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.code !== "USER_NOT_BLOCKED") throw err;
+      if (gen !== blockGeneration(userId)) return;
+      reconcile = true;
+    }
+    if (occurredAt !== undefined && !recordVersion(outgoingVersions, userId, occurredAt)) return;
+    mutationGen += 1;
+    bumpPeer(userId);
+    set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+    if (reconcile || !get().loaded) void get().fetch();
+    recoverStatus(userId);
+  },
+
+  applyEvent: (selfId, blockerId, blockedId, active, occurredAt) => {
+    if (blockerId === selfId) {
+      if (!recordVersion(outgoingVersions, blockedId, occurredAt)) return false;
+    } else if (blockedId === selfId) {
+      if (!recordVersion(incomingVersions, blockerId, occurredAt)) return false;
+    } else {
+      return false;
+    }
+    mutationGen += 1;
+    bumpPeer(blockerId === selfId ? blockedId : blockerId);
+    if (blockerId === selfId) {
+      if (active) {
+        set((state) => ({
+          blocked: {
+            ...state.blocked,
+            [blockedId]: state.blocked[blockedId] ?? {
+              userId: blockedId,
+              name: "",
+              createdAt: new Date().toISOString(),
+            },
+          },
+        }));
+        void get().fetch();
+      } else {
+        set((state) => ({ blocked: withoutKey(state.blocked, blockedId) }));
+      }
+    }
+    if (blockedId === selfId) get().markBlockedBy(blockerId, active);
+    if (!get().loaded) void get().fetch();
+    return true;
+  },
+
+  applyRelation: (userId, relation, gen) => {
+    if (gen !== undefined && gen !== blockGeneration(userId)) return;
+    const wasBlockedBy = !!get().blockedBy[userId];
+    const known = !!get().blocked[userId];
+    const changed = wasBlockedBy !== relation.blockedBy || known !== relation.blocked;
+    if (changed) {
+      mutationGen += 1;
+      bumpPeer(userId);
+    }
+    get().markBlockedBy(userId, relation.blockedBy);
+    if (relation.blocked && !known) {
+      if (!(relation.blockedBy && !wasBlockedBy)) forgetStatus(userId);
+      leaveSharedCall(userId);
+      set((state) => ({
+        blocked: {
+          ...state.blocked,
+          [userId]: { userId, name: "", createdAt: new Date().toISOString() },
+        },
+      }));
+      void get().fetch();
+    } else if (!relation.blocked && known) {
+      set((state) => ({ blocked: withoutKey(state.blocked, userId) }));
+      recoverStatus(userId);
+    }
+    if (!get().loaded) void get().fetch();
+  },
+
+  markBlockedBy: (userId, active) => {
+    const wasBlockedBy = !!get().blockedBy[userId];
+    if (active && !wasBlockedBy) forgetStatus(userId);
+    if (!active && wasBlockedBy) recoverStatus(userId);
+    set((state) => {
+      if (active) {
+        if (state.blockedBy[userId]) return state;
+        return { blockedBy: { ...state.blockedBy, [userId]: true } };
+      }
+      if (!state.blockedBy[userId]) return state;
+      return { blockedBy: withoutKey(state.blockedBy, userId) };
+    });
+  },
+
+  clearAll: () => {
+    mutationGen += 1;
+    peerGens = {};
+    outgoingVersions = {};
+    incomingVersions = {};
+    set({ blocked: {}, blockedBy: {}, loaded: false });
+  },
+}));
+
+export const blockGeneration = (userId: string): number => peerGens[userId] ?? 0;
+
+export const isBlockedEitherWay = (userId: string): boolean => {
+  const s = useBlockStore.getState();
+  return !!s.blocked[userId] || !!s.blockedBy[userId];
+};

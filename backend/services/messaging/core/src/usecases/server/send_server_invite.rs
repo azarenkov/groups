@@ -16,6 +16,8 @@ pub enum SendServerInviteError {
     Domain(#[from] MessageError),
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("This user is blocked")]
+    Blocked,
     #[error("This user does not accept direct messages")]
     DmsClosed,
     #[error("This user is unavailable")]
@@ -92,6 +94,14 @@ where
         sender_id: UserId,
         ctx: RequestContext,
     ) -> Result<SendDmMessageResponse, SendServerInviteError> {
+        if self
+            .friendship_repository
+            .block_relation(&sender_id, &friend_id)
+            .await?
+            .any()
+        {
+            return Err(SendServerInviteError::Blocked);
+        }
         let pair = self
             .friendship_repository
             .find_pair(&sender_id, &friend_id)
@@ -142,17 +152,22 @@ where
         let events = message.pull_events();
         let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let persisted = async {
+            tx.lock_pair(&sender_id, &friend_id).await?;
+            if tx.block_relation(&sender_id, &friend_id).await?.any() {
+                return Err(SendServerInviteError::Blocked);
+            }
             tx.insert_dm_message(&message).await?;
             tx.save_events(&events, request_id.as_deref()).await?;
-            tx.commit().await
+            tx.commit().await?;
+            Ok::<(), SendServerInviteError>(())
         }
         .await;
         match persisted {
             Ok(()) => {}
-            Err(RepositoryError::AlreadyExists) => {
+            Err(SendServerInviteError::Repository(RepositoryError::AlreadyExists)) => {
                 return Err(SendServerInviteError::InviteAlreadyPending);
             }
-            Err(e) => return Err(SendServerInviteError::Repository(e)),
+            Err(e) => return Err(e),
         }
 
         Ok(SendDmMessageResponse::from_invite(&message, server_name))

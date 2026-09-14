@@ -19,6 +19,8 @@ pub enum AcceptServerInviteError {
     NotAnInvite,
     #[error("This invite was not addressed to you")]
     NotRecipient,
+    #[error("This user is blocked")]
+    Blocked,
 }
 
 pub struct AcceptServerInvite<M, W>
@@ -58,6 +60,7 @@ where
         if message.recipient_id() != &requester_id {
             return Err(AcceptServerInviteError::NotRecipient);
         }
+        let sender_id = *message.sender_id();
 
         message.record_invite_deleted(Utc::now());
 
@@ -66,6 +69,10 @@ where
             message.pull_events().into_iter().map(MessagingEvent::from).collect();
 
         let mut tx = self.unit_of_work.begin(&server_id).await?;
+        tx.lock_pair(&sender_id, &requester_id).await?;
+        if tx.block_relation(&sender_id, &requester_id).await?.any() {
+            return Err(AcceptServerInviteError::Blocked);
+        }
         let joined = tx.accept_invite(&message_id, &requester_id).await?;
         if joined {
             let now = Utc::now();

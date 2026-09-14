@@ -1,3 +1,4 @@
+pub mod block;
 pub mod events;
 pub mod pair;
 pub mod repository;

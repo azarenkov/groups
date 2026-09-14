@@ -2,10 +2,13 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
+import { rateLimitRetry } from "../utils/rateLimitRetry";
 import {
   FriendshipStatus,
   FriendIdsResponse,
   ListFriendshipsResponse,
+  BlockRelation,
+  BlockedUser,
 } from "../types/friendship";
 
 const API_BASE_URL =
@@ -46,6 +49,8 @@ class FriendshipAPI {
           }
         }
 
+        const retried = rateLimitRetry(this.client, error);
+        if (retried) return retried;
         throw toApiError(error);
       },
     );
@@ -86,6 +91,26 @@ class FriendshipAPI {
 
   async listIds(): Promise<FriendIdsResponse> {
     const response = await this.client.get("/v1/users/me/friends/ids");
+    return response.data.data;
+  }
+
+  async block(userId: string): Promise<{ occurredAt: string }> {
+    const response = await this.client.post(`/v1/users/${userId}/block`);
+    return response.data.data;
+  }
+
+  async unblock(userId: string): Promise<{ occurredAt: string }> {
+    const response = await this.client.delete(`/v1/users/${userId}/block`);
+    return response.data.data;
+  }
+
+  async blockRelation(userId: string): Promise<BlockRelation> {
+    const response = await this.client.get(`/v1/users/${userId}/block`);
+    return response.data.data;
+  }
+
+  async listBlocks(): Promise<{ blocks: BlockedUser[] }> {
+    const response = await this.client.get("/v1/users/me/blocks");
     return response.data.data;
   }
 

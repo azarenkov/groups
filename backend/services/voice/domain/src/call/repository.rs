@@ -5,6 +5,34 @@ use uuid::Uuid;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WebhookJoinOutcome {
+    Joined,
+    NotCallRoom,
+    EvictionPending,
+    CallFull,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JoinOutcome {
+    Joined,
+    NotParticipant,
+    CapExceeded,
+}
+
+#[derive(Debug, Clone)]
+pub enum AddParticipantsOutcome {
+    Added(Vec<UserId>),
+    CapExceeded,
+}
+
+#[derive(Debug, Clone)]
+pub struct PendingEviction {
+    pub call_id: Uuid,
+    pub user_id: UserId,
+    pub attempts: i32,
+}
+
 #[async_trait]
 pub trait CallRepository {
     async fn start_call(
@@ -33,9 +61,10 @@ pub trait CallRepository {
         call_id: Uuid,
         inviter: &UserId,
         invitees: &[UserId],
+        max_participants: usize,
         now: DateTime<Utc>,
         request_id: Option<String>,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<AddParticipantsOutcome, RepositoryError>;
 
     async fn leave(
         &self,
@@ -43,6 +72,37 @@ pub trait CallRepository {
         user_id: &UserId,
         now: DateTime<Utc>,
         request_id: Option<String>,
+    ) -> Result<(), RepositoryError>;
+
+    async fn leave_many(
+        &self,
+        call_id: Uuid,
+        user_ids: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError>;
+
+    async fn evict_many(
+        &self,
+        call_id: Uuid,
+        user_ids: &[UserId],
+        now: DateTime<Utc>,
+        request_id: Option<String>,
+    ) -> Result<(), RepositoryError>;
+
+    async fn claim_due_evictions(
+        &self,
+        now: DateTime<Utc>,
+        limit: i64,
+    ) -> Result<Vec<PendingEviction>, RepositoryError>;
+
+    async fn eviction_done(&self, call_id: Uuid, user_id: &UserId) -> Result<(), RepositoryError>;
+
+    async fn eviction_failed(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        next_attempt_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
 
     async fn is_active_participant(
@@ -62,6 +122,8 @@ pub trait CallRepository {
         call_id: Uuid,
     ) -> Result<Vec<CallParticipantView>, RepositoryError>;
 
+    async fn active_participant_ids(&self, call_id: Uuid) -> Result<Vec<UserId>, RepositoryError>;
+
     async fn active_call_for(&self, user_id: &UserId) -> Result<Option<Uuid>, RepositoryError>;
 
     async fn joined_at(
@@ -76,12 +138,19 @@ pub trait CallRepository {
         user_b: &UserId,
     ) -> Result<Option<Uuid>, RepositoryError>;
 
+    async fn shared_active_calls(
+        &self,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<Vec<Uuid>, RepositoryError>;
+
     async fn join(
         &self,
         call_id: Uuid,
         user_id: &UserId,
+        max_participants: usize,
         now: DateTime<Utc>,
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<JoinOutcome, RepositoryError>;
 
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
 
@@ -97,9 +166,10 @@ pub trait CallRepository {
         call_id: Uuid,
         user_id: &UserId,
         session_id: &str,
+        max_participants: usize,
         now: DateTime<Utc>,
         request_id: Option<String>,
-    ) -> Result<bool, RepositoryError>;
+    ) -> Result<WebhookJoinOutcome, RepositoryError>;
 
     async fn webhook_left(
         &self,

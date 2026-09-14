@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, server::Server, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteToken, server::role::ServerRole};
+use crate::{events::MessagingEvent, friendship::block::BlockRelation, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, server::Server, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteToken, server::role::ServerRole};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -21,6 +21,12 @@ pub trait UserLifecycleTransaction: Send {
 #[async_trait::async_trait]
 pub trait ServerTransaction: Send {
     async fn load_server(&mut self) -> Result<Server, RepositoryError>;
+    async fn lock_pair(&mut self, a: &UserId, b: &UserId) -> Result<(), RepositoryError>;
+    async fn block_relation(
+        &mut self,
+        viewer: &UserId,
+        other: &UserId,
+    ) -> Result<BlockRelation, RepositoryError>;
     async fn insert_role(&mut self, role: &ServerRole) -> Result<(), RepositoryError>;
     async fn update_role(
         &mut self,

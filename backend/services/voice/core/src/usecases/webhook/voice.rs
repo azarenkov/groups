@@ -2,15 +2,17 @@ use std::sync::Arc;
 
 use domain::{channel::id::ChannelId, user::id::UserId};
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
-use voice_domain::{call::repository::CallRepository, webhook::WebhookEvent, webhook::WebhookKind};
+use voice_domain::{call::repository::CallRepository, call::repository::WebhookJoinOutcome, webhook::WebhookEvent, webhook::WebhookKind};
 
 use crate::{
     dto::context::RequestContext,
     ports::{
+        friendship_lookup::{FriendshipLookup, FriendshipLookupError},
         voice_service::{VoiceService, VoiceServiceError},
         voice_webhook_verifier::{VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError},
         webhook_outbox::WebhookOutbox,
     },
+    usecases::call::add_participants::MAX_CALL_INVITEES,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -21,30 +23,35 @@ pub enum HandleVoiceWebhookError {
     Call(#[from] RepositoryError),
     #[error("Voice service error: {0}")]
     Voice(#[from] VoiceServiceError),
+    #[error("Friendship lookup unavailable: {0}")]
+    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
-pub struct HandleVoiceWebhook<V, C, O, P, S>
+pub struct HandleVoiceWebhook<V, C, O, P, S, F>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
     O: WebhookOutbox,
     P: UserProfileRepository,
     S: VoiceService,
+    F: FriendshipLookup,
 {
     verifier: Arc<V>,
     call_repository: Arc<C>,
     outbox: Arc<O>,
     profiles: Arc<P>,
     voice_service: Arc<S>,
+    friendship_repository: Arc<F>,
 }
 
-impl<V, C, O, P, S> HandleVoiceWebhook<V, C, O, P, S>
+impl<V, C, O, P, S, F> HandleVoiceWebhook<V, C, O, P, S, F>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
     O: WebhookOutbox,
     P: UserProfileRepository,
     S: VoiceService,
+    F: FriendshipLookup,
 {
     pub fn new(
         verifier: Arc<V>,
@@ -52,6 +59,7 @@ where
         outbox: Arc<O>,
         profiles: Arc<P>,
         voice_service: Arc<S>,
+        friendship_repository: Arc<F>,
     ) -> Self {
         Self {
             verifier,
@@ -59,7 +67,52 @@ where
             outbox,
             profiles,
             voice_service,
+            friendship_repository,
         }
+    }
+
+    async fn evict_if_blocked(
+        &self,
+        call_id: uuid::Uuid,
+        user_id: &UserId,
+        request_id: Option<String>,
+    ) -> Result<(), HandleVoiceWebhookError> {
+        let mut others: Vec<UserId> = self
+            .call_repository
+            .list_active(call_id)
+            .await?
+            .into_iter()
+            .map(|p| p.user_id)
+            .filter(|id| id != user_id)
+            .collect();
+        let mut index = 0;
+        while index < others.len() {
+            let other = others[index];
+            let relation = self.friendship_repository.block_relation(user_id, &other).await?;
+            if !relation.any() {
+                index += 1;
+                continue;
+            }
+            let (blocker, blocked) = if relation.blocking { (*user_id, other) } else { (other, *user_id) };
+            let mut leaving = vec![blocker];
+            if others.len() == 1 {
+                leaving.push(blocked);
+            }
+            tracing::warn!(%call_id, blocker = %blocker.uuid(), blocked = %blocked.uuid(), "Blocked pair met in a call room; evicting");
+            crate::usecases::call::eviction::evict(
+                self.call_repository.as_ref(),
+                self.voice_service.as_ref(),
+                call_id,
+                &leaving,
+                request_id.clone(),
+            )
+            .await?;
+            if leaving.contains(user_id) {
+                return Ok(());
+            }
+            others.remove(index);
+        }
+        Ok(())
     }
 
     pub async fn execute(
@@ -86,18 +139,36 @@ where
                         .await?;
                     return Ok(());
                 }
-                if self
+                match self
                     .call_repository
                     .webhook_joined(
                         channel_id,
                         &UserId::new(user_id),
                         &session_id,
+                        MAX_CALL_INVITEES,
                         occurred_at,
                         ctx.request_id.clone(),
                     )
                     .await?
                 {
-                    return Ok(());
+                    WebhookJoinOutcome::Joined => {
+                        self.evict_if_blocked(channel_id, &UserId::new(user_id), ctx.request_id.clone())
+                            .await?;
+                        return Ok(());
+                    }
+                    WebhookJoinOutcome::EvictionPending | WebhookJoinOutcome::CallFull => {
+                        tracing::warn!(%channel_id, %user_id, "Rejected webhook reconnection to a call room; evicting");
+                        crate::usecases::call::eviction::evict(
+                            self.call_repository.as_ref(),
+                            self.voice_service.as_ref(),
+                            channel_id,
+                            &[UserId::new(user_id)],
+                            ctx.request_id.clone(),
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+                    WebhookJoinOutcome::NotCallRoom => {}
                 }
                 (channel_id, user_id, session_id, WebhookKind::Joined)
             }

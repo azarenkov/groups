@@ -9,7 +9,10 @@ use api_common::middleware::jwt::claims::{AccessTokenClaims, TokenType};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use realtime_infrastructure::{connections::{Connection, ConnectionManager}, database::postgres::projection::PostgresRealtimeProjection};
+use realtime_core::usecases::block_aware_directory::BlockAwareDirectory;
+use realtime_infrastructure::{connections::{Connection, ConnectionManager}, database::postgres::projection::PostgresRealtimeProjection, media_client::relations::MessagingRelationsClient};
+
+pub type PresenceDirectory = BlockAwareDirectory<PostgresRealtimeProjection, MessagingRelationsClient>;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(20);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(60);
@@ -18,7 +21,7 @@ const AUTH_PROTOCOL_PREFIX: &str = "bearer.";
 
 #[derive(Clone)]
 pub struct WsState {
-    pub manager: ConnectionManager<PostgresRealtimeProjection>,
+    pub manager: ConnectionManager<PresenceDirectory>,
     pub jwt_secret: String,
     pub outbound_buffer: usize,
     pub access_revocations: api_common::middleware::revocation::AccessRevocations,
@@ -78,6 +81,45 @@ async fn authenticate_request(req: &HttpRequest, state: &WsState) -> Option<Uuid
         Err(e) => {
             tracing::warn!(error = %e, "Revocation check failed; rejecting request");
             None
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct PresenceSnapshotQuery {
+    pub ids: String,
+}
+
+#[derive(serde::Serialize)]
+struct PresenceSnapshotResponse {
+    online: Vec<Uuid>,
+}
+
+#[get("/presence")]
+pub async fn presence_snapshot(
+    req: HttpRequest,
+    state: web::Data<WsState>,
+    query: web::Query<PresenceSnapshotQuery>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let Some(user_id) = authenticate_request(&req, &state).await else {
+        return Ok(HttpResponse::Unauthorized().body("invalid token"));
+    };
+    let mut ids: Vec<Uuid> = Vec::new();
+    for raw in query.ids.split(',') {
+        if let Ok(id) = Uuid::parse_str(raw.trim())
+            && !ids.contains(&id)
+        {
+            ids.push(id);
+        }
+        if ids.len() >= 100 {
+            break;
+        }
+    }
+    match state.manager.visible_online(user_id, &ids).await {
+        Ok(online) => Ok(HttpResponse::Ok().json(PresenceSnapshotResponse { online })),
+        Err(e) => {
+            tracing::warn!(error = %e, %user_id, "Presence snapshot lookup failed");
+            Ok(HttpResponse::ServiceUnavailable().body("presence lookup unavailable"))
         }
     }
 }
@@ -176,7 +218,7 @@ struct ConnectionAuth {
 }
 
 async fn connection_task(
-    manager: ConnectionManager<PostgresRealtimeProjection>,
+    manager: ConnectionManager<PresenceDirectory>,
     user_id: Uuid,
     mut session: actix_ws::Session,
     msg_stream: actix_ws::MessageStream,

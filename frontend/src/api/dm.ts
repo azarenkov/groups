@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
+import { rateLimitRetry } from "../utils/rateLimitRetry";
 import { Attachment, ChannelMessage } from "../types/channel";
 
 const API_BASE_URL =
@@ -69,6 +70,8 @@ class DmAPI {
             throw toApiError(error);
           }
         }
+        const retried = rateLimitRetry(this.client, error);
+        if (retried) return retried;
         throw toApiError(error);
       },
     );

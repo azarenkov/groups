@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
 import { ApiError, toApiError } from "../utils/apiError";
+import { rateLimitRetry } from "../utils/rateLimitRetry";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -111,6 +112,8 @@ class UserAPI {
           }
         }
 
+        const retried = rateLimitRetry(this.client, error);
+        if (retried) return retried;
         throw toApiError(error);
       },
     );
@@ -370,6 +373,14 @@ class UserAPI {
 
   async setAppearOffline(appearOffline: boolean): Promise<void> {
     await this.client.post("/v1/me/presence", { appearOffline });
+  }
+
+  async presenceSnapshot(ids: string[]): Promise<{ online: string[] }> {
+    if (ids.length === 0) return { online: [] };
+    const response = await this.client.get("/v1/presence", {
+      params: { ids: ids.join(",") },
+    });
+    return response.data;
   }
 
   async getNotificationPreferences(): Promise<{

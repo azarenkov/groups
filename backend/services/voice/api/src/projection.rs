@@ -6,21 +6,26 @@ use ports::user_profile::UserProfileRepository;
 use futures::StreamExt;
 use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
+use contracts::events::friendship::UserBlockedV1;
 use contracts::events::user::{UserLifecycleV1, UserNameV1 as UserNameDto};
+use voice::usecases::call::enforce_block::EnforceBlock;
 use voice::usecases::call::enforce_user_deactivation::EnforceUserDeactivation;
 use voice_domain::call::repository::CallRepository;
+use voice::ports::friendship_lookup::FriendshipLookup;
 use voice::ports::voice_service::VoiceService;
 
-pub fn spawn<P, C, V>(
+pub fn spawn<P, C, V, F>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
     profiles: Arc<P>,
     deactivation: Arc<EnforceUserDeactivation<C, V>>,
+    block: Arc<EnforceBlock<C, V, F>>,
 ) where
     P: UserProfileRepository + Send + Sync + 'static,
     C: CallRepository + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
+    F: FriendshipLookup + Send + Sync + 'static,
 {
     actix_web::rt::spawn(async move {
         let prefix = subject_prefix.trim_end_matches('.').to_string();
@@ -47,7 +52,7 @@ pub fn spawn<P, C, V>(
                                     subject = %m.subject,
                                 );
                                 async {
-                                    match handle(&m.subject, &m.payload, &*profiles, &deactivation, m.request_id.clone()).await {
+                                    match handle(&m.subject, &m.payload, &*profiles, &deactivation, &block, m.request_id.clone()).await {
                                         Ok(()) => {
                                             if let Err(e) = m.ack().await {
                                                 tracing::warn!(error = %e, "Voice projection ack failed");
@@ -77,18 +82,33 @@ pub fn spawn<P, C, V>(
     });
 }
 
-async fn handle<P, C, V>(
+async fn handle<P, C, V, F>(
     subject: &str,
     payload: &[u8],
     profiles: &P,
     deactivation: &EnforceUserDeactivation<C, V>,
+    block: &EnforceBlock<C, V, F>,
     request_id: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     P: UserProfileRepository + Send + Sync,
     C: CallRepository + Send + Sync,
     V: VoiceService + Send + Sync,
+    F: FriendshipLookup + Send + Sync,
 {
+    if subject.ends_with(".user.blocked") {
+        match serde_json::from_slice::<UserBlockedV1>(payload) {
+            Ok(evt) => {
+                block
+                    .execute(UserId::new(evt.blocker_id), UserId::new(evt.blocked_id), request_id)
+                    .await?;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, %subject, "Malformed user block event; dropping");
+            }
+        }
+        return Ok(());
+    }
     if subject.ends_with(".user.registered") || subject.ends_with(".user.renamed") {
         match serde_json::from_slice::<UserNameDto>(payload) {
             Ok(evt) => {

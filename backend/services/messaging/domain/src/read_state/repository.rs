@@ -6,6 +6,12 @@ use crate::channel::id::ChannelId;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DmReadReceipt {
+    Blocked,
+    ReadAt(Option<DateTime<Utc>>),
+}
+
 #[derive(Debug, Clone)]
 pub struct ChannelUnread {
     pub channel_id: Uuid,
@@ -37,7 +43,7 @@ pub trait ReadStateRepository {
         &self,
         user_id: &UserId,
         friend_id: &UserId,
-    ) -> Result<(), RepositoryError>;
+    ) -> Result<bool, RepositoryError>;
 
     async fn channel_unread_counts(
         &self,
@@ -55,7 +61,7 @@ pub trait ReadStateRepository {
         &self,
         user_id: &UserId,
         friend_id: &UserId,
-    ) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+    ) -> Result<DmReadReceipt, RepositoryError>;
 
     async fn channel_member_read_ats(
         &self,

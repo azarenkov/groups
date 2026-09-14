@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
+import { rateLimitRetry } from "../utils/rateLimitRetry";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -37,6 +38,8 @@ export interface PublicProfile {
   acceptsCalls: boolean;
   acceptsMessages: boolean;
   acceptsFriendRequests: boolean;
+  blocked: boolean;
+  blockedBy: boolean;
   mutualServers: { id: string; name: string; accentColor: string | null }[];
   voiceRoom: { channelId: string; channelName: string; serverId: string; serverName: string } | null;
 }
@@ -87,6 +90,8 @@ class HomeAPI {
             throw toApiError(error);
           }
         }
+        const retried = rateLimitRetry(this.client, error);
+        if (retried) return retried;
         throw toApiError(error);
       },
     );

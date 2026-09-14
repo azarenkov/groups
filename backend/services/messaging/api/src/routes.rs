@@ -1,6 +1,7 @@
 use actix_web::web;
 
 use crate::attachments::attachment_routes;
+use crate::blocks::block_routes;
 use crate::calls::call_log_routes;
 use crate::channel::{
     create_channel, delete_channel, delete_channel_message, edit_channel_message,
@@ -89,7 +90,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(list_friends)
                         .service(get_home_overview)
                         .service(get_user_profile)
-                        .configure(crate::privacy::privacy_routes),
+                        .configure(crate::privacy::privacy_routes)
+                        .configure(block_routes),
                 )
                 .service(
                     web::scope("/v1")

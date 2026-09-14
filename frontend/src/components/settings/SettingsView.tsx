@@ -16,6 +16,7 @@ import { useVoiceSettingsStore } from "../../store/voiceSettingsStore";
 import { useNotificationSettingsStore } from "../../store/notificationSettingsStore";
 import { requestDesktopNotificationPermission } from "../../utils/desktopNotification";
 import { useHotkeySettingsStore } from "../../store/hotkeySettingsStore";
+import { useBlockStore } from "../../store/blockStore";
 import {
   activeBindings,
   bindingBlocker,
@@ -590,7 +591,53 @@ function PrivacySection() {
           </SettingsRow>
         </div>
       )}
+      <BlockedUsersSection />
     </>
+  );
+}
+
+function BlockedUsersSection() {
+  const { t } = useTranslation("settings");
+  const blocked = useBlockStore((s) => s.blocked);
+  const loaded = useBlockStore((s) => s.loaded);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    void useBlockStore.getState().fetch();
+  }, []);
+  const items = Object.values(blocked).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const unblock = (userId: string) => {
+    setBusy(userId);
+    useBlockStore
+      .getState()
+      .unblock(userId)
+      .catch((err) => console.warn("[privacy] unblock failed:", err))
+      .finally(() => setBusy(null));
+  };
+  return (
+    <div className="s-section">
+      <h2>{t("privacy.blockedUsers")}</h2>
+      <p className="s-hint">{t("privacy.blockedUsersHint")}</p>
+      {!loaded && items.length === 0 ? (
+        <div className="s-row"><span className="loading-spinner" /></div>
+      ) : items.length === 0 ? (
+        <div className="s-row s-muted">{t("privacy.noBlockedUsers")}</div>
+      ) : (
+        items.map((b) => (
+          <div className="s-row s-blocked-row" key={b.userId}>
+            <UserAvatar userId={b.userId} name={b.name || "?"} className="s-blocked-ava" />
+            <span className="s-blocked-name">{b.name || b.userId}</span>
+            <button
+              type="button"
+              className="s-btn secondary"
+              disabled={busy === b.userId}
+              onClick={() => unblock(b.userId)}
+            >
+              {t("privacy.unblock")}
+            </button>
+          </div>
+        ))
+      )}
+    </div>
   );
 }
 

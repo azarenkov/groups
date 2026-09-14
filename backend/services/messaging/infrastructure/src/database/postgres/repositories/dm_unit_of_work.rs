@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use domain::attachment::AttachmentLink;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::unit_of_work::DmTransaction, dm_message::unit_of_work::DmUnitOfWork};
+use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::unit_of_work::DmTransaction, dm_message::unit_of_work::DmUnitOfWork, friendship::block::BlockRelation};
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -12,6 +12,8 @@ use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
     repositories::{
         dm_message::{insert_dm_links, insert_dm_message},
+        friendship::block_relation_for,
+        friendship_unit_of_work::pair_key,
         outbox_record::save_outbox_records,
     },
 };
@@ -44,6 +46,23 @@ impl DmUnitOfWork for PostgresDmUnitOfWork {
 
 #[async_trait]
 impl DmTransaction for PostgresDmTransaction {
+    async fn lock_pair(&mut self, a: &UserId, b: &UserId) -> Result<(), RepositoryError> {
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))")
+            .bind(pair_key(a, b))
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn block_relation(
+        &mut self,
+        viewer: &UserId,
+        other: &UserId,
+    ) -> Result<BlockRelation, RepositoryError> {
+        block_relation_for(&mut *self.tx, viewer, other).await
+    }
+
     async fn insert_message(
         &mut self,
         message: &DmMessage,

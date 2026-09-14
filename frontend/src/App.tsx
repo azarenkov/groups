@@ -173,6 +173,9 @@ const App: React.FC = () => {
     void import("./store/userProfileStore").then(({ useUserProfileStore }) =>
       useUserProfileStore.getState().clear(),
     );
+    void import("./store/blockStore").then(({ useBlockStore }) =>
+      useBlockStore.getState().clearAll(),
+    );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

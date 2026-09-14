@@ -41,6 +41,7 @@ impl PostgresServerRepository {
                 OR EXISTS(SELECT 1 FROM messages WHERE author_id = $1)
                 OR EXISTS(SELECT 1 FROM dm_messages WHERE sender_id = $1)
                 OR EXISTS(SELECT 1 FROM dm_messages WHERE recipient_id = $1)
+                OR EXISTS(SELECT 1 FROM user_blocks WHERE blocker_id = $1 OR blocked_id = $1)
             "#,
         )
         .bind(user_id)
@@ -71,7 +72,13 @@ impl PostgresServerRepository {
                 INNER JOIN server_members m2 ON m2.server_id = m1.server_id
                 WHERE m1.user_id = $1
             ) related
-            WHERE related.other = ANY($2) AND related.other <> $1
+            WHERE related.other = ANY($2)
+              AND related.other <> $1
+              AND NOT EXISTS (
+                  SELECT 1 FROM user_blocks b
+                  WHERE (b.blocker_id = $1 AND b.blocked_id = related.other)
+                     OR (b.blocker_id = related.other AND b.blocked_id = $1)
+              )
             "#,
         )
         .bind(user_id)

@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { friendshipAPI } from "../api/friendship";
 import { Friendship, FriendshipStatus } from "../types/friendship";
+import { coalesce } from "../utils/coalesce";
 
 const PAGE_SIZE = 100;
 
@@ -23,15 +24,8 @@ interface FriendshipState {
 
 let fetchSeq = 0;
 
-export const useFriendshipStore = create<FriendshipState>((set, get) => ({
-  friends: [],
-  statusById: {},
-  nextCursor: null,
-  isLoading: false,
-  isLoadingMore: false,
-  error: null,
-
-  fetchFriends: async () => {
+export const useFriendshipStore = create<FriendshipState>((set, get) => {
+  const fetchFriends = coalesce(async () => {
     const seq = ++fetchSeq;
     set({ isLoading: true, error: null });
     try {
@@ -55,53 +49,63 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => ({
         isLoading: false,
       });
     }
-  },
+  });
+  return {
+    friends: [],
+    statusById: {},
+    nextCursor: null,
+    isLoading: false,
+    isLoadingMore: false,
+    error: null,
 
-  loadMore: async () => {
-    const { nextCursor, isLoadingMore } = get();
-    if (!nextCursor || isLoadingMore) return;
-    const seq = fetchSeq;
-    set({ isLoadingMore: true });
-    try {
-      const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
-      if (seq !== fetchSeq) return;
+    fetchFriends,
+
+    loadMore: async () => {
+      const { nextCursor, isLoadingMore } = get();
+      if (!nextCursor || isLoadingMore) return;
+      const seq = fetchSeq;
+      set({ isLoadingMore: true });
+      try {
+        const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
+        if (seq !== fetchSeq) return;
+        set((state) => {
+          const known = new Set(state.friends.map((f) => f.friendId));
+          const fresh = page.friends.filter((f) => !known.has(f.friendId));
+          return {
+            friends: [...state.friends, ...fresh],
+            nextCursor: page.nextCursor,
+            isLoadingMore: false,
+          };
+        });
+      } catch {
+        if (seq === fetchSeq) set({ isLoadingMore: false });
+      }
+    },
+
+    sendRequest: async (username) => {
+      await friendshipAPI.sendRequest(username);
+      await get().fetchFriends();
+    },
+
+    accept: async (friendId) => {
+      await friendshipAPI.accept(friendId);
+      await get().fetchFriends();
+    },
+
+    remove: async (friendId) => {
+      await friendshipAPI.remove(friendId);
       set((state) => {
-        const known = new Set(state.friends.map((f) => f.friendId));
-        const fresh = page.friends.filter((f) => !known.has(f.friendId));
+        const { [friendId]: _gone, ...statusById } = state.statusById;
         return {
-          friends: [...state.friends, ...fresh],
-          nextCursor: page.nextCursor,
-          isLoadingMore: false,
+          friends: state.friends.filter((f) => f.friendId !== friendId),
+          statusById,
         };
       });
-    } catch {
-      if (seq === fetchSeq) set({ isLoadingMore: false });
-    }
-  },
+    },
 
-  sendRequest: async (username) => {
-    await friendshipAPI.sendRequest(username);
-    await get().fetchFriends();
-  },
-
-  accept: async (friendId) => {
-    await friendshipAPI.accept(friendId);
-    await get().fetchFriends();
-  },
-
-  remove: async (friendId) => {
-    await friendshipAPI.remove(friendId);
-    set((state) => {
-      const { [friendId]: _gone, ...statusById } = state.statusById;
-      return {
-        friends: state.friends.filter((f) => f.friendId !== friendId),
-        statusById,
-      };
-    });
-  },
-
-  clearError: () => set({ error: null }),
-}));
+    clearError: () => set({ error: null }),
+  };
+});
 
 export const acceptedFriendIds = (): string[] =>
   Object.entries(useFriendshipStore.getState().statusById)

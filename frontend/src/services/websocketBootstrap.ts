@@ -2,6 +2,7 @@ import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { acceptedFriendIds, useFriendshipStore } from "../store/friendshipStore";
+import { isBlockedEitherWay, useBlockStore } from "../store/blockStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
@@ -70,6 +71,7 @@ function throttleMarkChannelRead(channelId: string) {
 }
 
 function throttleMarkDmRead(friendId: string) {
+  if (isBlockedEitherWay(friendId)) return;
   const now = Date.now();
   if (now - (lastDmReadAt[friendId] ?? 0) < READ_MARK_THROTTLE_MS) return;
   lastDmReadAt[friendId] = now;
@@ -241,6 +243,53 @@ function dispatch(env: WsEnvelope) {
       return;
     }
 
+    case "user.blocked":
+    case "user.unblocked": {
+      const blockerId = asString(d.blockerId);
+      const blockedId = asString(d.blockedId);
+      const selfId = useAuthStore.getState().user?.id;
+      if (!blockerId || !blockedId || !selfId) return;
+      const applied = useBlockStore
+        .getState()
+        .applyEvent(
+          selfId,
+          blockerId,
+          blockedId,
+          env.type === "user.blocked",
+          asString(d.occurredAt),
+        );
+      if (!applied) return;
+      const peer = blockerId === selfId ? blockedId : blockerId;
+      if (env.type === "user.blocked") {
+        useUnreadStore.getState().resetDm(peer);
+        void import("../store/unreadStore").then(({ refetchUnread }) =>
+          refetchUnread().catch(() => {}),
+        );
+        usePresenceStore.getState().setOffline(peer);
+        const calls = useCallStore.getState();
+        if (calls.incoming?.callerId === peer) calls.clearIncoming();
+        calls.clearJoinable(peer);
+        const sharesCall =
+          !!calls.activeCallId &&
+          (!!calls.participants[peer] || calls.ringing.includes(peer) || calls.peerId === peer);
+        if (blockerId === selfId && sharesCall) void calls.leave().catch(() => {});
+      }
+      useActivityStore.getState().apply(peer, null);
+      if (env.type === "user.unblocked") {
+        void loadActivitiesFor([peer]);
+        void import("../store/unreadStore").then(({ refetchUnread }) =>
+          refetchUnread().catch(() => {}),
+        );
+      }
+      scheduleHomeRefresh();
+      void useFriendshipStore
+        .getState()
+        .fetchFriends()
+        .then(() => loadFriendActivities());
+      refetchDmPreviews();
+      return;
+    }
+
     case "friendship.removed": {
       const removedSelf = useAuthStore.getState().user?.id;
       const removedA = asString(d.userId);
@@ -367,6 +416,11 @@ function dispatch(env: WsEnvelope) {
         throttleMarkChannelRead(channelId);
         return;
       }
+      if (!useBlockStore.getState().loaded) {
+        scheduleUnreadRefetch();
+        return;
+      }
+      if (useBlockStore.getState().blocked[authorId]) return;
       if (!notificationPrefsLoaded()) {
         scheduleUnreadRefetch();
         return;
@@ -427,6 +481,7 @@ function dispatch(env: WsEnvelope) {
       const selfId = useAuthStore.getState().user?.id;
       if (!senderId || !recipientId || !selfId) return;
       const peerId = senderId === selfId ? recipientId : senderId;
+      if (isBlockedEitherWay(peerId)) return;
       const peerName =
         (senderId !== selfId ? asString(d.senderName) : undefined) ??
         useFriendshipStore.getState().friends.find((f) => f.friendId === peerId)?.friendName;
@@ -584,7 +639,7 @@ function dispatch(env: WsEnvelope) {
 
     case "user.online": {
       const userId = asString(d.userId);
-      if (userId) {
+      if (userId && !isBlockedEitherWay(userId)) {
         usePresenceStore.getState().setOnline(userId);
         void loadActivitiesFor([userId]);
       }
@@ -621,6 +676,7 @@ function dispatch(env: WsEnvelope) {
       const callId = asString(d.callId);
       const callerId = asString(d.callerId);
       if (!callId || !callerId) return;
+      if (isBlockedEitherWay(callerId)) return;
       const callerName = asString(d.callerName) ?? callerId;
       useCallStore
         .getState()
@@ -657,7 +713,7 @@ function dispatch(env: WsEnvelope) {
     case "call.available": {
       const callId = asString(d.callId);
       const userId = asString(d.userId);
-      if (callId && userId) {
+      if (callId && userId && !isBlockedEitherWay(userId)) {
         useCallStore.getState().callAvailable(userId, callId);
       }
       return;

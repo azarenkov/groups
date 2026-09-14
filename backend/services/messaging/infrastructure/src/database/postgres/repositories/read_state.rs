@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
+use messaging_domain::{channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmReadReceipt, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
+
+use crate::database::postgres::repositories::{friendship::block_relation_for, friendship_unit_of_work::pair_key};
 
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
@@ -102,12 +104,21 @@ impl ReadStateRepository for PostgresReadStateRepository {
         &self,
         user_id: &UserId,
         friend_id: &UserId,
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<bool, RepositoryError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))")
+            .bind(pair_key(user_id, friend_id))
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        if block_relation_for(&mut *tx, user_id, friend_id).await?.any() {
+            return Ok(false);
+        }
 
         let read_at = sqlx::query_scalar!(
             r#"
@@ -138,7 +149,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        Ok(true)
     }
 
     async fn channel_unread_counts(
@@ -161,6 +172,10 @@ impl ReadStateRepository for PostgresReadStateRepository {
                AND np.scope_id = m.channel_id
             WHERE m.created_at > COALESCE(r.last_read_at, p.joined_at)
               AND m.author_id <> $1
+              AND NOT EXISTS (
+                SELECT 1 FROM user_blocks b
+                WHERE b.blocker_id = $1 AND b.blocked_id = m.author_id
+              )
               AND COALESCE(np.level, $2) <> 'none'
               AND (
                   COALESCE(np.level, $2) <> 'mentions'
@@ -205,6 +220,11 @@ impl ReadStateRepository for PostgresReadStateRepository {
             WHERE m.recipient_id = $1
               AND m.created_at > COALESCE(r.last_read_at, '1970-01-01T00:00:00Z'::timestamptz)
               AND COALESCE(np.level, $2) <> 'none'
+              AND NOT EXISTS (
+                SELECT 1 FROM user_blocks b
+                WHERE (b.blocker_id = $1 AND b.blocked_id = m.sender_id)
+                   OR (b.blocker_id = m.sender_id AND b.blocked_id = $1)
+              )
             GROUP BY m.sender_id
             "#,
             user_id.uuid(),
@@ -227,7 +247,20 @@ impl ReadStateRepository for PostgresReadStateRepository {
         &self,
         user_id: &UserId,
         friend_id: &UserId,
-    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+    ) -> Result<DmReadReceipt, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))")
+            .bind(pair_key(user_id, friend_id))
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        if block_relation_for(&mut *tx, user_id, friend_id).await?.any() {
+            return Ok(DmReadReceipt::Blocked);
+        }
         let read_at = sqlx::query_scalar!(
             r#"
             SELECT last_read_at
@@ -237,10 +270,11 @@ impl ReadStateRepository for PostgresReadStateRepository {
             friend_id.uuid(),
             user_id.uuid(),
         )
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(read_at)
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(DmReadReceipt::ReadAt(read_at))
     }
 
     async fn channel_member_read_ats(

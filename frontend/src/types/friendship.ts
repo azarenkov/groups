@@ -20,3 +20,14 @@ export interface ListFriendshipsResponse {
 export interface FriendIdsResponse {
   friends: { friendId: string; status: FriendshipStatus }[];
 }
+
+export interface BlockedUser {
+  userId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface BlockRelation {
+  blocked: boolean;
+  blockedBy: boolean;
+}

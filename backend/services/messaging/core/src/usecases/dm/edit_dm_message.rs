@@ -25,6 +25,8 @@ pub enum EditDmMessageError {
     NotFound,
     #[error("Not friends with this user")]
     NotFriends,
+    #[error("This user is blocked")]
+    Blocked,
     #[error("This user does not accept direct messages")]
     DmsClosed,
     #[error("This user is unavailable")]
@@ -107,6 +109,14 @@ where
             return Err(EditDmMessageError::RecipientInactive);
         }
 
+        if self
+            .friendship_repository
+            .block_relation(message.sender_id(), message.recipient_id())
+            .await?
+            .any()
+        {
+            return Err(EditDmMessageError::Blocked);
+        }
         let pair = self
             .friendship_repository
             .find_pair(message.sender_id(), message.recipient_id())
@@ -190,10 +200,19 @@ where
             let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
         let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();
         let mut tx = self.unit_of_work.begin().await?;
+            tx.lock_pair(message.sender_id(), message.recipient_id()).await?;
+            if tx
+                .block_relation(message.sender_id(), message.recipient_id())
+                .await?
+                .any()
+            {
+                return Err(EditDmMessageError::Blocked);
+            }
             tx.update_message(&message, &added_attachments, &request.remove_attachment_ids)
                 .await?;
             tx.save_events(&events, request_id.as_deref()).await?;
-            tx.commit().await
+            tx.commit().await?;
+            Ok::<(), EditDmMessageError>(())
         }
         .await;
         if let Err(e) = persisted {
@@ -217,8 +236,10 @@ where
                 }
             }
             return Err(match e {
-                RepositoryError::InvalidData(_) => EditDmMessageError::InvalidAttachments,
-                other => EditDmMessageError::Repository(other),
+                EditDmMessageError::Repository(RepositoryError::InvalidData(_)) => {
+                    EditDmMessageError::InvalidAttachments
+                }
+                other => other,
             });
         }
         Ok(())

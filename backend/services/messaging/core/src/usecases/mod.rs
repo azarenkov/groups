@@ -1,4 +1,5 @@
 pub mod attachment;
+pub mod block;
 pub mod call;
 pub mod channel;
 pub mod dm;

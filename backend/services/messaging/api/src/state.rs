@@ -1,3 +1,4 @@
+use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     attachment::{
@@ -111,7 +112,11 @@ pub struct AppState {
     pub delete_channel_usecase:
         DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerUnitOfWork>,
     pub list_channel_participants_usecase:
-        ListChannelParticipants<PostgresChannelRepository, PostgresServerRepository>,
+        ListChannelParticipants<
+            PostgresChannelRepository,
+            PostgresServerRepository,
+            PostgresFriendshipRepository,
+        >,
     pub join_text_channel_usecase: JoinTextChannel<
         PostgresChannelRepository,
         PostgresServerRepository,
@@ -160,6 +165,9 @@ pub struct AppState {
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipUnitOfWork>,
     pub remove_friendship_usecase: RemoveFriendship<PostgresFriendshipUnitOfWork>,
     pub list_friends_usecase: ListFriends<PostgresFriendshipRepository>,
+    pub block_user_usecase: BlockUser<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository>,
+    pub unblock_user_usecase: UnblockUser<PostgresFriendshipUnitOfWork>,
+    pub list_blocked_users_usecase: ListBlockedUsers<PostgresFriendshipRepository>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:
@@ -188,6 +196,7 @@ pub struct AppState {
     pub log_call_usecase: LogCall<PostgresDmUnitOfWork, VoiceCallsClient>,
     pub server_repository: std::sync::Arc<PostgresServerRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
+    pub dm_repository: std::sync::Arc<PostgresDmMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
     pub privacy_repository: std::sync::Arc<PostgresPrivacyRepository>,
     pub nats_core: async_nats::Client,

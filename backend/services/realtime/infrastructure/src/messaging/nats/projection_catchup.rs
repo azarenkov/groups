@@ -8,7 +8,7 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 
 use std::sync::Arc;
 
-use realtime_core::{ports::projection::RealtimeProjection, usecases::apply_projection::ApplyProjection};
+use realtime_core::{ports::{blocks::RelationDirectory, projection::RealtimeProjection}, usecases::apply_projection::ApplyProjection};
 
 pub struct CatchupSpec {
     pub stream: String,
@@ -17,10 +17,10 @@ pub struct CatchupSpec {
     pub dlq_subject: String,
 }
 
-pub async fn run_catchup<R: RealtimeProjection + 'static>(
+pub async fn run_catchup<R: RealtimeProjection + 'static, B: RelationDirectory + 'static>(
     jetstream: async_nats::jetstream::Context,
     spec: CatchupSpec,
-    apply: Arc<ApplyProjection<R>>,
+    apply: Arc<ApplyProjection<R, B>>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
 ) {

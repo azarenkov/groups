@@ -3,7 +3,7 @@ use crate::database::postgres::repositories::invite_link::{INVITE_LINK_COLUMNS, 
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteLinkStatus, server::invite_link::InviteToken, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
+use messaging_domain::{events::MessagingEvent, friendship::block::BlockRelation, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, server::Server, server::description::ServerDescription, server::name::ServerName, server::id::ServerId, server::invite_link::InviteJoinOutcome, server::invite_link::InviteLink, server::invite_link::InviteLinkStatus, server::invite_link::InviteToken, server::role::ServerRole, server::unit_of_work::ServerTransaction, server::unit_of_work::ServerUnitOfWork, server::unit_of_work::UserLifecycleTransaction};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -15,6 +15,8 @@ use crate::database::postgres::{
     repositories::{
         channel::{count_stream_viewers, load_channel_for_update, stream_viewers_record},
         dm_message::insert_dm_message,
+        friendship::block_relation_for,
+        friendship_unit_of_work::pair_key,
         outbox_record::save_outbox_records,
     },
 };
@@ -206,6 +208,23 @@ impl ServerUnitOfWork for PostgresServerUnitOfWork {
 impl ServerTransaction for PostgresServerTransaction {
     async fn load_server(&mut self) -> Result<Server, RepositoryError> {
         load_server(&mut self.tx, &self.server_id).await
+    }
+
+    async fn lock_pair(&mut self, a: &UserId, b: &UserId) -> Result<(), RepositoryError> {
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))")
+            .bind(pair_key(a, b))
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn block_relation(
+        &mut self,
+        viewer: &UserId,
+        other: &UserId,
+    ) -> Result<BlockRelation, RepositoryError> {
+        block_relation_for(&mut *self.tx, viewer, other).await
     }
 
     async fn insert_role(&mut self, role: &ServerRole) -> Result<(), RepositoryError> {

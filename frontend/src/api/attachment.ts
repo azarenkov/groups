@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
+import { rateLimitRetry } from "../utils/rateLimitRetry";
 import type { Attachment } from "../types/channel";
 
 const API_BASE_URL =
@@ -41,6 +42,8 @@ class AttachmentAPI {
             throw toApiError(error);
           }
         }
+        const retried = rateLimitRetry(this.client, error);
+        if (retried) return retried;
         throw toApiError(error);
       },
     );

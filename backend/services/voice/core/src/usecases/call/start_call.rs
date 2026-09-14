@@ -14,6 +14,8 @@ use crate::{
     },
 };
 
+pub const MAX_CALL_INVITEES: usize = 24;
+
 #[derive(Debug, thiserror::Error)]
 pub enum StartCallError {
     #[error("Repository error: {0}")]
@@ -22,6 +24,8 @@ pub enum StartCallError {
     Voice(#[from] VoiceServiceError),
     #[error("No recipients specified")]
     NoRecipients,
+    #[error("Too many recipients")]
+    TooManyRecipients,
     #[error("This user does not accept this call")]
     CallNotAllowed,
     #[error("User not found")]
@@ -83,12 +87,19 @@ where
             return Err(StartCallError::NoRecipients);
         }
 
-        let mut invitees: Vec<UserId> = Vec::new();
+        let mut requested: Vec<UserId> = Vec::new();
         for id in &request.invitee_ids {
             let invitee = UserId::new(*id);
-            if invitee == caller_id {
+            if invitee == caller_id || requested.contains(&invitee) {
                 continue;
             }
+            if requested.len() == MAX_CALL_INVITEES {
+                return Err(StartCallError::TooManyRecipients);
+            }
+            requested.push(invitee);
+        }
+        let mut invitees: Vec<UserId> = Vec::new();
+        for invitee in requested {
             if !self
                 .friendship_repository
                 .can_call(&caller_id, &invitee)
@@ -103,6 +114,13 @@ where
         }
         if invitees.is_empty() {
             return Err(StartCallError::NoRecipients);
+        }
+        for (index, a) in invitees.iter().enumerate() {
+            for b in &invitees[index + 1..] {
+                if self.friendship_repository.is_blocked(a, b).await? {
+                    return Err(StartCallError::CallNotAllowed);
+                }
+            }
         }
 
         let caller_name = domain::user::name::UserName::new(
@@ -151,6 +169,39 @@ where
             return Err(StartCallError::AccountInactive);
         }
 
+        let remaining = match self
+            .evict_blocked_invitees(call_id, &caller_id, &invitees, request.ctx.request_id.clone())
+            .await
+        {
+            Ok(Some(remaining)) => remaining,
+            Ok(None) => 0,
+            Err(e) => {
+                let mut everyone = invitees.clone();
+                everyone.push(caller_id);
+                if let Err(cleanup) = self
+                    .call_repository
+                    .leave_many(call_id, &everyone, Utc::now(), request.ctx.request_id)
+                    .await
+                {
+                    tracing::error!(error = %cleanup, %call_id, "Failed to abort a call after a block lookup error");
+                }
+                let _ = self.voice_service.delete_voice_channel(&room).await;
+                return Err(e);
+            }
+        };
+        if remaining == 0 {
+            let mut everyone = invitees.clone();
+            everyone.push(caller_id);
+            self.call_repository
+                .leave_many(call_id, &everyone, Utc::now(), request.ctx.request_id)
+                .await?;
+            if let Err(e) = self.voice_service.remove_participant(&room, &caller_id).await {
+                tracing::warn!(error = %e, %call_id, "Failed to remove the caller from an aborted call room");
+            }
+            let _ = self.voice_service.delete_voice_channel(&room).await;
+            return Err(StartCallError::CallNotAllowed);
+        }
+
         Ok(StartCallResult {
             call_id,
             token,
@@ -158,5 +209,66 @@ where
             participants,
             video,
         })
+    }
+
+    async fn evict_blocked_invitees(
+        &self,
+        call_id: Uuid,
+        caller_id: &UserId,
+        invitees: &[UserId],
+        request_id: Option<String>,
+    ) -> Result<Option<usize>, StartCallError> {
+        let mut kept: Vec<UserId> = Vec::new();
+        for invitee in invitees {
+            let relation = self.friendship_repository.block_relation(caller_id, invitee).await?;
+            if relation.blocking {
+                return Ok(None);
+            }
+            if relation.blocked_by {
+                super::eviction::evict(
+                    self.call_repository.as_ref(),
+                    self.voice_service.as_ref(),
+                    call_id,
+                    &[*invitee],
+                    request_id.clone(),
+                )
+                .await?;
+            } else {
+                kept.push(*invitee);
+            }
+        }
+        let mut index = 0;
+        while index < kept.len() {
+            let mut evicted_current = false;
+            let mut other = index + 1;
+            while other < kept.len() {
+                let relation = self
+                    .friendship_repository
+                    .block_relation(&kept[index], &kept[other])
+                    .await?;
+                if !relation.any() {
+                    other += 1;
+                    continue;
+                }
+                let blocker_position = if relation.blocking { index } else { other };
+                let blocker = kept.remove(blocker_position);
+                super::eviction::evict(
+                    self.call_repository.as_ref(),
+                    self.voice_service.as_ref(),
+                    call_id,
+                    &[blocker],
+                    request_id.clone(),
+                )
+                .await?;
+                if blocker_position == index {
+                    evicted_current = true;
+                    break;
+                }
+            }
+            if !evicted_current {
+                index += 1;
+            }
+        }
+        Ok(Some(kept.len()))
     }
 }
