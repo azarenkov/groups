@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { coalesce } from "../utils/coalesce";
+
 export interface DmPreview {
   messageId: string;
   peerName?: string;
@@ -93,11 +95,16 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   clear: () => set({ byFriend: {} }),
 }));
 
+let pendingReplace = false;
+const runPreviewsRefetch = coalesce(async () => {
+  const replace = pendingReplace;
+  pendingReplace = false;
+  const { dmAPI } = await import("../api/dm");
+  const res = await dmAPI.listPreviews();
+  useDmPreviewStore.getState().setAll(res.previews, replace);
+});
+
 export function refetchDmPreviews(replace = false): void {
-  void import("../api/dm").then(({ dmAPI }) =>
-    dmAPI
-      .listPreviews()
-      .then((res) => useDmPreviewStore.getState().setAll(res.previews, replace))
-      .catch(() => {}),
-  );
+  pendingReplace = pendingReplace || replace;
+  void runPreviewsRefetch();
 }

@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { useAuthStore } from "../store/authStore";
 import { toApiError } from "../utils/apiError";
+import { rateLimitRetry } from "../utils/rateLimitRetry";
 import {
   FriendshipStatus,
   ListFriendshipsResponse, BlockRelation, BlockedUser } from "../types/friendship";
@@ -44,6 +45,8 @@ class FriendshipAPI {
           }
         }
 
+        const retried = rateLimitRetry(this.client, error);
+        if (retried) return retried;
         throw toApiError(error);
       },
     );
