@@ -9,6 +9,7 @@ import { UserAvatar } from "./Avatar";
 export interface VoicePillInvite {
   candidates: { id: string; name: string }[];
   onAdd: (ids: string[]) => void;
+  onOpen?: () => void;
   labels: { title: string; add: string; cancel: string; empty: string };
 }
 
@@ -53,6 +54,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const onInviteOpen = invite?.onOpen;
+  useEffect(() => {
+    if (inviteOpen) onInviteOpen?.();
+  }, [inviteOpen, onInviteOpen]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [noise, setNoise] = useState<NoiseSuppressionMode>(() =>
     getLiveKitService().getNoiseSuppressionMode(),

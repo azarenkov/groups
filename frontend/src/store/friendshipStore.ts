@@ -16,6 +16,7 @@ interface FriendshipState {
 
   fetchFriends: () => Promise<void>;
   loadMore: () => Promise<void>;
+  loadAll: () => Promise<void>;
   sendRequest: (username: string) => Promise<void>;
   accept: (friendId: string) => Promise<void>;
   remove: (friendId: string) => Promise<void>;
@@ -23,6 +24,7 @@ interface FriendshipState {
 }
 
 let fetchSeq = 0;
+let loadMoreInflight: Promise<void> | null = null;
 
 export const useFriendshipStore = create<FriendshipState>((set, get) => {
   const fetchFriends = coalesce(async () => {
@@ -68,28 +70,43 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
 
     fetchFriends,
 
-    loadMore: async () => {
-      const { nextCursor, isLoadingMore } = get();
-      if (!nextCursor || isLoadingMore) return;
+    loadMore: () => {
+      if (loadMoreInflight) return loadMoreInflight;
+      const { nextCursor } = get();
+      if (!nextCursor) return Promise.resolve();
       const seq = fetchSeq;
       set({ isLoadingMore: true });
-      try {
-        const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
-        if (seq !== fetchSeq) {
+      loadMoreInflight = (async () => {
+        try {
+          const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
+          if (seq !== fetchSeq) {
+            set({ isLoadingMore: false });
+            return;
+          }
+          set((state) => {
+            const known = new Set(state.friends.map((f) => f.friendId));
+            const fresh = page.friends.filter((f) => !known.has(f.friendId));
+            return {
+              friends: [...state.friends, ...fresh],
+              nextCursor: page.nextCursor,
+              isLoadingMore: false,
+            };
+          });
+        } catch {
           set({ isLoadingMore: false });
-          return;
         }
-        set((state) => {
-          const known = new Set(state.friends.map((f) => f.friendId));
-          const fresh = page.friends.filter((f) => !known.has(f.friendId));
-          return {
-            friends: [...state.friends, ...fresh],
-            nextCursor: page.nextCursor,
-            isLoadingMore: false,
-          };
-        });
-      } catch {
-        set({ isLoadingMore: false });
+      })().finally(() => {
+        loadMoreInflight = null;
+      });
+      return loadMoreInflight;
+    },
+
+    loadAll: async () => {
+      for (let guard = 0; guard < 200; guard += 1) {
+        const before = get().nextCursor;
+        if (!before) return;
+        await get().loadMore();
+        if (get().nextCursor === before) return;
       }
     },
 

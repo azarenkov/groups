@@ -5,6 +5,7 @@ import { dmAPI } from "../api/dm";
 import { serverAPI } from "../api/server";
 import { ApiError } from "../utils/apiError";
 import { UserAvatar } from "./rift/Avatar";
+import { useFriendshipStore } from "../store/friendshipStore";
 import type { Friendship } from "../types/friendship";
 import type { Server } from "../types/server";
 
@@ -34,6 +35,10 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [server, onClose]);
+
+  useEffect(() => {
+    if (server) void useFriendshipStore.getState().loadAll();
+  }, [server]);
 
   useEffect(() => {
     setQuery("");

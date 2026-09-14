@@ -4,6 +4,7 @@ import Icon, { type IconName } from "./Icon";
 import { serverAPI } from "../../api/server";
 import { dmAPI } from "../../api/dm";
 import { useServerStore } from "../../store/serverStore";
+import { useFriendshipStore } from "../../store/friendshipStore";
 import { usePresenceStore } from "../../store/presenceStore";
 import { ApiError } from "../../utils/apiError";
 import { colorForId } from "../../utils/avatar";
@@ -99,6 +100,9 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
 }) => {
   const { t } = useTranslation(["serverSettings", "common", "modals"]);
   const [section, setSection] = React.useState<SectionId>("overview");
+  React.useEffect(() => {
+    if (section === "invites") void useFriendshipStore.getState().loadAll();
+  }, [section]);
   const isOwner = currentUserId === server.ownerId;
 
   const rolesData = useRolesStore((st) => st.byServer[server.id]);
