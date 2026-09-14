@@ -157,6 +157,17 @@ impl PostgresRealtimeProjection {
         Ok(())
     }
 
+    async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "DELETE FROM realtime_dm_pairs WHERE user_a = LEAST($1, $2) AND user_b = GREATEST($1, $2)",
+        )
+        .bind(a)
+        .bind(b)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn upsert_friend_edge(
         &self,
         a: Uuid,
@@ -367,6 +378,9 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     }
     async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::record_dm_pair(self, a, b).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::remove_dm_pair(self, a, b).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn add_server_member(&self, server_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::add_server_member(self, server_id, user_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)

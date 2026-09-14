@@ -42,8 +42,8 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let blocks = Arc::new(MessagingRelationsClient::new(&messaging_internal_url));
-    let dispatch = Arc::new(DispatchEvent::new(projection.clone(), publisher, blocks));
-    let apply = Arc::new(ApplyProjection::new(projection));
+    let dispatch = Arc::new(DispatchEvent::new(projection.clone(), publisher, blocks.clone()));
+    let apply = Arc::new(ApplyProjection::new(projection, blocks));
     let settings = DispatcherSettings {
         user_stream: cfg.dispatcher_user_stream.clone(),
         channel_stream: cfg.dispatcher_channel_stream.clone(),
