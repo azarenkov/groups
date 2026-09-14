@@ -33,6 +33,8 @@ interface DmPreviewState {
   clear: () => void;
 }
 
+let previewGen = 0;
+
 export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
   nextCursor: null,
@@ -43,10 +45,15 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   loadMore: async () => {
     const { nextCursor, isLoadingMore } = get();
     if (!nextCursor || isLoadingMore) return;
+    const gen = previewGen;
     set({ isLoadingMore: true });
     try {
       const { dmAPI } = await import("../api/dm");
       const res = await dmAPI.listPreviews({ cursor: nextCursor });
+      if (gen !== previewGen) {
+        set({ isLoadingMore: false });
+        return;
+      }
       get().setAll(res.previews);
       set({ nextCursor: res.nextCursor, isLoadingMore: false });
     } catch {
@@ -56,6 +63,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
 
   setAll: (items, replace = false) =>
     set((s) => {
+      if (replace) previewGen += 1;
       const map: Record<string, DmPreview> = replace ? {} : { ...s.byFriend };
       for (const it of items) {
         const cur = map[it.peerId];
@@ -114,7 +122,10 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   hasMessage: (messageId) =>
     Object.values(get().byFriend).some((p) => p.messageId === messageId),
 
-  clear: () => set({ byFriend: {}, nextCursor: null, isLoadingMore: false }),
+  clear: () => {
+    previewGen += 1;
+    set({ byFriend: {}, nextCursor: null, isLoadingMore: false });
+  },
 }));
 
 let pendingReplace = false;

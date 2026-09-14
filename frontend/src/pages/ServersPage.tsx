@@ -213,24 +213,28 @@ const ServersPage: React.FC = () => {
         p.peerName ??
         (selectedDm?.id === peerId ? selectedDm.name : undefined);
       if (!name) continue;
+      const status = friendStatuses[peerId];
+      const accepted = status === "accepted";
       items.push({
         id: peerId,
         name,
         initials: initialFor(name),
         color: colorForId(peerId),
-        online: false,
+        online: accepted && !!onlineUsers[peerId],
         unread: 0,
         lastMessage: previewText(p),
-        isFriend: false,
-        friendship:
-          pending?.status === "pending_outgoing" || pending?.status === "pending_incoming"
-            ? pending.status
+        isFriend: accepted,
+        friendship: accepted
+          ? "accepted"
+          : status === "pending_outgoing" || status === "pending_incoming"
+            ? status
             : "none",
       });
     }
     return items;
   }, [
     friends,
+    friendStatuses,
     onlineUsers,
     dmPreviews,
     previewText,

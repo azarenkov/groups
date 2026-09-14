@@ -40,6 +40,8 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
   const accept = useFriendshipStore((s) => s.accept);
   const remove = useFriendshipStore((s) => s.remove);
   const [sections, setSections] = useState<Record<PendingStatus, Section>>(emptySections);
+  const [busy, setBusy] = useState<Set<string>>(() => new Set());
+  const [error, setError] = useState<string | null>(null);
   const loadSeq = useRef(0);
 
   const loadFirstPages = useCallback(async () => {
@@ -120,6 +122,23 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
       return next;
     });
 
+  const runAction = async (friendId: string, action: () => Promise<void>) => {
+    setError(null);
+    setBusy((prev) => new Set(prev).add(friendId));
+    try {
+      await action();
+      dropRow(friendId);
+    } catch {
+      setError(t("pendingFriends.actionFailed"));
+    } finally {
+      setBusy((prev) => {
+        const next = new Set(prev);
+        next.delete(friendId);
+        return next;
+      });
+    }
+  };
+
   const countOf = (status: FriendshipStatus) =>
     Object.values(statusById).filter((s) => s === status).length;
   const totals = {
@@ -168,6 +187,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
           </button>
         </div>
         <div className="m-body">
+          {error && <div className="m-error">{error}</div>}
           {nothingPending && (
             <div className="m-empty">
               <span className="m-empty-ico">
@@ -203,10 +223,8 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                     type="button"
                     className="pf-btn accept"
                     title={t("pendingFriends.accept")}
-                    onClick={() => {
-                      dropRow(f.friendId);
-                      void accept(f.friendId);
-                    }}
+                    disabled={busy.has(f.friendId)}
+                    onClick={() => void runAction(f.friendId, () => accept(f.friendId))}
                   >
                     <Icon name="check" size={14} />
                   </button>
@@ -214,10 +232,8 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                     type="button"
                     className="pf-btn decline"
                     title={t("pendingFriends.decline")}
-                    onClick={() => {
-                      dropRow(f.friendId);
-                      void remove(f.friendId);
-                    }}
+                    disabled={busy.has(f.friendId)}
+                    onClick={() => void runAction(f.friendId, () => remove(f.friendId))}
                   >
                     <Icon name="x" size={14} />
                   </button>
@@ -240,10 +256,8 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                     type="button"
                     className="pf-btn decline"
                     title={t("pendingFriends.cancel")}
-                    onClick={() => {
-                      dropRow(f.friendId);
-                      void remove(f.friendId);
-                    }}
+                    disabled={busy.has(f.friendId)}
+                    onClick={() => void runAction(f.friendId, () => remove(f.friendId))}
                   >
                     <Icon name="x" size={14} />
                   </button>
@@ -266,10 +280,8 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
                     type="button"
                     className="pf-btn decline"
                     title="Dismiss"
-                    onClick={() => {
-                      dropRow(f.friendId);
-                      void remove(f.friendId);
-                    }}
+                    disabled={busy.has(f.friendId)}
+                    onClick={() => void runAction(f.friendId, () => remove(f.friendId))}
                   >
                     <Icon name="x" size={14} />
                   </button>
