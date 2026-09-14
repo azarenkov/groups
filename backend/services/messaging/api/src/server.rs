@@ -323,6 +323,11 @@ async fn list_invite_links(
     let (cursor, limit) = query.keyset().map_err(|_| {
         HttpError::new("Invalid cursor".to_string(), StatusCode::BAD_REQUEST, "INVALID_CURSOR")
     })?;
+    if let Some(c) = &cursor
+        && InviteToken::parse(&c.key).is_none()
+    {
+        return Err(HttpError::new("Invalid cursor".to_string(), StatusCode::BAD_REQUEST, "INVALID_CURSOR"));
+    }
 
     let result = app_state
         .list_invite_links_usecase

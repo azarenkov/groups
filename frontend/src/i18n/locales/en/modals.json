@@ -66,7 +66,8 @@
     "empty": "No pending requests.",
     "emptyTitle": "No requests yet",
     "emptyHint": "Incoming and outgoing friend requests will show up here.",
-    "emptyCta": "Add friend"
+    "emptyCta": "Add friend",
+    "loadMore": "Show more"
   },
   "newDm": {
     "title": "Start a direct message",

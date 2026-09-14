@@ -518,7 +518,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                         WHERE (b.blocker_id = $1 AND b.blocked_id = m.peer)
                            OR (b.blocker_id = m.peer AND b.blocked_id = $1)
                     )
-                    ORDER BY m.peer, m.created_at DESC
+                    ORDER BY m.peer, m.created_at DESC, m.id DESC
                 ) p
                 WHERE ($2::timestamptz IS NULL OR (p.created_at, p.message_id) < ($2, $3::uuid))
                 ORDER BY p.created_at DESC, p.message_id DESC
