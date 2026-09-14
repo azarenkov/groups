@@ -43,9 +43,14 @@ let fetchSeq = 0;
 let pageSeq = 0;
 let peerGens: Record<string, number> = {};
 
+const bumpMutation = () => {
+  mutationGen += 1;
+  pageSeq += 1;
+};
+
 const refreshPage = () => {
   const store = useBlockStore.getState();
-  if (store.pageLoaded) void store.fetchPage();
+  if (store.pageLoaded || store.pageLoading) void store.fetchPage();
 };
 
 const dropFromPage = (page: BlockedUser[], userId: string): BlockedUser[] =>
@@ -169,7 +174,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         const added = Object.keys(blocked).filter((id) => !previous[id]);
         const removed = Object.keys(previous).filter((id) => !blocked[id]);
         if (added.length > 0 || removed.length > 0) {
-          mutationGen += 1;
+          bumpMutation();
           refreshPage();
         }
         for (const id of [...added, ...removed]) bumpPeer(id);
@@ -233,7 +238,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   block: async (userId) => {
     const { occurredAt } = await friendshipAPI.block(userId);
     if (!recordVersion(outgoingVersions, userId, occurredAt)) return;
-    mutationGen += 1;
+    bumpMutation();
     bumpPeer(userId);
     forgetStatus(userId);
     leaveSharedCall(userId);
@@ -254,12 +259,13 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
       reconcile = true;
     }
     if (occurredAt !== undefined && !recordVersion(outgoingVersions, userId, occurredAt)) return;
-    mutationGen += 1;
+    bumpMutation();
     bumpPeer(userId);
     set((state) => ({
       blocked: withoutKey(state.blocked, userId),
       page: dropFromPage(state.page, userId),
     }));
+    refreshPage();
     if (reconcile || !get().loaded) void get().fetch();
     recoverStatus(userId);
   },
@@ -272,7 +278,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     } else {
       return false;
     }
-    mutationGen += 1;
+    bumpMutation();
     bumpPeer(blockerId === selfId ? blockedId : blockerId);
     if (blockerId === selfId) {
       if (active) {
@@ -284,6 +290,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
           blocked: withoutKey(state.blocked, blockedId),
           page: dropFromPage(state.page, blockedId),
         }));
+        refreshPage();
       }
     }
     if (blockedId === selfId) get().markBlockedBy(blockerId, active);
@@ -297,7 +304,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
     const known = !!get().blocked[userId];
     const changed = wasBlockedBy !== relation.blockedBy || known !== relation.blocked;
     if (changed) {
-      mutationGen += 1;
+      bumpMutation();
       bumpPeer(userId);
     }
     get().markBlockedBy(userId, relation.blockedBy);
@@ -312,6 +319,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         blocked: withoutKey(state.blocked, userId),
         page: dropFromPage(state.page, userId),
       }));
+      refreshPage();
       recoverStatus(userId);
     }
     if (!get().loaded) void get().fetch();
@@ -332,11 +340,10 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
   },
 
   clearAll: () => {
-    mutationGen += 1;
+    bumpMutation();
     peerGens = {};
     outgoingVersions = {};
     incomingVersions = {};
-    pageSeq += 1;
     set({
       blocked: {},
       blockedBy: {},
