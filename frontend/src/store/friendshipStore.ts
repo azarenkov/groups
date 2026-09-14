@@ -120,8 +120,10 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
       for (let guard = 0; guard < 200; guard += 1) {
         const before = get().nextCursor;
         if (!before) return;
+        const seqBefore = fetchSeq;
         await get().loadMore();
-        if (get().nextCursor === before) return;
+        if (fetchInflight) await fetchInflight;
+        if (get().nextCursor === before && fetchSeq === seqBefore) return;
       }
     },
 

@@ -146,7 +146,13 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
     pending_outgoing: countOf("pending_outgoing"),
     declined: countOf("declined"),
   };
-  const nothingPending = totals.pending_incoming + totals.pending_outgoing + totals.declined === 0;
+  const visible = (status: PendingStatus) =>
+    totals[status] > 0 || sections[status].rows.length > 0;
+  const countFor = (status: PendingStatus) =>
+    Math.max(totals[status], sections[status].rows.length);
+  const anyVisible = PENDING_STATUSES.some(visible);
+  const anyLoading = PENDING_STATUSES.some((status) => sections[status].loading);
+  const nothingPending = !anyVisible && !anyLoading;
 
   const renderLoadMore = (status: PendingStatus) =>
     sections[status].cursor ? (
@@ -188,6 +194,11 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
         </div>
         <div className="m-body">
           {error && <div className="m-error">{error}</div>}
+          {!anyVisible && anyLoading && (
+            <div className="m-empty">
+              <span className="loading-spinner" />
+            </div>
+          )}
           {nothingPending && (
             <div className="m-empty">
               <span className="m-empty-ico">
@@ -211,10 +222,10 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
             </div>
           )}
 
-          {totals.pending_incoming > 0 && (
+          {visible("pending_incoming") && (
             <div className="pf-section">
               <div className="pf-section-title">
-                {t("pendingFriends.incoming")} · {totals.pending_incoming}
+                {t("pendingFriends.incoming")} · {countFor("pending_incoming")}
               </div>
               {sections.pending_incoming.rows.map((f) => (
                 <div key={f.friendId} className="pf-row">
@@ -243,10 +254,10 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
             </div>
           )}
 
-          {totals.pending_outgoing > 0 && (
+          {visible("pending_outgoing") && (
             <div className="pf-section">
               <div className="pf-section-title">
-                {t("pendingFriends.outgoing")} · {totals.pending_outgoing}
+                {t("pendingFriends.outgoing")} · {countFor("pending_outgoing")}
               </div>
               {sections.pending_outgoing.rows.map((f) => (
                 <div key={f.friendId} className="pf-row">
@@ -267,10 +278,10 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
             </div>
           )}
 
-          {totals.declined > 0 && (
+          {visible("declined") && (
             <div className="pf-section">
               <div className="pf-section-title">
-                Declined · {totals.declined}
+                Declined · {countFor("declined")}
               </div>
               {sections.declined.rows.map((f) => (
                 <div key={f.friendId} className="pf-row">
