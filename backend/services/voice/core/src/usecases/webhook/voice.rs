@@ -12,6 +12,7 @@ use crate::{
         voice_webhook_verifier::{VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError},
         webhook_outbox::WebhookOutbox,
     },
+    usecases::call::add_participants::MAX_CALL_INVITEES,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -144,6 +145,7 @@ where
                         channel_id,
                         &UserId::new(user_id),
                         &session_id,
+                        MAX_CALL_INVITEES,
                         occurred_at,
                         ctx.request_id.clone(),
                     )
@@ -154,15 +156,16 @@ where
                             .await?;
                         return Ok(());
                     }
-                    WebhookJoinOutcome::EvictionPending => {
-                        tracing::warn!(%channel_id, %user_id, "Evicted participant reconnected to a call room; removing");
-                        if let Err(e) = self
-                            .voice_service
-                            .remove_participant(&ChannelId::new(channel_id), &UserId::new(user_id))
-                            .await
-                        {
-                            tracing::warn!(error = %e, %channel_id, %user_id, "Room removal failed; eviction stays queued");
-                        }
+                    WebhookJoinOutcome::EvictionPending | WebhookJoinOutcome::CallFull => {
+                        tracing::warn!(%channel_id, %user_id, "Rejected webhook reconnection to a call room; evicting");
+                        crate::usecases::call::eviction::evict(
+                            self.call_repository.as_ref(),
+                            self.voice_service.as_ref(),
+                            channel_id,
+                            &[UserId::new(user_id)],
+                            ctx.request_id.clone(),
+                        )
+                        .await?;
                         return Ok(());
                     }
                     WebhookJoinOutcome::NotCallRoom => {}

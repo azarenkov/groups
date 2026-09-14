@@ -10,6 +10,7 @@ pub enum WebhookJoinOutcome {
     Joined,
     NotCallRoom,
     EvictionPending,
+    CallFull,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -165,6 +166,7 @@ pub trait CallRepository {
         call_id: Uuid,
         user_id: &UserId,
         session_id: &str,
+        max_participants: usize,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<WebhookJoinOutcome, RepositoryError>;

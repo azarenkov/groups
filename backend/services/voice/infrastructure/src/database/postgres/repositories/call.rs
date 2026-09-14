@@ -986,6 +986,7 @@ impl CallRepository for PostgresCallRepository {
         call_id: Uuid,
         user_id: &UserId,
         session_id: &str,
+        max_participants: usize,
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<WebhookJoinOutcome, RepositoryError> {
@@ -994,18 +995,36 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
+            .bind(call_id.to_string())
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
 
         let current = participant_status(&mut tx, call_id, user_id.uuid()).await?;
-        let eviction_pending: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM call_evictions WHERE call_id = $1 AND user_id = $2)",
-        )
-        .bind(call_id)
-        .bind(user_id.uuid())
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if eviction_pending && !matches!(current.as_deref(), Some("invited") | Some("joined")) {
-            return Ok(WebhookJoinOutcome::EvictionPending);
+        if !matches!(current.as_deref(), Some("invited") | Some("joined")) {
+            let eviction_pending: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM call_evictions WHERE call_id = $1 AND user_id = $2)",
+            )
+            .bind(call_id)
+            .bind(user_id.uuid())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if eviction_pending {
+                return Ok(WebhookJoinOutcome::EvictionPending);
+            }
+            let active: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM call_participants WHERE call_id = $1 AND user_id <> $2 AND status IN ('invited', 'joined')",
+            )
+            .bind(call_id)
+            .bind(user_id.uuid())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if current.is_some() && usize::try_from(active).unwrap_or(usize::MAX) > max_participants {
+                return Ok(WebhookJoinOutcome::CallFull);
+            }
         }
 
         let updated = sqlx::query!(

@@ -7,7 +7,7 @@ use voice_domain::call::repository::CallRepository;
 
 use super::eviction::evict;
 use crate::ports::{
-    friendship_lookup::{FriendshipLookup, FriendshipLookupError},
+    friendship_lookup::FriendshipLookup,
     voice_service::{VoiceService, VoiceServiceError},
 };
 
@@ -17,8 +17,6 @@ pub enum EnforceBlockError {
     Repository(#[from] RepositoryError),
     #[error("Voice service error: {0}")]
     Voice(#[from] VoiceServiceError),
-    #[error("Friendship lookup unavailable: {0}")]
-    FriendshipLookup(#[from] FriendshipLookupError),
 }
 
 pub struct EnforceBlock<C, V, F>
@@ -52,12 +50,14 @@ where
         blocked: UserId,
         request_id: Option<String>,
     ) -> Result<(), EnforceBlockError> {
-        if !self
-            .friendship_repository
-            .block_relation(&blocker, &blocked)
-            .await?
-            .blocking
-        {
+        let blocking = match self.friendship_repository.block_relation(&blocker, &blocked).await {
+            Ok(relation) => relation.blocking,
+            Err(e) => {
+                tracing::warn!(error = %e, blocker = %blocker.uuid(), blocked = %blocked.uuid(), "Block lookup unavailable; enforcing the block event as delivered");
+                true
+            }
+        };
+        if !blocking {
             return Ok(());
         }
         for call_id in self
