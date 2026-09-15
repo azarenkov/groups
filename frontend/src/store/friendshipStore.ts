@@ -46,6 +46,16 @@ const markRemoved = (friendId: string) => {
 const removedSince = (startGen: number) => (friendId: string) =>
   (removedAt.get(friendId) ?? 0) > startGen;
 
+const cursorFor = (
+  friends: Friendship[],
+  statusById: Record<string, FriendshipStatus>,
+  cursor: string | null,
+): string | null => {
+  if (!cursor) return null;
+  const loaded = new Set(friends.map((f) => f.friendId));
+  return Object.keys(statusById).some((id) => !loaded.has(id)) ? cursor : null;
+};
+
 const pruneRemovals = (startGen: number) => {
   removedAt.forEach((gen, friendId) => {
     if (gen <= startGen) removedAt.delete(friendId);
@@ -79,10 +89,11 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
         const tail = state.friends
           .filter((f) => !fresh.has(f.friendId) && statusById[f.friendId] !== undefined)
           .map((f) => ({ ...f, status: statusById[f.friendId] }));
+        const friends = [...firstPage, ...tail];
         return {
-          friends: [...firstPage, ...tail],
+          friends,
           statusById,
-          nextCursor: tail.length > 0 ? state.nextCursor : page.nextCursor,
+          nextCursor: cursorFor(friends, statusById, page.nextCursor),
           loaded: true,
           isLoading: false,
           isLoadingMore: false,
@@ -125,9 +136,10 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
                 (!state.loaded || state.statusById[f.friendId] !== undefined),
             )
             .map((f) => ({ ...f, status: state.statusById[f.friendId] ?? f.status }));
+          const friends = [...state.friends, ...fresh];
           return {
-            friends: [...state.friends, ...fresh],
-            nextCursor: page.nextCursor,
+            friends,
+            nextCursor: state.loaded ? cursorFor(friends, state.statusById, page.nextCursor) : page.nextCursor,
             isLoadingMore: false,
           };
         });
