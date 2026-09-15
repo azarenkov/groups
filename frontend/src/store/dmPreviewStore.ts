@@ -34,7 +34,9 @@ interface DmPreviewState {
 }
 
 let previewGen = 0;
+let sessionGen = 0;
 let loadMoreToken = 0;
+let pendingReplace = false;
 
 export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
@@ -129,16 +131,19 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
 
   clear: () => {
     previewGen += 1;
+    sessionGen += 1;
+    pendingReplace = false;
     set({ byFriend: {}, nextCursor: null, isLoadingMore: false });
   },
 }));
 
-let pendingReplace = false;
 const runPreviewsRefetch = coalesce(async () => {
   const replace = pendingReplace;
   pendingReplace = false;
+  const session = sessionGen;
   const { dmAPI } = await import("../api/dm");
   const res = await dmAPI.listPreviews();
+  if (session !== sessionGen) return;
   const store = useDmPreviewStore.getState();
   store.setAll(res.previews, replace);
   if (replace || store.nextCursor === null) store.setNextCursor(res.nextCursor);
