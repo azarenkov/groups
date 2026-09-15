@@ -17,11 +17,18 @@ enum StreamTier {
     Cold,
 }
 
+#[derive(Clone, Copy)]
+enum StreamDurability {
+    Expiring,
+    UntilConsumed,
+}
+
 struct StreamDef {
     name: &'static str,
     subject_suffix: &'static str,
     max_age_secs: u64,
     tier: StreamTier,
+    durability: StreamDurability,
 }
 
 const STREAMS: &[StreamDef] = &[
@@ -30,36 +37,49 @@ const STREAMS: &[StreamDef] = &[
         subject_suffix: "user.>",
         max_age_secs: 60 * 60 * 24 * 365,
         tier: StreamTier::Hot,
+        durability: StreamDurability::Expiring,
     },
     StreamDef {
         name: "RIFT_CHANNEL_EVENTS",
         subject_suffix: "channel.>",
         max_age_secs: 60 * 60 * 24 * 30,
         tier: StreamTier::Hot,
+        durability: StreamDurability::Expiring,
     },
     StreamDef {
         name: "RIFT_MESSAGE_EVENTS",
         subject_suffix: "message.>",
         max_age_secs: 60 * 60 * 24 * 30,
         tier: StreamTier::Hot,
+        durability: StreamDurability::Expiring,
     },
     StreamDef {
         name: "RIFT_DM_MESSAGE_EVENTS",
         subject_suffix: "dm_message.>",
         max_age_secs: 60 * 60 * 24 * 30,
         tier: StreamTier::Hot,
+        durability: StreamDurability::Expiring,
     },
     StreamDef {
         name: "RIFT_SERVER_EVENTS",
         subject_suffix: "server.>",
         max_age_secs: 60 * 60 * 24 * 180,
         tier: StreamTier::Cold,
+        durability: StreamDurability::Expiring,
+    },
+    StreamDef {
+        name: "RIFT_STORAGE_EVENTS",
+        subject_suffix: "storage.>",
+        max_age_secs: 0,
+        tier: StreamTier::Hot,
+        durability: StreamDurability::UntilConsumed,
     },
     StreamDef {
         name: "RIFT_DLQ",
         subject_suffix: "dlq.>",
         max_age_secs: 60 * 60 * 24 * 90,
         tier: StreamTier::Cold,
+        durability: StreamDurability::Expiring,
     },
 ];
 
@@ -78,9 +98,20 @@ async fn initialize_streams(
 ) -> Result<(), Box<dyn Error>> {
     for def in STREAMS {
         let subject_pattern = format!("{}.{}", config.subject_prefix, def.subject_suffix);
-        let max_bytes = match def.tier {
-            StreamTier::Hot => config.stream_hot_max_bytes,
-            StreamTier::Cold => config.stream_cold_max_bytes,
+        let max_bytes = match (def.durability, def.tier) {
+            (StreamDurability::UntilConsumed, _) => -1,
+            (StreamDurability::Expiring, StreamTier::Hot) => config.stream_hot_max_bytes,
+            (StreamDurability::Expiring, StreamTier::Cold) => config.stream_cold_max_bytes,
+        };
+        let (retention, discard) = match def.durability {
+            StreamDurability::Expiring => (
+                jetstream::stream::RetentionPolicy::Limits,
+                jetstream::stream::DiscardPolicy::Old,
+            ),
+            StreamDurability::UntilConsumed => (
+                jetstream::stream::RetentionPolicy::WorkQueue,
+                jetstream::stream::DiscardPolicy::New,
+            ),
         };
         let stream_config = jetstream::stream::Config {
             name: def.name.to_string(),
@@ -89,7 +120,8 @@ async fn initialize_streams(
             max_age: Duration::from_secs(def.max_age_secs),
             max_bytes,
             duplicate_window: Duration::from_secs(DUPLICATE_WINDOW_SECS),
-            discard: jetstream::stream::DiscardPolicy::Old,
+            retention,
+            discard,
             compression: Some(jetstream::stream::Compression::S2),
             num_replicas: config.replicas,
             ..Default::default()

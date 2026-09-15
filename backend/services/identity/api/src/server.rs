@@ -42,6 +42,7 @@ use infrastructure_common::{
 use identity_infrastructure::{
     auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
     database::postgres::{
+        MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
         repositories::{
             identity_unit_of_work::PostgresIdentityUnitOfWork,
@@ -65,13 +66,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("identity-service");
 
     let server_config = ServerConfig::from_env()?;
-    let postgres_config = PostgresConfig::from_env()?;
+    let postgres_config = PostgresConfig::from_env_for(SCHEMA)?;
     let google_config = GoogleOAuthConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let nsfw_config = NsfwConfig::from_env()?;
     let username_config = UsernameConfig::from_env()?;
 
-    let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
     let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(postgres_pool.clone()));

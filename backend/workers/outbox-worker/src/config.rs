@@ -2,6 +2,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct WorkerConfig {
+    #[serde(default = "default_sources")]
+    pub outbox_sources: String,
     #[serde(default = "default_batch_size")]
     pub outbox_batch_size: u32,
     #[serde(default = "default_idle_interval_ms")]
@@ -29,6 +31,30 @@ impl WorkerConfig {
         dotenv::dotenv().ok();
         envy::from_env::<WorkerConfig>()
     }
+
+    pub fn sources(&self) -> Result<Vec<String>, String> {
+        parse_sources(&self.outbox_sources)
+    }
+}
+
+pub fn parse_sources(raw: &str) -> Result<Vec<String>, String> {
+    let mut sources: Vec<String> = Vec::new();
+    for source in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        if !infrastructure_common::database::postgres::connection::is_valid_schema(source) {
+            return Err(format!("invalid outbox source {source:?}"));
+        }
+        if !sources.iter().any(|s| s == source) {
+            sources.push(source.to_string());
+        }
+    }
+    if sources.is_empty() {
+        return Err("OUTBOX_SOURCES lists no databases".to_string());
+    }
+    Ok(sources)
+}
+
+fn default_sources() -> String {
+    "identity,messaging,voice".to_string()
 }
 
 fn default_batch_size() -> u32 {
@@ -69,4 +95,23 @@ fn default_health_port() -> u16 {
 
 fn default_liveness_stale_secs() -> u64 {
     60
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_sources;
+
+    #[test]
+    fn parses_trimmed_unique_sources() {
+        assert_eq!(
+            parse_sources(" identity, messaging ,voice,messaging,").unwrap(),
+            vec!["identity", "messaging", "voice"],
+        );
+    }
+
+    #[test]
+    fn rejects_empty_or_unsafe_sources() {
+        assert!(parse_sources(" , ").is_err());
+        assert!(parse_sources("identity,public;drop").is_err());
+    }
 }

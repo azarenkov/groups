@@ -13,10 +13,17 @@ use infrastructure_common::{
 use api_common::health::{self, Heartbeat, Liveness, Readiness};
 use api_common::shutdown::wait_for_signal;
 use tokio::sync::watch;
+use tracing::Instrument;
 
 use crate::config::WorkerConfig;
 
 mod config;
+
+struct Relay<P: OutboxPublisher> {
+    source: String,
+    dispatcher: Arc<OutboxDispatcher<P>>,
+    heartbeat: Heartbeat,
+}
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -26,53 +33,60 @@ async fn main() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("outbox-worker");
 
     let worker_config = WorkerConfig::from_env()?;
-    let postgres_config = PostgresConfig::from_env()?;
+    let sources = worker_config.sources()?;
     let nats_config = NatsConfig::from_env()?;
 
-    let pool = create_postgres_pool(postgres_config).await?;
     let jetstream = create_jetstream(&nats_config).await?;
+    let publisher = Arc::new(NatsOutboxPublisher::new(
+        jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        nats_config.event_partitions,
+    ));
 
-    let readiness = Readiness::builder()
-        .add_probe({
+    let mut readiness = Readiness::builder().add_probe({
+        let jetstream = jetstream.clone();
+        move || {
+            let jetstream = jetstream.clone();
+            async move { is_nats_connected(&jetstream) }
+        }
+    });
+    let mut liveness = Liveness::default();
+    let mut relays = Vec::with_capacity(sources.len());
+    for source in sources {
+        let postgres_config = PostgresConfig::from_env_for(&source)?;
+        let database = postgres_config.database().to_string();
+        let pool = create_postgres_pool(postgres_config, &source, None).await?;
+        readiness = readiness.add_probe({
             let pool = pool.clone();
             move || {
                 let pool = pool.clone();
                 async move { ping_pool(&pool).await }
             }
-        })
-        .add_probe({
-            let jetstream = jetstream.clone();
-            move || {
-                let jetstream = jetstream.clone();
-                async move { is_nats_connected(&jetstream) }
-            }
-        })
-        .build();
-    let heartbeat = Heartbeat::new(Duration::from_secs(worker_config.outbox_liveness_stale_secs));
-    let health_server = health::bind(
-        worker_config.health_port,
-        readiness.clone(),
-        Liveness::default().watch(heartbeat.clone()),
-    )?;
+        });
+        let heartbeat = Heartbeat::new(Duration::from_secs(worker_config.outbox_liveness_stale_secs));
+        liveness = liveness.watch(heartbeat.clone());
+        tracing::info!(%source, %database, "Outbox source connected");
+        relays.push(Relay {
+            source,
+            dispatcher: Arc::new(OutboxDispatcher::new(
+                pool,
+                publisher.clone(),
+                worker_config.outbox_max_attempts,
+                worker_config.outbox_backoff_base_secs,
+                worker_config.outbox_backoff_max_multiplier,
+            )),
+            heartbeat,
+        });
+    }
+    let readiness = readiness.build();
+
+    let health_server = health::bind(worker_config.health_port, readiness.clone(), liveness)?;
     let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
             tracing::error!(error = %e, "Health server stopped");
         }
     });
-
-    let publisher = Arc::new(NatsOutboxPublisher::new(
-        jetstream,
-        nats_config.subject_prefix.clone(),
-        nats_config.event_partitions,
-    ));
-    let dispatcher = Arc::new(OutboxDispatcher::new(
-        pool,
-        publisher,
-        worker_config.outbox_max_attempts,
-        worker_config.outbox_backoff_base_secs,
-        worker_config.outbox_backoff_max_multiplier,
-    ));
 
     let idle_interval = Duration::from_millis(worker_config.outbox_idle_interval_ms);
     let batch_size = worker_config.outbox_batch_size;
@@ -81,6 +95,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cleanup_batch_size = worker_config.outbox_cleanup_batch_size;
 
     tracing::info!(
+        sources = ?relays.iter().map(|r| r.source.as_str()).collect::<Vec<_>>(),
         batch_size,
         idle_interval_ms = worker_config.outbox_idle_interval_ms,
         max_attempts = worker_config.outbox_max_attempts,
@@ -93,14 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     readiness.mark_ready();
 
-    let cleanup_handle = tokio::spawn(run_cleanup_loop(
-        dispatcher.clone(),
-        cleanup_interval,
-        cleanup_retention,
-        cleanup_batch_size,
-    ));
-
-    let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
     actix_web::rt::spawn({
         let readiness = readiness.clone();
         async move {
@@ -110,20 +118,61 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    let mut cleanup_handles = Vec::with_capacity(relays.len());
+    let mut relay_handles = Vec::with_capacity(relays.len());
+    for relay in relays {
+        let span = tracing::info_span!("outbox_source", source = %relay.source);
+        cleanup_handles.push(tokio::spawn(
+            run_cleanup_loop(
+                relay.dispatcher.clone(),
+                cleanup_interval,
+                cleanup_retention,
+                cleanup_batch_size,
+            )
+            .instrument(span.clone()),
+        ));
+        relay_handles.push(tokio::spawn(
+            run_relay(relay, batch_size, idle_interval, shutdown_rx.clone()).instrument(span),
+        ));
+    }
+
+    for handle in relay_handles {
+        if let Err(e) = handle.await {
+            tracing::error!(error = %e, "Outbox relay task failed");
+        }
+    }
+
+    for handle in cleanup_handles {
+        handle.abort();
+    }
+    health_server_handle.stop(false).await;
+    let _ = health_handle.await;
+
+    Ok(())
+}
+
+async fn run_relay<P>(
+    relay: Relay<P>,
+    batch_size: u32,
+    idle_interval: Duration,
+    mut shutdown_rx: watch::Receiver<bool>,
+) where
+    P: OutboxPublisher + Send + Sync + 'static,
+{
     loop {
-        heartbeat.beat();
+        relay.heartbeat.beat();
         if *shutdown_rx.borrow() {
             tracing::info!("Shutdown requested, exiting");
             break;
         }
-        match run_batch(&dispatcher, batch_size, &heartbeat, &shutdown_rx).await {
+        match run_batch(&relay.dispatcher, batch_size, &relay.heartbeat, &shutdown_rx).await {
             Ok(0) => {
                 tokio::select! {
                     _ = shutdown_rx.changed() => {
                         tracing::info!("Shutdown requested during idle, exiting");
                         break;
                     }
-                    _ = heartbeat.keep_alive_for(idle_interval) => {}
+                    _ = relay.heartbeat.keep_alive_for(idle_interval) => {}
                 }
             }
             Ok(_) => {}
@@ -131,17 +180,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 tracing::error!(error = %e, "Outbox batch failed, backing off");
                 tokio::select! {
                     _ = shutdown_rx.changed() => break,
-                    _ = heartbeat.keep_alive_for(idle_interval) => {}
+                    _ = relay.heartbeat.keep_alive_for(idle_interval) => {}
                 }
             }
         }
     }
-
-    cleanup_handle.abort();
-    health_server_handle.stop(false).await;
-    let _ = health_handle.await;
-
-    Ok(())
 }
 
 async fn run_batch<P>(
@@ -149,7 +192,7 @@ async fn run_batch<P>(
     batch_size: u32,
     heartbeat: &Heartbeat,
     shutdown: &watch::Receiver<bool>,
-) -> Result<usize, Box<dyn Error>>
+) -> Result<usize, Box<dyn Error + Send + Sync>>
 where
     P: OutboxPublisher,
 {

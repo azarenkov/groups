@@ -20,6 +20,7 @@ use infrastructure_common::{
 };
 use media_infrastructure::{
     database::postgres::{
+        MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
         repositories::{
             attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
@@ -42,12 +43,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("media-service");
 
     let server_config = ServerConfig::from_env()?;
-    let postgres_config = PostgresConfig::from_env()?;
+    let postgres_config = PostgresConfig::from_env_for(SCHEMA)?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let minio_config = MinioConfig::from_env()?;
     let nsfw_config = NsfwConfig::from_env()?;
 
-    let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let media_repository = Arc::new(PostgresMediaRepository::new(postgres_pool.clone()));
     let attachment_repository =
@@ -110,6 +111,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         server_stream,
         media_repository.clone(),
         minio_storage.clone(),
+    );
+    let storage_stream = std::env::var("MEDIA_STORAGE_STREAM")
+        .unwrap_or_else(|_| "RIFT_STORAGE_EVENTS".to_string());
+    crate::storage_release::spawn(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        storage_stream,
+        attachment_repository.clone(),
     );
     let user_stream = std::env::var("MEDIA_USER_STREAM")
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());

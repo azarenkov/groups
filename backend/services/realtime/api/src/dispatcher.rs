@@ -5,6 +5,7 @@ use infrastructure_common::{
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
+use realtime_infrastructure::database::postgres::{MIGRATOR, SCHEMA};
 use api_common::health::{self, Liveness, Readiness};
 use api_common::shutdown::{ShutdownConfig, ShutdownSignal};
 use tokio::sync::watch;
@@ -27,10 +28,10 @@ use crate::config::DispatcherConfig;
 pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let cfg = DispatcherConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
-    let pg_cfg = PostgresConfig::from_env()?;
+    let pg_cfg = PostgresConfig::from_env_for(SCHEMA)?;
 
     let jetstream = create_jetstream(&nats_cfg).await?;
-    let pool = create_postgres_pool(pg_cfg).await?;
+    let pool = create_postgres_pool(pg_cfg, SCHEMA, Some(&MIGRATOR)).await?;
 
     let core = jetstream.client().clone();
     let user_subject_prefix = format!(

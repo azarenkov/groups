@@ -1,0 +1,131 @@
+{{- $b := .Values.databases.bootstrap }}
+{{- if $b.enabled }}
+{{- $chartAdmin := not $b.existingSecret }}
+{{- $chartServices := not .Values.databases.existingSecret }}
+{{- if and $chartAdmin (not $b.adminPassword) }}
+{{- fail "databases.bootstrap.enabled needs databases.bootstrap.adminPassword or databases.bootstrap.existingSecret" }}
+{{- end }}
+{{- if $chartServices }}
+{{- range $name, $db := .Values.databases.services }}
+{{- if not $db.password }}
+{{- fail (printf "databases.bootstrap.enabled needs databases.services.%s.password or databases.existingSecret" $name) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $bootstrapSecret := printf "%s-database-bootstrap" .Release.Name }}
+{{- if or $chartAdmin $chartServices }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $bootstrapSecret }}
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+type: Opaque
+stringData:
+  {{- if $chartAdmin }}
+  admin-password: {{ $b.adminPassword | toString | quote }}
+  {{- end }}
+  {{- if $chartServices }}
+  {{- range $name, $db := .Values.databases.services }}
+  {{ $name }}-password: {{ $db.password | toString | quote }}
+  {{- end }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-database-bootstrap
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database-bootstrap
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ $b.backoffLimit }}
+  activeDeadlineSeconds: {{ $b.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "rift.selectorLabels" (dict "root" . "component" "database-bootstrap") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- include "rift.podSecurityContext" . | nindent 8 }}
+      {{- include "rift.podScheduling" . | nindent 6 }}
+      containers:
+        - name: bootstrap
+          image: {{ $b.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              until pg_isready -q; do
+                echo "waiting for postgres at $PGHOST:$PGPORT"
+                sleep 2
+              done
+              ensure_database() {
+                psql -X -v ON_ERROR_STOP=1 -v database="$1" -v role="$2" -v password="$3" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN', :'role')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role') \gexec
+              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'password') \gexec
+              SELECT CASE WHEN current_setting('server_version_num')::int >= 160000
+                          THEN format('GRANT %I TO %I WITH SET TRUE, INHERIT FALSE', :'role', current_user)
+                          ELSE format('GRANT %I TO %I', :'role', current_user) END
+              WHERE NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+                AND CASE WHEN current_setting('server_version_num')::int >= 160000
+                         THEN NOT pg_has_role(current_user, :'role', 'SET')
+                         ELSE NOT pg_has_role(current_user, :'role', 'MEMBER') END \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'database', :'role')
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database') \gexec
+              SELECT format('ALTER DATABASE %I OWNER TO %I', :'database', :'role') \gexec
+              SELECT format('SET ROLE %I', :'role') \gexec
+              SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'database') \gexec
+              SELECT format('GRANT CONNECT, CREATE, TEMPORARY ON DATABASE %I TO %I', :'database', :'role') \gexec
+              RESET ROLE;
+              SQL
+                echo "database $1 is owned by $2"
+              }
+              {{- range $name, $db := .Values.databases.services }}
+              {{- $prefix := upper $name }}
+              ensure_database "${{ $prefix }}_POSTGRES_DB" "${{ $prefix }}_POSTGRES_USER" "${{ $prefix }}_POSTGRES_PASSWORD"
+              {{- end }}
+          env:
+            - name: PGHOST
+              value: {{ .Values.config.POSTGRES_HOST | quote }}
+            - name: PGPORT
+              value: {{ .Values.config.POSTGRES_PORT | toString | quote }}
+            - name: PGUSER
+              value: {{ $b.adminUser | quote }}
+            - name: PGDATABASE
+              value: {{ $b.adminDatabase | quote }}
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $b.existingSecret | default $bootstrapSecret }}
+                  key: {{ ternary "admin-password" $b.existingSecretKey $chartAdmin }}
+            {{- range $name, $db := .Values.databases.services }}
+            {{- $prefix := upper $name }}
+            - name: {{ $prefix }}_POSTGRES_DB
+              value: {{ $db.name | quote }}
+            - name: {{ $prefix }}_POSTGRES_USER
+              value: {{ $db.user | quote }}
+            - name: {{ $prefix }}_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.databases.existingSecret | default $bootstrapSecret }}
+                  key: {{ printf "%s-password" $name }}
+            {{- end }}
+          securityContext:
+            {{- include "rift.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml $b.resources | nindent 12 }}
+{{- end }}

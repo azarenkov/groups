@@ -38,8 +38,6 @@ jobs:
               - 'backend/libs/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
-              - '.sqlx/**'
-              - 'migrations/**'
               - '.cargo/**'
             identity-service:
               - *shared
@@ -74,6 +72,7 @@ jobs:
               - 'backend/services/messaging/core/**'
               - 'backend/services/messaging/domain/**'
               - 'backend/services/messaging/infrastructure/**'
+              - 'backend/services/messaging/migrations/**'
               - 'backend/workers/livekit-pooler/**'
               - 'docker/livekit-pooler/**'
             nsfw-detector:

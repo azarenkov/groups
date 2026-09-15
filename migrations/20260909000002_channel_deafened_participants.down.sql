@@ -1,1 +1,0 @@
-DROP TABLE messaging.channel_deafened_participants;
