@@ -133,18 +133,9 @@ const App: React.FC = () => {
           if (!cancelled) console.warn("[App] failed to load unread counts:", err);
         }
       })();
-      void (async () => {
-        try {
-          const { dmAPI } = await import("./api/dm");
-          const { useDmPreviewStore } = await import("./store/dmPreviewStore");
-          const res = await dmAPI.listPreviews();
-          if (cancelled) return;
-          useDmPreviewStore.getState().setAll(res.previews);
-          useDmPreviewStore.getState().setNextCursor(res.nextCursor);
-        } catch (err) {
-          if (!cancelled) console.warn("[App] failed to load dm previews:", err);
-        }
-      })();
+      void import("./store/dmPreviewStore").then(({ refetchDmPreviews }) => {
+        if (!cancelled) refetchDmPreviews(true);
+      });
       return () => {
         cancelled = true;
         ws.disconnect();
