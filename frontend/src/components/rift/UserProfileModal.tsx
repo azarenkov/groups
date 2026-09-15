@@ -283,12 +283,12 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                 </button>
                 {menuOpen && (
                   <div className="profile-menu">
+                    <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
                     {isFriend && (
                       <button type="button" className="danger" onClick={() => { setMenuOpen(false); close(); onRemoveFriend(userId, name); }}>
                         {t("removeFriend")}
                       </button>
                     )}
-                    <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
                     {blockedByMe ? (
                       <button type="button" onClick={() => { setMenuOpen(false); void useBlockStore.getState().unblock(userId).catch(() => {}); }}>
                         {t("unblock")}
