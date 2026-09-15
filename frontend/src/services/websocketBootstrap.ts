@@ -485,7 +485,9 @@ function dispatch(env: WsEnvelope) {
       if (isBlockedEitherWay(peerId)) return;
       const peerName =
         (senderId !== selfId ? asString(d.senderName) : undefined) ??
+        useUserNamesStore.getState().overrides[peerId] ??
         useFriendshipStore.getState().friends.find((f) => f.friendId === peerId)?.friendName;
+      const knownPeerName = peerName ?? useDmPreviewStore.getState().byFriend[peerId]?.peerName;
       useDmPreviewStore.getState().push(peerId, {
         messageId: asString(d.id) ?? "",
         peerName,
@@ -496,6 +498,7 @@ function dispatch(env: WsEnvelope) {
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
+      if (!knownPeerName) refetchDmPreviews();
       if (recipientId !== selfId) return;
       if (activeDmView === senderId && viewIsForeground()) {
         throttleMarkDmRead(senderId);
