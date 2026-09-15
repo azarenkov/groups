@@ -47,7 +47,7 @@ capabilities:
 {{- define "rift.databaseEnv" -}}
 {{- $root := .root -}}
 {{- range .databases }}
-{{- $db := index $root.Values.databases . }}
+{{- $db := index $root.Values.databases.services . }}
 {{- $prefix := upper . }}
 - name: {{ $prefix }}_POSTGRES_DB
   value: {{ $db.name | quote }}

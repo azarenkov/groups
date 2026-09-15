@@ -62,26 +62,40 @@ secrets:
 
 databases:
   existingSecret: ""
-  identity:
-    name: rift_identity
-    user: identity
-    password: ""
-  media:
-    name: rift_media
-    user: media
-    password: ""
-  messaging:
-    name: rift_messaging
-    user: messaging
-    password: ""
-  voice:
-    name: rift_voice
-    user: voice
-    password: ""
-  realtime:
-    name: rift_realtime
-    user: realtime
-    password: ""
+  services:
+    identity:
+      name: rift_identity
+      user: identity
+      password: ""
+    media:
+      name: rift_media
+      user: media
+      password: ""
+    messaging:
+      name: rift_messaging
+      user: messaging
+      password: ""
+    voice:
+      name: rift_voice
+      user: voice
+      password: ""
+    realtime:
+      name: rift_realtime
+      user: realtime
+      password: ""
+  bootstrap:
+    enabled: true
+    image: postgres:16-alpine
+    adminUser: postgres
+    adminDatabase: postgres
+    adminPassword: ""
+    existingSecret: ""
+    existingSecretKey: admin-password
+    backoffLimit: 6
+    activeDeadlineSeconds: 600
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
 
 probes:
   startup:

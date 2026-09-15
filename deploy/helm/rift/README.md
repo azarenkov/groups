@@ -6,9 +6,9 @@ Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: po
 
 ## Databases
 
-Every service owns its own Postgres database and role; `databases.<service>` names them for `identity`, `media`, `messaging`, `voice` and `realtime`. `config.POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_OPTIONS` and the pool settings are shared, while each workload receives only the `<SERVICE>_POSTGRES_DB`, `<SERVICE>_POSTGRES_USER` and `<SERVICE>_POSTGRES_PASSWORD` variables of the databases listed in its `databases` value. The role must own its database (or hold `CREATE` on it): the service creates its schema and runs its own migrations on start. `livekit-pooler` uses the `messaging` database, and `outbox-worker` relays the outboxes of `OUTBOX_SOURCES` with those services' credentials. Passwords live in `<release>-databases` under `<service>-password` keys unless `databases.existingSecret` names a Secret you manage. Set `livekit.externalName` to the LiveKit host if it lives outside the namespace so the gateway's `livekit:7880` upstream resolves.
+Every service owns its own Postgres database and role; `databases.services.<service>` names them for `identity`, `media`, `messaging`, `voice` and `realtime`. `config.POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_OPTIONS` and the pool settings are shared, while each workload receives only the `<SERVICE>_POSTGRES_DB`, `<SERVICE>_POSTGRES_USER` and `<SERVICE>_POSTGRES_PASSWORD` variables of the databases listed in its `databases` value. The service creates its schema and runs its own migrations on start. `livekit-pooler` uses the `messaging` database, and `outbox-worker` relays the outboxes of `OUTBOX_SOURCES` with those services' credentials. Service passwords live in `<release>-databases` under `<service>-password` keys unless `databases.existingSecret` names a Secret you manage.
 
-Voice clients connect to `config.LIVEKIT_CLIENT_URL`. The gateway proxies LiveKit on its `livekit` port (7880), and with `gateway.ingress.enabled` a second rule for `gateway.ingress.livekitHost` routes that host to it, so `LIVEKIT_CLIENT_URL` should be `wss://<livekitHost>` (or a separately published LiveKit endpoint). WebSocket upgrades on `/ws` and the LiveKit host need an ingress controller that supports them; for ingress-nginx set the read/send timeout annotations accordingly.
+`databases.bootstrap` creates the databases and roles on a self-hosted Postgres. A `pre-install`/`pre-upgrade` hook Job connects as `databases.bootstrap.adminUser` (a role with `CREATEDB` and `CREATEROLE`), creates each missing role and database, makes the role the owner, sets the role password from the service password on every run so rotations reach the database, and revokes `CONNECT` from `PUBLIC` so one service cannot open another service's database. Nothing is dropped on uninstall. The admin password comes from `databases.bootstrap.adminPassword`, rendered into a hook Secret that is deleted after the Job succeeds, or from `databases.bootstrap.existingSecret` under `databases.bootstrap.existingSecretKey`. With bootstrap enabled the chart refuses to render without the admin password and non-empty service passwords. On a managed Postgres that does not allow `CREATE ROLE`, set `databases.bootstrap.enabled=false` and create the databases and roles with the provider's tools.
 
 ## Public URLs
 
@@ -46,6 +46,8 @@ helm upgrade --install rift deploy/helm/rift \
   --namespace rift --create-namespace \
   --set image.tag=v1.2.3 \
   --set secrets.existingSecret=rift-secrets \
+  --set databases.existingSecret=rift-databases \
+  --set databases.bootstrap.existingSecret=rift-postgres-admin \
   --set config.POSTGRES_HOST=postgres.db.svc \
   --set config.PUBLIC_APP_URL=https://app.rift.example.com \
   --set gateway.ingress.enabled=true --set gateway.ingress.host=rift.example.com
