@@ -158,6 +158,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   );
   React.useEffect(() => {
     if (canManageInvites) return;
+    linksGen.current += 1;
     setLinks([]);
     setPrimaryLink(null);
     setLinksCursor(null);
@@ -423,13 +424,17 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const [copied, setCopied] = React.useState<string | null>(null);
   const [linkBusy, setLinkBusy] = React.useState(false);
   const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const linksGen = React.useRef(0);
+  const revokedTokens = React.useRef<Set<string>>(new Set());
   const extraLinks = links;
 
   const loadLinks = React.useCallback(async () => {
+    const gen = ++linksGen.current;
     try {
       const res = await serverAPI.listInviteLinks(server.id);
+      if (gen !== linksGen.current) return;
       setPrimaryLink(res.primary);
-      setLinks(res.links);
+      setLinks(res.links.filter((l) => !revokedTokens.current.has(l.token)));
       setLinksCursor(res.nextCursor);
     } catch {
       return;
@@ -438,12 +443,17 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
 
   const loadMoreLinks = async () => {
     if (!linksCursor || linksLoadingMore) return;
+    const gen = linksGen.current;
     setLinksLoadingMore(true);
     try {
       const res = await serverAPI.listInviteLinks(server.id, { cursor: linksCursor });
+      if (gen !== linksGen.current) return;
       setLinks((prev) => {
         const known = new Set(prev.map((l) => l.token));
-        return [...prev, ...res.links.filter((l) => !known.has(l.token))];
+        return [
+          ...prev,
+          ...res.links.filter((l) => !known.has(l.token) && !revokedTokens.current.has(l.token)),
+        ];
       });
       setLinksCursor(res.nextCursor);
     } catch {
@@ -488,6 +498,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     setLinkBusy(true);
     try {
       await serverAPI.revokeInviteLink(server.id, link.token);
+      revokedTokens.current.add(link.token);
       setLinks((prev) => prev.filter((l) => l.token !== link.token));
       if (link.isPrimary) await loadLinks();
     } catch {
