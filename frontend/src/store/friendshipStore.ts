@@ -30,7 +30,7 @@ interface FriendshipState {
 
 let fetchSeq = 0;
 let fetchInflight: Promise<void> | null = null;
-let loadMoreInflight: Promise<void> | null = null;
+let loadMoreInflight: { promise: Promise<void>; seq: number; userId: string | undefined } | null = null;
 
 export const useFriendshipStore = create<FriendshipState>((set, get) => {
   const runFetchFriends = coalesce(async () => {
@@ -89,13 +89,15 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
     fetchFriends,
 
     loadMore: () => {
-      if (loadMoreInflight) return loadMoreInflight;
-      const { nextCursor } = get();
-      if (!nextCursor) return Promise.resolve();
       const seq = fetchSeq;
       const sessionUserId = useAuthStore.getState().user?.id;
+      if (loadMoreInflight && loadMoreInflight.seq === seq && loadMoreInflight.userId === sessionUserId) {
+        return loadMoreInflight.promise;
+      }
+      const { nextCursor } = get();
+      if (!nextCursor) return Promise.resolve();
       set({ isLoadingMore: true });
-      loadMoreInflight = (async () => {
+      const promise: Promise<void> = (async () => {
         try {
           const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
           if (seq !== fetchSeq || useAuthStore.getState().user?.id !== sessionUserId) {
@@ -115,9 +117,10 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
           set({ isLoadingMore: false });
         }
       })().finally(() => {
-        loadMoreInflight = null;
+        if (loadMoreInflight?.promise === promise) loadMoreInflight = null;
       });
-      return loadMoreInflight;
+      loadMoreInflight = { promise, seq, userId: sessionUserId };
+      return promise;
     },
 
     loadAll: async () => {
@@ -177,6 +180,8 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
 
     clearAll: () => {
       fetchSeq += 1;
+      loadMoreInflight = null;
+      fetchInflight = null;
       set({
         friends: [],
         statusById: {},

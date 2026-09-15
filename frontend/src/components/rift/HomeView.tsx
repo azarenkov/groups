@@ -5,6 +5,7 @@ import type { ActiveFriend, HomeOverview, RecentRoom } from "../../api/home";
 import type { Friendship } from "../../types/friendship";
 import { colorForId } from "../../utils/avatar";
 import { useActivityStore } from "../../store/activityStore";
+import { useFriendshipStore } from "../../store/friendshipStore";
 import { UserAvatar } from "./Avatar";
 import Icon from "./Icon";
 import "../../styles/home.css";
@@ -57,6 +58,11 @@ const HomeView: React.FC<HomeViewProps> = ({
   const { t } = useTranslation("home");
   const now = useNow(30_000);
   const activities = useActivityStore((s) => s.byUser);
+  const friendStatuses = useFriendshipStore((s) => s.statusById);
+  const friendsCursor = useFriendshipStore((s) => s.nextCursor);
+  useEffect(() => {
+    if (friendsCursor) void useFriendshipStore.getState().loadAll();
+  }, [friendsCursor]);
   const activeFriends = useMemo<ActiveFriend[]>(() => overview?.activeFriends ?? [], [overview]);
   const recentRooms = useMemo<RecentRoom[]>(() => overview?.recentRooms ?? [], [overview]);
 
@@ -71,8 +77,8 @@ const HomeView: React.FC<HomeViewProps> = ({
     [activeFriends],
   );
   const accepted = useMemo(
-    () => friends.filter((f) => f.status === "accepted"),
-    [friends],
+    () => friends.filter((f) => (friendStatuses[f.friendId] ?? f.status) === "accepted"),
+    [friends, friendStatuses],
   );
   const onlineFriends = useMemo(
     () => accepted.filter((f) => !!onlineUsers[f.friendId] || activeIds.has(f.friendId)),
