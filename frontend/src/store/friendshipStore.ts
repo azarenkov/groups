@@ -35,6 +35,22 @@ type PageResult = "ok" | "stale" | "failed" | "done";
 const MAX_LOAD_ALL_PAGES = 1000;
 
 let sessionGen = 0;
+let removalGen = 0;
+const removedAt = new Map<string, number>();
+
+const markRemoved = (friendId: string) => {
+  removalGen += 1;
+  removedAt.set(friendId, removalGen);
+};
+
+const removedSince = (startGen: number) => (friendId: string) =>
+  (removedAt.get(friendId) ?? 0) > startGen;
+
+const pruneRemovals = (startGen: number) => {
+  removedAt.forEach((gen, friendId) => {
+    if (gen <= startGen) removedAt.delete(friendId);
+  });
+};
 let loadMoreInflight: { promise: Promise<PageResult>; seq: number; userId: string | undefined } | null = null;
 let loadAllInflight: { promise: Promise<void>; gen: number; userId: string | undefined } | null = null;
 
@@ -42,6 +58,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
   const runFetchFriends = coalesce(async () => {
     const seq = ++fetchSeq;
     const sessionUserId = useAuthStore.getState().user?.id;
+    const startGen = removalGen;
     set({ isLoading: true, error: null });
     try {
       const [ids, page] = await Promise.all([
@@ -50,15 +67,20 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
       ]);
       if (seq !== fetchSeq) return;
       if (useAuthStore.getState().user?.id !== sessionUserId) return;
+      const dropped = removedSince(startGen);
+      pruneRemovals(startGen);
       const statusById: Record<string, FriendshipStatus> = {};
-      for (const f of ids.friends) statusById[f.friendId] = f.status;
+      for (const f of ids.friends) {
+        if (!dropped(f.friendId)) statusById[f.friendId] = f.status;
+      }
+      const firstPage = page.friends.filter((f) => statusById[f.friendId] !== undefined);
       set((state) => {
-        const fresh = new Set(page.friends.map((f) => f.friendId));
+        const fresh = new Set(firstPage.map((f) => f.friendId));
         const tail = state.friends
           .filter((f) => !fresh.has(f.friendId) && statusById[f.friendId] !== undefined)
           .map((f) => ({ ...f, status: statusById[f.friendId] }));
         return {
-          friends: [...page.friends, ...tail],
+          friends: [...firstPage, ...tail],
           statusById,
           nextCursor: tail.length > 0 ? state.nextCursor : page.nextCursor,
           loaded: true,
@@ -83,6 +105,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
     }
     const { nextCursor } = get();
     if (!nextCursor) return Promise.resolve("done");
+    const startGen = removalGen;
     set({ isLoadingMore: true });
     const promise: Promise<PageResult> = (async (): Promise<PageResult> => {
       try {
@@ -91,9 +114,17 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
           set({ isLoadingMore: false });
           return "stale";
         }
+        const dropped = removedSince(startGen);
         set((state) => {
           const known = new Set(state.friends.map((f) => f.friendId));
-          const fresh = page.friends.filter((f) => !known.has(f.friendId));
+          const fresh = page.friends
+            .filter(
+              (f) =>
+                !known.has(f.friendId) &&
+                !dropped(f.friendId) &&
+                (!state.loaded || state.statusById[f.friendId] !== undefined),
+            )
+            .map((f) => ({ ...f, status: state.statusById[f.friendId] ?? f.status }));
           return {
             friends: [...state.friends, ...fresh],
             nextCursor: page.nextCursor,
@@ -178,6 +209,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
         if (state.statusById[userId] === undefined && !state.friends.some((f) => f.friendId === userId)) {
           return state;
         }
+        markRemoved(userId);
         const { [userId]: _gone, ...statusById } = state.statusById;
         return {
           friends: state.friends.filter((f) => f.friendId !== userId),
@@ -197,6 +229,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
 
     remove: async (friendId) => {
       await friendshipAPI.remove(friendId);
+      markRemoved(friendId);
       set((state) => {
         const { [friendId]: _gone, ...statusById } = state.statusById;
         return {
@@ -211,6 +244,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
     clearAll: () => {
       fetchSeq += 1;
       sessionGen += 1;
+      removedAt.clear();
       loadMoreInflight = null;
       loadAllInflight = null;
       fetchInflight = null;
