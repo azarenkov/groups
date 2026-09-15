@@ -128,7 +128,7 @@ const reconcileAfterHydration = (blockedIds: string[], blockedByIds: string[]) =
 
 const recoverStatus = (userId: string) => {
   void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
-  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+  void import("./dmPreviewStore").then((m) => m.refetchDmPreviews(true));
   void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
   resyncPresence([userId]);
 };
@@ -191,7 +191,7 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         if (firstLoad) reconcileAfterHydration(Object.keys(blocked), Object.keys(get().blockedBy));
         if (removed.length > 0) {
           void import("./activityStore").then((m) => m.loadActivitiesFor(removed));
-          void import("./dmPreviewStore").then((m) => m.refetchDmPreviews());
+          void import("./dmPreviewStore").then((m) => m.refetchDmPreviews(true));
           void import("./unreadStore").then((m) => m.refetchUnread().catch(() => {}));
           resyncPresence(removed);
         }

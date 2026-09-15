@@ -37,6 +37,7 @@ let previewGen = 0;
 let sessionGen = 0;
 let loadMoreToken = 0;
 let pendingReplace = false;
+let pagesLoaded = 0;
 
 export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
@@ -62,6 +63,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
         return;
       }
       get().setAll(res.previews);
+      pagesLoaded += 1;
       set({ nextCursor: res.nextCursor, isLoadingMore: false });
     } catch {
       release();
@@ -133,6 +135,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
     previewGen += 1;
     sessionGen += 1;
     pendingReplace = false;
+    pagesLoaded = 0;
     set({ byFriend: {}, nextCursor: null, isLoadingMore: false });
   },
 }));
@@ -145,8 +148,19 @@ const runPreviewsRefetch = coalesce(async () => {
   const res = await dmAPI.listPreviews();
   if (session !== sessionGen) return;
   const store = useDmPreviewStore.getState();
+  const rebuildPages = replace ? pagesLoaded : 0;
   store.setAll(res.previews, replace);
-  if (replace || store.nextCursor === null) store.setNextCursor(res.nextCursor);
+  if (replace || store.nextCursor === null) {
+    store.setNextCursor(res.nextCursor);
+    pagesLoaded = replace ? 1 : Math.max(pagesLoaded, 1);
+  }
+  const gen = previewGen;
+  for (let page = 1; page < rebuildPages; page += 1) {
+    const before = useDmPreviewStore.getState().nextCursor;
+    if (!before || session !== sessionGen || gen !== previewGen) return;
+    await useDmPreviewStore.getState().loadMore();
+    if (useDmPreviewStore.getState().nextCursor === before) return;
+  }
 });
 
 export function refetchDmPreviews(replace = false): void {
