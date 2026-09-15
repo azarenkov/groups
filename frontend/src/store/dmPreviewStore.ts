@@ -34,6 +34,7 @@ interface DmPreviewState {
 }
 
 let previewGen = 0;
+let loadMoreToken = 0;
 
 export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
@@ -46,18 +47,22 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
     const { nextCursor, isLoadingMore } = get();
     if (!nextCursor || isLoadingMore) return;
     const gen = previewGen;
+    const token = ++loadMoreToken;
+    const release = () => {
+      if (token === loadMoreToken) set({ isLoadingMore: false });
+    };
     set({ isLoadingMore: true });
     try {
       const { dmAPI } = await import("../api/dm");
       const res = await dmAPI.listPreviews({ cursor: nextCursor });
-      if (gen !== previewGen) {
-        set({ isLoadingMore: false });
+      if (gen !== previewGen || token !== loadMoreToken) {
+        release();
         return;
       }
       get().setAll(res.previews);
       set({ nextCursor: res.nextCursor, isLoadingMore: false });
     } catch {
-      set({ isLoadingMore: false });
+      release();
     }
   },
 
