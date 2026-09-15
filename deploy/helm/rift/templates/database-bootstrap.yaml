@@ -75,11 +75,20 @@ spec:
               SELECT format('CREATE ROLE %I LOGIN', :'role')
               WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role') \gexec
               SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'password') \gexec
+              SELECT CASE WHEN current_setting('server_version_num')::int >= 160000
+                          THEN format('GRANT %I TO %I WITH SET TRUE, INHERIT FALSE', :'role', current_user)
+                          ELSE format('GRANT %I TO %I', :'role', current_user) END
+              WHERE NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+                AND CASE WHEN current_setting('server_version_num')::int >= 160000
+                         THEN NOT pg_has_role(current_user, :'role', 'SET')
+                         ELSE NOT pg_has_role(current_user, :'role', 'MEMBER') END \gexec
               SELECT format('CREATE DATABASE %I OWNER %I', :'database', :'role')
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database') \gexec
               SELECT format('ALTER DATABASE %I OWNER TO %I', :'database', :'role') \gexec
+              SELECT format('SET ROLE %I', :'role') \gexec
               SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'database') \gexec
               SELECT format('GRANT CONNECT, CREATE, TEMPORARY ON DATABASE %I TO %I', :'database', :'role') \gexec
+              RESET ROLE;
               SQL
                 echo "database $1 is owned by $2"
               }
