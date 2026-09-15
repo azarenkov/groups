@@ -47,5 +47,6 @@
   "unmuteMember": "Размьютить",
   "deafenMember": "Отключить звук",
   "undeafenMember": "Включить звук",
-  "backToServers": "Вернуться к списку серверов"
+  "backToServers": "Вернуться к списку серверов",
+  "loadMore": "Показать ещё"
 }

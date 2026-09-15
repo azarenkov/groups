@@ -14,12 +14,26 @@ export interface Friendship {
 
 export interface ListFriendshipsResponse {
   friends: Friendship[];
+  nextCursor: string | null;
+}
+
+export interface FriendIdsResponse {
+  friends: { friendId: string; status: FriendshipStatus }[];
 }
 
 export interface BlockedUser {
   userId: string;
   name: string;
   createdAt: string;
+}
+
+export interface ListBlocksResponse {
+  blocks: BlockedUser[];
+  nextCursor: string | null;
+}
+
+export interface BlockIdsResponse {
+  ids: string[];
 }
 
 export interface BlockRelation {

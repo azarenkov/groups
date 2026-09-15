@@ -4,6 +4,7 @@ import Icon, { type IconName } from "./Icon";
 import { serverAPI } from "../../api/server";
 import { dmAPI } from "../../api/dm";
 import { useServerStore } from "../../store/serverStore";
+import { useFriendshipStore } from "../../store/friendshipStore";
 import { usePresenceStore } from "../../store/presenceStore";
 import { ApiError } from "../../utils/apiError";
 import { colorForId } from "../../utils/avatar";
@@ -99,6 +100,9 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
 }) => {
   const { t } = useTranslation(["serverSettings", "common", "modals"]);
   const [section, setSection] = React.useState<SectionId>("overview");
+  React.useEffect(() => {
+    if (section === "invites") void useFriendshipStore.getState().loadAll();
+  }, [section]);
   const isOwner = currentUserId === server.ownerId;
 
   const rolesData = useRolesStore((st) => st.byServer[server.id]);
@@ -154,7 +158,10 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   );
   React.useEffect(() => {
     if (canManageInvites) return;
+    linksGen.current += 1;
     setLinks([]);
+    setPrimaryLink(null);
+    setLinksCursor(null);
     setSection((cur) => (cur === "invites" ? "overview" : cur));
   }, [canManageInvites]);
 
@@ -408,23 +415,53 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
   const selfOnline = usePresenceStore((s) => s.selfOnline);
 
   const [links, setLinks] = React.useState<InviteLink[]>([]);
+  const [primaryLink, setPrimaryLink] = React.useState<InviteLink | null>(null);
+  const [linksCursor, setLinksCursor] = React.useState<string | null>(null);
+  const [linksLoadingMore, setLinksLoadingMore] = React.useState(false);
   const [linkName, setLinkName] = React.useState("");
   const [expiryDays, setExpiryDays] = React.useState<number>(0);
   const [maxUses, setMaxUses] = React.useState<number>(0);
   const [copied, setCopied] = React.useState<string | null>(null);
   const [linkBusy, setLinkBusy] = React.useState(false);
   const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const primaryLink = links.find((l) => l.isPrimary) ?? null;
-  const extraLinks = links.filter((l) => !l.isPrimary);
+  const linksGen = React.useRef(0);
+  const revokedTokens = React.useRef<Set<string>>(new Set());
+  const extraLinks = links;
 
   const loadLinks = React.useCallback(async () => {
+    const gen = ++linksGen.current;
     try {
       const res = await serverAPI.listInviteLinks(server.id);
-      setLinks(res.links);
+      if (gen !== linksGen.current) return;
+      setPrimaryLink(res.primary);
+      setLinks(res.links.filter((l) => !revokedTokens.current.has(l.token)));
+      setLinksCursor(res.nextCursor);
     } catch {
       return;
     }
   }, [server.id]);
+
+  const loadMoreLinks = async () => {
+    if (!linksCursor || linksLoadingMore) return;
+    const gen = linksGen.current;
+    setLinksLoadingMore(true);
+    try {
+      const res = await serverAPI.listInviteLinks(server.id, { cursor: linksCursor });
+      if (gen !== linksGen.current) return;
+      setLinks((prev) => {
+        const known = new Set(prev.map((l) => l.token));
+        return [
+          ...prev,
+          ...res.links.filter((l) => !known.has(l.token) && !revokedTokens.current.has(l.token)),
+        ];
+      });
+      setLinksCursor(res.nextCursor);
+    } catch {
+      return;
+    } finally {
+      setLinksLoadingMore(false);
+    }
+  };
 
   React.useEffect(() => {
     if (!canManageInvites) return;
@@ -448,7 +485,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
         expiresDays: expiryDays || undefined,
         maxUses: maxUses || undefined,
       });
-      setLinks((prev) => [...prev, created]);
+      setLinks((prev) => [created, ...prev]);
       setLinkName("");
     } catch {
       return;
@@ -461,6 +498,7 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
     setLinkBusy(true);
     try {
       await serverAPI.revokeInviteLink(server.id, link.token);
+      revokedTokens.current.add(link.token);
       setLinks((prev) => prev.filter((l) => l.token !== link.token));
       if (link.isPrimary) await loadLinks();
     } catch {
@@ -1298,6 +1336,16 @@ const ServerSettingsView: React.FC<ServerSettingsViewProps> = ({
                       </React.Fragment>
                     ))}
                   </div>
+                  {linksCursor && (
+                    <button
+                      type="button"
+                      className="ssv-link-btn"
+                      disabled={linksLoadingMore}
+                      onClick={() => void loadMoreLinks()}
+                    >
+                      {t("loadMoreLinks")}
+                    </button>
+                  )}
                 </>
               )}
 

@@ -97,5 +97,6 @@
   "roleNameRequired": "Введите название роли",
   "roleList": "Роли ({{count}})",
   "permKickMembers": "Исключение участников",
-  "kickMember": "Исключить с сервера"
+  "kickMember": "Исключить с сервера",
+  "loadMoreLinks": "Показать ещё ссылки"
 }

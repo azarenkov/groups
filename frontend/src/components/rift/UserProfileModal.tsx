@@ -63,7 +63,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const userId = useProfileModalStore((s) => s.userId);
   const close = useProfileModalStore((s) => s.close);
   const selfId = useAuthStore((s) => s.user?.id);
-  const friends = useFriendshipStore((s) => s.friends);
+  const friendStatuses = useFriendshipStore((s) => s.statusById);
   const blockedByMe = useBlockStore((s) => (userId ? !!s.blocked[userId] : false));
   const blockedMe = useBlockStore((s) => (userId ? !!s.blockedBy[userId] : false));
   const onlineUsers = usePresenceStore((s) => s.online);
@@ -82,9 +82,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const menuRef = React.useRef<HTMLDivElement>(null);
   useMinuteTick();
 
-  const friendshipStatus = userId
-    ? friends.find((f) => f.friendId === userId)?.status
-    : undefined;
+  const friendshipStatus = userId ? friendStatuses[userId] : undefined;
 
   React.useEffect(() => {
     setProfile(null);
@@ -157,9 +155,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
 
   if (!userId) return null;
 
-  const friendship = friends.find((f) => f.friendId === userId);
   const isSelf = userId === selfId;
-  const isFriend = friendship?.status === "accepted";
+  const isFriend = friendshipStatus === "accepted";
   const online = isSelf ? selfOnline : !blockedByMe && !blockedMe && !!onlineUsers[userId];
   const name = nameOverrides[userId] ?? profile?.name ?? "";
   const bio = blockedMe ? "" : (cachedBio ?? profile?.bio ?? "");
@@ -241,11 +238,11 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
           {!isSelf && !inactive && !failed && (
             <div className="profile-actions">
               {!isFriend && !blockedEitherWay && (
-                friendship?.status === "pending_outgoing" ? (
+                friendshipStatus === "pending_outgoing" ? (
                   <button type="button" className="profile-btn icon" title={t("requestSent")} disabled>
                     <Icon name="check" size={22} />
                   </button>
-                ) : friendship?.status === "pending_incoming" ? (
+                ) : friendshipStatus === "pending_incoming" ? (
                   <button
                     type="button"
                     className="profile-btn icon primary"

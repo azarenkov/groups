@@ -183,6 +183,7 @@ interface VoiceTheaterProps {
   invite?: {
     candidates: { id: string; name: string }[];
     onAdd: (ids: string[]) => void;
+    onOpen?: () => void;
   };
   viewersFor?: (id: string) => number | undefined;
   onWatchChange?: (id: string, watching: boolean) => void;
@@ -221,6 +222,10 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
 }) => {
   const { t } = useTranslation(["call", "voice"]);
   const [addOpen, setAddOpen] = useState(false);
+  const onInviteOpen = invite?.onOpen;
+  useEffect(() => {
+    if (addOpen) onInviteOpen?.();
+  }, [addOpen, onInviteOpen]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const inviteRef = useRef<HTMLDivElement>(null);
 

@@ -1,3 +1,4 @@
+use domain::pagination::KeysetCursor;
 use async_trait::async_trait;
 
 use crate::{channel::Channel, server::Server, server::id::ServerId, server::invite_link::InviteLink, server::invite_link::InviteToken};
@@ -55,6 +56,8 @@ pub trait ServerRepository {
     async fn list_invite_links(
         &self,
         server_id: &ServerId,
+        cursor: Option<&KeysetCursor>,
+        limit: i64,
     ) -> Result<Vec<InviteLink>, RepositoryError>;
     async fn find_invite_link(
         &self,

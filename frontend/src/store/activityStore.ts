@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { userAPI } from "../api/user";
-import { useFriendshipStore } from "./friendshipStore";
+import { acceptedFriendIds } from "./friendshipStore";
 import { useAuthStore } from "./authStore";
 
 export interface GameActivity {
@@ -158,10 +158,5 @@ export async function loadActivitiesFor(userIds: string[]): Promise<void> {
 }
 
 export async function loadFriendActivities(): Promise<void> {
-  await loadActivitiesFor(
-    useFriendshipStore
-      .getState()
-      .friends.filter((f) => f.status === "accepted")
-      .map((f) => f.friendId),
-  );
+  await loadActivitiesFor(acceptedFriendIds());
 }

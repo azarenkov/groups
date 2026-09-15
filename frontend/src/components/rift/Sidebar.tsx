@@ -27,6 +27,8 @@ interface SidebarProps {
   joinedChannelId: string | null;
   selectedDmId: string | null;
   directs: MockDirect[];
+  hasMoreDirects?: boolean;
+  onLoadMoreDirects?: () => void;
   onToggleServer: (serverId: string) => void;
   onSelectServer: (serverId: string) => void;
   onSelectChannel: (server: Server, channel: Channel) => void;
@@ -89,6 +91,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   joinedChannelId,
   selectedDmId,
   directs,
+  hasMoreDirects,
+  onLoadMoreDirects,
   onToggleServer,
   onSelectServer,
   onSelectChannel,
@@ -425,6 +429,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         );
       })}
+      {hasMoreDirects && onLoadMoreDirects && (
+        <button type="button" className="sb-load-more" onClick={onLoadMoreDirects}>
+          {t("loadMore")}
+        </button>
+      )}
     </div>
   );
 

@@ -133,17 +133,9 @@ const App: React.FC = () => {
           if (!cancelled) console.warn("[App] failed to load unread counts:", err);
         }
       })();
-      void (async () => {
-        try {
-          const { dmAPI } = await import("./api/dm");
-          const { useDmPreviewStore } = await import("./store/dmPreviewStore");
-          const res = await dmAPI.listPreviews();
-          if (cancelled) return;
-          useDmPreviewStore.getState().setAll(res.previews);
-        } catch (err) {
-          if (!cancelled) console.warn("[App] failed to load dm previews:", err);
-        }
-      })();
+      void import("./store/dmPreviewStore").then(({ refetchDmPreviews }) => {
+        if (!cancelled) refetchDmPreviews(true);
+      });
       return () => {
         cancelled = true;
         ws.disconnect();
@@ -174,6 +166,9 @@ const App: React.FC = () => {
     );
     void import("./store/blockStore").then(({ useBlockStore }) =>
       useBlockStore.getState().clearAll(),
+    );
+    void import("./store/friendshipStore").then(({ useFriendshipStore }) =>
+      useFriendshipStore.getState().clearAll(),
     );
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 

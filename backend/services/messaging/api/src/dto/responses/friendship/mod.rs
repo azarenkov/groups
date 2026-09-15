@@ -27,13 +27,45 @@ impl From<FriendshipDto> for FriendshipResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListFriendshipsResponse {
     pub friends: Vec<FriendshipResponse>,
+    pub next_cursor: Option<String>,
 }
 
 impl ListFriendshipsResponse {
-    pub fn new(friends: Vec<FriendshipResponse>) -> Self {
-        Self { friends }
+    pub fn new(friends: Vec<FriendshipResponse>, next_cursor: Option<String>) -> Self {
+        Self {
+            friends,
+            next_cursor,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendIdItem {
+    pub friend_id: Uuid,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendIdsResponse {
+    pub friends: Vec<FriendIdItem>,
+}
+
+impl FriendIdsResponse {
+    pub fn new(items: Vec<(Uuid, FriendshipStatus)>) -> Self {
+        Self {
+            friends: items
+                .into_iter()
+                .map(|(friend_id, status)| FriendIdItem {
+                    friend_id,
+                    status: status_str(status).to_string(),
+                })
+                .collect(),
+        }
     }
 }
 

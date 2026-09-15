@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
-use api_common::{dto::responses::ApiResponse, middleware::auth::RateLimitedAuthToken};
+use api_common::{dto::cursor::CursorQuery, dto::responses::ApiResponse, middleware::auth::RateLimitedAuthToken};
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use messaging_domain::friendship::repository::FriendshipRepository;
@@ -17,8 +17,15 @@ struct BlockedUserResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ListBlocksResponse {
     blocks: Vec<BlockedUserResponse>,
+    next_cursor: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct BlockIdsResponse {
+    ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Serialize)]
@@ -32,13 +39,22 @@ struct BlockRelationResponse {
 async fn list_blocks(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
+    query: web::Query<CursorQuery>,
 ) -> Result<impl Responder, HttpError> {
-    let blocks = app_state
+    let (cursor, limit) = query.keyset().map_err(|_| invalid_cursor())?;
+    if let Some(c) = &cursor
+        && Uuid::parse_str(&c.key).is_err()
+    {
+        return Err(invalid_cursor());
+    }
+    let page = app_state
         .list_blocked_users_usecase
-        .execute(UserId::new(auth_token.id))
+        .execute(UserId::new(auth_token.id), cursor, limit)
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(ListBlocksResponse {
-        blocks: blocks
+        next_cursor: page.next_cursor.as_ref().map(|c| c.encode()),
+        blocks: page
+            .items
             .into_iter()
             .map(|b| BlockedUserResponse {
                 user_id: b.user_id.uuid(),
@@ -47,6 +63,28 @@ async fn list_blocks(
             })
             .collect(),
     })))
+}
+
+#[get("/me/blocks/ids")]
+async fn list_block_ids(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, HttpError> {
+    let ids = app_state
+        .list_blocked_users_usecase
+        .ids(UserId::new(auth_token.id))
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(BlockIdsResponse {
+        ids: ids.into_iter().map(|id| id.uuid()).collect(),
+    })))
+}
+
+fn invalid_cursor() -> HttpError {
+    HttpError::new(
+        "Invalid cursor".to_string(),
+        actix_web::http::StatusCode::BAD_REQUEST,
+        "INVALID_CURSOR",
+    )
 }
 
 #[get("/{user_id}/block")]
@@ -99,6 +137,7 @@ struct BlockChangeResponse {
 
 pub fn block_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(list_blocks)
+        .service(list_block_ids)
         .service(block_relation)
         .service(block_user)
         .service(unblock_user);

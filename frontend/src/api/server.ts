@@ -228,9 +228,13 @@ class ServerAPI {
     return response.data.data;
   }
 
-  async listInviteLinks(serverId: string): Promise<{ links: InviteLink[] }> {
+  async listInviteLinks(
+    serverId: string,
+    opts: { cursor?: string | null; limit?: number } = {},
+  ): Promise<{ primary: InviteLink; links: InviteLink[]; nextCursor: string | null }> {
     const response = await this.client.get(
       `/v1/servers/${serverId}/invite-links`,
+      { params: { cursor: opts.cursor ?? undefined, limit: opts.limit } },
     );
     return response.data.data;
   }

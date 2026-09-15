@@ -1,7 +1,7 @@
 import { ws, WsEnvelope } from "./websocket";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
-import { useFriendshipStore } from "../store/friendshipStore";
+import { acceptedFriendIds, useFriendshipStore } from "../store/friendshipStore";
 import { isBlockedEitherWay, useBlockStore } from "../store/blockStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
@@ -370,6 +370,7 @@ function dispatch(env: WsEnvelope) {
         if (!applied) return;
         useVoicePresenceStore.getState().renameMember(userId, newName);
         useCallStore.getState().participantRenamed(userId, newName);
+        useFriendshipStore.getState().applyName(userId, newName);
       }
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
@@ -484,7 +485,9 @@ function dispatch(env: WsEnvelope) {
       if (isBlockedEitherWay(peerId)) return;
       const peerName =
         (senderId !== selfId ? asString(d.senderName) : undefined) ??
+        useUserNamesStore.getState().overrides[peerId] ??
         useFriendshipStore.getState().friends.find((f) => f.friendId === peerId)?.friendName;
+      const knownPeerName = peerName ?? useDmPreviewStore.getState().byFriend[peerId]?.peerName;
       useDmPreviewStore.getState().push(peerId, {
         messageId: asString(d.id) ?? "",
         peerName,
@@ -495,6 +498,7 @@ function dispatch(env: WsEnvelope) {
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
+      if (!knownPeerName) refetchDmPreviews();
       if (recipientId !== selfId) return;
       if (activeDmView === senderId && viewIsForeground()) {
         throttleMarkDmRead(senderId);
@@ -890,22 +894,14 @@ export function installWsBootstrap() {
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void loadActivitiesFor(trackedActivityIds());
-    const friendsBefore = useFriendshipStore
-      .getState()
-      .friends.filter((f) => f.status === "accepted")
-      .map((f) => f.friendId);
+    const friendsBefore = acceptedFriendIds();
     void useFriendshipStore
       .getState()
       .fetchFriends()
       .then(() => {
         if (useFriendshipStore.getState().error === null) {
           useUserNamesStore.getState().clear();
-          const after = new Set(
-            useFriendshipStore
-              .getState()
-              .friends.filter((f) => f.status === "accepted")
-              .map((f) => f.friendId),
-          );
+          const after = new Set(acceptedFriendIds());
           const gone = friendsBefore.filter((id) => !after.has(id));
           for (const id of gone) useActivityStore.getState().apply(id, null);
           if (gone.length > 0) void loadActivitiesFor(gone);

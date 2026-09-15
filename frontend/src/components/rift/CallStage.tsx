@@ -157,6 +157,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       minimizeTitle={t("minimizeCall")}
       invite={{
         candidates,
+        onOpen: () => void useFriendshipStore.getState().loadAll(),
         onAdd: (ids) =>
           addParticipants(ids).catch((e) =>
             console.warn("[call] add participants failed:", e),

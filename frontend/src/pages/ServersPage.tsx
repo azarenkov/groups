@@ -131,6 +131,11 @@ const ServersPage: React.FC = () => {
   const [serverSettings, setServerSettings] = useState<Server | null>(null);
   const [channelModal, setChannelModal] = useState<{ serverId: string; kind: ChannelKind } | null>(null);
   const friends = useFriendshipStore((s) => s.friends);
+  const friendStatuses = useFriendshipStore((s) => s.statusById);
+  const friendsNextCursor = useFriendshipStore((s) => s.nextCursor);
+  const loadMoreFriends = useFriendshipStore((s) => s.loadMore);
+  const previewsNextCursor = useDmPreviewStore((s) => s.nextCursor);
+  const loadMorePreviews = useDmPreviewStore((s) => s.loadMore);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -208,24 +213,28 @@ const ServersPage: React.FC = () => {
         p.peerName ??
         (selectedDm?.id === peerId ? selectedDm.name : undefined);
       if (!name) continue;
+      const status = friendStatuses[peerId];
+      const accepted = status === "accepted";
       items.push({
         id: peerId,
         name,
         initials: initialFor(name),
         color: colorForId(peerId),
-        online: false,
+        online: accepted && !!onlineUsers[peerId],
         unread: 0,
         lastMessage: previewText(p),
-        isFriend: false,
-        friendship:
-          pending?.status === "pending_outgoing" || pending?.status === "pending_incoming"
-            ? pending.status
+        isFriend: accepted,
+        friendship: accepted
+          ? "accepted"
+          : status === "pending_outgoing" || status === "pending_incoming"
+            ? status
             : "none",
       });
     }
     return items;
   }, [
     friends,
+    friendStatuses,
     onlineUsers,
     dmPreviews,
     previewText,
@@ -239,15 +248,14 @@ const ServersPage: React.FC = () => {
     if (!selectedDm) return;
     const fresh = acceptedFriends.find((d) => d.id === selectedDm.id);
     if (!fresh) {
+      const known = friendStatuses[selectedDm.id];
+      if (known === "accepted") return;
       if (selectedDm.friendship !== "none" && selectedDm.friendship !== "pending_outgoing" && selectedDm.friendship !== "pending_incoming") {
         setSelectedDm(null);
         return;
       }
-      const pending = friends.find((f) => f.friendId === selectedDm.id);
       const status =
-        pending?.status === "pending_outgoing" || pending?.status === "pending_incoming"
-          ? pending.status
-          : "none";
+        known === "pending_outgoing" || known === "pending_incoming" ? known : "none";
       if (status !== selectedDm.friendship) {
         setSelectedDm((prev) => (prev && prev.id === selectedDm.id ? { ...prev, friendship: status } : prev));
       }
@@ -264,12 +272,11 @@ const ServersPage: React.FC = () => {
         ? { ...prev, name: fresh.name, initials: fresh.initials, isFriend: fresh.isFriend, friendship: fresh.friendship }
         : prev,
     );
-  }, [acceptedFriends, selectedDm, friends]);
+  }, [acceptedFriends, selectedDm, friendStatuses]);
 
   const pendingCount = React.useMemo(
-    () =>
-      friends.filter((f) => f.status === "pending_incoming").length,
-    [friends],
+    () => Object.values(friendStatuses).filter((s) => s === "pending_incoming").length,
+    [friendStatuses],
   );
 
   const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
@@ -381,6 +388,13 @@ const ServersPage: React.FC = () => {
     }, 250);
     return () => window.clearTimeout(handle);
   }, [sidebarQuery, tokens, servers, channelsByServer, fetchChannels]);
+
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    if (!sidebarQuery.trim()) return;
+    if (friendsNextCursor) void loadMoreFriends();
+    if (previewsNextCursor) void loadMorePreviews();
+  }, [sidebarQuery, tokens, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews]);
 
   const didInitialExpandRef = useRef(false);
   useEffect(() => {
@@ -1097,6 +1111,11 @@ const ServersPage: React.FC = () => {
           voiceMembersByChannel={voiceMembersByChannel}
           selectedDmId={selectedDm?.id ?? null}
           directs={acceptedFriends}
+          hasMoreDirects={!!friendsNextCursor || !!previewsNextCursor}
+          onLoadMoreDirects={() => {
+            void loadMoreFriends();
+            void loadMorePreviews();
+          }}
           onToggleServer={handleToggleServer}
           onSelectServer={handleSelectServer}
           onSelectChannel={handleSelectChannel}

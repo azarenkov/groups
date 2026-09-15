@@ -115,22 +115,41 @@ struct DmPreviewItem {
 }
 
 #[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ListDmPreviewsResponse {
     previews: Vec<DmPreviewItem>,
+    next_cursor: Option<String>,
+}
+
+fn invalid_cursor() -> HttpError {
+    HttpError::new(
+        "Invalid cursor".to_string(),
+        actix_web::http::StatusCode::BAD_REQUEST,
+        "INVALID_CURSOR",
+    )
 }
 
 #[get("/me/dms/previews")]
 async fn list_dm_previews(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
+    query: web::Query<api_common::dto::cursor::CursorQuery>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let previews = app_state
+    let (cursor, limit) = query.keyset().map_err(|_| invalid_cursor())?;
+    if let Some(c) = &cursor
+        && Uuid::parse_str(&c.key).is_err()
+    {
+        return Err(invalid_cursor());
+    }
+    let page = app_state
         .list_dm_previews_usecase
-        .execute(user_id)
+        .execute(user_id, cursor, limit)
         .await?;
     let response = ListDmPreviewsResponse {
-        previews: previews
+        next_cursor: page.next_cursor.as_ref().map(|c| c.encode()),
+        previews: page
+            .items
             .into_iter()
             .map(|p| DmPreviewItem {
                 message_id: p.message_id,

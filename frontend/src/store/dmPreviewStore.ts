@@ -15,10 +15,14 @@ export interface DmPreview {
 
 interface DmPreviewState {
   byFriend: Record<string, DmPreview>;
+  nextCursor: string | null;
+  isLoadingMore: boolean;
   setAll: (
     items: (DmPreview & { peerId: string })[],
     replace?: boolean,
   ) => void;
+  setNextCursor: (cursor: string | null) => void;
+  loadMore: () => Promise<void>;
   push: (friendId: string, preview: DmPreview) => void;
   editMessage: (
     messageId: string,
@@ -29,11 +33,46 @@ interface DmPreviewState {
   clear: () => void;
 }
 
+let previewGen = 0;
+let sessionGen = 0;
+let loadMoreToken = 0;
+let pendingReplace = false;
+let pagesLoaded = 0;
+
 export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
+  nextCursor: null,
+  isLoadingMore: false,
+
+  setNextCursor: (cursor) => set({ nextCursor: cursor }),
+
+  loadMore: async () => {
+    const { nextCursor, isLoadingMore } = get();
+    if (!nextCursor || isLoadingMore) return;
+    const gen = previewGen;
+    const token = ++loadMoreToken;
+    const release = () => {
+      if (token === loadMoreToken) set({ isLoadingMore: false });
+    };
+    set({ isLoadingMore: true });
+    try {
+      const { dmAPI } = await import("../api/dm");
+      const res = await dmAPI.listPreviews({ cursor: nextCursor });
+      if (gen !== previewGen || token !== loadMoreToken) {
+        release();
+        return;
+      }
+      get().setAll(res.previews);
+      pagesLoaded += 1;
+      set({ nextCursor: res.nextCursor, isLoadingMore: false });
+    } catch {
+      release();
+    }
+  },
 
   setAll: (items, replace = false) =>
     set((s) => {
+      if (replace) previewGen += 1;
       const map: Record<string, DmPreview> = replace ? {} : { ...s.byFriend };
       for (const it of items) {
         const cur = map[it.peerId];
@@ -92,16 +131,36 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   hasMessage: (messageId) =>
     Object.values(get().byFriend).some((p) => p.messageId === messageId),
 
-  clear: () => set({ byFriend: {} }),
+  clear: () => {
+    previewGen += 1;
+    sessionGen += 1;
+    pendingReplace = false;
+    pagesLoaded = 0;
+    set({ byFriend: {}, nextCursor: null, isLoadingMore: false });
+  },
 }));
 
-let pendingReplace = false;
 const runPreviewsRefetch = coalesce(async () => {
   const replace = pendingReplace;
   pendingReplace = false;
+  const session = sessionGen;
   const { dmAPI } = await import("../api/dm");
   const res = await dmAPI.listPreviews();
-  useDmPreviewStore.getState().setAll(res.previews, replace);
+  if (session !== sessionGen) return;
+  const store = useDmPreviewStore.getState();
+  const rebuildPages = replace ? pagesLoaded : 0;
+  store.setAll(res.previews, replace);
+  if (replace || store.nextCursor === null) {
+    store.setNextCursor(res.nextCursor);
+    pagesLoaded = replace ? 1 : Math.max(pagesLoaded, 1);
+  }
+  const gen = previewGen;
+  for (let page = 1; page < rebuildPages; page += 1) {
+    const before = useDmPreviewStore.getState().nextCursor;
+    if (!before || session !== sessionGen || gen !== previewGen) return;
+    await useDmPreviewStore.getState().loadMore();
+    if (useDmPreviewStore.getState().nextCursor === before) return;
+  }
 });
 
 export function refetchDmPreviews(replace = false): void {

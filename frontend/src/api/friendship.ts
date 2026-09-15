@@ -5,7 +5,12 @@ import { toApiError } from "../utils/apiError";
 import { rateLimitRetry } from "../utils/rateLimitRetry";
 import {
   FriendshipStatus,
-  ListFriendshipsResponse, BlockRelation, BlockedUser } from "../types/friendship";
+  FriendIdsResponse,
+  ListFriendshipsResponse,
+  ListBlocksResponse,
+  BlockIdsResponse,
+  BlockRelation,
+} from "../types/friendship";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8080/api";
@@ -72,10 +77,21 @@ class FriendshipAPI {
     await this.client.delete(`/v1/users/me/friends/${friendId}`);
   }
 
-  async list(status?: FriendshipStatus): Promise<ListFriendshipsResponse> {
+  async list(
+    opts: { status?: FriendshipStatus; cursor?: string | null; limit?: number } = {},
+  ): Promise<ListFriendshipsResponse> {
     const response = await this.client.get("/v1/users/me/friends", {
-      params: status ? { status } : undefined,
+      params: {
+        status: opts.status,
+        cursor: opts.cursor ?? undefined,
+        limit: opts.limit,
+      },
     });
+    return response.data.data;
+  }
+
+  async listIds(): Promise<FriendIdsResponse> {
+    const response = await this.client.get("/v1/users/me/friends/ids");
     return response.data.data;
   }
 
@@ -94,8 +110,17 @@ class FriendshipAPI {
     return response.data.data;
   }
 
-  async listBlocks(): Promise<{ blocks: BlockedUser[] }> {
-    const response = await this.client.get("/v1/users/me/blocks");
+  async listBlocks(
+    opts: { cursor?: string | null; limit?: number } = {},
+  ): Promise<ListBlocksResponse> {
+    const response = await this.client.get("/v1/users/me/blocks", {
+      params: { cursor: opts.cursor ?? undefined, limit: opts.limit },
+    });
+    return response.data.data;
+  }
+
+  async listBlockIds(): Promise<BlockIdsResponse> {
+    const response = await this.client.get("/v1/users/me/blocks/ids");
     return response.data.data;
   }
 

@@ -108,6 +108,7 @@
   "blockedUsers": "Blocked users",
   "blockedUsersHint": "They cannot message you, call you or send friend requests.",
   "noBlockedUsers": "No one is blocked.",
+  "loadMore": "Show more",
   "unblock": "Unblock",
     "everyone": "Everyone",
     "friends": "Friends",
@@ -115,7 +116,8 @@
     "requests": "Requests",
     "allowRequests": "Allow friend requests",
     "allowRequestsHint": "Anyone can send you a friend request.",
-    "loadFailed": "Couldn't load privacy settings."
+    "loadFailed": "Couldn't load privacy settings.",
+    "blockedLoadFailed": "Couldn't load blocked users."
   },
   "connections": {
     "title": "Connections",

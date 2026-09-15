@@ -16,7 +16,7 @@ use crate::dm::{
 use crate::home::{get_home_overview, get_user_profile};
 use crate::internal::internal_routes;
 use crate::friendship::{
-    accept_friend_request, list_friends, remove_friendship, send_friend_request,
+    accept_friend_request, list_friend_ids, list_friends, remove_friendship, send_friend_request,
 };
 use crate::notifications::notification_routes;
 use crate::presence::presence_routes;
@@ -83,10 +83,11 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(decline_server_invite)
                         .service(edit_dm_message)
                         .service(delete_dm_message)
+                        .service(list_friend_ids)
+                        .service(list_friends)
                         .service(send_friend_request)
                         .service(accept_friend_request)
                         .service(remove_friendship)
-                        .service(list_friends)
                         .service(get_home_overview)
                         .service(get_user_profile)
                         .configure(crate::privacy::privacy_routes)
