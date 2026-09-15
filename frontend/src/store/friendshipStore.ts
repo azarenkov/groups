@@ -30,7 +30,13 @@ interface FriendshipState {
 
 let fetchSeq = 0;
 let fetchInflight: Promise<void> | null = null;
-let loadMoreInflight: { promise: Promise<void>; seq: number; userId: string | undefined } | null = null;
+type PageResult = "ok" | "stale" | "failed" | "done";
+
+const MAX_LOAD_ALL_PAGES = 1000;
+
+let sessionGen = 0;
+let loadMoreInflight: { promise: Promise<PageResult>; seq: number; userId: string | undefined } | null = null;
+let loadAllInflight: { promise: Promise<void>; gen: number; userId: string | undefined } | null = null;
 
 export const useFriendshipStore = create<FriendshipState>((set, get) => {
   const runFetchFriends = coalesce(async () => {
@@ -69,6 +75,42 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
       });
     }
   });
+  const loadNextPage = (): Promise<PageResult> => {
+    const seq = fetchSeq;
+    const sessionUserId = useAuthStore.getState().user?.id;
+    if (loadMoreInflight && loadMoreInflight.seq === seq && loadMoreInflight.userId === sessionUserId) {
+      return loadMoreInflight.promise;
+    }
+    const { nextCursor } = get();
+    if (!nextCursor) return Promise.resolve("done");
+    set({ isLoadingMore: true });
+    const promise: Promise<PageResult> = (async (): Promise<PageResult> => {
+      try {
+        const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
+        if (seq !== fetchSeq || useAuthStore.getState().user?.id !== sessionUserId) {
+          set({ isLoadingMore: false });
+          return "stale";
+        }
+        set((state) => {
+          const known = new Set(state.friends.map((f) => f.friendId));
+          const fresh = page.friends.filter((f) => !known.has(f.friendId));
+          return {
+            friends: [...state.friends, ...fresh],
+            nextCursor: page.nextCursor,
+            isLoadingMore: false,
+          };
+        });
+        return "ok";
+      } catch {
+        set({ isLoadingMore: false });
+        return "failed";
+      }
+    })().finally(() => {
+      if (loadMoreInflight?.promise === promise) loadMoreInflight = null;
+    });
+    loadMoreInflight = { promise, seq, userId: sessionUserId };
+    return promise;
+  };
   const fetchFriends = () => {
     const request = runFetchFriends();
     fetchInflight = request;
@@ -88,52 +130,40 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
 
     fetchFriends,
 
-    loadMore: () => {
-      const seq = fetchSeq;
-      const sessionUserId = useAuthStore.getState().user?.id;
-      if (loadMoreInflight && loadMoreInflight.seq === seq && loadMoreInflight.userId === sessionUserId) {
-        return loadMoreInflight.promise;
-      }
-      const { nextCursor } = get();
-      if (!nextCursor) return Promise.resolve();
-      set({ isLoadingMore: true });
-      const promise: Promise<void> = (async () => {
-        try {
-          const page = await friendshipAPI.list({ cursor: nextCursor, limit: PAGE_SIZE });
-          if (seq !== fetchSeq || useAuthStore.getState().user?.id !== sessionUserId) {
-            set({ isLoadingMore: false });
-            return;
-          }
-          set((state) => {
-            const known = new Set(state.friends.map((f) => f.friendId));
-            const fresh = page.friends.filter((f) => !known.has(f.friendId));
-            return {
-              friends: [...state.friends, ...fresh],
-              nextCursor: page.nextCursor,
-              isLoadingMore: false,
-            };
-          });
-        } catch {
-          set({ isLoadingMore: false });
-        }
-      })().finally(() => {
-        if (loadMoreInflight?.promise === promise) loadMoreInflight = null;
-      });
-      loadMoreInflight = { promise, seq, userId: sessionUserId };
-      return promise;
+    loadMore: async () => {
+      await loadNextPage();
     },
 
-    loadAll: async () => {
-      if (fetchInflight) await fetchInflight;
-      else if (!get().loaded) await fetchFriends();
-      for (let guard = 0; guard < 200; guard += 1) {
-        const before = get().nextCursor;
-        if (!before) return;
-        const seqBefore = fetchSeq;
-        await get().loadMore();
-        if (fetchInflight) await fetchInflight;
-        if (get().nextCursor === before && fetchSeq === seqBefore) return;
+    loadAll: () => {
+      const userId = useAuthStore.getState().user?.id;
+      if (loadAllInflight && loadAllInflight.gen === sessionGen && loadAllInflight.userId === userId) {
+        return loadAllInflight.promise;
       }
+      const gen = sessionGen;
+      const alive = () => gen === sessionGen && useAuthStore.getState().user?.id === userId;
+      const promise: Promise<void> = (async () => {
+        if (fetchInflight) await fetchInflight;
+        else if (!get().loaded) await fetchFriends();
+        let failures = 0;
+        for (let pages = 0; pages < MAX_LOAD_ALL_PAGES && alive(); ) {
+          if (!get().nextCursor) return;
+          const result = await loadNextPage();
+          if (fetchInflight) await fetchInflight;
+          if (result === "failed") {
+            failures += 1;
+            await new Promise((resolve) =>
+              setTimeout(resolve, Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5))),
+            );
+            continue;
+          }
+          failures = 0;
+          if (result === "ok") pages += 1;
+        }
+      })().finally(() => {
+        if (loadAllInflight?.promise === promise) loadAllInflight = null;
+      });
+      loadAllInflight = { promise, gen, userId };
+      return promise;
     },
 
     applyName: (userId, name) =>
@@ -180,7 +210,9 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
 
     clearAll: () => {
       fetchSeq += 1;
+      sessionGen += 1;
       loadMoreInflight = null;
+      loadAllInflight = null;
       fetchInflight = null;
       set({
         friends: [],
