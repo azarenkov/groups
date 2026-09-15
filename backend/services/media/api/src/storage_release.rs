@@ -24,8 +24,8 @@ pub fn spawn<A>(
                 consumer_name: "media-storage-release".to_string(),
                 subject: format!("{prefix}.storage.>"),
                 start_position: StartPosition::All,
-                max_deliver: Some(5),
-                dlq_subject: Some(format!("{prefix}.dlq.media.storage")),
+                max_deliver: None,
+                dlq_subject: None,
                 extra_subjects: vec![],
                 ack_wait: None,
             };
