@@ -98,9 +98,10 @@ async fn initialize_streams(
 ) -> Result<(), Box<dyn Error>> {
     for def in STREAMS {
         let subject_pattern = format!("{}.{}", config.subject_prefix, def.subject_suffix);
-        let max_bytes = match def.tier {
-            StreamTier::Hot => config.stream_hot_max_bytes,
-            StreamTier::Cold => config.stream_cold_max_bytes,
+        let max_bytes = match (def.durability, def.tier) {
+            (StreamDurability::UntilConsumed, _) => -1,
+            (StreamDurability::Expiring, StreamTier::Hot) => config.stream_hot_max_bytes,
+            (StreamDurability::Expiring, StreamTier::Cold) => config.stream_cold_max_bytes,
         };
         let (retention, discard) = match def.durability {
             StreamDurability::Expiring => (

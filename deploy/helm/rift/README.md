@@ -10,6 +10,8 @@ Every service owns its own Postgres database and role; `databases.services.<serv
 
 `databases.bootstrap` creates the databases and roles on a self-hosted Postgres. A `pre-install`/`pre-upgrade` hook Job connects as `databases.bootstrap.adminUser` (a role with `CREATEDB` and `CREATEROLE`), creates each missing role and database, makes the role the owner, sets the role password from the service password on every run so rotations reach the database, and revokes `CONNECT` from `PUBLIC` so one service cannot open another service's database. Nothing is dropped on uninstall. The admin password comes from `databases.bootstrap.adminPassword`, rendered into a hook Secret that is deleted after the Job succeeds, or from `databases.bootstrap.existingSecret` under `databases.bootstrap.existingSecretKey`. With bootstrap enabled the chart refuses to render without the admin password and non-empty service passwords. On a managed Postgres that does not allow `CREATE ROLE`, set `databases.bootstrap.enabled=false` and create the databases and roles with the provider's tools.
 
+Upgrading a release that still uses the single shared `POSTGRES_DB` does not move any data: the services start on new, empty databases and the old database is left untouched.
+
 ## Public URLs
 
 `config.PUBLIC_API_URL` is the origin of the gateway as clients reach it, and `config.PUBLIC_APP_URL` is the origin of the web app. Invite links are built as `<PUBLIC_APP_URL>/join/<token>` and `messaging-service` refuses to start without an `http(s)://` value, so replace the example domain with the host that serves the web app.
