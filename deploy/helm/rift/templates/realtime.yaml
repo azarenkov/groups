@@ -52,6 +52,7 @@ spec:
             - name: {{ $key }}
               value: {{ $value | toString | quote }}
             {{- end }}
+            {{- include "rift.databaseEnv" (dict "root" . "databases" (.Values.realtime.databases | default list)) | nindent 12 }}
           {{- include "rift.envFrom" . | nindent 10 }}
           {{- include "rift.probes" (dict "root" . "readyPort" "ws-health" "livePort" "disp-health") | nindent 10 }}
           {{- include "rift.preStop" . | nindent 10 }}

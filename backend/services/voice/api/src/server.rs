@@ -19,6 +19,7 @@ use voice_infrastructure::{
     media_client::friendship::MessagingFriendshipClient,
     outbox::webhook_outbox::PostgresWebhookOutbox,
     database::postgres::{
+        MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
         repositories::{
             call::PostgresCallRepository, outbox_writer::PostgresOutboxWriter,
@@ -44,11 +45,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("voice-service");
 
     let server_config = ServerConfig::from_env()?;
-    let postgres_config = PostgresConfig::from_env()?;
+    let postgres_config = PostgresConfig::from_env_for(SCHEMA)?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
 
-    let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
     let livekit_url = livekit_config.url().to_string();
 
     let call_repository = Arc::new(PostgresCallRepository::new(postgres_pool.clone()));

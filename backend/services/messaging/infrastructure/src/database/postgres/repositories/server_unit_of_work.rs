@@ -9,6 +9,7 @@ use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::outbox::storage::release_storage_keys;
 use crate::database::postgres::{
     dto::{kind::ChannelKindDto, visibility::ChannelVisibilityDto},
     error::map_sqlx_error_to_domain_error,
@@ -665,17 +666,7 @@ impl ServerTransaction for PostgresServerTransaction {
         .fetch_all(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT * FROM UNNEST($1::text[])
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            &storage_keys,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        release_storage_keys(&mut self.tx, &storage_keys).await?;
         let result = sqlx::query!("DELETE FROM channels WHERE id = $1", channel_id.uuid())
             .execute(&mut *self.tx)
             .await
@@ -707,17 +698,7 @@ impl ServerTransaction for PostgresServerTransaction {
         .fetch_all(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT * FROM UNNEST($1::text[])
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            &removed_keys,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        release_storage_keys(&mut self.tx, &removed_keys).await?;
         let result = sqlx::query!(r#"DELETE FROM messages WHERE id = $1"#, message_id.uuid())
             .execute(&mut *self.tx)
             .await
@@ -1049,17 +1030,7 @@ impl ServerTransaction for PostgresServerTransaction {
         .fetch_all(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT * FROM UNNEST($1::text[])
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            &storage_keys,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        release_storage_keys(&mut self.tx, &storage_keys).await?;
         let result = sqlx::query!(
             r#"
                 DELETE FROM servers WHERE id = $1 AND owner_id = $2

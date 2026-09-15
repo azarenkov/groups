@@ -1,0 +1,13 @@
+DROP TABLE IF EXISTS identity.outbox;
+DROP TABLE IF EXISTS identity.voice_settings;
+DROP TABLE IF EXISTS identity.verification_codes;
+DROP TABLE IF EXISTS identity.user_settings;
+DROP TABLE IF EXISTS identity.refresh_tokens;
+DROP TABLE IF EXISTS identity.oauth_identities;
+DROP TABLE IF EXISTS identity.users;
+DROP TABLE IF EXISTS identity.notification_settings;
+DROP TABLE IF EXISTS identity.hotkey_settings;
+DROP TABLE IF EXISTS identity.connection_states;
+DROP TYPE IF EXISTS identity.aggregate_type;
+DROP TYPE IF EXISTS identity.verification_purpose;
+DROP TYPE IF EXISTS identity.verification_channel;

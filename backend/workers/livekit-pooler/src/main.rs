@@ -10,6 +10,7 @@ use messaging::usecases::channel::{
 };
 use messaging_infrastructure::{
     database::postgres::{
+        MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
         repositories::{channel::PostgresChannelRepository, channel_unit_of_work::PostgresChannelUnitOfWork},
     },
@@ -27,10 +28,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("livekit-pooler");
 
     let pooler_config = PoolerConfig::from_env()?;
-    let postgres_config = PostgresConfig::from_env()?;
+    let postgres_config = PostgresConfig::from_env_for(SCHEMA)?;
     let livekit_config = LiveKitConfig::from_env()?;
 
-    let pool = create_postgres_pool(postgres_config).await?;
+    let pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let readiness = Readiness::builder()
         .add_probe({

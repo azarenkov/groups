@@ -22,6 +22,7 @@ pub enum AggregateType {
     User,
     Message,
     DmMessage,
+    Storage,
 }
 
 impl AggregateType {
@@ -32,6 +33,7 @@ impl AggregateType {
             Self::User => "user",
             Self::Message => "message",
             Self::DmMessage => "dm_message",
+            Self::Storage => "storage",
         }
     }
 }

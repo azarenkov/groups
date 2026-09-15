@@ -48,6 +48,7 @@ spec:
             - name: {{ $key }}
               value: {{ $value | toString | quote }}
             {{- end }}
+            {{- include "rift.databaseEnv" (dict "root" $ "databases" ($svc.databases | default list)) | nindent 12 }}
           {{- include "rift.envFrom" $ | nindent 10 }}
           {{- include "rift.probes" (dict "root" $ "readyPort" "http") | nindent 10 }}
           {{- include "rift.preStop" $ | nindent 10 }}

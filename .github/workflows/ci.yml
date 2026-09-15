@@ -36,8 +36,6 @@ jobs:
               - 'backend/libs/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
-              - '.sqlx/**'
-              - 'migrations/**'
               - '.cargo/**'
             identity:
               - 'backend/services/identity/**'

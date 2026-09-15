@@ -65,6 +65,7 @@ use infrastructure_common::{
 };
 use messaging_infrastructure::{
     database::postgres::{
+        MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
         repositories::{
             channel::PostgresChannelRepository,
@@ -99,7 +100,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("messaging-service");
 
     let server_config = ServerConfig::from_env()?;
-    let postgres_config = PostgresConfig::from_env()?;
+    let postgres_config = PostgresConfig::from_env_for(SCHEMA)?;
     let livekit_config = LiveKitConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let minio_config = MinioConfig::from_env()?;
@@ -109,7 +110,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         infrastructure_common::moderation::text_detector::TextModerationClient::new(&nsfw_config),
     );
 
-    let postgres_pool = create_postgres_pool(postgres_config).await?;
+    let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
     let nats_jetstream =
         infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
     let livekit_url = livekit_config.url().to_string();

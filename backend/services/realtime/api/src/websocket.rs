@@ -7,6 +7,7 @@ use infrastructure_common::{
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
+use realtime_infrastructure::database::postgres::{MIGRATOR, SCHEMA};
 use api_common::health::{self, Liveness, Readiness};
 use api_common::shutdown::{ShutdownConfig, ShutdownSignal, drain};
 
@@ -23,10 +24,10 @@ use crate::{
 pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let cfg = WebsocketConfig::from_env()?;
     let nats_cfg = NatsConfig::from_env()?;
-    let pg_cfg = PostgresConfig::from_env()?;
+    let pg_cfg = PostgresConfig::from_env_for(SCHEMA)?;
 
     let jetstream = create_jetstream(&nats_cfg).await?;
-    let pg_pool = create_postgres_pool(pg_cfg).await?;
+    let pg_pool = create_postgres_pool(pg_cfg, SCHEMA, Some(&MIGRATOR)).await?;
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let presence_resolver = Arc::new(BlockAwareDirectory::new(

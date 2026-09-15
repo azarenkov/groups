@@ -8,6 +8,7 @@ pub enum AggregateTypeDto {
     User,
     Message,
     DmMessage,
+    Storage,
 }
 
 impl From<&AggregateType> for AggregateTypeDto {
@@ -18,6 +19,7 @@ impl From<&AggregateType> for AggregateTypeDto {
             AggregateType::User => Self::User,
             AggregateType::Message => Self::Message,
             AggregateType::DmMessage => Self::DmMessage,
+            AggregateType::Storage => Self::Storage,
         }
     }
 }
@@ -30,6 +32,7 @@ impl From<AggregateTypeDto> for AggregateType {
             AggregateTypeDto::User => Self::User,
             AggregateTypeDto::Message => Self::Message,
             AggregateTypeDto::DmMessage => Self::DmMessage,
+            AggregateTypeDto::Storage => Self::Storage,
         }
     }
 }

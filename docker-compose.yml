@@ -6,10 +6,27 @@ services:
     env_file:
       - path: env/postgres.env
         required: false
+    environment:
+      IDENTITY_POSTGRES_DB: ${IDENTITY_POSTGRES_DB:-rift_identity}
+      IDENTITY_POSTGRES_USER: ${IDENTITY_POSTGRES_USER:-identity}
+      IDENTITY_POSTGRES_PASSWORD: ${IDENTITY_POSTGRES_PASSWORD:-identity}
+      MEDIA_POSTGRES_DB: ${MEDIA_POSTGRES_DB:-rift_media}
+      MEDIA_POSTGRES_USER: ${MEDIA_POSTGRES_USER:-media}
+      MEDIA_POSTGRES_PASSWORD: ${MEDIA_POSTGRES_PASSWORD:-media}
+      MESSAGING_POSTGRES_DB: ${MESSAGING_POSTGRES_DB:-rift_messaging}
+      MESSAGING_POSTGRES_USER: ${MESSAGING_POSTGRES_USER:-messaging}
+      MESSAGING_POSTGRES_PASSWORD: ${MESSAGING_POSTGRES_PASSWORD:-messaging}
+      VOICE_POSTGRES_DB: ${VOICE_POSTGRES_DB:-rift_voice}
+      VOICE_POSTGRES_USER: ${VOICE_POSTGRES_USER:-voice}
+      VOICE_POSTGRES_PASSWORD: ${VOICE_POSTGRES_PASSWORD:-voice}
+      REALTIME_POSTGRES_DB: ${REALTIME_POSTGRES_DB:-rift_realtime}
+      REALTIME_POSTGRES_USER: ${REALTIME_POSTGRES_USER:-realtime}
+      REALTIME_POSTGRES_PASSWORD: ${REALTIME_POSTGRES_PASSWORD:-realtime}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     networks:
       - rift-network
     healthcheck:
@@ -165,6 +182,9 @@ services:
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       MESSAGING_INTERNAL_URL: ${MESSAGING_INTERNAL_URL:-http://messaging-service:8080}
+      IDENTITY_POSTGRES_DB: ${IDENTITY_POSTGRES_DB:-rift_identity}
+      IDENTITY_POSTGRES_USER: ${IDENTITY_POSTGRES_USER:-identity}
+      IDENTITY_POSTGRES_PASSWORD: ${IDENTITY_POSTGRES_PASSWORD:-identity}
     depends_on:
       postgres:
         condition: service_healthy
@@ -198,6 +218,9 @@ services:
       - path: env/media-service.env
         required: false
     environment:
+      MEDIA_POSTGRES_DB: ${MEDIA_POSTGRES_DB:-rift_media}
+      MEDIA_POSTGRES_USER: ${MEDIA_POSTGRES_USER:-media}
+      MEDIA_POSTGRES_PASSWORD: ${MEDIA_POSTGRES_PASSWORD:-media}
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
       SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
@@ -247,6 +270,9 @@ services:
       - path: env/messaging-service.env
         required: false
     environment:
+      MESSAGING_POSTGRES_DB: ${MESSAGING_POSTGRES_DB:-rift_messaging}
+      MESSAGING_POSTGRES_USER: ${MESSAGING_POSTGRES_USER:-messaging}
+      MESSAGING_POSTGRES_PASSWORD: ${MESSAGING_POSTGRES_PASSWORD:-messaging}
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
       SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
@@ -299,6 +325,9 @@ services:
       - path: env/voice-service.env
         required: false
     environment:
+      VOICE_POSTGRES_DB: ${VOICE_POSTGRES_DB:-rift_voice}
+      VOICE_POSTGRES_USER: ${VOICE_POSTGRES_USER:-voice}
+      VOICE_POSTGRES_PASSWORD: ${VOICE_POSTGRES_PASSWORD:-voice}
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
       SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
@@ -331,6 +360,16 @@ services:
     networks:
       - rift-network
     environment:
+      OUTBOX_SOURCES: ${OUTBOX_SOURCES:-identity,messaging,voice}
+      IDENTITY_POSTGRES_DB: ${IDENTITY_POSTGRES_DB:-rift_identity}
+      IDENTITY_POSTGRES_USER: ${IDENTITY_POSTGRES_USER:-identity}
+      IDENTITY_POSTGRES_PASSWORD: ${IDENTITY_POSTGRES_PASSWORD:-identity}
+      MESSAGING_POSTGRES_DB: ${MESSAGING_POSTGRES_DB:-rift_messaging}
+      MESSAGING_POSTGRES_USER: ${MESSAGING_POSTGRES_USER:-messaging}
+      MESSAGING_POSTGRES_PASSWORD: ${MESSAGING_POSTGRES_PASSWORD:-messaging}
+      VOICE_POSTGRES_DB: ${VOICE_POSTGRES_DB:-rift_voice}
+      VOICE_POSTGRES_USER: ${VOICE_POSTGRES_USER:-voice}
+      VOICE_POSTGRES_PASSWORD: ${VOICE_POSTGRES_PASSWORD:-voice}
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
       SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
@@ -347,6 +386,12 @@ services:
       postgres:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+      messaging-service:
+        condition: service_healthy
+      voice-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "outbox-worker --probe http://127.0.0.1:8081/readyz && outbox-worker --probe http://127.0.0.1:8081/livez"]
@@ -410,6 +455,9 @@ services:
       - path: env/event-dispatcher.env
         required: false
     environment:
+      REALTIME_POSTGRES_DB: ${REALTIME_POSTGRES_DB:-rift_realtime}
+      REALTIME_POSTGRES_USER: ${REALTIME_POSTGRES_USER:-realtime}
+      REALTIME_POSTGRES_PASSWORD: ${REALTIME_POSTGRES_PASSWORD:-realtime}
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
       SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}
@@ -441,6 +489,9 @@ services:
     networks:
       - rift-network
     environment:
+      MESSAGING_POSTGRES_DB: ${MESSAGING_POSTGRES_DB:-rift_messaging}
+      MESSAGING_POSTGRES_USER: ${MESSAGING_POSTGRES_USER:-messaging}
+      MESSAGING_POSTGRES_PASSWORD: ${MESSAGING_POSTGRES_PASSWORD:-messaging}
       HEALTH_PROBE_TIMEOUT_MS: ${HEALTH_PROBE_TIMEOUT_MS:-2000}
       HEALTH_PROBE_CACHE_MS: ${HEALTH_PROBE_CACHE_MS:-5000}
       SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-3000}

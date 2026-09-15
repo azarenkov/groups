@@ -13,8 +13,6 @@ config:
   NATS_STREAM_COLD_MAX_BYTES: "536870912"
   POSTGRES_HOST: postgres
   POSTGRES_PORT: "5432"
-  POSTGRES_USER: postgres
-  POSTGRES_DB: rift
   POSTGRES_OPTIONS: ""
   POSTGRES_MAX_CONNECTIONS: "10"
   POSTGRES_MIN_CONNECTIONS: "2"
@@ -53,7 +51,6 @@ config:
 secrets:
   existingSecret: ""
   JWT_SECRET: ""
-  POSTGRES_PASSWORD: ""
   LIVEKIT_API_SECRET: ""
   MINIO_ROOT_USER: ""
   MINIO_ROOT_PASSWORD: ""
@@ -62,6 +59,29 @@ secrets:
   GITHUB_CLIENT_ID: ""
   GITHUB_CLIENT_SECRET: ""
   STEAM_API_KEY: ""
+
+databases:
+  existingSecret: ""
+  identity:
+    name: rift_identity
+    user: identity
+    password: ""
+  media:
+    name: rift_media
+    user: media
+    password: ""
+  messaging:
+    name: rift_messaging
+    user: messaging
+    password: ""
+  voice:
+    name: rift_voice
+    user: voice
+    password: ""
+  realtime:
+    name: rift_realtime
+    user: realtime
+    password: ""
 
 probes:
   startup:
@@ -90,6 +110,7 @@ httpServices:
   identity-service:
     enabled: true
     replicas: 2
+    databases: [identity]
     env: {}
     resources:
       requests: { cpu: 100m, memory: 128Mi }
@@ -97,6 +118,7 @@ httpServices:
   media-service:
     enabled: true
     replicas: 2
+    databases: [media]
     env: {}
     resources:
       requests: { cpu: 100m, memory: 128Mi }
@@ -104,6 +126,7 @@ httpServices:
   messaging-service:
     enabled: true
     replicas: 2
+    databases: [messaging]
     env: {}
     resources:
       requests: { cpu: 100m, memory: 128Mi }
@@ -111,6 +134,7 @@ httpServices:
   voice-service:
     enabled: true
     replicas: 2
+    databases: [voice]
     env: {}
     resources:
       requests: { cpu: 100m, memory: 128Mi }
@@ -119,6 +143,7 @@ httpServices:
 realtime:
   enabled: true
   replicas: 2
+  databases: [realtime]
   env:
     WEBSOCKET_OUTBOUND_BUFFER: "64"
     DISPATCHER_USER_STREAM: RIFT_USER_EVENTS
@@ -138,8 +163,10 @@ workers:
     enabled: true
     replicas: 1
     healthPort: 8081
+    databases: [identity, messaging, voice]
     env:
       HEALTH_PORT: "8081"
+      OUTBOX_SOURCES: identity,messaging,voice
       OUTBOX_BATCH_SIZE: "100"
       OUTBOX_IDLE_INTERVAL_MS: "500"
       OUTBOX_MAX_ATTEMPTS: "50"
@@ -156,6 +183,7 @@ workers:
     enabled: true
     replicas: 1
     healthPort: 8082
+    databases: []
     env:
       HEALTH_PORT: "8082"
       NOTIFICATION_USER_STREAM: RIFT_USER_EVENTS
@@ -169,6 +197,7 @@ workers:
     enabled: true
     replicas: 1
     healthPort: 8086
+    databases: [messaging]
     env:
       LIVEKIT_POOLER_HEALTH_PORT: "8086"
       LIVEKIT_POOLER_INTERVAL_SECS: "30"

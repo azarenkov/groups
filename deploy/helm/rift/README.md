@@ -2,7 +2,11 @@
 
 Deploys the Rift backend to Kubernetes: four HTTP APIs (`identity-service`, `media-service`, `messaging-service`, `voice-service`), `realtime` (websocket + event dispatcher), the `outbox-worker`, `notification-service` and `livekit-pooler` workers, the `nsfw-detector` moderation service and an nginx gateway that carries the same routing as `docker/nginx/nginx.conf`.
 
-Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them. Set `livekit.externalName` to the LiveKit host if it lives outside the namespace so the gateway's `livekit:7880` upstream resolves.
+Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them.
+
+## Databases
+
+Every service owns its own Postgres database and role; `databases.<service>` names them for `identity`, `media`, `messaging`, `voice` and `realtime`. `config.POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_OPTIONS` and the pool settings are shared, while each workload receives only the `<SERVICE>_POSTGRES_DB`, `<SERVICE>_POSTGRES_USER` and `<SERVICE>_POSTGRES_PASSWORD` variables of the databases listed in its `databases` value. The role must own its database (or hold `CREATE` on it): the service creates its schema and runs its own migrations on start. `livekit-pooler` uses the `messaging` database, and `outbox-worker` relays the outboxes of `OUTBOX_SOURCES` with those services' credentials. Passwords live in `<release>-databases` under `<service>-password` keys unless `databases.existingSecret` names a Secret you manage. Set `livekit.externalName` to the LiveKit host if it lives outside the namespace so the gateway's `livekit:7880` upstream resolves.
 
 Voice clients connect to `config.LIVEKIT_CLIENT_URL`. The gateway proxies LiveKit on its `livekit` port (7880), and with `gateway.ingress.enabled` a second rule for `gateway.ingress.livekitHost` routes that host to it, so `LIVEKIT_CLIENT_URL` should be `wss://<livekitHost>` (or a separately published LiveKit endpoint). WebSocket upgrades on `/ws` and the LiveKit host need an ingress controller that supports them; for ingress-nginx set the read/send timeout annotations accordingly.
 
@@ -29,7 +33,7 @@ Images come from `image.registry/<service>:image.tag` (defaults to `ghcr.io/rift
 
 ## Secrets
 
-`secrets.*` are rendered into `<release>-secrets` unless `secrets.existingSecret` names a Secret you manage yourself; keys must match the environment variable names (`JWT_SECRET`, `POSTGRES_PASSWORD`, `LIVEKIT_API_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MAILER_USERNAME`, `MAILER_PASSWORD`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `STEAM_API_KEY`).
+`secrets.*` are rendered into `<release>-secrets` unless `secrets.existingSecret` names a Secret you manage yourself; keys must match the environment variable names (`JWT_SECRET`, `LIVEKIT_API_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MAILER_USERNAME`, `MAILER_PASSWORD`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `STEAM_API_KEY`).
 
 ## Gateway config
 

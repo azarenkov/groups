@@ -4,5 +4,6 @@ pub mod dm_message;
 pub mod friendship;
 pub mod message;
 pub mod server;
+pub mod storage;
 pub mod user;
 pub mod webhook;

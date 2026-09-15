@@ -40,6 +40,27 @@ capabilities:
   drop: ["ALL"]
 {{- end }}
 
+{{- define "rift.databaseSecretName" -}}
+{{ .Values.databases.existingSecret | default (printf "%s-databases" .Release.Name) }}
+{{- end }}
+
+{{- define "rift.databaseEnv" -}}
+{{- $root := .root -}}
+{{- range .databases }}
+{{- $db := index $root.Values.databases . }}
+{{- $prefix := upper . }}
+- name: {{ $prefix }}_POSTGRES_DB
+  value: {{ $db.name | quote }}
+- name: {{ $prefix }}_POSTGRES_USER
+  value: {{ $db.user | quote }}
+- name: {{ $prefix }}_POSTGRES_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "rift.databaseSecretName" $root }}
+      key: {{ printf "%s-password" . }}
+{{- end }}
+{{- end }}
+
 {{- define "rift.envFrom" -}}
 envFrom:
   - configMapRef:
@@ -51,6 +72,7 @@ envFrom:
 {{- define "rift.checksums" -}}
 checksum/env: {{ .Values.config | toYaml | sha256sum }}
 checksum/secrets: {{ .Values.secrets | toYaml | sha256sum }}
+checksum/databases: {{ .Values.databases | toYaml | sha256sum }}
 {{- end }}
 
 {{- define "rift.probes" -}}

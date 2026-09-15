@@ -8,6 +8,7 @@ use messaging_domain::{events::MessagingEvent, dm_message::DmMessage, dm_message
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::outbox::storage::release_storage_keys;
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
     repositories::{
@@ -131,17 +132,7 @@ impl DmTransaction for PostgresDmTransaction {
                     "attachments unavailable".to_string(),
                 ));
             }
-            sqlx::query!(
-                r#"
-                INSERT INTO storage_cleanup_queue (storage_key)
-                SELECT * FROM UNNEST($1::text[])
-                ON CONFLICT (storage_key) DO NOTHING
-                "#,
-                &removed_keys,
-            )
-            .execute(&mut *self.tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+            release_storage_keys(&mut self.tx, &removed_keys).await?;
         }
         insert_dm_links(&mut self.tx, message.id().uuid(), add_attachments).await?;
         let final_count = sqlx::query_scalar!(
@@ -182,17 +173,7 @@ impl DmTransaction for PostgresDmTransaction {
         .fetch_all(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"
-            INSERT INTO storage_cleanup_queue (storage_key)
-            SELECT * FROM UNNEST($1::text[])
-            ON CONFLICT (storage_key) DO NOTHING
-            "#,
-            &removed_keys,
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        release_storage_keys(&mut self.tx, &removed_keys).await?;
         let result = sqlx::query!(
             r#"
             DELETE FROM dm_messages WHERE id = $1

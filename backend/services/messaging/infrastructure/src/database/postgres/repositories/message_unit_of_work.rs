@@ -7,6 +7,7 @@ use messaging_domain::{events::MessagingEvent, message::Message, message::unit_o
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::outbox::storage::release_storage_keys;
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
     repositories::{message::insert_message_links, outbox_record::save_outbox_records},
@@ -110,17 +111,7 @@ impl MessageTransaction for PostgresMessageTransaction {
                     "attachments unavailable".to_string(),
                 ));
             }
-            sqlx::query!(
-                r#"
-                INSERT INTO storage_cleanup_queue (storage_key)
-                SELECT * FROM UNNEST($1::text[])
-                ON CONFLICT (storage_key) DO NOTHING
-                "#,
-                &removed_keys,
-            )
-            .execute(&mut *self.tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+            release_storage_keys(&mut self.tx, &removed_keys).await?;
         }
         insert_message_links(&mut self.tx, message.id().uuid(), add_attachments).await?;
         let final_count = sqlx::query_scalar!(

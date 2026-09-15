@@ -56,6 +56,12 @@ const STREAMS: &[StreamDef] = &[
         tier: StreamTier::Cold,
     },
     StreamDef {
+        name: "RIFT_STORAGE_EVENTS",
+        subject_suffix: "storage.>",
+        max_age_secs: 60 * 60 * 24 * 7,
+        tier: StreamTier::Hot,
+    },
+    StreamDef {
         name: "RIFT_DLQ",
         subject_suffix: "dlq.>",
         max_age_secs: 60 * 60 * 24 * 90,
