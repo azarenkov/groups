@@ -45,11 +45,8 @@ pub struct AppState {
         JwtTokenIssuer,
         NsfwDetector,
     >,
-    pub issue_verification_code_usecase: IssueVerificationCode<
-        PostgresUserRepository,
-        PostgresIdentityUnitOfWork,
-        BcryptHasher,
-    >,
+    pub issue_verification_code_usecase:
+        IssueVerificationCode<PostgresIdentityUnitOfWork, BcryptHasher>,
     pub login_user_usecase: LoginUser<
         PostgresUserRepository,
         BcryptHasher,

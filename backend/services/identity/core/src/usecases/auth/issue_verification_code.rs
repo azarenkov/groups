@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash};
 
 use crate::{
     dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest,
@@ -32,30 +32,22 @@ impl From<UserError> for IssueVerificationCodeError {
     }
 }
 
-pub struct IssueVerificationCode<U, W, H>
+pub struct IssueVerificationCode<W, H>
 where
-    U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
 {
-    user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
 }
 
-impl<U, W, H> IssueVerificationCode<U, W, H>
+impl<W, H> IssueVerificationCode<W, H>
 where
-    U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
 {
-    pub fn new(
-        user_repository: Arc<U>,
-        unit_of_work: Arc<W>,
-        hasher: Arc<H>,
-    ) -> Self {
+    pub fn new(unit_of_work: Arc<W>, hasher: Arc<H>) -> Self {
         Self {
-            user_repository,
             unit_of_work,
             hasher,
         }
@@ -70,16 +62,14 @@ where
             return Err(IssueVerificationCodeError::UnsupportedChannel);
         }
 
-        let user = self
-            .user_repository
-            .find_by_id(&user_id)
-            .await?
-            .ok_or(RepositoryError::NotFound)?;
-
-        user.ensure_can_request_verification(request.purpose)?;
-
         let plain_code = VerificationCode::generate();
         let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
+
+        let mut tx = self.unit_of_work.begin().await?;
+        let user = tx
+            .load_user_for_update(&user_id)
+            .await?
+            .ok_or(RepositoryError::NotFound)?;
 
         let mut verification_code =
             user.issue_verification(request.channel, request.purpose, plain_code, code_hash)?;
@@ -90,7 +80,6 @@ where
             .map(IdentityEvent::from)
             .collect();
 
-        let mut tx = self.unit_of_work.begin().await?;
         tx.insert_verification_code(&verification_code).await?;
         tx.save_events(&events, request.ctx.request_id.as_deref()).await?;
         tx.commit().await?;

@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
+use domain::user::id::UserId;
 use identity_domain::unit_of_work::IdentityUnitOfWork;
 
 use crate::{
     ports::{access_revoker::AccessRevoker, activity_store::ActivityStore},
-    usecases::user::account_deletion::{AccountDeletionError, SideEffects, apply_account_deletion},
+    usecases::user::account_deletion::{
+        AccountDeletionError, apply_account_deletion, clear_deleted_user_caches,
+    },
 };
 
 const MAX_BATCHES_PER_RUN: usize = 20;
@@ -64,20 +67,34 @@ where
         let users = tx
             .load_stale_unverified_users_for_update(registered_before, self.batch_size)
             .await?;
-        let purged = users.len();
+        let mut purged: Vec<UserId> = Vec::with_capacity(users.len());
         for mut user in users {
-            apply_account_deletion(
-                &mut *tx,
-                &mut user,
-                now,
-                &*self.activity_store,
-                &*self.access_revoker,
-                SideEffects::BestEffort,
-                None,
-            )
-            .await?;
+            let user_id = user.id_ownned();
+            apply_account_deletion(&mut *tx, &mut user, now, None).await?;
+            purged.push(user_id);
         }
         tx.commit().await?;
-        Ok(purged)
+        self.clear_caches(&purged, now).await;
+        Ok(purged.len())
+    }
+
+    async fn clear_caches(&self, purged: &[UserId], now: chrono::DateTime<Utc>) {
+        for (index, user_id) in purged.iter().enumerate() {
+            if let Err(e) = clear_deleted_user_caches(
+                &*self.activity_store,
+                &*self.access_revoker,
+                user_id,
+                now,
+            )
+            .await
+            {
+                tracing::warn!(
+                    error = %e,
+                    skipped = purged.len() - index,
+                    "Could not clear caches of purged accounts; skipping the rest of the batch"
+                );
+                return;
+            }
+        }
     }
 }

@@ -151,7 +151,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             reserved_names.clone(),
         ),
         issue_verification_code_usecase: IssueVerificationCode::new(
-            user_repository.clone(),
             unit_of_work.clone(),
             hasher.clone(),
         ),

@@ -12,7 +12,9 @@ use crate::{
         hasher::{HashError, Hasher},
         oauth_verifier::OAuthIdentityVerifier,
     },
-    usecases::user::account_deletion::{AccountDeletionError, SideEffects, apply_account_deletion},
+    usecases::user::account_deletion::{
+        AccountDeletionError, apply_account_deletion, clear_deleted_user_caches,
+    },
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -106,16 +108,15 @@ where
         {
             self.reauthenticator.verify(&user, reauth).await?;
         }
-        apply_account_deletion(
-            &mut *tx,
-            &mut user,
-            Utc::now(),
+        let now = Utc::now();
+        clear_deleted_user_caches(
             &*self.activity_store,
             &*self.access_revoker,
-            SideEffects::Required,
-            request_id,
+            &user_id,
+            now,
         )
         .await?;
+        apply_account_deletion(&mut *tx, &mut user, now, request_id).await?;
         tx.commit().await?;
         Ok(())
     }
