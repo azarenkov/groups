@@ -41,7 +41,6 @@ class ServerAPI {
     const form = new FormData();
     form.append("file", file, file.name);
     await this.client.post(`/v1/servers/${serverId}/logo`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
       timeout: 60000,
     });
   }

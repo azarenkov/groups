@@ -36,6 +36,9 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const accessToken = useAuthStore.getState().tokens?.accessToken;
     if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   }
+  if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+    config.headers.setContentType("multipart/form-data");
+  }
   return config;
 });
 
