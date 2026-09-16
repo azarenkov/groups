@@ -22,7 +22,10 @@ export function useHomeRefresh({ hasSession, homeActive, watched }: HomeRefreshO
     };
   }, [hasSession, homeActive, fetchHome]);
   const homeRefreshArmedRef = useRef(false);
+  const watchedRef = useRef<unknown[]>([]);
   useEffect(() => {
+    const previous = watchedRef.current;
+    watchedRef.current = watched;
     if (!homeActive) {
       homeRefreshArmedRef.current = false;
       return;
@@ -31,8 +34,12 @@ export function useHomeRefresh({ hasSession, homeActive, watched }: HomeRefreshO
       homeRefreshArmedRef.current = true;
       return;
     }
+    const changed =
+      previous.length !== watched.length ||
+      watched.some((value, index) => !Object.is(value, previous[index]));
+    if (!changed) return;
     scheduleHomeRefresh();
-  }, [homeActive, watched]);
+  });
 
 
   return { fetchHome };
