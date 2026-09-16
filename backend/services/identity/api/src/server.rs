@@ -27,6 +27,7 @@ use identity::usecases::{
         update_locale::UpdateUserLocale,
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
         delete_account::DeleteAccount, disable_account::DisableAccount,
+        purge_unverified_accounts::PurgeUnverifiedAccounts,
         reauth::Reauthenticator, request_email_change::RequestEmailChange,
         update_profile::UpdateProfile,
     },
@@ -35,7 +36,7 @@ use domain::user::name::ReservedNames;
 use infrastructure_common::{
     config::{
         google::GoogleOAuthConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
-        username::UsernameConfig,
+        unverified_cleanup::UnverifiedCleanupConfig, username::UsernameConfig,
     },
     hasher::bcrypt_hasher::BcryptHasher,
 };
@@ -71,6 +72,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let nsfw_config = NsfwConfig::from_env()?;
     let username_config = UsernameConfig::from_env()?;
+    let unverified_cleanup_config = UnverifiedCleanupConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
@@ -109,6 +111,30 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let activity_store = Arc::new(RedisActivityStore::from_env());
     let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
     let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
+    if unverified_cleanup_config.enabled() {
+        let purge_unverified = Arc::new(PurgeUnverifiedAccounts::new(
+            unit_of_work.clone(),
+            access_revoker.clone(),
+            activity_store.clone(),
+            unverified_cleanup_config.ttl(),
+            unverified_cleanup_config.batch_size(),
+        ));
+        let sweep_interval = unverified_cleanup_config.interval();
+        actix_web::rt::spawn(async move {
+            let mut ticker = actix_web::rt::time::interval(sweep_interval);
+            loop {
+                ticker.tick().await;
+                match purge_unverified.run_once().await {
+                    Ok(0) => {}
+                    Ok(purged) => {
+                        tracing::info!(purged, "Removed unverified accounts past their lifetime")
+                    }
+                    Err(e) => tracing::warn!(error = %e, "Unverified account cleanup failed"),
+                }
+            }
+        });
+    }
+
     let reauthenticator = Arc::new(Reauthenticator::new(
         user_repository.clone(),
         hasher.clone(),

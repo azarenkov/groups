@@ -147,6 +147,33 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(dto.map(User::from))
     }
 
+    async fn load_stale_unverified_users_for_update(
+        &mut self,
+        registered_before: DateTime<Utc>,
+        limit: i64,
+    ) -> Result<Vec<User>, RepositoryError> {
+        let dtos = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT id, name, email, password_hash, created_at, updated_at,
+                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
+            FROM users
+            WHERE email_verified_at IS NULL
+              AND deleted_at IS NULL
+              AND created_at < $1
+            ORDER BY created_at
+            LIMIT $2
+            FOR UPDATE SKIP LOCKED
+            "#,
+            registered_before,
+            limit,
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(dtos.into_iter().map(User::from).collect())
+    }
+
     async fn load_pending_verification_for_update(&mut self, user_id: &UserId) -> Result<Option<VerificationCode>, RepositoryError> {
         let row = sqlx::query!(
             r#"
