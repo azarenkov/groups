@@ -1,8 +1,6 @@
 import { blockGeneration, useBlockStore } from "../../store/blockStore";
 import { friendshipAPI } from "../../api/friendship";
 import React from "react";
-import { bindingFor } from "../../services/hotkeys";
-import { eventMatches } from "../../utils/hotkeys";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import CallJoinBanner from "./CallJoinBanner";
@@ -15,7 +13,6 @@ import { useReadReceiptStore } from "../../store/readReceiptStore";
 import { Attachment, ChannelMessage, SystemMessageInfo } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
-import { colorForId } from "../../utils/avatar";
 import { UserAvatar } from "./Avatar";
 import {
   useWsChannelMessages,
@@ -30,12 +27,13 @@ import {
   userPermissions,
 } from "../../store/rolesStore";
 import ChannelHeader from "./chat/ChannelHeader";
+import Composer from "./chat/Composer";
 import { useAttachments } from "../../hooks/chat/useAttachments";
 import { useMentions } from "../../hooks/chat/useMentions";
 import { MAX_CONTENT, PAGE_LIMIT } from "./chat/constants";
 import Message from "./chat/Message";
 import type { ChannelMeta, DmMeta } from "./chat/types";
-import { formatDayDivider, formatFileSize, mergeWithLive, sameDay, splitForSend } from "../../utils/messageFormat";
+import { formatDayDivider, mergeWithLive, sameDay, splitForSend } from "../../utils/messageFormat";
 
 
 interface ChatViewProps {
@@ -1073,6 +1071,21 @@ const ChatView: React.FC<ChatViewProps> = ({
     setEditText(msg.content);
   };
 
+  const editLastOwnMessage = React.useCallback((): boolean => {
+    const last = [...messagesRef.current]
+      .reverse()
+      .find(
+        (m) =>
+          m.authorId === currentUserId &&
+          !m.callStatus &&
+          !m.inviteServerId &&
+          !m.system,
+      );
+    if (!last) return false;
+    startEdit(last);
+    return true;
+  }, [currentUserId, startEdit]);
+
   const cancelEdit = () => {
     if (savingEdit) return;
     discardEditFiles();
@@ -1479,183 +1492,31 @@ const ChatView: React.FC<ChatViewProps> = ({
           )}
         </div>
       ) : !callMode && (
-      <form className="composer" onSubmit={handleSend}>
-        {pendingFiles.length > 0 && (
-          <div className="attach-chips">
-            {pendingFiles.map((p) => (
-              <div
-                key={p.localId}
-                className={"attach-chip" + (p.error ? " error" : "")}
-              >
-                {!p.error && !p.attachment && (
-                  <span
-                    className="attach-chip-progress"
-                    style={{ width: `${Math.round(p.progress * 100)}%` }}
-                  />
-                )}
-                <Icon
-                  name={p.file.type.startsWith("image/") ? "camera" : "pin"}
-                  size={13}
-                />
-                <span className="attach-chip-name">{p.file.name}</span>
-                <span className="attach-chip-size">
-                  {p.error
-                    ? i18n.t("attachmentFailed", { ns: "chat" })
-                    : formatFileSize(p.file.size)}
-                </span>
-                <button
-                  type="button"
-                  className="attach-chip-remove"
-                  onClick={() => removePendingFile(p.localId)}
-                >
-                  <Icon name="x" size={11} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="composer-wrap">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            style={{ display: "none" }}
-            onChange={(e) => {
-              if (e.target.files) addFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            className="attach-btn"
-            title={i18n.t("attachFile", { ns: "chat" })}
-            disabled={sending}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Icon name="paperclip" size={17} />
-          </button>
-          {mentionQuery && mentionSuggestions.length > 0 && (
-            <div className="mention-pop">
-              {mentionSuggestions.map((p, i) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  className={
-                    "mention-pop-item" + (i === mentionIndex ? " active" : "")
-                  }
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    applyMention(p.name);
-                  }}
-                  onMouseEnter={() => setMentionIndex(i)}
-                >
-                  <UserAvatar
-                    userId={p.id}
-                    name={p.name}
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: "50%",
-                      background: colorForId(p.id),
-                      color: "#fff",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  />
-                  <span className="mention-pop-name">{p.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          <input
-            ref={composerRef}
-            placeholder={placeholder}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              if (composerError) setComposerError(null);
-              updateMentionQuery(e.target.value, e.target.selectionStart);
-            }}
-            onKeyDown={(e) => {
-              if (
-                text === "" &&
-                !mentionQuery &&
-                !e.nativeEvent.isComposing &&
-                !e.nativeEvent.repeat &&
-                eventMatches(e.nativeEvent, bindingFor("editLastMessage") ?? "")
-              ) {
-                const last = [...messages]
-                  .reverse()
-                  .find(
-                    (m) =>
-                      m.authorId === currentUserId &&
-                      !m.callStatus &&
-                      !m.inviteServerId &&
-                      !m.system,
-                  );
-                if (last) {
-                  e.preventDefault();
-                  startEdit(last);
-                }
-                return;
-              }
-              if (!mentionQuery || mentionSuggestions.length === 0) return;
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setMentionIndex((i) => (i + 1) % mentionSuggestions.length);
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setMentionIndex(
-                  (i) =>
-                    (i - 1 + mentionSuggestions.length) %
-                    mentionSuggestions.length,
-                );
-              } else if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                const pick =
-                  mentionSuggestions[mentionIndex] ?? mentionSuggestions[0];
-                applyMention(pick.name);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                setMentionQuery(null);
-              }
-            }}
-            onBlur={() => setMentionQuery(null)}
-            onSelect={(e) =>
-              updateMentionQuery(
-                e.currentTarget.value,
-                e.currentTarget.selectionStart,
-              )
-            }
-            onPaste={(e) => {
-              const files = Array.from(e.clipboardData?.files ?? []);
-              if (files.length > 0) {
-                e.preventDefault();
-                addFiles(files);
-              }
-            }}
-            autoFocus
-            disabled={sending}
-          />
-          <button
-            type="submit"
-            className={
-              "send-btn" +
-              (text.trim() || pendingFiles.some((p) => p.attachment)
-                ? " enabled"
-                : "")
-            }
-            aria-label={i18n.t("send", { ns: "chat" })}
-            disabled={sending}
-          >
-            <Icon name="send" size={14} />
-          </button>
-        </div>
-        {composerError && <div className="composer-error">{composerError}</div>}
-      </form>
+      <Composer
+          composerRef={composerRef}
+          fileInputRef={fileInputRef}
+          text={text}
+          placeholder={placeholder}
+          sending={sending}
+          composerError={composerError}
+          pendingFiles={pendingFiles}
+          mentionQuery={mentionQuery}
+          mentionSuggestions={mentionSuggestions}
+          mentionIndex={mentionIndex}
+          onTextChange={(value, caret) => {
+            setText(value);
+            if (composerError) setComposerError(null);
+            updateMentionQuery(value, caret);
+          }}
+          onCaretChange={updateMentionQuery}
+          onSubmit={handleSend}
+          onAddFiles={addFiles}
+          onRemovePendingFile={removePendingFile}
+          onMentionIndexChange={setMentionIndex}
+          onApplyMention={applyMention}
+          onCloseMentions={() => setMentionQuery(null)}
+          onEditLastMessage={editLastOwnMessage}
+        />
       )}
       {deleteTarget && (
         <ConfirmModal
