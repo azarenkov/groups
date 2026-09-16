@@ -9,7 +9,6 @@ import { extractInviteToken } from "../utils/inviteLinks";
 import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
-import NewDmModal from "../components/NewDmModal";
 import AddFriendModal from "../components/AddFriendModal";
 import UserProfileModal from "../components/rift/UserProfileModal";
 import PendingFriendsModal from "../components/PendingFriendsModal";
@@ -58,10 +57,7 @@ import { useLocalDeafened } from "../hooks/useLocalDeafened";
 import { qualityClass, qualityLabel } from "../utils/quality";
 import { Channel, ChannelKind, ChannelParticipant } from "../types/channel";
 import { Server } from "../types/server";
-import {
-  type MockDirect,
-  type MockMember,
-} from "../data/mockData";
+import type { DirectConversation } from "../types/dm";
 import "../styles/rift.css";
 
 const ServersPage: React.FC = () => {
@@ -118,7 +114,6 @@ const ServersPage: React.FC = () => {
     setServerModalView("join");
     setIsServerModalOpen(true);
   }, [searchParams, setSearchParams]);
-  const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalServer, setInviteModalServer] = useState<Server | null>(null);
@@ -150,11 +145,10 @@ const ServersPage: React.FC = () => {
     server: Server;
     channel: Channel;
   } | null>(null);
-  const [selectedDm, setSelectedDm] = useState<MockDirect | null>(null);
+  const [selectedDm, setSelectedDm] = useState<DirectConversation | null>(null);
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
-  const [directs, setDirects] = useState<MockDirect[]>([]);
   const [sidebarQuery, setSidebarQuery] = useState("");
 
   const onlineUsers = usePresenceStore((s) => s.online);
@@ -175,8 +169,8 @@ const ServersPage: React.FC = () => {
     },
     [tSidebar, user?.id],
   );
-  const acceptedFriends: MockDirect[] = React.useMemo(() => {
-    const items: MockDirect[] = friends
+  const acceptedFriends: DirectConversation[] = React.useMemo(() => {
+    const items: DirectConversation[] = friends
       .filter((f) => f.status === "accepted")
       .map((f) => ({
         id: f.friendId,
@@ -560,7 +554,7 @@ const ServersPage: React.FC = () => {
     finalizeJoin(server, channel);
   };
 
-  const handleSelectDm = (dm: MockDirect) => {
+  const handleSelectDm = (dm: DirectConversation) => {
     const cs = useCallStore.getState();
     const inCallWithDm =
       !!cs.activeCallId && (cs.peerId === dm.id || dm.id in cs.participants);
@@ -715,26 +709,6 @@ const ServersPage: React.FC = () => {
     }
   };
 
-  const handlePickDmFromModal = (person: MockMember) => {
-    const existing = directs.find((d) => d.name === person.name);
-    if (existing) {
-      setSelectedDm(existing);
-      setIsDmModalOpen(false);
-      return;
-    }
-    const newDm: MockDirect = {
-      id: "dm-" + Date.now().toString(36),
-      name: person.name,
-      initials: person.initials,
-      color: person.color,
-      online: person.status === "online",
-      unread: 0,
-    };
-    setDirects((prev) => [newDm, ...prev]);
-    setSelectedDm(newDm);
-    setIsDmModalOpen(false);
-  };
-
   const stepConversation = (delta: -1 | 1) => {
     if (selectedServer && !selectedDm) {
       const list = (channelsByServer[selectedServer.id] ?? []).filter(
@@ -773,7 +747,6 @@ const ServersPage: React.FC = () => {
     !!channelModal ||
     !!inviteModalServer ||
     isServerModalOpen ||
-    isDmModalOpen ||
     isAddFriendOpen ||
     isPendingOpen;
   useHotkey("nextChannel", () => stepConversation(1), !navigationBlocked);
@@ -1471,12 +1444,6 @@ const ServersPage: React.FC = () => {
         }}
       />
 
-      <NewDmModal
-        isOpen={isDmModalOpen}
-        existingDirects={directs}
-        onClose={() => setIsDmModalOpen(false)}
-        onPick={handlePickDmFromModal}
-      />
 
       <IncomingCallModal />
       <ActiveCallBar

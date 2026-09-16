@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
 import type { Server } from "../../types/server";
 import type { Channel, ChannelKind } from "../../types/channel";
-import type { MockDirect } from "../../data/mockData";
+import type { DirectConversation } from "../../types/dm";
 import { colorForId } from "../../utils/avatar";
 import { useActivityStore } from "../../store/activityStore";
 import { ServerLogo, UserAvatar } from "./Avatar";
@@ -26,13 +26,13 @@ interface SidebarProps {
   selectedChannelId: string | null;
   joinedChannelId: string | null;
   selectedDmId: string | null;
-  directs: MockDirect[];
+  directs: DirectConversation[];
   hasMoreDirects?: boolean;
   onLoadMoreDirects?: () => void;
   onToggleServer: (serverId: string) => void;
   onSelectServer: (serverId: string) => void;
   onSelectChannel: (server: Server, channel: Channel) => void;
-  onSelectDm: (dm: MockDirect) => void;
+  onSelectDm: (dm: DirectConversation) => void;
   onInviteServer: (server: Server) => void;
   onOpenServerSettings: (server: Server) => void;
   onAddChannel: (server: Server, kind: ChannelKind) => void;
@@ -326,7 +326,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     setQuery("");
   };
 
-  const pickDm = (d: MockDirect) => {
+  const pickDm = (d: DirectConversation) => {
     onSelectDm(d);
     settleAfterPick("dms");
   };
