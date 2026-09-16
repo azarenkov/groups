@@ -414,6 +414,7 @@ impl HttpMapping for IssueVerificationCodeError {
             IssueVerificationCodeError::Hash(e) => e.to_http_status(),
             IssueVerificationCodeError::UnsupportedChannel => StatusCode::BAD_REQUEST,
             IssueVerificationCodeError::UserAlreadyVerified => StatusCode::CONFLICT,
+            IssueVerificationCodeError::UserNotFound => StatusCode::NOT_FOUND,
         }
     }
 
@@ -425,6 +426,7 @@ impl HttpMapping for IssueVerificationCodeError {
                 "Unsupported verification channel".to_string()
             }
             IssueVerificationCodeError::UserAlreadyVerified => "User already verified".to_string(),
+            IssueVerificationCodeError::UserNotFound => "User not found".to_string(),
         }
     }
 
@@ -434,6 +436,7 @@ impl HttpMapping for IssueVerificationCodeError {
             IssueVerificationCodeError::Hash(e) => e.to_error_code(),
             IssueVerificationCodeError::UnsupportedChannel => "VERIFICATION_CHANNEL_UNSUPPORTED",
             IssueVerificationCodeError::UserAlreadyVerified => "USER_ALREADY_VERIFIED",
+            IssueVerificationCodeError::UserNotFound => "USER_NOT_FOUND",
         }
     }
 }

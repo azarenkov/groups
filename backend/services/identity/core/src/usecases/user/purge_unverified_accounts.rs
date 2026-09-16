@@ -5,7 +5,7 @@ use identity_domain::unit_of_work::IdentityUnitOfWork;
 
 use crate::{
     ports::{access_revoker::AccessRevoker, activity_store::ActivityStore},
-    usecases::user::account_deletion::{AccountDeletionError, apply_account_deletion},
+    usecases::user::account_deletion::{AccountDeletionError, SideEffects, apply_account_deletion},
 };
 
 const MAX_BATCHES_PER_RUN: usize = 20;
@@ -72,6 +72,7 @@ where
                 now,
                 &*self.activity_store,
                 &*self.access_revoker,
+                SideEffects::BestEffort,
                 None,
             )
             .await?;

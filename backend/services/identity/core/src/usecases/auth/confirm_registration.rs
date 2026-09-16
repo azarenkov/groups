@@ -37,12 +37,12 @@ impl From<UserError> for ConfirmRegistrationError {
             UserError::TooManyAttempts => Self::TooManyAttempts,
             UserError::CodeExpired => Self::VerificationCodeExpired,
             UserError::BadCode => Self::BadVerificationCode,
+            UserError::Deleted => Self::UserNotFound,
             UserError::NotRegistrationCode
             | UserError::ForeignCode
             | UserError::NotEmailChangeCode
             | UserError::NoPendingEmail
-            | UserError::BioTooLong
-            | UserError::Deleted => Self::NotRegistration,
+            | UserError::BioTooLong => Self::NotRegistration,
         }
     }
 }

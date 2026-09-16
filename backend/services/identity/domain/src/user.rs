@@ -149,6 +149,9 @@ impl User {
     }
 
     pub fn ensure_can_request_verification(&self, purpose: VerificationPurpose) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
         if purpose.is_registration() && self.is_verified() {
             return Err(UserError::AlreadyVerified);
         }
@@ -175,6 +178,9 @@ impl User {
     }
 
     pub fn ensure_can_confirm(&self, code: &VerificationCode, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
         if self.is_verified() {
             return Err(UserError::AlreadyVerified);
         }

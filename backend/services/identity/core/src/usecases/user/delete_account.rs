@@ -12,7 +12,7 @@ use crate::{
         hasher::{HashError, Hasher},
         oauth_verifier::OAuthIdentityVerifier,
     },
-    usecases::user::account_deletion::{AccountDeletionError, apply_account_deletion},
+    usecases::user::account_deletion::{AccountDeletionError, SideEffects, apply_account_deletion},
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -112,6 +112,7 @@ where
             Utc::now(),
             &*self.activity_store,
             &*self.access_revoker,
+            SideEffects::Required,
             request_id,
         )
         .await?;

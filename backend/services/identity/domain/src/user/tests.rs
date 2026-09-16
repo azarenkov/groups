@@ -140,3 +140,26 @@ fn an_account_can_only_be_deleted_once() {
     user.delete(Utc::now()).unwrap();
     assert!(matches!(user.delete(Utc::now()), Err(UserError::Deleted)));
 }
+
+#[test]
+fn a_deleted_account_cannot_confirm_its_registration() {
+    let mut user = fresh_user();
+    let code = registration_code(&user);
+    user.delete(Utc::now()).unwrap();
+
+    assert!(matches!(
+        user.ensure_can_confirm(&code, Utc::now()),
+        Err(UserError::Deleted)
+    ));
+}
+
+#[test]
+fn a_deleted_account_cannot_ask_for_another_code() {
+    let mut user = fresh_user();
+    user.delete(Utc::now()).unwrap();
+
+    assert!(matches!(
+        user.ensure_can_request_verification(VerificationPurpose::Registration),
+        Err(UserError::Deleted)
+    ));
+}
