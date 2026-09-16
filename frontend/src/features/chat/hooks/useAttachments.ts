@@ -162,6 +162,15 @@ export function useAttachments() {
     setEditRemovedIds([]);
   }, [discardPendingFile]);
 
+  const discardPendingFiles = React.useCallback(() => {
+    setPendingFiles((prev) => {
+      for (const p of prev) {
+        if (!inFlightSendRef.current.has(p.localId)) discardPendingFile(p);
+      }
+      return [];
+    });
+  }, [discardPendingFile]);
+
   const toggleRemoveAttachment = React.useCallback((id: string) => {
     setEditRemovedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -198,6 +207,7 @@ export function useAttachments() {
     addEditFiles,
     removeEditFile,
     discardEditFiles,
+    discardPendingFiles,
     toggleRemoveAttachment,
   };
 }
