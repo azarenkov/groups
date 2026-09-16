@@ -1,48 +1,28 @@
 import {
   ConnectionQuality,
-  ConnectionState,
   DisconnectReason,
   Room,
-  RoomEvent,
   Track,
   RemoteParticipant,
-  RemoteTrackPublication,
-  RemoteTrack,
   AudioTrack,
   LocalAudioTrack,
   createLocalAudioTrack,
   RoomConnectOptions,
-  TrackEvent,
   VideoTrack,
 } from "livekit-client";
 
 import type { DfnPipeline } from "../../../shared/lib/dfn";
+import { RemoteAudioGraph } from "./livekit/remoteAudio";
+import { attachRoomListeners } from "./livekit/roomEvents";
+import type {
+  NoiseSuppressionMode,
+  ParticipantInfo,
+  VideoTile,
+} from "./livekit/types";
 
-export type NoiseSuppressionMode = "off" | "standard" | "high";
+export type { NoiseSuppressionMode, ParticipantInfo, VideoTile };
 
 export { ConnectionQuality, DisconnectReason };
-
-export interface ParticipantInfo {
-  identity: string;
-  name: string;
-  isSpeaking: boolean;
-  isMuted: boolean;
-  isDeafened: boolean;
-  isSharingScreen: boolean;
-  audioTrack: AudioTrack | null;
-  cameraTrack: VideoTrack | null;
-  screenTrack: VideoTrack | null;
-  quality: ConnectionQuality;
-}
-
-export interface VideoTile {
-  id: string;
-  identity: string;
-  name: string;
-  isLocal: boolean;
-  source: "camera" | "screen";
-  track: VideoTrack;
-}
 
 export class LiveKitService {
   private room: Room | null = null;
@@ -64,20 +44,10 @@ export class LiveKitService {
   private micGainAnalyser: AnalyserNode | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
   private desiredMicMuted: boolean = false;
-  private remoteVolumes: Map<string, number> = new Map();
-  private remoteAudioElements: Map<string, HTMLMediaElement[]> = new Map();
-  private remoteAudioCtx: AudioContext | null = null;
-  private remoteGainNodes: Map<string, GainNode[]> = new Map();
-  private remoteGraphDisabled: boolean = false;
-  private remoteSourceNodes: WeakMap<
-    HTMLMediaElement,
-    { source: MediaElementAudioSourceNode; gain: GainNode; identity: string }
-  > = new WeakMap();
-  private static readonly REMOTE_GAIN_MAX = 6.0;
+  private remoteAudio = new RemoteAudioGraph(() => this.room);
   private noiseStrength: number = 1.0;
   private preferredMicId: string | null = null;
   private preferredSpeakerId: string | null = null;
-  private masterVolume: number = 1.0;
   private deafened: boolean = false;
   private micVolume: number = 1.0;
   private micGainCtx: AudioContext | null = null;
@@ -349,12 +319,10 @@ export class LiveKitService {
       this.isConnecting = false;
       this.desiredMicMuted = false;
       this.micRebuildPending = false;
-      this.remoteVolumes.clear();
-      this.remoteAudioElements.clear();
-      this.remoteGainNodes.clear();
-      this.remoteSourceNodes = new WeakMap();
+      this.remoteAudio.clear();
       if (this.deafened) {
         this.deafened = false;
+        this.remoteAudio.setDeafened(false);
         this.emitLocalDeafened();
       }
       this.emitLocalQuality(ConnectionQuality.Unknown);
@@ -1050,166 +1018,49 @@ export class LiveKitService {
 
   private setupEventListeners(): void {
     if (!this.room) return;
-
-    this.room.on(RoomEvent.Connected, () => {
-      console.log("Channel connected successfully");
-      this.onConnectionStateChange?.(true);
-    });
-
-    this.room.on(RoomEvent.Reconnecting, () => {
-      console.log("Channel reconnecting...");
-    });
-
-    this.room.on(RoomEvent.Reconnected, () => {
-      console.log("Channel reconnected");
-    });
-
-    this.room.on(RoomEvent.LocalTrackPublished, () => {
-      this.notifyParticipantsChange();
-    });
-
-    this.room.on(RoomEvent.LocalTrackUnpublished, () => {
-      this.notifyParticipantsChange();
-    });
-
-    this.room.on(
-      RoomEvent.ParticipantConnected,
-      (participant: RemoteParticipant) => {
-        console.log("Participant connected:", participant.identity);
-        this.addParticipant(participant);
-      },
-    );
-
-    this.room.on(
-      RoomEvent.ParticipantDisconnected,
-      (participant: RemoteParticipant) => {
-        console.log("Participant disconnected:", participant.identity);
-        this.removeParticipant(participant.identity);
-      },
-    );
-
-    this.room.on(
-      RoomEvent.TrackSubscribed,
-      (
-        track: RemoteTrack,
-        _publication: RemoteTrackPublication,
-        participant: RemoteParticipant,
-      ) => {
-        console.log("Track subscribed:", track.kind, participant.identity);
-        if (track.kind === Track.Kind.Audio) {
-          this.handleAudioTrack(track as AudioTrack, participant);
-        } else if (track.kind === Track.Kind.Video) {
-          this.handleVideoTrack(track as VideoTrack, participant.identity);
-        }
-      },
-    );
-
-    this.room.on(
-      RoomEvent.TrackUnsubscribed,
-      (
-        track: RemoteTrack,
-        _publication: RemoteTrackPublication,
-        participant: RemoteParticipant,
-      ) => {
-        console.log("Track unsubscribed:", track.kind, participant.identity);
-        if (track.kind === Track.Kind.Audio) {
-          this.updateParticipant(participant.identity, { audioTrack: null });
-        } else if (track.kind === Track.Kind.Video) {
-          if ((track as VideoTrack).source === Track.Source.ScreenShare) {
-            this.updateParticipant(participant.identity, { screenTrack: null });
-          } else {
-            this.updateParticipant(participant.identity, { cameraTrack: null });
+    attachRoomListeners(this.room, {
+      onConnected: () => this.onConnectionStateChange?.(true),
+      onLocalTracksChanged: () => this.notifyParticipantsChange(),
+      onParticipantConnected: (participant) => this.addParticipant(participant),
+      onParticipantDisconnected: (identity) => this.removeParticipant(identity),
+      onAudioTrack: (track, participant) =>
+        this.handleAudioTrack(track, participant),
+      onVideoTrack: (track, identity) => this.handleVideoTrack(track, identity),
+      onParticipantPatch: (identity, patch) =>
+        this.updateParticipant(identity, patch),
+      onDisconnected: (reason) => this.handleRoomDisconnected(reason),
+      onLocalQuality: (quality) => this.emitLocalQuality(quality),
+      onReconnectingStarted: () => this.startReconnectAbortTimer(),
+      onReconnectingSettled: () => this.clearReconnectAbortTimer(),
+      onLocalAudioPublished: (publication) => {
+        if (this.desiredMicMuted && publication.track) {
+          try {
+            publication.track.mute();
+          } catch (e) {
+            console.warn(
+              "[LiveKitService] failed to apply pending mute to new track:",
+              e,
+            );
           }
         }
       },
-    );
-
-    this.room.on(RoomEvent.Disconnected, (reason) => {
-      console.log("Disconnected from room", { reason });
-      this.clearReconnectAbortTimer();
-      this.micSwitchSeq += 1;
-      this.teardownMicGain();
-      void this.tearDownDfn().then(() => this.emitLocalTrack());
-      this.participants.clear();
-      this.emitLocalQuality(ConnectionQuality.Unknown);
-      this.setLocalSpeaking(false);
-      this.notifyParticipantsChange();
-      this.onConnectionStateChange?.(false);
-      if (reason !== undefined && reason !== DisconnectReason.CLIENT_INITIATED) {
-        this.onUnexpectedDisconnect?.(reason);
-      }
+      onMediaDevicesError: (error) => this.onError?.(error),
     });
+  }
 
-    this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
-      const isLocal =
-        !participant ||
-        participant.identity === this.room?.localParticipant.identity;
-      if (isLocal) {
-        this.emitLocalQuality(quality);
-        return;
-      }
-      this.updateParticipant(participant.identity, { quality });
-    });
-
-    this.room.on(RoomEvent.ConnectionStateChanged, (state) => {
-      console.log("Connection state changed:", state);
-      if (
-        state === ConnectionState.Reconnecting ||
-        state === ConnectionState.SignalReconnecting
-      ) {
-        this.startReconnectAbortTimer();
-      } else {
-        this.clearReconnectAbortTimer();
-      }
-    });
-
-    this.room.on(RoomEvent.LocalTrackPublished, (publication) => {
-      if (publication.kind !== Track.Kind.Audio) return;
-      if (this.desiredMicMuted && publication.track) {
-        try {
-          publication.track.mute();
-        } catch (e) {
-          console.warn(
-            "[LiveKitService] failed to apply pending mute to new track:",
-            e,
-          );
-        }
-      }
-    });
-
-    this.room.on(RoomEvent.MediaDevicesError, (error, kind) => {
-      const fromScreenShare = kind === undefined;
-      const dismissed =
-        fromScreenShare &&
-        (error.name === "NotAllowedError" ||
-          error.name === "AbortError" ||
-          error.message.includes("Permission dismissed") ||
-          error.message.includes("Could not start video source"));
-      if (dismissed) {
-        console.warn("[LiveKitService] media device request dismissed:", error);
-        return;
-      }
-      console.error("Media devices error:", error);
-      this.onError?.(error);
-    });
-
-    this.room.on(
-      RoomEvent.ParticipantPermissionsChanged,
-      (prevPermissions, participant) => {
-        console.log("Participant permissions changed:", {
-          participant: participant.identity,
-          prevPermissions,
-        });
-      },
-    );
-
-    this.room.on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => {
-      if (participant.isLocal) return;
-      this.updateParticipant(participant.identity, {
-        isDeafened: participant.attributes?.deafened === "1",
-      });
-    });
-
+  private handleRoomDisconnected(reason?: DisconnectReason): void {
+    this.clearReconnectAbortTimer();
+    this.micSwitchSeq += 1;
+    this.teardownMicGain();
+    void this.tearDownDfn().then(() => this.emitLocalTrack());
+    this.participants.clear();
+    this.emitLocalQuality(ConnectionQuality.Unknown);
+    this.setLocalSpeaking(false);
+    this.notifyParticipantsChange();
+    this.onConnectionStateChange?.(false);
+    if (reason !== undefined && reason !== DisconnectReason.CLIENT_INITIATED) {
+      this.onUnexpectedDisconnect?.(reason);
+    }
   }
 
   private addParticipant(participant: RemoteParticipant): void {
@@ -1262,31 +1113,6 @@ export class LiveKitService {
     }
   }
 
-  private ensureRemoteAudioCtx(): AudioContext | null {
-    if (this.remoteGraphDisabled) return null;
-    if (this.remoteAudioCtx) return this.remoteAudioCtx;
-    try {
-      const Ctor =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext;
-      if (!Ctor) return null;
-      this.remoteAudioCtx = new Ctor();
-      if (this.preferredSpeakerId) {
-        void this.applySinkToCtx(this.preferredSpeakerId);
-      }
-      if (this.remoteGraphDisabled) return null;
-      return this.remoteAudioCtx;
-    } catch (e) {
-      console.warn("[LiveKitService] AudioContext init failed:", e);
-      return null;
-    }
-  }
-
-  private uiVolumeToGain(uiVolume: number): number {
-    return Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, uiVolume));
-  }
-
   private ensureParticipant(identity: string, name?: string): void {
     if (this.participants.has(identity)) return;
     this.participants.set(identity, {
@@ -1327,97 +1153,17 @@ export class LiveKitService {
       return;
     }
 
-    const audioElement = track.attach();
-    audioElement.volume = 1.0;
-    document.body.appendChild(audioElement);
-    const list = this.remoteAudioElements.get(participant.identity) ?? [];
-    list.push(audioElement);
-    this.remoteAudioElements.set(participant.identity, list);
-
-    const desiredUiVolume = this.remoteVolumes.get(participant.identity) ?? 1.0;
-    const ctx = this.remoteGraphDisabled ? null : this.ensureRemoteAudioCtx();
-    if (ctx) {
-      if (ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
-      }
-      try {
-        const source = ctx.createMediaElementSource(audioElement);
-        const gain = ctx.createGain();
-        gain.gain.value = this.effectiveGain(desiredUiVolume);
-        const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -18;
-        compressor.knee.value = 24;
-        compressor.ratio.value = 12;
-        compressor.attack.value = 0.003;
-        compressor.release.value = 0.25;
-        source.connect(gain);
-        gain.connect(compressor);
-        compressor.connect(ctx.destination);
-        this.remoteSourceNodes.set(audioElement, {
-          source,
-          gain,
-          identity: participant.identity,
-        });
-        const gains =
-          this.remoteGainNodes.get(participant.identity) ?? [];
-        gains.push(gain);
-        this.remoteGainNodes.set(participant.identity, gains);
-      } catch (e) {
-        console.warn(
-          "[LiveKitService] failed to wire remote gain node, falling back to element volume:",
-          e,
-        );
-        audioElement.volume = this.elementVolume(desiredUiVolume);
-      }
-    } else {
-      audioElement.volume = this.elementVolume(desiredUiVolume);
-    }
-
-    track.on(TrackEvent.Ended, () => {
-      const nodes = this.remoteSourceNodes.get(audioElement);
-      if (nodes) {
-        try {
-          nodes.gain.disconnect();
-          nodes.source.disconnect();
-        } catch {}
-        const gains =
-          this.remoteGainNodes.get(participant.identity) ?? [];
-        const remainingGains = gains.filter((g) => g !== nodes.gain);
-        if (remainingGains.length === 0) {
-          this.remoteGainNodes.delete(participant.identity);
-        } else {
-          this.remoteGainNodes.set(participant.identity, remainingGains);
-        }
-        this.remoteSourceNodes.delete(audioElement);
-      }
-      audioElement.remove();
-      const remaining = (
-        this.remoteAudioElements.get(participant.identity) ?? []
-      ).filter((el) => el !== audioElement);
-      if (remaining.length === 0) {
-        this.remoteAudioElements.delete(participant.identity);
-      } else {
-        this.remoteAudioElements.set(participant.identity, remaining);
-      }
-      this.updateParticipant(participant.identity, { audioTrack: null });
-    });
+    this.remoteAudio.attach(track, participant.identity, () =>
+      this.updateParticipant(participant.identity, { audioTrack: null }),
+    );
   }
 
   setRemoteVolume(identity: string, volume: number): void {
-    const v = Math.max(0, Math.min(LiveKitService.REMOTE_GAIN_MAX, volume));
-    this.remoteVolumes.set(identity, v);
-    const gain = this.effectiveGain(v);
-    const gains = this.remoteGainNodes.get(identity);
-    if (gains && gains.length > 0) {
-      for (const g of gains) g.gain.value = gain;
-    } else {
-      const els = this.remoteAudioElements.get(identity);
-      if (els) for (const el of els) el.volume = this.elementVolume(v);
-    }
+    this.remoteAudio.setVolume(identity, volume);
   }
 
   getRemoteVolume(identity: string): number {
-    return this.remoteVolumes.get(identity) ?? 1.0;
+    return this.remoteAudio.getVolume(identity);
   }
 
   private reconcileNoiseModeWithStore(requested: NoiseSuppressionMode): void {
@@ -1465,13 +1211,13 @@ export class LiveKitService {
       prefs.speakerDeviceId !== this.preferredSpeakerId
     ) {
       this.preferredSpeakerId = prefs.speakerDeviceId;
+      this.remoteAudio.setSpeakerId(prefs.speakerDeviceId);
       if (this.room) {
         void this.switchDevice("audiooutput", this.preferredSpeakerId);
       }
     }
     if (prefs.outputVolume !== undefined) {
-      this.masterVolume = Math.max(0, Math.min(1, prefs.outputVolume));
-      this.applyMasterVolume();
+      this.remoteAudio.setMasterVolume(prefs.outputVolume);
     }
     if (prefs.micVolume !== undefined) {
       this.micVolume = Math.max(0, Math.min(1, prefs.micVolume));
@@ -1646,7 +1392,7 @@ export class LiveKitService {
           const target = await this.resolveDeviceTarget(kind, deviceId);
           if (!target || seq !== this.speakerSwitchSeq || !this.room) return;
           await this.room.switchActiveDevice(kind, target);
-          if (seq === this.speakerSwitchSeq) await this.applySinkToCtx(target);
+          if (seq === this.speakerSwitchSeq) await this.remoteAudio.applySink(target);
         };
         this.speakerSwitchChain = this.speakerSwitchChain.then(run, run);
         await this.speakerSwitchChain;
@@ -1770,73 +1516,10 @@ export class LiveKitService {
     }
   }
 
-  private async applySinkToCtx(sinkId: string): Promise<void> {
-    const supportsCtxSink =
-      typeof window !== "undefined" &&
-      typeof (
-        (window.AudioContext?.prototype ?? {}) as { setSinkId?: unknown }
-      ).setSinkId === "function";
-    if (!supportsCtxSink) {
-      this.disableRemoteGraph();
-      return;
-    }
-    const ctx = this.remoteAudioCtx as
-      | (AudioContext & { setSinkId?: (id: string) => Promise<void> })
-      | null;
-    if (!ctx?.setSinkId) return;
-    try {
-      await ctx.setSinkId(sinkId);
-    } catch (e) {
-      console.warn("[LiveKitService] audio context sink switch failed:", e);
-    }
-  }
-
-  private disableRemoteGraph(): void {
-    this.remoteGraphDisabled = true;
-    if (!this.room) return;
-    this.room.remoteParticipants.forEach((participant) => {
-      this.remoteGainNodes.delete(participant.identity);
-      this.remoteAudioElements.delete(participant.identity);
-      const ui = this.remoteVolumes.get(participant.identity) ?? 1.0;
-      const rebuilt: HTMLMediaElement[] = [];
-      participant.audioTrackPublications.forEach((publication) => {
-        const track = publication.track;
-        if (!track) return;
-        for (const element of Array.from(track.attachedElements)) {
-          const nodes = this.remoteSourceNodes.get(element);
-          if (nodes) {
-            try {
-              nodes.source.disconnect();
-              nodes.gain.disconnect();
-            } catch {}
-            this.remoteSourceNodes.delete(element);
-          }
-          track.detach(element);
-          element.remove();
-        }
-        const fresh = track.attach();
-        fresh.volume = this.elementVolume(ui);
-        document.body.appendChild(fresh);
-        rebuilt.push(fresh);
-      });
-      if (rebuilt.length > 0) {
-        this.remoteAudioElements.set(participant.identity, rebuilt);
-      }
-    });
-  }
-
-  private effectiveGain(uiVolume: number): number {
-    return this.deafened ? 0 : this.uiVolumeToGain(uiVolume) * this.masterVolume;
-  }
-
-  private elementVolume(uiVolume: number): number {
-    return this.deafened ? 0 : Math.min(1, uiVolume * this.masterVolume);
-  }
-
   setDeafened(deafened: boolean): void {
     if (this.deafened === deafened) return;
     this.deafened = deafened;
-    this.applyMasterVolume();
+    this.remoteAudio.setDeafened(deafened);
     this.publishDeafenAttribute();
     this.emitLocalDeafened();
   }
@@ -1853,20 +1536,6 @@ export class LiveKitService {
       .catch((e) =>
         console.warn("[LiveKitService] failed to publish deafen attribute:", e),
       );
-  }
-
-  private applyMasterVolume(): void {
-    for (const [identity, gains] of Array.from(this.remoteGainNodes.entries())) {
-      const ui = this.remoteVolumes.get(identity) ?? 1.0;
-      for (const g of gains) g.gain.value = this.effectiveGain(ui);
-    }
-    for (const [identity, els] of Array.from(
-      this.remoteAudioElements.entries(),
-    )) {
-      if (this.remoteGainNodes.has(identity)) continue;
-      const ui = this.remoteVolumes.get(identity) ?? 1.0;
-      for (const el of els) el.volume = this.elementVolume(ui);
-    }
   }
 
   private notifyParticipantsChange(): void {
