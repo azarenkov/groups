@@ -6,13 +6,6 @@ import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { serverAPI } from "../api/server";
 import { extractInviteToken } from "../utils/inviteLinks";
-import CreateServerModal from "../components/CreateServerModal";
-import CreateChannelModal from "../components/CreateChannelModal";
-import PasswordPromptModal from "../components/PasswordPromptModal";
-import AddFriendModal from "../components/AddFriendModal";
-import UserProfileModal from "../components/rift/UserProfileModal";
-import PendingFriendsModal from "../components/PendingFriendsModal";
-import InviteFriendsModal from "../components/InviteFriendsModal";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useBlockStore } from "../store/blockStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
@@ -37,9 +30,6 @@ import { UserAvatar } from "../components/rift/Avatar";
 import { bustAvatar } from "../utils/avatarCache";
 import { ApiError } from "../utils/apiError";
 import i18n from "../i18n";
-import ConfirmModal from "../components/rift/ConfirmModal";
-import IncomingCallModal from "../components/rift/IncomingCallModal";
-import ActiveCallBar from "../components/rift/ActiveCallBar";
 import Sidebar from "../components/rift/Sidebar";
 import ChatView from "../components/rift/ChatView";
 import VoiceView from "../components/rift/VoiceView";
@@ -50,6 +40,8 @@ import MembersPanel from "../components/rift/MembersPanel";
 import SettingsView from "../components/settings/SettingsView";
 import { useHotkey } from "../services/hotkeys";
 import ServerSettingsView from "../components/rift/ServerSettingsView";
+import ModalsHost from "./servers/ModalsHost";
+import ErrorToast from "../components/rift/ErrorToast";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
 import { useParticipants } from "../hooks/useParticipants";
@@ -835,6 +827,44 @@ const ServersPage: React.FC = () => {
     [watchServerId, watchChannelId],
   );
 
+  const handleJoinByLink = async (token: string) => {
+    const { server } = await serverAPI.joinByInvite(token);
+    useServerStore.getState().addServer(server);
+    setExpandedServerIds((prev) => {
+      const next = new Set(prev);
+      next.add(server.id);
+      return next;
+    });
+    setSelectedServer(server.id);
+    setSelectedChannel(null);
+    setSelectedDm(null);
+  };
+
+  const handleCreateChannelFromModal = async (
+    name: string,
+    kind: ChannelKind,
+    visibility: "public" | "private",
+    password?: string,
+  ) => {
+    if (!channelModal) return;
+    await createChannel(channelModal.serverId, name, kind, visibility, password);
+  };
+
+  const handlePasswordSubmit = (password: string) => {
+    if (!passwordPrompt) return;
+    finalizeJoin(passwordPrompt.server, passwordPrompt.channel, password);
+    setPasswordPrompt(null);
+  };
+
+  const confirmDeleteAction = () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.type === "server") void handleDeleteServer();
+    else if (deleteConfirm.type === "leave-server") void handleLeaveServer();
+    else if (deleteConfirm.type === "channel") void handleDeleteChannel();
+    else if (deleteConfirm.type === "block") void handleBlockUser();
+    else void handleRemoveFriend();
+  };
+
   const handleLogout = async () => {
     if (useCallStore.getState().activeCallId) {
       await useCallStore.getState().leave();
@@ -1399,181 +1429,52 @@ const ServersPage: React.FC = () => {
       </div>
 
 
-      <CreateServerModal
-        isOpen={isServerModalOpen}
-        onClose={() => {
-          setIsServerModalOpen(false);
-          setJoinToken(null);
+      <ModalsHost
+        serverModal={{
+          isOpen: isServerModalOpen,
+          view: serverModalView,
+          token: joinToken,
+          onClose: () => {
+            setIsServerModalOpen(false);
+            setJoinToken(null);
+          },
+          onCreate: handleCreateServer,
+          onJoinByLink: handleJoinByLink,
         }}
-        onCreate={handleCreateServer}
-        initialView={serverModalView}
-        initialToken={joinToken}
-        onJoinByLink={async (token) => {
-          const { server } = await serverAPI.joinByInvite(token);
-          useServerStore.getState().addServer(server);
-          setExpandedServerIds((prev) => {
-            const next = new Set(prev);
-            next.add(server.id);
-            return next;
-          });
-          setSelectedServer(server.id);
-          setSelectedChannel(null);
-          setSelectedDm(null);
-        }}
-      />
-
-      <CreateChannelModal
-        isOpen={!!channelModal}
-        defaultKind={channelModal?.kind}
-        onClose={() => setChannelModal(null)}
-        onCreate={async (name, kind, visibility, password) => {
-          if (!channelModal) return;
-          await createChannel(channelModal.serverId, name, kind, visibility, password);
-        }}
-      />
-
-      <PasswordPromptModal
-        isOpen={!!passwordPrompt}
-        channelName={passwordPrompt?.channel.name ?? ""}
-        onClose={() => setPasswordPrompt(null)}
-        onSubmit={(password) => {
-          if (passwordPrompt) {
-            finalizeJoin(passwordPrompt.server, passwordPrompt.channel, password);
-            setPasswordPrompt(null);
-          }
-        }}
-      />
-
-
-      <IncomingCallModal />
-      <ActiveCallBar
-        dockId={
-          settingsOpen
-            ? "settings-voice-dock"
-            : serverSettings
-              ? "server-settings-voice-dock"
-              : "voice-dock-slot"
-        }
-        onOpen={() => {
-          setSettingsOpen(false);
-          setServerSettings(null);
-        }}
-      />
-
-      <UserProfileModal
+        channelModal={channelModal}
+        onCloseChannelModal={() => setChannelModal(null)}
+        onCreateChannel={handleCreateChannelFromModal}
+        passwordPrompt={passwordPrompt}
+        onClosePasswordPrompt={() => setPasswordPrompt(null)}
+        onSubmitPassword={handlePasswordSubmit}
+        isAddFriendOpen={isAddFriendOpen}
+        onCloseAddFriend={() => setIsAddFriendOpen(false)}
+        isPendingOpen={isPendingOpen}
+        onClosePending={() => setIsPendingOpen(false)}
+        onOpenAddFriend={() => setIsAddFriendOpen(true)}
+        inviteModalServer={inviteModalServer}
+        acceptedFriends={friends.filter((f) => f.status === "accepted")}
+        onCloseInviteModal={() => setInviteModalServer(null)}
+        deleteConfirm={deleteConfirm}
+        onCancelConfirm={() => setDeleteConfirm(null)}
+        onConfirm={confirmDeleteAction}
         onOpenDm={handleOpenDmFromHome}
         onCall={handleCallFromHome}
         onRemoveFriend={(id, name) => setDeleteConfirm({ type: "friend", id, name })}
         onBlockUser={(id, name) => setDeleteConfirm({ type: "block", id, name })}
+        callBar={{
+          dockId: settingsOpen
+            ? "settings-voice-dock"
+            : serverSettings
+              ? "server-settings-voice-dock"
+              : "voice-dock-slot",
+          onOpen: () => {
+            setSettingsOpen(false);
+            setServerSettings(null);
+          },
+        }}
       />
-
-      <AddFriendModal
-        isOpen={isAddFriendOpen}
-        onClose={() => setIsAddFriendOpen(false)}
-      />
-
-      <PendingFriendsModal
-        isOpen={isPendingOpen}
-        onClose={() => setIsPendingOpen(false)}
-        onAddFriend={() => setIsAddFriendOpen(true)}
-      />
-
-      <InviteFriendsModal
-        server={inviteModalServer}
-        friends={friends.filter((f) => f.status === "accepted")}
-        onClose={() => setInviteModalServer(null)}
-      />
-
-      {deleteConfirm && (
-        <ConfirmModal
-          title={
-            deleteConfirm.type === "server"
-              ? tModals("confirm.deleteServerTitle")
-              : deleteConfirm.type === "leave-server"
-                ? tModals("confirm.leaveServerTitle")
-                : deleteConfirm.type === "channel"
-                  ? tModals("confirm.deleteChannelTitle")
-                  : deleteConfirm.type === "block"
-                    ? tModals("confirm.blockUserTitle")
-                    : tModals("confirm.removeFriendTitle")
-          }
-          subtitle={
-            deleteConfirm.type === "leave-server"
-              ? tModals("confirm.leaveServerSubtitle")
-              : deleteConfirm.type === "friend"
-                ? tModals("confirm.removeFriendSubtitle")
-                : deleteConfirm.type === "block"
-                  ? tModals("confirm.blockUserSubtitle")
-                  : tModals("confirm.thisCantBeUndone")
-          }
-          targetName={deleteConfirm.name}
-          confirmLabel={
-            deleteConfirm.type === "leave-server"
-              ? tModals("confirm.leave")
-              : deleteConfirm.type === "friend"
-                ? tModals("confirm.remove")
-                : deleteConfirm.type === "block"
-                  ? tModals("confirm.block")
-                  : tModals("confirm.delete")
-          }
-          danger={deleteConfirm.type !== "leave-server"}
-          onCancel={() => setDeleteConfirm(null)}
-          onConfirm={
-            deleteConfirm.type === "server"
-              ? handleDeleteServer
-              : deleteConfirm.type === "leave-server"
-                ? handleLeaveServer
-                : deleteConfirm.type === "channel"
-                  ? handleDeleteChannel
-                  : deleteConfirm.type === "block"
-                    ? handleBlockUser
-                    : handleRemoveFriend
-          }
-        />
-      )}
-
-      {error && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "var(--danger)",
-            color: "#fff",
-            padding: "10px 16px",
-            borderRadius: 12,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            boxShadow: "var(--shadow-md)",
-            zIndex: 1200,
-            fontSize: 13,
-          }}
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={clearError}
-            style={{
-              color: "#fff",
-              opacity: 0.9,
-              width: 22,
-              height: 22,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 6,
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-            }}
-            aria-label="Dismiss"
-          >
-            <Icon name="x" size={12} />
-          </button>
-        </div>
-      )}
+      <ErrorToast message={error} onDismiss={clearError} />
     </div>
   );
 };
