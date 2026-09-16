@@ -5,6 +5,7 @@ use std::time::Duration;
 const MIN_TTL_HOURS: i64 = 1;
 const MAX_TTL_HOURS: i64 = 24 * 365;
 const MIN_INTERVAL_SECS: u64 = 60;
+const MAX_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const MIN_BATCH_SIZE: i64 = 1;
 const MAX_BATCH_SIZE: i64 = 1000;
 
@@ -53,7 +54,10 @@ impl UnverifiedCleanupConfig {
     }
 
     pub fn interval(&self) -> Duration {
-        Duration::from_secs(self.unverified_cleanup_interval_secs.max(MIN_INTERVAL_SECS))
+        Duration::from_secs(
+            self.unverified_cleanup_interval_secs
+                .clamp(MIN_INTERVAL_SECS, MAX_INTERVAL_SECS),
+        )
     }
 
     pub fn batch_size(&self) -> i64 {
@@ -101,6 +105,7 @@ mod tests {
     #[test]
     fn sweeps_stay_within_safe_bounds() {
         assert_eq!(config(24, 1, 200).interval().as_secs(), 60);
+        assert_eq!(config(24, u64::MAX, 200).interval().as_secs(), 24 * 60 * 60);
         assert_eq!(config(24, 900, 0).batch_size(), 1);
         assert_eq!(config(24, 900, 50_000).batch_size(), 1000);
     }
