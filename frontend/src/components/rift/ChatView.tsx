@@ -9,11 +9,7 @@ import CallJoinBanner from "./CallJoinBanner";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
-import {
-  MAX_ATTACHMENTS_PER_MESSAGE,
-  MAX_ATTACHMENT_BYTES,
-  attachmentAPI,
-} from "../../api/attachment";
+import { MAX_ATTACHMENTS_PER_MESSAGE } from "../../api/attachment";
 import { userAPI } from "../../api/user";
 import { useReadReceiptStore } from "../../store/readReceiptStore";
 import { Attachment, ChannelMessage, SystemMessageInfo } from "../../types/channel";
@@ -33,13 +29,13 @@ import {
   useRolesStore,
   userPermissions,
 } from "../../store/rolesStore";
-import { activeMentionQuery } from "../../utils/mentions";
 import ChannelHeader from "./chat/ChannelHeader";
+import { useAttachments } from "../../hooks/chat/useAttachments";
+import { useMentions } from "../../hooks/chat/useMentions";
 import { MAX_CONTENT, PAGE_LIMIT } from "./chat/constants";
 import Message from "./chat/Message";
-import type { ChannelMeta, DmMeta, PendingFile } from "./chat/types";
+import type { ChannelMeta, DmMeta } from "./chat/types";
 import { formatDayDivider, formatFileSize, mergeWithLive, sameDay, splitForSend } from "../../utils/messageFormat";
-import type { ChannelParticipant } from "../../types/channel";
 
 
 interface ChatViewProps {
@@ -72,6 +68,27 @@ const ChatView: React.FC<ChatViewProps> = ({
   callMode,
 }) => {
   const { t } = useTranslation("chat");
+  const {
+    pendingFiles,
+    setPendingFiles,
+    discardPendingFile,
+    pendingFilesRef,
+    editFilesRef,
+    dragOver,
+    setDragOver,
+    fileInputRef,
+    inFlightSendRef,
+    addFiles,
+    removePendingFile,
+    editFiles,
+    setEditFiles,
+    editRemovedIds,
+    setEditRemovedIds,
+    addEditFiles,
+    removeEditFile,
+    discardEditFiles,
+    toggleRemoveAttachment,
+  } = useAttachments();
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
   const dmBlocked = useBlockStore((s) => (dm ? !!s.blocked[dm.friendId] : false));
   const dmBlockedBy = useBlockStore((s) => (dm ? !!s.blockedBy[dm.friendId] : false));
@@ -95,176 +112,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [blockPeerId]);
   const messagesRef = React.useRef<ChannelMessage[]>([]);
   messagesRef.current = messages;
-  const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
-  const [dragOver, setDragOver] = React.useState(false);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const nameSyncTick = useUserNamesStore((s) => s.syncTick);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const cancelledUploadsRef = React.useRef<Set<string>>(new Set());
-  const pendingFilesRef = React.useRef<PendingFile[]>([]);
-  pendingFilesRef.current = pendingFiles;
-  const inFlightSendRef = React.useRef<Set<string>>(new Set());
-
-  const addFiles = React.useCallback((incoming: File[] | FileList) => {
-    const files = Array.from(incoming);
-    if (files.length === 0) return;
-    const room =
-      MAX_ATTACHMENTS_PER_MESSAGE - pendingFilesRef.current.length;
-    const accepted = files.slice(0, Math.max(0, room));
-    const additions: PendingFile[] = accepted.map((file) => ({
-      localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      file,
-      progress: 0,
-      error: file.size > MAX_ATTACHMENT_BYTES || file.size === 0,
-    }));
-    if (additions.length === 0) return;
-    setPendingFiles((prev) => [...prev, ...additions]);
-    for (const p of additions) {
-      if (p.error) continue;
-      void attachmentAPI
-        .upload(p.file, (fraction) => {
-          setPendingFiles((cur) =>
-            cur.map((x) =>
-              x.localId === p.localId ? { ...x, progress: fraction } : x,
-            ),
-          );
-        })
-        .then((attachment) => {
-          if (cancelledUploadsRef.current.delete(p.localId)) {
-            void attachmentAPI.delete(attachment.id).catch(() => {});
-            return;
-          }
-          setPendingFiles((cur) =>
-            cur.map((x) =>
-              x.localId === p.localId
-                ? { ...x, attachment, progress: 1 }
-                : x,
-            ),
-          );
-        })
-        .catch(() => {
-          cancelledUploadsRef.current.delete(p.localId);
-          setPendingFiles((cur) =>
-            cur.map((x) =>
-              x.localId === p.localId ? { ...x, error: true } : x,
-            ),
-          );
-        });
-    }
-  }, []);
-
-  const discardPendingFile = React.useCallback((target: PendingFile) => {
-    if (target.attachment) {
-      void attachmentAPI.delete(target.attachment.id).catch(() => {});
-    } else if (!target.error) {
-      cancelledUploadsRef.current.add(target.localId);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    const inFlight = inFlightSendRef.current;
-    return () => {
-      for (const p of pendingFilesRef.current) {
-        if (!inFlight.has(p.localId)) discardPendingFile(p);
-      }
-    };
-  }, [discardPendingFile]);
-
-  const removePendingFile = (localId: string) =>
-    setPendingFiles((prev) => {
-      const target = prev.find((p) => p.localId === localId);
-      if (target) discardPendingFile(target);
-      return prev.filter((p) => p.localId !== localId);
-    });
-
-  const [editFiles, setEditFiles] = React.useState<PendingFile[]>([]);
-  const [editRemovedIds, setEditRemovedIds] = React.useState<string[]>([]);
-  const editFilesRef = React.useRef<PendingFile[]>([]);
-  editFilesRef.current = editFiles;
-
-  const addEditFiles = React.useCallback(
-    (incoming: File[] | FileList, room: number) => {
-      const files = Array.from(incoming);
-      if (files.length === 0) return;
-      const accepted = files.slice(0, Math.max(0, room));
-      const additions: PendingFile[] = accepted.map((file) => ({
-        localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        file,
-        progress: 0,
-        error: file.size > MAX_ATTACHMENT_BYTES || file.size === 0,
-      }));
-      if (additions.length === 0) return;
-      setEditFiles((prev) => [...prev, ...additions]);
-      for (const p of additions) {
-        if (p.error) continue;
-        void attachmentAPI
-          .upload(p.file, (fraction) => {
-            setEditFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId ? { ...x, progress: fraction } : x,
-              ),
-            );
-          })
-          .then((attachment) => {
-            if (cancelledUploadsRef.current.delete(p.localId)) {
-              void attachmentAPI.delete(attachment.id).catch(() => {});
-              return;
-            }
-            setEditFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId
-                  ? { ...x, attachment, progress: 1 }
-                  : x,
-              ),
-            );
-          })
-          .catch(() => {
-            cancelledUploadsRef.current.delete(p.localId);
-            setEditFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId ? { ...x, error: true } : x,
-              ),
-            );
-          });
-      }
-    },
-    [],
-  );
-
-  const removeEditFile = React.useCallback(
-    (localId: string) =>
-      setEditFiles((prev) => {
-        const target = prev.find((p) => p.localId === localId);
-        if (target) discardPendingFile(target);
-        return prev.filter((p) => p.localId !== localId);
-      }),
-    [discardPendingFile],
-  );
-
-  const discardEditFiles = React.useCallback(() => {
-    setEditFiles((prev) => {
-      for (const p of prev) {
-        if (!inFlightSendRef.current.has(p.localId)) discardPendingFile(p);
-      }
-      return [];
-    });
-    setEditRemovedIds([]);
-  }, [discardPendingFile]);
-
-  const toggleRemoveAttachment = React.useCallback((id: string) => {
-    setEditRemovedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  }, []);
-
-  React.useEffect(() => {
-    const inFlight = inFlightSendRef.current;
-    return () => {
-      for (const p of editFilesRef.current) {
-        if (!inFlight.has(p.localId)) discardPendingFile(p);
-      }
-    };
-  }, [discardPendingFile]);
 
   const dmFriendId = dm?.friendId;
   const channelId = channel?.id;
@@ -493,111 +342,30 @@ const ChatView: React.FC<ChatViewProps> = ({
     () => servers?.find((sv) => sv.id === serverId)?.ownerId,
     [servers, serverId],
   );
+  const {
+    mentionQuery,
+    setMentionQuery,
+    mentionIndex,
+    setMentionIndex,
+    mentionSuggestions,
+    resetParticipants,
+    updateMentionQuery,
+    applyMention,
+  } = useMentions({
+    channel,
+    serverId,
+    currentUserId,
+    nameOverrides,
+    text,
+    setText,
+    composerRef,
+  });
+
   const canModerateMessages =
     !!channel &&
     !!currentUserId &&
     (serverOwnerId === currentUserId ||
       (userPermissions(rolesData, currentUserId) & PERM_MANAGE_MESSAGES) !== 0);
-
-  const [mentionQuery, setMentionQuery] = React.useState<{
-    query: string;
-    start: number;
-  } | null>(null);
-  const [mentionIndex, setMentionIndex] = React.useState(0);
-  const [participants, setParticipants] = React.useState<ChannelParticipant[]>([]);
-  const participantsChannelRef = React.useRef<string | null>(null);
-
-  const channelMemberCount = useReadReceiptStore((s) =>
-    channel ? Object.keys(s.channelReads[channel.id] ?? {}).length : 0,
-  );
-  React.useEffect(() => {
-    participantsChannelRef.current = null;
-  }, [channelMemberCount]);
-
-  const ensureParticipants = React.useCallback(() => {
-    if (!channel || !serverId) return;
-    if (participantsChannelRef.current === channel.id) return;
-    const channelId = channel.id;
-    participantsChannelRef.current = channelId;
-    setParticipants([]);
-    void (async () => {
-      try {
-        const all: ChannelParticipant[] = [];
-        const seen = new Set<string>();
-        let page = 1;
-        let totalPages = 1;
-        do {
-          const res = await channelAPI.listParticipants(
-            serverId,
-            channelId,
-            page,
-            50,
-          );
-          for (const p of res.participants) {
-            if (seen.has(p.id)) continue;
-            seen.add(p.id);
-            all.push(p);
-          }
-          totalPages = res.pagination?.totalPages ?? 1;
-          page += 1;
-        } while (
-          page <= totalPages &&
-          participantsChannelRef.current === channelId
-        );
-        if (participantsChannelRef.current === channelId) {
-          setParticipants(all);
-        }
-      } catch {
-        if (participantsChannelRef.current === channelId) {
-          participantsChannelRef.current = null;
-        }
-      }
-    })();
-  }, [channel, serverId]);
-
-  const updateMentionQuery = React.useCallback(
-    (value: string, caret: number | null) => {
-      if (!channel) {
-        setMentionQuery(null);
-        return;
-      }
-      const q = activeMentionQuery(value, caret ?? value.length);
-      setMentionQuery(q);
-      if (q) {
-        setMentionIndex(0);
-        ensureParticipants();
-      }
-    },
-    [channel, ensureParticipants],
-  );
-
-  const mentionSuggestions = React.useMemo(() => {
-    if (!mentionQuery) return [];
-    const q = mentionQuery.query.toLowerCase();
-    return participants
-      .filter((p) => p.id !== currentUserId)
-      .map((p) => ({ ...p, name: nameOverrides[p.id] ?? p.name }))
-      .filter((p) => p.name.toLowerCase().startsWith(q))
-      .slice(0, 8);
-  }, [mentionQuery, participants, nameOverrides, currentUserId]);
-
-  const applyMention = React.useCallback(
-    (name: string) => {
-      if (!mentionQuery) return;
-      const el = composerRef.current;
-      const caret = el?.selectionStart ?? text.length;
-      const next =
-        text.slice(0, mentionQuery.start) + "@" + name + " " + text.slice(caret);
-      setText(next);
-      setMentionQuery(null);
-      const pos = mentionQuery.start + name.length + 2;
-      requestAnimationFrame(() => {
-        el?.focus();
-        el?.setSelectionRange(pos, pos);
-      });
-    },
-    [mentionQuery, text],
-  );
 
   React.useEffect(() => {
     if (wasSendingRef.current && !sending) {
@@ -689,8 +457,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     setComposerError(null);
     setMentionQuery(null);
     setMentionIndex(0);
-    setParticipants([]);
-    participantsChannelRef.current = null;
+    resetParticipants();
     setPullDistance(0);
     pullStartYRef.current = null;
     wheelPullRef.current = 0;
