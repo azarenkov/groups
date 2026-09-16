@@ -1,0 +1,244 @@
+import type { WsHandlers } from "./types";
+import { useAuthStore } from "../../store/authStore";
+import { isBlockedEitherWay } from "../../store/blockStore";
+import { useCallStore } from "../../store/callStore";
+import { useReadReceiptStore } from "../../store/readReceiptStore";
+import { useStreamViewersStore } from "../../store/streamViewersStore";
+import { useVoicePresenceStore } from "../../store/voicePresenceStore";
+import { asString } from "./context";
+
+export const voiceHandlers: WsHandlers = {
+  "channel.participant.joined": (d) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const userName = asString(d.userName) ?? userId;
+      useVoicePresenceStore.getState().addMember(channelId, {
+        id: userId,
+        name: userName,
+        isMuted: false,
+        cameraOn: false,
+        screenOn: false,
+      });
+      return;
+  },
+  "channel.participant.left": (d) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      useVoicePresenceStore.getState().removeMember(channelId, userId);
+      return;
+  },
+  "channel.participant.connectionAborted": (d) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      useVoicePresenceStore.getState().removeMember(channelId, userId);
+      return;
+  },
+  "channel.text.joined": (d) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      const selfId = useAuthStore.getState().user?.id;
+      if (channelId && userId && userId !== selfId) {
+        useReadReceiptStore.getState().addChannelMember(channelId, userId);
+      }
+      return;
+  },
+  "call.incoming": (d) => {
+      const callId = asString(d.callId);
+      const callerId = asString(d.callerId);
+      if (!callId || !callerId) return;
+      if (isBlockedEitherWay(callerId)) return;
+      const callerName = asString(d.callerName) ?? callerId;
+      useCallStore
+        .getState()
+        .setIncoming({ callId, callerId, callerName, video: d.video === true });
+      return;
+  },
+  "call.participant.joined": (d) => {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (!callId || !userId) return;
+      const userName = asString(d.userName) ?? userId;
+      useCallStore.getState().participantJoined(callId, userId, userName);
+      return;
+  },
+  "call.participant.left": (d) => {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (!callId || !userId) return;
+      useCallStore.getState().participantLeft(callId, userId);
+      return;
+  },
+  "call.declined": (d) => {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (callId && userId) {
+        useCallStore.getState().participantDeclined(callId, userId);
+      }
+      return;
+  },
+  "call.available": (d) => {
+      const callId = asString(d.callId);
+      const userId = asString(d.userId);
+      if (callId && userId && !isBlockedEitherWay(userId)) {
+        useCallStore.getState().callAvailable(userId, callId);
+      }
+      return;
+  },
+  "call.ended": (d) => {
+      const callId = asString(d.callId);
+      if (callId) useCallStore.getState().callEnded(callId);
+      return;
+  },
+  "channel.participant.muted": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const isMuted = env.type === "channel.participant.muted";
+      useVoicePresenceStore
+        .getState()
+        .setChannelMute(
+          channelId,
+          userId,
+          isMuted,
+          isMuted ? (asString(d.mutedBy) ?? undefined) : undefined,
+          asString(d.serverId) ?? undefined,
+        );
+      const selfId = useAuthStore.getState().user?.id;
+      const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);
+      if (userId === selfId && mutedBy && mutedBy !== selfId) {
+        window.dispatchEvent(
+          new CustomEvent(
+            isMuted ? "rift:moderator-mute" : "rift:moderator-unmute",
+            { detail: { channelId, mutedBy } },
+          ),
+        );
+      }
+      return;
+  },
+  "channel.participant.unmuted": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const isMuted = env.type === "channel.participant.muted";
+      useVoicePresenceStore
+        .getState()
+        .setChannelMute(
+          channelId,
+          userId,
+          isMuted,
+          isMuted ? (asString(d.mutedBy) ?? undefined) : undefined,
+          asString(d.serverId) ?? undefined,
+        );
+      const selfId = useAuthStore.getState().user?.id;
+      const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);
+      if (userId === selfId && mutedBy && mutedBy !== selfId) {
+        window.dispatchEvent(
+          new CustomEvent(
+            isMuted ? "rift:moderator-mute" : "rift:moderator-unmute",
+            { detail: { channelId, mutedBy } },
+          ),
+        );
+      }
+      return;
+  },
+  "channel.participant.deafened": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const isDeafened = env.type === "channel.participant.deafened";
+      const deafenedBy = isDeafened ? (asString(d.deafenedBy) ?? undefined) : undefined;
+      useVoicePresenceStore
+        .getState()
+        .setChannelDeafen(channelId, userId, deafenedBy, asString(d.serverId) ?? undefined);
+      const selfId = useAuthStore.getState().user?.id;
+      const actor = asString(d.deafenedBy) ?? asString(d.undeafenedBy);
+      if (userId === selfId && actor && actor !== selfId) {
+        window.dispatchEvent(
+          new CustomEvent(
+            isDeafened ? "rift:moderator-deafen" : "rift:moderator-undeafen",
+            { detail: { channelId, deafenedBy: actor } },
+          ),
+        );
+      }
+      return;
+  },
+  "channel.participant.undeafened": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const isDeafened = env.type === "channel.participant.deafened";
+      const deafenedBy = isDeafened ? (asString(d.deafenedBy) ?? undefined) : undefined;
+      useVoicePresenceStore
+        .getState()
+        .setChannelDeafen(channelId, userId, deafenedBy, asString(d.serverId) ?? undefined);
+      const selfId = useAuthStore.getState().user?.id;
+      const actor = asString(d.deafenedBy) ?? asString(d.undeafenedBy);
+      if (userId === selfId && actor && actor !== selfId) {
+        window.dispatchEvent(
+          new CustomEvent(
+            isDeafened ? "rift:moderator-deafen" : "rift:moderator-undeafen",
+            { detail: { channelId, deafenedBy: actor } },
+          ),
+        );
+      }
+      return;
+  },
+  "channel.participant.camera.on": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const source = env.type.includes("camera") ? "camera" : "screen";
+      const enabled = env.type.endsWith(".on");
+      useVoicePresenceStore
+        .getState()
+        .setChannelMedia(channelId, userId, source, enabled);
+      return;
+  },
+  "channel.participant.camera.off": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const source = env.type.includes("camera") ? "camera" : "screen";
+      const enabled = env.type.endsWith(".on");
+      useVoicePresenceStore
+        .getState()
+        .setChannelMedia(channelId, userId, source, enabled);
+      return;
+  },
+  "channel.participant.screen.on": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const source = env.type.includes("camera") ? "camera" : "screen";
+      const enabled = env.type.endsWith(".on");
+      useVoicePresenceStore
+        .getState()
+        .setChannelMedia(channelId, userId, source, enabled);
+      return;
+  },
+  "channel.participant.screen.off": (d, env) => {
+      const channelId = asString(d.channelId);
+      const userId = asString(d.userId);
+      if (!channelId || !userId) return;
+      const source = env.type.includes("camera") ? "camera" : "screen";
+      const enabled = env.type.endsWith(".on");
+      useVoicePresenceStore
+        .getState()
+        .setChannelMedia(channelId, userId, source, enabled);
+      return;
+  },
+  "channel.stream.viewers": (d) => {
+      const serverId = asString(d.serverId);
+      const channelId = asString(d.channelId);
+      const streamerId = asString(d.streamerId);
+      if (!serverId || !channelId || !streamerId) return;
+      const count = typeof d.count === "number" ? d.count : 0;
+      useStreamViewersStore
+        .getState()
+        .setCount(serverId, channelId, streamerId, count);
+      return;
+  },
+};
