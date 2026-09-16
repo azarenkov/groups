@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::time::Duration;
 
 const MIN_TTL_HOURS: i64 = 1;
+const MAX_TTL_HOURS: i64 = 24 * 365;
 const MIN_INTERVAL_SECS: u64 = 60;
 const MIN_BATCH_SIZE: i64 = 1;
 const MAX_BATCH_SIZE: i64 = 1000;
@@ -45,7 +46,10 @@ impl UnverifiedCleanupConfig {
     }
 
     pub fn ttl(&self) -> ChronoDuration {
-        ChronoDuration::hours(self.unverified_account_ttl_hours.max(MIN_TTL_HOURS))
+        ChronoDuration::hours(
+            self.unverified_account_ttl_hours
+                .clamp(MIN_TTL_HOURS, MAX_TTL_HOURS),
+        )
     }
 
     pub fn interval(&self) -> Duration {
@@ -85,6 +89,13 @@ mod tests {
     fn a_zero_lifetime_never_deletes_fresh_accounts() {
         assert_eq!(config(0, 900, 200).ttl().num_hours(), 1);
         assert_eq!(config(-5, 900, 200).ttl().num_hours(), 1);
+    }
+
+    #[test]
+    fn an_absurd_lifetime_cannot_overflow_the_clock() {
+        assert_eq!(config(i64::MAX, 900, 200).ttl().num_hours(), 24 * 365);
+        let cutoff = chrono::Utc::now() - config(i64::MAX, 900, 200).ttl();
+        assert!(cutoff < chrono::Utc::now());
     }
 
     #[test]

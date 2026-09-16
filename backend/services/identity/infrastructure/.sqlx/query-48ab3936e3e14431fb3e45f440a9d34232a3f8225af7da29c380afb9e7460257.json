@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE email_verified_at IS NULL\n              AND deleted_at IS NULL\n              AND created_at < $1\n            ORDER BY created_at\n            LIMIT $2\n            FOR UPDATE SKIP LOCKED\n            ",
+  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE email_verified_at IS NULL\n              AND phone_verified_at IS NULL\n              AND deleted_at IS NULL\n              AND created_at < $1\n            ORDER BY created_at\n            LIMIT $2\n            FOR UPDATE SKIP LOCKED\n            ",
   "describe": {
     "columns": [
       {
@@ -115,5 +115,5 @@
       false
     ]
   },
-  "hash": "92fa19510b9ae58e4d59ca6d6ee5f061f2cd16d5888d1bd892376b98fc342469"
+  "hash": "48ab3936e3e14431fb3e45f440a9d34232a3f8225af7da29c380afb9e7460257"
 }

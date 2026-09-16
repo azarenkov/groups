@@ -159,6 +159,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                    email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
             FROM users
             WHERE email_verified_at IS NULL
+              AND phone_verified_at IS NULL
               AND deleted_at IS NULL
               AND created_at < $1
             ORDER BY created_at
