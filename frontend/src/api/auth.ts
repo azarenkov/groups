@@ -1,16 +1,5 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
-import { serverAPI } from "./server";
-import { channelAPI } from "./channel";
-import { friendshipAPI } from "./friendship";
-import { dmAPI } from "./dm";
-import { userAPI } from "./user";
-import { callAPI } from "./call";
-import { attachmentAPI } from "./attachment";
+import { http } from "./http";
 import { useAuthStore } from "../store/authStore";
-import { toApiError } from "../utils/apiError";
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
 export interface TokenPair {
   accessToken: string;
@@ -25,65 +14,9 @@ export type GoogleAuthResult =
   | { needsUsername: true };
 
 class AuthAPI {
-  private client: AxiosInstance;
+  private client = http;
   private refreshInProgress: boolean = false;
   private refreshPromise: Promise<void> | null = null;
-
-  constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE_URL,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      timeout: 10000,
-    });
-
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        const originalRequest = error.config as AxiosRequestConfig & {
-          _retry?: boolean;
-        };
-        const url = originalRequest.url ?? "";
-        const skipRefresh =
-          url.endsWith("/v1/auth/refresh") ||
-          url.endsWith("/v1/auth/login") ||
-          url.endsWith("/v1/auth/register") ||
-          url.endsWith("/v1/auth/google") ||
-          url.endsWith("/v1/auth/google/complete");
-
-        if (
-          error.response?.status === 401 &&
-          !originalRequest._retry &&
-          !skipRefresh
-        ) {
-          originalRequest._retry = true;
-          try {
-            await this.handleRefreshFlow();
-            const tokens = useAuthStore.getState().tokens;
-            if (tokens?.accessToken) {
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers["Authorization"] =
-                `Bearer ${tokens.accessToken}`;
-            }
-            if (
-              url.endsWith("/v1/auth/logout") &&
-              tokens?.refreshToken
-            ) {
-              originalRequest.data = JSON.stringify({
-                refreshToken: tokens.refreshToken,
-              });
-            }
-            return this.client.request(originalRequest);
-          } catch (e) {
-            throw toApiError(error);
-          }
-        }
-
-        throw toApiError(error);
-      },
-    );
-  }
 
   async register(
     name: string,
@@ -194,17 +127,11 @@ class AuthAPI {
       return;
     }
 
-    try {
-      await this.client.post(
-        "/v1/auth/logout",
-        { refreshToken: tokens.refreshToken },
-        {
-          headers: { Authorization: `Bearer ${tokens.accessToken}` },
-        },
-      );
-    } finally {
-      this.removeAuthToken();
-    }
+    await this.client.post(
+      "/v1/auth/logout",
+      { refreshToken: tokens.refreshToken },
+      { headers: { Authorization: `Bearer ${tokens.accessToken}` } },
+    );
   }
 
   public async handleRefreshFlow(
@@ -223,11 +150,9 @@ class AuthAPI {
         const newTokens = await this.refresh();
 
         useAuthStore.getState().setTokens(newTokens);
-        this.setAuthToken(newTokens.accessToken);
       } catch (err) {
         if (logoutOnFailure) {
           useAuthStore.getState().logout();
-          this.removeAuthToken();
         }
         throw err;
       } finally {
@@ -239,27 +164,6 @@ class AuthAPI {
     return this.refreshPromise;
   }
 
-  setAuthToken(token: string) {
-    this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    serverAPI.setAuthToken(token);
-    channelAPI.setAuthToken(token);
-    friendshipAPI.setAuthToken(token);
-    dmAPI.setAuthToken(token);
-    userAPI.setAuthToken(token);
-    callAPI.setAuthToken(token);
-    attachmentAPI.setAuthToken(token);
-  }
-
-  removeAuthToken() {
-    delete this.client.defaults.headers.common["Authorization"];
-    serverAPI.removeAuthToken();
-    channelAPI.removeAuthToken();
-    friendshipAPI.removeAuthToken();
-    dmAPI.removeAuthToken();
-    userAPI.removeAuthToken();
-    callAPI.removeAuthToken();
-    attachmentAPI.removeAuthToken();
-  }
 }
 
 export const authAPI = new AuthAPI();

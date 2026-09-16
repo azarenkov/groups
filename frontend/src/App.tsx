@@ -187,7 +187,6 @@ const App: React.FC = () => {
           name: "",
           email: "",
         });
-        authAPI.setAuthToken(fresh.accessToken);
         void useAuthStore
           .getState()
           .fetchMe()

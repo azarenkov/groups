@@ -1,12 +1,6 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
+import { http } from "./http";
 
-import { useAuthStore } from "../store/authStore";
-import { toApiError } from "../utils/apiError";
-import { rateLimitRetry } from "../utils/rateLimitRetry";
 import { Attachment, ChannelMessage } from "../types/channel";
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
 interface DmRow {
   id: string;
@@ -39,51 +33,7 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
 });
 
 class DmAPI {
-  private client: AxiosInstance;
-
-  constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE_URL,
-      headers: { "Content-Type": "application/json" },
-      timeout: 10000,
-    });
-
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        const originalRequest = error.config as AxiosRequestConfig & {
-          _retry?: boolean;
-        };
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          try {
-            const { authAPI } = await import("./auth");
-            await authAPI.handleRefreshFlow();
-            const tokens = useAuthStore.getState().tokens;
-            if (tokens?.accessToken) {
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers["Authorization"] =
-                `Bearer ${tokens.accessToken}`;
-            }
-            return this.client.request(originalRequest);
-          } catch (_e) {
-            throw toApiError(error);
-          }
-        }
-        const retried = rateLimitRetry(this.client, error);
-        if (retried) return retried;
-        throw toApiError(error);
-      },
-    );
-  }
-
-  setAuthToken(token: string) {
-    this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  }
-
-  removeAuthToken() {
-    delete this.client.defaults.headers.common["Authorization"];
-  }
+  private client = http;
 
   async listMessages(
     friendId: string,

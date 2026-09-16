@@ -265,7 +265,6 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
       try {
         const fresh = await authAPI.refresh();
         useAuthStore.getState().setTokens(fresh);
-        authAPI.setAuthToken(fresh.accessToken);
       } catch (refreshErr) {
         console.warn("[account] token refresh after email change failed:", refreshErr);
       }

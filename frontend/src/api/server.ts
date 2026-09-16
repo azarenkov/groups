@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
+import { http } from "./http";
 import {
   ListServersResponse,
   ListServerMembersResponse,
@@ -8,64 +8,9 @@ import {
   InvitePreview,
   JoinInviteResponse,
 } from "../types/server";
-import { useAuthStore } from "../store/authStore";
-import { toApiError } from "../utils/apiError";
-import { rateLimitRetry } from "../utils/rateLimitRetry";
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
 class ServerAPI {
-  private client: AxiosInstance;
-
-  constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE_URL,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      timeout: 10000,
-    });
-
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        const originalRequest = error.config as AxiosRequestConfig & {
-          _retry?: boolean;
-        };
-
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          try {
-            const { authAPI } = await import("./auth");
-            await authAPI.handleRefreshFlow();
-
-            const tokens = useAuthStore.getState().tokens;
-            if (tokens?.accessToken) {
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers["Authorization"] =
-                `Bearer ${tokens.accessToken}`;
-            }
-            return this.client.request(originalRequest);
-          } catch (e) {
-            throw toApiError(error);
-          }
-        }
-
-        const retried = rateLimitRetry(this.client, error);
-        if (retried) return retried;
-        throw toApiError(error);
-      },
-    );
-  }
-
-  setAuthToken(token: string) {
-    this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  }
-
-  removeAuthToken() {
-    delete this.client.defaults.headers.common["Authorization"];
-  }
+  private client = http;
 
   async listServers(
     page: number = 1,
@@ -112,7 +57,6 @@ class ServerAPI {
     });
     return response.data;
   }
-
 
   async listRoles(serverId: string): Promise<{
     roles: { id: string; name: string; color: string; permissions: number; position: number }[];
@@ -172,9 +116,6 @@ class ServerAPI {
       `/v1/servers/${serverId}/members/${memberId}/roles/${roleId}`,
     );
   }
-
-
-
 
   async deleteServer(serverId: string): Promise<void> {
     await this.client.delete(`/v1/servers/${serverId}`);

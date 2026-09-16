@@ -5,10 +5,7 @@ import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useChannelStore } from "../store/channelStore";
 import { serverAPI } from "../api/server";
-import { callAPI } from "../api/call";
-import { attachmentAPI } from "../api/attachment";
 import { extractInviteToken } from "../utils/inviteLinks";
-import { channelAPI } from "../api/channel";
 import CreateServerModal from "../components/CreateServerModal";
 import CreateChannelModal from "../components/CreateChannelModal";
 import PasswordPromptModal from "../components/PasswordPromptModal";
@@ -34,9 +31,6 @@ import { useDmPreviewStore } from "../store/dmPreviewStore";
 import type { DmPreview } from "../store/dmPreviewStore";
 import { useCallStore } from "../store/callStore";
 import { userAPI } from "../api/user";
-import { friendshipAPI } from "../api/friendship";
-import { dmAPI } from "../api/dm";
-import { homeAPI } from "../api/home";
 import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
 import HomeView from "../components/rift/HomeView";
 import { colorForId, initialFor } from "../utils/avatar";
@@ -283,13 +277,6 @@ const ServersPage: React.FC = () => {
 
   useEffect(() => {
     if (tokens?.accessToken) {
-      serverAPI.setAuthToken(tokens.accessToken);
-      channelAPI.setAuthToken(tokens.accessToken);
-      friendshipAPI.setAuthToken(tokens.accessToken);
-      dmAPI.setAuthToken(tokens.accessToken);
-      homeAPI.setAuthToken(tokens.accessToken);
-      callAPI.setAuthToken(tokens.accessToken);
-      attachmentAPI.setAuthToken(tokens.accessToken);
       fetchServers();
       fetchFriends();
       void useBlockStore.getState().fetch();
@@ -879,12 +866,6 @@ const ServersPage: React.FC = () => {
     if (useCallStore.getState().activeCallId) {
       await useCallStore.getState().leave();
     }
-    serverAPI.removeAuthToken();
-    channelAPI.removeAuthToken();
-    friendshipAPI.removeAuthToken();
-    dmAPI.removeAuthToken();
-    homeAPI.removeAuthToken();
-    callAPI.removeAuthToken();
     await signOut();
   };
 

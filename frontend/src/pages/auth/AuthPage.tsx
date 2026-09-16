@@ -264,7 +264,6 @@ const SignInUp: React.FC<SignInUpProps> = ({
   const [googleUsername, setGoogleUsername] = useState("");
 
   const finishGoogleSession = async (response: TokenPair) => {
-    authAPI.setAuthToken(response.accessToken);
     const tokens = {
       accessToken: response.accessToken,
       refreshToken: response.refreshToken,
@@ -295,8 +294,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
       setLoading(true);
       setError(null);
       const response = await authAPI.login(data.email, data.password);
-      authAPI.setAuthToken(response.accessToken);
-      const tokens = {
+        const tokens = {
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
         tokenType: response.tokenType,
@@ -346,8 +344,7 @@ const SignInUp: React.FC<SignInUpProps> = ({
         data.password,
         locale,
       );
-      authAPI.setAuthToken(response.accessToken);
-      useAuthStore.getState().setTokens({
+        useAuthStore.getState().setTokens({
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
         tokenType: response.tokenType,
@@ -994,7 +991,6 @@ const VerifyEmail: React.FC<{
           throw new Error(t("verifyTookNoEffect"));
         }
         useAuthStore.getState().setTokens(fresh);
-        authAPI.setAuthToken(fresh.accessToken);
         const { user } = useAuthStore.getState();
         if (user) {
           useAuthStore.getState().login(fresh, user);
