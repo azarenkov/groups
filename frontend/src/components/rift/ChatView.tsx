@@ -7,13 +7,11 @@ import CallJoinBanner from "./CallJoinBanner";
 import ConfirmModal from "./ConfirmModal";
 import { channelAPI } from "../../api/channel";
 import { dmAPI } from "../../api/dm";
-import { MAX_ATTACHMENTS_PER_MESSAGE } from "../../api/attachment";
 import { userAPI } from "../../api/user";
 import { useReadReceiptStore } from "../../store/readReceiptStore";
 import { Attachment, ChannelMessage, SystemMessageInfo } from "../../types/channel";
 import { Server } from "../../types/server";
 import { ApiError } from "../../utils/apiError";
-import { UserAvatar } from "./Avatar";
 import {
   useWsChannelMessages,
   useWsDmMessages,
@@ -28,12 +26,13 @@ import {
 } from "../../store/rolesStore";
 import ChannelHeader from "./chat/ChannelHeader";
 import Composer from "./chat/Composer";
+import SearchResults from "./chat/SearchResults";
+import MessageList from "./chat/MessageList";
 import { useAttachments } from "../../hooks/chat/useAttachments";
 import { useMentions } from "../../hooks/chat/useMentions";
 import { MAX_CONTENT, PAGE_LIMIT } from "./chat/constants";
-import Message from "./chat/Message";
 import type { ChannelMeta, DmMeta } from "./chat/types";
-import { formatDayDivider, mergeWithLive, sameDay, splitForSend } from "../../utils/messageFormat";
+import { mergeWithLive, splitForSend } from "../../utils/messageFormat";
 
 
 interface ChatViewProps {
@@ -1308,65 +1307,16 @@ const ChatView: React.FC<ChatViewProps> = ({
                     query: searchQuery,
                   })}
                 </div>
-                {searchResults.map((m) => {
-                  const isMine = !!currentUserId && m.authorId === currentUserId;
-                  const hiddenAuthor =
-                    !dm && !!blockedIds[m.authorId] && !revealedResults.has(m.id);
-                  const displayName = isMine
-                    ? i18n.t("you", { ns: "chat" })
-                    : (nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
-                  const time = new Date(m.createdAt).toLocaleString([], {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className="search-result"
-                      onClick={() => handleJumpToMessage(m)}
-                    >
-                      <UserAvatar
-                        userId={m.authorId}
-                        name={displayName}
-                        className="ava"
-                      />
-                      <div className="body">
-                        <div className="head">
-                          <b>{displayName}</b>
-                          <time>{time}</time>
-                        </div>
-                        {hiddenAuthor ? (
-                          <div className="content msg-system-text">
-                            {i18n.t("blockedMessage", { ns: "chat" })}{" "}
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              className="link-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRevealedResults((prev) => new Set(prev).add(m.id));
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setRevealedResults((prev) => new Set(prev).add(m.id));
-                                }
-                              }}
-                            >
-                              {i18n.t("showBlockedMessage", { ns: "chat" })}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="content">{m.content}</div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                <SearchResults
+                  results={searchResults}
+                  currentUserId={currentUserId}
+                  isDm={!!dm}
+                  blockedIds={blockedIds}
+                  nameOverrides={nameOverrides}
+                  revealedResults={revealedResults}
+                  onReveal={(id) => setRevealedResults((prev) => new Set(prev).add(id))}
+                  onJump={handleJumpToMessage}
+                />
               </>
             )}
           </div>
@@ -1406,74 +1356,34 @@ const ChatView: React.FC<ChatViewProps> = ({
             <p>{t("welcomeBody")}</p>
           </div>
         ) : (
-          <div className="inner">
-            {loadingOlder && (
-              <div className="msg-loader">
-                <span className="loading-spinner" />
-              </div>
-            )}
-            {messages.map((m, i) => {
-              const prev = messages[i - 1];
-              const curDate = new Date(m.createdAt);
-              const prevDate = prev ? new Date(prev.createdAt) : null;
-              const newDay = !prevDate || !sameDay(curDate, prevDate);
-              const sameAuthor = !!prev && prev.authorId === m.authorId;
-              const within = !!prev && curDate.getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
-              const cont = sameAuthor && within && !newDay && !m.system && !prev?.system;
-              const isMine = !!currentUserId && m.authorId === currentUserId;
-              const subjectName = nameOverrides[m.authorId] ?? m.authorName ?? m.authorId;
-              const displayName = m.system ? subjectName : isMine ? "You" : subjectName;
-              return (
-                <React.Fragment key={m.id}>
-                  {newDay && (
-                    <div className="day-divider">
-                      <span>{formatDayDivider(curDate)}</span>
-                    </div>
-                  )}
-                <Message
-                  blockedAuthor={!dm && !m.system && !!blockedIds[m.authorId]}
-                  msg={m}
-                  displayName={displayName}
-                  continued={cont}
-                  isMine={isMine}
-                  dmStyle={!!dm}
-                  receipt={receiptFor(m, isMine)}
-                  editing={editingId === m.id}
-                  highlighted={highlightedMessageId === m.id}
-                  editText={editText}
-                  inviteIsMember={
-                    !!m.inviteServerId && myServerIds.has(m.inviteServerId)
-                  }
-                  canModerate={canModerateMessages}
-                  editRemovedIds={editRemovedIds}
-                  editFiles={editFiles}
-                  editSaving={savingEdit}
-                  onEditTextChange={setEditText}
-                  onStartEdit={() => startEdit(m)}
-                  onCancelEdit={cancelEdit}
-                  onSaveEdit={() => saveEdit(m)}
-                  onToggleRemoveAttachment={toggleRemoveAttachment}
-                  onAddEditFiles={(files) =>
-                    addEditFiles(
-                      files,
-                      MAX_ATTACHMENTS_PER_MESSAGE -
-                        ((m.attachments?.length ?? 0) -
-                          editRemovedIds.length +
-                          editFiles.length),
-                    )
-                  }
-                  onRemoveEditFile={removeEditFile}
-                  onDelete={() => setDeleteTarget(m)}
-                  onAcceptInvite={() => handleAcceptInvite(m)}
-                  onDeclineInvite={() => handleDeclineInvite(m)}
-                  onOpenInviteServer={() =>
-                    m.inviteServerId && onGoToServer?.(m.inviteServerId)
-                  }
-                />
-                </React.Fragment>
-              );
-            })}
-          </div>
+          <MessageList
+            messages={messages}
+            loadingOlder={loadingOlder}
+            currentUserId={currentUserId}
+            isDm={!!dm}
+            blockedIds={blockedIds}
+            nameOverrides={nameOverrides}
+            editingId={editingId}
+            editText={editText}
+            editRemovedIds={editRemovedIds}
+            editFiles={editFiles}
+            savingEdit={savingEdit}
+            highlightedMessageId={highlightedMessageId}
+            canModerateMessages={canModerateMessages}
+            myServerIds={myServerIds}
+            receiptFor={receiptFor}
+            onEditTextChange={setEditText}
+            onStartEdit={startEdit}
+            onCancelEdit={cancelEdit}
+            onSaveEdit={saveEdit}
+            onToggleRemoveAttachment={toggleRemoveAttachment}
+            onAddEditFiles={addEditFiles}
+            onRemoveEditFile={removeEditFile}
+            onDelete={setDeleteTarget}
+            onAcceptInvite={handleAcceptInvite}
+            onDeclineInvite={handleDeclineInvite}
+            onOpenInviteServer={onGoToServer}
+          />
         )}
       </div>
       </div>
