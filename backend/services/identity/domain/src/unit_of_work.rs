@@ -17,6 +17,7 @@ pub trait IdentityUnitOfWork: Send + Sync {
 #[async_trait::async_trait]
 pub trait IdentityTransaction: Send {
     async fn load_user_for_update(&mut self, user_id: &UserId) -> Result<Option<User>, RepositoryError>;
+    async fn load_stale_unverified_users_for_update(&mut self, registered_before: DateTime<Utc>, limit: i64) -> Result<Vec<User>, RepositoryError>;
     async fn load_pending_verification_for_update(&mut self, user_id: &UserId) -> Result<Option<VerificationCode>, RepositoryError>;
     async fn load_pending_verification_for_purpose_for_update(&mut self, user_id: &UserId, purpose: VerificationPurpose) -> Result<Option<VerificationCode>, RepositoryError>;
     async fn delete_oauth_identities(&mut self, user_id: &UserId) -> Result<(), RepositoryError>;

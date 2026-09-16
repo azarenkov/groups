@@ -2,11 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use domain::event::EventId;
-use identity_domain::{
-    events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::events::UserEvent,
-    user::events::lifecycle::UserActivityChanged, user::repository::UserRepository,
-};
+use identity_domain::{unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -15,6 +11,9 @@ use crate::{
         activity_store::{ActivityStore, ActivityStoreError},
         hasher::{HashError, Hasher},
         oauth_verifier::OAuthIdentityVerifier,
+    },
+    usecases::user::account_deletion::{
+        AccountDeletionError, apply_account_deletion, clear_deleted_user_caches,
     },
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
@@ -33,6 +32,17 @@ pub enum DeleteAccountError {
     UserNotFound,
     #[error("Activity store error: {0}")]
     ActivityStore(#[from] ActivityStoreError),
+}
+
+impl From<AccountDeletionError> for DeleteAccountError {
+    fn from(error: AccountDeletionError) -> Self {
+        match error {
+            AccountDeletionError::Repository(e) => Self::Repository(e),
+            AccountDeletionError::AccessRevoker(e) => Self::AccessRevoker(e),
+            AccountDeletionError::ActivityStore(e) => Self::ActivityStore(e),
+            AccountDeletionError::AlreadyDeleted => Self::UserNotFound,
+        }
+    }
 }
 
 pub struct DeleteAccount<U, W, H, R, V, S>
@@ -99,22 +109,14 @@ where
             self.reauthenticator.verify(&user, reauth).await?;
         }
         let now = Utc::now();
-        user.delete(now).map_err(|_| DeleteAccountError::UserNotFound)?;
-        let mut events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
-        self.activity_store.clear(&user_id).await?;
-        events.push(IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
-            id: EventId::generate(),
-            user_id,
-            game_id: None,
-            name: None,
-            started_at: None,
-            occurred_at: now,
-        })));
-        tx.save_user(&user).await?;
-        tx.delete_oauth_identities(&user_id).await?;
-        tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
-        tx.save_events(&events, request_id).await?;
-        self.access_revoker.revoke_access_issued_before(&user_id, now).await?;
+        clear_deleted_user_caches(
+            &*self.activity_store,
+            &*self.access_revoker,
+            &user_id,
+            now,
+        )
+        .await?;
+        apply_account_deletion(&mut *tx, &mut user, now, request_id).await?;
         tx.commit().await?;
         Ok(())
     }

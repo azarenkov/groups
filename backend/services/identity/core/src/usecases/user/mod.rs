@@ -1,3 +1,4 @@
+pub mod account_deletion;
 pub mod appearance;
 pub mod get_me;
 pub mod change_password;
@@ -13,5 +14,6 @@ pub mod update_profile;
 pub mod activity;
 pub mod game_catalog;
 pub mod notification_settings;
+pub mod purge_unverified_accounts;
 pub mod hotkey_settings;
 pub mod voice_settings;

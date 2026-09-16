@@ -125,7 +125,11 @@ httpServices:
     enabled: true
     replicas: 2
     databases: [identity]
-    env: {}
+    env:
+      UNVERIFIED_CLEANUP_ENABLED: "true"
+      UNVERIFIED_ACCOUNT_TTL_HOURS: "24"
+      UNVERIFIED_CLEANUP_INTERVAL_SECS: "900"
+      UNVERIFIED_CLEANUP_BATCH_SIZE: "200"
     resources:
       requests: { cpu: 100m, memory: 128Mi }
       limits: { memory: 512Mi }

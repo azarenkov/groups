@@ -1,0 +1,119 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE email_verified_at IS NULL\n              AND phone_verified_at IS NULL\n              AND deleted_at IS NULL\n              AND created_at < $1\n            ORDER BY created_at\n            LIMIT $2\n            FOR UPDATE SKIP LOCKED\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "email_verified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "phone_verified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "locale",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "pending_email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 10,
+        "name": "password_changed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "disabled_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 13,
+        "name": "bio",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 14,
+        "name": "show_activity",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "show_game_activity",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
+        "name": "timezone",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "48ab3936e3e14431fb3e45f440a9d34232a3f8225af7da29c380afb9e7460257"
+}

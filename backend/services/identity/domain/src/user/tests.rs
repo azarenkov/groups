@@ -117,3 +117,49 @@ fn rename_updates_the_name_and_records_an_event() {
     assert_eq!(user.name().as_str(), "renamed");
     assert!(matches!(user.pull_events().as_slice(), [UserEvent::Renamed(_)]));
 }
+
+#[test]
+fn deletion_releases_the_login_and_the_email() {
+    let mut user = fresh_user();
+    let name_before = user.name().as_str().to_string();
+    let email_before = user.email().as_str().to_string();
+
+    user.delete(Utc::now()).unwrap();
+
+    assert_ne!(user.name().as_str(), name_before);
+    assert_ne!(user.email().as_str(), email_before);
+    assert!(user.is_deleted());
+    let events = user.pull_events();
+    assert!(events.iter().any(|e| matches!(e, UserEvent::Renamed(_))));
+    assert!(events.iter().any(|e| matches!(e, UserEvent::Deleted(_))));
+}
+
+#[test]
+fn an_account_can_only_be_deleted_once() {
+    let mut user = fresh_user();
+    user.delete(Utc::now()).unwrap();
+    assert!(matches!(user.delete(Utc::now()), Err(UserError::Deleted)));
+}
+
+#[test]
+fn a_deleted_account_cannot_confirm_its_registration() {
+    let mut user = fresh_user();
+    let code = registration_code(&user);
+    user.delete(Utc::now()).unwrap();
+
+    assert!(matches!(
+        user.ensure_can_confirm(&code, Utc::now()),
+        Err(UserError::Deleted)
+    ));
+}
+
+#[test]
+fn a_deleted_account_cannot_ask_for_another_code() {
+    let mut user = fresh_user();
+    user.delete(Utc::now()).unwrap();
+
+    assert!(matches!(
+        user.ensure_can_request_verification(VerificationPurpose::Registration),
+        Err(UserError::Deleted)
+    ));
+}
