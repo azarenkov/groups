@@ -13,7 +13,6 @@ import {
   useStreamViewersStore,
   streamViewerKey,
 } from "../store/streamViewersStore";
-import { getLiveKitService } from "../services/livekit";
 import { ws } from "../services/websocket";
 import { setActiveChatView } from "../services/websocketBootstrap";
 import { useUnreadStore } from "../store/unreadStore";
@@ -23,7 +22,7 @@ import { useDmPreviewStore } from "../store/dmPreviewStore";
 import type { DmPreview } from "../store/dmPreviewStore";
 import { useCallStore } from "../store/callStore";
 import { userAPI } from "../api/user";
-import { scheduleHomeRefresh, useHomeStore } from "../store/homeStore";
+import { useHomeStore } from "../store/homeStore";
 import HomeView from "../components/rift/HomeView";
 import { colorForId, initialFor } from "../utils/avatar";
 import { UserAvatar } from "../components/rift/Avatar";
@@ -41,6 +40,8 @@ import SettingsView from "../components/settings/SettingsView";
 import { useHotkey } from "../services/hotkeys";
 import ServerSettingsView from "../components/rift/ServerSettingsView";
 import ModalsHost from "./servers/ModalsHost";
+import { useVoiceSession } from "../hooks/servers/useVoiceSession";
+import { useHomeRefresh } from "../hooks/servers/useHomeRefresh";
 import ErrorToast from "../components/rift/ErrorToast";
 import Icon from "../components/rift/Icon";
 import { useLocalQuality } from "../hooks/useLocalQuality";
@@ -126,17 +127,19 @@ const ServersPage: React.FC = () => {
     name: string;
   } | null>(null);
 
-  const [joinedChannel, setJoinedChannel] = useState<{
-    channel: Channel;
-    serverId: string;
-    password?: string;
-  } | null>(null);
-  const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
-  const [voiceJoinAttempt, setVoiceJoinAttempt] = useState(0);
-  const [passwordPrompt, setPasswordPrompt] = useState<{
-    server: Server;
-    channel: Channel;
-  } | null>(null);
+  const {
+    joinedChannel,
+    setJoinedChannel,
+    voiceJoinFailed,
+    setVoiceJoinFailed,
+    voiceJoinAttempt,
+    passwordPrompt,
+    setPasswordPrompt,
+    handleVoiceLeave,
+    handleVoiceJoinFailed,
+    startVoiceJoin,
+    reportStreamWatch,
+  } = useVoiceSession();
   const [selectedDm, setSelectedDm] = useState<DirectConversation | null>(null);
   const [expandedServerIds, setExpandedServerIds] = useState<Set<string>>(
     () => new Set<string>(),
@@ -508,13 +511,10 @@ const ServersPage: React.FC = () => {
   };
 
   const finalizeJoin = (server: Server, channel: Channel, password?: string) => {
-    void useCallStore.getState().leave(true);
     setSelectedServer(server.id);
     setSelectedChannel(channel.id);
-    setJoinedChannel({ channel, serverId: server.id, password });
     setSelectedDm(null);
-    setVoiceJoinFailed(false);
-    setVoiceJoinAttempt((n) => n + 1);
+    startVoiceJoin(server, channel, password);
   };
 
   const handleSelectChannel = (server: Server, channel: Channel) => {
@@ -744,29 +744,10 @@ const ServersPage: React.FC = () => {
   useHotkey("nextChannel", () => stepConversation(1), !navigationBlocked);
   useHotkey("prevChannel", () => stepConversation(-1), !navigationBlocked);
 
-  const handleVoiceLeave = useCallback(() => {
-    setJoinedChannel(null);
-    setVoiceJoinFailed(false);
-  }, []);
-
-  const handleVoiceJoinFailed = useCallback(() => {
-    setVoiceJoinFailed(true);
-  }, []);
-
   const activeCallId = useCallStore((s) => s.activeCallId);
   const callFocused = useCallStore((s) => s.focused);
   const callPeerId = useCallStore((s) => s.peerId);
   const callParticipants = useCallStore((s) => s.participants);
-  const prevActiveCallRef = useRef<string | null>(null);
-  useEffect(() => {
-    const prev = prevActiveCallRef.current;
-    prevActiveCallRef.current = activeCallId;
-    if (!prev && activeCallId && joinedChannel) {
-      setJoinedChannel(null);
-      setVoiceJoinFailed(false);
-    }
-  }, [activeCallId, joinedChannel]);
-
   useEffect(() => {
     if (!callFocused || !activeCallId || !callPeerId) return;
     if (selectedDm && (selectedDm.id === callPeerId || selectedDm.id in callParticipants)) return;
@@ -784,48 +765,6 @@ const ServersPage: React.FC = () => {
     acceptedFriends,
     setSelectedChannel,
   ]);
-
-  const watchServerId = joinedChannel?.serverId;
-  const watchChannelId = joinedChannel?.channel.id;
-  const watchStateRef = useRef(
-    new Map<string, { desired: boolean; running: boolean }>(),
-  );
-  const reportStreamWatch = useCallback(
-    (streamerId: string, watching: boolean) => {
-      if (!watchServerId || !watchChannelId) return;
-      const key = `${watchServerId}:${watchChannelId}:${streamerId}`;
-      const states = watchStateRef.current;
-      const entry = states.get(key) ?? { desired: watching, running: false };
-      entry.desired = watching;
-      states.set(key, entry);
-      if (entry.running) return;
-      entry.running = true;
-      void (async () => {
-        let lastSent: boolean | undefined;
-        while (states.get(key) && states.get(key)!.desired !== lastSent) {
-          const target = states.get(key)!.desired;
-          const sessionId = getLiveKitService().getLocalSessionId();
-          if (!sessionId) break;
-          try {
-            await serverAPI.updateStreamViewer(
-              watchServerId,
-              watchChannelId,
-              streamerId,
-              sessionId,
-              target,
-            );
-            lastSent = target;
-          } catch (err) {
-            console.warn("[stream-viewers] report failed:", err);
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-        }
-        const e = states.get(key);
-        if (e) e.running = false;
-      })();
-    },
-    [watchServerId, watchChannelId],
-  );
 
   const handleJoinByLink = async (token: string) => {
     const { server } = await serverAPI.joinByInvite(token);
@@ -907,31 +846,12 @@ const ServersPage: React.FC = () => {
 
   const homeOverview = useHomeStore((s) => s.overview);
   const homeFailed = useHomeStore((s) => s.failed);
-  const fetchHome = useHomeStore((s) => s.fetch);
   const homeActive = !selectedServer && !selectedDm;
-  useEffect(() => {
-    if (!tokens?.accessToken || !homeActive) return;
-    void fetchHome();
-    const interval = window.setInterval(() => void fetchHome(), 60_000);
-    const onFocus = () => void fetchHome();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [tokens?.accessToken, homeActive, fetchHome]);
-  const homeRefreshArmedRef = useRef(false);
-  useEffect(() => {
-    if (!homeActive) {
-      homeRefreshArmedRef.current = false;
-      return;
-    }
-    if (!homeRefreshArmedRef.current) {
-      homeRefreshArmedRef.current = true;
-      return;
-    }
-    scheduleHomeRefresh();
-  }, [homeActive, voicePresenceByChannel, onlineUsers, friends]);
+  const { fetchHome } = useHomeRefresh({
+    hasSession: !!tokens?.accessToken,
+    homeActive,
+    watched: [voicePresenceByChannel, onlineUsers, friends],
+  });
 
   const handleGoHome = () => {
     useCallStore.getState().setFocused(false);
