@@ -2,58 +2,23 @@ import { create } from "zustand";
 import { callAPI } from "../api/call";
 import { homeAPI } from "../../home/api/home";
 import i18n from "../../../i18n";
-import { ApiError } from "../../../shared/lib/apiError";
 import { getLiveKitService } from "../lib/livekit";
-
-async function connectToRoom(
-  token: string,
-  url: string,
-  roomName: string,
-  startMuted?: boolean,
-): Promise<void> {
-  const service = getLiveKitService();
-  if (service.isConnected() || service.isConnectingNow()) {
-    await service.disconnect().catch(() => {});
-  }
-  await service.connect(token, url, roomName, startMuted);
-}
-
-const getAuthedUserId = async (): Promise<string | null> => {
-  const { useAuthStore } = await import("../../auth/store/authStore");
-  return useAuthStore.getState().user?.id ?? null;
-};
-
-const getAuthedIdentity = async (): Promise<{
-  userId: string | null;
-  accessToken: string | null;
-}> => {
-  const { useAuthStore } = await import("../../auth/store/authStore");
-  const state = useAuthStore.getState();
-  return {
-    userId: state.user?.id ?? null,
-    accessToken: state.tokens?.accessToken ?? null,
-  };
-};
-
-const leaveAsInitiator = async (
-  callId: string,
-  accessToken: string | null,
-): Promise<void> => {
-  if (accessToken) {
-    await callAPI.leaveWithToken(callId, accessToken).catch(() => {});
-  } else {
-    await callAPI.leave(callId).catch(() => {});
-  }
-};
-
-const awaitVoiceSettingsSyncedFor = async (
-  userId: string | null,
-): Promise<boolean> => {
-  const { awaitVoiceSettingsSyncedFor: waitFor } = await import(
-    "./voiceSettingsStore"
-  );
-  return waitFor(userId);
-};
+import {
+  clearCallLog,
+  dispatchCallLog,
+  finalizeCallLog,
+  markCallLogDeclined,
+  markCallLogPeerJoined,
+  startCallLog,
+  takeCallLog,
+} from "../lib/callLog";
+import {
+  awaitVoiceSettingsSyncedFor,
+  connectToRoom,
+  getAuthedIdentity,
+  getAuthedUserId,
+  leaveAsInitiator,
+} from "../lib/callSession";
 
 const armFallbackMuteRelease = (
   userId: string | null,
@@ -144,72 +109,6 @@ interface CallState {
 
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
-interface CallLog {
-  callId: string;
-  startedAt: number;
-  answeredAt: number | null;
-  peerId: string;
-  peerJoined: boolean;
-  declined: boolean;
-}
-
-let pendingLog: CallLog | null = null;
-
-interface PreparedCallLog {
-  callId: string;
-  peerId: string;
-  status: string;
-  duration: number | undefined;
-}
-
-function takeCallLog(): PreparedCallLog | null {
-  const cl = pendingLog;
-  pendingLog = null;
-  if (!cl) return null;
-  let status = "missed";
-  let duration: number | undefined;
-  if (cl.declined) {
-    status = "declined";
-  } else if (cl.peerJoined) {
-    status = "completed";
-    const from = cl.answeredAt ?? cl.startedAt;
-    duration = Math.max(0, Math.round((Date.now() - from) / 1000));
-  }
-  return { callId: cl.callId, peerId: cl.peerId, status, duration };
-}
-
-function dispatchCallLog(log: PreparedCallLog | null) {
-  if (!log) return;
-  sendCallLog(log.callId, log.peerId, log.status, log.duration, 0);
-}
-
-function finalizeCallLog() {
-  dispatchCallLog(takeCallLog());
-}
-
-function sendCallLog(
-  callId: string,
-  peerId: string,
-  status: string,
-  duration: number | undefined,
-  attempt: number,
-) {
-  callAPI.logCall(callId, peerId, status, duration).catch((e) => {
-    const code = e instanceof ApiError ? e.code : null;
-    const terminal =
-      code === "CALL_ALREADY_LOGGED" ||
-      code === "SELF_CALL" ||
-      code === "INVALID_CALL_STATUS" ||
-      code === "CALLS_CLOSED";
-    if (attempt < 30 && !terminal) {
-      window.setTimeout(
-        () => sendCallLog(callId, peerId, status, duration, attempt + 1),
-        Math.min(30000, 2000 * 2 ** attempt),
-      );
-    }
-  });
-}
-
 export const useCallStore = create<CallState>()((set, get) => ({
   incoming: null,
   activeCallId: null, startedAt: null, attention: false,
@@ -270,13 +169,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   participantJoined: (callId, userId, userName) =>
     set((s) => {
       if (s.activeCallId !== callId) return s;
-      if (pendingLog && pendingLog.peerId === userId) {
-        pendingLog.declined = false;
-        if (!pendingLog.peerJoined) {
-          pendingLog.peerJoined = true;
-          pendingLog.answeredAt = Date.now();
-        }
-      }
+      markCallLogPeerJoined(userId);
       return {
         participants: { ...s.participants, [userId]: userName },
         ringing: without(s.ringing, userId),
@@ -310,7 +203,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   participantDeclined: (callId, userId) =>
     set((s) => {
       if (s.activeCallId !== callId) return s;
-      if (pendingLog && pendingLog.peerId === userId) pendingLog.declined = true;
+      markCallLogDeclined(userId);
       return { ringing: without(s.ringing, userId) };
     }),
 
@@ -538,14 +431,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     });
     const { callId, token, url, participants } = session;
-    pendingLog = {
-      callId,
-      startedAt: Date.now(),
-      answeredAt: null,
-      peerId: recipientIds[0],
-      peerJoined: false,
-      declined: false,
-    };
+    startCallLog(callId, recipientIds[0]);
     set({
       activeCallId: callId,
       startedAt: Date.now(),
@@ -563,13 +449,13 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
     if (get().activeCallId !== callId) {
-      if (pendingLog?.callId === callId) pendingLog = null;
+      clearCallLog(callId);
       await callAPI.leave(callId).catch(() => {});
       if (get().activeCallId === null) set({ connecting: false });
       return;
     }
     if ((await getAuthedUserId()) !== initiatorId) {
-      pendingLog = null;
+      clearCallLog();
       set({
         activeCallId: null, startedAt: null, attention: false,
         connecting: false,
@@ -585,7 +471,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     try {
       await connectToRoom(token, url, callId, !synced);
     } catch (e) {
-      pendingLog = null;
+      clearCallLog();
       set({
         activeCallId: null, startedAt: null, attention: false,
         connecting: false,
@@ -601,7 +487,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       get().activeCallId !== callId ||
       (await getAuthedUserId()) !== initiatorId
     ) {
-      if (pendingLog?.callId === callId) pendingLog = null;
+      clearCallLog(callId);
       const service = getLiveKitService();
       if (service.getActiveRoomName() === callId) {
         await service.disconnect().catch(() => {});
