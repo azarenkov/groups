@@ -14,6 +14,7 @@ import ServersPage from "./pages/ServersPage";
 import JoinPage from "./pages/JoinPage";
 import ScreenSharePicker from "./components/rift/ScreenSharePicker";
 import { useAuthStore } from "./store/authStore";
+import { resetSessionStores } from "./store/resetSession";
 import { applyAppearance, useAppearanceStore } from "./store/appearanceStore";
 import { initPushToTalk } from "./services/pushToTalk";
 import { initDesktopNotifications } from "./utils/desktopNotification";
@@ -142,34 +143,7 @@ const App: React.FC = () => {
       };
     }
     ws.disconnect();
-    void import("./store/unreadStore").then(({ useUnreadStore }) =>
-      useUnreadStore.getState().clearAll(),
-    );
-    void import("./store/presenceStore").then(({ usePresenceStore }) =>
-      usePresenceStore.getState().clearAll(),
-    );
-    void import("./store/notificationPrefsStore").then(
-      ({ useNotificationPrefsStore }) =>
-        useNotificationPrefsStore.getState().clearAll(),
-    );
-    void import("./store/rolesStore").then(({ useRolesStore }) =>
-      useRolesStore.getState().clearAll(),
-    );
-    void import("./store/voicePresenceStore").then(({ useVoicePresenceStore }) =>
-      useVoicePresenceStore.getState().clearAll(),
-    );
-    void import("./store/homeStore").then(({ useHomeStore }) =>
-      useHomeStore.getState().clear(),
-    );
-    void import("./store/userProfileStore").then(({ useUserProfileStore }) =>
-      useUserProfileStore.getState().clear(),
-    );
-    void import("./store/blockStore").then(({ useBlockStore }) =>
-      useBlockStore.getState().clearAll(),
-    );
-    void import("./store/friendshipStore").then(({ useFriendshipStore }) =>
-      useFriendshipStore.getState().clearAll(),
-    );
+    resetSessionStores();
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {

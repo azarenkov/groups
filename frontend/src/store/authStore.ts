@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { clearRefreshToken, setRefreshToken } from "../utils/secureStorage";
-import { useReadReceiptStore } from "./readReceiptStore";
-import { useDmPreviewStore } from "./dmPreviewStore";
+import { resetSessionStores } from "./resetSession";
 
 interface User {
   id: string;
@@ -65,28 +64,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   logout: () => {
     const outgoingToken = get().tokens?.accessToken ?? null;
-    void import("../services/gameActivity").then((m) =>
-      m.clearActivityForLogout(outgoingToken),
-    );
-    void import("./activityStore").then((m) => m.useActivityStore.getState().clearAll());
     set({ user: null, tokens: null, isAuthenticated: false, error: null });
-    useReadReceiptStore.getState().clear();
-    useDmPreviewStore.getState().clear();
-    void import("./blockStore").then((m) => m.useBlockStore.getState().clearAll());
-    void import("./friendshipStore").then((m) => m.useFriendshipStore.getState().clearAll());
-    void import("../utils/avatarCache").then((m) => m.clearAvatarCache());
-    void import("./userNamesStore").then((m) =>
-      m.useUserNamesStore.getState().clear(),
-    );
-    void import("./voiceSettingsStore").then((m) =>
-      m.invalidateVoiceSettingsSync(),
-    );
-    void import("./notificationSettingsStore").then((m) =>
-      m.invalidateNotificationSettingsSync(),
-    );
-    void import("./hotkeySettingsStore").then((m) =>
-      m.invalidateHotkeySettingsSync(),
-    );
+    resetSessionStores(outgoingToken);
     void clearRefreshToken();
   },
 
