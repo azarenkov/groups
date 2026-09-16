@@ -1,0 +1,127 @@
+import React from "react";
+import { useTranslation } from "react-i18next";
+import Icon from "../../../../shared/ui/Icon";
+import { UserAvatar } from "../../../../shared/ui/Avatar";
+import type { DirectConversation } from "../../../dm/types";
+import { useActivityStore } from "../../../social/store/activityStore";
+
+interface DmListProps {
+  directs: DirectConversation[];
+  isFiltering: boolean;
+  selectedDmId: string | null;
+  unreadByDm: Record<string, number>;
+  pendingCount: number;
+  hasMoreDirects?: boolean;
+  onLoadMoreDirects?: () => void;
+  onAddFriend: () => void;
+  onOpenPending: () => void;
+  onPick: (dm: DirectConversation) => void;
+}
+
+const DmList: React.FC<DmListProps> = ({
+  directs,
+  isFiltering,
+  selectedDmId,
+  unreadByDm,
+  pendingCount,
+  hasMoreDirects,
+  onLoadMoreDirects,
+  onAddFriend,
+  onOpenPending,
+  onPick,
+}) => {
+  const { t } = useTranslation(["sidebar", "common"]);
+  const activities = useActivityStore((s) => s.byUser);
+  return (
+    <div className="sb-view">
+      {!isFiltering && (
+        <>
+          <button type="button" className="sb-add-row" onClick={onAddFriend}>
+            <span className="sb-add-row-ico">
+              <Icon name="user-plus" size={13} />
+            </span>
+            <span>{t("addFriend")}</span>
+          </button>
+          <button
+            type="button"
+            className="sb-add-row secondary"
+            onClick={onOpenPending}
+          >
+            <span className="sb-add-row-ico">
+              <Icon name="mail" size={13} />
+            </span>
+            <span>{t("pendingRequests")}</span>
+            {pendingCount > 0 && (
+              <span className="sb-add-row-badge">{pendingCount}</span>
+            )}
+          </button>
+        </>
+      )}
+      <div className="sb-vhead">
+        <span className="sb-vhead-label">{t("directMessages")}</span>
+      </div>
+      {directs.length === 0 && (
+        <div className="sb-empty">
+          {isFiltering ? t("noDirectMatches") : t("noDirects")}
+        </div>
+      )}
+      {directs.map((d) => {
+        const unread = unreadByDm[d.id] ?? 0;
+        const activity = d.online ? activities[d.id] : undefined;
+        const sub =
+          d.lastMessage ||
+          (d.online ? t("statusOnline") : t("statusOffline"));
+        return (
+          <div
+            key={d.id}
+            role="button"
+            tabIndex={0}
+            className={
+              "sb-dm" +
+              (selectedDmId === d.id ? " active" : "") +
+              (!d.online ? " off" : "")
+            }
+            onClick={() => onPick(d)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onPick(d);
+              }
+            }}
+          >
+            <div className="sb-dm-ava-wrap">
+              <UserAvatar
+                userId={d.id}
+                name={d.name}
+                className="sb-dm-ava"
+                style={{ background: d.color }}
+              />
+              {d.online && <span className="sb-dm-dot" />}
+            </div>
+            <div className="sb-dm-main">
+              <div className="sb-dm-name">
+                <span className="sb-dm-name-text">{d.name}</span>
+                {activity && (
+                  <span className="sb-dm-game" title={activity.name}>
+                    {activity.name}
+                  </span>
+                )}
+              </div>
+              <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
+                {sub}
+              </div>
+            </div>
+            {unread > 0 && <span className="sb-dm-badge">{unread}</span>}
+          </div>
+        );
+      })}
+      {hasMoreDirects && onLoadMoreDirects && (
+        <button type="button" className="sb-load-more" onClick={onLoadMoreDirects}>
+          {t("loadMore")}
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default DmList;
