@@ -8,25 +8,26 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import LoginPage from "./pages/auth/LoginPage";
-import RegisterPage from "./pages/auth/RegisterPage";
-import ServersPage from "./pages/ServersPage";
-import JoinPage from "./pages/JoinPage";
-import ScreenSharePicker from "./components/rift/ScreenSharePicker";
-import { useAuthStore } from "./store/authStore";
-import { applyAppearance, useAppearanceStore } from "./store/appearanceStore";
-import { initPushToTalk } from "./services/pushToTalk";
-import { initDesktopNotifications } from "./utils/desktopNotification";
-import { decodeAccessToken, isAccessTokenVerified } from "./utils/jwt";
-import { clearRefreshToken, getRefreshToken } from "./utils/secureStorage";
-import { authAPI } from "./api/auth";
-import { ApiError } from "./utils/apiError";
-import { ws } from "./services/websocket";
-import { installWsBootstrap } from "./services/websocketBootstrap";
-import { initGameActivity } from "./services/gameActivity";
-import { initHotkeys } from "./services/hotkeys";
-import { authRedirectTarget, extractInviteToken } from "./utils/inviteLinks";
-import "./styles/App.css";
+import LoginPage from "./features/auth/components/LoginPage";
+import RegisterPage from "./features/auth/components/RegisterPage";
+import ServersPage from "./features/servers/components/ServersPage";
+import JoinPage from "./features/servers/components/JoinPage";
+import ScreenSharePicker from "./features/voice/components/ScreenSharePicker";
+import { useAuthStore } from "./features/auth/store/authStore";
+import { resetSessionStores } from "./shared/store/resetSession";
+import { applyAppearance, useAppearanceStore } from "./features/settings/store/appearanceStore";
+import { initPushToTalk } from "./features/voice/lib/pushToTalk";
+import { initDesktopNotifications } from "./shared/lib/desktopNotification";
+import { decodeAccessToken, isAccessTokenVerified } from "./shared/lib/jwt";
+import { clearRefreshToken, getRefreshToken } from "./shared/lib/secureStorage";
+import { authAPI } from "./features/auth/api/auth";
+import { ApiError } from "./shared/lib/apiError";
+import { ws } from "./shared/ws/websocket";
+import { installWsBootstrap } from "./shared/ws/websocketBootstrap";
+import { initGameActivity } from "./features/social/lib/gameActivity";
+import { initHotkeys } from "./features/settings/lib/hotkeys";
+import { authRedirectTarget, extractInviteToken } from "./shared/lib/inviteLinks";
+import "styles/App.css";
 
 const AuthRedirect: React.FC = () => {
   const { search } = useLocation();
@@ -109,7 +110,7 @@ const App: React.FC = () => {
       void (async () => {
         try {
           const { useNotificationPrefsStore } = await import(
-            "./store/notificationPrefsStore"
+            "./features/settings/store/notificationPrefsStore"
           );
           if (cancelled) return;
           let prefsLoaded = false;
@@ -126,14 +127,14 @@ const App: React.FC = () => {
             }
           }
           if (cancelled) return;
-          const { refetchUnread } = await import("./store/unreadStore");
+          const { refetchUnread } = await import("./features/chat/store/unreadStore");
           if (cancelled) return;
           await refetchUnread();
         } catch (err) {
           if (!cancelled) console.warn("[App] failed to load unread counts:", err);
         }
       })();
-      void import("./store/dmPreviewStore").then(({ refetchDmPreviews }) => {
+      void import("./features/dm/store/dmPreviewStore").then(({ refetchDmPreviews }) => {
         if (!cancelled) refetchDmPreviews(true);
       });
       return () => {
@@ -142,34 +143,7 @@ const App: React.FC = () => {
       };
     }
     ws.disconnect();
-    void import("./store/unreadStore").then(({ useUnreadStore }) =>
-      useUnreadStore.getState().clearAll(),
-    );
-    void import("./store/presenceStore").then(({ usePresenceStore }) =>
-      usePresenceStore.getState().clearAll(),
-    );
-    void import("./store/notificationPrefsStore").then(
-      ({ useNotificationPrefsStore }) =>
-        useNotificationPrefsStore.getState().clearAll(),
-    );
-    void import("./store/rolesStore").then(({ useRolesStore }) =>
-      useRolesStore.getState().clearAll(),
-    );
-    void import("./store/voicePresenceStore").then(({ useVoicePresenceStore }) =>
-      useVoicePresenceStore.getState().clearAll(),
-    );
-    void import("./store/homeStore").then(({ useHomeStore }) =>
-      useHomeStore.getState().clear(),
-    );
-    void import("./store/userProfileStore").then(({ useUserProfileStore }) =>
-      useUserProfileStore.getState().clear(),
-    );
-    void import("./store/blockStore").then(({ useBlockStore }) =>
-      useBlockStore.getState().clearAll(),
-    );
-    void import("./store/friendshipStore").then(({ useFriendshipStore }) =>
-      useFriendshipStore.getState().clearAll(),
-    );
+    resetSessionStores();
   }, [isAuthenticated, hasUnverifiedSession, hasAccessToken]);
 
   useEffect(() => {
@@ -187,7 +161,6 @@ const App: React.FC = () => {
           name: "",
           email: "",
         });
-        authAPI.setAuthToken(fresh.accessToken);
         void useAuthStore
           .getState()
           .fetchMe()

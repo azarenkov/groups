@@ -1,0 +1,79 @@
+import React from "react";
+import { channelAPI } from "../../servers/api/channel";
+import { dmAPI } from "../../dm/api/dm";
+import type { ChannelMessage, PaginationMeta } from "../../../shared/types/channel";
+import type { ChannelMeta, DmMeta } from "../types";
+
+export interface Messenger {
+  listMessages: (opts: {
+    before?: string;
+    after?: string;
+    limit?: number;
+  }) => Promise<{ messages: ChannelMessage[] }>;
+  sendMessage: (
+    content: string,
+    attachmentIds?: string[],
+  ) => Promise<ChannelMessage>;
+  editMessage: (
+    messageId: string,
+    content: string,
+    addAttachmentIds?: string[],
+    removeAttachmentIds?: string[],
+  ) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  searchMessages: (
+    query: string,
+    page: number,
+    perPage: number,
+  ) => Promise<{ messages: ChannelMessage[]; pagination?: PaginationMeta }>;
+}
+
+export function useMessenger(params: {
+  channel?: ChannelMeta;
+  serverId?: string;
+  dm?: DmMeta;
+  isDm: boolean;
+}): Messenger | null {
+  const { channel, serverId, dm, isDm } = params;
+  return React.useMemo<Messenger | null>(() => {
+    if (isDm && dm) {
+      return {
+        listMessages: (opts) => dmAPI.listMessages(dm.friendId, opts),
+        sendMessage: (content, attachmentIds) =>
+          dmAPI.sendMessage(dm.friendId, content, attachmentIds),
+        editMessage: (messageId, content, addAttachmentIds, removeAttachmentIds) =>
+          dmAPI.editMessage(
+            messageId,
+            content,
+            addAttachmentIds,
+            removeAttachmentIds,
+          ),
+        deleteMessage: (messageId) => dmAPI.deleteMessage(messageId),
+        searchMessages: (query, page, perPage) =>
+          dmAPI.searchMessages(dm.friendId, query, page, perPage),
+      };
+    }
+    if (channel && serverId) {
+      return {
+        listMessages: (opts) =>
+          channelAPI.listMessages(serverId, channel.id, opts),
+        sendMessage: (content, attachmentIds) =>
+          channelAPI.sendMessage(serverId, channel.id, content, attachmentIds),
+        editMessage: (messageId, content, addAttachmentIds, removeAttachmentIds) =>
+          channelAPI.editMessage(
+            serverId,
+            channel.id,
+            messageId,
+            content,
+            addAttachmentIds,
+            removeAttachmentIds,
+          ),
+        deleteMessage: (messageId) =>
+          channelAPI.deleteMessage(serverId, channel.id, messageId),
+        searchMessages: (query, page, perPage) =>
+          channelAPI.searchMessages(serverId, channel.id, query, page, perPage),
+      };
+    }
+    return null;
+  }, [isDm, dm, channel, serverId]);
+}
