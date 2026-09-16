@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { ws, WsEnvelope } from "../../../shared/ws/websocket";
 
@@ -41,25 +41,27 @@ export function useWsChannelMessages(
   channelId: string | null,
   handlers: ChannelMessageHandlers,
 ) {
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
   useEffect(() => {
     if (!channelId) return;
     const off = ws.on((env: WsEnvelope) => {
       const d = env.data as Record<string, unknown>;
       if (typeof d.channelId !== "string" || d.channelId !== channelId) return;
-      if (env.type === "message.sent" && handlers.onSent) {
-        handlers.onSent(d as Parameters<NonNullable<typeof handlers.onSent>>[0]);
-      } else if (env.type === "message.edited" && handlers.onEdited) {
-        handlers.onEdited(
-          d as Parameters<NonNullable<typeof handlers.onEdited>>[0],
+      if (env.type === "message.sent" && handlersRef.current.onSent) {
+        handlersRef.current.onSent(d as Parameters<NonNullable<typeof handlersRef.current.onSent>>[0]);
+      } else if (env.type === "message.edited" && handlersRef.current.onEdited) {
+        handlersRef.current.onEdited(
+          d as Parameters<NonNullable<typeof handlersRef.current.onEdited>>[0],
         );
-      } else if (env.type === "message.deleted" && handlers.onDeleted) {
-        handlers.onDeleted(
-          d as Parameters<NonNullable<typeof handlers.onDeleted>>[0],
+      } else if (env.type === "message.deleted" && handlersRef.current.onDeleted) {
+        handlersRef.current.onDeleted(
+          d as Parameters<NonNullable<typeof handlersRef.current.onDeleted>>[0],
         );
       }
     });
     return off;
-  }, [channelId, handlers.onSent, handlers.onEdited, handlers.onDeleted]);
+  }, [channelId]);
 }
 
 export interface DmMessageHandlers {
@@ -106,6 +108,8 @@ export function useWsDmMessages(
   selfUserId: string | undefined,
   handlers: DmMessageHandlers,
 ) {
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
   useEffect(() => {
     if (!otherUserId || !selfUserId) return;
     const off = ws.on((env: WsEnvelope) => {
@@ -118,24 +122,18 @@ export function useWsDmMessages(
         (env.type === "dm_message.edited" &&
           (sender === selfUserId || sender === otherUserId));
       if (!involvesPair) return;
-      if (env.type === "dm_message.sent" && handlers.onSent) {
-        handlers.onSent(d as Parameters<NonNullable<typeof handlers.onSent>>[0]);
-      } else if (env.type === "dm_message.edited" && handlers.onEdited) {
-        handlers.onEdited(
-          d as Parameters<NonNullable<typeof handlers.onEdited>>[0],
+      if (env.type === "dm_message.sent" && handlersRef.current.onSent) {
+        handlersRef.current.onSent(d as Parameters<NonNullable<typeof handlersRef.current.onSent>>[0]);
+      } else if (env.type === "dm_message.edited" && handlersRef.current.onEdited) {
+        handlersRef.current.onEdited(
+          d as Parameters<NonNullable<typeof handlersRef.current.onEdited>>[0],
         );
-      } else if (env.type === "dm_message.deleted" && handlers.onDeleted) {
-        handlers.onDeleted(
-          d as Parameters<NonNullable<typeof handlers.onDeleted>>[0],
+      } else if (env.type === "dm_message.deleted" && handlersRef.current.onDeleted) {
+        handlersRef.current.onDeleted(
+          d as Parameters<NonNullable<typeof handlersRef.current.onDeleted>>[0],
         );
       }
     });
     return off;
-  }, [
-    otherUserId,
-    selfUserId,
-    handlers.onSent,
-    handlers.onEdited,
-    handlers.onDeleted,
-  ]);
+  }, [otherUserId, selfUserId]);
 }

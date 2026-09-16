@@ -122,7 +122,7 @@ export function useMentions({
         el?.setSelectionRange(pos, pos);
       });
     },
-    [mentionQuery, text],
+    [mentionQuery, text, composerRef, setText],
   );
 
 

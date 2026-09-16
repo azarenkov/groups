@@ -236,7 +236,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         setMessages((prev) => prev.filter((x) => x.id !== m.id));
       },
     }),
-    [currentUserId],
+    [],
   );
   useWsChannelMessages(channel?.id ?? null, channelMsgHandlers);
 
@@ -301,7 +301,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         setMessages((prev) => prev.filter((x) => x.id !== m.id));
       },
     }),
-    [currentUserId],
+    [],
   );
   useWsDmMessages(dm?.friendId ?? null, currentUserId, dmMsgHandlers);
 
@@ -1064,11 +1064,14 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
-  const startEdit = (msg: ChannelMessage) => {
-    discardEditFiles();
-    setEditingId(msg.id);
-    setEditText(msg.content);
-  };
+  const startEdit = React.useCallback(
+    (msg: ChannelMessage) => {
+      discardEditFiles();
+      setEditingId(msg.id);
+      setEditText(msg.content);
+    },
+    [discardEditFiles],
+  );
 
   const editLastOwnMessage = React.useCallback((): boolean => {
     const last = [...messagesRef.current]

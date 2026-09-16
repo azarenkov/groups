@@ -7,6 +7,8 @@ import { coalesce } from "../../../shared/lib/coalesce";
 
 const PAGE_SIZE = 100;
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 interface FriendshipState {
   friends: Friendship[];
   statusById: Record<string, FriendshipStatus>;
@@ -194,9 +196,7 @@ export const useFriendshipStore = create<FriendshipState>((set, get) => {
           if (fetchInflight) await fetchInflight;
           if (result === "failed") {
             failures += 1;
-            await new Promise((resolve) =>
-              setTimeout(resolve, Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5))),
-            );
+            await delay(Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5)));
             continue;
           }
           failures = 0;

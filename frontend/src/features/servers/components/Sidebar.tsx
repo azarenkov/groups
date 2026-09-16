@@ -133,23 +133,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   const openServerId = screen.tab === "servers" ? screen.server : null;
   const openServer = servers.find((s) => s.id === openServerId) ?? null;
 
-  const syncNavState = () => {
+  const syncNavState = React.useCallback(() => {
     setNavState({
       back: historyIdxRef.current > 0,
       forward: historyIdxRef.current < historyRef.current.length - 1,
     });
-  };
-  const navigateTo = (next: Screen) => {
-    const cur = historyRef.current[historyIdxRef.current];
-    if (cur && cur.tab === next.tab && cur.server === next.server) return;
-    const hist = historyRef.current.slice(0, historyIdxRef.current + 1);
-    hist.push(next);
-    if (hist.length > 50) hist.shift();
-    historyRef.current = hist;
-    historyIdxRef.current = hist.length - 1;
-    setScreen(next);
-    syncNavState();
-  };
+  }, []);
+  const navigateTo = React.useCallback(
+    (next: Screen) => {
+      const cur = historyRef.current[historyIdxRef.current];
+      if (cur && cur.tab === next.tab && cur.server === next.server) return;
+      const hist = historyRef.current.slice(0, historyIdxRef.current + 1);
+      hist.push(next);
+      if (hist.length > 50) hist.shift();
+      historyRef.current = hist;
+      historyIdxRef.current = hist.length - 1;
+      setScreen(next);
+      syncNavState();
+    },
+    [syncNavState],
+  );
   const goHistory = (delta: -1 | 1) => {
     const idx = historyIdxRef.current + delta;
     if (idx < 0 || idx >= historyRef.current.length) return;
@@ -159,18 +162,21 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
   useHotkey("historyBack", () => goHistory(-1));
   useHotkey("historyForward", () => goHistory(1));
-  const setTab = (next: "dms" | "servers") => {
-    const latest = historyRef.current[historyIdxRef.current];
-    navigateTo({
-      tab: next,
-      server:
-        next === "servers"
-          ? latest?.tab === "servers"
-            ? latest.server
-            : openServerId
-          : null,
-    });
-  };
+  const setTab = React.useCallback(
+    (next: "dms" | "servers") => {
+      const latest = historyRef.current[historyIdxRef.current];
+      navigateTo({
+        tab: next,
+        server:
+          next === "servers"
+            ? latest?.tab === "servers"
+              ? latest.server
+              : openServerId
+            : null,
+      });
+    },
+    [navigateTo, openServerId],
+  );
   const setOpenServerId = (id: string | null) =>
     navigateTo({ tab: "servers", server: id });
   const prevSelection = React.useRef({
@@ -185,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       setTab("servers");
     }
     prevSelection.current = { dm: selectedDmId, channel: selectedChannelId };
-  }, [selectedDmId, selectedChannelId]);
+  }, [selectedDmId, selectedChannelId, setTab]);
   const channelsByServerRef = React.useRef(channelsByServer);
   channelsByServerRef.current = channelsByServer;
   React.useEffect(() => {

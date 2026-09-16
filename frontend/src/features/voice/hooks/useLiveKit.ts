@@ -366,6 +366,20 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     deafenLockedRef.current
       ? selfMutedBeforeDeafenLockRef.current
       : isMutedRef.current && !fallbackMutedRef.current;
+  const actionsRef = useRef<{
+    liftModeratorLock: () => void;
+    engageDeafenLock: (by: string | null) => void;
+    liftDeafenLock: () => void;
+    releaseSelfDeafen: () => void;
+    setSelfMuted: (next: boolean) => void;
+  }>({
+    liftModeratorLock: () => {},
+    engageDeafenLock: () => {},
+    liftDeafenLock: () => {},
+    releaseSelfDeafen: () => {},
+    setSelfMuted: () => {},
+  });
+
   const liftModeratorLock = () => {
     setLock(false);
     if (selfMutedBeforeLockRef.current) {
@@ -437,14 +451,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           setLock(false);
           selfMutedBeforeLockRef.current = false;
         } else {
-          liftModeratorLock();
+          actionsRef.current.liftModeratorLock();
         }
       }
       const moderatorDeafened = !!me.deafenedBy && me.deafenedBy !== selfId;
       if (moderatorDeafened && !deafenLockedRef.current) {
-        engageDeafenLock(me.deafenedBy ?? null);
+        actionsRef.current.engageDeafenLock(me.deafenedBy ?? null);
       } else if (!moderatorDeafened && deafenLockedRef.current) {
-        liftDeafenLock();
+        actionsRef.current.liftDeafenLock();
       }
     };
     const unsub = useVoicePresenceStore.subscribe(reconcile);
@@ -473,7 +487,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         return;
       }
       if (moderatorLockedRef.current) {
-        liftModeratorLock();
+        actionsRef.current.liftModeratorLock();
       }
     };
     const onModeratorDeafen = (e: Event) => {
@@ -484,7 +498,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
         return;
       }
-      engageDeafenLock(detail.deafenedBy ?? null);
+      actionsRef.current.engageDeafenLock(detail.deafenedBy ?? null);
     };
     const onModeratorUndeafen = (e: Event) => {
       const detail = (e as CustomEvent<{ channelId?: string }>).detail;
@@ -492,7 +506,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       if (!detail?.channelId || !active || active.channelId !== detail.channelId) {
         return;
       }
-      if (deafenLockedRef.current) liftDeafenLock();
+      if (deafenLockedRef.current) actionsRef.current.liftDeafenLock();
     };
     window.addEventListener("rift:moderator-mute", onModeratorMute);
     window.addEventListener("rift:moderator-unmute", onModeratorUnmute);
@@ -553,10 +567,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     if (deafenLockedRef.current) return;
     if (isDeafenedRef.current && isMutedRef.current) {
       micMutedBeforeDeafenRef.current = false;
-      releaseSelfDeafen();
+      actionsRef.current.releaseSelfDeafen();
       return;
     }
-    setSelfMuted(!isMutedRef.current);
+    actionsRef.current.setSelfMuted(!isMutedRef.current);
   }, []);
 
   const clearSelfMuteFlag = () => {
@@ -584,6 +598,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     clearSelfMuteFlag();
   };
 
+  actionsRef.current = {
+    liftModeratorLock,
+    engageDeafenLock,
+    liftDeafenLock,
+    releaseSelfDeafen,
+    setSelfMuted,
+  };
+
   const toggleDeafen = useCallback(() => {
     const service = serviceRef.current;
     if (!service) return;
@@ -598,7 +620,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         .then(() => {
           setDeafenLock(false);
           selfDeafenedBeforeLockRef.current = false;
-          releaseSelfDeafen();
+          actionsRef.current.releaseSelfDeafen();
         })
         .catch((err) => {
           console.warn("[useLiveKit] moderator deafen is still active:", err);
@@ -606,14 +628,14 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
       return;
     }
     if (isDeafenedRef.current) {
-      releaseSelfDeafen();
+      actionsRef.current.releaseSelfDeafen();
       return;
     }
     const fallbackMuted = fallbackMutedRef.current;
     micMutedBeforeDeafenRef.current = isMutedRef.current && !fallbackMuted;
     applySelfDeafened(true);
     service.setDeafened(true);
-    if (!isMutedRef.current || fallbackMuted) setSelfMuted(true);
+    if (!isMutedRef.current || fallbackMuted) actionsRef.current.setSelfMuted(true);
   }, []);
 
   useEffect(() => {

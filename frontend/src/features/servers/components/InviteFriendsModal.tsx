@@ -75,7 +75,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [server?.id]);
+  }, [server]);
 
   if (!server) return null;
 

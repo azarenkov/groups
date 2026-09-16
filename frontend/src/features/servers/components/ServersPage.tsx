@@ -764,6 +764,7 @@ const ServersPage: React.FC = () => {
     selectedDm,
     acceptedFriends,
     setSelectedChannel,
+    setJoinedChannel,
   ]);
 
   const handleJoinByLink = async (token: string) => {
