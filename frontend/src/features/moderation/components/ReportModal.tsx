@@ -16,6 +16,7 @@ import { useReportModalStore } from "../store/reportModalStore";
 const ReportModal: React.FC = () => {
   const { t } = useTranslation(["report", "common"]);
   const target = useReportModalStore((s) => s.target);
+  const opening = useReportModalStore((s) => s.opening);
   const close = useReportModalStore((s) => s.close);
   const [reason, setReason] = React.useState<string | null>(null);
   const [details, setDetails] = React.useState("");
@@ -23,12 +24,11 @@ const ReportModal: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [sent, setSent] = React.useState(false);
   const [evidenceId, setEvidenceId] = React.useState<string | undefined>(undefined);
-  const activeKeyRef = React.useRef<string | null>(null);
+  const activeOpeningRef = React.useRef(0);
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const targetKey = target ? `${target.type}:${target.id}:${target.messageId ?? ""}` : null;
   React.useEffect(() => {
-    activeKeyRef.current = targetKey;
+    activeOpeningRef.current = opening;
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
@@ -39,7 +39,7 @@ const ReportModal: React.FC = () => {
     setSent(false);
     setSending(false);
     setEvidenceId(target?.messageId);
-  }, [targetKey, target?.messageId]);
+  }, [opening, target?.messageId]);
 
   React.useEffect(
     () => () => {
@@ -69,8 +69,8 @@ const ReportModal: React.FC = () => {
 
   const submit = async () => {
     if (!reason || !canSend) return;
-    const sentFor = targetKey;
-    const stillHere = () => activeKeyRef.current === sentFor;
+    const sentFor = opening;
+    const stillHere = () => activeOpeningRef.current === sentFor;
     setSending(true);
     setError(null);
     const payload = {

@@ -131,6 +131,32 @@ describe("ReportModal", () => {
     expect(submitButton()).toBeDisabled();
   });
 
+  it("does not land a slow answer on a reopened report", async () => {
+    let settle: () => void = () => {};
+    mockedApi.reportUser.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    const same = { type: "user" as const, id: "u1", name: "spammer", messageId: "m1" };
+    useReportModalStore.getState().open(same);
+    render(<ReportModal />);
+
+    fireEvent.click(screen.getByDisplayValue("spam"));
+    fireEvent.click(submitButton());
+
+    act(() => {
+      useReportModalStore.getState().close();
+      useReportModalStore.getState().open(same);
+      settle();
+    });
+
+    await waitFor(() => expect(submitButton()).toBeDisabled());
+    expect(screen.getAllByRole("radio")).toHaveLength(USER_REPORT_REASONS.length);
+    expect(useReportModalStore.getState().target?.id).toBe("u1");
+  });
+
   it("keeps other unsendable until something is written", async () => {
     useReportModalStore.getState().open({ type: "user", id: "u1", name: "spammer" });
     render(<ReportModal />);

@@ -70,9 +70,10 @@ impl ReportRepository for PostgresReportRepository {
             r#"
             INSERT INTO reports (
                 id, reporter_id, target_type, target_id, target_name, reason, details,
-                context_channel_id, context_message_id, context_message_content, status, created_at
+                context_channel_id, context_message_id, context_message_content,
+                context_attachment_ids, status, created_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             "#,
             report.id(),
             reporter_id,
@@ -84,6 +85,7 @@ impl ReportRepository for PostgresReportRepository {
             context.channel_id,
             context.message_id,
             context.message_content,
+            &context.attachment_ids,
             report.status().as_str(),
             report.created_at(),
         )

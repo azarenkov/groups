@@ -145,6 +145,7 @@ pub struct ReportContext {
     pub channel_id: Option<Uuid>,
     pub message_id: Option<Uuid>,
     pub message_content: Option<String>,
+    pub attachment_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, thiserror::Error)]
