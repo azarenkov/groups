@@ -1,4 +1,7 @@
 import React from "react";
+import i18n from "../../../../i18n";
+import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
+import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { useAuthStore } from "../../../auth/store/authStore";
@@ -181,6 +184,8 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
   };
 
   const pickFile = () => fileRef.current?.click();
+  const { requestCrop, cropModal } = useImageCrop();
+  const paid = useEntitlementsStore((state) => state.tier !== "free");
 
   const handleFile = async (file: File) => {
     if (!user) return;
@@ -193,6 +198,8 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
       const apiErr = err instanceof ApiError ? err : null;
       if (apiErr?.code === "IMAGE_CONTENT_REJECTED") {
         setError(t("account.avatarRejected"));
+      } else if (apiErr?.code === "PRO_REQUIRED") {
+        setError(i18n.t("needs.pro", { ns: "subscription" }));
       } else {
         setError(apiErr?.message || t("account.avatarError"));
       }
@@ -225,14 +232,22 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         <input
           ref={fileRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept={paid ? "image/png,image/jpeg,image/webp,image/gif" : "image/png,image/jpeg,image/webp"}
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void handleFile(f);
             e.target.value = "";
+            if (!f) return;
+            void requestCrop(f, {
+              aspect: 1,
+              shape: "circle",
+              title: i18n.t("cropAvatar", { ns: "common" }),
+            }).then((cropped) => {
+              if (cropped) void handleFile(cropped);
+            });
           }}
         />
+        {cropModal}
         <UserAvatar
           userId={user?.id}
           name={user?.name ?? "?"}

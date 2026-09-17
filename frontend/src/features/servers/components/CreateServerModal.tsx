@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from "react";
+import i18n from "../../../i18n";
+import { cropOf, renderCropPreview } from "../../../shared/lib/imageCrop";
+import { useImageCrop } from "../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { ApiError } from "../../../shared/lib/apiError";
@@ -62,6 +65,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const logoInputRef = React.useRef<HTMLInputElement>(null);
+  const { requestCrop, cropModal } = useImageCrop();
 
   useEffect(() => {
     if (isOpen) {
@@ -139,7 +143,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
     setWarning(null);
     setLogoFile(null);
     setLogoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return null;
     });
   };
@@ -172,7 +176,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
       if (result && result.logoError) {
         setLogoFile(null);
         setLogoPreview((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
+          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
           return null;
         });
         setWarning(result.logoError);
@@ -332,6 +336,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
           <div className="srvm-body">
             <p className="srvm-sub">{t("serverModal.createBlurb")}</p>
             <div className="srvm-identity-row">
+              {cropModal}
               <input
                 ref={logoInputRef}
                 type="file"
@@ -339,14 +344,22 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({
                 hidden
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) {
-                    setLogoFile(f);
-                    setLogoPreview((prev) => {
-                      if (prev) URL.revokeObjectURL(prev);
-                      return URL.createObjectURL(f);
-                    });
-                  }
                   e.target.value = "";
+                  if (!f) return;
+                  void requestCrop(f, {
+                    aspect: 1,
+                    shape: "circle",
+                    title: i18n.t("cropLogo", { ns: "common" }),
+                  }).then(async (cropped) => {
+                    if (!cropped) return;
+                    const rect = cropOf(cropped);
+                    const preview = rect ? await renderCropPreview(cropped, rect, 192) : null;
+                    setLogoFile(cropped);
+                    setLogoPreview((prev) => {
+                      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+                      return preview ?? URL.createObjectURL(cropped);
+                    });
+                  });
                 }}
               />
               <div

@@ -1,4 +1,5 @@
 import type { AxiosRequestConfig } from "axios";
+import { appendCrop } from "../../../shared/lib/imageCrop";
 import { http } from "../../../shared/api/http";
 
 import { ApiError } from "../../../shared/lib/apiError";
@@ -232,6 +233,7 @@ class UserAPI {
   async uploadAvatar(file: File): Promise<void> {
     const form = new FormData();
     form.append("file", file, file.name);
+    appendCrop(form, file);
     await this.client.post("/v1/users/me/avatar", form, {
       timeout: 60000,
     });
@@ -283,6 +285,7 @@ class UserAPI {
   async uploadBanner(file: File): Promise<void> {
     const form = new FormData();
     form.append("file", file, file.name);
+    appendCrop(form, file);
     await this.client.post("/v1/users/me/banner", form, { timeout: 60000 });
   }
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { useImageCrop } from "../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 
 import { useAuthStore } from "../../auth/store/authStore";
@@ -17,6 +18,8 @@ const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 const ProfileStyleSettings: React.FC = () => {
   const { t } = useTranslation("subscription");
+  const { t: tCommon } = useTranslation("common");
+  const { requestCrop, cropModal } = useImageCrop();
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const tier = useEntitlementsStore((s) => s.tier);
   const badgeStyle = useEntitlementsStore((s) => s.badgeStyle);
@@ -37,6 +40,7 @@ const ProfileStyleSettings: React.FC = () => {
         return t("banner.tooLarge");
       case "BANNER_TOO_SMALL":
         return t("banner.tooSmall");
+      case "BANNER_CROP_INVALID":
       case "BANNER_TYPE_NOT_ALLOWED":
       case "BANNER_INVALID_IMAGE":
         return t("banner.badType");
@@ -120,7 +124,18 @@ const ProfileStyleSettings: React.FC = () => {
             accept={BANNER_TYPES.join(",")}
             hidden
             disabled={locked || busy}
-            onChange={(e) => void upload(e.target.files?.[0])}
+            onChange={(e) => {
+              const picked = e.target.files?.[0];
+              e.target.value = "";
+              if (!picked || locked) return;
+              void requestCrop(picked, {
+                aspect: 3,
+                shape: "rect",
+                title: tCommon("cropBanner"),
+              }).then((cropped) => {
+                if (cropped) void upload(cropped);
+              });
+            }}
           />
           <button
             type="button"
@@ -163,6 +178,7 @@ const ProfileStyleSettings: React.FC = () => {
       </div>
 
       {error && <div className="profile-style-error">{error}</div>}
+      {cropModal}
     </div>
   );
 };
