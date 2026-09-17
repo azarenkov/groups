@@ -1,3 +1,4 @@
+pub mod badge;
 pub mod channel;
 pub mod channel_unit_of_work;
 pub mod dm_message;

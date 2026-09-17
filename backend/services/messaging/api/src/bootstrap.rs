@@ -79,7 +79,8 @@ use messaging_infrastructure::{
             friendship_unit_of_work::PostgresFriendshipUnitOfWork,
             message_unit_of_work::PostgresMessageUnitOfWork,
             server_unit_of_work::PostgresServerUnitOfWork,
-            privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
+            badge::PostgresBadgeRepository, privacy::PostgresPrivacyRepository,
+        user_profile::PostgresUserProfileRepository,
         },
     },
     media_client::claims::MediaClaimsClient,
@@ -139,6 +140,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
     let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
+    let badge_repository = Arc::new(PostgresBadgeRepository::new(postgres_pool.clone()));
     let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
         .unwrap_or_else(|_| "http://identity-service:8080".to_string());
     let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
@@ -186,9 +188,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     api_common::user_projection::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
-        user_stream,
+        user_stream.clone(),
         "messaging-user-profiles",
         user_repository.clone(),
+    );
+    messaging_infrastructure::consumers::pro_badges::spawn(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        user_stream,
+        badge_repository.clone(),
     );
 
     let nats_core = nats_jetstream.client().clone();
@@ -355,6 +363,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         dm_repository: dm_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         privacy_repository: privacy_repository.clone(),
+        badge_repository: badge_repository.clone(),
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase: SendDmMessage::new(

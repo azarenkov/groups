@@ -1,3 +1,4 @@
+pub mod badge;
 pub mod channel;
 pub mod dm_message;
 pub mod events;

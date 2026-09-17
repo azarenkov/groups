@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE messaging_user_profiles\n            SET tier = $2, tier_valid_until = $3, tier_updated_at = $4\n            WHERE user_id = $1\n              AND (tier_updated_at IS NULL OR tier_updated_at <= $4)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "18dd81ed43b0f19c4616bd572a89035ca98cb6177fd3d8c0c1861011f39984ac"
+}

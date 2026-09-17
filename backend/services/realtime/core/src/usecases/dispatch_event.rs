@@ -29,6 +29,7 @@ use contracts::events::{
     user::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
         UserActivityChangedV1 as UserActivityChangedDto, UserLifecycleV1 as UserLifecycleDto,
+        UserEntitlementsChangedV1 as UserEntitlementsChangedDto,
         UserProfileChangedV1 as UserProfileChangedDto,
         UserRenamedV1 as UserRenamedDto,
     },
@@ -825,11 +826,31 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "bio": evt.bio,
                 "showActivity": evt.show_activity,
                 "showGameActivity": evt.show_game_activity,
+                "badgeStyle": evt.badge_style,
                 "occurredAt": evt.occurred_at,
             }),
         );
         let mut recipients = resolver.profile_recipients(evt.user_id).await?;
         confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r));
+        recipients.push(evt.user_id);
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".user.entitlements_changed") {
+        let evt: UserEntitlementsChangedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "user.entitlementsChanged",
+            json!({
+                "userId": evt.user_id,
+                "tier": evt.tier,
+                "validUntil": evt.valid_until,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        let mut recipients = resolver.profile_recipients(evt.user_id).await?;
         let relations = blocks.block_relations(evt.user_id, &recipients).await?;
         recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);

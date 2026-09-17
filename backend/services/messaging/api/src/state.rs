@@ -72,7 +72,8 @@ use messaging_infrastructure::{
         friendship_unit_of_work::PostgresFriendshipUnitOfWork,
         message_unit_of_work::PostgresMessageUnitOfWork,
         server_unit_of_work::PostgresServerUnitOfWork,
-        privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
+        badge::PostgresBadgeRepository, privacy::PostgresPrivacyRepository,
+        user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
     media_client::voice_calls::VoiceCallsClient,
@@ -199,6 +200,7 @@ pub struct AppState {
     pub dm_repository: std::sync::Arc<PostgresDmMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
     pub privacy_repository: std::sync::Arc<PostgresPrivacyRepository>,
+    pub badge_repository: std::sync::Arc<PostgresBadgeRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
     pub send_dm_message_usecase: SendDmMessage<

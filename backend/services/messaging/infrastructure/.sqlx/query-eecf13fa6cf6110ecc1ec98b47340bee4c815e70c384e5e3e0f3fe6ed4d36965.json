@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE messaging_user_profiles\n            SET badge_style = $2, badge_updated_at = $3\n            WHERE user_id = $1\n              AND (badge_updated_at IS NULL OR badge_updated_at <= $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eecf13fa6cf6110ecc1ec98b47340bee4c815e70c384e5e3e0f3fe6ed4d36965"
+}
