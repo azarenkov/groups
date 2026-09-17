@@ -8,6 +8,16 @@ export const parseTier = (value: unknown): Tier =>
 export const hasTier = (current: Tier, required: Tier) =>
   TIER_RANK[current] >= TIER_RANK[required];
 
+const MEGABYTE = 1024 * 1024;
+
+export const ATTACHMENTS_PER_MESSAGE: Record<Tier, number> = { free: 5, pro: 10, premium: 20 };
+
+export const MAX_ATTACHMENT_BYTES_BY_TIER: Record<Tier, number> = {
+  free: 15 * MEGABYTE,
+  pro: 100 * MEGABYTE,
+  premium: 500 * MEGABYTE,
+};
+
 export const BADGE_STYLES = [
   "tint",
   "solid",

@@ -2,8 +2,17 @@ import { http, UPLOAD_TIMEOUT_MS } from "../../../shared/api/http";
 
 import type { Attachment } from "../../../shared/types/channel";
 
-export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
-export const MAX_ATTACHMENTS_PER_MESSAGE = 10;
+import {
+  ATTACHMENTS_PER_MESSAGE,
+  MAX_ATTACHMENT_BYTES_BY_TIER,
+} from "../../subscription/lib/plans";
+import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
+
+export const maxAttachmentBytes = () =>
+  MAX_ATTACHMENT_BYTES_BY_TIER[useEntitlementsStore.getState().tier];
+
+export const maxAttachmentsPerMessage = () =>
+  ATTACHMENTS_PER_MESSAGE[useEntitlementsStore.getState().tier];
 
 class AttachmentAPI {
   private client = http;

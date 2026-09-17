@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use messaging_domain::badge::attachments_per_message;
+
 use chrono::Utc;
 use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
@@ -51,6 +53,7 @@ where
     attachment_claims: Arc<A>,
     privacy_repository: Arc<P>,
     user_profile_repository: Arc<U>,
+    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
 }
 
 impl<M, W, F, A, P, U> SendDmMessage<M, W, F, A, P, U>
@@ -69,6 +72,7 @@ where
         attachment_claims: Arc<A>,
         privacy_repository: Arc<P>,
         user_profile_repository: Arc<U>,
+        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
     ) -> Self {
         Self {
             dm_repository,
@@ -77,6 +81,7 @@ where
             attachment_claims,
             privacy_repository,
             user_profile_repository,
+            plans,
         }
     }
 
@@ -113,7 +118,8 @@ where
             _ => {}
         }
 
-        if request.attachment_ids.len() > 10 {
+        let tier = self.plans.tier_of(&sender_id, Utc::now()).await?;
+        if request.attachment_ids.len() > attachments_per_message(&tier) {
             return Err(SendDmMessageError::InvalidAttachments);
         }
         let content = if request.attachment_ids.is_empty() {

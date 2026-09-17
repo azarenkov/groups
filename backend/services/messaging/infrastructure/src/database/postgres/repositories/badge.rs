@@ -85,6 +85,22 @@ impl BadgeRepository for PostgresBadgeRepository {
         self.ensure_profile_exists(user_id).await
     }
 
+    async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError> {
+        let tier = sqlx::query_scalar!(
+            r#"
+            SELECT tier FROM messaging_user_profiles
+            WHERE user_id = $1
+              AND (tier_valid_until IS NULL OR tier_valid_until > $2)
+            "#,
+            user_id.uuid(),
+            now,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(tier.unwrap_or_else(|| "free".to_string()))
+    }
+
     async fn paid_badges(
         &self,
         user_ids: &[UserId],

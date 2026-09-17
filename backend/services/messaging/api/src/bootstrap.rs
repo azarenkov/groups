@@ -267,6 +267,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
+            badge_repository.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
@@ -275,6 +276,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
+            badge_repository.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
@@ -373,6 +375,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_claims.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
+            badge_repository.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),
@@ -381,6 +384,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
+            badge_repository.clone(),
         ),
         delete_dm_message_usecase: DeleteDmMessage::new(
             dm_repository.clone(),

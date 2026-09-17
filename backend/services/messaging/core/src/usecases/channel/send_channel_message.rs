@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use messaging_domain::badge::attachments_per_message;
+
 use chrono::Utc;
 use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
@@ -47,6 +49,7 @@ where
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
     mention_resolver: Arc<R>,
+    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
 }
 
 impl<M, C, S, W, A, R> SendChannelMessage<M, C, S, W, A, R>
@@ -65,6 +68,7 @@ where
         unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
         mention_resolver: Arc<R>,
+        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
     ) -> Self {
         Self {
             message_repository,
@@ -73,6 +77,7 @@ where
             unit_of_work,
             attachment_claims,
             mention_resolver,
+            plans,
         }
     }
 
@@ -117,7 +122,8 @@ where
             return Err(SendChannelMessageError::NotChannelMember);
         }
 
-        if request.attachment_ids.len() > 10 {
+        let tier = self.plans.tier_of(&author_id, Utc::now()).await?;
+        if request.attachment_ids.len() > attachments_per_message(&tier) {
             return Err(SendChannelMessageError::InvalidAttachments);
         }
         let content = if request.attachment_ids.is_empty() {
