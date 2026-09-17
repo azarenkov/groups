@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import "../../../../i18n";
+import { ApiError } from "../../../../shared/lib/apiError";
 import ReportModal from "../ReportModal";
 import { reportAPI } from "../../api/report";
 import {
@@ -75,6 +76,55 @@ describe("ReportModal", () => {
 
     expect(screen.getByText(`3 / ${MAX_REPORT_DETAILS}`)).toBeInTheDocument();
     expect(submitButton()).not.toBeDisabled();
+  });
+
+  it("lets the report go without a message that has vanished", async () => {
+    mockedApi.reportUser
+      .mockRejectedValueOnce(
+        new ApiError("gone", 400, "REPORT_CONTEXT_MISMATCH"),
+      )
+      .mockResolvedValueOnce(undefined);
+    useReportModalStore.getState().open({
+      type: "user",
+      id: "u1",
+      name: "spammer",
+      messageId: "m1",
+    });
+    render(<ReportModal />);
+
+    fireEvent.click(screen.getByDisplayValue("spam"));
+    fireEvent.click(submitButton());
+    await waitFor(() => expect(mockedApi.reportUser).toHaveBeenCalledTimes(1));
+    expect(mockedApi.reportUser.mock.calls[0][1].messageId).toBe("m1");
+    await waitFor(() => expect(submitButton()).not.toBeDisabled());
+
+    fireEvent.click(submitButton());
+    await waitFor(() => expect(mockedApi.reportUser).toHaveBeenCalledTimes(2));
+    expect(mockedApi.reportUser.mock.calls[1][1].messageId).toBeUndefined();
+  });
+
+  it("does not land a slow answer on the next report", async () => {
+    let settle: () => void = () => {};
+    mockedApi.reportUser.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    useReportModalStore.getState().open({ type: "user", id: "u1", name: "spammer" });
+    render(<ReportModal />);
+
+    fireEvent.click(screen.getByDisplayValue("spam"));
+    fireEvent.click(submitButton());
+
+    useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+    settle();
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("radio")).toHaveLength(SERVER_REPORT_REASONS.length),
+    );
+    expect(useReportModalStore.getState().target?.id).toBe("s1");
+    expect(submitButton()).toBeDisabled();
   });
 
   it("keeps other unsendable until something is written", async () => {

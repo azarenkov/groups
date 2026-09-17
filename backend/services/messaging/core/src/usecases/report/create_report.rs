@@ -205,7 +205,7 @@ where
                     message_content: Some(message.content().as_str().to_string()),
                 })
             }
-            Err(RepositoryError::NotFound) => Ok(ReportContext::default()),
+            Err(RepositoryError::NotFound) => Err(CreateReportError::ContextMismatch),
             Err(e) => Err(e.into()),
         }
     }

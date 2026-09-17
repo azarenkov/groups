@@ -21,15 +21,31 @@ const ReportModal: React.FC = () => {
   const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [sent, setSent] = React.useState(false);
+  const [evidenceId, setEvidenceId] = React.useState<string | undefined>(undefined);
+  const activeKeyRef = React.useRef<string | null>(null);
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const targetKey = target ? `${target.type}:${target.id}` : null;
+  const targetKey = target ? `${target.type}:${target.id}:${target.messageId ?? ""}` : null;
   React.useEffect(() => {
+    activeKeyRef.current = targetKey;
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     setReason(null);
     setDetails("");
     setError(null);
     setSent(false);
     setSending(false);
-  }, [targetKey]);
+    setEvidenceId(target?.messageId);
+  }, [targetKey, target?.messageId]);
+
+  React.useEffect(
+    () => () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    },
+    [],
+  );
 
   React.useEffect(() => {
     if (!target) return;
@@ -52,12 +68,14 @@ const ReportModal: React.FC = () => {
 
   const submit = async () => {
     if (!reason || !canSend) return;
+    const sentFor = targetKey;
+    const stillHere = () => activeKeyRef.current === sentFor;
     setSending(true);
     setError(null);
     const payload = {
       reason,
       details: written > 0 ? trimmed : undefined,
-      messageId: target.messageId,
+      messageId: evidenceId,
     };
     try {
       if (target.type === "user") {
@@ -65,18 +83,25 @@ const ReportModal: React.FC = () => {
       } else {
         await reportAPI.reportServer(target.id, payload);
       }
+      if (!stillHere()) return;
       setSent(true);
-      window.setTimeout(() => useReportModalStore.getState().close(), 1200);
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
+        if (stillHere()) useReportModalStore.getState().close();
+      }, 1200);
     } catch (err) {
+      if (!stillHere()) return;
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
       if (code === "REPORT_ALREADY_SENT") setError(t("errorAlreadySent"));
-      else if (code === "REPORT_CONTEXT_MISMATCH") setError(t("errorContext"));
-      else if (code === "REPORT_LIMIT_REACHED") setError(t("errorLimit"));
+      else if (code === "REPORT_CONTEXT_MISMATCH") {
+        setEvidenceId(undefined);
+        setError(t("errorContext"));
+      } else if (code === "REPORT_LIMIT_REACHED") setError(t("errorLimit"));
       else if (code === "REPORT_TARGET_NOT_FOUND") setError(t("errorTargetGone"));
       else setError(apiErr?.message || t("errorGeneric"));
     } finally {
-      setSending(false);
+      if (stillHere()) setSending(false);
     }
   };
 

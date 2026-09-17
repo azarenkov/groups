@@ -28,5 +28,5 @@
     "raid": "Organising raids on other servers",
     "other": "Something else"
   },
-  "errorContext": "That message can no longer be attached to a report."
+  "errorContext": "That message is gone, so it cannot be attached. Send the report without it."
 }

@@ -294,6 +294,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                       type="button"
                       onClick={() => {
                         setMenuOpen(false);
+                        close();
                         openReport({ type: "user", id: userId, name });
                       }}
                     >
