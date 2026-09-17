@@ -14,6 +14,7 @@ mod notifications;
 mod presence;
 mod privacy;
 mod read_state;
+mod reports;
 mod roles;
 mod routes;
 mod server;

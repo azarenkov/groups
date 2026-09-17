@@ -6,6 +6,7 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
+    report::create_report::CreateReport,
     attachment::{
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
     },
@@ -79,7 +80,8 @@ use messaging_infrastructure::{
             friendship_unit_of_work::PostgresFriendshipUnitOfWork,
             message_unit_of_work::PostgresMessageUnitOfWork,
             server_unit_of_work::PostgresServerUnitOfWork,
-            privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
+            privacy::PostgresPrivacyRepository, report::PostgresReportRepository,
+        user_profile::PostgresUserProfileRepository,
         },
     },
     media_client::claims::MediaClaimsClient,
@@ -139,6 +141,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
     let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
+    let report_repository = Arc::new(PostgresReportRepository::new(postgres_pool.clone()));
     let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
         .unwrap_or_else(|_| "http://identity-service:8080".to_string());
     let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
@@ -302,6 +305,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         accept_friend_request_usecase: AcceptFriendRequest::new(friendship_unit_of_work.clone()),
         remove_friendship_usecase: RemoveFriendship::new(friendship_unit_of_work.clone()),
         list_friends_usecase: ListFriends::new(friendship_repository.clone()),
+        create_report_usecase: CreateReport::new(
+            report_repository.clone(),
+            user_repository.clone(),
+            server_repository.clone(),
+        ),
         block_user_usecase: BlockUser::new(friendship_unit_of_work.clone(), user_repository.clone()),
         unblock_user_usecase: UnblockUser::new(friendship_unit_of_work.clone()),
         list_blocked_users_usecase: ListBlockedUsers::new(friendship_repository.clone()),
