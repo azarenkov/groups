@@ -143,3 +143,92 @@
 }
 .m-empty-cta:hover { background: var(--accent-hover, var(--accent)); }
 .modal .m-foot button.danger { background: var(--danger, #e5484d); color: #fff; border-color: transparent; }
+
+.report-modal .m-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-lead {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg-3);
+}
+
+.report-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 232px;
+  overflow-y: auto;
+}
+
+.report-reason {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.report-reason:hover {
+  background: var(--surface-raised);
+  color: var(--fg-1);
+}
+
+.report-reason input {
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.report-details-label {
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+.report-details {
+  width: 100%;
+  resize: vertical;
+  min-height: 78px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: var(--surface-sunken);
+  color: var(--fg-1);
+  font: inherit;
+  font-size: 13px;
+}
+
+.report-details:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.report-counter {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+.report-counter.over {
+  color: var(--danger);
+}
+
+.report-error {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.report-sent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 18px 0;
+  font-size: 14px;
+  color: var(--fg-1);
+}

@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import type { Server } from "../../../../shared/types/server";
+import { openReport } from "../../../moderation/store/reportModalStore";
 
 
 interface DangerSectionProps {
@@ -16,7 +17,7 @@ export const DangerSection: React.FC<DangerSectionProps> = ({
   onClose,
   onDeleteServer,
 }) => {
-  const { t } = useTranslation(["serverSettings", "common", "modals"]);
+  const { t } = useTranslation(["serverSettings", "common", "modals", "report"]);
   return (
             <>
               <h1>{t("nav.danger")}</h1>
@@ -41,6 +42,28 @@ export const DangerSection: React.FC<DangerSectionProps> = ({
                   {isOwner ? t("common:delete") : t("leave")}
                 </button>
               </div>
+              {!isOwner && (
+                <div className="ssv-danger-card">
+                  <div className="ssv-danger-info">
+                    <div className="ssv-danger-title">{t("report:titleServer")}</div>
+                    <div className="ssv-danger-sub">{t("reportServerHint")}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="ssv-btn"
+                    onClick={() => {
+                      onClose();
+                      openReport({
+                        type: "server",
+                        id: server.id,
+                        name: server.name,
+                      });
+                    }}
+                  >
+                    {t("report:action")}
+                  </button>
+                </div>
+              )}
             </>
   );
 };

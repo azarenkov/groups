@@ -9,6 +9,7 @@ import { useNotificationPrefsStore } from "../../settings/store/notificationPref
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
+import { openReport } from "../../moderation/store/reportModalStore";
 import type { ChannelMeta, DmMeta } from "../types";
 
 export interface ChannelHeaderProps {
@@ -254,6 +255,18 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               onClick={onRemoveFriend}
             >
               <Icon name="user-check" size={16} />
+            </button>
+          )}
+          {dm && (
+            <button
+              type="button"
+              className="icon-btn"
+              title={i18n.t("action", { ns: "report" })}
+              onClick={() =>
+                openReport({ type: "user", id: dm.friendId, name: dm.name })
+              }
+            >
+              <Icon name="flag" size={16} />
             </button>
           )}
           {(blocked ? onUnblockUser : onBlockUser) && (

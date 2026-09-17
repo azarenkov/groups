@@ -9,6 +9,7 @@ import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { UserAvatar, ServerLogo } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
+import { openReport } from "../../moderation/store/reportModalStore";
 import AttachmentItem from "./AttachmentItem";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
@@ -421,6 +422,24 @@ export const Message: React.FC<MessageProps> = ({
                   onClick={handleCopy}
                 >
                   <Icon name={copied ? "check" : "copy"} size={13} />
+                </button>
+              )}
+              {!msg.callStatus && !msg.system && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={i18n.t("action", { ns: "report" })}
+                  onClick={() =>
+                    openReport({
+                      type: "user",
+                      id: msg.authorId,
+                      name: displayName,
+                      channelId: msg.channelId,
+                      messageId: msg.id,
+                    })
+                  }
+                >
+                  <Icon name="flag" size={13} />
                 </button>
               )}
               {canModerate && (

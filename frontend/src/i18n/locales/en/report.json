@@ -1,0 +1,31 @@
+{
+  "titleUser": "Report user",
+  "titleServer": "Report server",
+  "lead": "Tell us what is wrong with \"{{name}}\". Only the Rift team sees this report.",
+  "detailsOptional": "Details (optional)",
+  "detailsRequired": "Details (required)",
+  "detailsPlaceholder": "What happened, when and where",
+  "submit": "Send",
+  "sending": "Sending…",
+  "sent": "Report sent",
+  "errorAlreadySent": "You already reported this in the last 24 hours.",
+  "errorLimit": "Too many reports today. Try again tomorrow.",
+  "errorTargetGone": "The reported target no longer exists.",
+  "errorGeneric": "Could not send the report. Try again.",
+  "action": "Report",
+  "reasons": {
+    "spam": "Spam or advertising",
+    "harassment": "Harassment or bullying",
+    "hate": "Hate speech",
+    "threats": "Threats or violence",
+    "scam": "Scam or phishing",
+    "nsfw": "Sexual content",
+    "csam": "Sexual content involving minors",
+    "self_harm": "Encouraging self-harm",
+    "impersonation": "Impersonating someone",
+    "illegal": "Illegal content",
+    "violence": "Extremism or calls for violence",
+    "raid": "Organising raids on other servers",
+    "other": "Something else"
+  }
+}

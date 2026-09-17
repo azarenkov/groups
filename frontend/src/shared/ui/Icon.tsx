@@ -31,6 +31,7 @@ export type IconName =
   | "monitor"
   | "palette"
   | "shield"
+  | "flag"
   | "link"
   | "download"
   | "globe"
@@ -294,6 +295,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
   shield: (
     <>
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </>
+  ),
+  flag: (
+    <>
+      <path d="M5 22V4" />
+      <path d="M5 4h11l-2 4 2 4H5" />
     </>
   ),
   link: (
