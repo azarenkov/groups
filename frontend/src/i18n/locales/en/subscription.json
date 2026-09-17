@@ -32,5 +32,40 @@
       "etched": "Etched mono",
       "numbered": "Numbered"
     }
+  },
+  "page": {
+    "title": "Subscription",
+    "lead": "What each plan includes. Payments come later; for now access is granted by hand.",
+    "current": "Your plan",
+    "soon": "Coming soon",
+    "paymentLater": "Payments come later",
+    "plans": {
+      "free": {
+        "name": "Free",
+        "price": "Free",
+        "noise": "Noise suppression: off or standard",
+        "attachments": "Attachments up to 15 MB",
+        "stream": "Screen share at 720p 60 fps"
+      },
+      "pro": {
+        "name": "Rift Pro",
+        "price": "199 ₽ a month",
+        "noise": "High noise suppression",
+        "attachments": "Attachments up to 100 MB",
+        "stream": "Screen share up to 1440p 60 fps",
+        "badge": "A Pro badge in the style you pick",
+        "banner": "Your own profile banner"
+      },
+      "premium": {
+        "name": "Rift Premium",
+        "price": "Price to be announced",
+        "noise": "High noise suppression",
+        "attachments": "Attachments up to 500 MB",
+        "stream": "Screen share up to 4K 60 fps",
+        "badge": "A Premium badge in the style you pick",
+        "banner": "Your own profile banner",
+        "support": "Priority support"
+      }
+    }
   }
 }
