@@ -2,6 +2,16 @@ export const MAX_REPORT_DETAILS = 1000;
 
 export const countReportDetails = (value: string) => [...value].length;
 
+export const detailsLengthAfterEdit = (
+  current: string,
+  selectionStart: number,
+  selectionEnd: number,
+  inserted: string,
+) =>
+  countReportDetails(current) -
+  countReportDetails(current.slice(selectionStart, selectionEnd)) +
+  countReportDetails(inserted);
+
 export const USER_REPORT_REASONS = [
   "spam",
   "harassment",

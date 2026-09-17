@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import "../../../../i18n";
 import { ApiError } from "../../../../shared/lib/apiError";
@@ -39,7 +39,9 @@ describe("ReportModal", () => {
     const { rerender } = render(<ReportModal />);
     expect(screen.getAllByRole("radio")).toHaveLength(USER_REPORT_REASONS.length);
 
-    useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+    act(() => {
+      useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+    });
     rerender(<ReportModal />);
     expect(screen.getAllByRole("radio")).toHaveLength(SERVER_REPORT_REASONS.length);
   });
@@ -117,8 +119,10 @@ describe("ReportModal", () => {
     fireEvent.click(screen.getByDisplayValue("spam"));
     fireEvent.click(submitButton());
 
-    useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
-    settle();
+    act(() => {
+      useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+      settle();
+    });
 
     await waitFor(() =>
       expect(screen.getAllByRole("radio")).toHaveLength(SERVER_REPORT_REASONS.length),

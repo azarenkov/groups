@@ -9,6 +9,7 @@ import {
   SERVER_REPORT_REASONS,
   USER_REPORT_REASONS,
   countReportDetails,
+  detailsLengthAfterEdit,
 } from "../lib/reasons";
 import { useReportModalStore } from "../store/reportModalStore";
 
@@ -163,7 +164,15 @@ const ReportModal: React.FC = () => {
                 className="report-details"
                 rows={4}
                 onBeforeInput={(e) => {
-                  const next = countReportDetails(details) + 1;
+                  const inserted = (e.nativeEvent as InputEvent).data ?? "";
+                  if (!inserted) return;
+                  const field = e.currentTarget;
+                  const next = detailsLengthAfterEdit(
+                    details,
+                    field.selectionStart ?? details.length,
+                    field.selectionEnd ?? details.length,
+                    inserted,
+                  );
                   if (next > MAX_REPORT_DETAILS) e.preventDefault();
                 }}
                 placeholder={t("detailsPlaceholder")}
