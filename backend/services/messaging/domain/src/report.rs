@@ -262,6 +262,7 @@ impl Report {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReportOutcome {
     Stored,
+    EvidenceGone,
     AlreadyReported,
     LimitReached,
 }

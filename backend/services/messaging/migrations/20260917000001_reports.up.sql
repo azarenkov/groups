@@ -10,6 +10,7 @@ CREATE TABLE messaging.reports (
     context_message_id uuid,
     context_message_content text,
     context_attachment_ids uuid[],
+    context_attachment_keys text[],
     status character varying(10) DEFAULT 'open' NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     reviewed_at timestamp with time zone,
@@ -26,5 +27,7 @@ CREATE INDEX reports_target_idx ON messaging.reports (target_type, target_id, cr
 CREATE INDEX reports_reporter_idx ON messaging.reports (reporter_id, created_at DESC);
 
 CREATE INDEX reports_context_attachments_idx ON messaging.reports USING gin (context_attachment_ids);
+
+CREATE INDEX reports_context_attachment_keys_idx ON messaging.reports USING gin (context_attachment_keys);
 
 CREATE INDEX reports_open_idx ON messaging.reports (created_at DESC) WHERE status = 'open';

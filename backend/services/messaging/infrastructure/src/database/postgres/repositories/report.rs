@@ -66,14 +66,68 @@ impl ReportRepository for PostgresReportRepository {
         }
 
         let context = report.context();
+        let mut message_content = context.message_content.clone();
+        let mut attachment_ids: Vec<uuid::Uuid> = Vec::new();
+        let mut attachment_keys: Vec<String> = Vec::new();
+        if let Some(message_id) = context.message_id {
+            let channel_message = sqlx::query_scalar!(
+                r#"SELECT content FROM messages WHERE id = $1 FOR SHARE"#,
+                message_id,
+            )
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let links = match channel_message {
+                Some(content) => {
+                    message_content = Some(content);
+                    sqlx::query!(
+                        r#"SELECT attachment_id, storage_key FROM message_attachments WHERE message_id = $1"#,
+                        message_id,
+                    )
+                    .fetch_all(&mut *tx)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?
+                    .into_iter()
+                    .map(|row| (row.attachment_id, row.storage_key))
+                    .collect::<Vec<_>>()
+                }
+                None => {
+                    let dm_message = sqlx::query_scalar!(
+                        r#"SELECT content FROM dm_messages WHERE id = $1 FOR SHARE"#,
+                        message_id,
+                    )
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?;
+                    let Some(content) = dm_message else {
+                        return Ok(ReportOutcome::EvidenceGone);
+                    };
+                    message_content = Some(content);
+                    sqlx::query!(
+                        r#"SELECT attachment_id, storage_key FROM dm_message_attachments WHERE dm_message_id = $1"#,
+                        message_id,
+                    )
+                    .fetch_all(&mut *tx)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?
+                    .into_iter()
+                    .map(|row| (row.attachment_id, row.storage_key))
+                    .collect::<Vec<_>>()
+                }
+            };
+            for (id, key) in links {
+                attachment_ids.push(id);
+                attachment_keys.push(key);
+            }
+        }
         sqlx::query!(
             r#"
             INSERT INTO reports (
                 id, reporter_id, target_type, target_id, target_name, reason, details,
                 context_channel_id, context_message_id, context_message_content,
-                context_attachment_ids, status, created_at
+                context_attachment_ids, context_attachment_keys, status, created_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             "#,
             report.id(),
             reporter_id,
@@ -84,8 +138,9 @@ impl ReportRepository for PostgresReportRepository {
             report.details(),
             context.channel_id,
             context.message_id,
-            context.message_content,
-            &context.attachment_ids,
+            message_content,
+            &attachment_ids,
+            &attachment_keys,
             report.status().as_str(),
             report.created_at(),
         )

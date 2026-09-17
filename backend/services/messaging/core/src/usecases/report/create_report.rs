@@ -118,6 +118,7 @@ where
             .await?
         {
             ReportOutcome::Stored => Ok(()),
+            ReportOutcome::EvidenceGone => Err(CreateReportError::ContextMismatch),
             ReportOutcome::AlreadyReported => Err(CreateReportError::AlreadyReported),
             ReportOutcome::LimitReached => Err(CreateReportError::TooManyReports),
         }
@@ -190,18 +191,11 @@ where
                 {
                     return Err(CreateReportError::ContextMismatch);
                 }
-                let attachment_ids = self
-                    .message_repository
-                    .list_attachment_links_for_messages(&[message_id])
-                    .await?
-                    .into_iter()
-                    .map(|(_, link)| link.id)
-                    .collect();
                 return Ok(ReportContext {
                     channel_id: Some(channel_id.uuid()),
                     message_id: Some(message_id),
                     message_content: Some(message.content().as_str().to_string()),
-                    attachment_ids,
+                    attachment_ids: Vec::new(),
                 });
             }
             Err(RepositoryError::NotFound) => {}
@@ -220,18 +214,11 @@ where
                 {
                     return Err(CreateReportError::ContextMismatch);
                 }
-                let attachment_ids = self
-                    .dm_repository
-                    .list_attachment_links_for_dm_messages(&[message_id])
-                    .await?
-                    .into_iter()
-                    .map(|(_, link)| link.id)
-                    .collect();
                 Ok(ReportContext {
                     channel_id: None,
                     message_id: Some(message_id),
                     message_content: Some(message.content().as_str().to_string()),
-                    attachment_ids,
+                    attachment_ids: Vec::new(),
                 })
             }
             Err(RepositoryError::NotFound) => Err(CreateReportError::ContextMismatch),
