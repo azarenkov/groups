@@ -53,6 +53,7 @@ validator = { version = "0.21", features = ["derive"] }
 chrono-tz = "0.10"
 redis = { version = "0.32", features = ["tokio-comp", "connection-manager", "script"] }
 tokio = "1.50.0"
+tokio-util = { version = "0.7", features = ["io"] }
 async-nats = "0.46"
 rand = "0.10.1"
 jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }

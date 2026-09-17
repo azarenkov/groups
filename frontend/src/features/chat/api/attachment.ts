@@ -8,6 +8,8 @@ import {
 } from "../../subscription/lib/plans";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 
+const SLOWEST_UPLOAD_BYTES_PER_MS = 128;
+
 export const maxAttachmentBytes = () =>
   MAX_ATTACHMENT_BYTES_BY_TIER[useEntitlementsStore.getState().tier];
 
@@ -24,7 +26,7 @@ class AttachmentAPI {
     const form = new FormData();
     form.append("file", file, file.name);
     const response = await this.client.post("/v1/attachments", form, {
-      timeout: UPLOAD_TIMEOUT_MS,
+      timeout: UPLOAD_TIMEOUT_MS + Math.ceil(file.size / SLOWEST_UPLOAD_BYTES_PER_MS),
       onUploadProgress: (e) => {
         if (onProgress && e.total) onProgress(e.loaded / e.total);
       },

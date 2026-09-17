@@ -102,7 +102,7 @@ impl HttpMapping for UploadAttachmentError {
     }
     fn to_user_message(&self) -> String {
         match self {
-            UploadAttachmentError::TooLarge => "File is too large (max 15 MB).".to_string(),
+            UploadAttachmentError::TooLarge => "File is too large for your plan.".to_string(),
             UploadAttachmentError::Empty => "File is empty.".to_string(),
             UploadAttachmentError::TypeNotAllowed => {
                 "This file type is not allowed.".to_string()

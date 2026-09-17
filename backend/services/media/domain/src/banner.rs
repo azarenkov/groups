@@ -19,4 +19,5 @@ pub trait BannerRepository: Send + Sync {
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
     async fn is_paid(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<bool, RepositoryError>;
+    async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError>;
 }

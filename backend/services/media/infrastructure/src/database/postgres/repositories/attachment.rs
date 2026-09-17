@@ -98,6 +98,18 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         Ok(true)
     }
 
+    async fn set_size(&self, id: Uuid, size_bytes: i64) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"UPDATE attachments SET size_bytes = $2 WHERE id = $1"#,
+            id,
+            size_bytes,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError> {
         let row = sqlx::query!(
             r#"

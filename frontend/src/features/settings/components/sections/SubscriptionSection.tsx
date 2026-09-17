@@ -6,8 +6,8 @@ import { useEntitlementsStore } from "../../../subscription/store/entitlementsSt
 
 const PLANS: { tier: Tier; features: string[] }[] = [
   { tier: "free", features: ["noise", "attachments", "stream"] },
-  { tier: "pro", features: ["noise", "stream", "badge", "banner"] },
-  { tier: "premium", features: ["noise", "stream", "badge", "banner", "support"] },
+  { tier: "pro", features: ["noise", "attachments", "stream", "badge", "banner", "avatar"] },
+  { tier: "premium", features: ["noise", "attachments", "stream", "badge", "banner", "avatar", "support"] },
 ];
 
 export function SubscriptionSection() {

@@ -145,4 +145,20 @@ impl BannerRepository for PostgresBannerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)
     }
+
+    async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError> {
+        let tier = sqlx::query_scalar!(
+            r#"
+            SELECT tier FROM media_user_tiers
+            WHERE user_id = $1
+              AND (valid_until IS NULL OR valid_until > $2)
+            "#,
+            user_id.uuid(),
+            now,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(tier.unwrap_or_else(|| "free".to_string()))
+    }
 }

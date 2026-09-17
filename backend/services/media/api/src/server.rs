@@ -147,6 +147,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         upload_attachment_usecase: UploadAttachment::new(
             attachment_repository.clone(),
             minio_storage.clone(),
+            banner_repository.clone(),
         ),
         upload_semaphore,
         image_read_limiter,
