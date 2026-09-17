@@ -1,4 +1,8 @@
 import type { WsHandlers } from "../../../shared/ws/types";
+import { bustAvatar } from "../../../shared/lib/avatarCache";
+import { parseBadgeStyle, parseTier } from "../../subscription/lib/plans";
+import { useBadgeStore } from "../../subscription/store/badgeStore";
+import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
 import { useAuthStore } from "../../auth/store/authStore";
 import { isBlockedEitherWay, useBlockStore } from "../store/blockStore";
@@ -134,9 +138,30 @@ export const socialHandlers: WsHandlers = {
       refetchDmPreviews();
       return;
   },
+  "user.entitlementsChanged": (d) => {
+      const userId = asString(d.userId);
+      if (!userId) return;
+      const tier = parseTier(d.tier);
+      if (useAuthStore.getState().user?.id === userId) {
+        useEntitlementsStore.getState().applyTier(tier);
+        if (tier === "free") bustAvatar("banner", userId);
+        return;
+      }
+      useBadgeStore.getState().forget(userId);
+      useBadgeStore.getState().request(userId);
+      bustAvatar("banner", userId);
+  },
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);
       if (!userId) return;
+      if (typeof d.badgeStyle === "string") {
+        const badgeStyle = parseBadgeStyle(d.badgeStyle);
+        if (useAuthStore.getState().user?.id === userId) {
+          useEntitlementsStore.getState().applyBadgeStyle(badgeStyle);
+        } else {
+          useBadgeStore.getState().applyStyle(userId, badgeStyle);
+        }
+      }
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
       const showGameActivity = d.showGameActivity !== false;

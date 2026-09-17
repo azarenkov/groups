@@ -62,6 +62,7 @@ export type WsEventType =
   | "user.registered"
   | "user.renamed"
   | "user.profileChanged"
+  | "user.entitlementsChanged"
   | "user.activityChanged"
   | "user.emailVerified"
   | "user.phoneVerified"

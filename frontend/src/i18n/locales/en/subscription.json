@@ -1,0 +1,36 @@
+{
+  "streamQuality": "Stream quality",
+  "needs": {
+    "free": "Available to everyone",
+    "pro": "Needs a Rift Pro subscription",
+    "premium": "Needs a Rift Premium subscription"
+  },
+  "profileStyle": {
+    "title": "Profile style",
+    "locked": "Comes with Rift Pro. These settings stay locked until you subscribe."
+  },
+  "banner": {
+    "title": "Profile banner",
+    "upload": "Upload a picture",
+    "uploading": "Uploading…",
+    "remove": "Remove",
+    "hint": "PNG, JPEG or WebP up to 8 MB, at least 600×200. The picture is cropped to 3:1.",
+    "tooLarge": "The file is larger than 8 MB.",
+    "tooSmall": "The picture is smaller than 600×200 pixels.",
+    "badType": "Only PNG, JPEG and WebP work here.",
+    "rejected": "This picture cannot be used.",
+    "failed": "Could not save the banner. Try again."
+  },
+  "badge": {
+    "title": "Badge style",
+    "styles": {
+      "tint": "Tint",
+      "solid": "Solid",
+      "neutral": "Neutral",
+      "outline": "Outline",
+      "ink": "Ink",
+      "etched": "Etched mono",
+      "numbered": "Numbered"
+    }
+  }
+}

@@ -4,6 +4,7 @@ import Icon from "../../../../shared/ui/Icon";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
 import type { DirectConversation } from "../../../dm/types";
 import { useActivityStore } from "../../../social/store/activityStore";
+import UserBadge from "../../../subscription/components/UserBadge";
 
 interface DmListProps {
   directs: DirectConversation[];
@@ -101,6 +102,7 @@ const DmList: React.FC<DmListProps> = ({
             <div className="sb-dm-main">
               <div className="sb-dm-name">
                 <span className="sb-dm-name-text">{d.name}</span>
+                <UserBadge userId={d.id} size="sm" />
                 {activity && (
                   <span className="sb-dm-game" title={activity.name}>
                     {activity.name}

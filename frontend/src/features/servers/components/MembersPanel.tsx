@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import UserBadge from "../../subscription/components/UserBadge";
 import { profileVersion, useUserProfileStore } from "../../social/store/userProfileStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { useTranslation } from "react-i18next";
@@ -145,6 +146,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
             <div className="info">
               <div className="name">
                 {displayName}
+                <UserBadge userId={m.id} size="sm" />
                 {isSelf && <span className="member-you">{t("you")}</span>}
                 {m.id === serverOwnerId ? (
                   <span className="member-role-badge owner">{t("owner")}</span>

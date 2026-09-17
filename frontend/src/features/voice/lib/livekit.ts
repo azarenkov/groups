@@ -22,6 +22,13 @@ import type {
 
 export type { NoiseSuppressionMode, ParticipantInfo, VideoTile };
 
+export interface ScreenShareQuality {
+  width: number;
+  height: number;
+  frameRate: number;
+  maxBitrate: number;
+}
+
 export { ConnectionQuality, DisconnectReason };
 
 export class LiveKitService {
@@ -43,6 +50,12 @@ export class LiveKitService {
   } | null = null;
   private micGainAnalyser: AnalyserNode | null = null;
   private noiseMode: NoiseSuppressionMode = "standard";
+  private screenShareQuality: ScreenShareQuality = {
+    width: 1280,
+    height: 720,
+    frameRate: 60,
+    maxBitrate: 4_000_000,
+  };
   private desiredMicMuted: boolean = false;
   private remoteAudio = new RemoteAudioGraph(() => this.room);
   private noiseStrength: number = 1.0;
@@ -969,19 +982,24 @@ export class LiveKitService {
   async setScreenShareEnabled(enabled: boolean): Promise<void> {
     if (!this.room) return;
     if (enabled) {
+      const quality = this.screenShareQuality;
       await this.room.localParticipant.setScreenShareEnabled(
         true,
         {
-          resolution: { width: 3840, height: 2160, frameRate: 30 },
-          contentHint: "detail",
+          resolution: {
+            width: quality.width,
+            height: quality.height,
+            frameRate: quality.frameRate,
+          },
+          contentHint: quality.frameRate >= 60 ? "motion" : "detail",
           audio: true,
         },
         {
           simulcast: false,
           videoCodec: "vp9",
           screenShareEncoding: {
-            maxBitrate: 12_000_000,
-            maxFramerate: 30,
+            maxBitrate: quality.maxBitrate,
+            maxFramerate: quality.frameRate,
           },
         },
       );
@@ -989,6 +1007,40 @@ export class LiveKitService {
       await this.room.localParticipant.setScreenShareEnabled(false);
     }
     this.notifyParticipantsChange();
+  }
+
+  getScreenShareQuality(): ScreenShareQuality {
+    return this.screenShareQuality;
+  }
+
+  async setScreenShareQuality(quality: ScreenShareQuality): Promise<void> {
+    this.screenShareQuality = quality;
+    const publication = this.room?.localParticipant.getTrackPublication(
+      Track.Source.ScreenShare,
+    );
+    const track = publication?.track;
+    if (!track) return;
+    try {
+      await track.mediaStreamTrack.applyConstraints({
+        width: { ideal: quality.width },
+        height: { ideal: quality.height },
+        frameRate: { ideal: quality.frameRate, max: quality.frameRate },
+      });
+    } catch (e) {
+      console.warn("[LiveKitService] screen share constraints rejected:", e);
+    }
+    const sender = (track as { sender?: RTCRtpSender }).sender;
+    if (!sender) return;
+    try {
+      const parameters = sender.getParameters();
+      for (const encoding of parameters.encodings ?? []) {
+        encoding.maxBitrate = quality.maxBitrate;
+        encoding.maxFramerate = quality.frameRate;
+      }
+      await sender.setParameters(parameters);
+    } catch (e) {
+      console.warn("[LiveKitService] screen share encoding update failed:", e);
+    }
   }
 
   isCameraEnabled(): boolean {

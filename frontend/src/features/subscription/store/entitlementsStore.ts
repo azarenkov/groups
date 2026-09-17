@@ -1,31 +1,17 @@
 import { create } from "zustand";
 
 import { entitlementsAPI } from "../api/entitlements";
-import { DEFAULT_BADGE_STYLE, DEFAULT_STREAM_QUALITY } from "../lib/plans";
-import type { BadgeStyle, StreamQuality, Tier } from "../lib/plans";
-
-const STREAM_QUALITY_KEY = "rift:streamQuality";
-
-const readStreamQuality = (): StreamQuality["id"] => {
-  try {
-    const raw = localStorage.getItem(STREAM_QUALITY_KEY);
-    if (raw === "720p60" || raw === "1080p60" || raw === "1440p60" || raw === "2160p60") {
-      return raw;
-    }
-  } catch {}
-  return DEFAULT_STREAM_QUALITY;
-};
+import { DEFAULT_BADGE_STYLE } from "../lib/plans";
+import type { BadgeStyle, Tier } from "../lib/plans";
 
 interface EntitlementsState {
   tier: Tier;
   badgeStyle: BadgeStyle;
   loaded: boolean;
-  streamQuality: StreamQuality["id"];
   fetch: () => Promise<void>;
   applyTier: (tier: Tier) => void;
   applyBadgeStyle: (style: BadgeStyle) => void;
   setBadgeStyle: (style: BadgeStyle) => Promise<void>;
-  setStreamQuality: (quality: StreamQuality["id"]) => void;
   clear: () => void;
 }
 
@@ -35,7 +21,6 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
   badgeStyle: DEFAULT_BADGE_STYLE,
   loaded: false,
-  streamQuality: readStreamQuality(),
 
   fetch: async () => {
     const gen = generation;
@@ -63,13 +48,6 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
       set({ badgeStyle: previous });
       throw err;
     }
-  },
-
-  setStreamQuality: (streamQuality) => {
-    set({ streamQuality });
-    try {
-      localStorage.setItem(STREAM_QUALITY_KEY, streamQuality);
-    } catch {}
   },
 
   clear: () => {

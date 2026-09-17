@@ -5,6 +5,10 @@ import { getLiveKitService } from "../lib/livekit";
 import { ApiError } from "../../../shared/lib/apiError";
 
 export type NoiseMode = "off" | "standard" | "high";
+export type StreamQualityId = "720p60" | "1080p60" | "1440p60" | "2160p60";
+
+const parseStreamQuality = (value: unknown): StreamQualityId =>
+  value === "1080p60" || value === "1440p60" || value === "2160p60" ? value : "720p60";
 
 export interface VoiceSyncedSettings {
   micVolume: number;
@@ -14,6 +18,7 @@ export interface VoiceSyncedSettings {
   sensitivity: number;
   pushToTalk: boolean;
   pttKey: string;
+  streamQuality: StreamQualityId;
 }
 
 interface VoiceSettingsState extends VoiceSyncedSettings {
@@ -36,6 +41,7 @@ const SETTING_KEYS = [
   "sensitivity",
   "pushToTalk",
   "pttKey",
+  "streamQuality",
 ] as const;
 
 const DEFAULT_SETTINGS: VoiceSyncedSettings = {
@@ -46,6 +52,7 @@ const DEFAULT_SETTINGS: VoiceSyncedSettings = {
   sensitivity: 50,
   pushToTalk: false,
   pttKey: "KeyM",
+  streamQuality: "720p60",
 };
 
 const applyToEngine = (s: {
@@ -126,6 +133,7 @@ const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
   sensitivity: 0,
   pushToTalk: 0,
   pttKey: 0,
+  streamQuality: 0,
 };
 
 const cancelPendingSaves = () => {
@@ -297,6 +305,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
                     sensitivity: get().sensitivity,
                     pushToTalk: get().pushToTalk,
                     pttKey: get().pttKey,
+                    streamQuality: get().streamQuality,
                   },
             );
             set({ ...local, ownerId: userId });
@@ -317,6 +326,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
             sensitivity: saved.sensitivity,
             pushToTalk: saved.pushToTalk,
             pttKey: saved.pttKey || "KeyM",
+            streamQuality: parseStreamQuality(saved.streamQuality),
           });
           set({ ...next, ownerId: userId });
           applyToEngine(get());
