@@ -4,7 +4,7 @@ import { userAPI } from "../../features/social/api/user";
 import { serverAPI } from "../../features/servers/api/server";
 import { ApiError } from "./apiError";
 
-export type AvatarKind = "user" | "server";
+export type AvatarKind = "user" | "server" | "banner";
 
 const CACHE_LIMIT = 256;
 const REVALIDATE_MS = 5 * 60_000;
@@ -45,7 +45,9 @@ const load = (kind: AvatarKind, id: string) => {
   const gen = generations.get(key) ?? 0;
   const promise = (kind === "user"
     ? userAPI.downloadAvatar(id)
-    : serverAPI.downloadLogo(id)
+    : kind === "banner"
+      ? userAPI.downloadBanner(id)
+      : serverAPI.downloadLogo(id)
   )
     .then((blob) => {
       const url = URL.createObjectURL(blob);

@@ -19,6 +19,7 @@ struct VoiceSettingsResponse {
     sensitivity: i16,
     push_to_talk: bool,
     ptt_key: String,
+    stream_quality: String,
 }
 
 impl From<VoiceSettings> for VoiceSettingsResponse {
@@ -31,6 +32,7 @@ impl From<VoiceSettings> for VoiceSettingsResponse {
             sensitivity: settings.sensitivity(),
             push_to_talk: settings.push_to_talk(),
             ptt_key: settings.ptt_key().as_str().to_string(),
+            stream_quality: settings.stream_quality().as_str().to_string(),
         }
     }
 }
@@ -45,6 +47,7 @@ struct VoiceSettingsBody {
     sensitivity: Option<i16>,
     push_to_talk: Option<bool>,
     ptt_key: Option<String>,
+    stream_quality: Option<String>,
 }
 
 #[get("/me/voice")]
@@ -87,6 +90,7 @@ pub async fn update_me_voice_settings(
                 sensitivity: body.sensitivity,
                 push_to_talk: body.push_to_talk,
                 ptt_key: body.ptt_key,
+                stream_quality: body.stream_quality,
             },
         )
         .await?;

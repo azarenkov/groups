@@ -1,3 +1,5 @@
+use crate::user::tier::Tier;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NoiseMode {
     Off,
@@ -78,6 +80,8 @@ pub enum VoiceSettingsError {
     InvalidNoiseMode,
     #[error("Invalid push-to-talk key")]
     InvalidPttKey,
+    #[error("Invalid stream quality")]
+    InvalidStreamQuality,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -89,6 +93,53 @@ pub struct VoiceSettingsPatch {
     pub sensitivity: Option<i16>,
     pub push_to_talk: Option<bool>,
     pub ptt_key: Option<String>,
+    pub stream_quality: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum StreamQuality {
+    #[default]
+    P720,
+    P1080,
+    P1440,
+    P2160,
+}
+
+impl StreamQuality {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::P720 => "720p60",
+            Self::P1080 => "1080p60",
+            Self::P1440 => "1440p60",
+            Self::P2160 => "2160p60",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "720p60" => Some(Self::P720),
+            "1080p60" => Some(Self::P1080),
+            "1440p60" => Some(Self::P1440),
+            "2160p60" => Some(Self::P2160),
+            _ => None,
+        }
+    }
+
+    pub fn required_tier(self) -> Tier {
+        match self {
+            Self::P720 => Tier::Free,
+            Self::P1080 | Self::P1440 => Tier::Pro,
+            Self::P2160 => Tier::Premium,
+        }
+    }
+
+    pub fn best_for(tier: Tier) -> Self {
+        match tier {
+            Tier::Free => Self::P720,
+            Tier::Pro => Self::P1440,
+            Tier::Premium => Self::P2160,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,6 +151,7 @@ pub struct VoiceSettings {
     sensitivity: i16,
     push_to_talk: bool,
     ptt_key: PttKey,
+    stream_quality: StreamQuality,
 }
 
 impl Default for VoiceSettings {
@@ -112,6 +164,7 @@ impl Default for VoiceSettings {
             sensitivity: 50,
             push_to_talk: false,
             ptt_key: PttKey::default(),
+            stream_quality: StreamQuality::default(),
         }
     }
 }
@@ -130,8 +183,10 @@ impl VoiceSettings {
         sensitivity: i16,
         push_to_talk: bool,
         ptt_key: String,
+        stream_quality: &str,
     ) -> Self {
         Self {
+            stream_quality: StreamQuality::parse(stream_quality).unwrap_or_default(),
             mic_volume,
             output_volume,
             noise_mode: NoiseMode::parse(noise_mode).unwrap_or_default(),
@@ -174,6 +229,10 @@ impl VoiceSettings {
         if let Some(key) = patch.ptt_key.as_deref() {
             next.ptt_key = PttKey::parse(key)?;
         }
+        if let Some(quality) = patch.stream_quality.as_deref() {
+            next.stream_quality =
+                StreamQuality::parse(quality).ok_or(VoiceSettingsError::InvalidStreamQuality)?;
+        }
         Ok(next)
     }
 
@@ -189,10 +248,20 @@ impl VoiceSettings {
         self.noise_mode
     }
 
-    pub fn without_paid_features(mut self) -> Self {
-        if self.noise_mode == NoiseMode::High {
+    pub fn stream_quality(&self) -> StreamQuality {
+        self.stream_quality
+    }
+
+    pub fn allowed_for(&self, tier: Tier) -> bool {
+        (self.noise_mode != NoiseMode::High || tier.is_paid())
+            && self.stream_quality <= StreamQuality::best_for(tier)
+    }
+
+    pub fn limited_to(mut self, tier: Tier) -> Self {
+        if self.noise_mode == NoiseMode::High && !tier.is_paid() {
             self.noise_mode = NoiseMode::Standard;
         }
+        self.stream_quality = self.stream_quality.min(StreamQuality::best_for(tier));
         self
     }
 

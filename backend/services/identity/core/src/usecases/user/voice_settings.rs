@@ -5,7 +5,7 @@ use domain::user::id::UserId;
 use identity_domain::unit_of_work::IdentityUnitOfWork;
 use identity_domain::user::repository::UserRepository;
 use identity_domain::user::settings::voice::{
-    NoiseMode, VoiceSettings, VoiceSettingsError as DomainVoiceSettingsError, VoiceSettingsPatch,
+    VoiceSettings, VoiceSettingsError as DomainVoiceSettingsError, VoiceSettingsPatch,
 };
 use identity_domain::user::tier::EntitlementsRepository;
 use ports::repository::RepositoryError;
@@ -40,10 +40,8 @@ impl<U: UserRepository, E: EntitlementsRepository> GetVoiceSettings<U, E> {
         let Some(settings) = self.user_repository.get_voice_settings(&user_id).await? else {
             return Ok(None);
         };
-        if self.entitlements.get(&user_id).await?.active_at(Utc::now()).is_paid() {
-            return Ok(Some(settings));
-        }
-        Ok(Some(settings.without_paid_features()))
+        let tier = self.entitlements.get(&user_id).await?.active_at(Utc::now());
+        Ok(Some(settings.limited_to(tier)))
     }
 }
 
@@ -65,17 +63,17 @@ impl<W: IdentityUnitOfWork, E: EntitlementsRepository> UpdateVoiceSettings<W, E>
         user_id: UserId,
         patch: VoiceSettingsPatch,
     ) -> Result<VoiceSettings, VoiceSettingsError> {
-        let paid = self.entitlements.get(&user_id).await?.active_at(Utc::now()).is_paid();
-        if !paid && patch.noise_mode.as_deref() == Some(NoiseMode::High.as_str()) {
-            return Err(VoiceSettingsError::ProRequired);
-        }
+        let tier = self.entitlements.get(&user_id).await?.active_at(Utc::now());
         let mut tx = self.unit_of_work.begin().await?;
         let current = tx
             .load_voice_settings_for_update(&user_id)
             .await?
             .unwrap_or_default();
-        let next = current.apply(&patch)?;
-        let next = if paid { next } else { next.without_paid_features() };
+        let requested = current.clone().limited_to(tier).apply(&patch)?;
+        if !requested.allowed_for(tier) {
+            return Err(VoiceSettingsError::ProRequired);
+        }
+        let next = requested;
         tx.save_voice_settings(&user_id, &next).await?;
         tx.commit().await?;
         Ok(next)

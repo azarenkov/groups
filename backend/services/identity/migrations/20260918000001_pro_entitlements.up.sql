@@ -13,3 +13,7 @@ CREATE TABLE identity.user_entitlements (
 ALTER TABLE identity.users
     ADD COLUMN badge_style character varying(16) DEFAULT '' NOT NULL,
     ADD CONSTRAINT users_badge_style_check CHECK (badge_style IN ('', 'tint', 'solid', 'neutral', 'outline', 'ink', 'etched', 'numbered'));
+
+ALTER TABLE identity.voice_settings
+    ADD COLUMN stream_quality character varying(10) DEFAULT '720p60' NOT NULL,
+    ADD CONSTRAINT voice_settings_stream_quality_check CHECK (stream_quality IN ('720p60', '1080p60', '1440p60', '2160p60'));
