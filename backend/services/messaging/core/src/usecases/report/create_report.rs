@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::{Duration, Utc};
 use domain::server::id::ServerId;
 use domain::user::id::UserId;
-use messaging_domain::channel::id::ChannelId;
+use messaging_domain::channel::visibility::ChannelVisibility;
 use messaging_domain::channel::repository::ChannelRepository;
 use messaging_domain::dm_message::id::DmMessageId;
 use messaging_domain::dm_message::repository::DmMessageRepository;
@@ -161,19 +161,32 @@ where
         {
             Ok(message) => {
                 let channel_id = *message.channel_id();
+                let channel = match self.channel_repository.find_channel_by_id(&channel_id).await {
+                    Ok(channel) => channel,
+                    Err(RepositoryError::NotFound) => {
+                        return Err(CreateReportError::ContextMismatch);
+                    }
+                    Err(e) => return Err(e.into()),
+                };
                 let belongs = match target {
                     ReportTarget::User => message.author_id().uuid() == target_id,
-                    ReportTarget::Server => {
-                        self.channel_server_id(&channel_id).await? == Some(target_id)
-                    }
+                    ReportTarget::Server => channel.server_id().uuid() == target_id,
                 };
                 if !belongs {
                     return Err(CreateReportError::ContextMismatch);
                 }
                 if !self
-                    .channel_repository
-                    .is_text_channel_member(&channel_id, reporter_id)
+                    .server_repository
+                    .is_server_member(channel.server_id(), reporter_id)
                     .await?
+                {
+                    return Err(CreateReportError::ContextMismatch);
+                }
+                if channel.visibility() == ChannelVisibility::Private
+                    && !self
+                        .channel_repository
+                        .is_text_channel_member(&channel_id, reporter_id)
+                        .await?
                 {
                     return Err(CreateReportError::ContextMismatch);
                 }
@@ -222,17 +235,6 @@ where
                 })
             }
             Err(RepositoryError::NotFound) => Err(CreateReportError::ContextMismatch),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    async fn channel_server_id(
-        &self,
-        channel_id: &ChannelId,
-    ) -> Result<Option<Uuid>, CreateReportError> {
-        match self.channel_repository.find_channel_by_id(channel_id).await {
-            Ok(channel) => Ok(Some(channel.server_id().uuid())),
-            Err(RepositoryError::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
         }
     }
