@@ -45,10 +45,12 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onCancel();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [onCancel]);
 
   const view = natural
