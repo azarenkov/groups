@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, post, web};
 use api_common::middleware::auth::RateLimitedAuthToken;
 use domain::user::id::UserId;
 use messaging::usecases::report::create_report::CreateReportRequest;
-use messaging_domain::report::{ReportContext, ReportTarget};
+use messaging_domain::report::ReportTarget;
 use uuid::Uuid;
 
 use crate::{http_errors::HttpError, state::AppState};
@@ -12,7 +12,6 @@ use crate::{http_errors::HttpError, state::AppState};
 struct CreateReportBody {
     reason: String,
     details: Option<String>,
-    channel_id: Option<Uuid>,
     message_id: Option<Uuid>,
 }
 
@@ -23,10 +22,7 @@ impl CreateReportBody {
             target_id,
             reason: self.reason,
             details: self.details,
-            context: ReportContext {
-                channel_id: self.channel_id,
-                message_id: self.message_id,
-            },
+            message_id: self.message_id,
         }
     }
 }

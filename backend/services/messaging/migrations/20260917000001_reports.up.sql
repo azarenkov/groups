@@ -8,6 +8,7 @@ CREATE TABLE messaging.reports (
     details character varying(1000),
     context_channel_id uuid,
     context_message_id uuid,
+    context_message_content text,
     status character varying(10) DEFAULT 'open' NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     reviewed_at timestamp with time zone,

@@ -3,7 +3,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "../../../../i18n";
 import ReportModal from "../ReportModal";
 import { reportAPI } from "../../api/report";
-import { SERVER_REPORT_REASONS, USER_REPORT_REASONS } from "../../lib/reasons";
+import {
+  MAX_REPORT_DETAILS,
+  SERVER_REPORT_REASONS,
+  USER_REPORT_REASONS,
+} from "../../lib/reasons";
 import { useReportModalStore } from "../../store/reportModalStore";
 
 jest.mock("../../api/report", () => ({
@@ -44,7 +48,6 @@ describe("ReportModal", () => {
       type: "user",
       id: "u1",
       name: "spammer",
-      channelId: "c1",
       messageId: "m1",
     });
     render(<ReportModal />);
@@ -57,9 +60,21 @@ describe("ReportModal", () => {
     expect(mockedApi.reportUser).toHaveBeenCalledWith("u1", {
       reason: "spam",
       details: undefined,
-      channelId: "c1",
       messageId: "m1",
     });
+  });
+
+  it("counts details the way the backend does", () => {
+    useReportModalStore.getState().open({ type: "user", id: "u1", name: "spammer" });
+    render(<ReportModal />);
+
+    fireEvent.click(screen.getByDisplayValue("spam"));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "🙂🙂🙂" },
+    });
+
+    expect(screen.getByText(`3 / ${MAX_REPORT_DETAILS}`)).toBeInTheDocument();
+    expect(submitButton()).not.toBeDisabled();
   });
 
   it("keeps other unsendable until something is written", async () => {

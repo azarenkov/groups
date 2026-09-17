@@ -140,10 +140,11 @@ impl ReportStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ReportContext {
     pub channel_id: Option<Uuid>,
     pub message_id: Option<Uuid>,
+    pub message_content: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -244,8 +245,8 @@ impl Report {
         self.details.as_deref()
     }
 
-    pub fn context(&self) -> ReportContext {
-        self.context
+    pub fn context(&self) -> &ReportContext {
+        &self.context
     }
 
     pub fn status(&self) -> ReportStatus {
@@ -257,21 +258,21 @@ impl Report {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReportOutcome {
+    Stored,
+    AlreadyReported,
+    LimitReached,
+}
+
 #[async_trait]
 pub trait ReportRepository {
-    async fn insert(&self, report: &Report) -> Result<(), RepositoryError>;
-    async fn has_recent_report(
+    async fn insert_within_quota(
         &self,
-        reporter_id: &UserId,
-        target: ReportTarget,
-        target_id: Uuid,
+        report: &Report,
         since: DateTime<Utc>,
-    ) -> Result<bool, RepositoryError>;
-    async fn count_recent_by_reporter(
-        &self,
-        reporter_id: &UserId,
-        since: DateTime<Utc>,
-    ) -> Result<i64, RepositoryError>;
+        daily_limit: i64,
+    ) -> Result<ReportOutcome, RepositoryError>;
 }
 
 #[cfg(test)]

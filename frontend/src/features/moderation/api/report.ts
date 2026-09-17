@@ -3,7 +3,6 @@ import { http } from "../../../shared/api/http";
 export interface ReportPayload {
   reason: string;
   details?: string;
-  channelId?: string;
   messageId?: string;
 }
 

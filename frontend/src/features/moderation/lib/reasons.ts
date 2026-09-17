@@ -1,5 +1,7 @@
 export const MAX_REPORT_DETAILS = 1000;
 
+export const countReportDetails = (value: string) => [...value].length;
+
 export const USER_REPORT_REASONS = [
   "spam",
   "harassment",

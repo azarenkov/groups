@@ -27,5 +27,6 @@
     "violence": "Extremism or calls for violence",
     "raid": "Organising raids on other servers",
     "other": "Something else"
-  }
+  },
+  "errorContext": "That message can no longer be attached to a report."
 }

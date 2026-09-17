@@ -412,7 +412,9 @@ export const Message: React.FC<MessageProps> = ({
         {!isMine &&
           !editing &&
           !msg.inviteServerId &&
-          ((msg.content.length > 0 && !msg.callStatus) || canModerate) && (
+          ((msg.content.length > 0 && !msg.callStatus) ||
+            (msg.attachments?.length ?? 0) > 0 ||
+            canModerate) && (
             <div className="msg-actions">
               {msg.content.length > 0 && !msg.callStatus && (
                 <button
@@ -434,7 +436,6 @@ export const Message: React.FC<MessageProps> = ({
                       type: "user",
                       id: msg.authorId,
                       name: displayName,
-                      channelId: msg.channelId,
                       messageId: msg.id,
                     })
                   }

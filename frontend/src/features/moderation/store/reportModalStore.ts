@@ -4,7 +4,6 @@ export interface ReportTarget {
   type: "user" | "server";
   id: string;
   name: string;
-  channelId?: string;
   messageId?: string;
 }
 

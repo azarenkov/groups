@@ -2201,6 +2201,7 @@ impl HttpMapping for CreateReportError {
         match self {
             CreateReportError::UnknownReason => StatusCode::BAD_REQUEST,
             CreateReportError::TargetNotFound => StatusCode::NOT_FOUND,
+            CreateReportError::ContextMismatch => StatusCode::BAD_REQUEST,
             CreateReportError::AlreadyReported => StatusCode::CONFLICT,
             CreateReportError::TooManyReports => StatusCode::TOO_MANY_REQUESTS,
             CreateReportError::Domain(ReportError::SelfReport) => StatusCode::BAD_REQUEST,
@@ -2212,6 +2213,9 @@ impl HttpMapping for CreateReportError {
         match self {
             CreateReportError::UnknownReason => "Unknown report reason.".to_string(),
             CreateReportError::TargetNotFound => "Reported target not found.".to_string(),
+            CreateReportError::ContextMismatch => {
+                "The reported message does not belong to this report.".to_string()
+            }
             CreateReportError::AlreadyReported => {
                 "You have already reported this in the last 24 hours.".to_string()
             }
@@ -2226,6 +2230,7 @@ impl HttpMapping for CreateReportError {
         match self {
             CreateReportError::UnknownReason => "REPORT_REASON_UNKNOWN",
             CreateReportError::TargetNotFound => "REPORT_TARGET_NOT_FOUND",
+            CreateReportError::ContextMismatch => "REPORT_CONTEXT_MISMATCH",
             CreateReportError::AlreadyReported => "REPORT_ALREADY_SENT",
             CreateReportError::TooManyReports => "REPORT_LIMIT_REACHED",
             CreateReportError::Domain(ReportError::SelfReport) => "REPORT_SELF",

@@ -8,6 +8,7 @@ import {
   MAX_REPORT_DETAILS,
   SERVER_REPORT_REASONS,
   USER_REPORT_REASONS,
+  countReportDetails,
 } from "../lib/reasons";
 import { useReportModalStore } from "../store/reportModalStore";
 
@@ -44,8 +45,9 @@ const ReportModal: React.FC = () => {
   const reasons =
     target.type === "user" ? USER_REPORT_REASONS : SERVER_REPORT_REASONS;
   const trimmed = details.trim();
-  const needsDetails = reason === "other" && trimmed.length === 0;
-  const tooLong = trimmed.length > MAX_REPORT_DETAILS;
+  const written = countReportDetails(trimmed);
+  const needsDetails = reason === "other" && written === 0;
+  const tooLong = written > MAX_REPORT_DETAILS;
   const canSend = !!reason && !needsDetails && !tooLong && !sending;
 
   const submit = async () => {
@@ -54,8 +56,7 @@ const ReportModal: React.FC = () => {
     setError(null);
     const payload = {
       reason,
-      details: trimmed.length > 0 ? trimmed : undefined,
-      channelId: target.channelId,
+      details: written > 0 ? trimmed : undefined,
       messageId: target.messageId,
     };
     try {
@@ -70,6 +71,7 @@ const ReportModal: React.FC = () => {
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
       if (code === "REPORT_ALREADY_SENT") setError(t("errorAlreadySent"));
+      else if (code === "REPORT_CONTEXT_MISMATCH") setError(t("errorContext"));
       else if (code === "REPORT_LIMIT_REACHED") setError(t("errorLimit"));
       else if (code === "REPORT_TARGET_NOT_FOUND") setError(t("errorTargetGone"));
       else setError(apiErr?.message || t("errorGeneric"));
@@ -135,7 +137,10 @@ const ReportModal: React.FC = () => {
                 id="report-details"
                 className="report-details"
                 rows={4}
-                maxLength={MAX_REPORT_DETAILS + 200}
+                onBeforeInput={(e) => {
+                  const next = countReportDetails(details) + 1;
+                  if (next > MAX_REPORT_DETAILS) e.preventDefault();
+                }}
                 placeholder={t("detailsPlaceholder")}
                 value={details}
                 onChange={(e) => {
@@ -144,7 +149,7 @@ const ReportModal: React.FC = () => {
                 }}
               />
               <div className={"report-counter" + (tooLong ? " over" : "")}>
-                {trimmed.length} / {MAX_REPORT_DETAILS}
+                {written} / {MAX_REPORT_DETAILS}
               </div>
               {error && <div className="report-error">{error}</div>}
             </>
