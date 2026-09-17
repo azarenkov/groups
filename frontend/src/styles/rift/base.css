@@ -321,6 +321,9 @@ body.electron .body-area::before {
 .popover .pop-item .ttl { font-weight: 500; }
 .popover .pop-item .sub { font-size: 11px; color: var(--fg-3); margin-top: 1px; }
 .popover .pop-divider { height: 1px; background: var(--hairline); margin: 4px 8px; }
+.popover .pop-item.danger { color: var(--danger); }
+.popover .pop-item.danger:hover { background: var(--danger-tint, rgba(229, 72, 77, 0.12)); }
+.ch-more-menu { min-width: 190px; }
 
 .members-panel {
   width: 240px; flex-shrink: 0;

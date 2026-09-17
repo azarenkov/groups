@@ -93,5 +93,6 @@
   "friendRequestPending": "Вы отправили заявку {{user}}. Чат откроется после принятия.",
   "friendRequestSent": "Заявка отправлена",
   "friendRequestIncoming": "{{user}} отправил(а) вам заявку в друзья.",
-  "acceptFriendRequest": "Принять"
+  "acceptFriendRequest": "Принять",
+  "more": "Ещё"
 }

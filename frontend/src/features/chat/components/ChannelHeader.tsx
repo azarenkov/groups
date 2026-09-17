@@ -72,6 +72,8 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   );
   const bellRef = React.useRef<HTMLDivElement>(null);
   const bellButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const moreRef = React.useRef<HTMLDivElement>(null);
 
   const applyNotifLevel = (level: "all" | "mentions" | "none") => {
     const prefs = useNotificationPrefsStore.getState();
@@ -135,6 +137,24 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       )}
     </div>
   );
+
+  React.useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
 
   React.useEffect(() => {
     if (!bellOpen) return;
@@ -247,38 +267,64 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               <Icon name="search" size={15} />
             </button>
           )}
-          {onRemoveFriend && dm.isFriend !== false && !blocked && (
+          <div className="popover-wrap" ref={moreRef}>
             <button
               type="button"
-              className="icon-btn"
-              title={i18n.t("removeFriend", { ns: "chat" })}
-              onClick={onRemoveFriend}
+              className={"icon-btn" + (moreOpen ? " on" : "")}
+              title={i18n.t("more", { ns: "chat" })}
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((o) => !o)}
             >
-              <Icon name="user-check" size={16} />
+              <Icon name="more" size={16} />
             </button>
-          )}
-          {dm && (
-            <button
-              type="button"
-              className="icon-btn"
-              title={i18n.t("action", { ns: "report" })}
-              onClick={() =>
-                openReport({ type: "user", id: dm.friendId, name: dm.name })
-              }
-            >
-              <Icon name="flag" size={16} />
-            </button>
-          )}
-          {(blocked ? onUnblockUser : onBlockUser) && (
-            <button
-              type="button"
-              className={"icon-btn" + (blocked ? " on" : "")}
-              title={i18n.t(blocked ? "unblockUser" : "blockUser", { ns: "chat" })}
-              onClick={blocked ? onUnblockUser : onBlockUser}
-            >
-              <Icon name="shield" size={16} />
-            </button>
-          )}
+            {moreOpen && (
+              <div className="popover ch-more-menu" role="menu">
+                <button
+                  type="button"
+                  className="pop-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    openReport({ type: "user", id: dm.friendId, name: dm.name });
+                  }}
+                >
+                  <Icon name="flag" size={15} />
+                  <span className="body">{i18n.t("action", { ns: "report" })}</span>
+                </button>
+                {onRemoveFriend && dm.isFriend !== false && !blocked && (
+                  <button
+                    type="button"
+                    className="pop-item danger"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onRemoveFriend();
+                    }}
+                  >
+                    <Icon name="user-check" size={15} />
+                    <span className="body">{i18n.t("removeFriend", { ns: "chat" })}</span>
+                  </button>
+                )}
+                {(blocked ? onUnblockUser : onBlockUser) && (
+                  <button
+                    type="button"
+                    className={"pop-item" + (blocked ? "" : " danger")}
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      (blocked ? onUnblockUser : onBlockUser)?.();
+                    }}
+                  >
+                    <Icon name="shield" size={15} />
+                    <span className="body">
+                      {i18n.t(blocked ? "unblockUser" : "blockUser", { ns: "chat" })}
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
     );

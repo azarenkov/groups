@@ -51,14 +51,13 @@ export const DangerSection: React.FC<DangerSectionProps> = ({
                   <button
                     type="button"
                     className="ssv-btn"
-                    onClick={() => {
-                      onClose();
+                    onClick={() =>
                       openReport({
                         type: "server",
                         id: server.id,
                         name: server.name,
-                      });
-                    }}
+                      })
+                    }
                   >
                     {t("report:action")}
                   </button>
