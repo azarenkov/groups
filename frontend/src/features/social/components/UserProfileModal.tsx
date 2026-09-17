@@ -6,6 +6,7 @@ import { homeAPI, type PublicProfile } from "../../home/api/home";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { blockGeneration, useBlockStore } from "../store/blockStore";
+import { openReport } from "../../moderation/store/reportModalStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { loadActivitiesFor, useActivityStore } from "../store/activityStore";
 import { useProfileModalStore } from "../store/profileModalStore";
@@ -13,7 +14,7 @@ import { userAPI, type Connection } from "../api/user";
 import { useUserNamesStore } from "../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { colorForId } from "../../../shared/lib/avatar";
-import { currentLocale } from "../../../i18n";
+import i18n, { currentLocale } from "../../../i18n";
 
 interface Props {
   onOpenDm: (userId: string, name?: string) => void;
@@ -284,6 +285,16 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                 {menuOpen && (
                   <div className="profile-menu">
                     <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        close();
+                        openReport({ type: "user", id: userId, name });
+                      }}
+                    >
+                      {i18n.t("action", { ns: "report" })}
+                    </button>
                     {isFriend && (
                       <button type="button" className="danger" onClick={() => { setMenuOpen(false); close(); onRemoveFriend(userId, name); }}>
                         {t("removeFriend")}

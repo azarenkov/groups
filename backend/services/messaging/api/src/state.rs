@@ -1,6 +1,7 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
+    report::create_report::CreateReport,
     attachment::{
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
     },
@@ -72,7 +73,8 @@ use messaging_infrastructure::{
         friendship_unit_of_work::PostgresFriendshipUnitOfWork,
         message_unit_of_work::PostgresMessageUnitOfWork,
         server_unit_of_work::PostgresServerUnitOfWork,
-        privacy::PostgresPrivacyRepository, user_profile::PostgresUserProfileRepository,
+        privacy::PostgresPrivacyRepository, report::PostgresReportRepository,
+        user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
     media_client::voice_calls::VoiceCallsClient,
@@ -160,6 +162,14 @@ pub struct AppState {
         GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
     pub send_friend_request_usecase:
         SendFriendRequest<PostgresFriendshipUnitOfWork, PostgresUserProfileRepository, PostgresPrivacyRepository>,
+    pub create_report_usecase: CreateReport<
+        PostgresReportRepository,
+        PostgresUserProfileRepository,
+        PostgresServerRepository,
+        PostgresMessageRepository,
+        PostgresDmMessageRepository,
+        PostgresChannelRepository,
+    >,
     pub get_privacy_usecase: GetPrivacy<PostgresPrivacyRepository>,
     pub update_privacy_usecase: UpdatePrivacy<PostgresPrivacyRepository>,
     pub accept_friend_request_usecase: AcceptFriendRequest<PostgresFriendshipUnitOfWork>,

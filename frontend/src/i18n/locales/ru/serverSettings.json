@@ -98,5 +98,6 @@
   "roleList": "Роли ({{count}})",
   "permKickMembers": "Исключение участников",
   "kickMember": "Исключить с сервера",
-  "loadMoreLinks": "Показать ещё ссылки"
+  "loadMoreLinks": "Показать ещё ссылки",
+  "reportServerHint": "Расскажите команде Rift о нарушениях на этом сервере."
 }
