@@ -19,6 +19,24 @@ pub enum UpdateUserAvatarError {
     Moderation(#[from] ImageModerationError),
 }
 
+pub struct NormalizedImage {
+    pub bytes: Vec<u8>,
+    pub extension: &'static str,
+    pub content_type: &'static str,
+    pub moderation_samples: Vec<Vec<u8>>,
+}
+
+impl NormalizedImage {
+    pub fn png(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes,
+            extension: "png",
+            content_type: "image/png",
+            moderation_samples: Vec::new(),
+        }
+    }
+}
+
 pub struct UpdateUserAvatar<M, A, FS, IM>
 where
     M: MediaRepository,
@@ -56,11 +74,21 @@ where
     pub async fn execute(
         &self,
         user_id: UserId,
-        bytes: Vec<u8>,
+        image: NormalizedImage,
     ) -> Result<(), UpdateUserAvatarError> {
-        self.moderation.ensure_allowed(&bytes).await?;
-        let key = format!("avatars/{}/{}.png", user_id.uuid(), uuid::Uuid::new_v4());
-        self.storage.put(&key, "image/png", bytes).await?;
+        if image.moderation_samples.is_empty() {
+            self.moderation.ensure_allowed(&image.bytes).await?;
+        }
+        for sample in &image.moderation_samples {
+            self.moderation.ensure_allowed(sample).await?;
+        }
+        let key = format!(
+            "avatars/{}/{}.{}",
+            user_id.uuid(),
+            uuid::Uuid::new_v4(),
+            image.extension
+        );
+        self.storage.put(&key, image.content_type, image.bytes).await?;
 
         let old = match self.media_repository.set_user_avatar_key(&user_id, Some(&key)).await {
             Ok(old) => old,
