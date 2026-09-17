@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE email_verified_at IS NULL\n              AND phone_verified_at IS NULL\n              AND deleted_at IS NULL\n              AND created_at < $1\n            ORDER BY created_at\n            LIMIT $2\n            FOR UPDATE SKIP LOCKED\n            ",
+  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE id = $1\n            FOR UPDATE\n            ",
   "describe": {
     "columns": [
       {
@@ -75,24 +75,28 @@
       },
       {
         "ordinal": 14,
+        "name": "badge_style",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 15,
         "name": "show_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "show_game_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "timezone",
         "type_info": "Varchar"
       }
     ],
     "parameters": {
       "Left": [
-        "Timestamptz",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -112,8 +116,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "48ab3936e3e14431fb3e45f440a9d34232a3f8225af7da29c380afb9e7460257"
+  "hash": "dbfbb868a2f72fa72b46d70a87c402e2755b56211188a11539cbdfb1621a9e55"
 }

@@ -163,3 +163,31 @@ fn a_deleted_account_cannot_ask_for_another_code() {
         Err(UserError::Deleted)
     ));
 }
+
+#[test]
+fn an_expired_plan_counts_as_free() {
+    use crate::user::tier::{Entitlements, Tier};
+    let now = Utc::now();
+    let lapsed = Entitlements { tier: Tier::Pro, valid_until: Some(now - Duration::hours(1)) };
+    let running = Entitlements { tier: Tier::Pro, valid_until: Some(now + Duration::hours(1)) };
+    let open_ended = Entitlements { tier: Tier::Premium, valid_until: None };
+    assert_eq!(lapsed.active_at(now), Tier::Free);
+    assert_eq!(running.active_at(now), Tier::Pro);
+    assert_eq!(open_ended.active_at(now), Tier::Premium);
+}
+
+#[test]
+fn picking_a_badge_style_tells_the_other_services() {
+    use crate::user::tier::BadgeStyle;
+    let mut user = fresh_user();
+    user.set_badge_style(BadgeStyle::Ink, Utc::now()).unwrap();
+    assert_eq!(user.badge_style(), BadgeStyle::Ink);
+    let events = user.pull_events();
+    assert!(events.iter().any(|e| matches!(e, UserEvent::ProfileChanged(p) if p.badge_style == "ink")));
+
+    user.set_badge_style(BadgeStyle::Ink, Utc::now()).unwrap();
+    assert!(user.pull_events().is_empty());
+    assert!(BadgeStyle::Ink.needs_paid_tier());
+    assert!(!BadgeStyle::Default.needs_paid_tier());
+    assert_eq!(BadgeStyle::parse("sparkly"), None);
+}

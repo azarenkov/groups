@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE LOWER(name COLLATE \"C\") = LOWER($1 COLLATE \"C\")\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE LOWER(name COLLATE \"C\") = LOWER($1 COLLATE \"C\")\n            ",
   "describe": {
     "columns": [
       {
@@ -75,16 +75,21 @@
       },
       {
         "ordinal": 14,
+        "name": "badge_style",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 15,
         "name": "show_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "show_game_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "timezone",
         "type_info": "Varchar"
       }
@@ -111,8 +116,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "13caad031c8af4376b3076a73b96de5762d6f14159eb22a07414a9bc0501d56f"
+  "hash": "13b6b6ccd233be23a0248070dc73e644c3e8956462e82bc4a450a0a0d81aae6a"
 }

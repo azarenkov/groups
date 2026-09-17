@@ -189,6 +189,13 @@ impl VoiceSettings {
         self.noise_mode
     }
 
+    pub fn without_paid_features(mut self) -> Self {
+        if self.noise_mode == NoiseMode::High {
+            self.noise_mode = NoiseMode::Standard;
+        }
+        self
+    }
+
     pub fn auto_sensitivity(&self) -> bool {
         self.auto_sensitivity
     }

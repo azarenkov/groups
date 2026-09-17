@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -75,16 +75,21 @@
       },
       {
         "ordinal": 14,
+        "name": "badge_style",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 15,
         "name": "show_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "show_game_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "timezone",
         "type_info": "Varchar"
       }
@@ -111,8 +116,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "207dca251b1d2a7ed47cd23a58e48d3f59bc730156a7dccc3ba584189a6c9836"
+  "hash": "2deba1a6bf3dc1bcc1eb58073d1bd0c80d1a89367e3978e264e5781c538ecb02"
 }

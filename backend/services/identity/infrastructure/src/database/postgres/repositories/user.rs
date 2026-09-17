@@ -62,7 +62,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
             FROM users
             WHERE id = $1
             "#,
@@ -88,7 +88,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
             FROM users
             WHERE email = $1
             "#,
@@ -171,7 +171,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
             FROM users
             WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C")
             "#,

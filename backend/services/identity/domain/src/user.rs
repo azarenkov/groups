@@ -1,5 +1,6 @@
 pub use domain::user::{email, id, locale, name};
 
+pub mod tier;
 pub mod events;
 pub mod repository;
 pub mod settings;
@@ -11,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use crate::{user::email::Email, user::tier::BadgeStyle, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
 
 pub const BIO_MAX_CHARS: usize = 190;
 
@@ -57,6 +58,7 @@ pub struct User {
     disabled_at: Option<DateTime<Utc>>,
     deleted_at: Option<DateTime<Utc>>,
     bio: String,
+    badge_style: BadgeStyle,
     show_activity: bool,
     show_game_activity: bool,
     timezone: String,
@@ -81,11 +83,13 @@ impl User {
         disabled_at: Option<DateTime<Utc>>,
         deleted_at: Option<DateTime<Utc>>,
         bio: String,
+        badge_style: BadgeStyle,
         show_activity: bool,
         show_game_activity: bool,
         timezone: String,
     ) -> Self {
         Self {
+            badge_style,
             id,
             name,
             email,
@@ -135,6 +139,7 @@ impl User {
             updated_at: now,
             email_verified_at: None,
             phone_verified_at: None,
+            badge_style: BadgeStyle::default(),
             locale,
             pending_email: None,
             password_changed_at: None,
@@ -312,7 +317,7 @@ impl User {
             self.disabled_at = Some(now);
             self.updated_at = now;
             self.record(UserEvent::Disabled(UserDisabled::record(self.id, now)));
-            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, self.timezone.clone(), now)));
+            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, self.timezone.clone(), self.badge_style.as_str().to_string(), now)));
         }
         Ok(())
     }
@@ -329,6 +334,7 @@ impl User {
                 self.show_game_activity,
                 true,
                 self.timezone.clone(),
+                self.badge_style.as_str().to_string(),
                 now,
             )));
         }
@@ -346,13 +352,40 @@ impl User {
         self.email = Email::new(format!("deleted-{id}-{nonce}-{nonce}@deleted.invalid"));
         self.pending_email = None;
         self.bio = String::new();
+        self.badge_style = BadgeStyle::Default;
         self.show_activity = false;
         self.show_game_activity = false;
         self.timezone = String::new();
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, String::new(), now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, String::new(), String::new(), now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
+        Ok(())
+    }
+
+    pub fn badge_style(&self) -> BadgeStyle {
+        self.badge_style
+    }
+
+    pub fn set_badge_style(&mut self, style: BadgeStyle, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() || self.disabled_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        if self.badge_style == style {
+            return Ok(());
+        }
+        self.badge_style = style;
+        self.updated_at = now;
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(
+            self.id,
+            self.bio.clone(),
+            self.show_activity,
+            self.show_game_activity,
+            true,
+            self.timezone.clone(),
+            style.as_str().to_string(),
+            now,
+        )));
         Ok(())
     }
 
@@ -376,7 +409,7 @@ impl User {
         self.show_game_activity = show_game_activity;
         self.timezone = timezone.clone();
         self.updated_at = now;
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, show_game_activity, true, timezone, now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, show_game_activity, true, timezone, self.badge_style.as_str().to_string(), now)));
         Ok(())
     }
 

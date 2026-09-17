@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT tier, valid_until FROM user_entitlements WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tier",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "valid_until",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "c9456190db14bb45f225f0057d272e5f8a59c697c90654b50a76a142c9251c72"
+}
