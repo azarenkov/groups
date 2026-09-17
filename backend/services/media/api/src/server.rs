@@ -51,6 +51,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let media_repository = Arc::new(PostgresMediaRepository::new(postgres_pool.clone()));
+    let banner_repository = Arc::new(
+        media_infrastructure::database::postgres::repositories::banner::PostgresBannerRepository::new(
+            postgres_pool.clone(),
+        ),
+    );
     let attachment_repository =
         Arc::new(PostgresAttachmentRepository::new(postgres_pool.clone()));
 
@@ -127,6 +132,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         user_stream,
         media_repository.clone(),
+        banner_repository.clone(),
         minio_storage.clone(),
     );
 
@@ -162,6 +168,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         get_user_avatar_usecase: GetUserAvatar::new(
             media_repository.clone(),
+            minio_storage.clone(),
+        ),
+        update_user_banner_usecase: media::usecases::user::banner::UpdateUserBanner::new(
+            banner_repository.clone(),
+            attachment_repository.clone(),
+            minio_storage.clone(),
+            nsfw_detector.clone(),
+        ),
+        get_user_banner_usecase: media::usecases::user::banner::GetUserBanner::new(
+            banner_repository.clone(),
             minio_storage.clone(),
         ),
         update_server_logo_usecase: UpdateServerLogo::new(

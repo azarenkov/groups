@@ -151,6 +151,39 @@ impl HttpMapping for ImageModerationError {
     }
 }
 
+impl HttpMapping for media::usecases::user::banner::BannerError {
+    fn to_http_status(&self) -> StatusCode {
+        use media::usecases::user::banner::BannerError as E;
+        match self {
+            E::ProRequired => StatusCode::FORBIDDEN,
+            E::NotFound => StatusCode::NOT_FOUND,
+            E::Repository(e) => e.to_http_status(),
+            E::Storage(e) => e.to_http_status(),
+            E::Moderation(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        use media::usecases::user::banner::BannerError as E;
+        match self {
+            E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
+            E::NotFound => "Banner not found".to_string(),
+            E::Repository(e) => e.to_user_message(),
+            E::Storage(e) => e.to_user_message(),
+            E::Moderation(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        use media::usecases::user::banner::BannerError as E;
+        match self {
+            E::ProRequired => "PRO_REQUIRED",
+            E::NotFound => "BANNER_NOT_FOUND",
+            E::Repository(e) => e.to_error_code(),
+            E::Storage(e) => e.to_error_code(),
+            E::Moderation(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl HttpMapping for UpdateUserAvatarError {
     fn to_http_status(&self) -> StatusCode {
         match self {

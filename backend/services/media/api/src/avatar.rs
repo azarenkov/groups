@@ -15,7 +15,27 @@ const AVATAR_SIZE: u32 = 512;
 const MAX_DECODE_DIMENSION: u32 = 8192;
 const MAX_DECODE_ALLOC: u64 = 64 * 1024 * 1024;
 
-async fn read_image_field(payload: &mut Multipart) -> Result<Vec<u8>, HttpError> {
+pub(crate) struct ImageCodes {
+    pub too_large: &'static str,
+    pub empty: &'static str,
+    pub invalid: &'static str,
+    pub type_not_allowed: &'static str,
+    pub too_small: &'static str,
+}
+
+const AVATAR_CODES: ImageCodes = ImageCodes {
+    too_large: "AVATAR_TOO_LARGE",
+    empty: "AVATAR_EMPTY",
+    invalid: "AVATAR_INVALID_IMAGE",
+    type_not_allowed: "AVATAR_TYPE_NOT_ALLOWED",
+    too_small: "AVATAR_TOO_SMALL",
+};
+
+pub(crate) async fn read_image_field(
+    payload: &mut Multipart,
+    max_bytes: usize,
+    codes: &ImageCodes,
+) -> Result<Vec<u8>, HttpError> {
     while let Some(field) = payload.next().await {
         let mut field = field.map_err(|e| HttpError::bad_request(e.to_string()))?;
         if field.name() != Some("file") {
@@ -24,11 +44,11 @@ async fn read_image_field(payload: &mut Multipart) -> Result<Vec<u8>, HttpError>
         let mut bytes: Vec<u8> = Vec::new();
         while let Some(chunk) = field.next().await {
             let chunk = chunk.map_err(|e| HttpError::bad_request(e.to_string()))?;
-            if bytes.len() + chunk.len() > MAX_AVATAR_BYTES {
+            if bytes.len() + chunk.len() > max_bytes {
                 return Err(HttpError::new(
-                    "Image is too large (max 8 MB).".to_string(),
+                    format!("Image is too large (max {} MB).", max_bytes / (1024 * 1024)),
                     actix_web::http::StatusCode::PAYLOAD_TOO_LARGE,
-                    "AVATAR_TOO_LARGE",
+                    codes.too_large,
                 ));
             }
             bytes.extend_from_slice(&chunk);
@@ -37,7 +57,7 @@ async fn read_image_field(payload: &mut Multipart) -> Result<Vec<u8>, HttpError>
             return Err(HttpError::new(
                 "Image is empty.".to_string(),
                 actix_web::http::StatusCode::BAD_REQUEST,
-                "AVATAR_EMPTY",
+                codes.empty,
             ));
         }
         return Ok(bytes);
@@ -45,24 +65,28 @@ async fn read_image_field(payload: &mut Multipart) -> Result<Vec<u8>, HttpError>
     Err(HttpError::bad_request("missing file field".to_string()))
 }
 
-fn normalize_image(bytes: Vec<u8>) -> Result<Vec<u8>, HttpError> {
-    let invalid = |code: &'static str, message: &str| {
-        HttpError::new(
-            message.to_string(),
-            actix_web::http::StatusCode::BAD_REQUEST,
-            code,
-        )
-    };
-    let mut reader = image::ImageReader::new(std::io::Cursor::new(&bytes))
+pub(crate) fn invalid_image(code: &'static str, message: &str) -> HttpError {
+    HttpError::new(
+        message.to_string(),
+        actix_web::http::StatusCode::BAD_REQUEST,
+        code,
+    )
+}
+
+pub(crate) fn decode_image(
+    bytes: &[u8],
+    codes: &ImageCodes,
+) -> Result<image::DynamicImage, HttpError> {
+    let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
         .with_guessed_format()
-        .map_err(|_| invalid("AVATAR_INVALID_IMAGE", "Unreadable image."))?;
+        .map_err(|_| invalid_image(codes.invalid, "Unreadable image."))?;
     match reader.format() {
         Some(ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP) => {}
         _ => {
             return Err(HttpError::new(
                 "Only PNG, JPEG or WebP images are allowed.".to_string(),
                 actix_web::http::StatusCode::UNSUPPORTED_MEDIA_TYPE,
-                "AVATAR_TYPE_NOT_ALLOWED",
+                codes.type_not_allowed,
             ));
         }
     }
@@ -73,17 +97,32 @@ fn normalize_image(bytes: Vec<u8>) -> Result<Vec<u8>, HttpError> {
     reader.limits(limits);
     let mut decoder = reader
         .into_decoder()
-        .map_err(|_| invalid("AVATAR_INVALID_IMAGE", "Invalid image."))?;
+        .map_err(|_| invalid_image(codes.invalid, "Invalid image."))?;
     let orientation = decoder
         .orientation()
         .unwrap_or(image::metadata::Orientation::NoTransforms);
     let mut img = image::DynamicImage::from_decoder(decoder)
-        .map_err(|_| invalid("AVATAR_INVALID_IMAGE", "Invalid image."))?;
+        .map_err(|_| invalid_image(codes.invalid, "Invalid image."))?;
     img.apply_orientation(orientation);
+    Ok(img)
+}
+
+pub(crate) fn encode_png(
+    img: &image::DynamicImage,
+    codes: &ImageCodes,
+) -> Result<Vec<u8>, HttpError> {
+    let mut out = Vec::new();
+    img.write_to(&mut std::io::Cursor::new(&mut out), ImageFormat::Png)
+        .map_err(|_| invalid_image(codes.invalid, "Failed to process image."))?;
+    Ok(out)
+}
+
+fn normalize_image(bytes: Vec<u8>) -> Result<Vec<u8>, HttpError> {
+    let img = decode_image(&bytes, &AVATAR_CODES)?;
     let (w, h) = (img.width(), img.height());
     if w < MIN_AVATAR_DIMENSION || h < MIN_AVATAR_DIMENSION {
-        return Err(invalid(
-            "AVATAR_TOO_SMALL",
+        return Err(invalid_image(
+            AVATAR_CODES.too_small,
             "Image must be at least 128×128 pixels.",
         ));
     }
@@ -91,10 +130,7 @@ fn normalize_image(bytes: Vec<u8>) -> Result<Vec<u8>, HttpError> {
     let img = img
         .crop_imm((w - side) / 2, (h - side) / 2, side, side)
         .resize_exact(AVATAR_SIZE, AVATAR_SIZE, FilterType::Lanczos3);
-    let mut out = Vec::new();
-    img.write_to(&mut std::io::Cursor::new(&mut out), ImageFormat::Png)
-        .map_err(|_| invalid("AVATAR_INVALID_IMAGE", "Failed to process image."))?;
-    Ok(out)
+    encode_png(&img, &AVATAR_CODES)
 }
 
 async fn read_and_normalize(
@@ -107,13 +143,13 @@ async fn read_and_normalize(
         .acquire_owned()
         .await
         .map_err(|_| HttpError::bad_request("upload capacity unavailable".to_string()))?;
-    let bytes = read_image_field(payload).await?;
+    let bytes = read_image_field(payload, MAX_AVATAR_BYTES, &AVATAR_CODES).await?;
     web::block(move || normalize_image(bytes))
         .await
         .map_err(|_| HttpError::bad_request("image processing failed".to_string()))?
 }
 
-fn image_response(stream: media::ports::file_storage::ByteStream) -> HttpResponse {
+pub(crate) fn image_response(stream: media::ports::file_storage::ByteStream) -> HttpResponse {
     let body = stream.map(|chunk| chunk.map(web::Bytes::from));
     HttpResponse::Ok()
         .content_type("image/png")
@@ -150,7 +186,7 @@ async fn delete_my_avatar(
     Ok(HttpResponse::NoContent().finish())
 }
 
-async fn check_image_read_limit(
+pub(crate) async fn check_image_read_limit(
     app_state: &AppState,
     requester: uuid::Uuid,
 ) -> Result<(), HttpError> {
