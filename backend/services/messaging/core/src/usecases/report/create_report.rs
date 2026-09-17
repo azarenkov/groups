@@ -194,8 +194,6 @@ where
                 return Ok(ReportContext {
                     channel_id: Some(channel_id.uuid()),
                     message_id: Some(message_id),
-                    message_content: Some(message.content().as_str().to_string()),
-                    attachment_ids: Vec::new(),
                 });
             }
             Err(RepositoryError::NotFound) => {}
@@ -217,8 +215,6 @@ where
                 Ok(ReportContext {
                     channel_id: None,
                     message_id: Some(message_id),
-                    message_content: Some(message.content().as_str().to_string()),
-                    attachment_ids: Vec::new(),
                 })
             }
             Err(RepositoryError::NotFound) => Err(CreateReportError::ContextMismatch),

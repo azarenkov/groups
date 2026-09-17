@@ -140,12 +140,10 @@ impl ReportStatus {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ReportContext {
     pub channel_id: Option<Uuid>,
     pub message_id: Option<Uuid>,
-    pub message_content: Option<String>,
-    pub attachment_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -246,8 +244,8 @@ impl Report {
         self.details.as_deref()
     }
 
-    pub fn context(&self) -> &ReportContext {
-        &self.context
+    pub fn context(&self) -> ReportContext {
+        self.context
     }
 
     pub fn status(&self) -> ReportStatus {

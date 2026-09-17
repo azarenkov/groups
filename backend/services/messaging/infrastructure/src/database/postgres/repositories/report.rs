@@ -66,7 +66,7 @@ impl ReportRepository for PostgresReportRepository {
         }
 
         let context = report.context();
-        let mut message_content = context.message_content.clone();
+        let mut message_content: Option<String> = None;
         let mut attachment_ids: Vec<uuid::Uuid> = Vec::new();
         let mut attachment_keys: Vec<String> = Vec::new();
         if let Some(message_id) = context.message_id {

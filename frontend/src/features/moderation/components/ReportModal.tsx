@@ -51,10 +51,12 @@ const ReportModal: React.FC = () => {
   React.useEffect(() => {
     if (!target) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      close();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [target, close]);
 
   if (!target) return null;

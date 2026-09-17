@@ -157,6 +157,19 @@ describe("ReportModal", () => {
     expect(useReportModalStore.getState().target?.id).toBe("u1");
   });
 
+  it("keeps escape to itself so the screen underneath stays open", () => {
+    const underneath = jest.fn();
+    window.addEventListener("keydown", underneath);
+    useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+    render(<ReportModal />);
+
+    fireEvent.keyDown(document.body, { key: "Escape" });
+
+    expect(useReportModalStore.getState().target).toBeNull();
+    expect(underneath).not.toHaveBeenCalled();
+    window.removeEventListener("keydown", underneath);
+  });
+
   it("keeps other unsendable until something is written", async () => {
     useReportModalStore.getState().open({ type: "user", id: "u1", name: "spammer" });
     render(<ReportModal />);
