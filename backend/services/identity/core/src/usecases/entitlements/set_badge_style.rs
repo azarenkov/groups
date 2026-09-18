@@ -44,12 +44,12 @@ impl<W: IdentityUnitOfWork> SetBadgeStyle<W> {
         request_id: Option<&str>,
     ) -> Result<BadgeStyle, SetBadgeStyleError> {
         let style = BadgeStyle::parse(style).ok_or(SetBadgeStyleError::UnknownStyle)?;
-        let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
             .await?
             .ok_or(SetBadgeStyleError::UserNotFound)?;
+        let now = Utc::now();
         if style.needs_paid_tier() && !tx.load_entitlements(&user_id).await?.active_at(now).is_paid() {
             return Err(SetBadgeStyleError::ProRequired);
         }

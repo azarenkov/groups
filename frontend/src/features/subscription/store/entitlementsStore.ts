@@ -16,6 +16,7 @@ interface EntitlementsState {
 }
 
 let generation = 0;
+let revision = 0;
 let badgeInFlight: Promise<void> | null = null;
 let desiredBadgeStyle: BadgeStyle | null = null;
 let confirmedBadgeStyle: BadgeStyle | null = null;
@@ -27,9 +28,14 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
 
   fetch: async () => {
     const gen = generation;
+    const rev = revision;
     try {
       const mine = await entitlementsAPI.getMine();
       if (gen !== generation) return;
+      if (rev !== revision) {
+        set({ loaded: true });
+        return;
+      }
       confirmedBadgeStyle = mine.badgeStyle;
       set({ tier: mine.tier, badgeStyle: mine.badgeStyle, loaded: true });
     } catch (err) {
@@ -39,13 +45,18 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     }
   },
 
-  applyTier: (tier) => set({ tier }),
+  applyTier: (tier) => {
+    revision += 1;
+    set({ tier });
+  },
   applyBadgeStyle: (badgeStyle) => {
+    revision += 1;
     confirmedBadgeStyle = badgeStyle;
     set({ badgeStyle });
   },
 
   setBadgeStyle: (style) => {
+    revision += 1;
     if (confirmedBadgeStyle === null) confirmedBadgeStyle = get().badgeStyle;
     set({ badgeStyle: style });
     desiredBadgeStyle = style;

@@ -8,6 +8,8 @@ const BATCH_LIMIT = 200;
 const BATCH_DELAY_MS = 40;
 const REVALIDATE_MS = 5 * 60_000;
 const REVALIDATE_AFTER_EVENT_MS = 5_000;
+const RETRY_BASE_MS = 1_000;
+const MAX_RETRIES = 3;
 
 export interface Badge {
   tier: Tier;
@@ -27,6 +29,7 @@ interface BadgeState {
 
 const queued = new Set<string>();
 const fetchedAt = new Map<string, number>();
+const retries = new Map<string, number>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let generation = 0;
 
@@ -49,6 +52,7 @@ const flush = () => {
           const badge = found.get(id);
           byUser[id] = badge ? { tier: badge.tier, badgeStyle: badge.badgeStyle } : null;
           fetchedAt.set(id, now);
+          retries.delete(id);
         }
         return { byUser };
       });
@@ -56,7 +60,19 @@ const flush = () => {
     .catch((err) => {
       if (gen !== generation) return;
       console.warn("[badges] lookup failed:", err);
-      for (const id of ids) fetchedAt.delete(id);
+      let backoff = 0;
+      for (const id of ids) {
+        fetchedAt.delete(id);
+        const attempt = retries.get(id) ?? 0;
+        if (attempt >= MAX_RETRIES) {
+          retries.delete(id);
+          continue;
+        }
+        retries.set(id, attempt + 1);
+        queued.add(id);
+        backoff = Math.max(backoff, RETRY_BASE_MS * 2 ** attempt);
+      }
+      if (backoff > 0 && !timer) timer = setTimeout(flush, backoff);
     });
 };
 
@@ -111,6 +127,7 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
     generation += 1;
     queued.clear();
     fetchedAt.clear();
+    retries.clear();
     if (timer) {
       clearTimeout(timer);
       timer = null;

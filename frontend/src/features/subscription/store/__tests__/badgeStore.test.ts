@@ -48,3 +48,44 @@ describe("badgeStore tier events", () => {
     expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "premium", badgeStyle: "solid" });
   });
 });
+
+describe("badgeStore lookup retries", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    useBadgeStore.getState().clear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const settle = async () => {
+    for (let i = 0; i < 4; i += 1) await Promise.resolve();
+  };
+
+  it("queues a failed batch again with backoff", async () => {
+    mockedApi.lookupBadges
+      .mockRejectedValueOnce(new Error("down"))
+      .mockResolvedValueOnce([{ userId: "u1", tier: "pro", badgeStyle: "tint" }]);
+    useBadgeStore.getState().request("u1");
+    jest.advanceTimersByTime(50);
+    await settle();
+    expect(mockedApi.lookupBadges).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(500);
+    expect(mockedApi.lookupBadges).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(600);
+    await settle();
+    expect(mockedApi.lookupBadges).toHaveBeenCalledTimes(2);
+    expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "pro", badgeStyle: "tint" });
+  });
+
+  it("gives up after the retry budget", async () => {
+    mockedApi.lookupBadges.mockRejectedValue(new Error("down"));
+    useBadgeStore.getState().request("u1");
+    for (let i = 0; i < 6; i += 1) {
+      jest.advanceTimersByTime(10_000);
+      await settle();
+    }
+    expect(mockedApi.lookupBadges).toHaveBeenCalledTimes(4);
+  });
+});

@@ -77,3 +77,27 @@ describe("entitlementsStore badge style", () => {
     expect(useEntitlementsStore.getState().badgeStyle).toBe("solid");
   });
 });
+
+describe("entitlementsStore startup fetch", () => {
+  beforeEach(() => {
+    useEntitlementsStore.getState().clear();
+  });
+
+  it("does not let a slow fetch undo a realtime tier change", async () => {
+    const response = deferred<{ tier: "free"; badgeStyle: "tint" }>();
+    mockedApi.getMine.mockImplementationOnce(() => response.promise);
+    const fetching = useEntitlementsStore.getState().fetch();
+    useEntitlementsStore.getState().applyTier("pro");
+    response.resolve({ tier: "free", badgeStyle: "tint" });
+    await fetching;
+    expect(useEntitlementsStore.getState().tier).toBe("pro");
+    expect(useEntitlementsStore.getState().loaded).toBe(true);
+  });
+
+  it("applies the fetch when nothing changed meanwhile", async () => {
+    mockedApi.getMine.mockResolvedValueOnce({ tier: "premium", badgeStyle: "ink" });
+    await useEntitlementsStore.getState().fetch();
+    expect(useEntitlementsStore.getState().tier).toBe("premium");
+    expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
+  });
+});
