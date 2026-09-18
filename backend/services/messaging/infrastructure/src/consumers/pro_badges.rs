@@ -74,7 +74,13 @@ async fn apply<B: BadgeRepository + ?Sized>(
             return Ok(());
         };
         badges
-            .apply_tier(&UserId::new(evt.user_id), &evt.tier, evt.valid_until, evt.occurred_at)
+            .apply_tier(
+                &UserId::new(evt.user_id),
+                &evt.tier,
+                evt.valid_until,
+                evt.member_number,
+                evt.occurred_at,
+            )
             .await?;
         return Ok(());
     }

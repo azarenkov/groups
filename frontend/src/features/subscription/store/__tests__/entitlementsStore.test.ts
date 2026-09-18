@@ -84,21 +84,22 @@ describe("entitlementsStore startup fetch", () => {
   });
 
   it("does not let a slow fetch undo a realtime tier change", async () => {
-    const response = deferred<{ tier: "free"; badgeStyle: "tint" }>();
+    const response = deferred<{ tier: "free"; badgeStyle: "tint"; memberNumber: null }>();
     mockedApi.getMine.mockImplementationOnce(() => response.promise);
     const fetching = useEntitlementsStore.getState().fetch();
     useEntitlementsStore.getState().applyTier("pro");
-    response.resolve({ tier: "free", badgeStyle: "tint" });
+    response.resolve({ tier: "free", badgeStyle: "tint", memberNumber: null });
     await fetching;
     expect(useEntitlementsStore.getState().tier).toBe("pro");
     expect(useEntitlementsStore.getState().loaded).toBe(true);
   });
 
   it("applies the fetch when nothing changed meanwhile", async () => {
-    mockedApi.getMine.mockResolvedValueOnce({ tier: "premium", badgeStyle: "ink" });
+    mockedApi.getMine.mockResolvedValueOnce({ tier: "premium", badgeStyle: "ink", memberNumber: 12 });
     await useEntitlementsStore.getState().fetch();
     expect(useEntitlementsStore.getState().tier).toBe("premium");
     expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
+    expect(useEntitlementsStore.getState().memberNumber).toBe(12);
   });
 });
 

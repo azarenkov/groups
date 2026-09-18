@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT tier, valid_until FROM user_entitlements WHERE user_id = $1",
+  "query": "SELECT tier, valid_until, member_number FROM user_entitlements WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -12,6 +12,11 @@
         "ordinal": 1,
         "name": "valid_until",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "member_number",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -21,8 +26,9 @@
     },
     "nullable": [
       false,
+      true,
       true
     ]
   },
-  "hash": "c9456190db14bb45f225f0057d272e5f8a59c697c90654b50a76a142c9251c72"
+  "hash": "f26f88e9d1771015075d64200fec604f0f6c813882736b0953c2dee13132f6c3"
 }

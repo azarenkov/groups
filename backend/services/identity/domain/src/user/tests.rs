@@ -168,9 +168,9 @@ fn a_deleted_account_cannot_ask_for_another_code() {
 fn an_expired_plan_counts_as_free() {
     use crate::user::tier::{Entitlements, Tier};
     let now = Utc::now();
-    let lapsed = Entitlements { tier: Tier::Pro, valid_until: Some(now - Duration::hours(1)) };
-    let running = Entitlements { tier: Tier::Pro, valid_until: Some(now + Duration::hours(1)) };
-    let open_ended = Entitlements { tier: Tier::Premium, valid_until: None };
+    let lapsed = Entitlements { tier: Tier::Pro, valid_until: Some(now - Duration::hours(1)), member_number: Some(1) };
+    let running = Entitlements { tier: Tier::Pro, valid_until: Some(now + Duration::hours(1)), member_number: Some(2) };
+    let open_ended = Entitlements { tier: Tier::Premium, valid_until: None, member_number: Some(3) };
     assert_eq!(lapsed.active_at(now), Tier::Free);
     assert_eq!(running.active_at(now), Tier::Pro);
     assert_eq!(open_ended.active_at(now), Tier::Premium);

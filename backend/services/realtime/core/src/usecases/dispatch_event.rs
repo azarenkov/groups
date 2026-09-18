@@ -847,6 +847,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "userId": evt.user_id,
                 "tier": evt.tier,
                 "validUntil": evt.valid_until,
+                "memberNumber": evt.member_number,
                 "occurredAt": evt.occurred_at,
             }),
         );

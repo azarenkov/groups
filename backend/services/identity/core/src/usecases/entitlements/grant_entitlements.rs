@@ -41,10 +41,11 @@ impl<W: IdentityUnitOfWork> GrantEntitlements<W> {
             .await?
             .ok_or(GrantEntitlementsError::UserNotFound)?;
         let now = Utc::now();
-        tx.save_entitlements(&user_id, tier.as_str(), valid_until, source)
+        let member_number = tx
+            .save_entitlements(&user_id, tier.as_str(), valid_until, source)
             .await?;
         let mut events = vec![IdentityEvent::from(UserEvent::EntitlementsChanged(
-            UserEntitlementsChanged::record(user_id, tier.as_str().to_string(), valid_until, now),
+            UserEntitlementsChanged::record(user_id, tier.as_str().to_string(), valid_until, member_number, now),
         ))];
         if !tier.is_paid() && user.badge_style().needs_paid_tier() {
             let _ = user.set_badge_style(Default::default(), now);

@@ -35,6 +35,7 @@ impl Tier {
 pub struct Entitlements {
     pub tier: Tier,
     pub valid_until: Option<DateTime<Utc>>,
+    pub member_number: Option<i64>,
 }
 
 impl Default for Entitlements {
@@ -42,6 +43,7 @@ impl Default for Entitlements {
         Self {
             tier: Tier::Free,
             valid_until: None,
+            member_number: None,
         }
     }
 }

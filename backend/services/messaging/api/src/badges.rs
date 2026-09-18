@@ -20,6 +20,7 @@ struct BadgeItem {
     user_id: Uuid,
     tier: String,
     badge_style: String,
+    member_number: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -51,6 +52,7 @@ async fn lookup_badges(
                 user_id: b.user_id.uuid(),
                 tier: b.tier,
                 badge_style: b.badge_style,
+                member_number: b.member_number,
             })
             .collect(),
     })))

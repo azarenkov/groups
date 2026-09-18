@@ -14,6 +14,7 @@ const MAX_RETRIES = 3;
 export interface Badge {
   tier: Tier;
   badgeStyle: BadgeStyle;
+  memberNumber: number | null;
 }
 
 interface BadgeState {
@@ -21,7 +22,7 @@ interface BadgeState {
   request: (userId: string) => void;
   apply: (userId: string, badge: Badge | null) => void;
   applyStyle: (userId: string, badgeStyle: BadgeStyle) => void;
-  applyTier: (userId: string, tier: Tier) => void;
+  applyTier: (userId: string, tier: Tier, memberNumber: number | null) => void;
   forget: (userId: string) => void;
   revalidateLater: (userId: string) => void;
   clear: () => void;
@@ -50,7 +51,9 @@ const flush = () => {
         const byUser = { ...state.byUser };
         for (const id of ids) {
           const badge = found.get(id);
-          byUser[id] = badge ? { tier: badge.tier, badgeStyle: badge.badgeStyle } : null;
+          byUser[id] = badge
+            ? { tier: badge.tier, badgeStyle: badge.badgeStyle, memberNumber: badge.memberNumber }
+            : null;
           fetchedAt.set(id, now);
           retries.delete(id);
         }
@@ -99,13 +102,14 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
       return { byUser: { ...state.byUser, [userId]: { ...current, badgeStyle } } };
     }),
 
-  applyTier: (userId, tier) => {
+  applyTier: (userId, tier, memberNumber) => {
     fetchedAt.set(userId, Date.now());
     set((state) => {
       if (tier === "free") return { byUser: { ...state.byUser, [userId]: null } };
       const current = state.byUser[userId];
       const badgeStyle = current?.badgeStyle ?? DEFAULT_BADGE_STYLE;
-      return { byUser: { ...state.byUser, [userId]: { tier, badgeStyle } } };
+      const number = memberNumber ?? current?.memberNumber ?? null;
+      return { byUser: { ...state.byUser, [userId]: { tier, badgeStyle, memberNumber: number } } };
     });
   },
 

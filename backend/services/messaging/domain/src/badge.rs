@@ -18,6 +18,7 @@ pub struct UserBadge {
     pub user_id: UserId,
     pub tier: String,
     pub badge_style: String,
+    pub member_number: Option<i64>,
 }
 
 #[async_trait]
@@ -27,6 +28,7 @@ pub trait BadgeRepository: Send + Sync {
         user_id: &UserId,
         tier: &str,
         valid_until: Option<DateTime<Utc>>,
+        member_number: Option<i64>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
     async fn apply_badge_style(

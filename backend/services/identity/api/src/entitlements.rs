@@ -16,6 +16,7 @@ use crate::state::AppState;
 struct EntitlementsResponse {
     tier: &'static str,
     badge_style: &'static str,
+    member_number: Option<i64>,
 }
 
 #[get("/me/entitlements")]
@@ -24,7 +25,7 @@ async fn get_my_entitlements(
     app_state: web::Data<AppState>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let tier = app_state
+    let entitlements = app_state
         .get_entitlements_usecase
         .execute(&user_id)
         .await
@@ -37,8 +38,9 @@ async fn get_my_entitlements(
         .map(|user| user.badge_style().as_str())
         .unwrap_or("");
     Ok(HttpResponse::Ok().json(ApiResponse::success(EntitlementsResponse {
-        tier: tier.as_str(),
+        tier: entitlements.tier.as_str(),
         badge_style,
+        member_number: entitlements.member_number,
     })))
 }
 

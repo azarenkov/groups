@@ -110,6 +110,7 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             user_id: e.user_id.uuid(),
             tier: e.tier.clone(),
             valid_until: e.valid_until,
+            member_number: e.member_number,
             occurred_at: e.occurred_at,
         }),
     }

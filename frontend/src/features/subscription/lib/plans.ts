@@ -32,6 +32,11 @@ export type BadgeStyle = (typeof BADGE_STYLES)[number];
 
 export const DEFAULT_BADGE_STYLE: BadgeStyle = "tint";
 
+export const parseMemberNumber = (value: unknown): number | null =>
+  typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+
+export const formatMemberNumber = (value: number): string => String(value).padStart(2, "0");
+
 export const parseBadgeStyle = (value: unknown): BadgeStyle =>
   (BADGE_STYLES as readonly string[]).includes(value as string)
     ? (value as BadgeStyle)

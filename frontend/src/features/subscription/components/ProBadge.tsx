@@ -1,5 +1,6 @@
 import React from "react";
 
+import { formatMemberNumber } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 
 interface ProBadgeProps {
@@ -7,9 +8,10 @@ interface ProBadgeProps {
   badgeStyle: BadgeStyle;
   size?: "sm" | "md" | "lg";
   className?: string;
+  memberNumber?: number | null;
 }
 
-const ProBadge: React.FC<ProBadgeProps> = ({ tier, badgeStyle, size = "md", className }) => {
+const ProBadge: React.FC<ProBadgeProps> = ({ tier, badgeStyle, size = "md", className, memberNumber }) => {
   if (tier === "free") return null;
   const label = tier === "premium" ? "PREMIUM" : "PRO";
   return (
@@ -21,8 +23,8 @@ const ProBadge: React.FC<ProBadgeProps> = ({ tier, badgeStyle, size = "md", clas
       title={tier === "premium" ? "Rift Premium" : "Rift Pro"}
     >
       {label}
-      {badgeStyle === "numbered" && (
-        <span className="pro-badge-count">{tier === "premium" ? "02" : "01"}</span>
+      {badgeStyle === "numbered" && memberNumber != null && (
+        <span className="pro-badge-count">{formatMemberNumber(memberNumber)}</span>
       )}
     </span>
   );

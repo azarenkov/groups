@@ -16,6 +16,7 @@ const UserBadge: React.FC<UserBadgeProps> = ({ userId, size, className }) => {
     <ProBadge
       tier={badge.tier}
       badgeStyle={badge.badgeStyle}
+      memberNumber={badge.memberNumber}
       size={size}
       className={className}
     />

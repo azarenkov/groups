@@ -7,9 +7,10 @@ import type { BadgeStyle, Tier } from "../lib/plans";
 interface EntitlementsState {
   tier: Tier;
   badgeStyle: BadgeStyle;
+  memberNumber: number | null;
   loaded: boolean;
   fetch: () => Promise<void>;
-  applyTier: (tier: Tier) => void;
+  applyTier: (tier: Tier, memberNumber?: number | null) => void;
   applyBadgeStyle: (style: BadgeStyle) => void;
   setBadgeStyle: (style: BadgeStyle) => Promise<void>;
   clear: () => void;
@@ -24,6 +25,7 @@ let confirmedBadgeStyle: BadgeStyle | null = null;
 export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
   badgeStyle: DEFAULT_BADGE_STYLE,
+  memberNumber: null,
   loaded: false,
 
   fetch: async () => {
@@ -37,7 +39,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
         return;
       }
       confirmedBadgeStyle = mine.badgeStyle;
-      set({ tier: mine.tier, badgeStyle: mine.badgeStyle, loaded: true });
+      set({ tier: mine.tier, badgeStyle: mine.badgeStyle, memberNumber: mine.memberNumber, loaded: true });
     } catch (err) {
       if (gen !== generation) return;
       console.warn("[entitlements] failed to load:", err);
@@ -45,9 +47,9 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     }
   },
 
-  applyTier: (tier) => {
+  applyTier: (tier, memberNumber) => {
     revision += 1;
-    set({ tier });
+    set({ tier, memberNumber: memberNumber ?? get().memberNumber });
   },
   applyBadgeStyle: (badgeStyle) => {
     revision += 1;
@@ -94,6 +96,6 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     badgeInFlight = null;
     desiredBadgeStyle = null;
     confirmedBadgeStyle = null;
-    set({ tier: "free", badgeStyle: DEFAULT_BADGE_STYLE, loaded: false });
+    set({ tier: "free", badgeStyle: DEFAULT_BADGE_STYLE, memberNumber: null, loaded: false });
   },
 }));

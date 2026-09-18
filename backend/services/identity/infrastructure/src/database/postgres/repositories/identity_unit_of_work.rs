@@ -419,7 +419,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
 
     async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
         let row = sqlx::query!(
-            r#"SELECT tier, valid_until FROM user_entitlements WHERE user_id = $1"#,
+            r#"SELECT tier, valid_until, member_number FROM user_entitlements WHERE user_id = $1"#,
             user_id.uuid(),
         )
         .fetch_optional(&mut *self.tx)
@@ -429,6 +429,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             .map(|r| Entitlements {
                 tier: Tier::parse(&r.tier).unwrap_or_default(),
                 valid_until: r.valid_until,
+                member_number: r.member_number,
             })
             .unwrap_or_default())
     }
@@ -439,8 +440,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         tier: &str,
         valid_until: Option<DateTime<Utc>>,
         source: &str,
-    ) -> Result<(), RepositoryError> {
-        sqlx::query!(
+    ) -> Result<Option<i64>, RepositoryError> {
+        let current = sqlx::query_scalar!(
             r#"
             INSERT INTO user_entitlements (user_id, tier, valid_until, source, updated_at)
             VALUES ($1, $2, $3, $4, now())
@@ -449,16 +450,31 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                     valid_until = EXCLUDED.valid_until,
                     source = EXCLUDED.source,
                     updated_at = now()
+            RETURNING member_number
             "#,
             user_id.uuid(),
             tier,
             valid_until,
             source,
         )
-        .execute(&mut *self.tx)
+        .fetch_one(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
+        if current.is_some() || tier == "free" {
+            return Ok(current);
+        }
+        sqlx::query_scalar!(
+            r#"
+            UPDATE user_entitlements
+            SET member_number = nextval('pro_member_number_seq')
+            WHERE user_id = $1
+            RETURNING member_number
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)
     }
 
     async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {

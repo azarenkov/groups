@@ -1,16 +1,18 @@
 import { http } from "../../../shared/api/http";
-import { parseBadgeStyle, parseTier } from "../lib/plans";
+import { parseBadgeStyle, parseMemberNumber, parseTier } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 
 export interface MyEntitlements {
   tier: Tier;
   badgeStyle: BadgeStyle;
+  memberNumber: number | null;
 }
 
 export interface UserBadge {
   userId: string;
   tier: Tier;
   badgeStyle: BadgeStyle;
+  memberNumber: number | null;
 }
 
 class EntitlementsAPI {
@@ -22,6 +24,7 @@ class EntitlementsAPI {
     return {
       tier: parseTier(data.tier),
       badgeStyle: parseBadgeStyle(data.badgeStyle),
+      memberNumber: parseMemberNumber(data.memberNumber),
     };
   }
 
@@ -36,11 +39,13 @@ class EntitlementsAPI {
       userId: string;
       tier: string;
       badgeStyle: string;
+      memberNumber?: unknown;
     }[];
     return items.map((item) => ({
       userId: item.userId,
       tier: parseTier(item.tier),
       badgeStyle: parseBadgeStyle(item.badgeStyle),
+      memberNumber: parseMemberNumber(item.memberNumber),
     }));
   }
 }

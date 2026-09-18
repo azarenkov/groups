@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT user_id, tier, badge_style\n            FROM messaging_user_profiles\n            WHERE user_id = ANY($1)\n              AND active\n              AND tier <> 'free'\n              AND (tier_valid_until IS NULL OR tier_valid_until > $2)\n            ",
+  "query": "\n            SELECT user_id, tier, badge_style, member_number\n            FROM messaging_user_profiles\n            WHERE user_id = ANY($1)\n              AND active\n              AND tier <> 'free'\n              AND (tier_valid_until IS NULL OR tier_valid_until > $2)\n            ",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "ordinal": 2,
         "name": "badge_style",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "member_number",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -28,8 +33,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "309739659a44affaf8f2a14cd459456c5832863db4201539dcc329739911093e"
+  "hash": "4d390010aca504910596609314f78797a4eba685e6a0277327af6e1544216c9e"
 }

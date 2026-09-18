@@ -23,21 +23,21 @@ describe("badgeStore tier events", () => {
   });
 
   it("drops the badge on downgrade without waiting for a lookup", () => {
-    useBadgeStore.getState().apply("u1", { tier: "pro", badgeStyle: "ink" });
-    useBadgeStore.getState().applyTier("u1", "free");
+    useBadgeStore.getState().apply("u1", { tier: "pro", badgeStyle: "ink", memberNumber: 7 });
+    useBadgeStore.getState().applyTier("u1", "free", null);
     expect(useBadgeStore.getState().byUser.u1).toBeNull();
     expect(mockedApi.lookupBadges).not.toHaveBeenCalled();
   });
 
   it("keeps the chosen style when only the tier changes", () => {
-    useBadgeStore.getState().apply("u1", { tier: "pro", badgeStyle: "ink" });
-    useBadgeStore.getState().applyTier("u1", "premium");
-    expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "premium", badgeStyle: "ink" });
+    useBadgeStore.getState().apply("u1", { tier: "pro", badgeStyle: "ink", memberNumber: 7 });
+    useBadgeStore.getState().applyTier("u1", "premium", null);
+    expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "premium", badgeStyle: "ink", memberNumber: 7 });
   });
 
   it("revalidates after the projection had time to catch up", async () => {
-    mockedApi.lookupBadges.mockResolvedValue([{ userId: "u1", tier: "premium", badgeStyle: "solid" }]);
-    useBadgeStore.getState().applyTier("u1", "premium");
+    mockedApi.lookupBadges.mockResolvedValue([{ userId: "u1", tier: "premium", badgeStyle: "solid", memberNumber: 7 }]);
+    useBadgeStore.getState().applyTier("u1", "premium", null);
     useBadgeStore.getState().revalidateLater("u1");
     jest.advanceTimersByTime(1_000);
     expect(mockedApi.lookupBadges).not.toHaveBeenCalled();
@@ -45,7 +45,7 @@ describe("badgeStore tier events", () => {
     expect(mockedApi.lookupBadges).toHaveBeenCalledWith(["u1"]);
     await Promise.resolve();
     await Promise.resolve();
-    expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "premium", badgeStyle: "solid" });
+    expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "premium", badgeStyle: "solid", memberNumber: 7 });
   });
 });
 
@@ -66,7 +66,7 @@ describe("badgeStore lookup retries", () => {
   it("queues a failed batch again with backoff", async () => {
     mockedApi.lookupBadges
       .mockRejectedValueOnce(new Error("down"))
-      .mockResolvedValueOnce([{ userId: "u1", tier: "pro", badgeStyle: "tint" }]);
+      .mockResolvedValueOnce([{ userId: "u1", tier: "pro", badgeStyle: "tint", memberNumber: 3 }]);
     useBadgeStore.getState().request("u1");
     jest.advanceTimersByTime(50);
     await settle();
@@ -76,7 +76,7 @@ describe("badgeStore lookup retries", () => {
     jest.advanceTimersByTime(600);
     await settle();
     expect(mockedApi.lookupBadges).toHaveBeenCalledTimes(2);
-    expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "pro", badgeStyle: "tint" });
+    expect(useBadgeStore.getState().byUser.u1).toEqual({ tier: "pro", badgeStyle: "tint", memberNumber: 3 });
   });
 
   it("gives up after the retry budget", async () => {

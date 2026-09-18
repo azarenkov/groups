@@ -23,6 +23,7 @@ const ProfileStyleSettings: React.FC = () => {
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const tier = useEntitlementsStore((s) => s.tier);
   const badgeStyle = useEntitlementsStore((s) => s.badgeStyle);
+  const memberNumber = useEntitlementsStore((s) => s.memberNumber);
   const setBadgeStyle = useEntitlementsStore((s) => s.setBadgeStyle);
   const bannerUrl = useAvatarUrl("banner", tier === "free" ? null : userId);
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -170,7 +171,7 @@ const ProfileStyleSettings: React.FC = () => {
               disabled={locked}
               onClick={() => pickStyle(style)}
             >
-              <ProBadge tier={shownTier} badgeStyle={style} size="md" />
+              <ProBadge tier={shownTier} badgeStyle={style} size="md" memberNumber={locked ? 1 : memberNumber} />
               <span className="badge-style-name">{t(`badge.styles.${style}`)}</span>
             </button>
           ))}

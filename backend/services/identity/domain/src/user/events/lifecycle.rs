@@ -281,16 +281,24 @@ pub struct UserEntitlementsChanged {
     pub user_id: UserId,
     pub tier: String,
     pub valid_until: Option<DateTime<Utc>>,
+    pub member_number: Option<i64>,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl UserEntitlementsChanged {
-    pub fn record(user_id: UserId, tier: String, valid_until: Option<DateTime<Utc>>, now: DateTime<Utc>) -> Self {
+    pub fn record(
+        user_id: UserId,
+        tier: String,
+        valid_until: Option<DateTime<Utc>>,
+        member_number: Option<i64>,
+        now: DateTime<Utc>,
+    ) -> Self {
         Self {
             id: EventId::generate(),
             user_id,
             tier,
             valid_until,
+            member_number,
             occurred_at: now,
         }
     }

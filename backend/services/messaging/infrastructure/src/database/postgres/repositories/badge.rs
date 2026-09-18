@@ -25,15 +25,17 @@ impl BadgeRepository for PostgresBadgeRepository {
         user_id: &UserId,
         tier: &str,
         valid_until: Option<DateTime<Utc>>,
+        member_number: Option<i64>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-            INSERT INTO messaging_user_profiles (user_id, name, updated_at, tier, tier_valid_until, tier_updated_at)
-            VALUES ($1, '', to_timestamp(0), $2, $3, $4)
+            INSERT INTO messaging_user_profiles (user_id, name, updated_at, tier, tier_valid_until, member_number, tier_updated_at)
+            VALUES ($1, '', to_timestamp(0), $2, $3, $4, $5)
             ON CONFLICT (user_id) DO UPDATE
                 SET tier = EXCLUDED.tier,
                     tier_valid_until = EXCLUDED.tier_valid_until,
+                    member_number = COALESCE(EXCLUDED.member_number, messaging_user_profiles.member_number),
                     tier_updated_at = EXCLUDED.tier_updated_at
                 WHERE messaging_user_profiles.tier_updated_at IS NULL
                    OR messaging_user_profiles.tier_updated_at <= EXCLUDED.tier_updated_at
@@ -41,6 +43,7 @@ impl BadgeRepository for PostgresBadgeRepository {
             user_id.uuid(),
             tier,
             valid_until,
+            member_number,
             occurred_at,
         )
         .execute(&self.pool)
@@ -99,7 +102,7 @@ impl BadgeRepository for PostgresBadgeRepository {
         let ids: Vec<Uuid> = user_ids.iter().map(|id| id.uuid()).collect();
         let rows = sqlx::query!(
             r#"
-            SELECT user_id, tier, badge_style
+            SELECT user_id, tier, badge_style, member_number
             FROM messaging_user_profiles
             WHERE user_id = ANY($1)
               AND active
@@ -118,6 +121,7 @@ impl BadgeRepository for PostgresBadgeRepository {
                 user_id: UserId::new(r.user_id),
                 tier: r.tier,
                 badge_style: r.badge_style,
+                member_number: r.member_number,
             })
             .collect())
     }

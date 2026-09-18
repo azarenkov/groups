@@ -237,7 +237,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
               <div className="profile-name-row">
                 <div className="profile-name">{name || (inactive ? t("deletedUser") : "…")}</div>
                 {badge && !inactive && !blockedMe && (
-                  <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} size="md" />
+                  <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} memberNumber={badge.memberNumber} size="md" />
                 )}
               </div>
               <div className="profile-handle">

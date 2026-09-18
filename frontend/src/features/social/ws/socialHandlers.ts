@@ -1,6 +1,6 @@
 import type { WsHandlers } from "../../../shared/ws/types";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
-import { parseBadgeStyle, parseTier } from "../../subscription/lib/plans";
+import { parseBadgeStyle, parseMemberNumber, parseTier } from "../../subscription/lib/plans";
 import { useBadgeStore } from "../../subscription/store/badgeStore";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
@@ -143,8 +143,9 @@ export const socialHandlers: WsHandlers = {
       const userId = asString(d.userId);
       if (!userId) return;
       const tier = parseTier(d.tier);
+      const memberNumber = parseMemberNumber(d.memberNumber);
       if (useAuthStore.getState().user?.id === userId) {
-        useEntitlementsStore.getState().applyTier(tier);
+        useEntitlementsStore.getState().applyTier(tier, memberNumber);
         if (tier === "free") {
           bustAvatar("banner", userId);
           if (useVoiceSettingsStore.getState().noiseMode === "high") {
@@ -153,7 +154,7 @@ export const socialHandlers: WsHandlers = {
         }
         return;
       }
-      useBadgeStore.getState().applyTier(userId, tier);
+      useBadgeStore.getState().applyTier(userId, tier, memberNumber);
       useBadgeStore.getState().revalidateLater(userId);
       bustAvatar("banner", userId);
   },
