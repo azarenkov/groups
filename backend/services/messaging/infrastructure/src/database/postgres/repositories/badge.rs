@@ -18,23 +18,6 @@ impl PostgresBadgeRepository {
     }
 }
 
-impl PostgresBadgeRepository {
-    async fn ensure_profile_exists(&self, user_id: &UserId) -> Result<(), RepositoryError> {
-        let row = sqlx::query!(
-            r#"SELECT EXISTS (SELECT 1 FROM messaging_user_profiles WHERE user_id = $1) AS "exists!""#,
-            user_id.uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if row.exists {
-            Ok(())
-        } else {
-            Err(RepositoryError::NotFound)
-        }
-    }
-}
-
 #[async_trait]
 impl BadgeRepository for PostgresBadgeRepository {
     async fn apply_tier(
@@ -46,10 +29,14 @@ impl BadgeRepository for PostgresBadgeRepository {
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-            UPDATE messaging_user_profiles
-            SET tier = $2, tier_valid_until = $3, tier_updated_at = $4
-            WHERE user_id = $1
-              AND (tier_updated_at IS NULL OR tier_updated_at <= $4)
+            INSERT INTO messaging_user_profiles (user_id, name, updated_at, tier, tier_valid_until, tier_updated_at)
+            VALUES ($1, '', to_timestamp(0), $2, $3, $4)
+            ON CONFLICT (user_id) DO UPDATE
+                SET tier = EXCLUDED.tier,
+                    tier_valid_until = EXCLUDED.tier_valid_until,
+                    tier_updated_at = EXCLUDED.tier_updated_at
+                WHERE messaging_user_profiles.tier_updated_at IS NULL
+                   OR messaging_user_profiles.tier_updated_at <= EXCLUDED.tier_updated_at
             "#,
             user_id.uuid(),
             tier,
@@ -59,7 +46,7 @@ impl BadgeRepository for PostgresBadgeRepository {
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        self.ensure_profile_exists(user_id).await
+        Ok(())
     }
 
     async fn apply_badge_style(
@@ -70,10 +57,13 @@ impl BadgeRepository for PostgresBadgeRepository {
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-            UPDATE messaging_user_profiles
-            SET badge_style = $2, badge_updated_at = $3
-            WHERE user_id = $1
-              AND (badge_updated_at IS NULL OR badge_updated_at <= $3)
+            INSERT INTO messaging_user_profiles (user_id, name, updated_at, badge_style, badge_updated_at)
+            VALUES ($1, '', to_timestamp(0), $2, $3)
+            ON CONFLICT (user_id) DO UPDATE
+                SET badge_style = EXCLUDED.badge_style,
+                    badge_updated_at = EXCLUDED.badge_updated_at
+                WHERE messaging_user_profiles.badge_updated_at IS NULL
+                   OR messaging_user_profiles.badge_updated_at <= EXCLUDED.badge_updated_at
             "#,
             user_id.uuid(),
             badge_style,
@@ -82,7 +72,7 @@ impl BadgeRepository for PostgresBadgeRepository {
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        self.ensure_profile_exists(user_id).await
+        Ok(())
     }
 
     async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError> {

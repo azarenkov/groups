@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO messaging_user_profiles (user_id, name, updated_at, badge_style, badge_updated_at)\n            VALUES ($1, '', to_timestamp(0), $2, $3)\n            ON CONFLICT (user_id) DO UPDATE\n                SET badge_style = EXCLUDED.badge_style,\n                    badge_updated_at = EXCLUDED.badge_updated_at\n                WHERE messaging_user_profiles.badge_updated_at IS NULL\n                   OR messaging_user_profiles.badge_updated_at <= EXCLUDED.badge_updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "66337afad1462eeec80ddaeba9b8d46ce6d83255e9bb24048a3804e190e439e0"
+}
