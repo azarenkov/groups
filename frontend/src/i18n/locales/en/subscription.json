@@ -68,6 +68,15 @@
         "support": "Priority support",
         "avatar": "Animated avatar"
       }
+    },
+    "billing": {
+      "title": "Billing",
+      "paymentMethod": "Payment method",
+      "paymentMethodHint": "Add a card to upgrade.",
+      "addCard": "Add card",
+      "history": "Billing history",
+      "historyHint": "Download past invoices.",
+      "view": "View"
     }
   }
 }
