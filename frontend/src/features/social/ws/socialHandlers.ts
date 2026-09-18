@@ -166,6 +166,7 @@ export const socialHandlers: WsHandlers = {
           useEntitlementsStore.getState().applyBadgeStyle(badgeStyle);
         } else {
           useBadgeStore.getState().applyStyle(userId, badgeStyle);
+          useBadgeStore.getState().revalidateLater(userId);
         }
       }
       const bio = asString(d.bio) ?? "";
