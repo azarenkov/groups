@@ -16,6 +16,9 @@ interface EntitlementsState {
 }
 
 let generation = 0;
+let badgeInFlight: Promise<void> | null = null;
+let desiredBadgeStyle: BadgeStyle | null = null;
+let confirmedBadgeStyle: BadgeStyle | null = null;
 
 export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
@@ -27,6 +30,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     try {
       const mine = await entitlementsAPI.getMine();
       if (gen !== generation) return;
+      confirmedBadgeStyle = mine.badgeStyle;
       set({ tier: mine.tier, badgeStyle: mine.badgeStyle, loaded: true });
     } catch (err) {
       if (gen !== generation) return;
@@ -36,22 +40,45 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   },
 
   applyTier: (tier) => set({ tier }),
-  applyBadgeStyle: (badgeStyle) => set({ badgeStyle }),
+  applyBadgeStyle: (badgeStyle) => {
+    confirmedBadgeStyle = badgeStyle;
+    set({ badgeStyle });
+  },
 
-  setBadgeStyle: async (style) => {
-    const previous = get().badgeStyle;
+  setBadgeStyle: (style) => {
+    if (confirmedBadgeStyle === null) confirmedBadgeStyle = get().badgeStyle;
     set({ badgeStyle: style });
-    try {
-      const saved = await entitlementsAPI.setBadgeStyle(style);
-      set({ badgeStyle: saved });
-    } catch (err) {
-      set({ badgeStyle: previous });
-      throw err;
-    }
+    desiredBadgeStyle = style;
+    if (badgeInFlight) return badgeInFlight;
+    badgeInFlight = (async () => {
+      try {
+        while (desiredBadgeStyle !== null && desiredBadgeStyle !== confirmedBadgeStyle) {
+          const target: BadgeStyle = desiredBadgeStyle;
+          try {
+            const saved: BadgeStyle = await entitlementsAPI.setBadgeStyle(target);
+            confirmedBadgeStyle = saved;
+            if (desiredBadgeStyle === target) {
+              desiredBadgeStyle = null;
+              set({ badgeStyle: saved });
+            }
+          } catch (err) {
+            if (desiredBadgeStyle !== target) continue;
+            desiredBadgeStyle = null;
+            set({ badgeStyle: confirmedBadgeStyle });
+            throw err;
+          }
+        }
+      } finally {
+        badgeInFlight = null;
+      }
+    })();
+    return badgeInFlight;
   },
 
   clear: () => {
     generation += 1;
+    desiredBadgeStyle = null;
+    confirmedBadgeStyle = null;
     set({ tier: "free", badgeStyle: DEFAULT_BADGE_STYLE, loaded: false });
   },
 }));

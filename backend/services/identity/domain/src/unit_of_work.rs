@@ -3,7 +3,7 @@ use ports::repository::RepositoryError;
 
 use chrono::{DateTime, Utc};
 
-use crate::{events::IdentityEvent, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::User, verification::code::VerificationCode, verification::purpose::VerificationPurpose};
+use crate::{events::IdentityEvent, user::tier::Entitlements, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::User, verification::code::VerificationCode, verification::purpose::VerificationPurpose};
 use crate::user::settings::{
     appearance::AppearanceSettings, hotkeys::HotkeyBindings,
     notification::NotificationSettings, voice::VoiceSettings,
@@ -30,6 +30,7 @@ pub trait IdentityTransaction: Send {
     async fn save_refresh_token(&mut self, refresh_token: &RefreshToken) -> Result<(), RepositoryError>;
     async fn insert_verification_code(&mut self, verification_code: &VerificationCode) -> Result<(), RepositoryError>;
     async fn save_verification_code(&mut self, verification_code: &VerificationCode) -> Result<(), RepositoryError>;
+    async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError>;
     async fn save_entitlements(&mut self, user_id: &UserId, tier: &str, valid_until: Option<DateTime<Utc>>, source: &str) -> Result<(), RepositoryError>;
     async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn load_appearance_for_update(&mut self, user_id: &UserId) -> Result<Option<AppearanceSettings>, RepositoryError>;

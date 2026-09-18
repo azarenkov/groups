@@ -167,11 +167,13 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             .await;
         let failure = match written {
             Ok(0) => Some(UploadAttachmentError::Empty),
-            Ok(bytes) => {
-                attachment.size_bytes = bytes as i64;
-                self.repository.set_size(attachment.id, attachment.size_bytes).await?;
-                None
-            }
+            Ok(bytes) => match self.repository.set_size(attachment.id, bytes as i64).await {
+                Ok(()) => {
+                    attachment.size_bytes = bytes as i64;
+                    None
+                }
+                Err(e) => Some(e.into()),
+            },
             Err(_) if too_large.load(Ordering::Relaxed) => Some(UploadAttachmentError::TooLarge),
             Err(e) => Some(e.into()),
         };

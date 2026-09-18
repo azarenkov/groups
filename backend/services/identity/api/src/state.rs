@@ -112,8 +112,7 @@ pub struct AppState {
     >,
     pub get_entitlements_usecase: GetEntitlements<PostgresEntitlementsRepository>,
     pub grant_entitlements_usecase: GrantEntitlements<PostgresIdentityUnitOfWork>,
-    pub set_badge_style_usecase:
-        SetBadgeStyle<PostgresIdentityUnitOfWork, PostgresEntitlementsRepository>,
+    pub set_badge_style_usecase: SetBadgeStyle<PostgresIdentityUnitOfWork>,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresIdentityUnitOfWork>,
     pub set_activity_usecase: SetActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,

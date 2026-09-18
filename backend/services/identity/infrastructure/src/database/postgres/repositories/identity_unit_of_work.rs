@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -415,6 +415,22 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             return Err(RepositoryError::NotFound);
         }
         Ok(())
+    }
+
+    async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
+        let row = sqlx::query!(
+            r#"SELECT tier, valid_until FROM user_entitlements WHERE user_id = $1"#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row
+            .map(|r| Entitlements {
+                tier: Tier::parse(&r.tier).unwrap_or_default(),
+                valid_until: r.valid_until,
+            })
+            .unwrap_or_default())
     }
 
     async fn save_entitlements(

@@ -6,7 +6,7 @@ use identity_domain::{
     events::IdentityEvent,
     unit_of_work::IdentityUnitOfWork,
     user::UserError,
-    user::tier::{BadgeStyle, EntitlementsRepository},
+    user::tier::BadgeStyle,
 };
 use ports::repository::RepositoryError;
 
@@ -28,17 +28,13 @@ impl From<UserError> for SetBadgeStyleError {
     }
 }
 
-pub struct SetBadgeStyle<W: IdentityUnitOfWork, E: EntitlementsRepository> {
+pub struct SetBadgeStyle<W: IdentityUnitOfWork> {
     unit_of_work: Arc<W>,
-    entitlements: Arc<E>,
 }
 
-impl<W: IdentityUnitOfWork, E: EntitlementsRepository> SetBadgeStyle<W, E> {
-    pub fn new(unit_of_work: Arc<W>, entitlements: Arc<E>) -> Self {
-        Self {
-            unit_of_work,
-            entitlements,
-        }
+impl<W: IdentityUnitOfWork> SetBadgeStyle<W> {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -49,16 +45,14 @@ impl<W: IdentityUnitOfWork, E: EntitlementsRepository> SetBadgeStyle<W, E> {
     ) -> Result<BadgeStyle, SetBadgeStyleError> {
         let style = BadgeStyle::parse(style).ok_or(SetBadgeStyleError::UnknownStyle)?;
         let now = Utc::now();
-        if style.needs_paid_tier()
-            && !self.entitlements.get(&user_id).await?.active_at(now).is_paid()
-        {
-            return Err(SetBadgeStyleError::ProRequired);
-        }
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
             .await?
             .ok_or(SetBadgeStyleError::UserNotFound)?;
+        if style.needs_paid_tier() && !tx.load_entitlements(&user_id).await?.active_at(now).is_paid() {
+            return Err(SetBadgeStyleError::ProRequired);
+        }
         user.set_badge_style(style, now)?;
         let events: Vec<IdentityEvent> =
             user.pull_events().into_iter().map(IdentityEvent::from).collect();

@@ -226,10 +226,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         get_entitlements_usecase: GetEntitlements::new(entitlements_repository.clone()),
         grant_entitlements_usecase: GrantEntitlements::new(unit_of_work.clone()),
-        set_badge_style_usecase: SetBadgeStyle::new(
-            unit_of_work.clone(),
-            entitlements_repository.clone(),
-        ),
+        set_badge_style_usecase: SetBadgeStyle::new(unit_of_work.clone()),
         get_appearance_usecase: GetAppearance::new(user_repository.clone()),
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),
         set_activity_usecase: SetActivity::new(activity_store.clone(), unit_of_work.clone()),
