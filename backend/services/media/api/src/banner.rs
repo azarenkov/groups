@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::avatar::{
     ImageCodes, ImageUpload, check_image_read_limit, decode_image, encode_png, image_response,
-    invalid_image, read_image_upload, resolve_crop,
+    acquire_upload_permit, invalid_image, read_image_upload, resolve_crop,
 };
 use crate::http_errors::HttpError;
 use crate::state::AppState;
@@ -54,12 +54,7 @@ async fn upload_my_banner(
         .update_user_banner_usecase
         .ensure_allowed(&user_id)
         .await?;
-    let _permit = app_state
-        .upload_semaphore
-        .clone()
-        .acquire_owned()
-        .await
-        .map_err(|_| HttpError::bad_request("upload capacity unavailable".to_string()))?;
+    let _permit = acquire_upload_permit(&app_state).await?;
     let upload = read_image_upload(&mut payload, MAX_BANNER_BYTES, &BANNER_CODES).await?;
     let normalized = web::block(move || normalize_banner(upload))
         .await

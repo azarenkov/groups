@@ -3,6 +3,7 @@ import { bustAvatar } from "../../../shared/lib/avatarCache";
 import { parseBadgeStyle, parseTier } from "../../subscription/lib/plans";
 import { useBadgeStore } from "../../subscription/store/badgeStore";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
+import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
 import { useAuthStore } from "../../auth/store/authStore";
 import { isBlockedEitherWay, useBlockStore } from "../store/blockStore";
@@ -144,11 +145,16 @@ export const socialHandlers: WsHandlers = {
       const tier = parseTier(d.tier);
       if (useAuthStore.getState().user?.id === userId) {
         useEntitlementsStore.getState().applyTier(tier);
-        if (tier === "free") bustAvatar("banner", userId);
+        if (tier === "free") {
+          bustAvatar("banner", userId);
+          if (useVoiceSettingsStore.getState().noiseMode === "high") {
+            useVoiceSettingsStore.getState().update({ noiseMode: "standard" });
+          }
+        }
         return;
       }
-      useBadgeStore.getState().forget(userId);
-      useBadgeStore.getState().request(userId);
+      useBadgeStore.getState().applyTier(userId, tier);
+      useBadgeStore.getState().revalidateLater(userId);
       bustAvatar("banner", userId);
   },
   "user.profileChanged": (d) => {

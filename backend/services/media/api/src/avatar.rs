@@ -5,6 +5,7 @@ use futures::StreamExt;
 use image::{ImageDecoder, ImageFormat, imageops::FilterType};
 use api_common::middleware::auth::{AuthToken, RateLimitedAuthToken};
 use media::usecases::user::update_avatar::NormalizedImage;
+use tokio::sync::OwnedSemaphorePermit;
 use uuid::Uuid;
 
 use crate::state::AppState;
@@ -286,17 +287,24 @@ fn normalize_animated_avatar(upload: ImageUpload) -> Result<NormalizedImage, Htt
     })
 }
 
-async fn read_upload(
+pub(crate) async fn acquire_upload_permit(
     app_state: &AppState,
-    payload: &mut Multipart,
-) -> Result<ImageUpload, HttpError> {
-    let _permit = app_state
+) -> Result<OwnedSemaphorePermit, HttpError> {
+    app_state
         .upload_semaphore
         .clone()
         .acquire_owned()
         .await
-        .map_err(|_| HttpError::bad_request("upload capacity unavailable".to_string()))?;
-    read_image_upload(payload, MAX_AVATAR_BYTES, &AVATAR_CODES).await
+        .map_err(|_| HttpError::bad_request("upload capacity unavailable".to_string()))
+}
+
+async fn read_upload(
+    app_state: &AppState,
+    payload: &mut Multipart,
+) -> Result<(OwnedSemaphorePermit, ImageUpload), HttpError> {
+    let permit = acquire_upload_permit(app_state).await?;
+    let upload = read_image_upload(payload, MAX_AVATAR_BYTES, &AVATAR_CODES).await?;
+    Ok((permit, upload))
 }
 
 async fn process<T: Send + 'static>(
@@ -326,7 +334,7 @@ async fn upload_my_avatar(
     mut payload: Multipart,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let upload = read_upload(&app_state, &mut payload).await?;
+    let (_permit, upload) = read_upload(&app_state, &mut payload).await?;
     let normalized = if is_gif(&upload.bytes) {
         app_state
             .update_user_banner_usecase
@@ -391,7 +399,7 @@ async fn upload_server_logo(
 ) -> Result<impl Responder, HttpError> {
     let server_id = ServerId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
-    let upload = read_upload(&app_state, &mut payload).await?;
+    let (_permit, upload) = read_upload(&app_state, &mut payload).await?;
     let normalized = process(move || normalize_square(upload, &AVATAR_CODES)).await?;
     app_state
         .update_server_logo_usecase

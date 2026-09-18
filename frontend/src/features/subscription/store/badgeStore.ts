@@ -1,11 +1,13 @@
 import { create } from "zustand";
 
 import { entitlementsAPI } from "../api/entitlements";
+import { DEFAULT_BADGE_STYLE } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 
 const BATCH_LIMIT = 200;
 const BATCH_DELAY_MS = 40;
 const REVALIDATE_MS = 5 * 60_000;
+const REVALIDATE_AFTER_EVENT_MS = 5_000;
 
 export interface Badge {
   tier: Tier;
@@ -17,7 +19,9 @@ interface BadgeState {
   request: (userId: string) => void;
   apply: (userId: string, badge: Badge | null) => void;
   applyStyle: (userId: string, badgeStyle: BadgeStyle) => void;
+  applyTier: (userId: string, tier: Tier) => void;
   forget: (userId: string) => void;
+  revalidateLater: (userId: string) => void;
   clear: () => void;
 }
 
@@ -79,9 +83,28 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
       return { byUser: { ...state.byUser, [userId]: { ...current, badgeStyle } } };
     }),
 
+  applyTier: (userId, tier) => {
+    fetchedAt.set(userId, Date.now());
+    set((state) => {
+      if (tier === "free") return { byUser: { ...state.byUser, [userId]: null } };
+      const current = state.byUser[userId];
+      const badgeStyle = current?.badgeStyle ?? DEFAULT_BADGE_STYLE;
+      return { byUser: { ...state.byUser, [userId]: { tier, badgeStyle } } };
+    });
+  },
+
   forget: (userId) => {
     fetchedAt.delete(userId);
     queued.delete(userId);
+  },
+
+  revalidateLater: (userId) => {
+    const gen = generation;
+    setTimeout(() => {
+      if (gen !== generation) return;
+      fetchedAt.delete(userId);
+      useBadgeStore.getState().request(userId);
+    }, REVALIDATE_AFTER_EVENT_MS);
   },
 
   clear: () => {
