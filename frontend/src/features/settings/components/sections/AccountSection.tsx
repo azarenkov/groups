@@ -1,6 +1,7 @@
 import React from "react";
 import i18n from "../../../../i18n";
 import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
+import UserBadge from "../../../subscription/components/UserBadge";
 import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
@@ -268,7 +269,10 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
           </span>
         </UserAvatar>
         <div className="pc-info">
-          <div className="pc-name">{user?.name ?? t("account.username")}</div>
+          <div className="pc-name">
+            <span className="pc-name-text">{user?.name ?? t("account.username")}</span>
+            <UserBadge userId={user?.id} size="sm" />
+          </div>
           <div className="pc-handle">{user?.email ?? ""}</div>
         </div>
         <button
