@@ -101,3 +101,29 @@ describe("entitlementsStore startup fetch", () => {
     expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
   });
 });
+
+describe("entitlementsStore session reset", () => {
+  beforeEach(() => {
+    useEntitlementsStore.getState().clear();
+  });
+
+  it("starts a fresh request for the next session instead of reusing the old one", async () => {
+    const stale = deferred<"ink">();
+    mockedApi.setBadgeStyle
+      .mockImplementationOnce(() => stale.promise)
+      .mockResolvedValueOnce("ink");
+    useEntitlementsStore.getState().applyTier("pro");
+    const old = useEntitlementsStore.getState().setBadgeStyle("ink");
+
+    useEntitlementsStore.getState().clear();
+    useEntitlementsStore.getState().applyBadgeStyle("tint");
+    const fresh = useEntitlementsStore.getState().setBadgeStyle("ink");
+    expect(fresh).not.toBe(old);
+
+    stale.resolve("ink");
+    await old;
+    await fresh;
+    expect(mockedApi.setBadgeStyle).toHaveBeenCalledTimes(2);
+    expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
+  });
+});

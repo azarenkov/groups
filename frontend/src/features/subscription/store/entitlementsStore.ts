@@ -61,18 +61,21 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     set({ badgeStyle: style });
     desiredBadgeStyle = style;
     if (badgeInFlight) return badgeInFlight;
+    const gen = generation;
     badgeInFlight = (async () => {
       try {
-        while (desiredBadgeStyle !== null && desiredBadgeStyle !== confirmedBadgeStyle) {
+        while (gen === generation && desiredBadgeStyle !== null && desiredBadgeStyle !== confirmedBadgeStyle) {
           const target: BadgeStyle = desiredBadgeStyle;
           try {
             const saved: BadgeStyle = await entitlementsAPI.setBadgeStyle(target);
+            if (gen !== generation) return;
             confirmedBadgeStyle = saved;
             if (desiredBadgeStyle === target) {
               desiredBadgeStyle = null;
               set({ badgeStyle: saved });
             }
           } catch (err) {
+            if (gen !== generation) return;
             if (desiredBadgeStyle !== target) continue;
             desiredBadgeStyle = null;
             set({ badgeStyle: confirmedBadgeStyle });
@@ -80,7 +83,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
           }
         }
       } finally {
-        badgeInFlight = null;
+        if (gen === generation) badgeInFlight = null;
       }
     })();
     return badgeInFlight;
@@ -88,6 +91,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
 
   clear: () => {
     generation += 1;
+    badgeInFlight = null;
     desiredBadgeStyle = null;
     confirmedBadgeStyle = null;
     set({ tier: "free", badgeStyle: DEFAULT_BADGE_STYLE, loaded: false });
