@@ -98,5 +98,6 @@
   "roleList": "Roles ({{count}})",
   "permKickMembers": "Kick members",
   "kickMember": "Kick from server",
-  "loadMoreLinks": "Show more links"
+  "loadMoreLinks": "Show more links",
+  "reportServerHint": "Tell the Rift team about what is wrong with this server."
 }

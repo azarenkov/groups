@@ -7,6 +7,7 @@ use ports::{
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::database::postgres::error::map_sqlx_error_to_domain_error;
 use crate::database::postgres::repositories::outbox_record::save_outbox_records;
 
 const MAX_KEYS_PER_RELEASE: usize = 500;
@@ -15,7 +16,23 @@ pub(crate) async fn release_storage_keys(
     tx: &mut Transaction<'_, Postgres>,
     storage_keys: &[String],
 ) -> Result<(), RepositoryError> {
-    let records = storage_release_records(storage_keys);
+    if storage_keys.is_empty() {
+        return Ok(());
+    }
+    let releasable = sqlx::query_scalar!(
+        r#"
+        SELECT key AS "key!"
+        FROM unnest($1::text[]) AS key
+        WHERE NOT EXISTS (
+            SELECT 1 FROM reports WHERE context_attachment_keys @> ARRAY[key]
+        )
+        "#,
+        storage_keys,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    let records = storage_release_records(&releasable);
     if records.is_empty() {
         return Ok(());
     }

@@ -159,6 +159,8 @@ use messaging::usecases::server::invite_links::RevokeInviteLinkError;
 use messaging_domain::server::invite_link::InviteLinkStatus;
 use messaging::usecases::server::get_home_overview::GetHomeOverviewError;
 use messaging::usecases::privacy::get_privacy::GetPrivacyError;
+use messaging::usecases::report::create_report::CreateReportError;
+use messaging_domain::report::ReportError;
 use messaging::usecases::privacy::update_privacy::UpdatePrivacyError;
 use messaging::usecases::server::get_user_profile::GetUserProfileError;
 use messaging::usecases::server::kick_member::KickMemberError;
@@ -2190,6 +2192,52 @@ impl HttpMapping for UpdatePrivacyError {
         match self {
             UpdatePrivacyError::Repository(e) => e.to_error_code(),
             UpdatePrivacyError::InvalidPolicy => "INVALID_DM_POLICY",
+        }
+    }
+}
+
+impl HttpMapping for CreateReportError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            CreateReportError::UnknownReason => StatusCode::BAD_REQUEST,
+            CreateReportError::TargetNotFound => StatusCode::NOT_FOUND,
+            CreateReportError::ContextMismatch => StatusCode::BAD_REQUEST,
+            CreateReportError::AlreadyReported => StatusCode::CONFLICT,
+            CreateReportError::TooManyReports => StatusCode::TOO_MANY_REQUESTS,
+            CreateReportError::Domain(ReportError::SelfReport) => StatusCode::BAD_REQUEST,
+            CreateReportError::Domain(_) => StatusCode::BAD_REQUEST,
+            CreateReportError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            CreateReportError::UnknownReason => "Unknown report reason.".to_string(),
+            CreateReportError::TargetNotFound => "Reported target not found.".to_string(),
+            CreateReportError::ContextMismatch => {
+                "The reported message does not belong to this report.".to_string()
+            }
+            CreateReportError::AlreadyReported => {
+                "You have already reported this in the last 24 hours.".to_string()
+            }
+            CreateReportError::TooManyReports => {
+                "Too many reports sent today; try again later.".to_string()
+            }
+            CreateReportError::Domain(e) => e.to_string(),
+            CreateReportError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            CreateReportError::UnknownReason => "REPORT_REASON_UNKNOWN",
+            CreateReportError::TargetNotFound => "REPORT_TARGET_NOT_FOUND",
+            CreateReportError::ContextMismatch => "REPORT_CONTEXT_MISMATCH",
+            CreateReportError::AlreadyReported => "REPORT_ALREADY_SENT",
+            CreateReportError::TooManyReports => "REPORT_LIMIT_REACHED",
+            CreateReportError::Domain(ReportError::SelfReport) => "REPORT_SELF",
+            CreateReportError::Domain(ReportError::ReasonNotAllowed) => "REPORT_REASON_NOT_ALLOWED",
+            CreateReportError::Domain(ReportError::DetailsRequired) => "REPORT_DETAILS_REQUIRED",
+            CreateReportError::Domain(ReportError::DetailsTooLong) => "REPORT_DETAILS_TOO_LONG",
+            CreateReportError::Repository(e) => e.to_error_code(),
         }
     }
 }

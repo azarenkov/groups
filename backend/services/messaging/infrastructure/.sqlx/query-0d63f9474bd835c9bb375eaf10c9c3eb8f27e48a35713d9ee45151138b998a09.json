@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT attachment_id AS \"attachment_id!\" FROM message_attachments\n            WHERE attachment_id = ANY($1)\n            UNION\n            SELECT attachment_id AS \"attachment_id!\" FROM dm_message_attachments\n            WHERE attachment_id = ANY($1)\n            UNION\n            SELECT unnest(context_attachment_ids) AS \"attachment_id!\" FROM reports\n            WHERE context_attachment_ids && $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "attachment_id!",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0d63f9474bd835c9bb375eaf10c9c3eb8f27e48a35713d9ee45151138b998a09"
+}

@@ -9,6 +9,7 @@ import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { UserAvatar, ServerLogo } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
+import { openReport } from "../../moderation/store/reportModalStore";
 import AttachmentItem from "./AttachmentItem";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
@@ -411,7 +412,9 @@ export const Message: React.FC<MessageProps> = ({
         {!isMine &&
           !editing &&
           !msg.inviteServerId &&
-          ((msg.content.length > 0 && !msg.callStatus) || canModerate) && (
+          ((msg.content.length > 0 && !msg.callStatus) ||
+            (msg.attachments?.length ?? 0) > 0 ||
+            canModerate) && (
             <div className="msg-actions">
               {msg.content.length > 0 && !msg.callStatus && (
                 <button
@@ -421,6 +424,23 @@ export const Message: React.FC<MessageProps> = ({
                   onClick={handleCopy}
                 >
                   <Icon name={copied ? "check" : "copy"} size={13} />
+                </button>
+              )}
+              {!msg.callStatus && !msg.system && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={i18n.t("action", { ns: "report" })}
+                  onClick={() =>
+                    openReport({
+                      type: "user",
+                      id: msg.authorId,
+                      name: displayName,
+                      messageId: msg.id,
+                    })
+                  }
+                >
+                  <Icon name="flag" size={13} />
                 </button>
               )}
               {canModerate && (

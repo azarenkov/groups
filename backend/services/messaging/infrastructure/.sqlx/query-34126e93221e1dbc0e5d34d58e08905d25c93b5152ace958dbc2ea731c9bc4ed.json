@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT key AS \"key!\"\n        FROM unnest($1::text[]) AS key\n        WHERE NOT EXISTS (\n            SELECT 1 FROM reports WHERE context_attachment_keys @> ARRAY[key]\n        )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "34126e93221e1dbc0e5d34d58e08905d25c93b5152ace958dbc2ea731c9bc4ed"
+}

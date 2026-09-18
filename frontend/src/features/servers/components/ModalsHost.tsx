@@ -11,6 +11,7 @@ import ActiveCallBar from "../../voice/components/ActiveCallBar";
 import ConfirmModal from "../../../shared/ui/ConfirmModal";
 import IncomingCallModal from "../../voice/components/IncomingCallModal";
 import UserProfileModal from "../../social/components/UserProfileModal";
+import ReportModal from "../../moderation/components/ReportModal";
 import type { Channel, ChannelKind } from "../../../shared/types/channel";
 import type { Friendship } from "../../../shared/types/friendship";
 import type { Server } from "../../../shared/types/server";
@@ -183,6 +184,7 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
           onConfirm={onConfirm}
         />
       )}
+      <ReportModal />
     </>
   );
 };

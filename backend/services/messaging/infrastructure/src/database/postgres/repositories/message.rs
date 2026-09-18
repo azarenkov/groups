@@ -62,6 +62,9 @@ impl MessageRepository for PostgresMessageRepository {
             UNION
             SELECT attachment_id AS "attachment_id!" FROM dm_message_attachments
             WHERE attachment_id = ANY($1)
+            UNION
+            SELECT unnest(context_attachment_ids) AS "attachment_id!" FROM reports
+            WHERE context_attachment_ids && $1
             "#,
             attachment_ids,
         )

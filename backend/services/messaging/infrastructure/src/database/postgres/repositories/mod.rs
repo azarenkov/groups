@@ -10,6 +10,7 @@ pub mod message;
 pub mod message_unit_of_work;
 pub mod notification_preference;
 pub mod read_state;
+pub mod report;
 pub mod server;
 pub mod server_role;
 pub mod server_unit_of_work;
