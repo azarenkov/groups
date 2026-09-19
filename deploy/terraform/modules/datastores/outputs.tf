@@ -9,6 +9,10 @@ output "postgres" {
   sensitive = true
 }
 
+output "redis_host" {
+  value = "redis.${local.namespace}.svc:6379"
+}
+
 output "redis_url" {
   value = "redis://redis.${local.namespace}.svc:6379"
 }

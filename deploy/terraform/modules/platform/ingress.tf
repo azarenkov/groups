@@ -18,40 +18,45 @@ resource "helm_release" "ingress_nginx" {
   timeout    = 600
 
   values = [
-    yamlencode(merge({
-      controller = {
-        replicaCount = var.ingress_nginx.replicas
-        ingressClassResource = {
-          name    = var.ingress_class
-          default = true
-        }
-        hostPort = {
-          enabled = var.ingress_nginx.host_ports
-        }
-        service = {
-          type = var.ingress_nginx.service_type
-        }
-        config = {
-          use-forwarded-headers     = "true"
-          proxy-body-size           = "512m"
-          proxy-read-timeout        = "3600"
-          proxy-send-timeout        = "3600"
-          proxy-request-buffering   = "off"
-          use-proxy-protocol        = "false"
-          enable-real-ip            = "true"
-          allow-snippet-annotations = "false"
-        }
-        metrics = {
-          enabled = var.monitoring.enabled
-          serviceMonitor = {
-            enabled = var.monitoring.enabled
-          }
-        }
-        admissionWebhooks = {
-          enabled = true
-        }
-        allowSnippetAnnotations = false
-      }
-    }, var.ingress_nginx.values))
+    yamlencode(merge(
+      { controller = merge(local.ingress_controller, try(var.ingress_nginx.values.controller, {})) },
+      { for k, v in var.ingress_nginx.values : k => v if k != "controller" }
+    ))
   ]
+}
+
+locals {
+  ingress_controller = {
+    replicaCount = var.ingress_nginx.replicas
+    ingressClassResource = {
+      name    = var.ingress_class
+      default = true
+    }
+    hostPort = {
+      enabled = var.ingress_nginx.host_ports
+    }
+    service = {
+      type = var.ingress_nginx.service_type
+    }
+    config = {
+      use-forwarded-headers     = "true"
+      proxy-body-size           = "512m"
+      proxy-read-timeout        = "3600"
+      proxy-send-timeout        = "3600"
+      proxy-request-buffering   = "off"
+      use-proxy-protocol        = "false"
+      enable-real-ip            = "true"
+      allow-snippet-annotations = "false"
+    }
+    metrics = {
+      enabled = var.monitoring.enabled
+      serviceMonitor = {
+        enabled = var.monitoring.enabled
+      }
+    }
+    admissionWebhooks = {
+      enabled = true
+    }
+    allowSnippetAnnotations = false
+  }
 }

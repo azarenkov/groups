@@ -33,7 +33,7 @@ module "platform" {
   livekit = {
     api_key    = "rift-server"
     api_secret = random_password.livekit_secret.result
-    redis_url  = "redis-master.${module.datastores.namespace}.svc:6379"
+    redis_url  = module.datastores.redis_host
     rtc_port   = var.livekit_tcp_port
     udp_port   = var.livekit_udp_port
     node_ip    = "127.0.0.1"

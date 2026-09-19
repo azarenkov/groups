@@ -3,7 +3,7 @@ output "nats_url" {
 }
 
 output "livekit_url" {
-  value = var.livekit.enabled ? "http://livekit-livekit-server.${kubernetes_namespace_v1.livekit[0].metadata[0].name}.svc:7880" : ""
+  value = var.livekit.enabled ? "http://livekit-livekit-server.${kubernetes_namespace_v1.livekit[0].metadata[0].name}.svc:80" : ""
 }
 
 output "ingress_class" {

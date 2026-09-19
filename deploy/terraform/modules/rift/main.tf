@@ -91,7 +91,11 @@ locals {
     }
   }
 
-  chart_values = merge(local.derived_values, var.values)
+  chart_values = merge(
+    local.derived_values,
+    var.values,
+    { for k, v in local.derived_values : k => merge(v, try(var.values[k], {})) if can(keys(v)) && can(keys(try(var.values[k], {}))) }
+  )
 }
 
 resource "kubernetes_secret_v1" "secrets" {
