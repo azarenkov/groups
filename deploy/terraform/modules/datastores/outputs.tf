@@ -1,6 +1,6 @@
 output "postgres" {
   value = {
-    host           = "postgres-postgresql.${kubernetes_namespace_v1.data.metadata[0].name}.svc"
+    host           = "postgres.${local.namespace}.svc"
     port           = 5432
     admin_user     = "postgres"
     admin_password = random_password.postgres_admin.result
@@ -10,12 +10,12 @@ output "postgres" {
 }
 
 output "redis_url" {
-  value = "redis://redis-master.${kubernetes_namespace_v1.data.metadata[0].name}.svc:6379"
+  value = "redis://redis.${local.namespace}.svc:6379"
 }
 
 output "minio" {
   value = {
-    endpoint = "http://minio.${kubernetes_namespace_v1.data.metadata[0].name}.svc:9000"
+    endpoint = "http://minio.${local.namespace}.svc:9000"
     bucket   = var.minio.bucket
     user     = "rift"
     password = random_password.minio_root.result
@@ -24,5 +24,5 @@ output "minio" {
 }
 
 output "namespace" {
-  value = kubernetes_namespace_v1.data.metadata[0].name
+  value = local.namespace
 }

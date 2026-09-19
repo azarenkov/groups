@@ -70,9 +70,8 @@ module "datastores" {
       limits   = { memory = "1Gi" }
     }
   }
-  redis      = { storage = "1Gi" }
-  minio      = { storage = "5Gi" }
-  monitoring = var.monitoring
+  redis = { storage = "1Gi" }
+  minio = { storage = "5Gi" }
 
   depends_on = [null_resource.calico_ready]
 }
@@ -118,6 +117,10 @@ module "rift" {
   }
 
   values = {
+    config = {
+      NATS_STREAM_HOT_MAX_BYTES  = "134217728"
+      NATS_STREAM_COLD_MAX_BYTES = "33554432"
+    }
     httpServices = {
       identity-service  = { replicas = 1 }
       media-service     = { replicas = 1 }

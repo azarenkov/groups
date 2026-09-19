@@ -4,39 +4,46 @@ variable "namespace" {
   default     = "rift-data"
 }
 
+variable "storage_class" {
+  description = "StorageClass for every volume; empty uses the cluster default"
+  type        = string
+  default     = ""
+}
+
 variable "postgres" {
   type = object({
-    chart_version = optional(string, "16.6.3")
-    storage       = optional(string, "10Gi")
-    storage_class = optional(string, "")
+    image   = optional(string, "postgres:16-alpine")
+    storage = optional(string, "10Gi")
     resources = optional(any, {
       requests = { cpu = "250m", memory = "512Mi" }
       limits   = { memory = "1Gi" }
     })
+    max_connections = optional(number, 200)
   })
   default = {}
 }
 
 variable "redis" {
   type = object({
-    chart_version = optional(string, "20.11.3")
-    storage       = optional(string, "2Gi")
-    storage_class = optional(string, "")
+    image   = optional(string, "redis:7-alpine")
+    storage = optional(string, "2Gi")
+    resources = optional(any, {
+      requests = { cpu = "50m", memory = "64Mi" }
+      limits   = { memory = "256Mi" }
+    })
   })
   default = {}
 }
 
 variable "minio" {
   type = object({
-    chart_version = optional(string, "16.0.5")
-    storage       = optional(string, "20Gi")
-    storage_class = optional(string, "")
-    bucket        = optional(string, "rift-attachments")
+    image   = optional(string, "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
+    storage = optional(string, "20Gi")
+    bucket  = optional(string, "rift-attachments")
+    resources = optional(any, {
+      requests = { cpu = "100m", memory = "256Mi" }
+      limits   = { memory = "1Gi" }
+    })
   })
   default = {}
-}
-
-variable "monitoring" {
-  type    = bool
-  default = false
 }

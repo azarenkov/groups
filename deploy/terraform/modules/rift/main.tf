@@ -131,7 +131,7 @@ resource "kubernetes_secret_v1" "postgres_admin" {
   }
 
   data = {
-    password = var.postgres.admin_password
+    "admin-password" = var.postgres.admin_password
   }
 }
 

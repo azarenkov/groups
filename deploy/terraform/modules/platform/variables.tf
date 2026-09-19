@@ -28,7 +28,7 @@ variable "nats" {
     enabled       = optional(bool, true)
     chart_version = optional(string, "1.3.3")
     replicas      = optional(number, 1)
-    storage       = optional(string, "5Gi")
+    storage       = optional(string, "20Gi")
     storage_class = optional(string, "")
   })
   default = {}
