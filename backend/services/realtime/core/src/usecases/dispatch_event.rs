@@ -852,6 +852,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             }),
         );
         let mut recipients = resolver.profile_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
         let relations = blocks.block_relations(evt.user_id, &recipients).await?;
         recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);

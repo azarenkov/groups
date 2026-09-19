@@ -127,6 +127,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let user_stream = std::env::var("MEDIA_USER_STREAM")
         .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    crate::user_projection::spawn_tiers(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        user_stream.clone(),
+        banner_repository.clone(),
+    );
     crate::user_projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),

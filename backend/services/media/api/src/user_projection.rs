@@ -43,17 +43,6 @@ pub fn spawn<M, B, FS>(
                     while let Some(msg) = messages.next().await {
                         match msg {
                             Ok(m) => {
-                                if m.subject.ends_with(".entitlements_changed") {
-                                    match apply_tier(&m.payload, &*banners).await {
-                                        Ok(()) => {
-                                            let _ = m.ack().await;
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, "Tier projection failed; message will be redelivered");
-                                        }
-                                    }
-                                    continue;
-                                }
                                 if !m.subject.ends_with(".user.deleted") {
                                     let _ = m.ack().await;
                                     continue;
@@ -87,6 +76,58 @@ pub fn spawn<M, B, FS>(
                 }
                 Err(e) => {
                     tracing::warn!(error = %e, "Media user projection subscribe failed; retrying");
+                }
+            }
+            actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+    });
+}
+
+pub fn spawn_tiers<B>(
+    jetstream: async_nats::jetstream::Context,
+    subject_prefix: String,
+    stream: String,
+    banners: Arc<B>,
+) where
+    B: BannerRepository + 'static,
+{
+    actix_web::rt::spawn(async move {
+        let prefix = subject_prefix.trim_end_matches('.').to_string();
+        let consumer = NatsEventConsumer::new(jetstream, stream.clone());
+        loop {
+            let opts = SubscribeOptions {
+                consumer_name: "media-projection-tiers".to_string(),
+                subject: format!("{prefix}.user.*.entitlements_changed"),
+                start_position: StartPosition::All,
+                max_deliver: Some(20),
+                dlq_subject: Some(format!("{prefix}.dlq.media.tiers")),
+                extra_subjects: vec![format!("{prefix}.user.entitlements_changed")],
+                ack_wait: None,
+            };
+            match consumer.subscribe(opts).await {
+                Ok(mut messages) => {
+                    tracing::info!(%stream, "Media tier projection consumer subscribed");
+                    while let Some(msg) = messages.next().await {
+                        match msg {
+                            Ok(m) => match apply_tier(&m.payload, &*banners).await {
+                                Ok(()) => {
+                                    if let Err(e) = m.ack().await {
+                                        tracing::warn!(error = %e, "Media tier projection ack failed");
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = %e, "Tier projection failed; message will be redelivered");
+                                }
+                            },
+                            Err(e) => {
+                                tracing::warn!(error = %e, "Media tier projection stream error");
+                                break;
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Media tier projection subscribe failed; retrying");
                 }
             }
             actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
