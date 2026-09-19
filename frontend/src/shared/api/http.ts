@@ -8,9 +8,9 @@ import axios, {
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { toApiError } from "../lib/apiError";
 import { rateLimitRetry } from "../lib/rateLimitRetry";
+import { apiBaseUrl } from "../config/runtime";
 
-export const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:8080/api";
+export const API_BASE_URL = apiBaseUrl();
 
 const REQUEST_TIMEOUT_MS = 10000;
 export const UPLOAD_TIMEOUT_MS = 120000;

@@ -1,0 +1,23 @@
+import { apiBaseUrl, wsEndpoint } from "../runtime";
+
+describe("runtime config", () => {
+  afterEach(() => {
+    delete window.__RIFT_CONFIG__;
+  });
+
+  it("prefers the injected runtime values over build-time ones", () => {
+    window.__RIFT_CONFIG__ = { apiUrl: "https://api.rift.test/api" };
+    expect(apiBaseUrl()).toBe("https://api.rift.test/api");
+    expect(wsEndpoint()).toBe("wss://api.rift.test/ws");
+  });
+
+  it("resolves relative urls against the page origin", () => {
+    window.__RIFT_CONFIG__ = { apiUrl: "/api", wsUrl: "/ws" };
+    expect(apiBaseUrl()).toBe(`${window.location.origin}/api`);
+    expect(wsEndpoint()).toBe(`${window.location.origin.replace(/^http/, "ws")}/ws`);
+  });
+
+  it("falls back to the build-time default", () => {
+    expect(apiBaseUrl()).toBe(process.env.REACT_APP_API_URL || "http://localhost:8080/api");
+  });
+});

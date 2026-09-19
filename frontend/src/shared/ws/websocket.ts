@@ -1,5 +1,6 @@
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { ApiError } from "../lib/apiError";
+import { wsEndpoint } from "../config/runtime";
 
 const SESSION_DEAD_CODES = new Set([
   "REFRESH_TOKEN_REVOKED",
@@ -90,16 +91,7 @@ const HEARTBEAT_MS = 25_000;
 const REFRESH_MIN_INTERVAL_MS = 60_000;
 
 function defaultEndpoint(): string {
-  const envUrl = process.env.REACT_APP_WS_URL;
-  if (envUrl && envUrl.length > 0) return envUrl;
-  const base = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
-  try {
-    const u = new URL(base);
-    const proto = u.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${u.host}/ws`;
-  } catch {
-    return "ws://localhost:8080/ws";
-  }
+  return wsEndpoint();
 }
 
 class WsClient {
