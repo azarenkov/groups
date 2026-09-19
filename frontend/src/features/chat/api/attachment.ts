@@ -9,6 +9,10 @@ import {
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 
 const SLOWEST_UPLOAD_BYTES_PER_MS = 128;
+const SLOWEST_DOWNLOAD_BYTES_PER_MS = 128;
+
+export const transferTimeoutMs = (sizeBytes: number, bytesPerMs: number) =>
+  UPLOAD_TIMEOUT_MS + Math.ceil(Math.max(0, sizeBytes) / bytesPerMs);
 
 export const maxAttachmentBytes = () =>
   MAX_ATTACHMENT_BYTES_BY_TIER[useEntitlementsStore.getState().tier];
@@ -26,7 +30,7 @@ class AttachmentAPI {
     const form = new FormData();
     form.append("file", file, file.name);
     const response = await this.client.post("/v1/attachments", form, {
-      timeout: UPLOAD_TIMEOUT_MS + Math.ceil(file.size / SLOWEST_UPLOAD_BYTES_PER_MS),
+      timeout: transferTimeoutMs(file.size, SLOWEST_UPLOAD_BYTES_PER_MS),
       onUploadProgress: (e) => {
         if (onProgress && e.total) onProgress(e.loaded / e.total);
       },
@@ -38,10 +42,10 @@ class AttachmentAPI {
     await this.client.delete(`/v1/attachments/${attachmentId}`);
   }
 
-  async download(attachmentId: string): Promise<Blob> {
+  async download(attachmentId: string, sizeBytes = 0): Promise<Blob> {
     const response = await this.client.get(`/v1/attachments/${attachmentId}`, {
       responseType: "blob",
-      timeout: UPLOAD_TIMEOUT_MS,
+      timeout: transferTimeoutMs(sizeBytes, SLOWEST_DOWNLOAD_BYTES_PER_MS),
     });
     return response.data;
   }

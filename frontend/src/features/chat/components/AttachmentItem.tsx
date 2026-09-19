@@ -71,7 +71,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    downloadImageUrl(attachment.id)
+    downloadImageUrl(attachment.id, attachment.sizeBytes)
       .then((objectUrl) => {
         if (!cancelled) {
           attemptsRef.current = 0;
@@ -93,11 +93,11 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [attachment.id, isImage, url, visible, retryTick]);
+  }, [attachment.id, attachment.sizeBytes, isImage, url, visible, retryTick]);
 
   const handleDownload = () => {
     void attachmentAPI
-      .download(attachment.id)
+      .download(attachment.id, attachment.sizeBytes)
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
