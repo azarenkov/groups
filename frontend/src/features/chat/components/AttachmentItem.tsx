@@ -13,10 +13,14 @@ import {
 } from "../lib/imageUrlCache";
 import Icon from "../../../shared/ui/Icon";
 
+export const IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+
 export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   attachment,
 }) => {
-  const isImage = attachment.contentType.startsWith("image/");
+  const isImage =
+    attachment.contentType.startsWith("image/") &&
+    attachment.sizeBytes <= IMAGE_PREVIEW_MAX_BYTES;
   const [url, setUrl] = React.useState<string | null>(() =>
     acquireImageUrl(attachment.id),
   );

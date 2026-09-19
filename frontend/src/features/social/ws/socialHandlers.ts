@@ -16,6 +16,7 @@ import { useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
+import { renameMentionTarget } from "../../chat/lib/mentionTargets";
 import { asString } from "../../../shared/ws/context";
 
 export const socialHandlers: WsHandlers = {
@@ -198,6 +199,7 @@ export const socialHandlers: WsHandlers = {
       const userId = asString(d.userId);
       const newName = asString(d.name);
       if (!userId) return;
+      renameMentionTarget(userId, newName);
       if (newName) {
         const occurredAt = asString(d.occurredAt);
         const applied = useUserNamesStore
